@@ -49,7 +49,38 @@ class MushroomMLModelCatalogTests(TestCase):
                 for row in entries
                 if row["operational_eligible"]
             },
-            {"altitude_v2"},
+            {
+                "altitude_v2",
+                "biology_v3",
+                "biology_v4",
+                "biology_v5_raw_weather_discovery",
+                "biology_v6_smooth_hierarchical",
+            },
+        )
+        v3_physical = next(
+            row
+            for row in entries
+            if row["version_id"] == "biology_v3"
+            and row["profile_id"] == "common_idw_plus_physical_state"
+        )
+        self.assertEqual(
+            v3_physical["input_requirements"],
+            {
+                "weather_lookback_days": 365,
+                "predictive_window_days": 90,
+                "include_physical_state": True,
+                "soil_variant_id": "wv0033_0_30cm",
+                "prepared_input_ids": [
+                    "v3_fixed",
+                    "v3_lag",
+                    "v4_fixed",
+                    "v4_lag",
+                ],
+                "known_sites_field_paths": [
+                    "derived_context.gis_dem.altitude_mean_m",
+                    "derived_context.soilgrids_water.context_hash",
+                ],
+            },
         )
 
     def test_fixed_and_lag_horizons_are_not_confused(self) -> None:

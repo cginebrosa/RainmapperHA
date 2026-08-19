@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build disposable V2--V6 benchmark inputs from one immutable live snapshot."""
+"""Build operational V2 inputs or disposable V2--V6 benchmark inputs."""
 
 from __future__ import annotations
 
@@ -23,6 +23,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--source-snapshot-id", required=True)
     parser.add_argument("--progress-jsonl", type=Path)
+    parser.add_argument("--profile-key", action="append")
+    parser.add_argument(
+        "--job-purpose",
+        choices=("operational", "benchmark"),
+        default="benchmark",
+    )
     return parser.parse_args()
 
 
@@ -136,12 +142,36 @@ def main() -> int:
     scripts = args.scripts_dir.resolve()
     root = args.output_dir.resolve()
     snapshot = root / "snapshot"
-    v5 = root / "v5"
-    v6 = root / "v6"
     snapshot.mkdir(parents=True, exist_ok=False)
-    v5.mkdir()
-    v6.mkdir()
-    total = 8
+    selected_versions = {
+        str(value).split("/", 1)[0] for value in (args.profile_key or [])
+    }
+    full_benchmark = args.job_purpose == "benchmark" and not selected_versions
+    selected_profiles = {str(value) for value in (args.profile_key or [])}
+    needs_v4 = (
+        full_benchmark
+        or "biology_v4" in selected_versions
+        or "biology_v3/common_idw_plus_physical_state" in selected_profiles
+    )
+    needs_v5 = full_benchmark or bool(
+        selected_versions
+        & {"biology_v5_raw_weather_discovery", "biology_v6_smooth_hierarchical"}
+    )
+    needs_v6 = full_benchmark or "biology_v6_smooth_hierarchical" in selected_versions
+    needs_v2_v5_evaluation = full_benchmark or bool(
+        selected_versions
+        & {
+            "altitude_v2",
+            "biology_v3",
+            "biology_v4",
+            "biology_v5_raw_weather_discovery",
+        }
+    )
+    total = (
+        2 + (2 if needs_v4 else 0)
+        if args.job_purpose == "operational"
+        else 3 + (2 if needs_v4 else 0) + int(needs_v5) + int(needs_v2_v5_evaluation) + int(needs_v6)
+    )
 
     def stage_progress(step: int, phase: str) -> Callable[[dict[str, object]], None]:
         def publish(event: dict[str, object]) -> None:
@@ -181,57 +211,109 @@ def main() -> int:
     )
     emit_progress(args.progress_jsonl, step=2, total=total, phase="Built V3 lag/event inputs")
 
+    step = 2
     v4_fixed = snapshot / "biology-v4-fixed.json"
     v4_lag = snapshot / "biology-v4-lag.json"
-    for step, source, output, phase in (
-        (3, v3_fixed, v4_fixed, "Built V4 fixed-window inputs"),
-        (4, v3_lag, v4_lag, "Built V4 lag/event inputs"),
-    ):
-        emit_progress(args.progress_jsonl, step=step - 1, total=total, phase=phase.replace("Built", "Building"))
-        run_script(
-            scripts / "build-biology-v4-benchmark.py",
-            [
-                "--v3-benchmark", str(source),
-                "--data-dir", str(args.data_dir),
-                "--known-sites", str(args.known_sites),
-                "--stations-file", str(args.stations_file),
-                "--output", str(output),
-            ],
-            progress_event=stage_progress(step, phase.replace("Built", "Building")),
-        )
-        emit_progress(args.progress_jsonl, step=step, total=total, phase=phase)
+    if needs_v4:
+        for source, output, phase in (
+            (v3_fixed, v4_fixed, "Built V4 fixed-window inputs"),
+            (v3_lag, v4_lag, "Built V4 lag/event inputs"),
+        ):
+            step += 1
+            emit_progress(args.progress_jsonl, step=step - 1, total=total, phase=phase.replace("Built", "Building"))
+            run_script(
+                scripts / "build-biology-v4-benchmark.py",
+                [
+                    "--v3-benchmark", str(source),
+                    "--data-dir", str(args.data_dir),
+                    "--known-sites", str(args.known_sites),
+                    "--stations-file", str(args.stations_file),
+                    "--output", str(output),
+                ],
+                progress_event=stage_progress(step, phase.replace("Built", "Building")),
+            )
+            emit_progress(args.progress_jsonl, step=step, total=total, phase=phase)
 
-    snapshot_names = [path.name for path in (v3_fixed, v3_lag, v4_fixed, v4_lag)]
+    if args.job_purpose == "operational":
+        snapshot_paths = [v3_fixed, v3_lag]
+        if needs_v4:
+            snapshot_paths.extend([v4_fixed, v4_lag])
+        write_json(
+            snapshot / "MANIFEST.json",
+            artifact_manifest(
+                "mushroom_ml_dynamic_operational_profile_inputs",
+                snapshot,
+                [path.name for path in snapshot_paths],
+                args.source_snapshot_id,
+            ),
+        )
+        inputs = {"v3_fixed": str(v3_fixed), "v3_lag": str(v3_lag)}
+        if needs_v4:
+            inputs.update({"v4_fixed": str(v4_fixed), "v4_lag": str(v4_lag)})
+        prepared = {
+            "schema_version": "1.0",
+            "kind": "mushroom_ml_prepared_multiversion_inputs",
+            "source_snapshot_id": args.source_snapshot_id,
+            "job_purpose": "operational",
+            "profile_keys": sorted(selected_profiles),
+            "inputs": inputs,
+            "operational_candidate_trained": False,
+        }
+        write_json(root / "prepared-inputs.json", prepared)
+        emit_progress(args.progress_jsonl, step=total, total=total, phase="Prepared operational profile inputs")
+        print(json.dumps({"output": str(root / "prepared-inputs.json")}, ensure_ascii=False))
+        return 0
+
+    v5 = root / "v5"
+    v6 = root / "v6"
+    v5.mkdir()
+    v6.mkdir()
+
+    snapshot_paths = [v3_fixed, v3_lag]
+    if needs_v4:
+        snapshot_paths.extend([v4_fixed, v4_lag])
+    snapshot_names = [path.name for path in snapshot_paths]
     write_json(
         snapshot / "MANIFEST.json",
         artifact_manifest(
-            "mushroom_ml_dynamic_v3_v4_snapshot",
+            "mushroom_ml_dynamic_selected_benchmark_snapshot",
             snapshot,
             snapshot_names,
             args.source_snapshot_id,
         ),
     )
-    emit_progress(args.progress_jsonl, step=4, total=total, phase="Building V5 raw-weather inputs")
-    run_script(
-        scripts / "build-biology-v5-raw-benchmark.py",
-        [
-            "--v3-fixed", str(v3_fixed),
-            "--v3-lag", str(v3_lag),
-            "--data-dir", str(args.data_dir),
-            "--known-sites", str(args.known_sites),
-            "--stations-file", str(args.stations_file),
-            "--output-dir", str(v5),
-        ],
-        progress_event=stage_progress(5, "Building V5 raw-weather inputs"),
-    )
-    emit_progress(args.progress_jsonl, step=5, total=total, phase="Built V5 raw-weather inputs")
-    emit_progress(args.progress_jsonl, step=5, total=total, phase="Evaluating V2--V5 hold-out rows")
-    run_script(
-        scripts / "evaluate-biology-v5-raw-benchmark.py",
-        ["--snapshot", str(snapshot), "--v5-dir", str(v5)],
-        progress_event=stage_progress(6, "Evaluating V2--V5 hold-out rows"),
-    )
-    emit_progress(args.progress_jsonl, step=6, total=total, phase="Evaluated V2--V5 hold-out rows")
+    if needs_v5:
+        step += 1
+        emit_progress(args.progress_jsonl, step=step - 1, total=total, phase="Building V5 raw-weather inputs")
+        run_script(
+            scripts / "build-biology-v5-raw-benchmark.py",
+            [
+                "--v3-fixed", str(v3_fixed),
+                "--v3-lag", str(v3_lag),
+                "--data-dir", str(args.data_dir),
+                "--known-sites", str(args.known_sites),
+                "--stations-file", str(args.stations_file),
+                "--output-dir", str(v5),
+            ],
+            progress_event=stage_progress(step, "Building V5 raw-weather inputs"),
+        )
+        emit_progress(args.progress_jsonl, step=step, total=total, phase="Built V5 raw-weather inputs")
+    v2_v5_heldout = v5 / "heldout-predictions.jsonl"
+    if needs_v2_v5_evaluation:
+        step += 1
+        phase = "Evaluating selected V2--V5 hold-out rows"
+        evaluation_arguments = ["--snapshot", str(snapshot), "--v5-dir", str(v5)]
+        for profile_key in args.profile_key or []:
+            evaluation_arguments.extend(["--profile-key", str(profile_key)])
+        emit_progress(args.progress_jsonl, step=step - 1, total=total, phase=phase)
+        run_script(
+            scripts / "evaluate-biology-v5-raw-benchmark.py",
+            evaluation_arguments,
+            progress_event=stage_progress(step, phase),
+        )
+        emit_progress(args.progress_jsonl, step=step, total=total, phase="Evaluated selected V2--V5 hold-out rows")
+    else:
+        v2_v5_heldout.write_text("", encoding="utf-8")
     v5_names = sorted(path.name for path in v5.iterdir() if path.is_file())
     write_json(
         v5 / "MANIFEST.json",
@@ -242,32 +324,45 @@ def main() -> int:
             args.source_snapshot_id,
         ),
     )
-    emit_progress(args.progress_jsonl, step=6, total=total, phase="Evaluating V6 hold-out rows")
-    run_script(
-        scripts / "evaluate-biology-v6-smooth-hierarchical.py",
-        ["--snapshot", str(snapshot), "--v5-dir", str(v5), "--output-dir", str(v6)],
-        progress_event=stage_progress(7, "Evaluating V6 hold-out rows"),
-    )
-    emit_progress(args.progress_jsonl, step=7, total=total, phase="Evaluated V6 hold-out rows")
+    v6_heldout = v6 / "heldout-predictions.jsonl"
+    if needs_v6:
+        step += 1
+        emit_progress(args.progress_jsonl, step=step - 1, total=total, phase="Evaluating selected V6 hold-out rows")
+        run_script(
+            scripts / "evaluate-biology-v6-smooth-hierarchical.py",
+            ["--snapshot", str(snapshot), "--v5-dir", str(v5), "--output-dir", str(v6)],
+            progress_event=stage_progress(step, "Evaluating selected V6 hold-out rows"),
+        )
+        emit_progress(args.progress_jsonl, step=step, total=total, phase="Evaluated selected V6 hold-out rows")
+    else:
+        v6_heldout.write_text("", encoding="utf-8")
 
+    inputs = {
+        "v3_fixed": str(v3_fixed),
+        "v3_lag": str(v3_lag),
+        "v2_v5_heldout": str(v2_v5_heldout),
+        "v6_heldout": str(v6_heldout),
+    }
+    if needs_v4:
+        inputs.update({"v4_fixed": str(v4_fixed), "v4_lag": str(v4_lag)})
+    if needs_v5:
+        inputs.update(
+            {
+                "v5_fixed": str(v5 / "biology-v5-fixed.json"),
+                "v5_lag": str(v5 / "biology-v5-lag.json"),
+            }
+        )
     prepared = {
         "schema_version": "1.0",
         "kind": "mushroom_ml_prepared_multiversion_inputs",
         "source_snapshot_id": args.source_snapshot_id,
-        "inputs": {
-            "v3_fixed": str(v3_fixed),
-            "v3_lag": str(v3_lag),
-            "v4_fixed": str(v4_fixed),
-            "v4_lag": str(v4_lag),
-            "v5_fixed": str(v5 / "biology-v5-fixed.json"),
-            "v5_lag": str(v5 / "biology-v5-lag.json"),
-            "v2_v5_heldout": str(v5 / "heldout-predictions.jsonl"),
-            "v6_heldout": str(v6 / "heldout-predictions.jsonl"),
-        },
+        "job_purpose": "benchmark",
+        "profile_keys": list(args.profile_key or []),
+        "inputs": inputs,
         "operational_candidate_trained": False,
     }
     write_json(root / "prepared-inputs.json", prepared)
-    emit_progress(args.progress_jsonl, step=8, total=total, phase="Prepared disposable V2--V6 inputs")
+    emit_progress(args.progress_jsonl, step=total, total=total, phase="Prepared selected disposable benchmark inputs")
     print(json.dumps({"output": str(root / "prepared-inputs.json")}, ensure_ascii=False))
     return 0
 

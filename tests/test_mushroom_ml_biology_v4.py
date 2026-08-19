@@ -2,6 +2,7 @@ import unittest
 from datetime import date, timedelta
 
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
+from rainmapper_core import mushroom_ml_biology_v3_physical as biology_v3_physical
 from rainmapper_core import mushroom_ml_biology_v4 as biology_v4
 from rainmapper_core import mushroom_observation_context as weather_context
 
@@ -80,6 +81,63 @@ class MushroomMLBiologyV4Tests(unittest.TestCase):
         self.assertIn("humidity_min_cutoff_22_30d_pct", extended)
         self.assertIn("temp_max_cutoff_22_30d_c", extended)
 
+    def test_v3_physical_is_core_plus_balance_and_smi_only(self) -> None:
+        columns = set(
+            biology_v3_physical.predictive_columns(
+                biology_v3.FIXED_GAP_7D_BIOLOGY_V3_ID
+            )
+        )
+        core = set(
+            biology_v4.predictive_columns(
+                biology_v4.FIXED_GAP_7D_BIOLOGY_V4_ID, "core"
+            )
+        )
+        self.assertEqual(
+            columns - core,
+            {
+                *(field.name for field in biology_v4.CLIMATIC_BALANCE_FIELDS),
+                *(field.name for field in biology_v4.SOIL_WATER_FIELDS),
+            },
+        )
+        self.assertNotIn("rain_cutoff_22_30d_mm", columns)
+
+    def test_v3_physical_training_and_inference_projections_match(self) -> None:
+        source = self.source_v3_sample()
+        source["quality"]["inference_eligible"] = True
+        state = self.soil_state()
+        stored = biology_v4.build_biology_v4_sample(
+            source,
+            temporal_contract_id=biology_v4.FIXED_GAP_7D_BIOLOGY_V4_ID,
+        )
+        stored["metadata"]["soil_state_key"] = "area|2026-08-15"
+        payload = {
+            "temporal_contract_id": biology_v4.FIXED_GAP_7D_BIOLOGY_V4_ID,
+            "samples": [stored],
+            "soil_variants": {
+                biology_v3_physical.SOIL_VARIANT_ID: {
+                    "area_state_catalog": {"area|2026-08-15": state}
+                }
+            },
+        }
+        benchmark = biology_v3_physical.materialize_benchmark(payload)
+        area_series = {
+            **state["predictive_features"],
+            "soil_water_quality": state["quality"],
+            "soil_water_metadata": state["metadata"],
+        }
+        inference = biology_v3_physical.materialize_inference_row(
+            source,
+            temporal_contract_id=biology_v3.FIXED_GAP_7D_BIOLOGY_V3_ID,
+            area_series=area_series,
+        )
+
+        self.assertEqual(benchmark["training_eligible_sample_count"], 1)
+        self.assertTrue(inference["quality"]["inference_eligible"])
+        self.assertEqual(
+            benchmark["samples"][0]["predictive_features"],
+            inference["predictive_features"],
+        )
+
     def test_extended_weather_contributions_are_declarative_and_isolated(self) -> None:
         core = set(biology_v4.predictive_columns(
             biology_v4.FIXED_GAP_7D_BIOLOGY_V4_ID, "core"
@@ -151,6 +209,9 @@ class MushroomMLBiologyV4Tests(unittest.TestCase):
         source["prediction_target"] = "unknown"
         source["quality"] = {
             "training_eligible": False,
+            "rain_event_search_complete": True,
+            "significant_rain_search_complete": True,
+            "significant_rain_found_90d": True,
             "training_exclusion_reasons": [
                 {"code": "modeling_target_unknown", "message": "target absent"}
             ],
@@ -162,6 +223,13 @@ class MushroomMLBiologyV4Tests(unittest.TestCase):
             profile_id="climatic_balance",
         )
         self.assertTrue(row["quality"]["inference_eligible"])
+        self.assertTrue(row["quality"]["rain_event_search_complete"])
+        self.assertTrue(row["quality"]["significant_rain_search_complete"])
+        self.assertTrue(row["quality"]["significant_rain_found_90d"])
+        self.assertEqual(
+            row["quality"]["days_since_significant_rain_at_target"],
+            source["predictive_features"]["days_since_significant_rain_at_target"],
+        )
         self.assertEqual(row["metadata"]["target_date"], "2026-08-22")
         self.assertEqual(
             list(row["predictive_features"]),

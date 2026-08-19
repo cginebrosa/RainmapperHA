@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 import warnings
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -18,6 +19,7 @@ import numpy as np
 from sklearn.exceptions import ConvergenceWarning
 
 from rainmapper_core import mushroom_ml_biology_v3_evaluation
+from rainmapper_core import mushroom_ml_biology_v3_physical
 from rainmapper_core import mushroom_ml_biology_v4
 from rainmapper_core import mushroom_ml_holdout
 from rainmapper_core import mushroom_ml_model_catalog as catalog
@@ -65,6 +67,13 @@ def supported_runtime_benchmark_keys() -> frozenset[str]:
     ):
         keys.add(benchmark_key("altitude_v2", v2_contract, "common_idw"))
         keys.add(benchmark_key("biology_v3", v3_contract, "core"))
+        keys.add(
+            benchmark_key(
+                "biology_v3",
+                v3_contract,
+                mushroom_ml_biology_v3_physical.PROFILE_ID,
+            )
+        )
         for profile_id in ("extended_weather", "climatic_balance"):
             keys.add(benchmark_key("biology_v4", v4_contract, profile_id))
         keys.add(
@@ -118,19 +127,19 @@ def materialize_runtime_benchmarks(
     *,
     v3_fixed: Mapping[str, Any],
     v3_lag: Mapping[str, Any],
-    v4_fixed: Mapping[str, Any],
-    v4_lag: Mapping[str, Any],
-    v5_fixed: Mapping[str, Any],
-    v5_lag: Mapping[str, Any],
+    v4_fixed: Mapping[str, Any] | None = None,
+    v4_lag: Mapping[str, Any] | None = None,
+    v5_fixed: Mapping[str, Any] | None = None,
+    v5_lag: Mapping[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Derive every ordinary runtime profile from six shared base datasets."""
+    """Derive runtime profiles available from the supplied base datasets."""
     result: dict[str, dict[str, Any]] = {}
     rows = (
         (
             "fixed",
             dict(v3_fixed),
-            dict(v4_fixed),
-            dict(v5_fixed),
+            dict(v4_fixed) if v4_fixed is not None else None,
+            dict(v5_fixed) if v5_fixed is not None else None,
             "fixed_gap_7d_altitude_v2",
             "fixed_gap_7d_biology_v3",
             "fixed_gap_7d_biology_v4",
@@ -140,8 +149,8 @@ def materialize_runtime_benchmarks(
         (
             "lag",
             dict(v3_lag),
-            dict(v4_lag),
-            dict(v5_lag),
+            dict(v4_lag) if v4_lag is not None else None,
+            dict(v5_lag) if v5_lag is not None else None,
             "lag_event_altitude_v2",
             "lag_event_biology_v3",
             "lag_event_biology_v4",
@@ -164,26 +173,35 @@ def materialize_runtime_benchmarks(
             mushroom_ml_biology_v3_evaluation.build_observation_altitude_v2_common_idw_benchmark(v3)
         )
         result[benchmark_key("biology_v3", v3_contract, "core")] = v3
-        for profile_id in ("extended_weather", "climatic_balance"):
-            result[benchmark_key("biology_v4", v4_contract, profile_id)] = dict(
-                mushroom_ml_biology_v4.materialize_comparison_benchmark(
-                    v4, profile_id=profile_id
+        if v4 is not None:
+            result[
+                benchmark_key(
+                    "biology_v3",
+                    v3_contract,
+                    mushroom_ml_biology_v3_physical.PROFILE_ID,
                 )
-            )
-        result[
-            benchmark_key(
-                "biology_v5_raw_weather_discovery",
-                v5_contract,
-                "raw_primary_plus_physical_state",
-            )
-        ] = v5
-        result[
-            benchmark_key(
-                "biology_v6_smooth_hierarchical",
-                v6_contract,
-                "smooth_weather_physical_state",
-            )
-        ] = v5
+            ] = dict(mushroom_ml_biology_v3_physical.materialize_benchmark(v4))
+            for profile_id in ("extended_weather", "climatic_balance"):
+                result[benchmark_key("biology_v4", v4_contract, profile_id)] = dict(
+                    mushroom_ml_biology_v4.materialize_comparison_benchmark(
+                        v4, profile_id=profile_id
+                    )
+                )
+        if v5 is not None:
+            result[
+                benchmark_key(
+                    "biology_v5_raw_weather_discovery",
+                    v5_contract,
+                    "raw_primary_plus_physical_state",
+                )
+            ] = v5
+            result[
+                benchmark_key(
+                    "biology_v6_smooth_hierarchical",
+                    v6_contract,
+                    "smooth_weather_physical_state",
+                )
+            ] = v5
     return result
 
 
@@ -376,6 +394,7 @@ def write_batch(
     staging = Path(tempfile.mkdtemp(prefix=f".{batch_id}.", suffix=".tmp", dir=batches))
     artifacts: list[dict[str, Any]] = []
     failed_fits: list[dict[str, Any]] = []
+    fit_results: list[dict[str, Any]] = []
     try:
         for fit_index, fit in enumerate(fits, start=1):
             if not isinstance(fit, Mapping):
@@ -391,12 +410,22 @@ def write_batch(
             benchmark = benchmarks.get(key)
             if benchmark is None:
                 raise ValueError(f"Runtime benchmark is missing: {key}")
+            fit_started = time.perf_counter()
             try:
                 bundle = fit_artifact(artifact_ref, benchmark, snapshot_id=snapshot_id)
             except ValueError as exc:
+                duration_seconds = round(time.perf_counter() - fit_started, 6)
                 failed_fits.append(
                     {
                         "artifact_ref": artifact_ref.as_dict(),
+                        "reason": str(exc),
+                    }
+                )
+                fit_results.append(
+                    {
+                        "artifact_ref": artifact_ref.as_dict(),
+                        "status": "failed",
+                        "duration_seconds": duration_seconds,
                         "reason": str(exc),
                     }
                 )
@@ -409,6 +438,9 @@ def write_batch(
                             "failed_fit_count": len(failed_fits),
                             "version_id": artifact_ref.version_id,
                             "species_id": artifact_ref.species_id,
+                            "profile_id": artifact_ref.profile_id,
+                            "estimator_id": artifact_ref.estimator_id,
+                            "duration_seconds": duration_seconds,
                         }
                     )
                 continue
@@ -417,12 +449,21 @@ def write_batch(
             target = staging / within_batch
             target.parent.mkdir(parents=True, exist_ok=True)
             joblib.dump(bundle, target)
+            duration_seconds = round(time.perf_counter() - fit_started, 6)
             artifacts.append(
                 {
                     "artifact_ref": artifact_ref.as_dict(),
                     "supported_horizons": list(fit["supported_horizons"]),
                     "path": final_relative.as_posix(),
                     "sha256": sha256(target),
+                }
+            )
+            fit_results.append(
+                {
+                    "artifact_ref": artifact_ref.as_dict(),
+                    "status": "complete",
+                    "duration_seconds": duration_seconds,
+                    "training_row_count": int(bundle["training_row_count"]),
                 }
             )
             if progress_callback is not None:
@@ -434,6 +475,9 @@ def write_batch(
                         "failed_fit_count": len(failed_fits),
                         "version_id": artifact_ref.version_id,
                         "species_id": artifact_ref.species_id,
+                        "profile_id": artifact_ref.profile_id,
+                        "estimator_id": artifact_ref.estimator_id,
+                        "duration_seconds": duration_seconds,
                     }
                 )
         manifest = catalog.validate_batch_manifest(
@@ -443,6 +487,9 @@ def write_batch(
                 "kind": catalog.BATCH_MANIFEST_KIND,
                 "batch_id": batch_id,
                 "snapshot_id": snapshot_id,
+                "version_ids": list(training_plan.get("version_ids") or []),
+                "species_ids": list(training_plan.get("species_ids") or []),
+                "profile_keys": list(training_plan.get("profile_keys") or []),
                 "artifacts": artifacts,
                     "active": False,
                     "operational_candidate_trained": False,
@@ -450,6 +497,7 @@ def write_batch(
                     "successful_fit_count": len(artifacts),
                     "failed_fit_count": len(failed_fits),
                     "failed_fits": failed_fits,
+                    "fit_results": fit_results,
                 },
             )
         (staging / "manifest.json").write_text(

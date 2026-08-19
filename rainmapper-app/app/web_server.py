@@ -58,9 +58,11 @@ from rainmapper_core import mushroom_worker_results
 from rainmapper_core import mushroom_predictor_runtime
 from rainmapper_core import mushroom_predictor_stats
 from rainmapper_core import mushroom_ml_model_catalog
+from rainmapper_core import mushroom_ml_benchmark_reports
 from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core import mushroom_ml_training_freshness
 from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_ml_version_promotion
 from rainmapper_core import mushroom_local_full_update
 from rainmapper_core.mushroom_predictor_service import REQUEST_KIND as PREDICTOR_REQUEST_KIND
 from rainmapper_core.mushroom_predictor_service import SCHEMA_VERSION as PREDICTOR_SCHEMA_VERSION
@@ -12812,6 +12814,15 @@ def create_mushroom_worker_candidate_rebuild(
     payload = worker["payload"]
     if payload.get("job_api") != "candidate_rebuild_v0":
         return 409, {"ok": False, "error": "The selected worker cannot run candidate rebuilds."}
+    if (
+        full_update
+        and mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY
+        not in set(payload.get("capabilities") or [])
+    ):
+        return 409, {
+            "ok": False,
+            "error": "The selected worker cannot separate operational training from benchmarks.",
+        }
     display_name = str(payload.get("display_name", worker_id))
     job_id = f"worker_job_{secrets.token_urlsafe(12)}"
     try:
@@ -13097,8 +13108,15 @@ def linked_ml_trained_species_ids(training_job: object) -> list[str]:
 def create_mushroom_ml_multiversion_job(
     worker_id: str,
     *,
+    job_purpose: str = "benchmark",
+    profile_keys: list[str] | None = None,
     triggered_by_job_id: str = "",
 ) -> tuple[int, dict[str, object]]:
+    purpose = str(job_purpose or "").strip()
+    if purpose not in mushroom_worker_jobs.ML_JOB_PURPOSES:
+        return 400, {"ok": False, "error": "Multiversion job purpose is invalid."}
+    if purpose == "operational" and not triggered_by_job_id:
+        return 400, {"ok": False, "error": "Operational training requires a linked full update."}
     worker = next(
         (
             row for row in registered_mushroom_worker_statuses()
@@ -13117,6 +13135,22 @@ def create_mushroom_ml_multiversion_job(
         else []
     ):
         return 409, {"ok": False, "error": "The selected worker cannot train V2--V6 comparison models."}
+    if mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY not in set(
+        worker_payload.get("capabilities") or []
+    ):
+        return 409, {
+            "ok": False,
+            "error": "The selected worker cannot separate operational training from benchmarks.",
+        }
+    if (
+        purpose == "benchmark"
+        and mushroom_worker_registry.ML_BENCHMARK_REPORT_CAPABILITY
+        not in set(worker_payload.get("capabilities") or [])
+    ):
+        return 409, {
+            "ok": False,
+            "error": "The selected worker cannot produce persistent benchmark reports.",
+        }
     job_id = f"worker_job_{secrets.token_urlsafe(12)}"
     try:
         with RUN_LOCK:
@@ -13139,6 +13173,8 @@ def create_mushroom_ml_multiversion_job(
             mushroom_worker_candidate_results_path()
             / rebuild_job_id
             / "mushroom_observation_features_v0.json"
+            if rebuild_job_id
+            else mushroom_paths.mushroom_observation_features_json_path()
         )
         sources = {
             "registry.json": mushroom_paths.mushroom_ml_version_registry_path(),
@@ -13152,7 +13188,8 @@ def create_mushroom_ml_multiversion_job(
                 "Fresh multiversion input is missing after the linked reconstruction: "
                 + missing[0]
             )
-        batch_id = "local_v2_v6_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        batch_prefix = "operational" if purpose == "operational" else "benchmark_v2_v6"
+        batch_id = batch_prefix + "_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         if triggered_by_job_id:
             species_ids = linked_ml_trained_species_ids(training_job)
         else:
@@ -13164,10 +13201,23 @@ def create_mushroom_ml_multiversion_job(
             )
             species_ids = sorted(eligible_model_species_ids(observations))
         registry = json.loads(sources["registry.json"].read_text(encoding="utf-8"))
+        if purpose == "benchmark":
+            selected_profiles = mushroom_ml_version_registry.resolve_benchmark_profiles(
+                registry, profile_keys
+            )
+            resolved_profile_keys = [row["profile_key"] for row in selected_profiles]
+            version_ids = list(
+                dict.fromkeys(row["version_id"] for row in selected_profiles)
+            )
+        else:
+            resolved_profile_keys = []
+            version_ids = mushroom_ml_version_registry.training_version_ids(
+                registry, job_purpose=purpose
+            )
         generation_ids = {
             str(row["version_id"]): f"{row['version_id']}_{batch_id}"
             for row in registry.get("versions", [])
-            if isinstance(row, dict) and row.get("version_id")
+            if isinstance(row, dict) and row.get("version_id") in version_ids
         }
         spec = {
             "schema_version": "1.0",
@@ -13181,9 +13231,12 @@ def create_mushroom_ml_multiversion_job(
             "observations_path": "snapshot/inputs/mushroom-data/mushroom_observations.json",
             "weather_data_dir": "snapshot/inputs/weather",
             "generation_ids": generation_ids,
+            "version_ids": version_ids,
+            "profile_keys": resolved_profile_keys,
             "species_ids": species_ids,
             "source_rebuild_job_id": rebuild_job_id,
-            "operational_candidate_trained": False,
+            "job_purpose": purpose,
+            "operational_candidate_trained": purpose == "operational",
         }
         input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
             mushroom_worker_input_bundles_path(),
@@ -13223,6 +13276,8 @@ def create_mushroom_ml_multiversion_job(
                 worker_display_name=str(worker_payload.get("display_name", worker_id)),
                 input_bundle=input_bundle,
                 job_id=job_id,
+                job_purpose=purpose,
+                profile_keys=resolved_profile_keys if purpose == "benchmark" else None,
                 triggered_by_job_id=triggered_by_job_id,
             )
     except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
@@ -13239,6 +13294,8 @@ def create_mushroom_ml_multiversion_job(
 def start_mushroom_ml_multiversion_job(
     worker_id: str,
     *,
+    job_purpose: str = "benchmark",
+    profile_keys: list[str] | None = None,
     triggered_by_job_id: str = "",
 ) -> tuple[int, dict[str, object]]:
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
@@ -13247,7 +13304,10 @@ def start_mushroom_ml_multiversion_job(
     def prepare() -> None:
         try:
             status, response = create_mushroom_ml_multiversion_job(
-                worker_id, triggered_by_job_id=triggered_by_job_id
+                worker_id,
+                job_purpose=job_purpose,
+                profile_keys=profile_keys,
+                triggered_by_job_id=triggered_by_job_id,
             )
             if status != 201:
                 set_mushroom_workers_flash(str(response.get("error", "Cannot queue V2--V6 training.")), error=True)
@@ -13635,17 +13695,19 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
         ):
             comparison_status, comparison_response = start_mushroom_ml_multiversion_job(
                 worker_id,
+                job_purpose="operational",
                 triggered_by_job_id=str(job.get("job_id", "")),
             )
             if comparison_status != 202:
                 set_mushroom_workers_flash(
-                    "Operational V2 training completed, but V2--V6 comparison training could not be queued: "
+                    "ML v0 completed, but active operational generation training could not be queued: "
                     + str(comparison_response.get("error", "unknown error")),
                     error=True,
                 )
         if (
             current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION
             and str(payload.get("status", "")) == "complete"
+            and current_job.get("job_purpose") == "operational"
             and bool(current_job.get("triggered_by_job_id"))
         ):
             promotion_status, promotion_response = promote_mushroom_full_update(
@@ -13856,19 +13918,20 @@ def complete_mushroom_ml_multiversion_result(
         return 401, {"ok": False, "error": "Worker authentication failed."}
     try:
         with RUN_LOCK:
-            mushroom_worker_jobs.authorize_ml_multiversion_result_upload(
+            job = mushroom_worker_jobs.authorize_ml_multiversion_result_upload(
                 mushroom_worker_jobs_path(),
                 job_id=job_id,
                 worker_id=worker_id,
                 claim_token=claim_token,
             )
+        job_purpose = str(job.get("job_purpose") or "benchmark")
         verification = mushroom_ml_multiversion_transport.finalize_result(
             mushroom_worker_candidate_results_path(),
             job_id=job_id,
             registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
             models_root=mushroom_paths.mushroom_ml_models_dir(),
+            job_purpose=job_purpose,
         )
-        mushroom_predictor_ui.release_predictor_cache()
     except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {"ok": True, "verification": verification}
@@ -13959,8 +14022,14 @@ def promote_mushroom_ml_train_candidate_job(job_id: str) -> tuple[int, dict[str,
 def _run_mushroom_full_update_promotion(
     rebuild_job_id: str,
     training_job_id: str,
+    operational_job_id: str,
 ) -> None:
     """Publish one verified reconstruction and its linked trained models."""
+    models_root = mushroom_paths.mushroom_ml_models_dir()
+    descriptor_path = models_root / "runtime-batch.json"
+    previous_descriptor = descriptor_path.read_bytes() if descriptor_path.is_file() else None
+    installed_batch_id = ""
+    generation_promoted = False
     try:
         with MUSHROOM_WORKER_PROMOTION_LOCK:
             def report_progress(percent: int, phase: str, message: str) -> None:
@@ -13973,7 +14042,17 @@ def _run_mushroom_full_update_promotion(
                         message=message,
                     )
 
-            report_progress(5, "Promoting full generation", "Publishing verified reconstructed artifacts.")
+            report_progress(3, "Promoting full generation", "Installing the verified active-generation models.")
+            operational_install = (
+                mushroom_ml_multiversion_transport.install_staged_operational_result(
+                    mushroom_worker_candidate_results_path(),
+                    job_id=operational_job_id,
+                    registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+                    models_root=models_root,
+                )
+            )
+            installed_batch_id = str(operational_install["batch_id"])
+            report_progress(10, "Promoting full generation", "Publishing verified reconstructed artifacts.")
             rebuild_promotion = mushroom_worker_results.promote_verified_candidate(
                 mushroom_worker_candidate_results_path(),
                 mushroom_worker_input_bundles_path(),
@@ -13992,7 +14071,7 @@ def _run_mushroom_full_update_promotion(
             try:
                 training_promotion = mushroom_worker_results.promote_ml_train_candidate(
                     mushroom_worker_candidate_results_path(),
-                    mushroom_paths.mushroom_ml_models_dir(),
+                    models_root,
                     job_id=training_job_id,
                     report_path=mushroom_paths.mushroom_ml_report_json_path(),
                 )
@@ -14005,6 +14084,7 @@ def _run_mushroom_full_update_promotion(
                 raise
             released = mushroom_predictor_ui.release_predictor_cache()
             mushroom_model_state.clear_all_pending(full_rebuild=True)
+            generation_promoted = True
             report_progress(99, "Full generation promoted", "Artifacts and trained models are now active.")
         with RUN_LOCK:
             rebuild_job = mushroom_worker_jobs.finish_candidate_promotion(
@@ -14017,8 +14097,15 @@ def _run_mushroom_full_update_promotion(
                 mushroom_worker_jobs_path(),
                 job_id=training_job_id,
                 promoted=True,
-                result={**training_promotion, "released_predictor_instances": released},
+                result={
+                    **training_promotion,
+                    "operational_install": operational_install,
+                    "released_predictor_instances": released,
+                },
             )
+        mushroom_ml_multiversion_transport.discard_staged_result(
+            mushroom_worker_candidate_results_path(), job_id=operational_job_id
+        )
         discard_mushroom_worker_input_bundle(rebuild_job)
         discard_mushroom_worker_input_bundle(training_job)
         rebuild_cleanup = discard_promoted_mushroom_worker_result(rebuild_job)
@@ -14029,6 +14116,12 @@ def _run_mushroom_full_update_promotion(
             + (f" {warnings}" if warnings else "")
         )
     except Exception as exc:
+        if installed_batch_id and not generation_promoted:
+            mushroom_ml_multiversion_transport.restore_runtime_batch(
+                models_root=models_root,
+                installed_batch_id=installed_batch_id,
+                previous_descriptor=previous_descriptor,
+            )
         for job_id in (rebuild_job_id, training_job_id):
             try:
                 with RUN_LOCK:
@@ -14063,18 +14156,19 @@ def promote_mushroom_full_update(training_job_id: str) -> tuple[int, dict[str, o
             if not rebuild_job.get("full_update"):
                 raise ValueError("Reconstruction job is not a complete update.")
             queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
-            comparison_job = next(
+            operational_job = next(
                 (
                     row
                     for row in queue["jobs"]
                     if row.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION
+                    and row.get("job_purpose") == "operational"
                     and str(row.get("triggered_by_job_id", "")) == training_job_id
                 ),
                 None,
             )
-            if not isinstance(comparison_job, dict) or comparison_job.get("status") != "complete":
+            if not isinstance(operational_job, dict) or operational_job.get("status") != "complete":
                 raise ValueError(
-                    "The linked V2--V6 comparison job must complete before the full generation can be promoted."
+                    "The linked active-generation training must complete before the full generation can be promoted."
                 )
             rebuild_job, training_job = mushroom_worker_jobs.begin_full_update_promotion(
                 mushroom_worker_jobs_path(),
@@ -14083,7 +14177,7 @@ def promote_mushroom_full_update(training_job_id: str) -> tuple[int, dict[str, o
             )
             promotion_thread = threading.Thread(
                 target=_run_mushroom_full_update_promotion,
-                args=(rebuild_job_id, training_job_id),
+                args=(rebuild_job_id, training_job_id, str(operational_job["job_id"])),
                 daemon=True,
                 name=f"rainmapper-full-update-promotion-{training_job_id[-12:]}",
             )
@@ -14095,7 +14189,7 @@ def promote_mushroom_full_update(training_job_id: str) -> tuple[int, dict[str, o
     return 202, {
         "ok": True,
         "job": training_job,
-        "comparison_job_id": comparison_job.get("job_id", ""),
+        "operational_job_id": operational_job.get("job_id", ""),
         "promoting": True,
     }
 
@@ -14621,6 +14715,9 @@ def mushroom_rebuild_job_payload(job: dict[str, object]) -> dict[str, object]:
     return {
         "job_id": job.get("job_id", ""),
         "job_type": job.get("job_type", "rebuild_v0"),
+        "job_purpose": job.get("job_purpose", ""),
+        "profile_keys": list(job.get("profile_keys") or []),
+        "profile_labels": list(job.get("profile_labels") or []),
         "executor": "home_assistant",
         "worker_display_name": job.get("worker_display_name", "Home Assistant"),
         "status": job.get("status", "unknown"),
@@ -14636,7 +14733,7 @@ def mushroom_rebuild_job_payload(job: dict[str, object]) -> dict[str, object]:
         "pipeline": job.get("pipeline", "legacy"),
         "cancel_requested": bool(job.get("cancel_requested", False)),
         "can_cancel": (
-            job.get("pipeline") == "shared"
+            job.get("pipeline") in {"shared", "local_benchmark"}
             and job.get("status") == "running"
             and not bool(job.get("_promotion_started", False))
         ),
@@ -14708,7 +14805,7 @@ def request_mushroom_rebuild_cancel(job_id: str) -> tuple[int, dict[str, object]
         job = MUSHROOM_REBUILD_JOBS.get(job_id)
         if not job:
             return 404, {"ok": False, "error": "Rebuild job was not found."}
-        if job.get("pipeline") != "shared":
+        if job.get("pipeline") not in {"shared", "local_benchmark"}:
             return 409, {"ok": False, "error": "Legacy rebuild jobs cannot be cancelled safely."}
         if job.get("status") != "running":
             return 409, {"ok": False, "error": "Rebuild job is no longer running."}
@@ -15101,8 +15198,27 @@ def mushroom_local_full_update_work_root() -> Path:
     return mushroom_paths.share_root() / ".local-full-update"
 
 
+def mushroom_local_training_paths() -> mushroom_local_full_update.LocalFullUpdatePaths:
+    return mushroom_local_full_update.LocalFullUpdatePaths(
+        observations=mushroom_paths.mushroom_observations_path(),
+        reference_catalogs=mushroom_paths.mushroom_reference_catalogs_path(),
+        gis_mappings=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+        weather_data_dir=mushroom_paths.weather_data_dir(),
+        gis_root=mushroom_gis_lab.gis_root(),
+        known_sites=mushroom_paths.mushroom_known_sites_path(),
+        stations=STATIONS_PATH,
+        registry=mushroom_paths.mushroom_ml_version_registry_path(),
+        mushroom_data_dir=mushroom_paths.mushroom_data_dir(),
+        ml_models_dir=mushroom_paths.mushroom_ml_models_dir(),
+        ml_report=mushroom_paths.mushroom_ml_report_json_path(),
+        bundle_root=mushroom_worker_input_bundles_path(),
+        candidate_results_root=mushroom_worker_candidate_results_path(),
+        work_root=mushroom_local_full_update_work_root(),
+    )
+
+
 def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
-    """Start the complete three-job chain inside an explicitly enabled local HA."""
+    """Start the operational rebuild chain inside an explicitly enabled local HA."""
     if not mushroom_local_ha_compute_enabled():
         return 404, {
             "ok": False,
@@ -15144,7 +15260,7 @@ def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
             "phase_count": 4,
             "phase_percent": 0,
             "overall_percent": 0,
-            "message": "Queued reconstruction, ML v0 and V2--V6 as one complete local update.",
+            "message": "Queued reconstruction, ML v0 and active-generation training.",
             "error": "",
             "result": {},
             "started_at_ts": now,
@@ -15163,7 +15279,7 @@ def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
         phase_index = 1
         if "ML v0" in phase:
             phase_index = 2
-        elif "V2--V6" in phase:
+        elif "operational generation" in phase:
             phase_index = 3
         elif "Promoting" in phase or "active" in phase:
             phase_index = 4
@@ -15188,28 +15304,13 @@ def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
                 operation_id=operation_id,
                 selected_observation_ids=selected_observation_ids,
                 species_ids=species_ids,
-                paths=mushroom_local_full_update.LocalFullUpdatePaths(
-                    observations=mushroom_paths.mushroom_observations_path(),
-                    reference_catalogs=mushroom_paths.mushroom_reference_catalogs_path(),
-                    gis_mappings=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
-                    weather_data_dir=mushroom_paths.weather_data_dir(),
-                    gis_root=mushroom_gis_lab.gis_root(),
-                    known_sites=mushroom_paths.mushroom_known_sites_path(),
-                    stations=STATIONS_PATH,
-                    registry=mushroom_paths.mushroom_ml_version_registry_path(),
-                    mushroom_data_dir=mushroom_paths.mushroom_data_dir(),
-                    ml_models_dir=mushroom_paths.mushroom_ml_models_dir(),
-                    ml_report=mushroom_paths.mushroom_ml_report_json_path(),
-                    bundle_root=mushroom_worker_input_bundles_path(),
-                    candidate_results_root=mushroom_worker_candidate_results_path(),
-                    work_root=mushroom_local_full_update_work_root(),
-                ),
+                paths=mushroom_local_training_paths(),
                 progress=report_progress,
             )
             released = mushroom_predictor_ui.release_predictor_cache()
             mushroom_model_state.clear_all_pending(full_rebuild=True)
             result["released_predictor_instances"] = released
-            message = "Complete local generation promoted after reconstruction, ML v0 and V2--V6."
+            message = "Operational generation promoted after reconstruction, ML v0 and active V2 training."
             set_mushroom_workers_flash(message)
             set_mushroom_rebuild_progress(
                 job_id,
@@ -15238,10 +15339,342 @@ def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
         daemon=True,
     ).start()
     set_mushroom_workers_flash(
-        "Complete local update started: reconstruction, ML v0 and V2--V6 will run in sequence.",
+        "Operational update started: reconstruction, ML v0 and active V2 training will run in sequence.",
         clear_when_idle=True,
     )
     return 202, {"ok": True, "job_id": job_id}
+
+
+def start_mushroom_local_benchmark(
+    profile_keys: list[str] | None = None,
+) -> tuple[int, dict[str, object]]:
+    """Start a manual local benchmark that cannot activate Predictor models."""
+    if not mushroom_local_ha_compute_enabled():
+        return 404, {
+            "ok": False,
+            "error": "Local Home Assistant compute is not enabled for this installation.",
+        }
+    if mushroom_worker_activity_active(mushroom_workers_recent_jobs()):
+        return 409, {
+            "ok": False,
+            "error": "Another mushroom rebuild or worker operation is already active.",
+        }
+    try:
+        registry = mushroom_ml_version_registry.load_registry(
+            mushroom_paths.mushroom_ml_version_registry_path()
+        )
+        selected_profiles = mushroom_ml_version_registry.resolve_benchmark_profiles(
+            registry, profile_keys
+        )
+    except ValueError as exc:
+        return 400, {"ok": False, "error": str(exc)}
+    resolved_profile_keys = [row["profile_key"] for row in selected_profiles]
+    profile_labels = [
+        f"{row['version_name']} — {row['profile_name']}" for row in selected_profiles
+    ]
+    operation_id = secrets.token_urlsafe(12)
+    job_id = f"local_benchmark_{operation_id}"
+    now = time.time()
+    cancel_event = threading.Event()
+    with RUN_LOCK:
+        MUSHROOM_REBUILD_JOBS[job_id] = {
+            "job_id": job_id,
+            "job_type": "local_ml_benchmark",
+            "job_purpose": "benchmark",
+            "profile_keys": resolved_profile_keys,
+            "profile_labels": profile_labels,
+            "worker_display_name": "Home Assistant local",
+            "status": "running",
+            "phase": "Preparing scientific benchmark",
+            "phase_index": 1,
+            "phase_count": 2,
+            "phase_percent": 0,
+            "overall_percent": 0,
+            "message": f"Queued scientific benchmark with {len(resolved_profile_keys)} selected profiles.",
+            "error": "",
+            "result": {},
+            "started_at_ts": now,
+            "phase_started_at_ts": now,
+            "finished_at_ts": None,
+            "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+            "finished_at": "",
+            "return_url": "./workers",
+            "scope": f"{len(resolved_profile_keys)} scientific benchmark profiles",
+            "pipeline": "local_benchmark",
+            "cancel_requested": False,
+            "_promotion_started": False,
+            "_cancel_event": cancel_event,
+        }
+
+    def report_progress(percent: int, phase: str, message: str) -> None:
+        set_mushroom_rebuild_progress(
+            job_id,
+            phase=phase,
+            phase_index=2 if "Training" in phase or "archived" in phase else 1,
+            phase_count=2,
+            phase_percent=100 if percent == 100 else 0,
+            overall_percent=percent,
+            message=message,
+            reset_phase_timer=True,
+        )
+
+    def run() -> None:
+        try:
+            result = mushroom_local_full_update.run_local_benchmark(
+                operation_id=operation_id,
+                paths=mushroom_local_training_paths(),
+                progress=report_progress,
+                profile_keys=resolved_profile_keys,
+                cancel_requested=cancel_event.is_set,
+            )
+            message = "Scientific benchmark archived; Predictor runtime was not changed."
+            set_mushroom_workers_flash(message)
+            set_mushroom_rebuild_progress(
+                job_id,
+                status="complete",
+                phase="Scientific benchmark archived",
+                phase_index=2,
+                phase_count=2,
+                phase_percent=100,
+                overall_percent=100,
+                message=message,
+                result=result,
+            )
+        except mushroom_local_full_update.LocalBenchmarkCancelled:
+            message = "Scientific benchmark cancelled; Predictor runtime was not changed."
+            set_mushroom_workers_flash(message)
+            set_mushroom_rebuild_progress(
+                job_id,
+                status="cancelled",
+                phase="Scientific benchmark cancelled",
+                message=message,
+            )
+        except Exception as exc:
+            error = f"Local scientific benchmark failed: {exc}"
+            set_mushroom_workers_flash(error, error=True)
+            set_mushroom_rebuild_progress(
+                job_id, status="failed", error=error, message=error
+            )
+
+    threading.Thread(
+        target=run,
+        name=f"mushroom-local-benchmark-{operation_id}",
+        daemon=True,
+    ).start()
+    set_mushroom_workers_flash(
+        "Scientific benchmark started; it cannot activate Predictor models.",
+        clear_when_idle=True,
+    )
+    return 202, {"ok": True, "job_id": job_id}
+
+
+def start_mushroom_local_operational_candidate(
+    *, benchmark_batch_id: str, version_id: str
+) -> tuple[int, dict[str, object]]:
+    """Verify and repackage a complete benchmark version without retraining."""
+    if mushroom_worker_activity_active(mushroom_workers_recent_jobs()):
+        return 409, {"ok": False, "error": "Another mushroom operation is active."}
+    try:
+        report = mushroom_ml_benchmark_reports.load_report(
+            mushroom_paths.mushroom_ml_models_dir(), benchmark_batch_id
+        )
+        registry = mushroom_ml_version_registry.load_registry(
+            mushroom_paths.mushroom_ml_version_registry_path()
+        )
+        required = [
+            row
+            for row in mushroom_ml_version_registry.operational_profile_options(registry)
+            if row["version_id"] == version_id
+        ]
+        reported = {
+            str(row.get("profile_key") or "")
+            for row in (report.get("selection") or {}).get("profiles", [])
+            if isinstance(row, dict)
+        }
+        if not required or not {row["profile_key"] for row in required} <= reported:
+            raise ValueError("This report does not contain the complete promotable version.")
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+        return 400, {"ok": False, "error": str(exc)}
+    operation_id = secrets.token_urlsafe(12)
+    job_id = f"local_candidate_{operation_id}"
+    now = time.time()
+    cancel_event = threading.Event()
+    with RUN_LOCK:
+        MUSHROOM_REBUILD_JOBS[job_id] = {
+            "job_id": job_id,
+            "job_type": "local_ml_operational_candidate",
+            "job_purpose": "operational_candidate",
+            "version_id": version_id,
+            "profile_keys": [row["profile_key"] for row in required],
+            "worker_display_name": "Home Assistant local",
+            "status": "running",
+            "phase": "Verifying benchmark candidate",
+            "phase_index": 1,
+            "phase_count": 2,
+            "phase_percent": 0,
+            "overall_percent": 0,
+            "message": f"Verifying complete {version_id} benchmark artifacts.",
+            "error": "",
+            "result": {},
+            "started_at_ts": now,
+            "phase_started_at_ts": now,
+            "finished_at_ts": None,
+            "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+            "finished_at": "",
+            "return_url": "./workers",
+            "scope": f"{version_id}: {len(required)} operational profiles",
+            "pipeline": "verified_benchmark_candidate",
+            "cancel_requested": False,
+            "_promotion_started": False,
+            "_cancel_event": cancel_event,
+            "source_benchmark_batch_id": benchmark_batch_id,
+        }
+
+    def report_progress(percent: int, phase: str, message: str) -> None:
+        set_mushroom_rebuild_progress(
+            job_id,
+            phase=phase,
+            phase_index=2 if "Training" in phase or "ready" in phase else 1,
+            phase_count=2,
+            overall_percent=percent,
+            message=message,
+            reset_phase_timer=True,
+        )
+
+    def run() -> None:
+        try:
+            result = mushroom_local_full_update.run_local_operational_candidate(
+                operation_id=operation_id,
+                benchmark_batch_id=benchmark_batch_id,
+                version_id=version_id,
+                paths=mushroom_local_training_paths(),
+                progress=report_progress,
+                cancel_requested=cancel_event.is_set,
+            )
+            message = f"Complete {version_id} candidate reused from benchmark; Predictor was not changed."
+            set_mushroom_workers_flash(message)
+            set_mushroom_rebuild_progress(
+                job_id, status="complete", phase="Operational candidate ready",
+                phase_index=2, phase_count=2, phase_percent=100,
+                overall_percent=100, message=message, result=result,
+            )
+        except mushroom_local_full_update.LocalBenchmarkCancelled:
+            set_mushroom_rebuild_progress(
+                job_id, status="cancelled", phase="Candidate preparation cancelled",
+                message="Candidate preparation cancelled; Predictor was not changed.",
+            )
+        except Exception as exc:
+            error = f"Operational candidate failed: {exc}"
+            set_mushroom_workers_flash(error, error=True)
+            set_mushroom_rebuild_progress(job_id, status="failed", error=error, message=error)
+
+    threading.Thread(
+        target=run, name=f"mushroom-local-candidate-{operation_id}", daemon=True
+    ).start()
+    return 202, {"ok": True, "job_id": job_id}
+
+
+def promote_mushroom_local_version_candidate(job_id: str) -> tuple[int, dict[str, object]]:
+    """Start the explicit human promotion recorded by one completed candidate job."""
+    if mushroom_worker_activity_active(mushroom_workers_recent_jobs()):
+        return 409, {"ok": False, "error": "Another mushroom operation is active."}
+    with RUN_LOCK:
+        source = MUSHROOM_REBUILD_JOBS.get(str(job_id or ""))
+        source = dict(source) if isinstance(source, dict) else None
+    if not source or source.get("job_type") != "local_ml_operational_candidate" or source.get("status") != "complete":
+        return 409, {"ok": False, "error": "The operational candidate is not ready."}
+    candidate_result = source.get("result") if isinstance(source.get("result"), dict) else {}
+    candidate_id = str(candidate_result.get("candidate_id") or "")
+    if not candidate_id:
+        return 409, {"ok": False, "error": "The candidate archive identity is missing."}
+    operation_id = secrets.token_urlsafe(12)
+    promotion_job_id = f"local_promotion_{operation_id}"
+    now = time.time()
+    with RUN_LOCK:
+        MUSHROOM_REBUILD_JOBS[promotion_job_id] = {
+            "job_id": promotion_job_id,
+            "job_type": "local_ml_version_promotion",
+            "job_purpose": "promotion",
+            "worker_display_name": "Home Assistant local",
+            "status": "running",
+            "phase": "Verifying candidate freshness",
+            "phase_index": 1,
+            "phase_count": 2,
+            "phase_percent": 0,
+            "overall_percent": 5,
+            "message": "Revalidating the complete candidate before activation.",
+            "error": "", "result": {}, "started_at_ts": now,
+            "phase_started_at_ts": now, "finished_at_ts": None,
+            "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+            "finished_at": "", "return_url": "./workers",
+            "scope": str(source.get("scope") or "complete version"),
+            "pipeline": "local_version_promotion", "cancel_requested": False,
+            "_promotion_started": True,
+        }
+
+    def run() -> None:
+        try:
+            result = mushroom_ml_version_promotion.promote_candidate(
+                models_root=mushroom_paths.mushroom_ml_models_dir(),
+                registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+                candidate_id=candidate_id,
+                observations_path=mushroom_paths.mushroom_observations_path(),
+                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+                gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+                weather_data_dir=mushroom_paths.weather_data_dir(),
+                gis_root=mushroom_gis_lab.gis_root(),
+                known_sites_path=mushroom_paths.mushroom_known_sites_path(),
+                stations_path=STATIONS_PATH,
+                observation_features_path=mushroom_paths.mushroom_observation_features_json_path(),
+                source_benchmark_batch_id=str(source.get("source_benchmark_batch_id") or ""),
+            )
+            result["released_predictor_instances"] = mushroom_predictor_ui.release_predictor_cache()
+            message = f"{result['version_id']} activated with {len(result['profile_ids'])} profiles."
+            set_mushroom_workers_flash(message)
+            set_mushroom_rebuild_progress(
+                promotion_job_id, status="complete", phase="Version active",
+                phase_index=2, phase_count=2, phase_percent=100,
+                overall_percent=100, message=message, result=result,
+            )
+        except Exception as exc:
+            error = f"Version promotion failed: {exc}"
+            set_mushroom_workers_flash(error, error=True)
+            set_mushroom_rebuild_progress(
+                promotion_job_id, status="failed", error=error, message=error
+            )
+
+    threading.Thread(
+        target=run, name=f"mushroom-version-promotion-{operation_id}", daemon=True
+    ).start()
+    return 202, {"ok": True, "job_id": promotion_job_id}
+
+
+def rollback_mushroom_local_version_promotion(job_id: str) -> tuple[int, dict[str, object]]:
+    """Roll back the exact active promotion represented by one completed local job."""
+    if mushroom_worker_activity_active(mushroom_workers_recent_jobs()):
+        return 409, {"ok": False, "error": "Another mushroom operation is active."}
+    with RUN_LOCK:
+        source = MUSHROOM_REBUILD_JOBS.get(str(job_id or ""))
+        source = dict(source) if isinstance(source, dict) else None
+    result = source.get("result") if isinstance(source, dict) and isinstance(source.get("result"), dict) else {}
+    if source is None or source.get("job_type") != "local_ml_version_promotion" or source.get("status") != "complete":
+        return 409, {"ok": False, "error": "The selected promotion is not complete."}
+    try:
+        rollback = mushroom_ml_version_promotion.rollback_promotion(
+            models_root=mushroom_paths.mushroom_ml_models_dir(),
+            registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+            promotion_id=str(result.get("promotion_id") or ""),
+        )
+        rollback["released_predictor_instances"] = mushroom_predictor_ui.release_predictor_cache()
+        with RUN_LOCK:
+            current = MUSHROOM_REBUILD_JOBS.get(str(job_id))
+            if current is not None and isinstance(current.get("result"), dict):
+                current["result"]["rollback_available"] = False
+                current["result"]["rollback"] = rollback
+        set_mushroom_workers_flash("Previous operational version restored.")
+        return 200, {"ok": True, "rollback": rollback}
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
 
 
 def start_mushroom_model_rebuild_job(
@@ -18623,6 +19056,65 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 learned_model_payload=mushroom_learned_model.load_latest_model(),
             )
             jobs = mushroom_workers_recent_jobs()
+            benchmark_registry = mushroom_ml_version_registry.load_registry(
+                mushroom_paths.mushroom_ml_version_registry_path()
+            )
+            benchmark_profiles = mushroom_ml_version_registry.benchmark_profile_options(
+                benchmark_registry
+            )
+            for benchmark_profile in benchmark_profiles:
+                label_key = str(benchmark_profile.get("profile_label_key") or "")
+                if label_key:
+                    benchmark_profile["profile_name"] = mushroom_profiles_ui.ui_label(
+                        label_key
+                    )
+            valid_benchmark_profile_keys = {
+                row["profile_key"] for row in benchmark_profiles
+            }
+            selected_benchmark_profiles = [
+                str(value or "").strip()
+                for value in query.get("benchmark_profile", [])
+                if str(value or "").strip() in valid_benchmark_profile_keys
+            ]
+            benchmark_history = mushroom_ml_benchmark_reports.list_reports(
+                mushroom_paths.mushroom_ml_models_dir()
+            )
+            selected_benchmark_id = (query.get("benchmark") or [""])[0]
+            selected_benchmark_report = None
+            benchmark_report_error = ""
+            promotion_versions: list[dict[str, object]] = []
+            if selected_benchmark_id:
+                try:
+                    selected_benchmark_report = mushroom_ml_benchmark_reports.load_report(
+                        mushroom_paths.mushroom_ml_models_dir(), selected_benchmark_id
+                    )
+                except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+                    benchmark_report_error = str(exc)
+            if selected_benchmark_report is not None:
+                selection = selected_benchmark_report.get("selection")
+                selection = selection if isinstance(selection, dict) else {}
+                report_profile_keys = {
+                    str(row.get("profile_key") or "")
+                    for row in selection.get("profiles", [])
+                    if isinstance(row, dict)
+                }
+                operational_profiles = mushroom_ml_version_registry.operational_profile_options(
+                    benchmark_registry
+                )
+                for version_id in dict.fromkeys(
+                    row["version_id"] for row in operational_profiles
+                ):
+                    version_profiles = [
+                        row for row in operational_profiles if row["version_id"] == version_id
+                    ]
+                    if {row["profile_key"] for row in version_profiles} <= report_profile_keys:
+                        promotion_versions.append(
+                            {
+                                "version_id": version_id,
+                                "version_name": version_profiles[0]["version_name"],
+                                "profile_keys": [row["profile_key"] for row in version_profiles],
+                            }
+                        )
             worker_registry = mushroom_worker_registry.load_registry(
                 mushroom_worker_registry_path()
             )
@@ -18664,6 +19156,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 flash=flash,
                 flash_error=flash_error,
                 flash_clear_when_idle=flash_clear_when_idle,
+                benchmark_profiles=benchmark_profiles,
+                selected_benchmark_profiles=selected_benchmark_profiles,
+                benchmark_history=benchmark_history,
+                selected_benchmark_report=selected_benchmark_report,
+                benchmark_report_error=benchmark_report_error,
+                promotion_versions=promotion_versions,
             )
             rebuild_job_id = (query.get("rebuild_job") or [""])[0]
             body += render_mushroom_rebuild_progress_modal(rebuild_job_id, "./workers")
@@ -20068,6 +20566,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             else:
                 set_mushroom_workers_flash(str(response.get("error", "Cannot cancel worker job.")), error=True)
             return "./workers"
+        if action == "cancel_local_benchmark":
+            status, response = request_mushroom_rebuild_cancel(
+                self.form_value(form, "job_id")
+            )
+            if status == 202:
+                set_mushroom_workers_flash(
+                    "Cancel requested for the local scientific benchmark.",
+                    clear_when_idle=True,
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot cancel local scientific benchmark.")),
+                    error=True,
+                )
+            return "./workers"
         if action == "force_cancel_worker_job":
             status, response = cancel_mushroom_worker_job(self.form_value(form, "job_id"), force=True)
             if status == 200:
@@ -20150,7 +20663,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     error=True,
                     clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
-            return "./workers"
+            return "./workers?" + urlencode(
+                {"benchmark_profile": profile_keys}, doseq=True
+            )
         if action == "promote_worker_candidate":
             status, response = promote_mushroom_worker_candidate(
                 self.form_value(form, "job_id")
@@ -20194,7 +20709,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return "./workers"
         if action == "run_worker_ml_multiversion":
             status, response = start_mushroom_ml_multiversion_job(
-                self.form_value(form, "worker_id")
+                self.form_value(form, "worker_id"),
+                job_purpose="benchmark",
             )
             if status != 202:
                 set_mushroom_workers_flash(
@@ -20206,6 +20722,76 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 set_mushroom_workers_flash(
                     "La regeneración comparativa V2--V6 se ha puesto en cola; no modifica V2 operativo.",
                     clear_when_idle=True,
+                )
+            return "./workers"
+        if action == "run_ml_benchmark":
+            executor = self.form_value(form, "executor")
+            profile_keys = [
+                str(value or "").strip()
+                for value in form.get("benchmark_profile", [])
+                if str(value or "").strip()
+            ]
+            selection_present = bool(self.form_value(form, "benchmark_selection_present"))
+            if selection_present and not profile_keys:
+                set_mushroom_workers_flash(
+                    "Select at least one scientific benchmark profile.", error=True
+                )
+                return "./workers"
+            if executor == "home_assistant":
+                if selection_present:
+                    status, response = start_mushroom_local_benchmark(profile_keys)
+                else:
+                    status, response = start_mushroom_local_benchmark()
+            elif executor.startswith("worker:") and mushroom_worker_operational_enabled():
+                start_kwargs = {"job_purpose": "benchmark"}
+                if selection_present:
+                    start_kwargs["profile_keys"] = profile_keys
+                status, response = start_mushroom_ml_multiversion_job(
+                    executor.removeprefix("worker:"), **start_kwargs
+                )
+            else:
+                status, response = 409, {
+                    "ok": False,
+                    "error": "Choose an available benchmark executor.",
+                }
+            if status != 202:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot start scientific benchmark.")),
+                    error=True,
+                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
+                )
+            return "./workers?" + urlencode(
+                {"benchmark_profile": profile_keys}, doseq=True
+            )
+        if action == "prepare_version_candidate":
+            status, response = start_mushroom_local_operational_candidate(
+                benchmark_batch_id=self.form_value(form, "benchmark_batch_id"),
+                version_id=self.form_value(form, "version_id"),
+            )
+            if status != 202:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot prepare the operational version candidate.")),
+                    error=True,
+                )
+            return "./workers"
+        if action == "promote_version_candidate":
+            status, response = promote_mushroom_local_version_candidate(
+                self.form_value(form, "job_id")
+            )
+            if status != 202:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot promote the complete version.")),
+                    error=True,
+                )
+            return "./workers"
+        if action == "rollback_version_promotion":
+            status, response = rollback_mushroom_local_version_promotion(
+                self.form_value(form, "job_id")
+            )
+            if status != 200:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot roll back the operational version.")),
+                    error=True,
                 )
             return "./workers"
         if action == "promote_ml_train_candidate":

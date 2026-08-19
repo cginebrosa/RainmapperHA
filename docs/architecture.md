@@ -293,28 +293,52 @@ Hay varios entry points segun entorno:
   `rainmapper_core/mushroom_rebuild_pipeline.py`, pero el único alcance operativo
   expuesto es completo. Al verificar el candidato, HA encadena automáticamente
   `worker_ml_train_v0` usando sus features candidatos y después un job
-  comparativo V2–V6 no operativo. Cada ejecución deriva las entradas
-  multiversión del snapshot fresco del propio job; los snapshots fijos bajo
+  `job_purpose=operational`. El registro resuelve la versión activa
+  (`altitude_v2` actualmente), el preparador materializa solo fixed/lag y el
+  plan exige todos sus artefactos sin fallos. Cada ejecución deriva las entradas
+  operativas del snapshot fresco del propio job; los snapshots fijos bajo
   `docker-data/audits/` son evidencia de laboratorio, no dependencias runtime.
+- Benchmark científico: `job_purpose=benchmark` conserva la preparación
+  V2–V6, pero entrena únicamente los perfiles compatibles seleccionados en la
+  acción manual. La selección queda en job, plan, manifiesto e informe. HA
+  verifica y archiva el batch en `ml_models/benchmarks/`; no actualiza
+  `runtime-batch.json`, no libera la caché Predictor y no inicia promoción.
+- Informes de benchmark: `mushroom_ml_benchmark_reports.py` persiste en cada
+  batch `benchmark-report.json` y `holdout-predictions.jsonl`. El primero liga
+  snapshot, selección, plan, métricas, fallos y duración por fit; el segundo
+  conserva la evidencia hold-out filtrada. La UI descubre el historial desde
+  el archivo, ofrece `Ver comparación` y no agrega especies ni declara ganador.
+  El transporte externo exige `ml_benchmark_report_v1` y verifica ambos hashes.
 - Trazabilidad multiversión: el batch instalado conserva
   `training-input-manifest.json`, referenciado por hash desde su manifiesto. El
   fichero identifica observaciones, catálogos, GIS e histórico usados sin copiar
   datos brutos ni rutas privadas. `mushroom_ml_training_freshness.py` compara esa
   identidad con las entradas vivas y clasifica la generación como `current`,
   `stale`, `unknown` o `invalid` para el aviso del Predictor.
+- Promoción de versión científica: un informe que cubre todos los perfiles
+  `operational_eligible` de una versión puede iniciar un nuevo entrenamiento
+  operativo sobre entradas vivas. El resultado se archiva en
+  `ml_models/candidates/` y no modifica runtime. Una segunda acción humana crea
+  un journal bajo `ml_models/promotion-history/`, verifica frescura, completitud,
+  hashes y carga de bundles, instala el batch y cambia conjuntamente
+  `runtime-batch.json` y `active_operational_target`. Rollback restaura las
+  copias exactas anteriores. La unidad activa es la versión completa; Predictor
+  enumera todos sus perfiles y contratos.
 - Runtime Predictor remoto: los modelos producidos por el propio worker se
   conservan transitoriamente por SHA-256 y se enlazan a la caché de runtime; no
   se descargan de nuevo desde HA. Los hashes ausentes viajan en un único tar
   verificado, con fallback compatible al transporte por fichero.
-- Publicación: el worker solo produce candidatos. Reconstrucción, ML v0 y V2–V6
+- Publicación: el worker solo produce candidatos. Reconstrucción, ML v0 y V2
   son tres jobs enlazados e independientes para diagnóstico. La UI no ofrece y
   el backend no acepta la promoción completa hasta que los tres terminan. HA
-  realiza una sola promoción de la generación lógica; si falla se restauran los
-  artefactos/modelos previos y los pendientes solo se limpian tras éxito
-  completo. No se promocionan ni mezclan candidatos parciales antiguos.
+  mantiene el resultado V2 verificado en staging y solo lo instala dentro de
+  una promoción de la generación lógica. Si esta falla antes de completarse,
+  elimina el batch instalado, restaura el descriptor runtime y revierte los
+  artefactos; los pendientes solo se limpian tras éxito completo. No se
+  promocionan ni mezclan candidatos parciales o benchmarks.
 - Ejecución HA local: `mushroom_local_full_update.py` usa los mismos
   `InputManifest`, `JobSpec`, `ResultManifest`, verificadores y scripts que el
-  worker. Encadena los tres trabajos dentro del contenedor, instala V2–V6 y
+  worker. Encadena los tres trabajos dentro del contenedor, instala V2 fixed/lag y
   publica rebuild+ML v0 en una única fase final con rollback compensatorio. El
   gate de entorno solo se declara en `rainmapper-local/docker-compose.yml`; no
   existe fallback silencioso desde un worker desconectado.

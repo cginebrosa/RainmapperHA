@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.2.262
+
+- Separate operational reconstruction/retraining from on-demand scientific
+  V2--V6 benchmarking in both the external worker and the HA local executor,
+  gated by an explicit `job_purpose` (`operational` or `benchmark`) that every
+  worker must advertise via `ml_job_purpose_v1`.
+- Keep `operational` resolving only the active version's technical profiles
+  (today `altitude_v2`/`common_idw`, fixed/lag) and require every fit to
+  succeed before a candidate is considered.
+- Archive each `benchmark` run under `ml_models/benchmarks/<batch_id>` with a
+  persistent, hash-verified `benchmark-report.json` and
+  `holdout-predictions.jsonl` (`ml_benchmark_report_v1`); benchmarks never
+  write the runtime, release cache, or trigger promotion automatically.
+- Let a benchmark select any non-empty subset of comparable registry
+  profiles, fixed at job/plan/manifest/report level, and add cancellation for
+  running HA local benchmarks with clean rollback of temporary state.
+- Add `Preparar candidata completa`, reusing already-fitted benchmark bundles
+  without repeating preparation, training, or hold-out, and a separate human
+  confirmation to activate a full version and to roll it back
+  (`mushroom_ml_version_promotion.py`).
+- Introduce `biology_v3/common_idw_plus_physical_state` (Biology V3+ físico),
+  adding water balance and SMI derived from the same IDW to V3 core's rows,
+  targets, splits, contracts, and estimators, without altering V3 core.
+- Generalize score selection across every declared estimator per
+  species/profile/contract by lowest validated Brier that improves
+  prevalence, removing the LR/RF-only operational exception and the fixed V2
+  historical-reference text.
+- Fix candidate/report contract gaps found during the first V3 promotion and
+  a later V4 activation: preserve the source benchmark's science quality
+  catalog by hash, and recursively forward significant-rain ecological
+  evidence through any nested nested `quality` mapping and the real daily V4
+  adapter, so Predictor no longer shows a false rain veto or missing Brier.
+- Package `mushroom_ml_biology_v3_physical.py` and
+  `mushroom_ml_benchmark_reports.py` in the external worker image so
+  operational and benchmark jobs that depend on them can run.
+
 ## 0.2.261
 
 - Restore operational lag-event coverage for every day of the seven-day

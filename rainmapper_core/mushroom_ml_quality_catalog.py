@@ -62,15 +62,49 @@ def _family(contract_id: object) -> str:
     return "unknown"
 
 
-def build_catalog(v2_v5_path: Path, v6_path: Path, *, snapshot_id: str) -> dict[str, Any]:
+def _calibration(y: np.ndarray, probabilities: np.ndarray) -> tuple[float, list[dict[str, Any]]]:
+    bins: list[dict[str, Any]] = []
+    error = 0.0
+    for lower in (0.0, 0.2, 0.4, 0.6, 0.8):
+        upper = lower + 0.2
+        mask = (probabilities >= lower) & (
+            probabilities <= upper if upper >= 1.0 else probabilities < upper
+        )
+        if not np.any(mask):
+            continue
+        predicted = float(np.mean(probabilities[mask]))
+        observed = float(np.mean(y[mask]))
+        error += float(np.mean(mask)) * abs(predicted - observed)
+        bins.append(
+            {
+                "lower": lower,
+                "upper": round(upper, 1),
+                "n": int(np.sum(mask)),
+                "predicted_mean": round(predicted, 6),
+                "observed_mean": round(observed, 6),
+            }
+        )
+    return round(error, 6), bins
+
+
+def build_catalog(
+    v2_v5_path: Path,
+    v6_path: Path,
+    *,
+    snapshot_id: str,
+    profile_keys: list[str] | None = None,
+    expected_estimators: Mapping[str, list[str]] | None = None,
+) -> dict[str, Any]:
     """Aggregate row-level hold-out predictions without averaging species."""
     grouped: dict[tuple[str, ...], list[tuple[int, float, float]]] = defaultdict(list)
+    row_groups: dict[tuple[str, ...], int] = defaultdict(int)
+    selected = set(profile_keys or [])
     sources = (
         _rows(v2_v5_path),
         _rows(
             v6_path,
             version_id="biology_v6_smooth_hierarchical",
-            profile_id="smooth_raw",
+            profile_id="smooth_weather_physical_state",
         ),
     )
     for source in sources:
@@ -81,32 +115,54 @@ def build_catalog(v2_v5_path: Path, v6_path: Path, *, snapshot_id: str) -> dict[
             family = _family(row.get("temporal_contract_id"))
             horizon = str(int(row.get("horizon_days") or 0))
             probabilities = row.get("estimator_probabilities") or {}
-            if not all((version_id, profile_id, species_id)) or family == "unknown":
+            profile_key = f"{version_id}/{profile_id}"
+            if (
+                not all((version_id, profile_id, species_id))
+                or family == "unknown"
+                or (selected and profile_key not in selected)
+            ):
                 continue
             try:
                 y_true = int(row["y_true"])
                 prevalence = float(row["train_prevalence_probability"])
             except (KeyError, TypeError, ValueError):
                 continue
-            for estimator_id, raw_probability in probabilities.items():
+            base_key = (version_id, profile_id, family, horizon, species_id)
+            row_groups[base_key] += 1
+            estimator_ids = set(probabilities)
+            if expected_estimators is not None:
+                estimator_ids.update(expected_estimators.get(profile_key, []))
+            for estimator_id in estimator_ids:
+                metric_key = (
+                    version_id,
+                    profile_id,
+                    family,
+                    horizon,
+                    species_id,
+                    str(estimator_id),
+                )
+                grouped[metric_key]
+                raw_probability = probabilities.get(estimator_id)
                 try:
                     probability = float(raw_probability)
                 except (TypeError, ValueError):
                     continue
-                grouped[(version_id, profile_id, family, horizon, species_id, str(estimator_id))].append(
-                    (y_true, probability, prevalence)
-                )
+                grouped[metric_key].append((y_true, probability, prevalence))
     entries = []
     for key, values in sorted(grouped.items()):
         version_id, profile_id, family, horizon, species_id, estimator_id = key
+        total_rows = row_groups[(version_id, profile_id, family, horizon, species_id)]
         y = np.asarray([value[0] for value in values], dtype=int)
         probabilities = np.asarray([value[1] for value in values], dtype=float)
         prevalence = np.asarray([value[2] for value in values], dtype=float)
-        brier = float(brier_score_loss(y, probabilities))
-        baseline = float(brier_score_loss(y, prevalence))
+        brier = float(brier_score_loss(y, probabilities)) if len(values) else None
+        baseline = float(brier_score_loss(y, prevalence)) if len(values) else None
         both_classes = len(np.unique(y)) == 2
-        delta = baseline - brier
-        if len(values) < 8 or not both_classes:
+        delta = baseline - brier if brier is not None and baseline is not None else None
+        calibration_error, calibration_bins = (
+            _calibration(y, probabilities) if len(values) else (None, [])
+        )
+        if len(values) < 8 or not both_classes or delta is None:
             evidence = "insufficient"
         elif delta > 0:
             evidence = "better_than_prevalence"
@@ -121,13 +177,17 @@ def build_catalog(v2_v5_path: Path, v6_path: Path, *, snapshot_id: str) -> dict[
                 "species_id": species_id,
                 "estimator_id": estimator_id,
                 "n_test": len(values),
+                "n_test_total": total_rows,
+                "abstention_count": total_rows - len(values),
                 "test_positive_count": int(y.sum()),
                 "test_negative_count": int(len(y) - y.sum()),
                 "both_test_classes": both_classes,
-                "brier_score": round(brier, 6),
-                "prevalence_brier_score": round(baseline, 6),
-                "brier_delta_vs_prevalence": round(delta, 6),
+                "brier_score": round(brier, 6) if brier is not None else None,
+                "prevalence_brier_score": round(baseline, 6) if baseline is not None else None,
+                "brier_delta_vs_prevalence": round(delta, 6) if delta is not None else None,
                 "roc_auc": round(float(roc_auc_score(y, probabilities)), 6) if both_classes else None,
+                "expected_calibration_error": calibration_error,
+                "calibration_bins": calibration_bins,
                 "evidence": evidence,
             }
         )

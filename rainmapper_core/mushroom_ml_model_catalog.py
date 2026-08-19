@@ -187,6 +187,41 @@ def catalog_entries(registry: Mapping[str, object]) -> list[dict[str, Any]]:
                 raise ValueError(f"{version_id}/{profile_id} has an invalid estimator scope")
             if set(raw_scopes) - set(estimators):
                 raise ValueError(f"{version_id}/{profile_id} scopes an unknown estimator")
+            raw_requirements = raw_profile.get("input_requirements", {})
+            if not isinstance(raw_requirements, Mapping):
+                raise ValueError(f"{version_id}/{profile_id} input requirements are invalid")
+            input_requirements = dict(raw_requirements)
+            if input_requirements:
+                lookback = input_requirements.get("weather_lookback_days")
+                predictive_window = input_requirements.get("predictive_window_days")
+                if (
+                    not isinstance(lookback, int)
+                    or isinstance(lookback, bool)
+                    or lookback <= 0
+                    or not isinstance(predictive_window, int)
+                    or isinstance(predictive_window, bool)
+                    or predictive_window <= 0
+                    or predictive_window > lookback
+                    or not isinstance(
+                        input_requirements.get("include_physical_state"), bool
+                    )
+                ):
+                    raise ValueError(
+                        f"{version_id}/{profile_id} input requirements are invalid"
+                    )
+                prepared_input_ids = input_requirements.get("prepared_input_ids")
+                if (
+                    not isinstance(prepared_input_ids, list)
+                    or not prepared_input_ids
+                    or any(
+                        not isinstance(value, str) or not value.strip()
+                        for value in prepared_input_ids
+                    )
+                    or len(prepared_input_ids) != len(set(prepared_input_ids))
+                ):
+                    raise ValueError(
+                        f"{version_id}/{profile_id} prepared inputs are invalid"
+                    )
             entries.append(
                 {
                     "version_id": version_id,
@@ -210,6 +245,7 @@ def catalog_entries(registry: Mapping[str, object]) -> list[dict[str, Any]]:
                     "temporal_contract_ids": profile_contracts,
                     "estimator_ids": estimators,
                     "estimator_scopes": estimator_scopes,
+                    "input_requirements": input_requirements,
                 }
             )
     return entries
@@ -424,6 +460,47 @@ def validate_batch_manifest(
     }
     if checked_quality_catalog is not None:
         result["quality_catalog"] = checked_quality_catalog
+    benchmark_report = payload.get("benchmark_report")
+    if benchmark_report is not None:
+        if not isinstance(benchmark_report, Mapping):
+            raise ValueError("Benchmark report reference must be an object")
+        report_path = Path(str(benchmark_report.get("path") or ""))
+        report_digest = str(benchmark_report.get("sha256") or "")
+        report_id = str(benchmark_report.get("report_id") or "")
+        if (
+            report_path != Path("batches", batch_id, "benchmark-report.json")
+            or not re.fullmatch(r"[0-9a-f]{64}", report_digest)
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", report_id)
+        ):
+            raise ValueError("Benchmark report reference is invalid")
+        result["benchmark_report"] = {
+            "path": report_path.as_posix(),
+            "sha256": report_digest,
+            "report_id": report_id,
+        }
+    holdout_predictions = payload.get("holdout_predictions")
+    if holdout_predictions is not None:
+        if not isinstance(holdout_predictions, Mapping):
+            raise ValueError("Benchmark hold-out reference must be an object")
+        predictions_path = Path(str(holdout_predictions.get("path") or ""))
+        predictions_digest = str(holdout_predictions.get("sha256") or "")
+        row_count = holdout_predictions.get("row_count")
+        if (
+            predictions_path
+            != Path("batches", batch_id, "holdout-predictions.jsonl")
+            or not re.fullmatch(r"[0-9a-f]{64}", predictions_digest)
+            or not isinstance(row_count, int)
+            or isinstance(row_count, bool)
+            or row_count <= 0
+        ):
+            raise ValueError("Benchmark hold-out reference is invalid")
+        result["holdout_predictions"] = {
+            "path": predictions_path.as_posix(),
+            "sha256": predictions_digest,
+            "row_count": row_count,
+        }
+    if (benchmark_report is None) != (holdout_predictions is None):
+        raise ValueError("Benchmark report and hold-out references must be declared together")
     training_input_manifest = payload.get("training_input_manifest")
     if training_input_manifest is not None:
         if not isinstance(training_input_manifest, Mapping):

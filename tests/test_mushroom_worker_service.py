@@ -230,6 +230,8 @@ class MushroomWorkerServiceTests(unittest.TestCase):
         self.assertIn("partitioned_weather_history_v1", result["capabilities"])
         self.assertIn("terminal_job_cleanup_v1", result["capabilities"])
         self.assertIn("predictor_multiversion_v1", result["capabilities"])
+        self.assertIn("ml_job_purpose_v1", result["capabilities"])
+        self.assertIn("ml_benchmark_report_v1", result["capabilities"])
         self.assertEqual(result["dataset_cache"]["file_count"], 10)
 
         heartbeat = mushroom_worker_service.heartbeat_payload(

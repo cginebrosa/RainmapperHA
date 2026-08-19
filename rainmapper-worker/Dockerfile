@@ -35,7 +35,9 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_learned_model.py \
      rainmapper_core/mushroom_ml_biology_v3.py \
      rainmapper_core/mushroom_ml_biology_v3_evaluation.py \
+     rainmapper_core/mushroom_ml_biology_v3_physical.py \
      rainmapper_core/mushroom_ml_biology_v4.py \
+     rainmapper_core/mushroom_ml_benchmark_reports.py \
      rainmapper_core/mushroom_ml_raw_weather.py \
      rainmapper_core/mushroom_ml_smooth_hierarchical.py \
      rainmapper_core/mushroom_ml_sparse_group.py \
@@ -102,7 +104,9 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_rebuild_contracts.py \
         /app/rainmapper_core/mushroom_ml_biology_v3.py \
         /app/rainmapper_core/mushroom_ml_biology_v3_evaluation.py \
+        /app/rainmapper_core/mushroom_ml_biology_v3_physical.py \
         /app/rainmapper_core/mushroom_ml_biology_v4.py \
+        /app/rainmapper_core/mushroom_ml_benchmark_reports.py \
         /app/rainmapper_core/mushroom_ml_raw_weather.py \
         /app/rainmapper_core/mushroom_ml_smooth_hierarchical.py \
         /app/rainmapper_core/mushroom_ml_sparse_group.py \

@@ -14,16 +14,6 @@ from typing import Any
 LEGACY_FEATURE_SET_IDS = ("fixed_gap_7d_v1", "lag_event_v1")
 ALTITUDE_FEATURE_SET_IDS = ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
 FEATURE_SET_IDS = ALTITUDE_FEATURE_SET_IDS
-ESTIMATOR_IDS = (
-    "logistic_regression_reduced_v1",
-    "random_forest_restricted_v1",
-)
-EXPERIMENTAL_ESTIMATOR_IDS = (
-    "extra_trees_restricted_v1",
-    "hist_gradient_boosting_restricted_v1",
-    "knn_distance_v1",
-    "rbf_svm_calibrated_v1",
-)
 FAVORABLE_THRESHOLD = 0.60
 UNFAVORABLE_THRESHOLD = 0.40
 LOW_AGREEMENT_GAP = 0.20
@@ -37,6 +27,13 @@ def _number(value: object) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return float(value)
+
+
+def _flag(value: object) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    number = _number(value)
+    return number == 1.0 if number is not None else None
 
 
 def _score_label(probability: float) -> str:
@@ -96,7 +93,7 @@ def _trusted_result(feature_set_id: str, result: dict[str, Any]) -> dict[str, An
     exclusions = result.get("estimator_exclusions")
     exclusions = exclusions if isinstance(exclusions, dict) else {}
     candidates: list[tuple[float, str, float, dict[str, Any]]] = []
-    for estimator_id in ESTIMATOR_IDS:
+    for estimator_id in sorted(set(estimator_metrics) | set(probabilities)):
         if estimator_id in exclusions:
             continue
         metrics = estimator_metrics.get(estimator_id)
@@ -108,48 +105,9 @@ def _trusted_result(feature_set_id: str, result: dict[str, Any]) -> dict[str, An
         candidates.append((brier, estimator_id, probability, metrics))
     if not candidates:
         return None
-    brier, estimator_id, probability, metrics = min(candidates, key=lambda row: row[0])
-    return {
-        "feature_set_id": feature_set_id,
-        "estimator_id": estimator_id,
-        "probability": round(probability, 4),
-        "label": _score_label(probability),
-        "brier_score": round(brier, 4),
-        "baseline_brier_score": round(baseline_brier, 4),
-        "roc_auc": _number(metrics.get("roc_auc")),
-        "test_samples": metrics.get("n"),
-    }
-
-
-def _best_experimental_result(
-    feature_set_id: str,
-    result: dict[str, Any],
-) -> dict[str, Any] | None:
-    """Select the best validated shadow for one feature contract."""
-    evaluation = result.get("evaluation")
-    if not isinstance(evaluation, dict) or evaluation.get("available") is not True:
-        return None
-    baseline = evaluation.get("baseline")
-    baseline = baseline if isinstance(baseline, dict) else {}
-    baseline_brier = _number(baseline.get("brier_score"))
-    if baseline_brier is None:
-        return None
-    estimator_metrics = evaluation.get("estimators")
-    estimator_metrics = estimator_metrics if isinstance(estimator_metrics, dict) else {}
-    probabilities = result.get("estimator_probabilities")
-    probabilities = probabilities if isinstance(probabilities, dict) else {}
-    candidates: list[tuple[float, str, float, dict[str, Any]]] = []
-    for estimator_id in EXPERIMENTAL_ESTIMATOR_IDS:
-        metrics = estimator_metrics.get(estimator_id)
-        metrics = metrics if isinstance(metrics, dict) else {}
-        brier = _number(metrics.get("brier_score"))
-        probability = _number(probabilities.get(estimator_id))
-        if brier is None or probability is None or brier >= baseline_brier:
-            continue
-        candidates.append((brier, estimator_id, probability, metrics))
-    if not candidates:
-        return None
-    brier, estimator_id, probability, metrics = min(candidates, key=lambda row: row[0])
+    brier, estimator_id, probability, metrics = min(
+        candidates, key=lambda row: (row[0], row[1])
+    )
     return {
         "feature_set_id": feature_set_id,
         "estimator_id": estimator_id,
@@ -189,7 +147,7 @@ def _validated_estimator_ids(
         probabilities = _interpretation_probabilities(result)
         if baseline_brier is None:
             continue
-        for estimator_id in ESTIMATOR_IDS:
+        for estimator_id in sorted(set(metrics_by_estimator) | set(probabilities)):
             metrics = metrics_by_estimator.get(estimator_id)
             metrics = metrics if isinstance(metrics, dict) else {}
             brier = _number(metrics.get("brier_score"))
@@ -215,7 +173,7 @@ def _unvalidated_signal(
         exclusions = exclusions if isinstance(exclusions, dict) else {}
         values = [
             probability
-            for estimator_id in ESTIMATOR_IDS
+            for estimator_id in sorted(probabilities)
             if estimator_id not in exclusions
             and (probability := _number(probabilities.get(estimator_id))) is not None
         ]
@@ -248,9 +206,10 @@ def build_interpretation(
     *,
     season_phase: str,
     phenology: dict[str, Any] | None = None,
+    feature_set_ids: tuple[str, ...] | list[str] | None = None,
 ) -> dict[str, Any]:
     """Build the stable interpretation payload consumed by every UI view."""
-    active_feature_set_ids = (
+    active_feature_set_ids = tuple(feature_set_ids or ()) or (
         ALTITUDE_FEATURE_SET_IDS
         if any(feature_set_id in comparison for feature_set_id in ALTITUDE_FEATURE_SET_IDS)
         else LEGACY_FEATURE_SET_IDS
@@ -300,40 +259,12 @@ def build_interpretation(
         for feature_set_id, result in available_results
         if (trusted_result := _trusted_result(feature_set_id, result)) is not None
     ]
-    experimental_results = [
-        experimental_result
-        for feature_set_id, result in available_results
-        if (
-            experimental_result := _best_experimental_result(feature_set_id, result)
-        )
-        is not None
-    ]
-    if experimental_results:
-        experimental_probabilities = [
-            float(row["probability"]) for row in experimental_results
-        ]
-        experimental_labels = {
-            str(row["label"]) for row in experimental_results
-        }
-        experimental_signal = (
-            next(iter(experimental_labels))
-            if len(experimental_labels) == 1
-            else "mixed"
-        )
-        experimental_range = {
-            "min": round(min(experimental_probabilities), 4),
-            "max": round(max(experimental_probabilities), 4),
-            "midpoint": round(
-                sum(experimental_probabilities) / len(experimental_probabilities), 4
-            ),
-        }
-        experimental_estimator_ids = sorted(
-            {str(row["estimator_id"]) for row in experimental_results}
-        )
-    else:
-        experimental_signal = "unavailable"
-        experimental_range = None
-        experimental_estimator_ids = []
+    # Kept in the response schema for older clients. There is no shadow tier now:
+    # every estimator is subject to the same Brier-vs-prevalence rule above.
+    experimental_results: list[dict[str, Any]] = []
+    experimental_signal = "unavailable"
+    experimental_range = None
+    experimental_estimator_ids: list[str] = []
     validated_estimator_ids = _validated_estimator_ids(available_results)
     if not trusted:
         verdict = "abstain"
@@ -367,16 +298,37 @@ def build_interpretation(
     estimator_gaps: dict[str, float] = {}
     for feature_set_id, result in available_results:
         probabilities = _interpretation_probabilities(result)
+        evaluation = result.get("evaluation")
+        evaluation = evaluation if isinstance(evaluation, dict) else {}
+        baseline = evaluation.get("baseline")
+        baseline = baseline if isinstance(baseline, dict) else {}
+        baseline_brier = _number(baseline.get("brier_score"))
+        metrics_by_estimator = evaluation.get("estimators")
+        metrics_by_estimator = (
+            metrics_by_estimator if isinstance(metrics_by_estimator, dict) else {}
+        )
         exclusions = result.get("estimator_exclusions")
         exclusions = exclusions if isinstance(exclusions, dict) else {}
-        if any(estimator_id in exclusions for estimator_id in ESTIMATOR_IDS):
-            continue
-        lr = _number(probabilities.get(ESTIMATOR_IDS[0]))
-        rf = _number(probabilities.get(ESTIMATOR_IDS[1]))
-        if lr is not None and rf is not None:
-            estimator_gaps[feature_set_id] = round(abs(lr - rf), 4)
+        validated_probabilities = []
+        if baseline_brier is not None:
+            for estimator_id in sorted(set(metrics_by_estimator) | set(probabilities)):
+                metrics = metrics_by_estimator.get(estimator_id)
+                metrics = metrics if isinstance(metrics, dict) else {}
+                brier = _number(metrics.get("brier_score"))
+                probability = _number(probabilities.get(estimator_id))
+                if (
+                    estimator_id not in exclusions
+                    and brier is not None
+                    and brier < baseline_brier
+                    and probability is not None
+                ):
+                    validated_probabilities.append(probability)
+        if len(validated_probabilities) >= 2:
+            estimator_gaps[feature_set_id] = round(
+                max(validated_probabilities) - min(validated_probabilities), 4
+            )
     maximum_gap = max(estimator_gaps.values(), default=None)
-    if len(validated_estimator_ids) < 2:
+    if len(validated_estimator_ids) < 2 or maximum_gap is None:
         consensus = "unavailable"
     elif maximum_gap is not None and maximum_gap >= LOW_AGREEMENT_GAP:
         consensus = "low"
@@ -388,7 +340,7 @@ def build_interpretation(
 
     if not validated_estimator_ids:
         statistical_support = "unavailable"
-    elif len(validated_estimator_ids) == 1 or consensus == "low":
+    elif len(validated_estimator_ids) == 1 or consensus in {"low", "unavailable"}:
         statistical_support = "limited"
         reason_codes.append("statistical_support_limited")
     elif consensus == "high":
@@ -416,9 +368,7 @@ def build_interpretation(
     if severe_ood_features:
         reason_codes.append("logistic_regression_excluded_out_of_domain")
         confidence = "low"
-    experimental_out_of_domain_caution = bool(
-        experimental_results and severe_ood_features
-    )
+    experimental_out_of_domain_caution = False
 
     delay = dict((phenology or {}).get("fruiting_delay_after_rain_days") or {})
     timing_values: list[str] = []
@@ -427,13 +377,13 @@ def build_interpretation(
     for _feature_set_id, result in available_results:
         features = result.get("features_used")
         features = features if isinstance(features, dict) else {}
-        found = _number(features.get("significant_rain_found_90d"))
+        found = _flag(features.get("significant_rain_found_90d"))
         days = _number(features.get("days_since_significant_rain_at_target"))
-        event_found = event_found or found == 1.0
+        event_found = event_found or found is True
         current_timing = _timing(days, delay)
         timing_values.append(current_timing)
         active_event_found = active_event_found or (
-            found == 1.0 and current_timing != "expired"
+            found is True and current_timing != "expired"
         )
     fruiting_timing = _combined_timing(timing_values)
     if active_event_found:

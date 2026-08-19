@@ -83,7 +83,7 @@ class MushroomMLTrainingFreshnessTests(TestCase):
                 self.assertEqual(self._assess(root)["status"], "current")
                 self.assertEqual(
                     verify.call_args.kwargs["ignored_extra_inputs"],
-                    {"observation-features.json"},
+                    {"observation-features.json", "registry.json"},
                 )
                 self.assertFalse(verify.call_args.kwargs["verify_weather_file_hashes"])
             with patch(

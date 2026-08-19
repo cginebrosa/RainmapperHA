@@ -37,31 +37,64 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-17
+## Estado general al cierre de 2026-08-18
 
 - Rama activa: `inicial`; el worktree grande y mixto es deliberado. Preservar
   todos los cambios y ficheros no rastreados.
-- El usuario mostró HA `0.2.256` y worker M1 `1.0.10` instalados y emparejados.
-  La regeneración real completó reconstrucción y ML v0, pero V2–V6 falló porque
-  dependía de un JSON del laboratorio ausente en HA.
-- La corrección local deriva V2–V6 del snapshot fresco de cada job, conserva una
-  identidad de entrenamiento verificable y avisa en el Predictor cuando los
-  modelos no incorporan las entradas actuales.
-- El worker temporal `Validación local` fue retirado. El worker M1 normal sigue
-  emparejado con el HA real y no se cambia de coordinador para probar en local.
-  El HA local canónico usa `8101` y dispone de un ejecutor opt-in dentro de su
-  propio contenedor: encadena reconstrucción, ML v0 y V2–V6 y promociona una
-  sola vez al final. La prueba larga terminó en 18m45s y el smoke final pasó
-  863 pruebas.
-- Los dos diagnósticos P0 quedaron cerrados localmente: la fila fija procedía
-  del comparador legado de estación única, no del V2 del batch, y MapLibre
-  descartaba indebidamente ceros al contar soporte IDW. La tarjeta V2 resuelve
-  ahora el batch común IDW; V5/V6 v2 consumen IDW, ET0, balance y SMI con paridad
-  de inferencia. Preparar releases exige una nueva autorización explícita; no
-  tocar HA/worker reales mientras tanto.
-- V2–V6 tienen el mismo estatus experimental. V2 aparece primero solo por
-  cronología. V5 pierde 32/34 y V6 30/34 frente al mejor miembro anterior; no se
-  añade otra familia ni ensemble durante este gate.
+- HA `0.2.261` está publicada y el worker privado local `1.0.14` construido.
+  La corrección `lag_event` cubre h1..h7 sin multiplicar ajustes. No preparar
+  otra release sin autorización explícita.
+- El Predictor remoto reutiliza el runtime del worker y volvió a tiempos de
+  segundos. El coste pendiente está en el entrenamiento comparativo: una
+  ejecución V2–V6 observada tardó aproximadamente 39m45s y planificó 436 fits.
+- Las fases 1 y 2 de separación entre entrenamiento operativo y benchmark
+  científico están implementadas en el worktree y pendientes de release. La
+  cadena habitual resuelve solo la generación activa V2 fixed/lag; V2–V6 queda
+  como benchmark manual seleccionable, con informe persistente y sin promoción
+  automática. La UI parte sin selección, conserva el perfil lanzado, limita su
+  preparación/hold-out a ese alcance y permite cancelar benchmarks HA locales.
+  El benchmark V3 local real terminó en 2m34 con 108/108 fits y su trazabilidad
+  queda enlazada desde la fila y el historial. Ambas fases pasan el smoke
+  completo de 921 pruebas. El diseño y el estado están en
+  `docs/active-context.md` y
+  `docs/mushrooms/mushroom-ml-operational-benchmark-separation-design-es.md`.
+- Las fases 3 y 4 están implementadas y la imagen HA local fue reconstruida:
+  fase 3 registra
+  `biology_v3/common_idw_plus_physical_state` como `Biology V3+ físico`, sin
+  modificar V3 core. Reutiliza sus filas, targets, splits, contratos y
+  estimadores y añade solamente balance hídrico y SMI causal del mismo IDW.
+  Mantiene 90 días predictivos y usa 365 solo como calentamiento del estado
+  físico. Fase 4 permite preparar desde el informe una candidata de cualquier
+  versión completa V2–V6, activarla mediante otra confirmación humana y revertir
+  registro+batch. V4 declara sus dos perfiles; V5 y V6 declaran sus perfiles y
+  familias propias. La promoción local V3 ya fue ejecutada. La corrección posterior
+  conserva por hash el catálogo Brier del benchmark fuente, reenvía la evidencia
+  de lluvia significativa a interpretación, elimina el texto V2 fijo y oculta
+  reactivaciones redundantes. Predictor presenta fixed/lag de todos los perfiles
+  activos. Cualquier estimador declarado puede aportar el score si mejora la
+  prevalencia fuera de muestra y tiene el menor Brier de su perfil/contrato; ya
+  no existe una excepción operativa LR/RF. La marca
+  `operational_eligible` expresa compatibilidad técnica y no depende de ganar
+  ninguna métrica. El smoke actual pasa 944 pruebas. HA local fue reconstruido
+  con digest `sha256:ead6e5aad21db2a6f6e432dc89083d8c5bd1c5ce6e2807fc6c8e44b8fe08fcad`;
+  falta la revalidación visual del usuario. No hay bump, publicación
+  ni cambios en HA real o el worker normal.
+- Los cambios posteriores corrigen dos problemas de forma
+  transversal: `Preparar candidata completa` reutiliza los bundles verificados
+  del benchmark sin repetir entrenamiento, y la evidencia ecológica se extrae
+  de cualquier nivel anidado de `quality`. La prueba común recorre todas las
+  versiones operativas registradas V2–V6 y exige Brier, lluvia, compatibilidad
+  y rango final coherentes. El smoke completo pasa 949 pruebas y
+  `git diff --check` queda limpio. Una corrección adicional evita que el
+  adaptador diario V4 descarte el contrato ecológico heredado. HA local fue
+  reconstruido con digest
+  `sha256:ed92aa1b2f7ed008324a7010819be65371316da615f5f35d1292d50c6d5f86ec`;
+  raíz, Predictor y Workers responden HTTP 200 y el caso real Edulis/Salteguet
+  devuelve lluvia reciente y compatibilidad. El relevo de publicación está en
+  `docs/active-context.md`; no se tocó HA real ni el worker normal.
+- Los diagnósticos anteriores permanecen cerrados: V2 usa IDW común, MapLibre
+  cuenta ceros finitos y excluye N/A, y V5/V6 v2 consumen IDW, ET0, balance y
+  SMI con paridad de inferencia.
 - El snapshot `mushroom-ml-snapshot-20260816` sigue siendo evidencia científica
   inmutable, pero ya no es una dependencia de una regeneración operativa.
 - El repositorio GitHub sigue público. Las imágenes no incluyen observaciones,
@@ -89,6 +122,12 @@ El estado exacto, la prueba siguiente y los riesgos están en
   `docs/mushrooms/mushroom-ml-version-lifecycle-es.md`
 - Runtime HA/worker y Predictor V2–V6:
   `docs/mushrooms/mushroom-ml-multiversion-runtime-spec-es.md`
+- Separación propuesta entre entrenamiento operativo, benchmark, informe y
+  promoción:
+  `docs/mushrooms/mushroom-ml-operational-benchmark-separation-design-es.md`
+- Contrato genérico para perfiles actuales/futuros, candidatas, promoción y
+  rollback:
+  `docs/mushrooms/mushroom-ml-generic-profile-promotion-plan-es.md`
 - Auditoría ML v3: `docs/mushrooms/mushroom-ml-v3-data-audit-es.md`
 - Especificación ML v3: `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`
 - Especificación Biology V4, en implementación local por fases:

@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rainmapper_core import mushroom_ml_biology_v4 as biology_v4
+from rainmapper_core import mushroom_ml_biology_v3_physical as biology_v3_physical
 from rainmapper_core import mushroom_ml_error_analysis as error_analysis
 from rainmapper_core import mushroom_ml_holdout as holdout
 from rainmapper_core.mushroom_ml_biology_v3_evaluation import (
@@ -26,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--snapshot", required=True, type=Path)
     parser.add_argument("--v5-dir", required=True, type=Path)
+    parser.add_argument("--profile-key", action="append")
     return parser.parse_args()
 
 
@@ -83,16 +85,25 @@ def _write_csv(path: Path, rows: list[dict]) -> None:
 def main() -> int:
     args = parse_args()
     args.v5_dir.mkdir(parents=True, exist_ok=True)
+    selected = {str(value) for value in (args.profile_key or [])}
+    needs_v4 = (
+        not selected
+        or any(key.startswith("biology_v4/") for key in selected)
+        or "biology_v3/common_idw_plus_physical_state" in selected
+    )
+    needs_v5 = not selected or any(
+        key.startswith("biology_v5_raw_weather_discovery/") for key in selected
+    )
     sources = {
         "fixed": {
             "v3": _load(args.snapshot / "biology-v3-fixed.json"),
-            "v4": _load(args.snapshot / "biology-v4-fixed.json"),
-            "v5": _load(args.v5_dir / "biology-v5-fixed.json"),
+            "v4": _load(args.snapshot / "biology-v4-fixed.json") if needs_v4 else None,
+            "v5": _load(args.v5_dir / "biology-v5-fixed.json") if needs_v5 else None,
         },
         "lag": {
             "v3": _load(args.snapshot / "biology-v3-lag.json"),
-            "v4": _load(args.snapshot / "biology-v4-lag.json"),
-            "v5": _load(args.v5_dir / "biology-v5-lag.json"),
+            "v4": _load(args.snapshot / "biology-v4-lag.json") if needs_v4 else None,
+            "v5": _load(args.v5_dir / "biology-v5-lag.json") if needs_v5 else None,
         },
     }
     all_reports: dict[str, object] = {}
@@ -100,46 +111,58 @@ def main() -> int:
     all_selections: list[dict] = []
     for temporal_name, source in sources.items():
         v2 = build_observation_altitude_v2_common_idw_benchmark(source["v3"])
-        datasets = {
+        available_datasets = {
             "altitude_v2|common_idw": (v2, "altitude_v2", "common_idw", "current"),
             "biology_v3|core": (source["v3"], "biology_v3", "core", "current"),
-            "biology_v4|extended_weather": (
-                biology_v4.materialize_comparison_benchmark(source["v4"], profile_id="extended_weather"),
-                "biology_v4", "extended_weather", "current",
-            ),
-            "biology_v4|climatic_balance": (
-                biology_v4.materialize_comparison_benchmark(source["v4"], profile_id="climatic_balance"),
-                "biology_v4", "climatic_balance", "current",
-            ),
-            "biology_v5|raw_primary": (source["v5"], "biology_v5_raw_weather_discovery", "raw_primary", "v5"),
-            "biology_v5|raw_primary_no_calendar": (
-                source["v5"], "biology_v5_raw_weather_discovery", "raw_primary_no_calendar", "v5",
-            ),
-            "biology_v5|raw_primary_plus_physical": (
-                source["v5"], "biology_v5_raw_weather_discovery", "raw_primary_plus_physical", "v5",
-            ),
-            "biology_v5|raw_primary_plus_physical_no_calendar": (
-                source["v5"], "biology_v5_raw_weather_discovery", "raw_primary_plus_physical_no_calendar", "v5",
-            ),
-            "biology_v5|raw_primary_plus_physical_state": (
-                source["v5"],
-                "biology_v5_raw_weather_discovery",
-                "raw_primary_plus_physical_state",
-                "v5",
-            ),
-            "biology_v5|raw_primary_plus_physical_state_no_calendar": (
-                source["v5"],
-                "biology_v5_raw_weather_discovery",
-                "raw_primary_plus_physical_state_no_calendar",
-                "v5",
-            ),
         }
+        if source["v4"] is not None:
+            available_datasets.update(
+                {
+                    "biology_v3|common_idw_plus_physical_state": (
+                        biology_v3_physical.materialize_benchmark(source["v4"]),
+                        "biology_v3",
+                        biology_v3_physical.PROFILE_ID,
+                        "current",
+                    ),
+                    "biology_v4|extended_weather": (
+                        biology_v4.materialize_comparison_benchmark(
+                            source["v4"], profile_id="extended_weather"
+                        ),
+                        "biology_v4", "extended_weather", "current",
+                    ),
+                    "biology_v4|climatic_balance": (
+                        biology_v4.materialize_comparison_benchmark(
+                            source["v4"], profile_id="climatic_balance"
+                        ),
+                        "biology_v4", "climatic_balance", "current",
+                    ),
+                }
+            )
+        if source["v5"] is not None:
+            for profile_id in (
+                "raw_primary", "raw_primary_no_calendar", "raw_primary_plus_physical",
+                "raw_primary_plus_physical_no_calendar", "raw_primary_plus_physical_state",
+                "raw_primary_plus_physical_state_no_calendar",
+            ):
+                available_datasets[f"biology_v5|{profile_id}"] = (
+                    source["v5"], "biology_v5_raw_weather_discovery", profile_id, "v5"
+                )
+        datasets = {
+            name: dataset
+            for name, dataset in available_datasets.items()
+            if not selected or f"{dataset[1]}/{dataset[2]}" in selected
+        }
+        if not datasets:
+            continue
         eligible_maps = {
             name: {holdout.comparison_key(row): row for row in holdout.eligible_samples(dataset[0])}
             for name, dataset in datasets.items()
         }
         common = set.intersection(*(set(rows) for rows in eligible_maps.values()))
-        reference = [row for key, row in eligible_maps["biology_v3|core"].items() if key in common]
+        reference_name = (
+            "biology_v3|core" if "biology_v3|core" in eligible_maps else next(iter(eligible_maps))
+        )
+        reference = [row for key, row in eligible_maps[reference_name].items() if key in common]
         for group_days in (7, 14):
             train, test = chronological_group_split(reference, group_days=group_days)
             train_keys = {holdout.comparison_key(row) for row in train}
@@ -179,12 +202,20 @@ def main() -> int:
         campaign_train_keys = {holdout.comparison_key(row) for row in campaign_train}
         campaign_test_keys = {holdout.comparison_key(row) for row in campaign_test}
         campaign_reports = {}
-        for profile in (
-            "raw_primary_no_calendar", "raw_primary", "raw_primary_plus_physical_no_calendar",
-            "raw_primary_plus_physical",
-            "raw_primary_plus_physical_state_no_calendar",
-            "raw_primary_plus_physical_state",
-        ):
+        campaign_profiles = (
+            (
+                "raw_primary_no_calendar", "raw_primary", "raw_primary_plus_physical_no_calendar",
+                "raw_primary_plus_physical", "raw_primary_plus_physical_state_no_calendar",
+                "raw_primary_plus_physical_state",
+            )
+            if not selected
+            else (
+                ("raw_primary_plus_physical_state",)
+                if "biology_v5_raw_weather_discovery/raw_primary_plus_physical_state" in selected
+                else ()
+            )
+        )
+        for profile in campaign_profiles:
             report, rows, selections = holdout.evaluate_dataset(
                 source["v5"],
                 version_id="biology_v5_raw_weather_discovery",
@@ -198,20 +229,21 @@ def main() -> int:
             campaign_reports[profile] = report
             all_rows.extend(rows)
             all_selections.extend(selections)
-        campaign_path = args.v5_dir / f"sensitivity-{temporal_name}-campaign.json"
-        campaign_path.write_text(
-            json.dumps({
-                "kind": "biology_v5_campaign_sensitivity",
-                "temporal_contract": temporal_name,
-                "train_rows": len(campaign_train_keys),
-                "test_rows": len(campaign_test_keys),
-                "reports": campaign_reports,
-                "model_artifact_written": False,
-                "operational_candidate_trained": False,
-            }, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        all_reports[f"{temporal_name}-campaign"] = {"path": campaign_path.name, "sha256": sha256(campaign_path)}
+        if campaign_profiles:
+            campaign_path = args.v5_dir / f"sensitivity-{temporal_name}-campaign.json"
+            campaign_path.write_text(
+                json.dumps({
+                    "kind": "biology_v5_campaign_sensitivity",
+                    "temporal_contract": temporal_name,
+                    "train_rows": len(campaign_train_keys),
+                    "test_rows": len(campaign_test_keys),
+                    "reports": campaign_reports,
+                    "model_artifact_written": False,
+                    "operational_candidate_trained": False,
+                }, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            all_reports[f"{temporal_name}-campaign"] = {"path": campaign_path.name, "sha256": sha256(campaign_path)}
 
     phases = error_analysis.assign_observed_phases(all_rows)
     error_rows = []

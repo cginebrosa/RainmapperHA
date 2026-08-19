@@ -210,6 +210,8 @@ def worker_status(
             mushroom_worker_registry.PREDICTOR_CAPABILITY,
             mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY,
             mushroom_worker_registry.ML_MULTIVERSION_TRAINING_CAPABILITY,
+            mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY,
+            mushroom_worker_registry.ML_BENCHMARK_REPORT_CAPABILITY,
         ],
         "dataset_cache": {
             "status": cache["status"],
@@ -1195,6 +1197,9 @@ def serve(
                     )
                     if not isinstance(spec, dict) or spec.get("kind") != "mushroom_ml_multiversion_job":
                         raise ValueError("Worker multiversion job specification is invalid.")
+                    job_purpose = str(spec.get("job_purpose") or "benchmark")
+                    if job_purpose not in {"operational", "benchmark"}:
+                        raise ValueError("Worker multiversion job purpose is invalid.")
                     result_root = worker_job_dir / "multiversion_result"
                     existing_result = result_root / "multiversion_result.json"
                     if existing_result.is_file():
@@ -1272,11 +1277,25 @@ def serve(
                             "--output-dir", str(preparation_root),
                             "--source-snapshot-id", str(input_bundle["snapshot_id"]),
                             "--progress-jsonl", str(preparation_progress_path),
+                            "--job-purpose", job_purpose,
                         ]
+                        if job_purpose == "benchmark":
+                            for profile_key in list(spec.get("profile_keys") or []):
+                                preparation_command.extend(
+                                    ["--profile-key", str(profile_key)]
+                                )
                         multiversion_telemetry.publish(
                             {
-                                "phase": "Preparing fresh V2--V6 evaluation inputs",
-                                "message": "Building disposable benchmarks from the current snapshot.",
+                                "phase": (
+                                    "Preparing active operational inputs"
+                                    if job_purpose == "operational"
+                                    else "Preparing fresh V2--V6 evaluation inputs"
+                                ),
+                                "message": (
+                                    "Building fixed/lag V2 inputs from the current snapshot."
+                                    if job_purpose == "operational"
+                                    else "Building disposable benchmarks from the current snapshot."
+                                ),
                                 "overall_percent": 20,
                             },
                             force=True,
@@ -1341,12 +1360,6 @@ def serve(
                         "--batch-id", str(spec["batch_id"]),
                         "--v3-fixed", model_inputs["v3_fixed"],
                         "--v3-lag", model_inputs["v3_lag"],
-                        "--v4-fixed", model_inputs["v4_fixed"],
-                        "--v4-lag", model_inputs["v4_lag"],
-                        "--v5-fixed", model_inputs["v5_fixed"],
-                        "--v5-lag", model_inputs["v5_lag"],
-                        "--v2-v5-heldout", model_inputs["v2_v5_heldout"],
-                        "--v6-heldout", model_inputs["v6_heldout"],
                         "--models-root", str(worker_job_dir / "multiversion_models"),
                         "--summary", str(worker_job_dir / "multiversion-summary.json"),
                         "--job-id", job_id,
@@ -1354,15 +1367,38 @@ def serve(
                         "--progress-jsonl", str(multiversion_progress_path),
                         "--training-input-manifest",
                         str(worker_job_dir / "snapshot" / "input_manifest.json"),
+                        "--job-purpose", job_purpose,
                     ]
+                    for option, key in (
+                        ("--v4-fixed", "v4_fixed"),
+                        ("--v4-lag", "v4_lag"),
+                        ("--v5-fixed", "v5_fixed"),
+                        ("--v5-lag", "v5_lag"),
+                        ("--v2-v5-heldout", "v2_v5_heldout"),
+                        ("--v6-heldout", "v6_heldout"),
+                    ):
+                        if key in model_inputs:
+                            command.extend([option, model_inputs[key]])
                     for version_id, generation_id in dict(spec["generation_ids"]).items():
                         command.extend(["--generation", f"{version_id}={generation_id}"])
                     for species_id in list(spec["species_ids"]):
                         command.extend(["--species", str(species_id)])
+                    for version_id in list(spec.get("version_ids") or spec["generation_ids"]):
+                        command.extend(["--version", str(version_id)])
+                    for profile_key in list(spec.get("profile_keys") or []):
+                        command.extend(["--profile-key", str(profile_key)])
                     multiversion_telemetry.publish(
                         {
-                            "phase": "Training V2--V6 comparison models",
-                            "message": "Training the isolated non-operational comparison batch.",
+                            "phase": (
+                                "Training active operational generation"
+                                if job_purpose == "operational"
+                                else "Training V2--V6 scientific benchmark"
+                            ),
+                            "message": (
+                                "Training every artifact required by the active Predictor generation."
+                                if job_purpose == "operational"
+                                else "Training the isolated non-operational benchmark batch."
+                            ),
                             "overall_percent": 55 if dynamic_inputs else 20,
                         },
                         force=True,
@@ -1384,7 +1420,11 @@ def serve(
                                 planned = max(1, int(event.get("planned_fit_count", 1) or 1))
                                 multiversion_telemetry.publish(
                                     {
-                                        "phase": "Training V2--V6 comparison models",
+                                        "phase": (
+                                            "Training active operational generation"
+                                            if job_purpose == "operational"
+                                            else "Training V2--V6 scientific benchmark"
+                                        ),
                                         "message": (
                                             f"{completed}/{planned} fits; "
                                             f"{event.get('version_id', '')} / {event.get('species_id', '')}."

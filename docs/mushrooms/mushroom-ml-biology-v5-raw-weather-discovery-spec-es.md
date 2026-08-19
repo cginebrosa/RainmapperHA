@@ -1,6 +1,6 @@
 # Especificación Biology V5 candidata — descubrimiento de retardos meteorológicos raw
 
-Estado: **ESPECIFICACIÓN CORREGIDA PARA IMPLEMENTACIÓN LOCAL; NO OPERATIVA**.
+Estado: **IMPLEMENTADA Y TÉCNICAMENTE PROMOCIONABLE POR ELECCIÓN MANUAL**.
 Fecha original: 2026-08-16. Corrección de contrato: 2026-08-17.
 Nombre de trabajo: `biology_v5_raw_weather_discovery`.
 
@@ -11,6 +11,11 @@ y la degradación permitida a 25 remuestreos agrupados; 3.330 celdas de
 coeficiente pasan estabilidad y se distribuyen casi uniformemente por retardo,
 sin aislar ventanas interpretables. Véase
 `docs/reports/V2_V3_V4_V5_raw_weather_report001.md`.
+
+Actualización 2026-08-19: el resultado científico desfavorable se conserva,
+pero ya no actúa como bloqueo técnico. El perfil canónico completo puede
+prepararse y activarse manualmente; sus dos estimadores compiten mediante la
+misma regla Brier contra prevalencia aplicada al resto de versiones.
 
 Esta especificación define un experimento reproducible para responder a una
 pregunta concreta: si se proporciona al modelo la historia meteorológica diaria

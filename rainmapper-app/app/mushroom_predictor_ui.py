@@ -54,10 +54,15 @@ _ml_report_mtime: float | None = None
 _COMPARISON_ESTIMATORS = (
     ("logistic_regression_reduced_v1", "LR", False),
     ("random_forest_restricted_v1", "RF", False),
-    ("extra_trees_restricted_v1", "ET*", True),
-    ("hist_gradient_boosting_restricted_v1", "HGB*", True),
-    ("knn_distance_v1", "KNN*", True),
-    ("rbf_svm_calibrated_v1", "SVM*", True),
+    ("extra_trees_restricted_v1", "ET", False),
+    ("hist_gradient_boosting_restricted_v1", "HGB", False),
+    ("knn_distance_v1", "KNN", False),
+    ("rbf_svm_calibrated_v1", "SVM", False),
+    ("elastic_net_logistic_raw365_v1", "Elastic Net", False),
+    ("sparse_group_logistic_raw365_v1", "Sparse Group", False),
+    ("smooth_species_logistic_v1", "Smooth Species", False),
+    ("smooth_shared_logistic_v1", "Smooth Shared", False),
+    ("smooth_partial_pooling_logistic_v1", "Smooth Partial", False),
 )
 _ESTIMATOR_HELP_KEYS = {
     "logistic_regression_reduced_v1": "ui.predictor_estimator_help_lr",
@@ -66,6 +71,11 @@ _ESTIMATOR_HELP_KEYS = {
     "hist_gradient_boosting_restricted_v1": "ui.predictor_estimator_help_hgb",
     "knn_distance_v1": "ui.predictor_estimator_help_knn",
     "rbf_svm_calibrated_v1": "ui.predictor_estimator_help_svm",
+    "elastic_net_logistic_raw365_v1": "ui.predictor_help_estimator_generic",
+    "sparse_group_logistic_raw365_v1": "ui.predictor_help_estimator_generic",
+    "smooth_species_logistic_v1": "ui.predictor_help_estimator_generic",
+    "smooth_shared_logistic_v1": "ui.predictor_help_estimator_generic",
+    "smooth_partial_pooling_logistic_v1": "ui.predictor_help_estimator_generic",
 }
 _ESTIMATOR_SHORT_NAMES = {
     estimator_id: short_name
@@ -379,7 +389,7 @@ def _model_comparison(species_id: str, area_id: str, target_date: date) -> dict[
         {},
     )
     stations_file = Path("/app/stations.txt")
-    return mushroom_ml_multiversion_comparison.compare_v2_reference(
+    return mushroom_ml_multiversion_comparison.compare_operational_reference(
         registry,
         manifest,
         species_id=species_id,
@@ -416,6 +426,7 @@ def _multiversion_catalog_payload() -> dict[str, Any]:
     result: dict[str, Any] = {
         "available": True,
         "active_version_id": registry["active_version_id"],
+        "active_operational_target": dict(registry["active_operational_target"]),
         "entries": mushroom_ml_model_catalog.catalog_entries(registry),
         "runtime_batch_status": "not_installed",
         "installed_artifacts": [],
@@ -1020,9 +1031,6 @@ def _render_interpretation_card(
     ecological_evidence = str(
         interpretation.get("ecological_evidence", "low")
     )
-    experimental_signal = str(
-        interpretation.get("experimental_signal", "unavailable")
-    )
     timing = str(interpretation.get("fruiting_timing", "unknown"))
     weather = str(interpretation.get("weather_signal", "unknown"))
     reason_codes = {
@@ -1060,18 +1068,7 @@ def _render_interpretation_card(
         statistical_detail_keys.append("ui.predictor_interpretation_unvalidated_unfavorable")
     elif "unvalidated_signal_not_interpretable" in reason_codes:
         statistical_detail_keys.append("ui.predictor_interpretation_unvalidated_mixed")
-    if experimental_signal != "unavailable":
-        statistical_detail_keys.append(
-            f"ui.predictor_interpretation_experimental_{experimental_signal}"
-        )
-        statistical_detail_keys.append(
-            "ui.predictor_interpretation_experimental_shadow"
-        )
-        if interpretation.get("experimental_out_of_domain_caution"):
-            statistical_detail_keys.append(
-                "ui.predictor_interpretation_experimental_ood_caution"
-            )
-    comparison_model_ids = (
+    comparison_model_ids = tuple(comparison.get("operational_result_keys") or ()) or (
         ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
         if any(
             model_id in comparison
@@ -1104,7 +1101,7 @@ def _render_interpretation_card(
     if interpretation.get("reference_range"):
         range_html = (
             f'<div class="pred-interpretation-range">'
-            f'<span>Rango calculado por la referencia histórica V2</span>'
+            f'<span>{html.escape(_lbl("ui.predictor_operational_range"))}</span>'
             f'<strong>{html.escape(_reference_range(interpretation))}</strong>'
             f'</div>'
         )
@@ -1113,29 +1110,6 @@ def _render_interpretation_card(
         consensus_html = (
             f'<span>{_tooltip_label_key("ui.predictor_consensus", "ui.predictor_help_consensus")}: '
             f'{html.escape(_lbl(f"ui.predictor_consensus_{consensus}"))}</span>'
-        )
-    experimental_html = ""
-    if experimental_signal != "unavailable":
-        estimator_names = " / ".join(
-            _ESTIMATOR_SHORT_NAMES.get(str(estimator_id), str(estimator_id))
-            for estimator_id in interpretation.get("experimental_estimator_ids", [])
-        )
-        experimental_range = _probability_range(
-            interpretation.get("experimental_range")
-        )
-        experimental_parts = [
-            _lbl(f"ui.predictor_experimental_signal_{experimental_signal}")
-        ]
-        if estimator_names:
-            experimental_parts.append(estimator_names)
-        if experimental_range != "—":
-            experimental_parts.append(experimental_range)
-        if interpretation.get("experimental_out_of_domain_caution"):
-            experimental_parts.append(_lbl("ui.predictor_experimental_ood_short"))
-        experimental_html = (
-            f'<span class="pred-experimental-signal">'
-            f'{_tooltip_label_key("ui.predictor_experimental_signal", "ui.predictor_help_experimental_signal")}: '
-            f'{html.escape(" · ".join(experimental_parts))}</span>'
         )
     return f"""
 <section class="pred-interpretation-card {_status_cls(status)}">
@@ -1147,13 +1121,12 @@ def _render_interpretation_card(
   </div>
   <div class="pred-interpretation-title">{html.escape(_interpretation_label(interpretation))}</div>
   {range_html}
-  <p class="pred-version-role">Esta tarjeta muestra V2 únicamente porque fue la primera implementación conectada a ella. Es una herencia cronológica, no una selección por calidad: V2 no es la versión preferida ni está validada como mejor; V2–V6 conservan el mismo rango experimental.</p>
+  <p class="pred-version-role">{html.escape(_lbl("ui.predictor_active_version_role"))}</p>
   <div class="pred-interpretation-meta">
     <span>{_tooltip_label_key("ui.predictor_ecological_compatibility", "ui.predictor_help_ecological_compatibility")}: {html.escape(_lbl(f"ui.predictor_ecological_compatibility_{ecological_compatibility}"))}</span>
     <span>{_tooltip_label_key("ui.predictor_ecological_evidence", "ui.predictor_help_ecological_reliability")}: {html.escape(_lbl(f"ui.predictor_ecological_evidence_{ecological_evidence}"))}</span>
     <span>{_tooltip_label_key("ui.predictor_statistical_support", "ui.predictor_help_statistical_support")}: {html.escape(_lbl(f"ui.predictor_statistical_support_{statistical_support}"))}</span>
     {consensus_html}
-    {experimental_html}
   </div>
   {details_html}
 </section>
@@ -2015,13 +1988,27 @@ def _render_model_comparison(species: str, area: str, target_date: date) -> str:
         "lag_event_altitude_v2": _lbl("ui.predictor_model_lag_event_v1"),
     }
     rows = ""
-    model_ids = (
+    model_ids = tuple(comparison.get("operational_result_keys") or ()) or (
         ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
         if any(
             model_id in comparison
             for model_id in ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
         )
         else ("fixed_gap_7d_v1", "lag_event_v1")
+    )
+    visible_estimator_ids = {
+        str(estimator_id)
+        for model_id in model_ids
+        if isinstance((result := comparison.get(model_id)), dict)
+        for key in (
+            "interpretation_estimator_probabilities",
+            "estimator_probabilities",
+        )
+        if isinstance((probabilities := result.get(key)), dict)
+        for estimator_id in probabilities
+    }
+    comparison_estimators = tuple(
+        row for row in _COMPARISON_ESTIMATORS if row[0] in visible_estimator_ids
     )
     for model_id in model_ids:
         result = comparison.get(model_id)
@@ -2061,23 +2048,36 @@ def _render_model_comparison(species: str, area: str, target_date: date) -> str:
         diagnostics = _render_model_diagnostics(result)
         estimator_cells = "".join(
             f'<td>{_pct(estimator_probs.get(estimator_id))}</td>'
-            for estimator_id, _short_name, _is_shadow in _COMPARISON_ESTIMATORS
+            for estimator_id, _short_name, _is_shadow in comparison_estimators
         )
-        column_count = 3 + len(_COMPARISON_ESTIMATORS)
+        column_count = 3 + len(comparison_estimators)
+        contract_id = str(result.get("temporal_contract_id") or model_id.split(":")[-1])
+        base_label = (
+            _lbl("ui.predictor_model_fixed_gap_7d_v1")
+            if contract_id.startswith("fixed_")
+            else _lbl("ui.predictor_model_lag_event_v1")
+        )
+        profile_name = str(result.get("profile_name") or "")
+        row_label = f"{profile_name} · {base_label}" if profile_name else labels.get(model_id, base_label)
+        help_key = (
+            "ui.predictor_help_model_fixed_gap_7d_altitude_v2"
+            if contract_id.startswith("fixed_")
+            else "ui.predictor_help_model_lag_event_altitude_v2"
+        )
         rows += f"""
 <tr>
-  <td>{_tooltip_label(labels[model_id], f"ui.predictor_help_model_{model_id}")}<small>{details}</small></td>
+  <td>{_tooltip_label(row_label, help_key)}<small>{details}</small></td>
   <td>{cutoff}</td>{estimator_cells}<td>{outcome}</td>
 </tr>
 <tr class="pred-comparison-diagnostics-row"><td colspan="{column_count}">{diagnostics}</td></tr>"""
     estimator_headers = "".join(
         f'<th>{_tooltip_label(short_name, _ESTIMATOR_HELP_KEYS[estimator_id], strong=False)}</th>'
-        for estimator_id, short_name, _is_shadow in _COMPARISON_ESTIMATORS
+        for estimator_id, short_name, _is_shadow in comparison_estimators
     )
     return f"""
 <section class="pred-model-comparison">
   <h3>{html.escape(_lbl("ui.predictor_model_comparison_title"))}</h3>
-  <p>{html.escape(_lbl("ui.predictor_model_comparison_help"))} * {html.escape(_lbl("ui.predictor_shadow_model_help"))}</p>
+  <p>{html.escape(_lbl("ui.predictor_model_comparison_help"))}</p>
   <div class="pred-table-wrap"><table class="pred-comparison-table">
     <thead><tr>
       <th>{_tooltip_label_key("ui.predictor_model", "ui.predictor_help_model", strong=False)}</th>

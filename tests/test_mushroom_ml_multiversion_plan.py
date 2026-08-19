@@ -54,3 +54,65 @@ class MushroomMLMultiversionPlanTests(TestCase):
                 generation_ids={"altitude_v2": "generation-v2"},
                 species_ids=["boletus_edulis"],
             )
+
+    def test_operational_plan_contains_only_active_v2_with_fixed_and_lag(self) -> None:
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        active_version_id = registry["active_version_id"]
+        result = plan.build_plan(
+            registry,
+            batch_id="batch-operational",
+            snapshot_id="sha256:" + "b" * 64,
+            generation_ids={active_version_id: "generation-operational"},
+            species_ids=["boletus_edulis"],
+            version_ids=[active_version_id],
+        )
+
+        refs = [row["artifact_ref"] for row in result["fits"]]
+        self.assertEqual([active_version_id], result["version_ids"])
+        self.assertEqual({active_version_id}, {row["version_id"] for row in refs})
+        self.assertEqual(
+            {"fixed_gap_7d_altitude_v2", "lag_event_altitude_v2"},
+            {row["temporal_contract_id"] for row in refs},
+        )
+        self.assertEqual(12, result["fit_count"])
+
+    def test_plan_filters_to_selected_profile(self) -> None:
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        result = plan.build_plan(
+            registry,
+            batch_id="batch-selected",
+            snapshot_id="sha256:" + "c" * 64,
+            generation_ids={"biology_v4": "generation-v4"},
+            species_ids=["boletus_edulis"],
+            version_ids=["biology_v4"],
+            profile_keys=["biology_v4/climatic_balance"],
+        )
+
+        self.assertEqual(result["profile_keys"], ["biology_v4/climatic_balance"])
+        self.assertEqual(
+            {row["artifact_ref"]["profile_id"] for row in result["fits"]},
+            {"climatic_balance"},
+        )
+        self.assertGreater(result["fit_count"], 0)
+
+    def test_v3_physical_is_a_separate_complete_profile(self) -> None:
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        result = plan.build_plan(
+            registry,
+            batch_id="batch-v3-physical",
+            snapshot_id="sha256:" + "d" * 64,
+            generation_ids={"biology_v3": "generation-v3-physical"},
+            species_ids=["boletus_edulis"],
+            version_ids=["biology_v3"],
+            profile_keys=["biology_v3/common_idw_plus_physical_state"],
+        )
+
+        self.assertEqual(
+            result["profile_keys"],
+            ["biology_v3/common_idw_plus_physical_state"],
+        )
+        self.assertEqual(result["fit_count"], 12)
+        self.assertEqual(
+            {row["artifact_ref"]["profile_id"] for row in result["fits"]},
+            {"common_idw_plus_physical_state"},
+        )

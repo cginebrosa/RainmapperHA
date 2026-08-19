@@ -2,6 +2,10 @@
   "schema_version": "1.0",
   "kind": "mushroom_ml_version_registry",
   "active_version_id": "altitude_v2",
+  "active_operational_target": {
+    "version_id": "altitude_v2",
+    "generation_id": ""
+  },
   "versions": [
     {
       "version_id": "altitude_v2",
@@ -33,6 +37,12 @@
               "knn_distance_v1",
               "rbf_svm_calibrated_v1"
             ],
+            "input_requirements": {
+              "weather_lookback_days": 90,
+              "predictive_window_days": 90,
+              "include_physical_state": false,
+              "prepared_input_ids": ["v3_fixed", "v3_lag"]
+            },
             "comparison_eligible_when_trained": true,
             "operational_eligible": true
           }
@@ -68,7 +78,7 @@
       ],
       "contract_document": "docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md",
       "benchmark_available": true,
-      "operational_prediction_available": false,
+      "operational_prediction_available": true,
       "catalog_visible": true,
       "runtime": {
         "adapter_id": "biology_v3_runtime_v1",
@@ -88,8 +98,49 @@
               "knn_distance_v1",
               "rbf_svm_calibrated_v1"
             ],
+            "input_requirements": {
+              "weather_lookback_days": 90,
+              "predictive_window_days": 90,
+              "include_physical_state": false,
+              "prepared_input_ids": ["v3_fixed", "v3_lag"]
+            },
             "comparison_eligible_when_trained": true,
-            "operational_eligible": false
+            "operational_eligible": true
+          },
+          {
+            "profile_id": "common_idw_plus_physical_state",
+            "display_name": "Biology V3+ physical",
+            "display_label_key": "ui.worker_benchmark_profile_v3_physical",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v3",
+              "lag_event_biology_v3"
+            ],
+            "estimator_ids": [
+              "logistic_regression_reduced_v1",
+              "random_forest_restricted_v1",
+              "extra_trees_restricted_v1",
+              "hist_gradient_boosting_restricted_v1",
+              "knn_distance_v1",
+              "rbf_svm_calibrated_v1"
+            ],
+            "input_requirements": {
+              "weather_lookback_days": 365,
+              "predictive_window_days": 90,
+              "include_physical_state": true,
+              "soil_variant_id": "wv0033_0_30cm",
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v4_fixed",
+                "v4_lag"
+              ],
+              "known_sites_field_paths": [
+                "derived_context.gis_dem.altitude_mean_m",
+                "derived_context.soilgrids_water.context_hash"
+              ]
+            },
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": true
           }
         ]
       },
@@ -117,7 +168,7 @@
     {
       "version_id": "biology_v4",
       "display_name": "Biology V4",
-      "status": "proposed",
+      "status": "candidate",
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v4",
         "lag_event_biology_v4"
@@ -128,7 +179,7 @@
       ],
       "contract_document": "docs/mushrooms/mushroom-ml-biology-v4-implementation-spec-es.md",
       "benchmark_available": true,
-      "operational_prediction_available": false,
+      "operational_prediction_available": true,
       "catalog_visible": true,
       "runtime": {
         "adapter_id": "biology_v4_runtime_v1",
@@ -148,8 +199,19 @@
               "knn_distance_v1",
               "rbf_svm_calibrated_v1"
             ],
+            "input_requirements": {
+              "weather_lookback_days": 90,
+              "predictive_window_days": 90,
+              "include_physical_state": false,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v4_fixed",
+                "v4_lag"
+              ]
+            },
             "comparison_eligible_when_trained": true,
-            "operational_eligible": false
+            "operational_eligible": true
           },
           {
             "profile_id": "climatic_balance",
@@ -166,8 +228,19 @@
               "knn_distance_v1",
               "rbf_svm_calibrated_v1"
             ],
+            "input_requirements": {
+              "weather_lookback_days": 90,
+              "predictive_window_days": 90,
+              "include_physical_state": true,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v4_fixed",
+                "v4_lag"
+              ]
+            },
             "comparison_eligible_when_trained": true,
-            "operational_eligible": false
+            "operational_eligible": true
           }
         ]
       },
@@ -196,7 +269,7 @@
     {
       "version_id": "biology_v5_raw_weather_discovery",
       "display_name": "Biology V5 Raw Weather Discovery",
-      "status": "proposed",
+      "status": "candidate",
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v5_raw365_v2",
         "lag_event_biology_v5_raw365_v2"
@@ -206,7 +279,7 @@
       ],
       "contract_document": "docs/mushrooms/mushroom-ml-biology-v5-raw-weather-discovery-spec-es.md",
       "benchmark_available": true,
-      "operational_prediction_available": false,
+      "operational_prediction_available": true,
       "catalog_visible": true,
       "runtime": {
         "adapter_id": "biology_v5_raw365_runtime_v1",
@@ -222,8 +295,19 @@
               "elastic_net_logistic_raw365_v1",
               "sparse_group_logistic_raw365_v1"
             ],
+            "input_requirements": {
+              "weather_lookback_days": 365,
+              "predictive_window_days": 365,
+              "include_physical_state": true,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v5_fixed",
+                "v5_lag"
+              ]
+            },
             "comparison_eligible_when_trained": true,
-            "operational_eligible": false
+            "operational_eligible": true
           }
         ]
       },
@@ -252,7 +336,7 @@
     {
       "version_id": "biology_v6_smooth_hierarchical",
       "display_name": "Biology V6 Smooth Hierarchical",
-      "status": "proposed",
+      "status": "candidate",
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
         "lag_event_biology_v6_smooth_hierarchical_v2"
@@ -263,7 +347,7 @@
       ],
       "contract_document": "docs/mushrooms/mushroom-ml-biology-v6-smooth-hierarchical-spec-es.md",
       "benchmark_available": true,
-      "operational_prediction_available": false,
+      "operational_prediction_available": true,
       "catalog_visible": true,
       "runtime": {
         "adapter_id": "biology_v6_smooth_runtime_v1",
@@ -285,8 +369,19 @@
               "smooth_shared_logistic_v1": "shared",
               "smooth_partial_pooling_logistic_v1": "shared"
             },
+            "input_requirements": {
+              "weather_lookback_days": 365,
+              "predictive_window_days": 365,
+              "include_physical_state": true,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v5_fixed",
+                "v5_lag"
+              ]
+            },
             "comparison_eligible_when_trained": true,
-            "operational_eligible": false
+            "operational_eligible": true
           }
         ]
       },

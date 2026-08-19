@@ -121,7 +121,7 @@ def assess(
                 # This artifact is a derived reconstruction output. Promotion
                 # rebases its private paths to live paths, changing its bytes
                 # without changing the authoritative training observations.
-                ignored_extra_inputs={"observation-features.json"},
+                ignored_extra_inputs={"observation-features.json", "registry.json"},
                 # Partitioned history is immutable and content-addressed. Its
                 # generation id plus manifest digest is sufficient for this UI
                 # freshness hint; candidate promotion still performs deep hashes.

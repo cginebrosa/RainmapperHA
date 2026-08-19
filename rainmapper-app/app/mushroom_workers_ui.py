@@ -21,6 +21,178 @@ def refresh_signature(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _metric(value: object, digits: int = 4) -> str:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return f"{float(value):.{digits}f}"
+    return "—"
+
+
+def render_benchmark_report(
+    report: dict[str, object] | None,
+    *,
+    error: str = "",
+    promotion_versions: list[dict[str, object]] | None = None,
+) -> str:
+    if error:
+        return (
+            '<section class="workers-panel benchmark-report-panel">'
+            f'<div class="catalog-alert error">{_text(error)}</div></section>'
+        )
+    if not isinstance(report, dict):
+        return ""
+    selection = report.get("selection")
+    selection = selection if isinstance(selection, dict) else {}
+    summary = report.get("summary")
+    summary = summary if isinstance(summary, dict) else {}
+    duration = report.get("duration_summary")
+    duration = duration if isinstance(duration, dict) else {}
+    metrics = report.get("metrics")
+    metrics = metrics if isinstance(metrics, list) else []
+    rows = []
+    for raw in metrics:
+        row = raw if isinstance(raw, dict) else {}
+        support = f'{int(row.get("n_test", 0) or 0)}/{int(row.get("n_test_total", 0) or 0)}'
+        rows.append(
+            "<tr>"
+            f'<td title="{_text(row.get("version_id"))}">{_text(row.get("version_id"))}</td>'
+            f'<td title="{_text(row.get("profile_id"))}">{_text(row.get("profile_id"))}</td>'
+            f'<td title="{_text(row.get("species_id"))}">{_text(row.get("species_id"))}</td>'
+            f'<td title="{_text(row.get("temporal_family"))} · h{_text(row.get("horizon_days"))}">{_text(row.get("temporal_family"))} · h{_text(row.get("horizon_days"))}</td>'
+            f'<td title="{_text(row.get("estimator_id"))}">{_text(row.get("estimator_id"))}</td>'
+            f'<td>{_metric(row.get("brier_score"))}</td>'
+            f'<td>{_metric(row.get("prevalence_brier_score"))}</td>'
+            f'<td>{_metric(row.get("brier_delta_vs_prevalence"))}</td>'
+            f'<td>{_metric(row.get("roc_auc"))}</td>'
+            f'<td>{_metric(row.get("expected_calibration_error"))}</td>'
+            f'<td>{_text(support)} · {_text(row.get("test_positive_count", 0))}/'
+            f'{_text(row.get("test_negative_count", 0))}</td>'
+            f'<td>{_text(row.get("abstention_count", 0))}</td>'
+            f'<td>{_metric(row.get("fit_duration_seconds"), 3)} s</td>'
+            f'<td title="{_text(row.get("fit_status"))}{" · " + _text(row.get("fit_failure_reason")) if row.get("fit_failure_reason") else ""}">{_text(row.get("fit_status"))}'
+            f'{" · " + _text(row.get("fit_failure_reason")) if row.get("fit_failure_reason") else ""}</td>'
+            "</tr>"
+        )
+    failures = report.get("fit_failures")
+    failures = failures if isinstance(failures, list) else []
+    failure_html = ""
+    if failures:
+        failure_html = (
+            '<details class="benchmark-failures"><summary>'
+            + _text(_label("ui.worker_benchmark_failures"))
+            + f" ({len(failures)})</summary><ul>"
+            + "".join(
+                f'<li><code>{_text((row.get("artifact_ref") or {}).get("version_id"))}/'
+                f'{_text((row.get("artifact_ref") or {}).get("profile_id"))}/'
+                f'{_text((row.get("artifact_ref") or {}).get("species_id"))}/'
+                f'{_text((row.get("artifact_ref") or {}).get("estimator_id"))}</code> — '
+                f'{_text(row.get("reason"))}</li>'
+                for row in failures
+                if isinstance(row, dict) and isinstance(row.get("artifact_ref"), dict)
+            )
+            + "</ul></details>"
+        )
+    profiles = selection.get("profiles")
+    profiles = profiles if isinstance(profiles, list) else []
+    profile_names = ", ".join(
+        str(row.get("profile_name") or row.get("profile_id") or "")
+        for row in profiles
+        if isinstance(row, dict)
+    )
+    promotion_html = ""
+    if promotion_versions:
+        version_actions = "".join(
+            '<form method="post" action="" class="benchmark-promotion-action">'
+            '<input type="hidden" name="worker_action" value="prepare_version_candidate">'
+            f'<input type="hidden" name="benchmark_batch_id" value="{_text(report.get("batch_id"))}">'
+            f'<input type="hidden" name="version_id" value="{_text(row.get("version_id"))}">'
+            f'<button type="submit">{_text(_label("ui.worker_prepare_version_candidate"))} · {_text(row.get("version_name"))}</button>'
+            '</form>'
+            for row in promotion_versions
+        )
+        promotion_html = (
+            '<section class="benchmark-promotion-panel"><h3>'
+            + _text(_label("ui.worker_version_promotion"))
+            + '</h3><p class="meta">'
+            + _text(_label("ui.worker_version_promotion_human_choice"))
+            + '</p><div class="benchmark-promotion-actions">'
+            + version_actions
+            + '</div></section>'
+        )
+    return f'''
+    <section class="workers-panel benchmark-report-panel">
+      <div class="worker-panel-head"><h2>{_text(_label('ui.worker_benchmark_report'))}</h2><a class="button-link" href="./workers">{_text(_label('ui.close'))}</a></div>
+      <dl class="benchmark-report-summary">
+        <div><dt>Batch</dt><dd><code>{_text(report.get('batch_id'))}</code></dd></div>
+        <div><dt>Snapshot</dt><dd><code>{_text(report.get('snapshot_id'))}</code></dd></div>
+        <div><dt>{_text(_label('ui.worker_benchmark_profiles'))}</dt><dd>{_text(profile_names)}</dd></div>
+        <div><dt>{_text(_label('ui.species'))}</dt><dd>{_text(str(summary.get('species_count', 0)))}</dd></div>
+        <div><dt>{_text(_label('ui.worker_benchmark_fits'))}</dt><dd>{_text(str(summary.get('successful_fit_count', 0)))} / {_text(str(summary.get('planned_fit_count', 0)))}</dd></div>
+        <div><dt>{_text(_label('ui.worker_benchmark_failed_fits'))}</dt><dd>{_text(str(summary.get('failed_fit_count', 0)))}</dd></div>
+        <div><dt>{_text(_label('ui.worker_benchmark_metrics').capitalize())}</dt><dd>{_text(str(summary.get('metric_count', 0)))}</dd></div>
+        <div><dt>{_text(_label('ui.worker_benchmark_predictions'))}</dt><dd>{_text(str(summary.get('holdout_prediction_count', 0)))}</dd></div>
+        <div><dt>{_text(_label('ui.worker_benchmark_fit_time'))}</dt><dd>{_metric(duration.get('total_fit_seconds'), 3)} s</dd></div>
+      </dl>
+      <p class="meta">{_text(_label('ui.worker_benchmark_no_average'))}</p>
+      {promotion_html}
+      <div class="workers-table-wrap benchmark-report-table"><table><thead><tr>
+        <th>Version</th><th>Profile</th><th>Species</th><th>Contract</th><th>Estimator</th>
+        <th>Brier</th><th>Prevalence</th><th>Delta</th><th>ROC-AUC</th><th>ECE</th>
+        <th>{_text(_label('ui.worker_benchmark_support'))}</th><th>{_text(_label('ui.worker_benchmark_abstentions'))}</th>
+        <th>{_text(_label('ui.worker_benchmark_fit_time'))}</th><th>{_text(_label('ui.status'))}</th>
+      </tr></thead><tbody>{''.join(rows)}</tbody></table></div>
+      {failure_html}
+    </section>'''
+
+
+def render_benchmark_history(reports: list[dict[str, object]]) -> str:
+    if not reports:
+        return f'<p class="meta">{_text(_label("ui.worker_benchmark_history_empty"))}</p>'
+    history_rows = []
+    for row in reports:
+        summary = row.get("summary")
+        summary = summary if isinstance(summary, dict) else {}
+        selection = row.get("selection")
+        selection = selection if isinstance(selection, dict) else {}
+        profiles = selection.get("profiles")
+        profile_names = [
+            str(profile.get("profile_name") or profile.get("profile_key") or "")
+            for profile in profiles or []
+            if isinstance(profile, dict)
+            and str(profile.get("profile_name") or profile.get("profile_key") or "")
+        ]
+        evidence = []
+        planned = summary.get("planned_fit_count")
+        successful = summary.get("successful_fit_count")
+        if planned is not None and successful is not None:
+            evidence.append(f"{successful}/{planned} fits")
+        failed = summary.get("failed_fit_count")
+        if failed is not None:
+            evidence.append(f"{failed} failures")
+        metrics = summary.get("metric_count")
+        if metrics is not None:
+            evidence.append(f'{metrics} {_label("ui.worker_benchmark_metrics")}')
+        predictions = summary.get("holdout_prediction_count")
+        if predictions is not None:
+            evidence.append(f"{predictions} hold-out")
+        profile_summary = ", ".join(profile_names) or (
+            f'{summary.get("profile_count", 0)} {_label("ui.worker_benchmark_profiles").lower()}'
+        )
+        history_rows.append(
+            '<a class="benchmark-history-row" href="?benchmark='
+            + _text(row.get("batch_id"))
+            + '"><span><strong>'
+            + _text(profile_summary)
+            + '</strong><small>'
+            + _text(row.get("created_at"))
+            + ' · '
+            + _text(row.get("batch_id"))
+            + '</small></span><span>'
+            + _text(" · ".join(evidence))
+            + '</span></a>'
+        )
+    return '<div class="benchmark-history benchmark-history-scroll" data-preserve-refresh-scroll>' + "".join(history_rows) + "</div>"
+
+
 def render_worker_flash(
     message: str = "",
     *,
@@ -129,8 +301,12 @@ def _worker_card(
             + (
                 '<form method="post" action=""><input type="hidden" name="worker_action" value="run_worker_ml_multiversion">'
                 f'<input type="hidden" name="worker_id" value="{_text(worker_id)}">'
-                '<button type="submit">Regenerar solo comparación V2–V6</button></form>'
-                if "ml_multiversion_training_v1" in set(payload.get("capabilities") or [])
+                f'<button type="submit">{_text(_label("ui.worker_run_scientific_benchmark"))}</button></form>'
+                if {
+                    "ml_multiversion_training_v1",
+                    "ml_job_purpose_v1",
+                    "ml_benchmark_report_v1",
+                }.issubset(set(payload.get("capabilities") or []))
                 else ""
             )
             + "</div>"
@@ -216,6 +392,7 @@ def render_worker_choices(
             and worker_status.get("reachable")
             and payload.get("paired")
             and payload.get("job_api") == "candidate_rebuild_v0"
+            and "ml_job_purpose_v1" in set(payload.get("capabilities") or [])
         )
         detail = (
             _label("ui.worker_operational_local_ready")
@@ -242,12 +419,20 @@ def render_recent_jobs(
     *,
     operational_enabled: bool = False,
 ) -> str:
-    completed_comparison_parents = {
+    completed_operational_parents = {
         str(job.get("triggered_by_job_id", ""))
         for job in jobs
         if job.get("job_type") == "worker_ml_multiversion_v1"
+        and job.get("job_purpose") == "operational"
         and job.get("status") == "complete"
         and job.get("triggered_by_job_id")
+    }
+    promoted_candidate_ids = {
+        str((job.get("result") or {}).get("candidate_id") or "")
+        for job in jobs
+        if job.get("job_type") == "local_ml_version_promotion"
+        and job.get("status") == "complete"
+        and isinstance(job.get("result"), dict)
     }
     workers: list[tuple[str, str]] = []
     for worker_status in worker_statuses or []:
@@ -265,10 +450,25 @@ def render_recent_jobs(
             "worker_snapshot_transport_probe": _label("ui.worker_transport_probe"),
             "worker_candidate_rebuild": _label("ui.worker_candidate_rebuild"),
             "worker_ml_train_v0": _label("ui.worker_ml_train_job_type"),
-            "worker_ml_multiversion_v1": "V2–V6 · Comparar",
+            "worker_ml_multiversion_v1": (
+                _label("ui.worker_operational_training_job")
+                if job.get("job_purpose") == "operational"
+                else _label("ui.worker_scientific_benchmark_job")
+            ),
             "worker_predictor_v1": _label("ui.worker_predictor_job_type"),
             "local_full_update": _label("ui.worker_local_full_update_job"),
+            "local_ml_benchmark": _label("ui.worker_scientific_benchmark_job"),
+            "local_ml_operational_candidate": _label("ui.worker_version_candidate_job"),
+            "local_ml_version_promotion": _label("ui.worker_version_promotion_job"),
         }.get(job_type, _label("ui.worker_rebuild_job"))
+        if job.get("job_purpose") == "benchmark" and job.get("profile_keys"):
+            profile_labels = job.get("profile_labels")
+            exact_profiles = (
+                [str(value) for value in profile_labels]
+                if isinstance(profile_labels, list) and profile_labels
+                else [str(value) for value in job.get("profile_keys", [])]
+            )
+            job_type_text = "Benchmark · " + ", ".join(exact_profiles)
         status = str(job.get("status", "unknown") or "unknown")
         status_text = {
             "queued": _label("ui.worker_status_queued"),
@@ -312,6 +512,25 @@ def render_recent_jobs(
             else f'<code title="{_text(job_id)}">{_text(job_display_name)}</code>'
         )
         actions = "-"
+        result = job.get("result")
+        result = result if isinstance(result, dict) else {}
+        benchmark_batch_id = str(result.get("batch_id", "") or "")
+        profile_keys = job.get("profile_keys")
+        profile_count = len(profile_keys) if isinstance(profile_keys, list) else 0
+        result_summary = result.get("summary")
+        result_summary = result_summary if isinstance(result_summary, dict) else {}
+        profile_count = profile_count or int(result_summary.get("profile_count", 0) or 0)
+        benchmark_action_label = _label(
+            "ui.worker_view_report" if profile_count == 1 else "ui.worker_view_comparison"
+        )
+        benchmark_action = (
+            f'<a class="button-link" data-benchmark-report-link href="?benchmark={_text(benchmark_batch_id)}">{_text(benchmark_action_label)}</a>'
+            if status == "complete"
+            and job.get("job_purpose") == "benchmark"
+            and result.get("benchmark_report_available") is True
+            and benchmark_batch_id
+            else ""
+        )
         if job_type in {
             "worker_claim_probe",
             "worker_snapshot_transport_probe",
@@ -321,6 +540,8 @@ def render_recent_jobs(
             "worker_predictor_v1",
         }:
             action_parts = []
+            if benchmark_action:
+                action_parts.append(benchmark_action)
             if status in {"queued", "claimed", "running"}:
                 action_parts.append(
                     '<form class="worker-job-action" method="post" action="">'
@@ -373,7 +594,7 @@ def render_recent_jobs(
                 and promotion_status not in {"promoting", "promoted"}
             ):
                 full_update = bool(job.get("triggered_by_job_id"))
-                if not full_update or job_id in completed_comparison_parents:
+                if not full_update or job_id in completed_operational_parents:
                     action_parts.append(
                         '<form class="worker-job-action" method="post" action="">'
                         f'<input type="hidden" name="worker_action" value="{"promote_full_update" if full_update else "promote_ml_train_candidate"}">'
@@ -413,14 +634,67 @@ def render_recent_jobs(
                         f'<button type="submit">{_text(_label("ui.worker_reassign_job"))}</button></form>'
                     )
             actions = "".join(action_parts) or "-"
+        elif job_type == "local_ml_benchmark" and status == "running":
+            actions = (
+                '<form class="worker-job-action danger" method="post" action="">'
+                '<input type="hidden" name="worker_action" value="cancel_local_benchmark">'
+                f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
+                f'<button type="submit">{_text(_label("ui.worker_cancel_job"))}</button></form>'
+            )
+        elif job_type == "local_ml_operational_candidate":
+            if status == "running":
+                actions = (
+                    '<form class="worker-job-action danger" method="post" action="">'
+                    '<input type="hidden" name="worker_action" value="cancel_local_benchmark">'
+                    f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
+                    f'<button type="submit">{_text(_label("ui.worker_cancel_job"))}</button></form>'
+                )
+            elif (
+                status == "complete"
+                and result.get("candidate_id")
+                and str(result.get("candidate_id")) not in promoted_candidate_ids
+            ):
+                actions = (
+                    '<form class="worker-job-action" method="post" action="">'
+                    '<input type="hidden" name="worker_action" value="promote_version_candidate">'
+                    f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
+                    f'<button type="submit" data-confirm="{_text(_label("ui.worker_promote_version_confirm"))}" '
+                    'onclick="return confirm(this.dataset.confirm)">'
+                    f'{_text(_label("ui.worker_promote_version"))}</button></form>'
+                )
+        elif job_type == "local_ml_version_promotion" and status == "complete" and result.get("rollback_available"):
+            actions = (
+                '<form class="worker-job-action danger" method="post" action="">'
+                '<input type="hidden" name="worker_action" value="rollback_version_promotion">'
+                f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
+                f'<button type="submit" data-confirm="{_text(_label("ui.worker_rollback_version_confirm"))}" '
+                'onclick="return confirm(this.dataset.confirm)">'
+                f'{_text(_label("ui.worker_rollback_version"))}</button></form>'
+            )
+        elif benchmark_action:
+            actions = benchmark_action
+        scope_text = str(job.get("scope", "-") or "-")
+        if job.get("job_purpose") == "benchmark" and result_summary:
+            scope_parts = []
+            planned = result_summary.get("planned_fit_count")
+            successful = result_summary.get("successful_fit_count")
+            if planned is not None and successful is not None:
+                scope_parts.append(f"{successful}/{planned} fits")
+            if result_summary.get("failed_fit_count") is not None:
+                scope_parts.append(f'{result_summary.get("failed_fit_count")} failures')
+            if result_summary.get("metric_count") is not None:
+                scope_parts.append(f'{result_summary.get("metric_count")} metrics')
+            if result_summary.get("holdout_prediction_count") is not None:
+                scope_parts.append(f'{result_summary.get("holdout_prediction_count")} hold-out')
+            scope_text = " · ".join(scope_parts) or scope_text
         job_rows.append(
-            f'<tr data-job-id="{_text(job_id)}">'
+            f'<tr data-job-id="{_text(job_id)}" data-job-purpose="{_text(job.get("job_purpose", ""))}">'
             f'<td data-sort-value="{_text(job_display_name)}">{job_reference}</td>'
             f'<td data-sort-value="{_text(job.get("sort_timestamp", job.get("created_at", "")))}"><time datetime="{_text(job.get("created_at", ""))}">{_text(job.get("date_time", "-"))}</time></td>'
             f'<td data-sort-value="{_text(job_type_text)}" title="{_text(job_type_text)}">{_text(job_type_text)}</td>'
             f'<td data-sort-value="{_text(destination)}" title="{_text(destination)}">{_text(destination)}</td>'
             f'<td data-sort-value="{_text(status_text)}"><span class="job-status {_text(display_status)}">{_text(status_text)}</span></td>'
-            f'<td data-sort-value="{_text(job.get("scope", "-"))}" title="{_text(job.get("scope", "-"))}">{_text(job.get("scope", "-"))}</td>'
+            f'<td data-sort-value="{_text(scope_text)}" title="{_text(scope_text)}">{_text(scope_text)}</td>'
             f'<td data-sort-value="{_text(job.get("phase", "-"))}" title="{_text(job.get("phase", "-"))}">{_text(job.get("phase", "-"))}</td>'
             f'<td data-sort-value="{promotion_percent if promotion_status == "promoting" else _text(job.get("overall_percent", 0))}">{progress_html}</td>'
             f'<td data-sort-value="{_text(job.get("elapsed_seconds", 0))}">{_text(job.get("elapsed", "-"))}</td>'
@@ -430,7 +704,7 @@ def render_recent_jobs(
     if not job_rows:
         return f'<p class="meta">{_text(_label("ui.worker_no_recent_jobs"))}</p>'
     return (
-        '<div class="workers-table-wrap worker-jobs-history"><table class="worker-jobs-table" data-sortable-worker-jobs data-sort-column="1" data-sort-direction="desc"><thead><tr>'
+        '<div class="workers-table-wrap worker-jobs-history" data-preserve-refresh-scroll><table class="worker-jobs-table" data-sortable-worker-jobs data-sort-column="1" data-sort-direction="desc"><thead><tr>'
         f'<th aria-sort="none"><button class="worker-sort-button" type="button" data-worker-sort-column="0" data-worker-sort-type="text">{_text(_label("ui.worker_job"))}<span aria-hidden="true">↕</span></button></th>'
         f'<th aria-sort="descending"><button class="worker-sort-button" type="button" data-worker-sort-column="1" data-worker-sort-type="time">{_text(_label("ui.worker_date_time"))}<span aria-hidden="true">↓</span></button></th>'
         f'<th aria-sort="none"><button class="worker-sort-button" type="button" data-worker-sort-column="2" data-worker-sort-type="text">{_text(_label("ui.worker_job_type"))}<span aria-hidden="true">↕</span></button></th>'
@@ -462,6 +736,12 @@ def render_page(
     flash: str = "",
     flash_error: bool = False,
     flash_clear_when_idle: bool = False,
+    benchmark_profiles: list[dict[str, str]] | None = None,
+    selected_benchmark_profiles: list[str] | None = None,
+    benchmark_history: list[dict[str, object]] | None = None,
+    selected_benchmark_report: dict[str, object] | None = None,
+    benchmark_report_error: str = "",
+    promotion_versions: list[dict[str, object]] | None = None,
 ) -> str:
     del profiles, selected_scope, selected_species_id
     default_worker_status = next(
@@ -493,6 +773,7 @@ def render_page(
             and default_worker_status.get("reachable")
             and payload.get("paired")
             and payload.get("job_api") == "candidate_rebuild_v0"
+            and "ml_job_purpose_v1" in set(payload.get("capabilities") or [])
         )
         if not available:
             default_issue = _label("ui.worker_default_unavailable").replace("{worker}", display_name)
@@ -517,6 +798,7 @@ def render_page(
                 and worker_status.get("reachable")
                 and payload.get("paired")
                 and payload.get("job_api") == "candidate_rebuild_v0"
+                and "ml_job_purpose_v1" in set(payload.get("capabilities") or [])
             ):
                 selected_executor = f'worker:{payload.get("worker_id", "")}'
                 break
@@ -540,6 +822,51 @@ def render_page(
         default_options.append(
             f'<option value="{_text(executor)}"{" selected" if executor == default_executor else ""}>{_text(display_name + status_suffix)}</option>'
         )
+
+    benchmark_options = (
+        [
+            f'<option value="home_assistant"{" selected" if default_executor == "home_assistant" else ""}>{_text(_label("ui.worker_local_ha_executor"))}</option>'
+        ]
+        if local_ha_compute_enabled
+        else []
+    )
+    for worker_status in worker_statuses:
+        payload = worker_status.get("payload")
+        payload = payload if isinstance(payload, dict) else {}
+        worker_id = str(payload.get("worker_id", "") or "")
+        if (
+            not worker_id
+            or not worker_status.get("reachable")
+            or not payload.get("paired")
+            or "ml_multiversion_training_v1"
+            not in set(payload.get("capabilities") or [])
+            or "ml_job_purpose_v1" not in set(payload.get("capabilities") or [])
+            or "ml_benchmark_report_v1" not in set(payload.get("capabilities") or [])
+        ):
+            continue
+        executor = f"worker:{worker_id}"
+        benchmark_options.append(
+            f'<option value="{_text(executor)}"{" selected" if executor == default_executor else ""}>{_text(str(payload.get("display_name", worker_id) or worker_id))}</option>'
+        )
+    selected_benchmark_profile_keys = set(selected_benchmark_profiles or [])
+    benchmark_profile_controls = "".join(
+        '<label class="benchmark-profile-choice">'
+        f'<input type="checkbox" name="benchmark_profile" value="{_text(row.get("profile_key"))}"'
+        f'{" checked" if row.get("profile_key") in selected_benchmark_profile_keys else ""}>'
+        '<span class="benchmark-profile-surface">'
+        '<span class="benchmark-profile-mark" aria-hidden="true">✓</span>'
+        '<span class="benchmark-profile-copy">'
+        f'<strong>{_text(row.get("version_name"))}</strong>'
+        f'<small>{_text(row.get("profile_name"))}</small>'
+        '</span></span></label>'
+        for row in benchmark_profiles or []
+    )
+    benchmark_history_html = render_benchmark_history(benchmark_history or [])
+    benchmark_report_html = render_benchmark_report(
+        selected_benchmark_report,
+        error=benchmark_report_error,
+        promotion_versions=promotion_versions,
+    )
 
     recent_jobs = render_recent_jobs(
         jobs,
@@ -614,8 +941,14 @@ def render_page(
       .worker-promotion-progress{{display:flex;align-items:center;gap:5px;min-width:68px}}.worker-promotion-progress progress{{width:46px;height:8px;accent-color:var(--accent)}}.worker-promotion-progress span{{font-variant-numeric:tabular-nums}}
       .worker-discard-dialog{{width:min(520px,calc(100vw - 32px));padding:0;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg);box-shadow:0 20px 70px rgba(0,0,0,.55)}}.worker-discard-dialog::backdrop{{background:rgba(0,0,0,.68)}}
       .worker-discard-dialog form{{display:block;margin:0;padding:18px}}.worker-discard-dialog h2{{margin:0 0 9px;font-size:19px}}.worker-discard-dialog p{{margin:7px 0;color:var(--muted);line-height:1.45}}.worker-discard-dialog code{{color:var(--fg)}}.worker-dialog-actions{{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}}
-      @media(max-width:1050px){{.worker-toolbar-spacer{{display:none}}.worker-toolbar-actions{{flex-basis:100%;justify-content:flex-start;margin-left:0}}.workers-grid,.worker-destination-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
-      @media(max-width:700px){{.workers-grid,.worker-destination-grid,.worker-scope-grid{{grid-template-columns:1fr}}.worker-panel-head{{display:block}}.workers-head{{align-items:flex-start;flex-direction:column;gap:2px}}.worker-metrics{{justify-content:flex-start;margin-top:6px;text-align:left}}.worker-toolbar-actions{{align-items:stretch;flex-direction:column}}.worker-default-form{{align-items:stretch;flex-direction:column}}.worker-default-form select{{width:100%;max-width:none}}.worker-note{{grid-template-columns:1fr}}}}
+      .benchmark-form{{display:block!important;width:100%;margin:10px 0 0!important}}.benchmark-form-head{{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:9px}}.benchmark-executor{{display:grid;gap:4px;width:min(340px,100%);color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}}.benchmark-executor select{{width:100%;height:34px;min-height:34px;padding:5px 8px;font-size:11px;text-transform:none;letter-spacing:normal}}
+      .benchmark-profile-fieldset{{min-width:0;margin:0;padding:0;border:0}}.benchmark-profile-fieldset legend{{margin:0 0 6px;padding:0;color:var(--fg);font-size:12px;font-weight:750}}.benchmark-profile-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0}}.benchmark-profile-choice{{display:block;position:relative;min-width:0;margin:0}}.benchmark-profile-choice input[type="checkbox"]{{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0;pointer-events:none}}.benchmark-profile-surface{{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:8px;min-height:54px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}}.benchmark-profile-mark{{display:grid;place-items:center;width:18px;height:18px;border:1px solid var(--line);border-radius:5px;color:transparent;font-size:12px;font-weight:900}}.benchmark-profile-copy{{display:flex;flex-direction:column;gap:1px;min-width:0}}.benchmark-profile-copy strong{{font-size:12px;line-height:1.2;white-space:normal}}.benchmark-profile-copy small{{color:var(--muted);font-size:10px;line-height:1.25;white-space:normal}}.benchmark-profile-choice input:checked + .benchmark-profile-surface{{border-color:var(--accent);background:#102a38;box-shadow:0 0 0 1px rgba(3,169,244,.16)}}.benchmark-profile-choice input:checked + .benchmark-profile-surface .benchmark-profile-mark{{border-color:var(--accent);background:var(--accent);color:#07151d}}.benchmark-profile-choice input:focus-visible + .benchmark-profile-surface{{outline:2px solid var(--accent);outline-offset:2px}}.benchmark-submit-row{{display:flex;align-items:center;justify-content:flex-end;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}}.benchmark-submit-row button{{min-width:190px;height:34px;min-height:34px;padding:6px 11px;font-size:11px;font-weight:750}}
+      .benchmark-history{{display:grid;gap:7px}}.benchmark-history-scroll{{max-height:260px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}}.benchmark-history-row{{display:flex;justify-content:space-between;gap:12px;padding:9px;border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none}}.benchmark-history-row span:first-child{{display:grid;gap:2px}}.benchmark-history-row small{{color:var(--muted)}}
+      .benchmark-report-summary{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}}.benchmark-report-summary div{{padding:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}}.benchmark-report-summary dt{{color:var(--muted);font-size:11px}}.benchmark-report-summary dd{{margin:4px 0 0;overflow-wrap:anywhere}}
+      .benchmark-promotion-panel{{margin:10px 0;padding:9px;border:1px solid var(--accent);border-radius:8px}}.benchmark-promotion-panel h3{{margin:0 0 3px;font-size:13px}}.benchmark-promotion-actions{{display:flex;gap:7px;flex-wrap:wrap}}.benchmark-promotion-action{{margin:0}}
+      .benchmark-report-table table{{width:min(100%,1380px);min-width:1220px;table-layout:fixed}}.benchmark-report-table th:nth-child(1){{width:86px}}.benchmark-report-table th:nth-child(2){{width:58px}}.benchmark-report-table th:nth-child(3){{width:150px}}.benchmark-report-table th:nth-child(4){{width:78px}}.benchmark-report-table th:nth-child(5){{width:170px}}.benchmark-report-table th:nth-child(6){{width:62px}}.benchmark-report-table th:nth-child(7){{width:78px}}.benchmark-report-table th:nth-child(8){{width:62px}}.benchmark-report-table th:nth-child(9){{width:68px}}.benchmark-report-table th:nth-child(10){{width:54px}}.benchmark-report-table th:nth-child(11){{width:100px}}.benchmark-report-table th:nth-child(12){{width:80px}}.benchmark-report-table th:nth-child(13){{width:78px}}.benchmark-report-table th:nth-child(14){{width:82px}}.benchmark-report-table th,.benchmark-report-table td{{padding-left:4px;padding-right:4px}}.benchmark-failures{{margin-top:12px}}
+      @media(max-width:1050px){{.worker-toolbar-spacer{{display:none}}.worker-toolbar-actions{{flex-basis:100%;justify-content:flex-start;margin-left:0}}.workers-grid,.worker-destination-grid,.benchmark-profile-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
+      @media(max-width:700px){{.workers-grid,.worker-destination-grid,.worker-scope-grid,.benchmark-profile-grid,.benchmark-report-summary{{grid-template-columns:1fr}}.worker-panel-head{{display:block}}.workers-head{{align-items:flex-start;flex-direction:column;gap:2px}}.worker-metrics{{justify-content:flex-start;margin-top:6px;text-align:left}}.worker-toolbar-actions{{align-items:stretch;flex-direction:column}}.worker-default-form{{align-items:stretch;flex-direction:column}}.worker-default-form select{{width:100%;max-width:none}}.benchmark-form-head{{display:block}}.benchmark-executor{{width:100%}}.benchmark-submit-row button{{width:100%}}.worker-note{{grid-template-columns:1fr}}}}
     </style>
     <div class="catalog-toolbar maintenance-top-toolbar">
       <a class="button-link" href="../">{_text(_label('ui.back'))}</a>
@@ -635,6 +968,7 @@ def render_page(
       </div>
     </div>
     <div class="workers-head"><h1>{_text(_label('ui.workers_jobs'))}</h1><p>{_text(_label('ui.workers_jobs_help'))}</p></div>
+    {benchmark_report_html}
     <div id="worker-flash-region" data-clear-when-idle="{'1' if flash_clear_when_idle else '0'}">{render_worker_flash(flash, error=flash_error)}</div>
     {f'<div class="catalog-alert error worker-default-issue"><strong>{_text(_label("ui.worker_default_attention"))}</strong><br>{_text(default_issue)}<br>{_text(_label("ui.worker_choose_available"))}</div>' if default_issue else ''}
     <div class="workers-grid">
@@ -661,6 +995,24 @@ def render_page(
         <div class="worker-form-section"><div class="worker-form-heading"><strong>2 · {_text(_label('ui.rebuild_scope_all'))}</strong><small>{eligible_observation_count} {_text(_label('ui.worker_eligible_observations')).lower()}. {_text(_label('ui.worker_scope_help'))}</small></div></div>
         <div class="worker-submit-row"><button class="primary" type="submit"{" disabled" if not selected_executor else ""}>{_text(_label('ui.start_rebuild'))}</button></div>
       </form>
+    </section>
+    <section class="workers-panel">
+      <div class="worker-panel-head"><h2>{_text(_label('ui.worker_scientific_benchmark'))}</h2></div>
+      <p class="meta">{_text(_label('ui.worker_scientific_benchmark_help'))}</p>
+      <form class="benchmark-form" method="post" action="">
+        <input type="hidden" name="worker_action" value="run_ml_benchmark">
+        <input type="hidden" name="benchmark_selection_present" value="1">
+        <div class="benchmark-form-head">
+          <label class="benchmark-executor"><span>{_text(_label('ui.execute_on'))}</span><select name="executor">{''.join(benchmark_options)}</select></label>
+        </div>
+        <fieldset class="benchmark-profile-fieldset">
+          <legend>{_text(_label('ui.worker_benchmark_profiles'))}</legend>
+          <div class="benchmark-profile-grid">{benchmark_profile_controls}</div>
+        </fieldset>
+        <div class="benchmark-submit-row"><button type="submit"{" disabled" if not benchmark_options else ""}>{_text(_label('ui.worker_run_scientific_benchmark'))}</button></div>
+      </form>
+      <h3>{_text(_label('ui.worker_benchmark_history'))}</h3>
+      {benchmark_history_html}
     </section>
     <section class="workers-panel"><h2>{_text(_label('ui.worker_recent_jobs'))}</h2><div id="worker-recent-jobs" data-refresh-signature="{recent_jobs_signature}">{recent_jobs}</div></section>
     <dialog id="worker-discard-candidate-dialog" class="worker-discard-dialog">
@@ -727,10 +1079,14 @@ def render_page(
       const stopRefresh=()=>{{leaving=true;window.clearTimeout(timer);requestController?.abort();}};
       const replaceRegion=(region,htmlValue,signature)=>{{
         if(typeof htmlValue!=='string'||typeof signature!=='string'||region.dataset.refreshSignature===signature)return false;
-        region.innerHTML=htmlValue;region.dataset.refreshSignature=signature;return true;
+        const scrollPositions=Array.from(region.querySelectorAll('[data-preserve-refresh-scroll]')).map(node=>({{top:node.scrollTop,left:node.scrollLeft}}));
+        region.innerHTML=htmlValue;region.dataset.refreshSignature=signature;
+        Array.from(region.querySelectorAll('[data-preserve-refresh-scroll]')).forEach((node,index)=>{{const position=scrollPositions[index];if(position){{node.scrollTop=position.top;node.scrollLeft=position.left;}}}});
+        return true;
       }};
       document.addEventListener('pointerdown',event=>{{if(event.target.closest('a,button,input,select,textarea'))postponeRefresh();}},true);
       document.addEventListener('keydown',event=>{{if((event.key==='Enter'||event.key===' ')&&event.target.closest('a,button,input,select,textarea'))postponeRefresh();}},true);
+      document.addEventListener('scroll',event=>{{if(event.target instanceof Element&&event.target.matches('[data-preserve-refresh-scroll]'))postponeRefresh();}},true);
       document.addEventListener('submit',event=>{{
         stopRefresh();
         const submitter=event.submitter;

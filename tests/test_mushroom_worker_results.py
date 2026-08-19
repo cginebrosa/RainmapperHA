@@ -829,5 +829,54 @@ class MushroomMLTrainWorkerResultsTests(unittest.TestCase):
         self.assertEqual(live_report.read_bytes(), b"old-report")
 
 
+class MushroomWorkerMultiversionUploadTests(unittest.TestCase):
+    def test_upload_accepts_purpose_specific_completion_contract(self) -> None:
+        for purpose, expected_status in (
+            ("operational", "verified"),
+            ("benchmark", "verified_and_archived"),
+        ):
+            with self.subTest(purpose=purpose), tempfile.TemporaryDirectory() as temporary:
+                worker_job_dir = Path(temporary)
+                result_root = worker_job_dir / "multiversion_result"
+                result_root.mkdir()
+                (result_root / "multiversion_result.json").write_text("{}", encoding="utf-8")
+                (result_root / "batch.bin").write_bytes(b"batch")
+                job = {
+                    "job_id": "worker_job_multiversion123",
+                    "job_purpose": purpose,
+                    "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
+                    "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
+                }
+                responses = [
+                    {},
+                    {},
+                    {
+                        "verification": {
+                            "status": expected_status,
+                            "job_purpose": purpose,
+                        }
+                    },
+                ]
+                with mock.patch(
+                    "rainmapper_core.mushroom_ml_multiversion_transport.validate_result_manifest",
+                    return_value={"files": [{"path": "batch.bin"}]},
+                ) as validate, mock.patch.object(
+                    mushroom_worker_results,
+                    "_post_bytes",
+                    side_effect=responses,
+                ):
+                    verification = mushroom_worker_results.upload_ml_multiversion_result(
+                        "http://ha.test",
+                        job,
+                        worker_job_dir,
+                        worker_id="worker_12345678",
+                        claim_token="claim-token",
+                        token="api-token",
+                    )
+
+                self.assertEqual(verification["status"], expected_status)
+                self.assertEqual(validate.call_args.kwargs["expected_purpose"], purpose)
+
+
 if __name__ == "__main__":
     unittest.main()

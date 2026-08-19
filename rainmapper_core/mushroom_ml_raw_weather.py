@@ -1,4 +1,4 @@
-"""Non-operational Biology V5 daily-lag feature contract."""
+"""Biology V5 daily-lag feature contract for benchmark and optional runtime."""
 
 from __future__ import annotations
 

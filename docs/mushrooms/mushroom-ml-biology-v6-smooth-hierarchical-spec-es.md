@@ -1,12 +1,18 @@
 # Especificación Biology V6 — retardos suaves y pooling parcial
 
-Estado: **CONTRATO CORREGIDO PARA EXPERIMENTO LOCAL NO OPERATIVO**.
+Estado: **CONTRATO IMPLEMENTADO Y TÉCNICAMENTE PROMOCIONABLE POR ELECCIÓN MANUAL**.
 Fecha original: 2026-08-16. Corrección de contrato: 2026-08-17.
 
 Contratos corregidos: `fixed_gap_7d_biology_v6_smooth_hierarchical_v2` y
 `lag_event_biology_v6_smooth_hierarchical_v2`. Los identificadores v1 quedan
 reservados para la ejecución histórica sobre cinco canales y no son
 compatibles con esta matriz.
+
+Actualización 2026-08-19: el perfil canónico completo puede producir una
+candidata operativa con los miembros `species`, `shared` y `partial_pooling`.
+La activación sigue siendo manual y no implica que V6 sea científicamente
+superior; cada miembro solo aporta el score de una celda si mejora la
+prevalencia fuera de muestra y obtiene el menor Brier validado.
 
 ## Pregunta
 

@@ -368,6 +368,10 @@ def materialize_daily_inference_row(
     )
     source_quality = source_v3_sample.get("quality")
     source_quality = source_quality if isinstance(source_quality, Mapping) else {}
+    source_predictive = source_v3_sample.get("predictive_features")
+    source_predictive = (
+        source_predictive if isinstance(source_predictive, Mapping) else {}
+    )
     source_reasons = source_quality.get("training_exclusion_reasons")
     source_reasons = source_reasons if isinstance(source_reasons, Sequence) else []
     inference_reasons = [
@@ -395,6 +399,21 @@ def materialize_daily_inference_row(
             "inference_eligible": not inference_reasons,
             "inference_exclusion_reasons": inference_reasons,
             "target_gate_ignored_for_inference": True,
+            # Keep the common ecological evidence outside predictive_features:
+            # it must never enter a model, but the operational interpretation
+            # needs the exact rain event seen by the source V3 adapter.
+            "rain_event_search_complete": source_quality.get(
+                "rain_event_search_complete"
+            ),
+            "significant_rain_search_complete": source_quality.get(
+                "significant_rain_search_complete"
+            ),
+            "significant_rain_found_90d": source_quality.get(
+                "significant_rain_found_90d"
+            ),
+            "days_since_significant_rain_at_target": source_predictive.get(
+                "days_since_significant_rain_at_target"
+            ),
         },
         "metadata": {
             "area_id": source_metadata.get("area_id"),
@@ -663,7 +682,12 @@ def build_biology_v4_sample(
             "extended_weather_window_coverage": extended_quality,
             "climatic_balance_quality": climate_result.get("quality") if climate_result else {},
             "soil_water_quality": area_soil_water_state.get("quality") if isinstance(area_soil_water_state, Mapping) else {},
-            "source_v3_quality": dict(source_quality),
+            "source_v3_quality": {
+                **dict(source_quality),
+                "days_since_significant_rain_at_target": source_predictive.get(
+                    "days_since_significant_rain_at_target"
+                ),
+            },
         },
         "metadata": {
             "temporal_contract_id": temporal_contract_id,

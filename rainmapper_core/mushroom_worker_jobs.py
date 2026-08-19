@@ -27,6 +27,7 @@ JOB_TYPE_CANDIDATE_REBUILD = "worker_candidate_rebuild"
 JOB_TYPE_ML_TRAIN = "worker_ml_train_v0"
 JOB_TYPE_ML_MULTIVERSION = "worker_ml_multiversion_v1"
 JOB_TYPE_PREDICTOR = "worker_predictor_v1"
+ML_JOB_PURPOSES = frozenset({"operational", "benchmark"})
 MAX_JOBS = 50
 DEFAULT_LEASE_SECONDS = 10
 TERMINAL_STATUSES = {"complete", "cancelled", "failed"}
@@ -532,10 +533,20 @@ def create_ml_multiversion_job(
     worker_display_name: str,
     input_bundle: dict[str, Any],
     job_id: str,
+    job_purpose: str = "benchmark",
+    profile_keys: list[str] | None = None,
     triggered_by_job_id: str = "",
     created_at: str | None = None,
 ) -> dict[str, Any]:
     target_worker_id = _validate_worker_id(worker_id)
+    purpose = str(job_purpose or "").strip()
+    if purpose not in ML_JOB_PURPOSES:
+        raise ValueError("Multiversion job purpose is invalid.")
+    selected_profiles = [str(value or "").strip() for value in (profile_keys or [])]
+    if purpose == "benchmark" and (not selected_profiles or any(not value for value in selected_profiles)):
+        raise ValueError("Scientific benchmark must declare selected profiles.")
+    if purpose == "operational" and selected_profiles:
+        raise ValueError("Operational training cannot declare benchmark profiles.")
     display_name = str(worker_display_name or "").strip()[:80]
     if not display_name or not JOB_ID_PATTERN.fullmatch(str(job_id or "")):
         raise ValueError("Multiversion worker assignment is invalid.")
@@ -562,7 +573,7 @@ def create_ml_multiversion_job(
             for row in queue["jobs"]
             if row.get("status") in {"queued", "claimed", "running"}
             and row.get("job_type") == JOB_TYPE_ML_MULTIVERSION
-            and row.get("work_key") == f"ml_multiversion:v1:{bundle_digest}"
+            and row.get("work_key") == f"ml_multiversion:v1:{purpose}:{bundle_digest}"
         ),
         None,
     )
@@ -574,13 +585,23 @@ def create_ml_multiversion_job(
     job = {
         "job_id": job_id,
         "job_type": JOB_TYPE_ML_MULTIVERSION,
-        "work_key": f"ml_multiversion:v1:{bundle_digest}",
+        "work_key": f"ml_multiversion:v1:{purpose}:{bundle_digest}",
         "target_worker_id": target_worker_id,
         "target_display_name": display_name,
         "status": "queued",
         "phase": "Waiting for worker",
-        "message": "V2--V6 runtime training queued.",
-        "scope": "V2--V6 comparison batch",
+        "message": (
+            "Active operational generation training queued."
+            if purpose == "operational"
+            else "V2--V6 scientific benchmark queued."
+        ),
+        "scope": (
+            "active operational generation"
+            if purpose == "operational"
+            else "V2--V6 scientific benchmark"
+        ),
+        "job_purpose": purpose,
+        "profile_keys": selected_profiles,
         "overall_percent": 0,
         "created_at": timestamp,
         "claimed_at": "",
@@ -592,7 +613,7 @@ def create_ml_multiversion_job(
         "lease_expires_at": "",
         "claim_token": "",
         "assignment_revision": 1,
-        "promotion_eligible": False,
+        "promotion_eligible": purpose == "operational",
         "triggered_by_job_id": str(triggered_by_job_id or "")[:100],
         "input_bundle": {**input_bundle, "endpoint": "/api/mushrooms/workers/jobs/input"},
         "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
@@ -1068,9 +1089,23 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise ValueError(f"Worker multiversion {key} is invalid.")
             normalized[key] = value
-        if result.get("operational_candidate_trained") is not False:
-            raise ValueError("Worker multiversion result must remain non-operational.")
-        normalized["operational_candidate_trained"] = False
+        purpose = str(job.get("job_purpose") or "benchmark")
+        if purpose not in ML_JOB_PURPOSES:
+            raise ValueError("Worker multiversion job purpose is invalid.")
+        report_id = str(result.get("report_id", "") or "")
+        if purpose == "benchmark":
+            if not re.fullmatch(r"sha256:[0-9a-f]{64}", report_id):
+                raise ValueError("Worker benchmark report_id is invalid.")
+            if result.get("benchmark_report_available") is not True:
+                raise ValueError("Worker benchmark report is not available.")
+            normalized["report_id"] = report_id
+            normalized["benchmark_report_available"] = True
+        elif report_id or result.get("benchmark_report_available"):
+            raise ValueError("Operational worker result cannot declare a benchmark report.")
+        if result.get("operational_candidate_trained") is not (purpose == "operational"):
+            raise ValueError("Worker multiversion result purpose does not match its job.")
+        normalized["job_purpose"] = purpose
+        normalized["operational_candidate_trained"] = purpose == "operational"
         return normalized
     normalized = {}
     status = str(result.get("verification_status", "") or "")[:40]
@@ -1367,7 +1402,11 @@ def finish_job(
                 "ML training completed"
                 if job.get("job_type") == JOB_TYPE_ML_TRAIN
                 else (
-                    "V2--V6 comparison training completed"
+                    (
+                        "Operational generation training completed"
+                        if job.get("job_purpose") == "operational"
+                        else "Scientific benchmark completed"
+                    )
                     if job.get("job_type") == JOB_TYPE_ML_MULTIVERSION
                     else "Assignment test completed"
                 )

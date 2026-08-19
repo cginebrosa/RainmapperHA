@@ -1,5 +1,85 @@
 # Decisions
 
+## 2026-08-19 - [VIGENTE][FASE 4 EN PRUEBA LOCAL] La unidad de promoción es la versión completa
+
+- `operational_eligible` significa que el runtime puede entrenar, verificar y
+  ejecutar el perfil; no significa que haya ganado el benchmark.
+- La elección final es humana y las métricas son orientativas. El benchmark no
+  prepara, instala ni activa modelos automáticamente.
+- Se activa `version_id/generation_id`, incluyendo todos los perfiles técnicos
+  de esa versión. Para `biology_v3` son V3 core y V3+ físico, cada uno con fixed
+  y lag visibles en Predictor; no hay un perfil principal implícito.
+- `Preparar candidata completa` reentrena sobre entradas vivas y archiva el
+  resultado sin tocar runtime. `Activar versión completa` es una segunda acción
+  confirmada. La promoción guarda journal y copias anteriores, y ofrece rollback
+  exacto de registro y descriptor.
+- El contrato es declarativo: para habilitar otra versión deben estar definidos
+  todos sus perfiles operativos, inputs, adaptador y política de miembros. No se
+  añaden ramas de promoción basadas en el nombre `Vx`.
+- Smoke completo (935 pruebas), `git diff --check`, reconstrucción HA local y
+  presencia contextual de la acción de candidata están validados. Queda que el
+  usuario ejecute candidata, activación, cuatro salidas y rollback reales.
+
+## 2026-08-18 - [VIGENTE CON AMPLIACIÓN 2026-08-19][FASES 1 Y 2] Separar operación y benchmark científico
+
+- La reconstrucción habitual dejará de entrenar automáticamente todo V2–V6.
+  Ajustará únicamente la generación que alimenta el Predictor; mientras no se
+  promocione otra, V2 continúa operativo y completo en fixed/lag.
+- V2–V6 seguirán registrados y reproducibles mediante un benchmark bajo
+  demanda, ligado a snapshot inmutable y sin promoción automática.
+- Habrá dos acciones principales: `Reconstruir y reentrenar operativo` y
+  `Ejecutar benchmark científico`. `Ver comparación` será una acción del job
+  terminado, con informe persistente por especie/contrato/horizonte/estimador.
+- Un benchmark podrá ofrecer promoción humana explícita de una generación
+  completa, nunca de una celda aislada. Exigirá elegibilidad operativa,
+  integridad, paridad, completitud y entradas vivas compatibles. La ampliación
+  del 2026-08-19 habilita V3 core y V3+ conjuntamente; V4–V6 siguen sin ser
+  técnicamente elegibles.
+- El primer experimento controlado será V3 core frente a un perfil nuevo
+  V3 physical/V3+: mismas filas, targets, splits, contratos y estimadores; la
+  única adición será balance hídrico y SMI derivados del IDW. No se modifica
+  silenciosamente V3 core.
+- Solo si el bloque físico mejora de forma repetible se abrirán ablaciones de
+  balance/SMI y variantes V5 de 30/60/90 días. V5/V6-365 se conservan como
+  controles históricos reproducibles.
+- La implementación se divide en separación de jobs, informe seleccionable,
+  V3 physical, promoción genérica y experimentos posteriores. Antes de release
+  se requiere autorización explícita.
+- La fase 1 usa `job_purpose=operational|benchmark`. El flujo operativo resuelve
+  la versión activa del registro (`altitude_v2` actualmente), prepara solo sus
+  fuentes fixed/lag y exige todos sus artefactos sin fallos. El benchmark manual
+  conserva V2–V6 y se archiva sin escribir `runtime-batch.json`.
+- El transporte ya no instala al completar una subida. Un resultado operativo
+  queda verificado en staging y se instala únicamente dentro de la promoción
+  conjunta; si esta falla antes de completar la generación se restaura el
+  descriptor runtime anterior y se elimina el batch nuevo. El flujo local usa
+  la misma política compensatoria.
+- La UI separa ambas acciones. Solo un job operativo enlazado puede disparar la
+  promoción automática; un benchmark terminado nunca la dispara. Los workers
+  destinados al flujo completo deben declarar `ml_job_purpose_v1`.
+- La fase 2 valida una selección no vacía de perfiles comparables y la conserva
+  en job, plan, manifiesto e informe. Cada batch científico archiva sus
+  predicciones hold-out, métricas sin promediar especies, fallos y duraciones
+  por fit/versión/perfil/estimador. `Ver comparación` y el historial leen ese
+  archivo persistente, no la retención temporal de la cola.
+- Un resultado científico externo debe declarar `ml_benchmark_report_v1`; HA
+  verifica identidad y hashes del informe y de sus predicciones antes de
+  archivarlo. Este contrato no concede elegibilidad ni promoción automática.
+- Especificación:
+  `docs/mushrooms/mushroom-ml-operational-benchmark-separation-design-es.md`.
+
+## 2026-08-18 - [VIGENTE][INTERPRETACIÓN] Biology V3 no equivale a covariables biológicas directas
+
+- V3 introduce principalmente contratos de muestra/target, preservación de
+  observaciones y validación por grupos de florada. Sus variables activas son
+  fundamentalmente meteorológicas; no incorpora por ese nombre huésped,
+  bosque o sustrato.
+- V4–V6 heredan esa línea contractual y añaden simultáneamente otras variables,
+  representaciones y algoritmos. Comparar versiones completas no permite
+  atribuir causalmente la mejora a una sola familia.
+- Las comparaciones futuras deben mantener filas, splits, contratos y
+  estimadores y cambiar un único bloque predeclarado siempre que sea posible.
+
 ## 2026-08-18 - [VIGENTE][RELEASE] HA 0.2.261 y worker privado local 1.0.14
 
 - Publican el contrato operativo `lag_event` con horizontes 1..7, eliminando
@@ -98,24 +178,24 @@ multiidioma mediante labels `en`, `es` y `ca`.
   UI, la meteorología particionada usa su generación y digest de manifest
   inmutables; las promociones siguen realizando la validación profunda.
 
-## 2026-08-18 - [VIGENTE][ARQUITECTURA] La generación externa completa se promociona automáticamente
+## 2026-08-18 - [VIGENTE CON FASE 1] La generación externa completa se promociona automáticamente
 
-- «Reconstruir y reentrenar todo» ya es una única intención del usuario y
-  encadena reconstrucción, ML v0 y V2–V6. Una segunda aprobación al final no
+- «Reconstruir y reentrenar operativo» ya es una única intención del usuario y
+  encadena reconstrucción, ML v0 y la generación activa V2 fixed/lag. Una segunda aprobación al final no
   aporta una revisión adicional: la promoción ejecuta validaciones automáticas.
 - La regeneración real de HA `0.2.258` terminó V2–V6 a las 03:12:53 CEST. Antes
   de la activación manual, el runner programado `source=schedule`, `action=all`
   actualizó `weather-history/CURRENT.json` a las 05:04:52 CEST. La promoción se
   rechazó correctamente por hash y fingerprint obsoletos, pero se perdió una
   cadena de cálculo válida por una ventana de espera innecesaria.
-- Tras completar un V2–V6 enlazado, HA inicia inmediatamente la promoción
+- Tras completar el entrenamiento operativo enlazado, HA inicia inmediatamente la promoción
   completa usando el ID del ML v0 padre. La propia operación exige que el ML
-  proceda de una reconstrucción `full_update` y que su V2–V6 esté completo.
+  proceda de una reconstrucción `full_update` y que su generación V2 esté completa.
 - Se conservan el chequeo de frescura, la verificación de manifests, la
   instalación atómica, el rollback de artefactos si falla ML y la liberación de
   caché. No se reintenta automáticamente una cadena pesada si las entradas ya
   cambiaron.
-- Los jobs fallidos, los batches V2–V6 no enlazados, las reconstrucciones
+- Los jobs fallidos, los benchmarks V2–V6, las reconstrucciones
   parciales y los experimentos quedan fuera de esta automatización. El botón
   manual puede permanecer como recuperación ante un fallo al iniciar la
   promoción, no como paso normal del flujo completo.
@@ -394,7 +474,23 @@ multiidioma mediante labels `en`, `es` y `ca`.
   identidad de entrenamiento del snapshot fresco y muestran su vigencia en la
   UI.
 
-## 2026-08-16 - [VIGENTE][BIOLOGY V4] V4 permanece propuesta, no candidata
+## 2026-08-19 - [VIGENTE][ML] Selección genérica y promoción manual V4–V6
+
+- V4, V5 y V6 pasan a estado técnico `candidate`, con predicción operativa y
+  todos los perfiles declarados de cada versión marcados como elegibles.
+- La elegibilidad significa que entrenamiento, artefactos e inferencia tienen
+  contrato implementado; no significa superioridad científica ni recomendación.
+- La activación continúa siendo manual y en dos pasos: candidata completa y
+  confirmación separada de la versión completa. No se promociona por métricas.
+- Para cada especie, perfil y contrato, cualquier estimador declarado puede
+  aportar el score si su Brier hold-out mejora la prevalencia y no está excluido
+  para la entrada. Gana el menor Brier; se elimina la distinción LR/RF frente a
+  modelos sombra en el dictamen operativo.
+- V4 hereda explícitamente la evidencia ecológica V3. V5/V6 calculan desde su
+  raw365 el evento significativo de los 90 días previos y su edad al target,
+  sin añadir esos campos a `X`.
+
+## 2026-08-16 - [SUSTITUIDA 2026-08-19][BIOLOGY V4] V4 permanece propuesta, no candidata
 
 - V4 core reproduce V3 y valida el comparador. La meteorología ampliada y el
   balance no mejoran Brier consistentemente entre especies; SoilGrids empeora
@@ -404,8 +500,9 @@ multiidioma mediante labels `en`, `es` y `ca`.
   significa borrar o dejar de validar.
 - Dos observaciones revisadas ya cambian ganadores y dejan `boletus_edulis` sin
   dos clases en la partición de grupos 7. El soporte no permite promoción.
-- V4 queda `proposed`. No se entrena candidato operativo hasta disponer de más
-  observaciones, analizar errores compartidos y superar los gates por especie.
+- Esta era una recomendación científica conservadora. La decisión del
+  2026-08-19 permite que el usuario la active manualmente sin presentarla como
+  ganadora ni eliminar esa evidencia histórica.
 
 ## 2026-08-16 - [VIGENTE][HISTÓRICO METEO] Autocuración acotada de huecos oficiales
 
@@ -430,7 +527,7 @@ multiidioma mediante labels `en`, `es` y `ca`.
 - El bootstrap histórico de una instalación virgen queda fuera de este alcance
   y continúa como tarea futura no prioritaria.
 
-## 2026-08-13 - [VIGENTE][BIOLOGY V3] Tres ejes, extremos meteorológicos y consenso entre estimadores
+## 2026-08-13 - [VIGENTE SALVO AUTORIDAD LR/RF, SUSTITUIDA 2026-08-19][BIOLOGY V3] Tres ejes, extremos meteorológicos y consenso entre estimadores
 
 - La nomenclatura canónica separa tres ejes: **contrato temporal**
   (`fixed_gap_7d_biology_v3` o `lag_event_biology_v3`), **estimador ML**
@@ -438,9 +535,9 @@ multiidioma mediante labels `en`, `es` y `ca`.
   especie × contrato × estimador. Las especies no se denominan modelos y los
   contratos no se denominan algoritmos.
 - Los seis estimadores reciben exactamente las mismas columnas activas dentro
-  de un contrato y una comparación. LR y RF conservan estado operativo; ET,
-  HGB, KNN y SVM RBF calibrada conservan estado experimental, pero los seis se
-  comparan sin filtrar ese estado.
+  de un contrato y una comparación. La antigua separación LR/RF frente a
+  estimadores experimentales queda sustituida por la regla genérica del
+  2026-08-19.
 - El Brier se calcula y decide por especie. Los agregados entre especies son
   solo diagnósticos y nunca seleccionan estimador. Cada Brier se contrasta con
   la prevalencia de entrenamiento de esa misma especie.
@@ -700,8 +797,11 @@ multiidioma mediante labels `en`, `es` y `ca`.
   evidencia y auditoría, pero las observaciones originales son las muestras de
   aprendizaje y no se fusionan.
 
-## 2026-08-13 - [VIGENTE][ML] Toda actualización operativa reconstruye y reentrena globalmente
+## 2026-08-13 - [REEMPLAZADA][ML] Toda actualización operativa reconstruye y reentrena globalmente
 
+- Reemplazada como dirección futura el 2026-08-18 por la separación entre
+  entrenamiento operativo y benchmark científico. Sigue describiendo el
+  comportamiento implementado hasta que se complete esa migración.
 - Si cambian observaciones y se quiere incorporarlas al Predictor, se
   reconstruyen todos los artefactos y se reentrenan todos los modelos. La regla
   no depende de que existan 399 o 39.999 observaciones.

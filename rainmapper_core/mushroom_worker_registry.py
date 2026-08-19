@@ -21,6 +21,8 @@ TERMINAL_JOB_CLEANUP_CAPABILITY = "terminal_job_cleanup_v1"
 PREDICTOR_CAPABILITY = "predictor_v1"
 PREDICTOR_MULTIVERSION_CAPABILITY = "predictor_multiversion_v1"
 ML_MULTIVERSION_TRAINING_CAPABILITY = "ml_multiversion_training_v1"
+ML_JOB_PURPOSE_CAPABILITY = "ml_job_purpose_v1"
+ML_BENCHMARK_REPORT_CAPABILITY = "ml_benchmark_report_v1"
 STATIC_FIELDS = (
     "worker_id",
     "display_name",

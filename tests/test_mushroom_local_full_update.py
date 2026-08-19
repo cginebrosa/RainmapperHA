@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from rainmapper_core import mushroom_local_full_update
 
@@ -116,7 +117,7 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
         )
 
         self.assertEqual(74, percent)
-        self.assertEqual("Training V2--V6", phase)
+        self.assertEqual("Training active operational generation", phase)
         self.assertIn("50/100", detail)
         self.assertIn("biology_v4", detail)
         self.assertIn("boletus_edulis", detail)
@@ -133,7 +134,8 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
         )
 
         self.assertEqual(55, percent)
-        self.assertEqual("Built V5 raw-weather inputs", phase)
+        self.assertIn("Built V5 raw-weather inputs", phase)
+        self.assertIn("not training", phase)
         self.assertEqual("125/352 area cutoffs materialized.", detail)
 
     def test_command_forwards_flushed_jsonl_progress_events(self) -> None:
@@ -168,6 +170,93 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
             self.assertEqual([74, 90], [row[0] for row in received])
             self.assertIn("1/2", received[0][2])
             self.assertIn("2/2", received[1][2])
+
+    def test_command_stops_when_local_benchmark_cancel_is_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            progress_path = Path(temporary) / "progress.jsonl"
+
+            with self.assertRaises(mushroom_local_full_update.LocalBenchmarkCancelled):
+                mushroom_local_full_update._run_command_with_jsonl_progress(
+                    [sys.executable, "-c", "import time; time.sleep(30)"],
+                    description="cancel test",
+                    progress_path=progress_path,
+                    progress=lambda *_values: None,
+                    event_mapper=mushroom_local_full_update._training_progress_update,
+                    cancel_requested=lambda: True,
+                )
+
+    def test_operational_candidate_reuses_fresh_benchmark_without_training(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            paths = self._paths(root, work_root=root / ".local-full-update")
+            benchmark_id = "benchmark-v4"
+            benchmark_root = paths.ml_models_dir / "benchmarks" / benchmark_id
+            benchmark_root.mkdir(parents=True)
+            training = benchmark_root / "training-input-manifest.json"
+            training.write_text(
+                json.dumps({"snapshot_id": "sha256:" + "a" * 64}),
+                encoding="utf-8",
+            )
+            (benchmark_root / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "snapshot_id": "sha256:" + "a" * 64,
+                        "training_input_manifest": {
+                            "path": f"batches/{benchmark_id}/training-input-manifest.json"
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            profiles = [
+                {"version_id": "biology_v4", "profile_key": "biology_v4/extended_weather"},
+                {"version_id": "biology_v4", "profile_key": "biology_v4/climatic_balance"},
+            ]
+            report = {
+                "snapshot_id": "sha256:" + "a" * 64,
+                "selection": {"profiles": profiles},
+            }
+            archived = {
+                "candidate_id": "candidate-v4",
+                "artifact_preparation": "verified_benchmark_reuse",
+            }
+
+            with mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_version_registry,
+                "load_registry",
+                return_value={},
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_version_registry,
+                "operational_profile_options",
+                return_value=profiles,
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_benchmark_reports,
+                "load_report",
+                return_value=report,
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_rebuild_snapshot,
+                "verify_live_inputs",
+                return_value={"status": "valid"},
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_multiversion_transport,
+                "archive_benchmark_as_candidate",
+                return_value=archived,
+            ) as reuse, mock.patch.object(
+                mushroom_local_full_update,
+                "_run_command_with_jsonl_progress",
+            ) as training_command:
+                result = mushroom_local_full_update.run_local_operational_candidate(
+                    operation_id="operation-a",
+                    benchmark_batch_id=benchmark_id,
+                    version_id="biology_v4",
+                    paths=paths,
+                    progress=lambda *_values: None,
+                )
+
+            training_command.assert_not_called()
+            reuse.assert_called_once()
+            self.assertEqual(result["artifact_preparation"], "verified_benchmark_reuse")
+            self.assertFalse(result["runtime_changed"])
 
 
 if __name__ == "__main__":

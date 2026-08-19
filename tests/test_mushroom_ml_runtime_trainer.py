@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest import mock
 
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_runtime_trainer as trainer
@@ -12,6 +13,70 @@ REGISTRY_PATH = Path(__file__).resolve().parents[1] / "mushroom-data/mushroom_ml
 
 
 class MushroomMLRuntimeTrainerTests(TestCase):
+    def test_operational_materialization_needs_only_v3_fixed_and_lag_inputs(self) -> None:
+        fixed = {"source": "fixed"}
+        lag = {"source": "lag"}
+        with mock.patch.object(
+            trainer.mushroom_ml_biology_v3_evaluation,
+            "build_observation_altitude_v2_common_idw_benchmark",
+            side_effect=lambda payload: {"altitude": payload["source"]},
+        ):
+            benchmarks = trainer.materialize_runtime_benchmarks(
+                v3_fixed=fixed,
+                v3_lag=lag,
+            )
+
+        self.assertEqual(len(benchmarks), 4)
+        self.assertEqual(
+            benchmarks[
+                trainer.benchmark_key(
+                    "altitude_v2", "fixed_gap_7d_altitude_v2", "common_idw"
+                )
+            ],
+            {"altitude": "fixed"},
+        )
+        self.assertFalse(any("biology_v4" in key for key in benchmarks))
+        self.assertFalse(any("biology_v5" in key for key in benchmarks))
+        self.assertFalse(any("biology_v6" in key for key in benchmarks))
+
+    def test_v3_physical_materializes_only_when_physical_sources_are_supplied(self) -> None:
+        with mock.patch.object(
+            trainer.mushroom_ml_biology_v3_physical,
+            "materialize_benchmark",
+            side_effect=lambda payload: {"physical": payload["source"]},
+        ), mock.patch.object(
+            trainer.mushroom_ml_biology_v4,
+            "materialize_comparison_benchmark",
+            side_effect=lambda payload, **_kwargs: {"v4": payload["source"]},
+        ):
+            benchmarks = trainer.materialize_runtime_benchmarks(
+                v3_fixed={"source": "v3-fixed"},
+                v3_lag={"source": "v3-lag"},
+                v4_fixed={"source": "v4-fixed"},
+                v4_lag={"source": "v4-lag"},
+            )
+
+        self.assertEqual(
+            benchmarks[
+                trainer.benchmark_key(
+                    "biology_v3",
+                    "fixed_gap_7d_biology_v3",
+                    "common_idw_plus_physical_state",
+                )
+            ],
+            {"physical": "v4-fixed"},
+        )
+        self.assertEqual(
+            benchmarks[
+                trainer.benchmark_key(
+                    "biology_v3",
+                    "lag_event_biology_v3",
+                    "common_idw_plus_physical_state",
+                )
+            ],
+            {"physical": "v4-lag"},
+        )
+
     def test_registry_plan_has_complete_runtime_benchmark_coverage(self) -> None:
         from rainmapper_core import mushroom_ml_multiversion_plan
 
@@ -116,6 +181,11 @@ class MushroomMLRuntimeTrainerTests(TestCase):
             self.assertEqual(manifest["batch_id"], "batch-test")
             self.assertEqual(progress_events[-1]["completed_fit_count"], 1)
             self.assertEqual(progress_events[-1]["planned_fit_count"], 1)
+            self.assertEqual(stored["fit_results"][0]["status"], "complete")
+            self.assertGreaterEqual(stored["fit_results"][0]["duration_seconds"], 0)
+            self.assertEqual(
+                stored["fit_results"][0]["artifact_ref"], artifact_ref.as_dict()
+            )
             with self.assertRaises(FileExistsError):
                 trainer.write_batch(
                     registry,

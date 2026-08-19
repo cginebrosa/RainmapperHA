@@ -128,7 +128,51 @@ def validate_registry(payload: object) -> dict[str, Any]:
     # present they must be internally consistent with the version contracts.
     from rainmapper_core import mushroom_ml_model_catalog  # noqa: PLC0415
 
-    mushroom_ml_model_catalog.catalog_entries(normalized)
+    catalog = mushroom_ml_model_catalog.catalog_entries(normalized)
+    raw_target = normalized.get("active_operational_target")
+    if raw_target is None:
+        raw_target = {
+            "version_id": active_version_id,
+            "generation_id": "",
+        }
+    if not isinstance(raw_target, dict):
+        raise ValueError("active_operational_target must be an object.")
+    target_version_id = _non_empty_string(
+        raw_target.get("version_id"), "active_operational_target.version_id"
+    )
+    if target_version_id != active_version_id:
+        raise ValueError("The operational target must belong to the active version.")
+    target_profiles = [
+        row
+        for row in catalog
+        if row["version_id"] == target_version_id
+        and row["operational_eligible"] is True
+    ]
+    if not target_profiles:
+        raise ValueError("The operational version has no technically eligible profiles.")
+    generation_id = str(raw_target.get("generation_id") or "").strip()
+    if generation_id:
+        generation = next(
+            (
+                row
+                for version in rows
+                if version["version_id"] == target_version_id
+                for row in version.get("generations", [])
+                if row.get("generation_id") == generation_id
+            ),
+            None,
+        )
+        if generation is None or generation.get("kind") != "trained_model":
+            raise ValueError("The operational target generation is not registered.")
+        declared_profiles = generation.get("profile_ids")
+        if declared_profiles is not None and set(declared_profiles) != {
+            row["profile_id"] for row in target_profiles
+        }:
+            raise ValueError("The operational generation does not contain the full version.")
+    normalized["active_operational_target"] = {
+        "version_id": target_version_id,
+        "generation_id": generation_id,
+    }
     return normalized
 
 
@@ -138,6 +182,133 @@ def load_registry(path: Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot load ML version registry: {exc}") from exc
     return validate_registry(payload)
+
+
+def training_version_ids(payload: object, *, job_purpose: str) -> list[str]:
+    """Resolve operational or benchmark scope from the validated registry."""
+    checked = validate_registry(payload)
+    purpose = str(job_purpose or "").strip()
+    if purpose == "operational":
+        return [str(checked["active_operational_target"]["version_id"])]
+    if purpose == "benchmark":
+        version_ids = [
+            str(row["version_id"])
+            for row in checked["versions"]
+            if row.get("benchmark_available") is True
+        ]
+        if not version_ids:
+            raise ValueError("The ML registry has no benchmark versions.")
+        return version_ids
+    raise ValueError("ML training job purpose is invalid.")
+
+
+def operational_profile_options(payload: object) -> list[dict[str, str]]:
+    """Return profiles that the runtime can execute; metrics do not gate this list."""
+    checked = validate_registry(payload)
+    from rainmapper_core import mushroom_ml_model_catalog  # noqa: PLC0415
+
+    return [
+        {
+            "profile_key": f"{row['version_id']}/{row['profile_id']}",
+            "version_id": str(row["version_id"]),
+            "version_name": str(row["version_display_name"]),
+            "profile_id": str(row["profile_id"]),
+            "profile_name": str(row["profile_display_name"]),
+        }
+        for row in mushroom_ml_model_catalog.catalog_entries(checked)
+        if row["operational_eligible"] is True
+    ]
+
+
+def resolve_operational_profile(payload: object, profile_key: str) -> dict[str, str]:
+    """Resolve one human-selected technically executable operational profile."""
+    resolved_key = _non_empty_string(profile_key, "profile_key")
+    match = next(
+        (
+            row
+            for row in operational_profile_options(payload)
+            if row["profile_key"] == resolved_key
+        ),
+        None,
+    )
+    if match is None:
+        raise ValueError(f"Profile is not technically promotable: {resolved_key}")
+    return match
+
+
+def active_operational_profiles(payload: object) -> list[dict[str, str]]:
+    """Return every technically executable profile in the active version."""
+    checked = validate_registry(payload)
+    target = checked["active_operational_target"]
+    return [
+        row
+        for row in operational_profile_options(checked)
+        if row["version_id"] == target["version_id"]
+    ]
+
+
+def training_profile_keys(payload: object, *, job_purpose: str) -> list[str]:
+    """Resolve every profile belonging to the active operational version."""
+    if str(job_purpose or "").strip() != "operational":
+        raise ValueError("Profile scope is only defined for operational training.")
+    return [row["profile_key"] for row in active_operational_profiles(payload)]
+
+
+def benchmark_profile_options(payload: object) -> list[dict[str, str]]:
+    """Return selectable benchmark profiles in stable registry order."""
+    checked = validate_registry(payload)
+    options: list[dict[str, str]] = []
+    for version in checked["versions"]:
+        if version.get("benchmark_available") is not True:
+            continue
+        runtime = version.get("runtime")
+        profiles = runtime.get("profiles") if isinstance(runtime, dict) else []
+        for profile in profiles if isinstance(profiles, list) else []:
+            if (
+                not isinstance(profile, dict)
+                or profile.get("comparison_eligible_when_trained") is not True
+            ):
+                continue
+            version_id = str(version["version_id"])
+            profile_id = str(profile.get("profile_id") or "")
+            if not profile_id:
+                continue
+            options.append(
+                {
+                    "profile_key": f"{version_id}/{profile_id}",
+                    "version_id": version_id,
+                    "version_name": str(version.get("display_name") or version_id),
+                    "profile_id": profile_id,
+                    "profile_name": str(profile.get("display_name") or profile_id),
+                    "profile_label_key": str(
+                        profile.get("display_label_key") or ""
+                    ),
+                }
+            )
+    if not options:
+        raise ValueError("The ML registry has no selectable benchmark profiles.")
+    return options
+
+
+def resolve_benchmark_profiles(
+    payload: object,
+    requested_profile_keys: list[str] | tuple[str, ...] | None,
+) -> list[dict[str, str]]:
+    """Validate a benchmark selection; an omitted selection means every profile."""
+    options = benchmark_profile_options(payload)
+    if requested_profile_keys is None:
+        return options
+    requested = [str(value or "").strip() for value in requested_profile_keys]
+    if not requested or any(not value for value in requested):
+        raise ValueError("Select at least one benchmark profile.")
+    if len(set(requested)) != len(requested):
+        raise ValueError("Benchmark profile selection contains duplicates.")
+    by_key = {row["profile_key"]: row for row in options}
+    unknown = [value for value in requested if value not in by_key]
+    if unknown:
+        raise ValueError("Unknown benchmark profile: " + unknown[0])
+    requested_set = set(requested)
+    return [row for row in options if row["profile_key"] in requested_set]
 
 
 def merge_packaged_definitions(
@@ -157,7 +328,15 @@ def merge_packaged_definitions(
         row = copy.deepcopy(definition)
         existing = current_by_id.get(version_id)
         if existing is not None:
-            row["status"] = existing["status"]
+            # A packaged proposed->candidate change is a forward-only technical
+            # capability migration. Preserve every user-driven lifecycle state,
+            # but do not leave an existing installation unable to use a newly
+            # implemented candidate forever.
+            if not (
+                existing["status"] == "proposed"
+                and definition["status"] == "candidate"
+            ):
+                row["status"] = existing["status"]
             row["generations"] = copy.deepcopy(existing.get("generations", []))
         merged_versions.append(row)
     merged_versions.extend(
@@ -167,6 +346,9 @@ def merge_packaged_definitions(
     )
     merged["versions"] = merged_versions
     merged["active_version_id"] = current["active_version_id"]
+    merged["active_operational_target"] = copy.deepcopy(
+        current["active_operational_target"]
+    )
     if "activation_history" in current:
         merged["activation_history"] = copy.deepcopy(current["activation_history"])
     return validate_registry(merged)
@@ -298,12 +480,81 @@ def transition_active(
         elif row["version_id"] == target_id:
             row["status"] = "active"
     checked["active_version_id"] = target_id
+    checked["active_operational_target"] = {
+        "version_id": target_id,
+        "generation_id": resolved_generation_id,
+    }
     history = checked.setdefault("activation_history", [])
     history.append(
         {
             "from_version_id": previous_id,
             "to_version_id": target_id,
             "generation_id": resolved_generation_id,
+        }
+    )
+    return validate_registry(checked)
+
+
+def transition_active_generation(
+    payload: object,
+    version_id: str,
+    *,
+    generation_id: str,
+    approved_by: str = "local_user",
+) -> dict[str, Any]:
+    """Activate a complete trained version selected explicitly by a human."""
+    checked = validate_registry(payload)
+    target_id = _non_empty_string(version_id, "version_id")
+    target_profiles = [
+        row
+        for row in operational_profile_options(checked)
+        if row["version_id"] == target_id
+    ]
+    if not target_profiles:
+        raise ValueError("The selected version has no technically promotable profiles.")
+    resolved_generation_id = _non_empty_string(generation_id, "generation_id")
+    version = next(
+        (row for row in checked["versions"] if row["version_id"] == target_id), None
+    )
+    if version is None:
+        raise ValueError(f"Unknown ML version: {target_id}")
+    generation = next(
+        (
+            row
+            for row in version.get("generations", [])
+            if row.get("generation_id") == resolved_generation_id
+        ),
+        None,
+    )
+    if generation is None or generation.get("kind") != "trained_model":
+        raise ValueError("Only a registered trained-model generation can be promoted.")
+    if generation.get("promotion_gate_status") != "passed":
+        raise ValueError("The candidate has not passed its technical promotion gates.")
+    if set(generation.get("profile_ids") or []) != {
+        row["profile_id"] for row in target_profiles
+    }:
+        raise ValueError("The candidate does not contain every operational profile.")
+    previous = copy.deepcopy(checked["active_operational_target"])
+    previous_version_id = str(previous["version_id"])
+    for row in checked["versions"]:
+        if row["version_id"] == previous_version_id:
+            row["status"] = "reference"
+        if row["version_id"] == target_id:
+            row["status"] = "active"
+    checked["active_version_id"] = target_id
+    checked["active_operational_target"] = {
+        "version_id": target_id,
+        "generation_id": resolved_generation_id,
+    }
+    checked.setdefault("activation_history", []).append(
+        {
+            "from_version_id": previous_version_id,
+            "from_generation_id": previous.get("generation_id", ""),
+            "to_version_id": target_id,
+            "profile_ids": [row["profile_id"] for row in target_profiles],
+            "generation_id": resolved_generation_id,
+            "approved_by": _non_empty_string(approved_by, "approved_by"),
+            "approval_kind": "explicit_human_selection",
         }
     )
     return validate_registry(checked)

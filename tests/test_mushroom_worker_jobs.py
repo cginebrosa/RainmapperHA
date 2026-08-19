@@ -828,6 +828,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                     "files": [{"path": "job_spec.json", "size_bytes": 1, "sha256": "b" * 64}],
                 },
                 job_id=job_id,
+                profile_keys=["biology_v3/core"],
             )
             mushroom_worker_jobs.claim_next(
                 path, worker_id="worker_aaaaaaaa", claim_token="retry-secret"
@@ -876,9 +877,69 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                     },
                 },
                 job_id=job_id,
+                profile_keys=["biology_v3/core"],
             )
 
         self.assertEqual(job["input_bundle"]["snapshot_id"], "sha256:" + "b" * 64)
+        self.assertEqual(job["job_purpose"], "benchmark")
+        self.assertEqual(job["profile_keys"], ["biology_v3/core"])
+        self.assertFalse(job["promotion_eligible"])
+
+    def test_operational_multiversion_result_identity_is_enforced(self) -> None:
+        job = {
+            "job_type": mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,
+            "job_purpose": "operational",
+        }
+        normalized = mushroom_worker_jobs._normalized_result(
+            job,
+            {
+                "verification_status": "verified",
+                "operational_candidate_trained": True,
+            },
+        )
+
+        self.assertEqual(normalized["job_purpose"], "operational")
+        self.assertTrue(normalized["operational_candidate_trained"])
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            mushroom_worker_jobs._normalized_result(
+                job,
+                {"operational_candidate_trained": False},
+            )
+
+    def test_benchmark_job_requires_selection_and_verified_report_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            with self.assertRaisesRegex(ValueError, "selected profiles"):
+                mushroom_worker_jobs.create_ml_multiversion_job(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    worker_display_name="Worker A",
+                    input_bundle={
+                        "job_id": "worker_job_noprofiles",
+                        "bundle_digest": "sha256:" + "a" * 64,
+                    },
+                    job_id="worker_job_noprofiles",
+                )
+
+        job = {
+            "job_type": mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,
+            "job_purpose": "benchmark",
+        }
+        normalized = mushroom_worker_jobs._normalized_result(
+            job,
+            {
+                "verification_status": "verified_and_archived",
+                "report_id": "sha256:" + "b" * 64,
+                "benchmark_report_available": True,
+                "operational_candidate_trained": False,
+            },
+        )
+        self.assertTrue(normalized["benchmark_report_available"])
+        self.assertEqual(normalized["report_id"], "sha256:" + "b" * 64)
+        with self.assertRaisesRegex(ValueError, "report_id"):
+            mushroom_worker_jobs._normalized_result(
+                job, {"operational_candidate_trained": False}
+            )
 
     def test_ml_training_result_persists_exact_verified_species_scope(self) -> None:
         normalized = mushroom_worker_jobs._normalized_result(

@@ -1,12 +1,19 @@
 # Especificación de Biology V4: agua disponible y continuidad de floradas
 
-Estado: **IMPLEMENTACIÓN LOCAL POR FASES; NO OPERATIVO**.
+Estado: **IMPLEMENTADO Y TÉCNICAMENTE PROMOCIONABLE POR ELECCIÓN MANUAL**.
+
+Actualización 2026-08-19: V4 está integrada en entrenamiento, artefactos,
+inferencia y promoción genérica como versión completa (`extended_weather` +
+`climatic_balance`). Esta habilitación no revoca sus resultados científicos ni
+la declara mejor que V3; solo permite al usuario preparar y activar una
+generación conscientemente desde un benchmark completo.
 
 El punto 1 de la fase 1 —contexto estático SoilGrids cacheado por microárea—
 quedó implementado y validado localmente el 2026-08-15. El progreso verificable
 se mantiene en
 [`mushroom-ml-biology-v4-progress-es.md`](mushroom-ml-biology-v4-progress-es.md).
-No hay integración HA/worker, entrenamiento, artefacto ni promoción V4.
+La afirmación histórica de que no existía integración queda sustituida por la
+actualización anterior.
 
 Este documento convierte la revisión científica de
 [`literature/fruiting-phenology/`](literature/fruiting-phenology/README.md) en

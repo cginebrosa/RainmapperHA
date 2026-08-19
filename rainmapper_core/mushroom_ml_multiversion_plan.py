@@ -18,6 +18,8 @@ def build_plan(
     snapshot_id: str,
     generation_ids: Mapping[str, str],
     species_ids: Sequence[str],
+    version_ids: Sequence[str] | None = None,
+    profile_keys: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Create one fit per artifact; lag horizons are metadata, never fits."""
     normalized_species = sorted(
@@ -32,10 +34,51 @@ def build_plan(
         and len(snapshot_id) == 71
     ):
         raise ValueError("Multiversion training requires a SHA-256 snapshot_id")
+    catalog_rows = catalog.catalog_entries(registry)
+    available_versions = {str(row["version_id"]) for row in catalog_rows}
+    selected_versions = (
+        {catalog._identifier(value, "version_id") for value in version_ids}
+        if version_ids is not None
+        else available_versions
+    )
+    if not selected_versions:
+        raise ValueError("Multiversion training requires at least one version")
+    unknown_versions = selected_versions - available_versions
+    if unknown_versions:
+        raise ValueError(
+            "Multiversion training selected unknown versions: "
+            + ", ".join(sorted(unknown_versions))
+        )
+    available_profiles = {
+        f"{row['version_id']}/{row['profile_id']}" for row in catalog_rows
+    }
+    selected_profiles = (
+        {str(value or "").strip() for value in profile_keys}
+        if profile_keys is not None
+        else {
+            key
+            for key in available_profiles
+            if key.split("/", 1)[0] in selected_versions
+        }
+    )
+    if not selected_profiles or "" in selected_profiles:
+        raise ValueError("Multiversion training requires at least one profile")
+    unknown_profiles = selected_profiles - available_profiles
+    if unknown_profiles:
+        raise ValueError(
+            "Multiversion training selected unknown profiles: "
+            + ", ".join(sorted(unknown_profiles))
+        )
+    profile_versions = {key.split("/", 1)[0] for key in selected_profiles}
+    if not profile_versions.issubset(selected_versions):
+        raise ValueError("Multiversion profile selection is outside its version scope")
     fits: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for profile in catalog.catalog_entries(registry):
+    for profile in catalog_rows:
         version_id = str(profile["version_id"])
+        profile_key = f"{version_id}/{profile['profile_id']}"
+        if version_id not in selected_versions or profile_key not in selected_profiles:
+            continue
         generation_id = catalog._identifier(
             generation_ids.get(version_id), f"{version_id}.generation_id"
         )
@@ -77,6 +120,8 @@ def build_plan(
         "batch_id": resolved_batch,
         "snapshot_id": snapshot_id,
         "species_ids": normalized_species,
+        "version_ids": sorted(selected_versions),
+        "profile_keys": sorted(selected_profiles),
         "fit_count": len(fits),
         "fits": fits,
         "lag_fit_policy": "one_fit_per_species_contract_profile_estimator",

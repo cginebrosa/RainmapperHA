@@ -207,6 +207,7 @@ class PredictorService:
         result: dict[str, Any] = {
             "available": True,
             "active_version_id": registry["active_version_id"],
+            "active_operational_target": dict(registry["active_operational_target"]),
             "entries": entries,
             "runtime_batch": None,
             "installed_artifacts": [],
@@ -303,7 +304,7 @@ class PredictorService:
         prepared_weather_cache: dict[tuple[object, ...], Any] | None = None,
         comparison_cache: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Resolve the card's V2 rows from the installed common-IDW batch only."""
+        """Resolve every profile in the active operational version."""
         predictor = self.predictor(species_id)
         season_phase = predictor.season_phase(target_date)
         unavailable = {
@@ -348,7 +349,7 @@ class PredictorService:
         except (OSError, TypeError, ValueError):
             phenology = {}
         try:
-            return mushroom_ml_multiversion_comparison.compare_v2_reference(
+            return mushroom_ml_multiversion_comparison.compare_operational_reference(
                 mushroom_ml_version_registry.load_registry(
                     self.version_registry_path
                 ),

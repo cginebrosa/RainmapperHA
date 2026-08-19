@@ -4371,7 +4371,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('scope=all', html)
         self.assertNotIn('name="profile_action" value="rebuild_learned_model_v0_species"', html)
         self.assertNotIn('name="profile_action" value="rebuild_learned_model_v0_all"', html)
-        self.assertIn("Rebuild and retrain everything", html)
+        self.assertIn("Rebuild and retrain operational models", html)
 
     def test_mushroom_learned_model_rebuild_all_post_redirects_to_complete_workflow(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -5123,6 +5123,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("payload.worker_activity_active===false", page)
         self.assertIn("flashRegion.replaceChildren()", page)
         self.assertIn("document.addEventListener('pointerdown'", page)
+        self.assertIn("document.addEventListener('scroll'", page)
+        self.assertIn("const scrollPositions=Array.from", page)
         self.assertIn("requestController?.abort()", page)
         self.assertNotIn("cards.innerHTML=payload.worker_cards_html", page)
         self.assertIn('id="worker-status-cards"', page)
@@ -5153,7 +5155,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "host_name": "Mac",
                 "status": "disconnected",
                 "job_api": "claim_probe_v0",
-                "capabilities": ["rebuild_v0"],
+                "capabilities": ["rebuild_v0", "ml_job_purpose_v1"],
                 "dataset_cache": {"status": "valid"},
             },
         }
@@ -5284,7 +5286,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(initial_signature, later_signature)
         self.assertNotEqual(initial_signature, busy_signature)
 
-    def test_workers_page_exposes_only_one_complete_update_action(self) -> None:
+    def test_workers_page_exposes_separate_operational_and_benchmark_actions(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
             profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
@@ -5299,7 +5301,203 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('name="scope" value="species"', page)
         self.assertNotIn('name="species_id"', page)
         self.assertNotIn('value="run_worker_ml_train"', page)
-        self.assertIn("Rebuild and retrain everything", page)
+        self.assertIn("Rebuild and retrain operational models", page)
+        self.assertIn('value="run_ml_benchmark"', page)
+        self.assertIn("Run scientific benchmark", page)
+
+    def test_workers_page_renders_benchmark_selection_history_and_report(self) -> None:
+        report = {
+            "batch_id": "benchmark-ui",
+            "snapshot_id": "sha256:" + "a" * 64,
+            "selection": {
+                "profiles": [{"profile_name": "Core biology"}],
+            },
+            "summary": {
+                "species_count": 1,
+                "planned_fit_count": 1,
+                "successful_fit_count": 1,
+                "failed_fit_count": 0,
+                "metric_count": 1,
+                "holdout_prediction_count": 12,
+            },
+            "duration_summary": {"total_fit_seconds": 1.5},
+            "metrics": [
+                {
+                    "version_id": "biology_v3",
+                    "profile_id": "core",
+                    "species_id": "boletus_edulis",
+                    "temporal_family": "fixed",
+                    "horizon_days": 7,
+                    "estimator_id": "logistic_regression_reduced_v1",
+                    "brier_score": 0.2,
+                    "prevalence_brier_score": 0.25,
+                    "brier_delta_vs_prevalence": 0.05,
+                    "roc_auc": 0.75,
+                    "expected_calibration_error": 0.1,
+                    "n_test": 10,
+                    "n_test_total": 12,
+                    "test_positive_count": 4,
+                    "test_negative_count": 6,
+                    "abstention_count": 2,
+                    "fit_duration_seconds": 1.5,
+                    "fit_status": "complete",
+                }
+            ],
+            "fit_failures": [],
+        }
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            profiles=[],
+            eligible_observation_count=0,
+            pending_species_count=0,
+            jobs=[],
+            pipeline="shared",
+            local_ha_compute_enabled=True,
+            benchmark_profiles=[
+                {
+                    "profile_key": "biology_v3/core",
+                    "version_name": "Biology V3",
+                    "profile_name": "Core biology",
+                }
+            ],
+            selected_benchmark_profiles=["biology_v3/core"],
+            benchmark_history=[
+                {
+                    "batch_id": "benchmark-ui",
+                    "created_at": "2026-08-18T12:00:00+00:00",
+                    "selection": {
+                        "profiles": [{"profile_name": "Core biology"}],
+                    },
+                    "summary": {
+                        "profile_count": 1,
+                        "planned_fit_count": 1,
+                        "successful_fit_count": 1,
+                        "failed_fit_count": 0,
+                        "metric_count": 1,
+                        "holdout_prediction_count": 12,
+                    },
+                }
+            ],
+            selected_benchmark_report=report,
+        )
+
+        self.assertIn('name="benchmark_profile" value="biology_v3/core" checked', page)
+        self.assertIn('?benchmark=benchmark-ui', page)
+        self.assertIn("boletus_edulis", page)
+        self.assertIn("0.2000", page)
+        self.assertIn("10/12", page)
+        self.assertIn("1.500 s", page)
+        self.assertIn("Successful / planned fits", page)
+        self.assertIn("1 / 1", page)
+        self.assertIn("Failed fits", page)
+        self.assertIn("<dd>0</dd>", page)
+        self.assertIn("Hold-out predictions", page)
+        self.assertIn("Core biology", page)
+        self.assertIn("1/1 fits", page)
+        self.assertIn("12 hold-out", page)
+        self.assertNotIn("window.location.reload()", page)
+        self.assertIn("data-preserve-refresh-scroll", page)
+        self.assertIn("width:min(100%,1380px);min-width:1220px", page)
+        self.assertIn('title="boletus_edulis"', page)
+        self.assertIn('title="logistic_regression_reduced_v1"', page)
+
+        jobs = self.web_server.mushroom_workers_ui.render_recent_jobs(
+            [
+                {
+                    "job_id": "local_benchmark_ui",
+                    "job_type": "local_ml_benchmark",
+                    "job_purpose": "benchmark",
+                    "profile_keys": ["biology_v3/core"],
+                    "profile_labels": ["Biology V3 — Core biology"],
+                    "status": "complete",
+                    "result": {
+                        "batch_id": "benchmark-ui",
+                        "benchmark_report_available": True,
+                        "summary": {
+                            "profile_count": 1,
+                            "planned_fit_count": 108,
+                            "successful_fit_count": 108,
+                            "failed_fit_count": 0,
+                            "metric_count": 432,
+                            "holdout_prediction_count": 1672,
+                        },
+                    },
+                }
+            ]
+        )
+        self.assertIn('?benchmark=benchmark-ui', jobs)
+        self.assertIn("View report", jobs)
+        self.assertIn("108/108 fits", jobs)
+        self.assertIn("432 metrics", jobs)
+        self.assertIn("1672 hold-out", jobs)
+        self.assertIn('data-job-purpose="benchmark"', jobs)
+        self.assertIn("data-benchmark-report-link", jobs)
+
+    def test_local_benchmark_payload_keeps_exact_selection_metadata(self) -> None:
+        payload = self.web_server.mushroom_rebuild_job_payload(
+            {
+                "job_id": "local_benchmark_payload",
+                "job_type": "local_ml_benchmark",
+                "job_purpose": "benchmark",
+                "profile_keys": ["biology_v3/core"],
+                "profile_labels": ["Biology V3 — Core biology"],
+                "status": "complete",
+                "started_at_ts": 1,
+                "finished_at_ts": 2,
+            }
+        )
+
+        self.assertEqual("benchmark", payload["job_purpose"])
+        self.assertEqual(["biology_v3/core"], payload["profile_keys"])
+        self.assertEqual(
+            ["Biology V3 — Core biology"], payload["profile_labels"]
+        )
+
+    def test_workers_page_starts_with_no_benchmark_profiles_selected(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            profiles=[],
+            eligible_observation_count=0,
+            pending_species_count=0,
+            jobs=[],
+            pipeline="shared",
+            local_ha_compute_enabled=True,
+            benchmark_profiles=[
+                {
+                    "profile_key": "biology_v3/core",
+                    "version_name": "Biology V3",
+                    "profile_name": "Core biology",
+                },
+                {
+                    "profile_key": "biology_v4/extended_weather",
+                    "version_name": "Biology V4",
+                    "profile_name": "Extended weather",
+                },
+            ],
+        )
+
+        self.assertIn('name="benchmark_profile" value="biology_v3/core"', page)
+        self.assertIn('name="benchmark_profile" value="biology_v4/extended_weather"', page)
+        self.assertNotIn('value="biology_v3/core" checked', page)
+        self.assertNotIn('value="biology_v4/extended_weather" checked', page)
+
+    def test_running_local_benchmark_shows_exact_profile_and_cancel(self) -> None:
+        jobs = self.web_server.mushroom_workers_ui.render_recent_jobs(
+            [
+                {
+                    "job_id": "local_benchmark_ui",
+                    "job_type": "local_ml_benchmark",
+                    "job_purpose": "benchmark",
+                    "profile_keys": ["biology_v3/core"],
+                    "profile_labels": ["Biology V3 — Core biology"],
+                    "status": "running",
+                }
+            ]
+        )
+
+        self.assertIn("Benchmark · Biology V3 — Core biology", jobs)
+        self.assertIn('name="worker_action" value="cancel_local_benchmark"', jobs)
+        self.assertIn('name="job_id" value="local_benchmark_ui"', jobs)
 
     def test_workers_page_does_not_offer_home_assistant_or_species_scope(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
@@ -5348,7 +5546,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "paired": True,
                 "job_api": "candidate_rebuild_v0",
                 "worker_version": "local",
-                "capabilities": ["rebuild_v0"],
+                "capabilities": ["rebuild_v0", "ml_job_purpose_v1"],
                 "dataset_cache": {"status": "valid"},
             },
         }
@@ -5482,6 +5680,61 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(redirect, "./workers")
         start.assert_called_once_with()
 
+    def test_workers_post_starts_local_scientific_benchmark_separately(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.object(
+            self.web_server,
+            "start_mushroom_local_benchmark",
+            return_value=(202, {"ok": True, "job_id": "local_benchmark_test"}),
+        ) as start:
+            redirect = handler.handle_mushroom_workers_post(
+                {
+                    "worker_action": ["run_ml_benchmark"],
+                    "executor": ["home_assistant"],
+                    "benchmark_selection_present": ["1"],
+                    "benchmark_profile": ["biology_v3/core"],
+                }
+            )
+
+        self.assertEqual(
+            "./workers?benchmark_profile=biology_v3%2Fcore", redirect
+        )
+        start.assert_called_once_with(["biology_v3/core"])
+
+    def test_workers_post_rejects_empty_scientific_benchmark_selection(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.object(self.web_server, "start_mushroom_local_benchmark") as start:
+            redirect = handler.handle_mushroom_workers_post(
+                {
+                    "worker_action": ["run_ml_benchmark"],
+                    "executor": ["home_assistant"],
+                    "benchmark_selection_present": ["1"],
+                }
+            )
+
+        self.assertEqual("./workers", redirect)
+        start.assert_not_called()
+        message, is_error = self.web_server.mushroom_workers_flash()
+        self.assertIn("at least one", message)
+        self.assertTrue(is_error)
+
+    def test_workers_post_requests_local_benchmark_cancel(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        with mock.patch.object(
+            self.web_server,
+            "request_mushroom_rebuild_cancel",
+            return_value=(202, {"ok": True}),
+        ) as cancel:
+            redirect = handler.handle_mushroom_workers_post(
+                {
+                    "worker_action": ["cancel_local_benchmark"],
+                    "job_id": ["local_benchmark_test"],
+                }
+            )
+
+        self.assertEqual("./workers", redirect)
+        cancel.assert_called_once_with("local_benchmark_test")
+
     def test_local_full_update_work_root_is_a_share_root_sibling(self) -> None:
         share_root = Path(self.temp_dir.name) / "docker-data"
         with mock.patch.object(
@@ -5557,7 +5810,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "worker_version": "local",
             "status": "idle",
             "job_api": "claim_probe_v0",
-            "capabilities": ["rebuild_v0"],
+            "capabilities": ["rebuild_v0", "ml_job_purpose_v1"],
             "dataset_cache": {"status": "valid"},
         }
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
@@ -5737,7 +5990,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "worker_version": "local",
             "status": "idle",
             "job_api": "candidate_rebuild_v0",
-            "capabilities": ["rebuild_v0"],
+            "capabilities": ["rebuild_v0", "ml_job_purpose_v1"],
             "dataset_cache": {"status": "valid"},
         }
 
@@ -6580,7 +6833,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Claimed", page)
         self.assertNotIn("?rebuild_job=worker_job_12345678", page)
 
-    def test_full_update_promotion_appears_only_after_linked_v2_v6_completes(self) -> None:
+    def test_full_update_promotion_appears_only_after_linked_operational_training(self) -> None:
         training = {
             "job_id": "worker_job_training123",
             "job_type": "worker_ml_train_v0",
@@ -6599,6 +6852,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 {
                     "job_id": "worker_job_compare123",
                     "job_type": "worker_ml_multiversion_v1",
+                    "job_purpose": "operational",
                     "worker_display_name": "M1 personal",
                     "status": "complete",
                     "triggered_by_job_id": "worker_job_training123",
@@ -6705,6 +6959,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(response["job"]["result"]["trained_species_count"], 2)
         start_multiversion.assert_called_once_with(
             "worker_aaaaaaaa",
+            job_purpose="operational",
             triggered_by_job_id=job_id,
         )
 
@@ -6737,13 +6992,57 @@ class AuthDeviceLimitTests(unittest.TestCase):
             )
 
         self.assertEqual(status, 409)
-        self.assertIn("V2--V6 comparison job must complete", response["error"])
+        self.assertIn("active-generation training must complete", response["error"])
 
-    def test_completed_linked_v2_v6_job_starts_full_update_promotion_automatically(self) -> None:
+    def test_external_full_update_restores_runtime_batch_when_promotion_fails(self) -> None:
+        models_root = Path(self.temp_dir.name) / "models"
+        models_root.mkdir()
+        descriptor = models_root / "runtime-batch.json"
+        previous = b'{"batch_id":"previous"}\n'
+        descriptor.write_bytes(previous)
+
+        def install(*_args, **_kwargs):
+            installed = models_root / "batches" / "new-operational"
+            installed.mkdir(parents=True)
+            descriptor.write_text('{"batch_id":"new-operational"}\n', encoding="utf-8")
+            return {"batch_id": "new-operational", "status": "verified_and_installed"}
+
+        with mock.patch.object(
+            self.web_server.mushroom_paths,
+            "mushroom_ml_models_dir",
+            return_value=models_root,
+        ), mock.patch.object(
+            self.web_server.mushroom_ml_multiversion_transport,
+            "install_staged_operational_result",
+            side_effect=install,
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_results,
+            "promote_verified_candidate",
+            side_effect=ValueError("freshness changed"),
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "update_candidate_promotion_progress",
+        ), mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "finish_candidate_promotion",
+        ), mock.patch.object(
+            self.web_server, "set_mushroom_workers_flash"
+        ):
+            self.web_server._run_mushroom_full_update_promotion(
+                "worker_job_rebuild123",
+                "worker_job_training123",
+                "worker_job_operational123",
+            )
+
+        self.assertEqual(previous, descriptor.read_bytes())
+        self.assertFalse((models_root / "batches" / "new-operational").exists())
+
+    def test_completed_linked_operational_job_starts_full_update_promotion_automatically(self) -> None:
         jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
         comparison_job = {
             "job_id": "worker_job_comparison123",
             "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,
+            "job_purpose": "operational",
             "target_worker_id": "worker_aaaaaaaa",
             "status": "running",
             "triggered_by_job_id": "worker_job_training123",
@@ -6751,7 +7050,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         completed_job = {
             **comparison_job,
             "status": "complete",
-            "phase": "V2--V6 comparison training completed",
+            "phase": "Operational generation training completed",
             "result": {"verification_status": "verified"},
         }
         with mock.patch.dict(
@@ -6789,13 +7088,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(response["job"]["status"], "complete")
         promote.assert_called_once_with("worker_job_training123")
 
-    def test_v2_v6_job_does_not_auto_promote_when_failed_or_unlinked(self) -> None:
+    def test_benchmark_or_incomplete_operational_job_does_not_auto_promote(self) -> None:
         jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
-        for final_status, parent_job_id in (("failed", "worker_job_training123"), ("complete", "")):
-            with self.subTest(final_status=final_status, parent_job_id=parent_job_id):
+        cases = (
+            ("failed", "worker_job_training123", "operational"),
+            ("complete", "", "operational"),
+            ("complete", "worker_job_training123", "benchmark"),
+        )
+        for final_status, parent_job_id, purpose in cases:
+            with self.subTest(final_status=final_status, parent_job_id=parent_job_id, purpose=purpose):
                 comparison_job = {
                     "job_id": "worker_job_comparison123",
                     "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,
+                    "job_purpose": purpose,
                     "target_worker_id": "worker_aaaaaaaa",
                     "status": "running",
                     "triggered_by_job_id": parent_job_id,

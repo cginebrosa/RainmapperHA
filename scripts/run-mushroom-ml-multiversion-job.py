@@ -16,6 +16,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from rainmapper_core import mushroom_ml_multiversion_plan  # noqa: E402
+from rainmapper_core import mushroom_ml_model_catalog  # noqa: E402
+from rainmapper_core import mushroom_ml_benchmark_reports  # noqa: E402
 from rainmapper_core import mushroom_ml_quality_catalog  # noqa: E402
 from rainmapper_core import mushroom_ml_runtime_trainer  # noqa: E402
 from rainmapper_core import mushroom_ml_version_registry  # noqa: E402
@@ -35,20 +37,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-id", required=True)
     parser.add_argument("--generation", action="append", type=_generation, required=True)
     parser.add_argument("--species", action="append", required=True)
+    parser.add_argument("--version", action="append")
+    parser.add_argument("--profile-key", action="append")
+    parser.add_argument(
+        "--job-purpose",
+        choices=("operational", "benchmark"),
+        default="benchmark",
+    )
     parser.add_argument("--v3-fixed", required=True, type=Path)
     parser.add_argument("--v3-lag", required=True, type=Path)
-    parser.add_argument("--v4-fixed", required=True, type=Path)
-    parser.add_argument("--v4-lag", required=True, type=Path)
-    parser.add_argument("--v5-fixed", required=True, type=Path)
-    parser.add_argument("--v5-lag", required=True, type=Path)
-    parser.add_argument("--v2-v5-heldout", required=True, type=Path)
-    parser.add_argument("--v6-heldout", required=True, type=Path)
+    parser.add_argument("--v4-fixed", type=Path)
+    parser.add_argument("--v4-lag", type=Path)
+    parser.add_argument("--v5-fixed", type=Path)
+    parser.add_argument("--v5-lag", type=Path)
+    parser.add_argument("--v2-v5-heldout", type=Path)
+    parser.add_argument("--v6-heldout", type=Path)
     parser.add_argument("--models-root", required=True, type=Path)
     parser.add_argument("--summary", required=True, type=Path)
     parser.add_argument("--job-id", default="")
     parser.add_argument("--result-manifest", type=Path)
     parser.add_argument("--progress-jsonl", type=Path)
     parser.add_argument("--training-input-manifest", type=Path)
+    parser.add_argument(
+        "--quality-catalog",
+        type=Path,
+        help="Verified scientific hold-out catalog to carry into an operational candidate.",
+    )
     return parser.parse_args()
 
 
@@ -57,6 +71,10 @@ def _load(path: Path) -> dict:
     if not isinstance(payload, dict):
         raise ValueError(f"Benchmark must be an object: {path}")
     return payload
+
+
+def _load_optional(path: Path | None) -> dict | None:
+    return _load(path) if path is not None else None
 
 
 def _sha256(path: Path) -> str:
@@ -82,20 +100,83 @@ def main() -> int:
     args = parse_args()
     registry = mushroom_ml_version_registry.load_registry(args.registry)
     generation_ids = dict(args.generation)
+    operational = args.job_purpose == "operational"
+    if operational:
+        requested = list(args.profile_key or [])
+        if not requested:
+            requested = mushroom_ml_version_registry.training_profile_keys(
+                registry, job_purpose="operational"
+            )
+        selected_profiles = [
+            mushroom_ml_version_registry.resolve_operational_profile(
+                registry, profile_key
+            )
+            for profile_key in requested
+        ]
+        version_ids = list(dict.fromkeys(row["version_id"] for row in selected_profiles))
+        if len(version_ids) != 1:
+            raise ValueError("Operational training must contain one complete version")
+        required_profiles = {
+            row["profile_key"]
+            for row in mushroom_ml_version_registry.operational_profile_options(registry)
+            if row["version_id"] == version_ids[0]
+        }
+        profile_keys = [row["profile_key"] for row in selected_profiles]
+        if set(profile_keys) != required_profiles:
+            raise ValueError("Operational training must contain every profile in the version")
+    else:
+        selected_profiles = mushroom_ml_version_registry.resolve_benchmark_profiles(
+            registry,
+            list(args.profile_key) if args.profile_key is not None else None,
+        )
+        profile_keys = [row["profile_key"] for row in selected_profiles]
+        version_ids = list(dict.fromkeys(row["version_id"] for row in selected_profiles))
+    declared_version_ids = list(args.version or generation_ids)
+    if declared_version_ids != version_ids or set(generation_ids) != set(version_ids):
+        raise ValueError(
+            "Training version and generation scope does not match the selected profiles"
+        )
+    selected_keys = set(profile_keys or [])
+    selected_catalog = [
+        row
+        for row in mushroom_ml_model_catalog.catalog_entries(registry)
+        if f"{row['version_id']}/{row['profile_id']}" in selected_keys
+    ]
+    required_input_ids = {
+        str(input_id)
+        for row in selected_catalog
+        for input_id in row["input_requirements"]["prepared_input_ids"]
+    }
+    optional_paths = {
+        "v4_fixed": args.v4_fixed,
+        "v4_lag": args.v4_lag,
+        "v5_fixed": args.v5_fixed,
+        "v5_lag": args.v5_lag,
+    }
+    required_optional_paths = [
+        optional_paths[input_id]
+        for input_id in sorted(required_input_ids & set(optional_paths))
+    ]
+    if not operational:
+        required_optional_paths.extend([args.v2_v5_heldout, args.v6_heldout])
+    if any(path is None for path in required_optional_paths):
+        raise ValueError("Training is missing inputs required by the selected profiles")
     plan = mushroom_ml_multiversion_plan.build_plan(
         registry,
         batch_id=args.batch_id,
         snapshot_id=args.snapshot_id,
         generation_ids=generation_ids,
         species_ids=args.species,
+        version_ids=version_ids,
+        profile_keys=profile_keys,
     )
     benchmarks = mushroom_ml_runtime_trainer.materialize_runtime_benchmarks(
         v3_fixed=_load(args.v3_fixed),
         v3_lag=_load(args.v3_lag),
-        v4_fixed=_load(args.v4_fixed),
-        v4_lag=_load(args.v4_lag),
-        v5_fixed=_load(args.v5_fixed),
-        v5_lag=_load(args.v5_lag),
+        v4_fixed=_load_optional(args.v4_fixed),
+        v4_lag=_load_optional(args.v4_lag),
+        v5_fixed=_load_optional(args.v5_fixed),
+        v5_lag=_load_optional(args.v5_lag),
     )
     progress_handle = None
     if args.progress_jsonl:
@@ -116,20 +197,80 @@ def main() -> int:
             models_root=args.models_root,
             progress_callback=report_progress,
         )
-        quality_catalog = mushroom_ml_quality_catalog.build_catalog(
-            args.v2_v5_heldout,
-            args.v6_heldout,
-            snapshot_id=args.snapshot_id,
-        )
-        quality_path = destination / "quality-catalog.json"
-        quality_path.write_text(
-            json.dumps(quality_catalog, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        manifest["quality_catalog"] = {
-            "path": "batches/" + manifest["batch_id"] + "/quality-catalog.json",
-            "sha256": _sha256(quality_path),
-        }
+        if operational and int(manifest.get("failed_fit_count", 0) or 0):
+            raise ValueError("Operational training must produce every planned artifact")
+        manifest["job_purpose"] = args.job_purpose
+        manifest["operational_candidate_trained"] = operational
+        if operational and args.quality_catalog is not None:
+            source_catalog = _load(args.quality_catalog)
+            if (
+                source_catalog.get("kind") != mushroom_ml_quality_catalog.KIND
+                or source_catalog.get("schema_version")
+                != mushroom_ml_quality_catalog.SCHEMA_VERSION
+            ):
+                raise ValueError("Operational quality catalog contract is invalid")
+            catalog_profile_keys = {
+                f"{row.get('version_id')}/{row.get('profile_id')}"
+                for row in source_catalog.get("entries", [])
+                if isinstance(row, dict)
+            }
+            if not set(profile_keys) <= catalog_profile_keys:
+                raise ValueError(
+                    "Operational quality catalog does not cover every selected profile"
+                )
+            quality_path = destination / "quality-catalog.json"
+            shutil.copyfile(args.quality_catalog, quality_path)
+            manifest["quality_catalog"] = {
+                "path": "batches/" + manifest["batch_id"] + "/quality-catalog.json",
+                "sha256": _sha256(quality_path),
+            }
+        if not operational:
+            expected_estimators: dict[str, list[str]] = {}
+            for fit in plan["fits"]:
+                ref = fit["artifact_ref"]
+                key = f"{ref['version_id']}/{ref['profile_id']}"
+                expected_estimators.setdefault(key, [])
+                if ref["estimator_id"] not in expected_estimators[key]:
+                    expected_estimators[key].append(ref["estimator_id"])
+            quality_catalog = mushroom_ml_quality_catalog.build_catalog(
+                args.v2_v5_heldout,
+                args.v6_heldout,
+                snapshot_id=args.snapshot_id,
+                profile_keys=profile_keys,
+                expected_estimators=expected_estimators,
+            )
+            quality_path = destination / "quality-catalog.json"
+            quality_path.write_text(
+                json.dumps(quality_catalog, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            manifest["quality_catalog"] = {
+                "path": "batches/" + manifest["batch_id"] + "/quality-catalog.json",
+                "sha256": _sha256(quality_path),
+            }
+            report_result = mushroom_ml_benchmark_reports.write_report(
+                destination,
+                job_id=args.job_id,
+                training_plan=plan,
+                selected_profiles=selected_profiles or [],
+                quality_catalog=quality_catalog,
+                fit_results=manifest.get("fit_results", []),
+                failed_fits=manifest.get("failed_fits", []),
+                v2_v5_predictions_path=args.v2_v5_heldout,
+                v6_predictions_path=args.v6_heldout,
+            )
+            report_path = report_result["report_path"]
+            predictions_path = report_result["predictions_path"]
+            manifest["benchmark_report"] = {
+                "path": "batches/" + manifest["batch_id"] + "/benchmark-report.json",
+                "sha256": _sha256(report_path),
+                "report_id": report_result["report"]["report_id"],
+            }
+            manifest["holdout_predictions"] = {
+                "path": "batches/" + manifest["batch_id"] + "/holdout-predictions.jsonl",
+                "sha256": _sha256(predictions_path),
+                "row_count": report_result["report"]["holdout_predictions"]["row_count"],
+            }
         if args.training_input_manifest:
             training_input_path = destination / "training-input-manifest.json"
             training_input_path.write_text(
@@ -163,7 +304,15 @@ def main() -> int:
         "batch_dir": str(destination),
         "manifest_path": str(destination / "manifest.json"),
         "active": False,
-        "operational_candidate_trained": False,
+        "job_purpose": args.job_purpose,
+        "version_ids": version_ids,
+        "profile_keys": list(plan.get("profile_keys") or []),
+        "report_id": (
+            str((manifest.get("benchmark_report") or {}).get("report_id") or "")
+            if not operational
+            else ""
+        ),
+        "operational_candidate_trained": operational,
     }
     args.summary.parent.mkdir(parents=True, exist_ok=True)
     args.summary.write_text(
@@ -182,13 +331,27 @@ def main() -> int:
                 "sha256": _sha256(result_batch / "manifest.json"),
             }
         ]
-        result_files.append(
-            {
-                "path": "batch/quality-catalog.json",
-                "size_bytes": (result_batch / "quality-catalog.json").stat().st_size,
-                "sha256": _sha256(result_batch / "quality-catalog.json"),
-            }
-        )
+        if isinstance(manifest.get("quality_catalog"), dict):
+            result_files.append(
+                {
+                    "path": "batch/quality-catalog.json",
+                    "size_bytes": (result_batch / "quality-catalog.json").stat().st_size,
+                    "sha256": _sha256(result_batch / "quality-catalog.json"),
+                }
+            )
+        for key, filename in (
+            ("benchmark_report", "benchmark-report.json"),
+            ("holdout_predictions", "holdout-predictions.jsonl"),
+        ):
+            if isinstance(manifest.get(key), dict):
+                path = result_batch / filename
+                result_files.append(
+                    {
+                        "path": "batch/" + filename,
+                        "size_bytes": path.stat().st_size,
+                        "sha256": _sha256(path),
+                    }
+                )
         training_input_ref = manifest.get("training_input_manifest")
         if isinstance(training_input_ref, dict):
             training_input_path = result_batch / "training-input-manifest.json"
@@ -222,7 +385,9 @@ def main() -> int:
             "planned_fit_count": int(manifest.get("planned_fit_count", 0)),
             "successful_fit_count": int(manifest.get("successful_fit_count", 0)),
             "failed_fit_count": int(manifest.get("failed_fit_count", 0)),
-            "operational_candidate_trained": False,
+            "job_purpose": args.job_purpose,
+            "report_id": summary["report_id"],
+            "operational_candidate_trained": operational,
         }
         args.result_manifest.parent.mkdir(parents=True, exist_ok=True)
         args.result_manifest.write_text(

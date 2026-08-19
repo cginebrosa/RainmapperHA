@@ -3520,9 +3520,9 @@
     "ca": "Obrir Workers i treballs"
   },
   "ui.worker_new_rebuild": {
-    "en": "Rebuild and retrain everything",
-    "es": "Reconstruir y reentrenar todo",
-    "ca": "Reconstruir i reentrenar-ho tot"
+    "en": "Rebuild and retrain operational models",
+    "es": "Reconstruir y reentrenar operativo",
+    "ca": "Reconstruir i reentrenar operatiu"
   },
   "ui.worker_eligible_observations": {
     "en": "Eligible observations",
@@ -3565,14 +3565,164 @@
     "ca": "Una especie"
   },
   "ui.worker_scope_help": {
-    "en": "A complete artifact rebuild will be followed by complete model training.",
-    "es": "La reconstruccion completa de artefactos ira seguida del entrenamiento completo de los modelos.",
-    "ca": "La reconstruccio completa d'artefactes anira seguida de l'entrenament complet dels models."
+    "en": "A complete artifact rebuild will be followed only by training the active operational generation.",
+    "es": "La reconstruccion completa de artefactos ira seguida solo del entrenamiento de la generacion operativa activa.",
+    "ca": "La reconstruccio completa d'artefactes anira seguida nomes de l'entrenament de la generacio operativa activa."
   },
   "ui.start_rebuild": {
-    "en": "Rebuild and retrain everything",
-    "es": "Reconstruir y reentrenar todo",
-    "ca": "Reconstruir i reentrenar-ho tot"
+    "en": "Rebuild and retrain operational models",
+    "es": "Reconstruir y reentrenar operativo",
+    "ca": "Reconstruir i reentrenar operatiu"
+  },
+  "ui.worker_scientific_benchmark": {
+    "en": "Run scientific benchmark",
+    "es": "Ejecutar benchmark cientifico",
+    "ca": "Executar benchmark cientific"
+  },
+  "ui.worker_scientific_benchmark_help": {
+    "en": "Runs the selected compatible profiles on one immutable snapshot and archives predictions, metrics and durations without changing Predictor.",
+    "es": "Ejecuta los perfiles compatibles seleccionados sobre un snapshot inmutable y archiva predicciones, metricas y tiempos sin modificar Predictor.",
+    "ca": "Executa els perfils compatibles seleccionats sobre un snapshot immutable i arxiva prediccions, metriques i temps sense modificar Predictor."
+  },
+  "ui.worker_run_scientific_benchmark": {
+    "en": "Run scientific benchmark",
+    "es": "Ejecutar benchmark cientifico",
+    "ca": "Executar benchmark cientific"
+  },
+  "ui.worker_operational_training_job": {
+    "en": "Active operational training",
+    "es": "Entrenamiento operativo activo",
+    "ca": "Entrenament operatiu actiu"
+  },
+  "ui.worker_scientific_benchmark_job": {
+    "en": "V2--V6 scientific benchmark",
+    "es": "Benchmark cientifico V2--V6",
+    "ca": "Benchmark cientific V2--V6"
+  },
+  "ui.worker_benchmark_report": {
+    "en": "Scientific benchmark report",
+    "es": "Informe del benchmark cientifico",
+    "ca": "Informe del benchmark cientific"
+  },
+  "ui.worker_benchmark_profiles": {
+    "en": "Profiles",
+    "es": "Perfiles",
+    "ca": "Perfils"
+  },
+  "ui.worker_benchmark_profile_v3_physical": {
+    "en": "Biology V3+ physical",
+    "es": "Biology V3+ físico",
+    "ca": "Biology V3+ físic"
+  },
+  "ui.worker_benchmark_metrics": {
+    "en": "metrics",
+    "es": "metricas",
+    "ca": "metriques"
+  },
+  "ui.worker_benchmark_support": {
+    "en": "Support",
+    "es": "Soporte",
+    "ca": "Suport"
+  },
+  "ui.worker_benchmark_fit_time": {
+    "en": "Fit time",
+    "es": "Tiempo de ajuste",
+    "ca": "Temps d'ajust"
+  },
+  "ui.worker_benchmark_fits": {
+    "en": "Successful / planned fits",
+    "es": "Ajustes correctos / planificados",
+    "ca": "Ajustaments correctes / planificats"
+  },
+  "ui.worker_benchmark_failed_fits": {
+    "en": "Failed fits",
+    "es": "Ajustes fallidos",
+    "ca": "Ajustaments fallits"
+  },
+  "ui.worker_benchmark_predictions": {
+    "en": "Hold-out predictions",
+    "es": "Predicciones hold-out",
+    "ca": "Prediccions hold-out"
+  },
+  "ui.worker_benchmark_abstentions": {
+    "en": "Abstentions",
+    "es": "Abstenciones",
+    "ca": "Abstencions"
+  },
+  "ui.worker_benchmark_failures": {
+    "en": "Fit failures and non-convergences",
+    "es": "Fallos de ajuste y no convergencias",
+    "ca": "Errors d'ajust i no convergencies"
+  },
+  "ui.worker_benchmark_no_average": {
+    "en": "Metrics remain separated by species, contract, horizon and estimator; this report declares no universal winner.",
+    "es": "Las metricas permanecen separadas por especie, contrato, horizonte y estimador; este informe no declara un ganador universal.",
+    "ca": "Les metriques romanen separades per especie, contracte, horitzo i estimador; aquest informe no declara cap guanyador universal."
+  },
+  "ui.worker_benchmark_history": {
+    "en": "Benchmark history",
+    "es": "Historial de benchmarks",
+    "ca": "Historial de benchmarks"
+  },
+  "ui.worker_benchmark_history_empty": {
+    "en": "No persistent scientific benchmark reports are archived yet.",
+    "es": "Todavia no hay informes persistentes de benchmarks cientificos archivados.",
+    "ca": "Encara no hi ha informes persistents de benchmarks cientifics arxivats."
+  },
+  "ui.worker_view_comparison": {
+    "en": "View comparison",
+    "es": "Ver comparacion",
+    "ca": "Veure comparacio"
+  },
+  "ui.worker_view_report": {
+    "en": "View report",
+    "es": "Ver informe",
+    "ca": "Veure informe"
+  },
+  "ui.worker_version_promotion": {
+    "en": "Operational version promotion",
+    "es": "Promocion de version operativa",
+    "ca": "Promocio de versio operativa"
+  },
+  "ui.worker_version_promotion_human_choice": {
+    "en": "Metrics are advisory. Preparing a candidate retrains every profile in the version on current data; activation requires a separate explicit human action.",
+    "es": "Las metricas son orientativas. Preparar una candidata reentrena todos los perfiles de la version con los datos actuales; activarla requiere otra accion humana explicita.",
+    "ca": "Les metriques son orientatives. Preparar una candidata torna a entrenar tots els perfils de la versio amb les dades actuals; activar-la requereix una altra accio humana explicita."
+  },
+  "ui.worker_prepare_version_candidate": {
+    "en": "Prepare complete candidate",
+    "es": "Preparar candidata completa",
+    "ca": "Preparar candidata completa"
+  },
+  "ui.worker_version_candidate_job": {
+    "en": "Operational version candidate",
+    "es": "Candidata de version operativa",
+    "ca": "Candidata de versio operativa"
+  },
+  "ui.worker_version_promotion_job": {
+    "en": "Operational version promotion",
+    "es": "Promocion de version operativa",
+    "ca": "Promocio de versio operativa"
+  },
+  "ui.worker_promote_version": {
+    "en": "Activate complete version",
+    "es": "Activar version completa",
+    "ca": "Activar versio completa"
+  },
+  "ui.worker_promote_version_confirm": {
+    "en": "Activate this complete version and all its profiles in Predictor?",
+    "es": "¿Activar esta version completa y todos sus perfiles en Predictor?",
+    "ca": "Activar aquesta versio completa i tots els seus perfils a Predictor?"
+  },
+  "ui.worker_rollback_version": {
+    "en": "Roll back version",
+    "es": "Revertir version",
+    "ca": "Revertir versio"
+  },
+  "ui.worker_rollback_version_confirm": {
+    "en": "Restore the exact operational version that was active before this promotion?",
+    "es": "¿Restaurar exactamente la version operativa que estaba activa antes de esta promocion?",
+    "ca": "Restaurar exactament la versio operativa que estava activa abans d'aquesta promocio?"
   },
   "ui.worker_promote_full_update": {
     "en": "Activate complete generation",
@@ -3585,9 +3735,9 @@
     "ca": "Activar la generacio completa reconstruida i reentrenada?"
   },
   "ui.worker_full_update_auto_promotion_failed": {
-    "en": "V2--V6 comparison training completed, but the complete generation could not be promoted automatically: {error}",
-    "es": "El entrenamiento comparativo V2--V6 ha terminado, pero la generacion completa no se ha podido activar automaticamente: {error}",
-    "ca": "L'entrenament comparatiu V2--V6 ha acabat, pero la generacio completa no s'ha pogut activar automaticament: {error}"
+    "en": "Active V2 operational training completed, but the complete generation could not be promoted automatically: {error}",
+    "es": "El entrenamiento operativo del V2 activo ha terminado, pero la generacion completa no se ha podido activar automaticamente: {error}",
+    "ca": "L'entrenament operatiu del V2 actiu ha acabat, pero la generacio completa no s'ha pogut activar automaticament: {error}"
   },
   "ui.worker_recent_jobs": {
     "en": "Recent jobs",
@@ -4055,19 +4205,24 @@
     "ca": "Amagar comparació de models"
   },
   "ui.predictor_model_comparison_title": {
-    "en": "Operational and experimental models",
-    "es": "Modelos operativos y experimentales",
-    "ca": "Models operatius i experimentals"
+    "en": "Operational models",
+    "es": "Modelos operativos",
+    "ca": "Models operatius"
   },
   "ui.predictor_model_comparison_help": {
-    "en": "Raw uncalibrated scores remain visible for audit. The operational interpretation uses only estimators that improve the prevalence baseline out of sample.",
-    "es": "Los scores brutos no calibrados siguen visibles para auditoría. La interpretación operativa solo utiliza estimadores que mejoran la prevalencia fuera de muestra.",
-    "ca": "Els scores bruts no calibrats continuen visibles per a auditoria. La interpretació operativa només utilitza estimadors que milloren la prevalença fora de mostra."
+    "en": "Raw uncalibrated scores remain visible for audit. For each profile and weather contract, the operational interpretation selects the available estimator with the lowest validation Brier among those that improve the prevalence baseline out of sample.",
+    "es": "Los scores brutos no calibrados siguen visibles para auditoría. Para cada perfil y contrato meteorológico, la interpretación operativa elige el estimador disponible con menor Brier de validación entre los que mejoran la prevalencia fuera de muestra.",
+    "ca": "Els scores bruts no calibrats continuen visibles per a auditoria. Per a cada perfil i contracte meteorològic, la interpretació operativa tria l'estimador disponible amb menor Brier de validació entre els que milloren la prevalença fora de mostra."
   },
   "ui.predictor_shadow_model_help": {
-    "en": "ET, HGB, KNN and SVM are shadow models and do not yet change the verdict.",
-    "es": "ET, HGB, KNN y SVM son modelos sombra y todavía no cambian el dictamen.",
-    "ca": "ET, HGB, KNN i SVM són models ombra i encara no canvien el dictamen."
+    "en": "Every estimator family is subject to the same out-of-sample Brier rule.",
+    "es": "Todas las familias de estimadores siguen la misma regla de Brier fuera de muestra.",
+    "ca": "Totes les famílies d'estimadors segueixen la mateixa regla de Brier fora de mostra."
+  },
+  "ui.predictor_help_estimator_generic": {
+    "en": "Estimator family declared by the active version. It can supply the operational score when its validation Brier improves the prevalence baseline and is the lowest for that profile and contract.",
+    "es": "Familia de estimadores declarada por la versión activa. Puede aportar el score operativo cuando su Brier de validación mejora la prevalencia y es el menor para ese perfil y contrato.",
+    "ca": "Família d'estimadors declarada per la versió activa. Pot aportar l'score operatiu quan el seu Brier de validació millora la prevalença i és el menor per a aquest perfil i contracte."
   },
   "ui.predictor_estimator_calibration_insufficient_classes": {
     "en": "Unavailable: calibration requires at least two training examples of each class.",
@@ -4189,9 +4344,14 @@
   "ui.predictor_statistical_support_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
   "ui.predictor_statistical_support_strong": {"en": "strong", "es": "fuerte", "ca": "forta"},
   "ui.predictor_help_reference_range": {
-    "en": "Range formed only by operational estimators that beat the species prevalence baseline outside training. It is a comparison score, not a calibrated probability.",
-    "es": "Rango formado solo por estimadores operativos que superan la prevalencia de la especie fuera del entrenamiento. Es un score comparativo, no una probabilidad calibrada.",
-    "ca": "Rang format només per estimadors operatius que superen la prevalença de l'espècie fora de l'entrenament. És un score comparatiu, no una probabilitat calibrada."
+    "en": "Range formed by the lowest-Brier validated estimator selected independently for each active profile and weather contract. It is a comparison score, not a calibrated probability.",
+    "es": "Rango formado por el estimador validado con menor Brier, elegido de forma independiente para cada perfil activo y contrato meteorológico. Es un score comparativo, no una probabilidad calibrada.",
+    "ca": "Rang format per l'estimador validat amb menor Brier, triat de manera independent per a cada perfil actiu i contracte meteorològic. És un score comparatiu, no una probabilitat calibrada."
+  },
+  "ui.predictor_operational_range": {
+    "en": "Range of the best validated estimator for each profile and contract",
+    "es": "Rango del mejor estimador validado de cada perfil y contrato",
+    "ca": "Rang del millor estimador validat de cada perfil i contracte"
   },
   "ui.predictor_help_ecological_compatibility": {
     "en": "Indicates whether season, rain event and elapsed time are biologically compatible with fruiting. It is independent from the machine-learning score.",
@@ -4251,9 +4411,9 @@
   "ui.predictor_interpretation_timing_entering_optimal": {"en": "The models place the target between entry and the optimal fruiting window.", "es": "Los modelos sitúan la fecha entre la entrada y la ventana óptima de fructificación.", "ca": "Els models situen la data entre l'entrada i la finestra òptima de fructificació."},
   "ui.predictor_interpretation_timing_mixed": {"en": "The two weather cutoffs give different fruiting timings.", "es": "Los dos cortes meteorológicos sitúan la fructificación en momentos distintos.", "ca": "Els dos talls meteorològics situen la fructificació en moments diferents."},
   "ui.predictor_interpretation_disagreement": {
-    "en": "LR and RF differ by at least 20 points, so statistical consensus is low.",
-    "es": "LR y RF difieren al menos 20 puntos, por lo que el consenso estadístico es bajo.",
-    "ca": "LR i RF difereixen almenys 20 punts, de manera que el consens estadístic és baix."
+    "en": "Validated estimators differ by at least 20 points in one profile and contract, so statistical consensus is low.",
+    "es": "Los estimadores validados difieren al menos 20 puntos en algún perfil y contrato, por lo que el consenso estadístico es bajo.",
+    "ca": "Els estimadors validats difereixen almenys 20 punts en algun perfil i contracte, de manera que el consens estadístic és baix."
   },
   "ui.predictor_interpretation_different_stations": {
     "en": "The two weather cutoffs use different stations because the nearest station does not have a complete day for both cutoffs; part of the score difference may come from that change.",
@@ -4261,9 +4421,9 @@
     "ca": "Els dos talls meteorològics utilitzen estacions diferents perquè la més propera no té complet el dia requerit per tots dos; una part de la diferència entre scores pot ser deguda a aquest canvi."
   },
   "ui.predictor_interpretation_no_trusted_model": {
-    "en": "No operational estimator authorised for the verdict improves the prevalence baseline for this species, so the operational statistical layer abstains. Shadow models remain visible only for evaluation.",
-    "es": "Ningún estimador operativo autorizado para el dictamen mejora la prevalencia de esta especie, por lo que la capa estadística operativa se abstiene. Los modelos sombra permanecen visibles solo para evaluación.",
-    "ca": "Cap estimador operatiu autoritzat per al dictamen millora la prevalença d'aquesta espècie, de manera que la capa estadística operativa s'absté. Els models ombra continuen visibles només per avaluar-los."
+    "en": "No available estimator improves the prevalence baseline for this species outside training, so the operational statistical layer abstains.",
+    "es": "Ningún estimador disponible mejora la prevalencia de esta especie fuera del entrenamiento, por lo que la capa estadística operativa se abstiene.",
+    "ca": "Cap estimador disponible millora la prevalença d'aquesta espècie fora de l'entrenament, de manera que la capa estadística operativa s'absté."
   },
   "ui.predictor_interpretation_limited_support": {
     "en": "Only one validated estimator family supports the operational range; there is not enough independent evidence to measure consensus.",
@@ -4533,6 +4693,7 @@
   "ui.predictor_help_post_rain_coverage": {"en": "Temperature and humidity days observed after the selected significant rain event.", "es": "Días de temperatura y humedad observados después del episodio de lluvia significativa elegido.", "ca": "Dies de temperatura i humitat observats després de l'episodi de pluja significativa triat."},
   "ui.predictor_help_weather_gaps": {"en": "Warnings about incomplete or suspect weather inputs used by this result.", "es": "Avisos sobre entradas meteorológicas incompletas o sospechosas utilizadas por este resultado.", "ca": "Avisos sobre entrades meteorològiques incompletes o sospitoses utilitzades per aquest resultat."},
   "ui.predictor_help_out_of_domain": {"en": "Variables outside the range seen during training. The current value is the input being predicted; training is the minimum–maximum range learned by that model; Δ is the signed physical distance to the exceeded limit (+ above the maximum, − below the minimum); and σ is the distance from the learned mean in standard deviations. Severe extrapolations may exclude estimators or add caution to experimental signals.", "es": "Variables fuera del rango visto durante el entrenamiento. El valor actual es la entrada que se está prediciendo; entrenamiento es el rango mínimo–máximo aprendido por ese modelo; Δ es la distancia física con signo hasta el límite rebasado (+ por encima del máximo, − por debajo del mínimo); y σ es la distancia respecto a la media aprendida en desviaciones estándar. Las extrapolaciones severas pueden excluir estimadores o añadir cautela a las señales experimentales.", "ca": "Variables fora del rang vist durant l'entrenament. El valor actual és l'entrada que s'està predient; entrenament és el rang mínim–màxim après per aquell model; Δ és la distància física amb signe fins al límit superat (+ per sobre del màxim, − per sota del mínim); i σ és la distància respecte de la mitjana apresa en desviacions estàndard. Les extrapolacions severes poden excloure estimadors o afegir cautela als senyals experimentals."},
+  "ui.predictor_active_version_role": {"en": "This card shows the operational version selected through manual promotion. Activating it does not imply that it is the best scientific version.", "es": "Esta tarjeta muestra la versión operativa activa elegida mediante promoción manual. Activarla no implica que sea la mejor versión científica.", "ca": "Aquesta targeta mostra la versió operativa activa triada mitjançant promoció manual. Activar-la no implica que sigui la millor versió científica."},
   "ui.worker_abandoned_flash": {
     "en": "Job abandoned.",
     "es": "Trabajo abandonado.",

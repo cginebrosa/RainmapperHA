@@ -1,149 +1,145 @@
 # TODO
 
-Prioridades vigentes. El estado inmediato y los comandos de continuidad están
-en `docs/active-context.md`; este fichero conserva únicamente trabajo abierto y
-resultados cerrados que condicionan esas prioridades.
+Prioridades vigentes. El estado inmediato está en `docs/active-context.md`;
+este fichero distingue trabajo cerrado de próximas entregas.
 
-## P0 — Validar y publicar la corrección de regeneración V2–V6
+## P0 — Separar entrenamiento operativo y benchmark científico
 
-- [x] Identificar el fallo real de HA `0.2.256`: el tercer job dependía de un
-  JSON del snapshot de laboratorio ausente en HA.
-- [x] Sustituir esa dependencia por entradas V2–V6 derivadas del snapshot fresco
-  de cada reconstrucción.
-- [x] Añadir identidad `training-input-manifest.json`, validación de hashes y
-  aviso de vigencia del Predictor.
-- [x] Mantener una sola acción completa: reconstrucción + ML v0 + V2–V6; no
-  añadir una regeneración parcial por el fallo puntual.
-- [x] Retener resultados fallidos para diagnóstico y borrar staging únicamente
-  después de una instalación íntegra.
-- [x] Evitar datos reales en las imágenes: plantilla vacía en HA y ausencia de
-  observaciones, snapshots, hold-outs, benchmarks y modelos entrenados.
-- [x] Retirar el montaje temporal `Validación local`, su contenedor/volumen y
-  los puertos 8103/8111 sin modificar el worker M1 normal.
-- [x] Recuperar en el HA local de 8101 un ejecutor opt-in que calcula sobre el
-  M1 sin emparejar otro worker y reutiliza los contratos del flujo externo.
-- [x] Exigir tanto en UI como en backend que reconstrucción, ML v0 y V2–V6
-  terminen antes de ofrecer una única promoción completa.
-- [x] Construir e inspeccionar de nuevo la imagen HA local con el ejecutor
-  completo; confirmar que el HA real continúa coordinador-only por defecto.
-- [x] Lanzar desde `http://127.0.0.1:8101/mushrooms/workers` la reconstrucción
-  completa con `Home Assistant local` y medir los tres trabajos encadenados.
-- [x] Verificar el batch final: manifiesto de entradas, hashes, no operativo,
-  staging limpio y ausencia de la antigua ruta de laboratorio.
-- [x] Revisar visualmente Predictor/Comparar: aviso de vigencia, V2–V6 con sus
-  algoritmos y cautelas, V2 solo cronológica y ninguna pareja especie+área
-  incompatible retenida.
-- [x] Ejecutar smoke completo y `git diff --check`: 863 pruebas y gates OK.
-- [x] Diagnosticar `model_not_trained` en la ventana fija operativa de
-  Edulis/Salteguet; no asumir que es el miembro V2 del batch comparativo.
-- [x] Reproducir la lluvia IDW de Salteguet del 17/08 con estaciones finitas,
-  fuentes habilitadas, radio y umbral de soporte; verificar ceros y `N/A`.
-- [x] Publicar HA `0.2.257`, actualizar el worker privado a `1.0.11` e instalar
-  HA. La primera regeneración real terminó sin activar su generación completa.
-- [x] Diagnosticar el alcance real: ML v0 entrenó 8 especies pero HA volvió a
-  calcular 16 para V2–V6, causando 436 fits improcedentes y 381 rechazos.
-- [x] Corregir localmente el encadenado para persistir y heredar exactamente
-  `trained_species`; 241 pruebas dirigidas y smoke completo 886/886 correctos.
-- [x] Mantener sin activar el candidato `local_v2_v6_20260817T232733Z` y
-  publicar la corrección como HA `0.2.258`, sin cambiar worker `1.0.11`.
-- [ ] Instalar HA `0.2.258` antes de repetir producción.
-- [ ] Tras instalar la corrección, repetir la regeneración completa real y
-  comprobar un alcance esperado de 432 fits (429 correctos, 3 sparse-group),
-  activar la generación y verificar que el Predictor queda `current`.
+- [x] Documentar la propuesta, UI objetivo, promoción y entrega por fases en
+  `docs/mushrooms/mushroom-ml-operational-benchmark-separation-design-es.md`.
+- [x] Acordar que la separación no cambia el V2 operativo: seguirá activo hasta
+  que el usuario promocione explícitamente una generación compatible.
+- [x] Acordar dos acciones principales: `Reconstruir y reentrenar operativo` y
+  `Ejecutar benchmark científico`; `Ver comparación` será contextual al job.
+- [x] Mapear con Codebase Memory la cadena externa y
+  `mushroom_local_full_update`, incluidos planificación, transporte,
+  instalación, promoción, rollback y UI.
+- [x] Introducir identidades separadas para job operativo y benchmark.
+- [x] Resolver el plan operativo desde la generación activa; inicialmente debe
+  producir todo V2 fixed/lag requerido por el Predictor.
+- [x] Retirar V3–V6 de la reconstrucción habitual sin borrar sus contratos,
+  generaciones ni capacidad de reproducción.
+- [x] Mantener el job V2–V6 actual como benchmark manual independiente, sin
+  promoción automática.
+- [x] Añadir tests que demuestren continuidad del V2 instalado, completitud,
+  frescura, fallo/rollback y paridad entre worker y ejecutor HA local.
+- [x] Adaptar UI y labels `en/es/ca` solo después de cerrar el backend.
+- [x] Ejecutar pruebas dirigidas, smoke completo y `git diff --check`.
+- [x] Detenerse antes de release y pedir autorización explícita.
 
-## P1 — Mantener la comparación científica, sin promoción prematura
+## P1 — Informe persistente y benchmark seleccionable
 
-- [x] Comparar V2/V3/V4 sobre filas y meteorología IDW comunes, seis algoritmos
-  y particiones 7/14, sin Brier medio entre especies.
-- [x] Corregir `lag_event`: un ajuste por especie+contrato+estimador y filtros
-  1/2/3/7 sobre el mismo hold-out.
-- [x] Conservar predicciones hold-out fila a fila y analizar falsos
-  positivos/negativos compartidos por especie, contrato, horizonte, fase y
-  meteorología.
-- [x] Ejecutar V5 raw regularizada: 12.280 predicciones; 2 victorias y 32
-  derrotas de 34 frente al mejor miembro V2/V3/V4.
-- [x] Ejecutar V6 suave/jerárquica: 4 victorias y 30 derrotas de 34 frente al
-  mejor miembro V2/V3/V4/V5.
-- [x] Concluir que los errores actuales no justifican un modelo de estado ni un
-  jerárquico general y no muestran dos ventanas meteorológicas estables.
-- [ ] Congelar V5/V6 y no añadir otra familia durante el gate de release.
-- [ ] Mantener V2–V6 vivas mediante el registro genérico. Ninguna está aceptada,
-  promovida o validada como mejor; V2 solo es la primera cronológicamente.
+- [x] Persistir selección, snapshot, plan, métricas, predicciones hold-out y
+  artefactos de cada benchmark.
+- [x] Medir duración por fit, versión, perfil y estimador. Falta ejecutar un
+  benchmark nuevo para atribuir los 40 minutos observados con esta telemetría.
+- [x] Añadir `Ver comparación` e historial de benchmarks.
+- [x] Mostrar por especie/contrato/horizonte/estimador Brier, prevalencia,
+  delta emparejado, ROC-AUC, calibración, soporte, fallos y duración.
+- [x] No crear Brier medio entre especies ni declarar un ganador universal.
+- [x] Permitir seleccionar versiones/perfiles compatibles sin que el benchmark
+  modifique el Predictor.
+- [x] No preseleccionar perfiles, conservar la selección lanzada y evitar que un
+  benchmark V3 prepare o evalúe V4–V6.
+- [x] Añadir cancelación cooperativa del benchmark HA local.
+- [x] Conservar en la fila terminada los perfiles exactos y contadores del
+  informe; usar `Ver informe` para uno, `Ver comparación` para varios y
+  refrescar el historial al terminar.
+
+## P1 — V3 physical / V3+
+
+- [x] Registrar un perfil/feature set nuevo; no modificar los bundles V3 core.
+- [x] Mantener idénticas filas, targets, splits, contratos y estimadores de V3.
+- [x] Añadir únicamente balance hídrico y SMI derivados causalmente del mismo
+  IDW, con paridad entrenamiento/inferencia.
+- [x] Ejecutar en HA local la comparación real V3 core frente a V3+ físico
+  sobre soporte emparejado: 216/216 fits correctos y 0 fallos.
+- [ ] Solo si el bloque físico mejora repetidamente, comparar después
+  `+balance`, `+SMI` y `+balance+SMI`.
+
+## P1 — Promoción genérica desde benchmark
+
+- [x] Documentar el contrato genérico de perfil, candidata, generación completa,
+  gates y rollback en
+  `docs/mushrooms/mushroom-ml-generic-profile-promotion-plan-es.md`.
+- [x] Materializar en código qué artefactos constituyen una generación
+  operacional completa para cualquier perfil elegible.
+- [x] Exigir `operational_eligible`, integridad, compatibilidad, paridad y
+  entradas vivas coincidentes.
+- [x] Añadir promoción humana explícita, transaccional y con rollback desde el
+  informe; nunca promocionar una celda aislada elegida retrospectivamente.
+- [x] Implementar el primer objetivo como versión completa `biology_v3`, con
+  V3 core y V3+ físico instalados y visibles conjuntamente en Predictor.
+- [x] Reconstruir HA local con autorización y validar que el informe V3/V3+
+  ofrece `Preparar candidata completa`.
+- [ ] Ejecutar candidata, promoción, cuatro salidas fixed/lag y rollback desde
+  la UI.
+- [x] Hacer que el entrenamiento habitual resuelva dinámicamente todos los
+  perfiles de la versión promovida.
+- [ ] Para V4–V6, declarar qué conjunto completo de perfiles es técnicamente
+  operativo antes de habilitarlo. V3 y V3+ ya son elegibles conjuntamente;
+  V4–V6 todavía no.
+
+## P2 — Ventanas y coste científico
+
+- [ ] Conservar V5/V6-365 como controles reproducibles.
+- [ ] Separar el spin-up necesario para SMI de la ventana predictiva.
+- [ ] Si la comparación física aporta señal, evaluar V5-30/60/90 sobre las
+  mismas filas y splits; estudiar V6 después sobre ventanas justificadas.
+- [ ] Mantener estos experimentos fuera de la reconstrucción habitual.
 - [ ] No ensayar ensemble salvo que se materialice y supere al mejor miembro
   individual por especie y contrato.
 
-## P1 — Worker multicoordinador
+## P2 — Worker multicoordinador
 
-- [x] Documentar la arquitectura y el contrato de revocación en
+- [x] Documentar el diseño en
   `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`.
-- [ ] Migrar atómicamente la configuración monocoordinador conservando URL,
-  token, identidad, volumen y caché existentes sin exigir pairing nuevo.
-- [ ] Añadir el parámetro persistente y configurable `max_coordinators`, default
-  4, con rechazo no destructivo tanto al superar el límite como al intentar
-  reducirlo por debajo del número de asociaciones con credencial.
-- [ ] Mantener heartbeat independiente por coordinador, un solo slot global de
-  ejecución y arbitraje round-robin de claims cuando quede libre.
-- [ ] Aislar estado y temporales por `(coordinator_id, job_id)` y devolver cada
-  progreso, resultado, receipt y limpieza solo al coordinador de origen.
-- [ ] Al recibir un `401` inequívoco, eliminar solo esa asociación; conservar
-  credenciales ante timeout, DNS, desconexión o `5xx`.
-- [ ] Rechazar con `409` la revocación desde un HA que tenga un job suyo activo.
-- [ ] Añadir gestión CLI local para listar asociaciones sin secretos y olvidar
-  coordinadores inaccesibles; no crear una UI o puerto entrante del worker.
-- [ ] Probar dos coordinadores aislados, colisión de `job_id`, caída parcial,
-  justicia, reinicio, límite configurable y cadena de tres jobs con una única
-  promoción en origen.
-- [ ] No instalar, reemparejar ni modificar el worker M1/HA reales durante estas
-  pruebas y no mezclar su release con el P0 sin autorización expresa.
+- [ ] Implementar migración atómica de asociaciones, máximo configurable,
+  heartbeats independientes, slot global, arbitraje justo y aislamiento por
+  coordinador/job.
+- [ ] Probar primero con dos HAs locales aislados. No modificar el worker M1 ni
+  HA reales sin autorización.
 
-## P1 — Nuevas observaciones y repetición futura
+## P2 — Datos y meteorología
 
-- [ ] Cuando la plataforma corregida esté alineada, incorporar las cuatro
-  salidas negativas recientes del usuario en cuatro microáreas/especies.
-- [ ] Crear un snapshot inmutable nuevo; no sobrescribir
+- [ ] Incorporar las cuatro salidas negativas recientes cuando la plataforma
+  esté alineada y crear un snapshot nuevo; no sobrescribir
   `mushroom-ml-snapshot-20260816`.
-- [ ] Repetir las comparaciones congeladas para medir sensibilidad por especie,
-  campaña, contrato y partición antes de decidir cualquier candidatura.
-- [ ] Repetir V5/V6 solo con nueva evidencia independiente suficiente; no usar
-  el hold-out actual para elegir una familia posterior.
+- [ ] Validar en producción la autocuración meteorológica en una entrega
+  independiente.
+- [ ] Revisar el umbral especial de soporte IDW de lluvia.
+- [ ] Corregir el matching geológico por subcadena (`gres`/`negres`) antes
+  de usar esos proxies.
 
-## P2 — Meteorología y Biology V4
-
-- [x] Implementar IDW común, corrección térmica por DEM, balance climático,
-  SoilGrids experimental y paridad train/inferencia.
-- [x] Concluir que el balance no mejora Brier consistentemente y SoilGrids suele
-  empeorar; conservar ambos evaluables pero desactivados.
-- [x] Implementar localmente autocuración oficial con cola durable, bloques,
-  backoff y reparación primero del histórico particionado.
-- [ ] Validar en producción la autocuración y sus avisos Diagnostics/Errors en
-  una release coordinada; no mezclar esa conclusión con el gate V2–V6.
-- [ ] Corregir el matching geológico por subcadena (`gres`/`negres`) antes de
-  usar esos proxies.
-- [ ] Completar propiedades/quantiles SoilGrids solo si un experimento futuro
-  los necesita.
-- [ ] Futuro no prioritario: bootstrap autónomo del histórico en instalaciones
-  vírgenes desde la observación más antigua y el lookback requerido.
-
-## P3 — Integridad, privacidad y UX
+## P3 — Integridad y privacidad
 
 - [ ] Revisar por separado la privacidad de
-  `mushroom-data/mushroom_observations.json`, que sigue rastreado en el
-  repositorio público aunque ya no se copie a la imagen HA.
-- [ ] Añadir sanity checks confirmables al alta/edición/importación: temporada,
-  altitud y primera observación especie-área/microárea.
-- [ ] Mostrar advertencias y permitir continuar; nunca corregir, descartar ni
-  reclasificar automáticamente una excepción real.
-- [ ] Auditar identificaciones automáticas antiguas que pudieran contaminar
-  artefactos previos.
+  `mushroom-data/mushroom_observations.json`, rastreado en el repositorio.
+- [ ] Añadir sanity checks confirmables para temporada, altitud y primera
+  observación especie-área/microárea.
+- [ ] Auditar identificaciones automáticas antiguas potencialmente
+  contaminantes.
 
-## Riesgos que condicionan prioridades
+## Trabajo cerrado que condiciona el P0
 
-- La instalación real todavía no incorpora la corrección V2–V6. No tratar su
-  Predictor como plenamente actualizado.
-- El umbral especial de soporte IDW de lluvia puede devolver `null` aun con
-  estaciones válidas; falta decidir si es cautela correcta o falso vacío.
-- La duración local observada ronda 20 minutos mientras V2–V6 permanezcan
-  activas; es coste aceptado, no un motivo para crear un atajo incoherente.
-- El soporte por especie y campaña es pequeño; los rankings son diagnósticos.
-- Los horizontes lag reutilizan observaciones y no son muestras independientes.
-- El worktree es grande y mixto; preservar cambios y PDF no rastreados.
+- [x] V2 usa meteorología IDW común; el comparador legado de estación única ya
+  no suplanta su tarjeta.
+- [x] MapLibre cuenta ceros finitos en el soporte IDW y excluye N/A.
+- [x] V5/V6 v2 consumen IDW, ET0, balance y SMI con paridad de inferencia.
+- [x] El worker reutiliza por SHA-256 los modelos que acaba de entrenar y evita
+  volver a descargar el runtime completo.
+- [x] `lag_event` operativo vuelve a cubrir h1..h7 sin multiplicar fits.
+- [x] HA `0.2.261` fue publicada y worker privado local `1.0.14` construido.
+- [x] El batch revalidado `local_v2_v6_20260818T162939Z` contiene 432
+  artefactos de 436 fits planificados y cuatro fallos V5.
+
+## Riesgos
+
+- No basta con eliminar V2–V6 de la cadena actual: debe seguir construyéndose
+  el conjunto completo que necesita el V2 operativo.
+- Un benchmark antiguo sigue siendo auditable, pero no promocionable si sus
+  entradas ya no coinciden con las vivas.
+- El soporte por especie/campaña es pequeño; los rankings son diagnósticos.
+- Preservar todos los cambios, datos, cachés y ficheros no rastreados.
+- No usar Tailscale, tocar HA real/worker normal ni publicar releases sin
+  autorización explícita.

@@ -25,6 +25,93 @@ V2_FIXED_CONTRACT_ID = "fixed_gap_7d_altitude_v2"
 V2_LAG_CONTRACT_ID = "lag_event_altitude_v2"
 
 
+def _load_quality_catalog(
+    registry: Mapping[str, object],
+    checked: Mapping[str, object],
+    models_root: Path,
+) -> dict[str, Any]:
+    """Load declared evidence, with a verified promotion-source fallback."""
+    quality_path: Path | None = None
+    expected_sha = ""
+    quality_ref = checked.get("quality_catalog")
+    if isinstance(quality_ref, Mapping):
+        quality_path = Path(models_root) / str(quality_ref.get("path") or "")
+        expected_sha = str(quality_ref.get("sha256") or "")
+    else:
+        target = registry.get("active_operational_target")
+        target = target if isinstance(target, Mapping) else {}
+        generation_id = str(target.get("generation_id") or "")
+        source_batch_id = ""
+        for version in registry.get("versions", []):
+            if not isinstance(version, Mapping):
+                continue
+            for generation in version.get("generations", []):
+                if (
+                    isinstance(generation, Mapping)
+                    and str(generation.get("generation_id") or "") == generation_id
+                ):
+                    source_batch_id = str(
+                        generation.get("source_benchmark_batch_id") or ""
+                    )
+                    break
+        if source_batch_id:
+            benchmark_root = Path(models_root) / "benchmarks" / source_batch_id
+            benchmark_manifest_path = benchmark_root / "manifest.json"
+            if benchmark_manifest_path.is_file():
+                benchmark_manifest = json.loads(
+                    benchmark_manifest_path.read_text(encoding="utf-8")
+                )
+                source_ref = benchmark_manifest.get("quality_catalog")
+                if isinstance(source_ref, Mapping):
+                    quality_path = benchmark_root / "quality-catalog.json"
+                    expected_sha = str(source_ref.get("sha256") or "")
+    if quality_path is None or not quality_path.is_file() or not expected_sha:
+        return {}
+    content = quality_path.read_bytes()
+    if hashlib.sha256(content).hexdigest() != expected_sha:
+        return {}
+    loaded = json.loads(content)
+    if (
+        not isinstance(loaded, dict)
+        or loaded.get("kind") != mushroom_ml_quality_catalog.KIND
+        or loaded.get("schema_version") != mushroom_ml_quality_catalog.SCHEMA_VERSION
+    ):
+        return {}
+    return loaded
+
+
+def _interpretation_features(sample: Mapping[str, object]) -> dict[str, object]:
+    """Keep model inputs pure while forwarding ecological evidence to interpretation.
+
+    Version adapters may wrap the source quality mapping (for example V4 wraps
+    the V3 evidence).  Walk every nested quality mapping so a new profile or
+    version cannot silently lose the common ecological contract merely because
+    it adds another adapter layer.
+    """
+    features = dict(sample.get("predictive_features") or {})
+    quality = sample.get("quality")
+    quality = quality if isinstance(quality, Mapping) else {}
+    quality_sources: list[Mapping[str, object]] = []
+    pending: list[Mapping[str, object]] = [quality]
+    while pending:
+        source = pending.pop(0)
+        quality_sources.append(source)
+        pending.extend(
+            value for value in source.values() if isinstance(value, Mapping)
+        )
+    for key in (
+        "days_since_significant_rain_at_target",
+        "significant_rain_found_90d",
+        "significant_rain_search_complete",
+        "rain_event_search_complete",
+    ):
+        for source in quality_sources:
+            if key in source:
+                features[key] = source[key]
+                break
+    return features
+
+
 def compare_prepared(
     registry: Mapping[str, object],
     manifest: Mapping[str, object],
@@ -51,16 +138,7 @@ def compare_prepared(
         else None
     )
     if not isinstance(quality_catalog, dict):
-        quality_catalog = {}
-        quality_ref = checked.get("quality_catalog")
-        if isinstance(quality_ref, Mapping):
-            quality_path = Path(models_root) / str(quality_ref.get("path") or "")
-            if quality_path.is_file() and hashlib.sha256(quality_path.read_bytes()).hexdigest() == str(
-                quality_ref.get("sha256") or ""
-            ):
-                loaded = json.loads(quality_path.read_text(encoding="utf-8"))
-                if isinstance(loaded, dict):
-                    quality_catalog = loaded
+        quality_catalog = _load_quality_catalog(registry, checked, models_root)
         if comparison_cache is not None:
             comparison_cache["quality_catalog"] = quality_catalog
     artifact_index = (
@@ -162,15 +240,7 @@ def compare_prepared(
                     "evaluation": mushroom_ml_quality_catalog.lookup(
                         quality_catalog, model_ref.as_dict()
                     ),
-                    **(
-                        {
-                            "features_used": dict(
-                                sample.get("predictive_features") or {}
-                            )
-                        }
-                        if model_ref.version_id == "altitude_v2"
-                        else {}
-                    ),
+                    "features_used": _interpretation_features(sample),
                 }
             )
         except FileNotFoundError as exc:
@@ -205,17 +275,23 @@ def compare_prepared(
     }
 
 
-def _v2_contract_result(
+def _contract_result(
     contract_id: str,
     members: Sequence[Mapping[str, object]],
     *,
     horizon_days: int,
+    profile_id: str | None = None,
 ) -> dict[str, Any]:
     matching = [
         row
         for row in members
         if str((row.get("model_ref") or {}).get("temporal_contract_id") or "")
         == contract_id
+        and (
+            profile_id is None
+            or str((row.get("model_ref") or {}).get("profile_id") or "")
+            == profile_id
+        )
     ]
     available = [row for row in matching if row.get("available") is True]
     if not available:
@@ -285,7 +361,7 @@ def _v2_contract_result(
     }
 
 
-def compare_v2_reference(
+def compare_operational_reference(
     registry: Mapping[str, object],
     manifest: Mapping[str, object],
     *,
@@ -305,17 +381,48 @@ def compare_v2_reference(
     | None = None,
     comparison_cache: MutableMapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build the historical V2 card from the exact installed common-IDW batch."""
+    """Build the operational card from every profile in the active version."""
+    target = registry.get("active_operational_target")
+    target = target if isinstance(target, Mapping) else {}
+    version_id = str(target.get("version_id") or registry.get("active_version_id") or "")
+    profiles = [
+        row
+        for row in catalog.catalog_entries(registry)
+        if row["version_id"] == version_id and row["operational_eligible"] is True
+    ]
+    if not profiles:
+        raise ValueError("The active version has no operational profiles")
     payload: dict[str, Any] = {
         "issue_date": issue_date.isoformat(),
         "target_date": target_date.isoformat(),
         "season_phase": season_phase,
     }
+    result_specs: list[tuple[str, dict[str, Any], str, int]] = []
+    lag_horizon = (target_date - (issue_date - timedelta(days=1))).days
+    single_profile = len(profiles) == 1
+    for profile in profiles:
+        for contract_id in profile["temporal_contract_ids"]:
+            horizon = 7 if str(contract_id).startswith("fixed_") else lag_horizon
+            result_key = str(contract_id) if single_profile else f"{profile['profile_id']}:{contract_id}"
+            result_specs.append((result_key, profile, str(contract_id), horizon))
+    payload["active_version_id"] = version_id
+    payload["operational_result_keys"] = [row[0] for row in result_specs]
+    payload["operational_profiles"] = [
+        {
+            "profile_id": row["profile_id"],
+            "profile_name": row["profile_display_name"],
+            "result_keys": [key for key, profile, _contract, _horizon in result_specs if profile["profile_id"] == row["profile_id"]],
+        }
+        for row in profiles
+    ]
     if season_phase == "out_of_season":
-        for contract_id in (V2_FIXED_CONTRACT_ID, V2_LAG_CONTRACT_ID):
-            payload[contract_id] = {"available": False, "reason": "out_of_season"}
+        for result_key, _profile, _contract_id, _horizon in result_specs:
+            payload[result_key] = {"available": False, "reason": "out_of_season"}
         payload["interpretation"] = build_interpretation(
-            payload, season_phase=season_phase, phenology=dict(phenology or {})
+            payload,
+            season_phase=season_phase,
+            phenology=dict(phenology or {}),
+            feature_set_ids=payload["operational_result_keys"],
         )
         return payload
 
@@ -328,24 +435,22 @@ def compare_v2_reference(
         checked = catalog.validate_batch_manifest(registry, manifest)
         if comparison_cache is not None:
             comparison_cache["checked_manifest"] = checked
-    lag_horizon = (target_date - (issue_date - timedelta(days=1))).days
-    wanted = ((V2_FIXED_CONTRACT_ID, 7), (V2_LAG_CONTRACT_ID, lag_horizon))
     selections: list[dict[str, object]] = []
-    for contract_id, horizon in wanted:
+    for _result_key, profile, contract_id, horizon in result_specs:
         for row in checked["artifacts"]:
             artifact_ref = row["artifact_ref"]
             if (
-                artifact_ref["version_id"] == "altitude_v2"
+                artifact_ref["version_id"] == version_id
                 and artifact_ref["temporal_contract_id"] == contract_id
-                and artifact_ref["profile_id"] == "common_idw"
+                and artifact_ref["profile_id"] == profile["profile_id"]
                 and artifact_ref["species_id"] == species_id
                 and horizon in row["supported_horizons"]
             ):
                 selections.append(
                     {
-                        "version_id": "altitude_v2",
+                        "version_id": version_id,
                         "temporal_contract_id": contract_id,
-                        "profile_id": "common_idw",
+                        "profile_id": profile["profile_id"],
                         "estimator_id": artifact_ref["estimator_id"],
                         "horizon_days": horizon,
                     }
@@ -370,16 +475,30 @@ def compare_v2_reference(
         else {"members": []}
     )
     members = list(runtime.get("members") or [])
-    for contract_id, horizon in wanted:
-        payload[contract_id] = _v2_contract_result(
-            contract_id, members, horizon_days=horizon
+    for result_key, profile, contract_id, horizon in result_specs:
+        payload[result_key] = _contract_result(
+            contract_id,
+            members,
+            horizon_days=horizon,
+            profile_id=str(profile["profile_id"]),
         )
+        payload[result_key]["profile_id"] = profile["profile_id"]
+        payload[result_key]["profile_name"] = profile["profile_display_name"]
+        payload[result_key]["temporal_contract_id"] = contract_id
     payload["runtime_batch_id"] = checked["batch_id"]
     payload["spatial_weather_contract"] = "common_multisource_idw_by_microarea"
     payload["interpretation"] = build_interpretation(
-        payload, season_phase=season_phase, phenology=dict(phenology or {})
+        payload,
+        season_phase=season_phase,
+        phenology=dict(phenology or {}),
+        feature_set_ids=payload["operational_result_keys"],
     )
     return payload
+
+
+def compare_v2_reference(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    """Backward-compatible name for the now registry-driven operational card."""
+    return compare_operational_reference(*args, **kwargs)
 
 
 def resolve_selection(
@@ -447,8 +566,28 @@ def resolve_selection(
 
 def _weather_requirements(
     model_refs: Sequence[catalog.ModelRef],
+    *,
+    catalog_profiles: Sequence[Mapping[str, object]] | None = None,
 ) -> tuple[int, bool]:
     """Return only the weather work required by the selected trained profiles."""
+    if catalog_profiles is not None:
+        by_key = {
+            (str(row.get("version_id") or ""), str(row.get("profile_id") or "")): row
+            for row in catalog_profiles
+        }
+        requirements = []
+        for ref in model_refs:
+            profile = by_key.get((ref.version_id, ref.profile_id))
+            raw = profile.get("input_requirements") if isinstance(profile, Mapping) else None
+            if not isinstance(raw, Mapping):
+                raise ValueError(
+                    f"Runtime profile lacks input requirements: {ref.version_id}/{ref.profile_id}"
+                )
+            requirements.append(raw)
+        return (
+            max(int(row["weather_lookback_days"]) for row in requirements),
+            any(bool(row["include_physical_state"]) for row in requirements),
+        )
     long_raw_versions = {
         "biology_v5_raw_weather_discovery",
         "biology_v6_smooth_hierarchical",
@@ -693,7 +832,9 @@ def compare_selection(
         for selection in selections
     ]
     horizons = tuple(sorted({model_ref.horizon_days for model_ref in refs}))
-    lookback_days, include_physical_state = _weather_requirements(refs)
+    lookback_days, include_physical_state = _weather_requirements(
+        refs, catalog_profiles=catalog_profiles
+    )
     weather_key = _prepared_weather_key(
         known_sites_path=known_sites_path,
         weather_data_dir=weather_data_dir,

@@ -1,5 +1,9 @@
 from datetime import date, timedelta
+import copy
+import hashlib
+import json
 from pathlib import Path
+import tempfile
 from unittest import TestCase
 from unittest import mock
 
@@ -13,6 +17,309 @@ REGISTRY_PATH = Path(__file__).resolve().parents[1] / "mushroom-data/mushroom_ml
 
 
 class MushroomMLMultiversionComparisonTests(TestCase):
+    def test_interpretation_features_include_rain_evidence_without_changing_model_inputs(self) -> None:
+        predictive = {"rain_sum_21d": 12.0, "days_since_significant_rain_at_target": 4.0}
+        sample = {
+            "predictive_features": predictive,
+            "quality": {
+                "significant_rain_found_90d": 1.0,
+                "significant_rain_search_complete": True,
+            },
+        }
+
+        result = comparison._interpretation_features(sample)
+
+        self.assertEqual(result["significant_rain_found_90d"], 1.0)
+        self.assertTrue(result["significant_rain_search_complete"])
+        self.assertNotIn("significant_rain_found_90d", predictive)
+
+    def test_interpretation_features_inherit_nested_v4_rain_evidence(self) -> None:
+        sample = {
+            "predictive_features": {"climatic_balance_mm": 4.0},
+            "quality": {
+                "source_v3_quality": {
+                    "significant_rain_found_90d": True,
+                    "days_since_significant_rain_at_target": 8.0,
+                }
+            },
+        }
+
+        result = comparison._interpretation_features(sample)
+
+        self.assertTrue(result["significant_rain_found_90d"])
+        self.assertEqual(result["days_since_significant_rain_at_target"], 8.0)
+
+    def test_interpretation_features_find_common_evidence_through_any_adapter_depth(self) -> None:
+        sample = {
+            "predictive_features": {"rain_cutoff_0_3d_mm": 12.0},
+            "quality": {
+                "adapter_quality": {
+                    "source_quality": {
+                        "significant_rain_found_90d": True,
+                        "significant_rain_search_complete": True,
+                        "days_since_significant_rain_at_target": 4.0,
+                    }
+                }
+            },
+        }
+
+        result = comparison._interpretation_features(sample)
+
+        self.assertTrue(result["significant_rain_found_90d"])
+        self.assertTrue(result["significant_rain_search_complete"])
+        self.assertEqual(result["days_since_significant_rain_at_target"], 4.0)
+
+    def test_every_operational_version_preserves_brier_rain_and_final_range(self) -> None:
+        base_registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        for version in base_registry["versions"]:
+            version_id = str(version["version_id"])
+            registry = copy.deepcopy(base_registry)
+            registry["active_version_id"] = version_id
+            registry["active_operational_target"] = {
+                "version_id": version_id,
+                "generation_id": f"generation-{version_id}",
+            }
+            profiles = [
+                row
+                for row in catalog.catalog_entries(registry)
+                if row["version_id"] == version_id
+                and row["operational_eligible"] is True
+            ]
+            artifacts = []
+            for profile in profiles:
+                estimator_id = str(profile["estimator_ids"][0])
+                for contract_id in profile["temporal_contract_ids"]:
+                    ref = catalog.ModelArtifactRef(
+                        batch_id=f"batch-{version_id}",
+                        generation_id=f"generation-{version_id}",
+                        version_id=version_id,
+                        temporal_contract_id=str(contract_id),
+                        profile_id=str(profile["profile_id"]),
+                        estimator_id=estimator_id,
+                        species_id="boletus_edulis",
+                    )
+                    artifacts.append(
+                        {
+                            "artifact_ref": ref.as_dict(),
+                            "supported_horizons": (
+                                [7]
+                                if str(contract_id).startswith("fixed_")
+                                else list(range(1, 8))
+                            ),
+                            "path": catalog.model_relative_path(ref).as_posix(),
+                            "sha256": "b" * 64,
+                        }
+                    )
+            manifest = {
+                "batch_id": f"batch-{version_id}",
+                "snapshot_id": "sha256:" + "a" * 64,
+                "artifacts": artifacts,
+            }
+
+            def compared(_registry, _manifest, selections, **_kwargs):
+                return {
+                    "members": [
+                        {
+                            "model_ref": {
+                                **next(
+                                    artifact["artifact_ref"]
+                                    for artifact in artifacts
+                                    if artifact["artifact_ref"]["version_id"]
+                                    == selection["version_id"]
+                                    and artifact["artifact_ref"]["profile_id"]
+                                    == selection["profile_id"]
+                                    and artifact["artifact_ref"]["temporal_contract_id"]
+                                    == selection["temporal_contract_id"]
+                                    and artifact["artifact_ref"]["estimator_id"]
+                                    == selection["estimator_id"]
+                                ),
+                                "horizon_days": selection["horizon_days"],
+                            },
+                            "available": True,
+                            "prediction": {
+                                "probability": 0.72,
+                                "applicability": {},
+                            },
+                            "evaluation": {
+                                "brier_score": 0.18,
+                                "prevalence_brier_score": 0.25,
+                                "roc_auc": 0.71,
+                                "n_test": 20,
+                            },
+                            "features_used": {
+                                "significant_rain_found_90d": True,
+                                "days_since_significant_rain_at_target": 4.0,
+                            },
+                            "metadata": {"cutoff_date": "2026-08-18"},
+                        }
+                        for selection in selections
+                    ]
+                }
+
+            with self.subTest(version_id=version_id), mock.patch.object(
+                comparison.catalog,
+                "validate_batch_manifest",
+                return_value=manifest,
+            ), mock.patch.object(
+                comparison, "compare_selection", side_effect=compared
+            ):
+                result = comparison.compare_operational_reference(
+                    registry,
+                    manifest,
+                    species_id="boletus_edulis",
+                    area_id="area-a",
+                    target_date=date(2026, 8, 20),
+                    issue_date=date(2026, 8, 19),
+                    season_phase="in_season",
+                    phenology={
+                        "fruiting_delay_after_rain_days": {
+                            "min": 0,
+                            "optimal_min": 2,
+                            "optimal_max": 14,
+                            "max": 30,
+                        }
+                    },
+                    models_root=Path("/unused/models"),
+                    known_sites_path=Path("/unused/sites.json"),
+                    weather_data_dir=Path("/unused/weather"),
+                )
+
+            self.assertEqual(result["interpretation"]["weather_signal"], "recent_event")
+            self.assertEqual(result["interpretation"]["ecological_compatibility"], "compatible")
+            self.assertEqual(result["interpretation"]["reference_range"]["min"], 0.72)
+            for key in result["operational_result_keys"]:
+                self.assertTrue(result[key]["evaluation"]["available"])
+                self.assertEqual(
+                    next(iter(result[key]["evaluation"]["estimators"].values()))[
+                        "brier_score"
+                    ],
+                    0.18,
+                )
+
+    def test_active_promotion_loads_verified_source_benchmark_quality_catalog(self) -> None:
+        quality = {
+            "schema_version": "1.0",
+            "kind": "mushroom_ml_quality_catalog",
+            "snapshot_id": "sha256:" + "a" * 64,
+            "entries": [],
+        }
+        content = (json.dumps(quality) + "\n").encode()
+        digest = hashlib.sha256(content).hexdigest()
+        registry = {
+            "active_operational_target": {
+                "version_id": "biology_v3",
+                "generation_id": "generation-v3",
+            },
+            "versions": [
+                {
+                    "version_id": "biology_v3",
+                    "generations": [
+                        {
+                            "generation_id": "generation-v3",
+                            "source_benchmark_batch_id": "benchmark-v3",
+                        }
+                    ],
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            benchmark = root / "benchmarks" / "benchmark-v3"
+            benchmark.mkdir(parents=True)
+            (benchmark / "quality-catalog.json").write_bytes(content)
+            (benchmark / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "quality_catalog": {
+                            "path": "batches/benchmark-v3/quality-catalog.json",
+                            "sha256": digest,
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            loaded = comparison._load_quality_catalog(registry, {}, root)
+
+        self.assertEqual(loaded, quality)
+
+    def test_active_v3_exposes_both_profiles_and_both_temporal_contracts(self) -> None:
+        registry = copy.deepcopy(mushroom_ml_version_registry.load_registry(REGISTRY_PATH))
+        for version in registry["versions"]:
+            if version["version_id"] == "altitude_v2":
+                version["status"] = "reference"
+            elif version["version_id"] == "biology_v3":
+                version["status"] = "active"
+        registry["active_version_id"] = "biology_v3"
+        registry["active_operational_target"] = {
+            "version_id": "biology_v3",
+            "generation_id": "",
+        }
+        registry = mushroom_ml_version_registry.validate_registry(registry)
+        artifacts = []
+        members = []
+        for profile_id in ("core", "common_idw_plus_physical_state"):
+            for contract_id, horizons in (
+                ("fixed_gap_7d_biology_v3", [7]),
+                ("lag_event_biology_v3", list(range(1, 8))),
+            ):
+                ref = catalog.ModelArtifactRef(
+                    batch_id="batch-v3",
+                    generation_id="generation-v3",
+                    version_id="biology_v3",
+                    temporal_contract_id=contract_id,
+                    profile_id=profile_id,
+                    estimator_id="logistic_regression_reduced_v1",
+                    species_id="boletus_edulis",
+                )
+                artifacts.append(
+                    {
+                        "artifact_ref": ref.as_dict(),
+                        "supported_horizons": horizons,
+                        "path": catalog.model_relative_path(ref).as_posix(),
+                        "sha256": "b" * 64,
+                    }
+                )
+                members.append(
+                    {
+                        "model_ref": {**ref.as_dict(), "horizon_days": horizons[0]},
+                        "available": True,
+                        "prediction": {"probability": 0.6, "applicability": {}},
+                        "evaluation": {},
+                        "metadata": {"cutoff_date": "2026-08-18"},
+                    }
+                )
+        manifest = {
+            "schema_version": "1.0",
+            "kind": "mushroom_ml_runtime_batch",
+            "batch_id": "batch-v3",
+            "snapshot_id": "sha256:" + "a" * 64,
+            "artifacts": artifacts,
+        }
+        with mock.patch.object(
+            comparison, "compare_selection", return_value={"members": members}
+        ) as compare_selection:
+            result = comparison.compare_operational_reference(
+                registry,
+                manifest,
+                species_id="boletus_edulis",
+                area_id="area-a",
+                target_date=date(2026, 8, 18),
+                issue_date=date(2026, 8, 18),
+                season_phase="in_season",
+                phenology={},
+                models_root=Path("/unused/models"),
+                known_sites_path=Path("/unused/sites.json"),
+                weather_data_dir=Path("/unused/weather"),
+            )
+
+        self.assertEqual(len(result["operational_result_keys"]), 4)
+        self.assertEqual(
+            {row["profile_id"] for row in result["operational_profiles"]},
+            {"core", "common_idw_plus_physical_state"},
+        )
+        selected = compare_selection.call_args.args[2]
+        self.assertEqual({row["profile_id"] for row in selected}, {"core", "common_idw_plus_physical_state"})
     def test_v2_week_prewarm_materializes_once_per_area_and_slices_cutoffs(self) -> None:
         cache = {}
         base = {"daily_dates": list(range(96)), "scalar": "kept"}
@@ -110,6 +417,32 @@ class MushroomMLMultiversionComparisonTests(TestCase):
 
         self.assertEqual(comparison._weather_requirements([v4]), (90, True))
         self.assertEqual(comparison._weather_requirements([v5]), (365, True))
+
+    def test_registry_requirements_drive_v3_core_and_physical_weather(self) -> None:
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        profiles = catalog.catalog_entries(registry)
+        core = catalog.ModelRef(
+            batch_id="batch-a",
+            generation_id="generation-v3",
+            version_id="biology_v3",
+            temporal_contract_id="fixed_gap_7d_biology_v3",
+            profile_id="core",
+            estimator_id="logistic_regression_reduced_v1",
+            species_id="boletus_edulis",
+            horizon_days=7,
+        )
+        physical = catalog.ModelRef(
+            **{**core.as_dict(), "profile_id": "common_idw_plus_physical_state"}
+        )
+
+        self.assertEqual(
+            comparison._weather_requirements([core], catalog_profiles=profiles),
+            (90, False),
+        )
+        self.assertEqual(
+            comparison._weather_requirements([physical], catalog_profiles=profiles),
+            (365, True),
+        )
 
     def test_selection_reuses_prepared_area_weather_within_one_request(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)

@@ -1476,8 +1476,11 @@ def upload_ml_multiversion_result(
         raise ValueError("Worker multiversion completion endpoint is invalid.")
     result_root = worker_job_dir.resolve() / "multiversion_result"
     manifest_path = result_root / mushroom_ml_multiversion_transport.RESULT_MANIFEST_NAME
+    job_purpose = str(job.get("job_purpose") or "benchmark")
     manifest = mushroom_ml_multiversion_transport.validate_result_manifest(
-        json.loads(manifest_path.read_text(encoding="utf-8")), job_id=job_id
+        json.loads(manifest_path.read_text(encoding="utf-8")),
+        job_id=job_id,
+        expected_purpose=job_purpose,
     )
     logical_paths = [mushroom_ml_multiversion_transport.RESULT_MANIFEST_NAME] + [
         row["path"] for row in manifest["files"]
@@ -1494,7 +1497,11 @@ def upload_ml_multiversion_result(
         if progress_callback is not None:
             progress_callback(
                 {
-                    "phase": "Uploading V2--V6 comparison models",
+                    "phase": (
+                        "Uploading active operational models"
+                        if job_purpose == "operational"
+                        else "Uploading V2--V6 scientific benchmark"
+                    ),
                     "message": f"Uploaded result file {index}/{len(logical_paths)}.",
                     "overall_percent": 90 + int(index / len(logical_paths) * 8),
                 }
@@ -1509,6 +1516,13 @@ def upload_ml_multiversion_result(
         timeout=timeout,
     )
     verification = completed.get("verification")
-    if not isinstance(verification, dict) or verification.get("status") != "verified_and_installed":
-        raise ValueError("Rainmapper did not install the multiversion result.")
+    expected_status = (
+        "verified" if job_purpose == "operational" else "verified_and_archived"
+    )
+    if (
+        not isinstance(verification, dict)
+        or verification.get("status") != expected_status
+        or verification.get("job_purpose") != job_purpose
+    ):
+        raise ValueError("Rainmapper did not accept the multiversion result.")
     return dict(verification)

@@ -46,6 +46,20 @@ def with_svm(result: dict, probability: float, brier: float = 0.18) -> dict:
 
 
 class MushroomPredictionInterpretationTests(TestCase):
+    def test_boolean_significant_rain_flag_prevents_false_ecological_veto(self) -> None:
+        fixed = model(0.7, 0.65, 0.18, 0.17)
+        fixed["features_used"]["significant_rain_found_90d"] = True
+
+        result = build_interpretation(
+            {"fixed_gap_7d_v1": fixed},
+            season_phase="main",
+            phenology={"fruiting_delay_after_rain_days": {"min": 2, "max": 21}},
+        )
+
+        self.assertEqual(result["weather_signal"], "recent_event")
+        self.assertEqual(result["ecological_compatibility"], "compatible")
+        self.assertNotIn("ecological_rain_guardrail", result["reason_codes"])
+
     def test_uses_best_validated_estimator_per_feature_set(self) -> None:
         result = build_interpretation(
             {
@@ -195,7 +209,7 @@ class MushroomPredictionInterpretationTests(TestCase):
         self.assertEqual(result["ecological_evidence"], "high")
         self.assertIn("ecological_rain_guardrail", result["reason_codes"])
 
-    def test_reports_best_validated_shadow_generically_without_promoting_it(self) -> None:
+    def test_any_validated_estimator_can_supply_the_operational_score(self) -> None:
         fixed = with_svm(model(0.0, 0.36, 0.26, 0.28), 0.66, 0.19)
         lag = with_svm(model(0.0, 0.30, 0.30, 0.29), 0.67, 0.18)
         lag["severe_out_of_domain_features"] = [
@@ -215,20 +229,19 @@ class MushroomPredictionInterpretationTests(TestCase):
             },
         )
 
-        self.assertEqual(result["verdict"], "abstain")
-        self.assertEqual(result["statistical_support"], "unavailable")
-        self.assertEqual(result["experimental_signal"], "favorable")
+        self.assertEqual(result["verdict"], "favorable")
+        self.assertEqual(result["statistical_support"], "limited")
         self.assertEqual(
-            result["experimental_range"],
+            result["reference_range"],
             {"min": 0.66, "max": 0.67, "midpoint": 0.665},
         )
         self.assertEqual(
-            result["experimental_estimator_ids"],
-            ["rbf_svm_calibrated_v1"],
+            {row["estimator_id"] for row in result["trusted_results"]},
+            {"rbf_svm_calibrated_v1"},
         )
-        self.assertTrue(result["experimental_out_of_domain_caution"])
+        self.assertEqual(result["experimental_signal"], "unavailable")
 
-    def test_reports_conflicting_validated_shadows(self) -> None:
+    def test_generic_validated_estimator_conflict_is_reflected_in_the_verdict(self) -> None:
         fixed = with_svm(model(0.5, 0.5, 0.26, 0.28), 0.70)
         lag = with_svm(model(0.5, 0.5, 0.30, 0.29), 0.30)
 
@@ -237,4 +250,24 @@ class MushroomPredictionInterpretationTests(TestCase):
             season_phase="main",
         )
 
-        self.assertEqual(result["experimental_signal"], "mixed")
+        self.assertEqual(result["verdict"], "uncertain")
+        self.assertEqual(
+            result["reference_range"],
+            {"min": 0.3, "max": 0.7, "midpoint": 0.5},
+        )
+
+    def test_version_specific_estimator_family_is_selected_without_name_changes(self) -> None:
+        fixed = model(0.5, 0.5, 0.30, 0.29)
+        fixed["estimator_probabilities"]["elastic_net_logistic_raw365_v1"] = 0.73
+        fixed["evaluation"]["estimators"]["elastic_net_logistic_raw365_v1"] = {
+            "n": 11,
+            "brier_score": 0.17,
+            "roc_auc": 0.81,
+        }
+
+        result = build_interpretation(
+            {"fixed_gap_7d_v1": fixed}, season_phase="main"
+        )
+
+        self.assertEqual(result["trusted_results"][0]["estimator_id"], "elastic_net_logistic_raw365_v1")
+        self.assertEqual(result["reference_range"]["midpoint"], 0.73)
