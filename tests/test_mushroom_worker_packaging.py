@@ -13,7 +13,7 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         dockerignore = (ROOT_DIR / ".dockerignore").read_text(encoding="utf-8")
 
         self.assertIn("FROM python:3.11-slim", dockerfile)
-        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.14", dockerfile)
+        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.16", dockerfile)
         self.assertIn("gdal-bin", dockerfile)
         self.assertIn("gosu", dockerfile)
         self.assertIn("mushroom_rebuild_contracts.py", dockerfile)
@@ -120,21 +120,21 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn('"$1" = "serve"', entrypoint)
 
     def test_local_worker_service_is_startable_and_stoppable_without_volume_deletion(self) -> None:
-        compose = (ROOT_DIR / "rainmapper-local/docker-compose.worker-local.yml").read_text(
+        compose = (ROOT_DIR / "rainmapper-local/docker-compose.worker.yml").read_text(
             encoding="utf-8"
         )
         start = (ROOT_DIR / "mushroom_worker_start.sh").read_text(encoding="utf-8")
         stop = (ROOT_DIR / "mushroom_worker_stop.sh").read_text(encoding="utf-8")
 
         self.assertIn(
-            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.14}",
+            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.16}",
             compose,
         )
         self.assertIn(
-            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.14}",
+            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.16}",
             compose,
         )
-        self.assertIn("name: rainmapper-worker-local", compose)
+        self.assertIn("name: rainmapper-worker", compose)
         self.assertIn("container_name: rainmapper-worker", compose)
         self.assertIn('127.0.0.1:8110:8098', compose)
         self.assertIn("name: rainmapper-worker-data", compose)

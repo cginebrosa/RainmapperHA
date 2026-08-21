@@ -30,7 +30,7 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
 - `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para pruebas locales sin tocar Home Assistant y comparte la red privada de computo local.
 - `rainmapper-worker/`: imagen/servicio headless y ligero del worker externo; no contiene GIS/DEM ni WebUI.
-- `rainmapper-local/docker-compose.worker-local.yml`: despliegue generico local del worker con el volumen persistente `rainmapper-worker-data`.
+- `rainmapper-local/docker-compose.worker.yml`: despliegue del worker (portable, se ejecuta siempre en la máquina local que hace de worker, sea de laboratorio o el real emparejado con HA vía `--rainmapper-url`) con el volumen persistente `rainmapper-worker-data`.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
 - `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
 - `scripts/`: utilidades versionadas de desarrollo; contiene `smoke-test.sh`, `docker-offline-functional-test.sh`, `backup-data.sh`, `build-push-ha-image.sh`, `check-history.py`, `compare-tomap-builder.sh`, `aemet-backfill-30-days.py`, `reconstruct-mushroom-gis-mappings.py`, `reconstruct-mushroom-observation-context.py`, `build-mushroom-observation-features-v0.py`, `build-mushroom-learned-model-v0.py`, `build-mushroom-profile-v0-candidate.py`, `audit-mushroom-profile-v0-source.py` y `validate-mushroom-data.py`.

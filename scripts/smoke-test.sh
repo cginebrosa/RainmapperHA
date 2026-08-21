@@ -76,7 +76,7 @@ check_worker_version() {
     printf 'Worker version must use its own explicit semantic version; found %s.\n' "$worker_version" >&2
     return 1
   fi
-  compose_version="$(sed -n 's/.*RAINMAPPER_WORKER_VERSION:-\([0-9][0-9.]*\).*/\1/p' rainmapper-local/docker-compose.worker-local.yml | head -n 1)"
+  compose_version="$(sed -n 's/.*RAINMAPPER_WORKER_VERSION:-\([0-9][0-9.]*\).*/\1/p' rainmapper-local/docker-compose.worker.yml | head -n 1)"
   if [ "$worker_version" != "$compose_version" ]; then
     printf 'Worker Dockerfile and local Compose versions are not aligned: %s != %s.\n' "$worker_version" "$compose_version" >&2
     return 1

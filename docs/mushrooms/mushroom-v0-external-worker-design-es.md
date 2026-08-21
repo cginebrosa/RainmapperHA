@@ -812,7 +812,7 @@ La misma imagen puede permanecer levantada como servicio headless mediante:
 ./mushroom_worker_stop.sh
 ```
 
-El arranque usa `rainmapper-local/docker-compose.worker-local.yml`, crea o
+El arranque usa `rainmapper-local/docker-compose.worker.yml`, crea o
 reutiliza explicitamente `rainmapper-worker-data`, construye
 la version independiente declarada por el Dockerfile —actualmente
 `rainmapper-worker:1.0.0`—, publica solo `127.0.0.1:8110` y espera a que

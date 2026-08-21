@@ -4,7 +4,7 @@ set -euo pipefail
 # Stop the local worker while preserving its image, volume, cache and results.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_FILE="${REPO_ROOT}/rainmapper-local/docker-compose.worker-local.yml"
+COMPOSE_FILE="${REPO_ROOT}/rainmapper-local/docker-compose.worker.yml"
 
 cd "${REPO_ROOT}"
 

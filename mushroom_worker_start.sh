@@ -4,7 +4,7 @@ set -euo pipefail
 # Configure and start the portable Rainmapper worker without deleting its data.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_FILE="${REPO_ROOT}/rainmapper-local/docker-compose.worker-local.yml"
+COMPOSE_FILE="${REPO_ROOT}/rainmapper-local/docker-compose.worker.yml"
 RAINMAPPER_WORKER_VERSION="$(sed -n 's/^ARG RAINMAPPER_WORKER_VERSION=\([^[:space:]]*\).*/\1/p' "${REPO_ROOT}/rainmapper-worker/Dockerfile" | head -n 1)"
 if [[ ! "${RAINMAPPER_WORKER_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     printf 'Error: rainmapper-worker/Dockerfile does not define a valid semantic worker version.\n' >&2
