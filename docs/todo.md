@@ -27,6 +27,26 @@ este fichero distingue trabajo cerrado de próximas entregas.
 - [x] Ejecutar pruebas dirigidas, smoke completo y `git diff --check`.
 - [x] Detenerse antes de release y pedir autorización explícita.
 
+## P0 — Correcciones y features tras release 0.2.262 (worktree, sin publicar)
+
+- [x] Corregir elegibilidad de especies duplicada entre HA local y worker
+  (`eligible_training_species` pública, reutilizada en
+  `create_mushroom_ml_multiversion_job`).
+- [x] Implementar perfiles de ventana predictiva 30/60/90 días en V5/V6,
+  retirando raw365/smooth-365 a `status: reference`.
+- [x] Corregir bug crítico: `predict_bundle` no aplicaba el preprocesador
+  suave a V6 windowed (`runtime_model_incompatible` en vivo).
+- [x] Añadir botón "Borrar" al historial de benchmarks (borrado real de
+  disco, con confirmación).
+- [x] Eliminar la redundancia de `haversine_km` en `mushroom_weather_idw.py`
+  (rendimiento).
+- [ ] Ejecutar en vivo el benchmark V4 (HA local o worker) para confirmar el
+  fix de elegibilidad de especies.
+- [ ] Ejecutar el benchmark científico completo de V5w/V6w para confirmar
+  que desaparecen los fallos de convergencia.
+- [ ] Commit, push, bump y publicación de todo lo anterior — pendiente de
+  autorización explícita.
+
 ## P1 — Informe persistente y benchmark seleccionable
 
 - [x] Persistir selección, snapshot, plan, métricas, predicciones hold-out y
@@ -80,15 +100,69 @@ este fichero distingue trabajo cerrado de próximas entregas.
   operativo antes de habilitarlo. V3 y V3+ ya son elegibles conjuntamente;
   V4–V6 todavía no.
 
+## P1 — Varias versiones ML instaladas a la vez (diseño acordado 2026-08-20, sin implementar)
+
+- [ ] Implementar `installed_generation_id` independiente por versión (no
+  degradar las demás al activar una).
+- [ ] Reconvertir el puntero único actual en `preferred_version_id`
+  (solo valor por defecto, sin frescura ni reentrenamiento).
+- [ ] Predictor: resolver el batch de cada versión instalada directamente por
+  su `batch_id`, sin depender de un único `runtime-batch.json` global; el
+  selector de versiones decide qué se calcula (nunca todas por defecto).
+- [ ] Mantener benchmark→preparar candidata→activar como único camino para
+  instalar o refrescar una versión con evidencia comparativa; sin atajos de
+  reentrenamiento silencioso para V3/V4/V5w/V6w.
+- [ ] Rollback por versión, sin restaurar el registro entero ni un
+  descriptor único.
+- [ ] Resolver la migración del estado ya instalado hoy (registro y
+  `runtime-batch.json` actuales) antes de tocar código.
+  Diseño completo, hechos verificados y alternativas descartadas en
+  `docs/mushrooms/mushroom-ml-multi-version-installation-design-es.md`. Glosario
+  de vocabulario (versión/perfil/modelo/generación) en la sección
+  "Vocabulario" de `docs/mushrooms/mushroom-ml-multiversion-runtime-spec-es.md`.
+
 ## P2 — Ventanas y coste científico
 
-- [ ] Conservar V5/V6-365 como controles reproducibles.
-- [ ] Separar el spin-up necesario para SMI de la ventana predictiva.
-- [ ] Si la comparación física aporta señal, evaluar V5-30/60/90 sobre las
-  mismas filas y splits; estudiar V6 después sobre ventanas justificadas.
+- [x] Conservar V5/V6-365 como controles reproducibles — 2026-08-19: en vez de
+  esto se retiraron a `status: reference` (nunca se borran, sus benchmarks
+  archivados siguen siendo válidos); ver `docs/decisions.md`.
+- [x] Separar el spin-up necesario para SMI de la ventana predictiva —
+  2026-08-19: `biology_v5_windowed_raw_weather` y
+  `biology_v6_windowed_smooth_hierarchical`, 3 perfiles 30/60/90 días cada
+  una, balance/SMI compartido con calentamiento de 365 días sin cambios.
+- [x] Evaluar V5-30/60/90 y V6-30/60/90 sobre las mismas filas y splits —
+  2026-08-19: implementado como perfiles que compiten dentro de cada versión;
+  falta ejecutar el benchmark real y revisar sus métricas (ver pendiente
+  nuevo abajo).
+- [ ] Ejecutar el benchmark científico completo (todas las especies/contratos)
+  de `biology_v5_windowed_raw_weather` y `biology_v6_windowed_smooth_hierarchical`
+  con datos reales y revisar si alguna ventana (30/60/90) domina por
+  especie/contrato. Verificación parcial 2026-08-19 con datos reales locales:
+  reducir la ventana sí mejora la convergencia de
+  `sparse_group_logistic_raw365_v1` (p.ej. `amanita_caesarea` converge en
+  60/90d pero no en 30d), pero `lactarius_deliciosus` sigue sin converger en
+  las 3 ventanas (30/60/90) — no es un problema de dimensionalidad en su
+  caso, requiere investigación aparte. V6 no mostró ningún fallo de
+  convergencia en la muestra probada.
+- [ ] Investigar si recalcular balance/SMI de forma independiente por
+  ventana (en vez de compartirlo entre las 3, como se implementó ahora)
+  aísla mejor la señal de cada ventana — pendiente explícito, no implementado.
 - [ ] Mantener estos experimentos fuera de la reconstrucción habitual.
 - [ ] No ensayar ensemble salvo que se materialice y supere al mejor miembro
   individual por especie y contrato.
+
+## P2 — Rendimiento predictor y entrenamiento
+
+- [x] Perfilar una consulta real del Predictor y un benchmark real completo
+  ante la pregunta de reescribir el kernel en C — 2026-08-20: no se reescribe
+  nada en C (sklearn/NumPy ya delegan en BLAS/LAPACK); se elimina la única
+  redundancia fácil de bajo riesgo encontrada (`haversine_km` recalculado dos
+  veces por estación en `mushroom_weather_idw.py`). Ver `docs/decisions.md`.
+- [ ] Perfilar en detalle la fase "preparación de inputs compartidos /
+  evaluación de filas hold-out" de un benchmark científico completo — es la
+  fase que domina el tiempo de reloj (varios minutos), no el ajuste de los
+  modelos en sí (suma de fits medida en manifiestos: segundos, no minutos).
+  No perfilado todavía.
 
 ## P2 — Worker multicoordinador
 

@@ -248,3 +248,53 @@ Solucion activa:
   suficiente.
 - Si la app movil futura usara Cloudflare R2/Workers o una API distinta; ese
   diseño sigue bajo demanda en `docs/mobile-app-architecture.md`.
+
+## 2026-08-18/19 - Fases 1-4: separar operativo/benchmark, candidatas y promoción genérica, Biology V3+ físico
+
+Publicado en HA `0.2.262` (release fases 1-4, ver `docs/decisions.md`). Resumen
+del recorrido, útil solo si una decisión actual no se entiende desde
+`docs/active-context.md`:
+
+- Fase 1-2: la cadena habitual de reconstrucción resuelve únicamente la
+  generación operativa activa (V2 fixed/lag); V2-V6 pasó a ser un benchmark
+  científico manual, seleccionable por perfiles, con informe persistente
+  (`ml_models/benchmarks/<batch_id>/`), cancelación cooperativa en HA local y
+  sin promoción automática. Ambos jobs (`operational`/`benchmark`) requieren
+  que el worker anuncie `ml_job_purpose_v1`.
+- Fase 3: `biology_v3/common_idw_plus_physical_state` ("Biology V3+ físico")
+  se registró como perfil nuevo sin modificar los bundles V3 core, añadiendo
+  solo balance hídrico y SMI derivados del mismo IDW (365 días como
+  calentamiento, 90 días de ventana predictiva). Comparación real: 216/216
+  fits, 0 fallos.
+- Fase 4: la unidad de promoción pasó a ser la versión completa (no un
+  perfil aislado). Cualquier perfil `operational_eligible` de una versión se
+  prepara como candidata desde su informe (`Preparar candidata completa`),
+  reutilizando los bundles ya ajustados del benchmark sin repetir
+  entrenamiento, y se activa con una segunda confirmación humana separada;
+  ambos pasos son transaccionales con rollback. `biology_v3` fue el primer
+  objetivo (V3 core + V3+ conjuntos). El score por especie/perfil/contrato
+  pasó a elegir el menor Brier validado entre **todos** los estimadores
+  declarados (no solo LR/RF); V4-V6 quedaron migrados a `candidate` en el
+  registro persistente sin tocar la versión V3 activa.
+- **Bug encontrado y corregido durante la primera promoción real V3**: la
+  candidata operativa no transportaba el `quality-catalog.json` del
+  benchmark fuente (ausencia de Brier en Predictor) y la comparación no
+  reenviaba a interpretación la evidencia `significant_rain_found_90d`
+  calculada por el adaptador (falso veto de lluvia pese a existir
+  acumulados). Corregido conservando el catálogo científico por hash (con
+  fallback verificado para generaciones ya instaladas) y separando metadatos
+  ecológicos de inputs del modelo. Quedó documentado como contrato
+  obligatorio para toda versión futura.
+- **Segundo bug relacionado, encontrado al activar V4**: un adaptador podía
+  anidar la evidencia ecológica en otro nivel de `quality`; la interpretación
+  la recibía como ausente y anulaba el rango aun con datos disponibles.
+  Corregido haciendo que la extracción recorra genéricamente todos los
+  niveles anidados de `quality`, con una prueba transversal que exige
+  Brier/lluvia/compatibilidad/rango coherentes en V2-V6. La causa raíz real
+  era que el adaptador diario V4 eliminaba esos campos al reconstruir
+  `quality` en vez de propagarlos; se corrigió en el adaptador, no solo en la
+  extracción.
+- Cifras de validación de cada paso (números de tests, digests de imagen
+  local, snapshots de benchmark) quedaron en el historial de commits y en
+  `docs/decisions.md`; no se repiten aquí porque ya no condicionan ninguna
+  decisión activa.

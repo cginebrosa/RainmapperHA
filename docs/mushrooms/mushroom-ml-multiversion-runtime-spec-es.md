@@ -22,6 +22,44 @@ presenta cada miembro individual y su calidad hold-out. Un ensemble futuro solo
 podrá añadirse como otro estimador si se ha comparado contra el mejor miembro
 individual por especie y contrato.
 
+## Vocabulario (versión, perfil, estimador, modelo, generación, batch)
+
+De mayor a menor nivel:
+
+- **Versión** (`version_id`): el diseño completo, p. ej. `biology_v4` o
+  `biology_v5_windowed_raw_weather`. Define qué perfiles tiene, qué
+  contratos temporales usa y qué estimadores permite. Es lo que se muestra
+  como "Biology V4" en las pantallas.
+- **Perfil** (`profile_id`): una variante técnica dentro de una versión.
+  `biology_v4` tiene dos perfiles (`extended_weather`, `climatic_balance`);
+  `biology_v5_windowed_raw_weather` tiene tres (ventana 30d/60d/90d). Una
+  versión "completa" exige tener instalados todos sus perfiles a la vez.
+- **Contrato temporal** (`temporal_contract_id`): `fixed_gap_7d` (ventana
+  ciega fija de 7 días) o `lag_event` (modelo de retardos/eventos, admite
+  horizontes 1..7 con un único ajuste, ver "Identidad canónica" abajo). Cada
+  perfil se entrena para ambos.
+- **Estimador/algoritmo** (`estimator_id`): la técnica de ML concreta — LR,
+  RF, ET, HGB, KNN, SVM, o los propios de V5/V6 (sparse-group, suave...). Un
+  mismo perfil se ajusta con varios estimadores a la vez y se elige el de
+  menor Brier validado que mejora la prevalencia.
+- **Modelo/artefacto**: el objeto entrenado concreto para una combinación
+  exacta de versión + perfil + contrato + especie + estimador
+  (`artifact_ref`, ver abajo). Una generación contiene cientos de estos —
+  todas las especies × todos los estimadores × ambos contratos × cada
+  perfil de la versión.
+- **Generación** (`generation_id`): el conjunto completo de todos esos
+  modelos, entrenados juntos en una misma pasada, para **todos** los
+  perfiles de una versión. Es lo que se instala o se retira como unidad.
+- **Batch** (`batch_id`): el directorio físico en disco
+  (`ml_models/batches/<batch_id>/`) donde viven los ficheros serializados de
+  una generación y su manifiesto.
+
+Resumen: **Versión → Perfiles → (Contrato × Especie × Estimador) → Modelos
+individuales**; todos los modelos de una versión entrenados juntos forman
+**una Generación**, guardada en **un Batch**. Ver también
+`docs/mushrooms/mushroom-ml-multi-version-installation-design-es.md` para el
+diseño (propuesto, no implementado) de varias versiones instaladas a la vez.
+
 ## Cuatro disponibilidades distintas
 
 - `catalog_visible`: el contrato aparece en el catálogo explicativo.

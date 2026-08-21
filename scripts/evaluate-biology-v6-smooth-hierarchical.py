@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rainmapper_core import mushroom_ml_error_analysis as error_analysis
 from rainmapper_core import mushroom_ml_holdout as holdout
+from rainmapper_core import mushroom_ml_raw_weather as raw_weather
 from rainmapper_core import mushroom_ml_smooth_hierarchical as smooth
 from rainmapper_core.mushroom_ml_biology_v3_evaluation import chronological_group_split
 
@@ -98,18 +99,38 @@ def select_joint_config(
     return {**configs[selected_index], "inner_selection_available": True, "species_fold_wins": wins[selected_index]}
 
 
-def evaluate_split(benchmark: dict, train: list[dict], test: list[dict], *, split_id: str, group_days: int) -> tuple[dict, list[dict]]:
+def evaluate_split(
+    benchmark: dict,
+    train: list[dict],
+    test: list[dict],
+    *,
+    split_id: str,
+    group_days: int,
+    version_id: str = "biology_v6_smooth_hierarchical",
+    profile_id: str = "smooth_weather_physical_state",
+    window_days: int | None = None,
+) -> tuple[dict, list[dict]]:
     source_contracts = {
         str((sample.get("metadata") or {}).get("temporal_contract_id") or "")
         for sample in train + test
     }
-    columns = smooth.raw_columns(
-        include_phenology=True,
-        include_horizon=any(value.startswith("lag_event") for value in source_contracts),
-    )
+    include_horizon = any(value.startswith("lag_event") for value in source_contracts)
+    if window_days is None:
+        columns = smooth.raw_columns(include_phenology=True, include_horizon=include_horizon)
+        preprocessor = smooth.SmoothLagPreprocessor()
+    else:
+        columns = smooth.raw_columns(
+            include_phenology=True,
+            include_horizon=include_horizon,
+            channels=raw_weather.RAW_CHANNELS,
+            window_days=window_days,
+        )
+        preprocessor = smooth.SmoothLagPreprocessor(
+            channels=raw_weather.RAW_CHANNELS, window_days=window_days
+        )
     X_train, y_train = holdout.matrix(train, columns)
     X_test, y_test = holdout.matrix(test, columns)
-    preprocessor = smooth.SmoothLagPreprocessor().fit(X_train)
+    preprocessor = preprocessor.fit(X_train)
     Z_train, Z_test = preprocessor.transform(X_train), preprocessor.transform(X_test)
     train_species, test_species = species_ids(train), species_ids(test)
     order = sorted(set(train_species))
@@ -164,15 +185,16 @@ def evaluate_split(benchmark: dict, train: list[dict], test: list[dict], *, spli
                 if source_contract.startswith("lag_event")
                 else "fixed_gap_7d_biology_v6_smooth_hierarchical_v2"
             )
-            sample_id = f"{metadata.get('observation_id')}|{v6_contract}|h{int(metadata.get('horizon_days') or 7)}"
-            row_key = "|".join(("biology_v6_smooth_hierarchical", split_id, str(group_days), sample_id))
+            sample_id = f"{metadata.get('observation_id')}|{v6_contract}|h{int(metadata.get('horizon_days') or 7)}|{profile_id}"
+            row_key = "|".join((version_id, profile_id, split_id, str(group_days), sample_id))
             rows.append({
                 "row_key": row_key, "sample_id": sample_id, "source_sample_id": source_sample_id,
                 "observation_id": metadata.get("observation_id"),
                 "species_id": value, "area_id": metadata.get("area_id"), "micro_area_id": metadata.get("micro_area_id"),
                 "target_date": metadata.get("target_date"), "cutoff_date": metadata.get("cutoff_date"),
                 "horizon_days": int(metadata.get("horizon_days") or 7),
-                "profile_id": "smooth_weather_physical_state",
+                "version_id": version_id,
+                "profile_id": profile_id,
                 "temporal_contract_id": v6_contract, "group_days": group_days,
                 "split_id": split_id, "validation_group_id": metadata.get(f"validation_group_{group_days}d"),
                 "campaign_block_id": f"{metadata.get('area_id')}|{str(metadata.get('target_date'))[:4]}" if split_id.startswith("campaign") else None,
@@ -187,35 +209,74 @@ def evaluate_split(benchmark: dict, train: list[dict], test: list[dict], *, spli
     return report, rows
 
 
+def _selected_profiles(profile_keys: set[str]) -> list[dict]:
+    """Resolve which V6 (version_id, profile_id, window_days) triples to evaluate."""
+    windowed = [
+        {
+            "version_id": smooth.WINDOWED_VERSION_ID,
+            "profile_id": smooth.windowed_profile_id(window_days),
+            "window_days": window_days,
+        }
+        for window_days in raw_weather.WINDOW_DAYS_OPTIONS
+    ]
+    old = [
+        {
+            "version_id": "biology_v6_smooth_hierarchical",
+            "profile_id": "smooth_weather_physical_state",
+            "window_days": None,
+        }
+    ]
+    if not profile_keys:
+        return old
+    selected = [
+        profile
+        for profile in old + windowed
+        if f"{profile['version_id']}/{profile['profile_id']}" in profile_keys
+    ]
+    return selected
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--snapshot", required=True, type=Path)
     parser.add_argument("--v5-dir", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--profile-key", action="append")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    profiles = _selected_profiles({str(value) for value in (args.profile_key or [])})
     all_rows, artifacts = [], {}
-    for temporal in ("fixed", "lag"):
-        benchmark = load(args.v5_dir / f"biology-v5-{temporal}.json")
-        reference = holdout.eligible_samples(benchmark)
-        for group_days in (7, 14):
-            train, test = chronological_group_split(reference, group_days=group_days)
-            split_id = f"fruiting_groups_{group_days}d"
-            print(json.dumps({"temporal": temporal, "split": split_id}), flush=True)
-            report, rows = evaluate_split(benchmark, train, test, split_id=split_id, group_days=group_days)
-            path = args.output_dir / f"comparison-{temporal}-groups{group_days}.json"
-            path.write_text(json.dumps({"kind": "biology_v6_smooth_hierarchical_comparison", "temporal": temporal,
+    for profile in profiles:
+        version_id = profile["version_id"]
+        profile_id = profile["profile_id"]
+        window_days = profile["window_days"]
+        for temporal in ("fixed", "lag"):
+            benchmark = load(args.v5_dir / f"biology-v5-{temporal}.json")
+            reference = holdout.eligible_samples(benchmark)
+            for group_days in (7, 14):
+                train, test = chronological_group_split(reference, group_days=group_days)
+                split_id = f"fruiting_groups_{group_days}d"
+                print(json.dumps({"temporal": temporal, "split": split_id, "profile_id": profile_id}), flush=True)
+                report, rows = evaluate_split(
+                    benchmark, train, test, split_id=split_id, group_days=group_days,
+                    version_id=version_id, profile_id=profile_id, window_days=window_days,
+                )
+                path = args.output_dir / f"comparison-{profile_id}-{temporal}-groups{group_days}.json"
+                path.write_text(json.dumps({"kind": "biology_v6_smooth_hierarchical_comparison", "temporal": temporal,
+                    "report": report, "model_artifact_written": False, "operational_candidate_trained": False}, indent=2) + "\n", encoding="utf-8")
+                artifacts[path.name] = sha256(path)
+                all_rows.extend(rows)
+            train, test = campaign_split(reference)
+            print(json.dumps({"temporal": temporal, "split": "campaign_area_year_70_30", "profile_id": profile_id}), flush=True)
+            report, rows = evaluate_split(
+                benchmark, train, test, split_id="campaign_area_year_70_30", group_days=14,
+                version_id=version_id, profile_id=profile_id, window_days=window_days,
+            )
+            path = args.output_dir / f"sensitivity-{profile_id}-{temporal}-campaign.json"
+            path.write_text(json.dumps({"kind": "biology_v6_campaign_sensitivity", "temporal": temporal,
                 "report": report, "model_artifact_written": False, "operational_candidate_trained": False}, indent=2) + "\n", encoding="utf-8")
             artifacts[path.name] = sha256(path)
             all_rows.extend(rows)
-        train, test = campaign_split(reference)
-        print(json.dumps({"temporal": temporal, "split": "campaign_area_year_70_30"}), flush=True)
-        report, rows = evaluate_split(benchmark, train, test, split_id="campaign_area_year_70_30", group_days=14)
-        path = args.output_dir / f"sensitivity-{temporal}-campaign.json"
-        path.write_text(json.dumps({"kind": "biology_v6_campaign_sensitivity", "temporal": temporal,
-            "report": report, "model_artifact_written": False, "operational_candidate_trained": False}, indent=2) + "\n", encoding="utf-8")
-        artifacts[path.name] = sha256(path)
-        all_rows.extend(rows)
 
     phases = error_analysis.assign_observed_phases(all_rows)
     errors = []

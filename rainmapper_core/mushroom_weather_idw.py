@@ -157,6 +157,7 @@ def estimate_daily_weather_idw(
     radius_km: float = RAINFALL_IDW_RADIUS_KM,
     power: float = RAINFALL_IDW_POWER,
     distance_floor_km: float = RAINFALL_IDW_DISTANCE_FLOOR_KM,
+    station_distances_km: Mapping[StationKey, float] | None = None,
 ) -> DailyWeatherIDWResult:
     """Interpolate one daily temperature or humidity extreme from every source.
 
@@ -186,8 +187,12 @@ def estimate_daily_weather_idw(
     for raw_key, station in sorted(
         stations.items(), key=lambda item: (str(item[0][0]).lower(), str(item[0][1]).upper())
     ):
-        distance_km = weather_context.haversine_km(
-            target_lat, target_lon, station.lat, station.lon
+        distance_km = (
+            station_distances_km[raw_key]
+            if station_distances_km is not None and raw_key in station_distances_km
+            else weather_context.haversine_km(
+                target_lat, target_lon, station.lat, station.lon
+            )
         )
         if distance_km > radius_km:
             continue
@@ -258,13 +263,14 @@ def build_daily_weather_idw_series(
     duplicate_dates_by_station: Mapping[StationKey, frozenset[date] | set[date]] | None = None,
 ) -> dict[str, object]:
     """Build aligned rain, temperature and humidity IDW series at one point."""
+    station_distances_km = {
+        key: weather_context.haversine_km(target_lat, target_lon, station.lat, station.lon)
+        for key, station in stations.items()
+    }
     nearby_stations = {
         key: station
         for key, station in stations.items()
-        if weather_context.haversine_km(
-            target_lat, target_lon, station.lat, station.lon
-        )
-        <= RAINFALL_IDW_RADIUS_KM
+        if station_distances_km[key] <= RAINFALL_IDW_RADIUS_KM
     }
     rainfall = build_daily_rain_idw_series(
         nearby_stations,
@@ -274,6 +280,7 @@ def build_daily_weather_idw_series(
         days=days,
         excluded_station_keys=excluded_station_keys,
         duplicate_dates_by_station=duplicate_dates_by_station,
+        station_distances_km=station_distances_km,
     )
     start_day = end_day - timedelta(days=days - 1)
     metric_results = {
@@ -286,6 +293,7 @@ def build_daily_weather_idw_series(
                 target_altitude_m=target_altitude_m,
                 day=start_day + timedelta(days=offset),
                 excluded_station_keys=excluded_station_keys,
+                station_distances_km=station_distances_km,
             )
             for offset in range(days)
         ]
@@ -432,6 +440,7 @@ def estimate_daily_rain_idw(
     power: float = RAINFALL_IDW_POWER,
     distance_floor_km: float = RAINFALL_IDW_DISTANCE_FLOOR_KM,
     duplicate_dates_by_station: Mapping[StationKey, frozenset[date] | set[date]] | None = None,
+    station_distances_km: Mapping[StationKey, float] | None = None,
 ) -> DailyRainIDWResult:
     """Estimate daily rain at a point with deterministic inverse-distance weights.
 
@@ -458,8 +467,12 @@ def estimate_daily_rain_idw(
         stations.items(), key=lambda item: (str(item[0][0]).lower(), str(item[0][1]).upper())
     ):
         key = (str(raw_key[0]).strip().lower(), str(raw_key[1]).strip().upper())
-        distance_km = weather_context.haversine_km(
-            target_lat, target_lon, station.lat, station.lon
+        distance_km = (
+            station_distances_km[raw_key]
+            if station_distances_km is not None and raw_key in station_distances_km
+            else weather_context.haversine_km(
+                target_lat, target_lon, station.lat, station.lon
+            )
         )
         if distance_km > radius_km:
             continue
@@ -521,6 +534,7 @@ def build_daily_rain_idw_series(
     days: int,
     excluded_station_keys: frozenset[StationKey] | set[StationKey] = frozenset(),
     duplicate_dates_by_station: Mapping[StationKey, frozenset[date] | set[date]] | None = None,
+    station_distances_km: Mapping[StationKey, float] | None = None,
 ) -> dict[str, object]:
     """Materialize an aligned Biology V3 rainfall series and its quality data."""
     if days <= 0:
@@ -537,6 +551,7 @@ def build_daily_rain_idw_series(
             day=start_day + timedelta(days=offset),
             excluded_station_keys=excluded_station_keys,
             duplicate_dates_by_station=duplicates,
+            station_distances_km=station_distances_km,
         )
         for offset in range(days)
     ]

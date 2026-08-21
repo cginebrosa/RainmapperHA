@@ -155,9 +155,17 @@ def main() -> int:
     )
     needs_v5 = full_benchmark or bool(
         selected_versions
-        & {"biology_v5_raw_weather_discovery", "biology_v6_smooth_hierarchical"}
+        & {
+            "biology_v5_raw_weather_discovery",
+            "biology_v6_smooth_hierarchical",
+            "biology_v5_windowed_raw_weather",
+            "biology_v6_windowed_smooth_hierarchical",
+        }
     )
-    needs_v6 = full_benchmark or "biology_v6_smooth_hierarchical" in selected_versions
+    needs_v6 = full_benchmark or bool(
+        selected_versions
+        & {"biology_v6_smooth_hierarchical", "biology_v6_windowed_smooth_hierarchical"}
+    )
     needs_v2_v5_evaluation = full_benchmark or bool(
         selected_versions
         & {
@@ -165,6 +173,7 @@ def main() -> int:
             "biology_v3",
             "biology_v4",
             "biology_v5_raw_weather_discovery",
+            "biology_v5_windowed_raw_weather",
         }
     )
     total = (
@@ -328,9 +337,12 @@ def main() -> int:
     if needs_v6:
         step += 1
         emit_progress(args.progress_jsonl, step=step - 1, total=total, phase="Evaluating selected V6 hold-out rows")
+        v6_arguments = ["--snapshot", str(snapshot), "--v5-dir", str(v5), "--output-dir", str(v6)]
+        for profile_key in args.profile_key or []:
+            v6_arguments.extend(["--profile-key", str(profile_key)])
         run_script(
             scripts / "evaluate-biology-v6-smooth-hierarchical.py",
-            ["--snapshot", str(snapshot), "--v5-dir", str(v5), "--output-dir", str(v6)],
+            v6_arguments,
             progress_event=stage_progress(step, "Evaluating selected V6 hold-out rows"),
         )
         emit_progress(args.progress_jsonl, step=step, total=total, phase="Evaluated selected V6 hold-out rows")

@@ -128,6 +128,9 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Contrato genérico para perfiles actuales/futuros, candidatas, promoción y
   rollback:
   `docs/mushrooms/mushroom-ml-generic-profile-promotion-plan-es.md`
+- Varias versiones ML instaladas a la vez, preferida vs activa, diseño
+  propuesto sin implementar:
+  `docs/mushrooms/mushroom-ml-multi-version-installation-design-es.md`
 - Auditoría ML v3: `docs/mushrooms/mushroom-ml-v3-data-audit-es.md`
 - Especificación ML v3: `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`
 - Especificación Biology V4, en implementación local por fases:

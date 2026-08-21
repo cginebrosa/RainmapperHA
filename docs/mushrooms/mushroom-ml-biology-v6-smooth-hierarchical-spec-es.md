@@ -8,11 +8,25 @@ Contratos corregidos: `fixed_gap_7d_biology_v6_smooth_hierarchical_v2` y
 reservados para la ejecución histórica sobre cinco canales y no son
 compatibles con esta matriz.
 
-Actualización 2026-08-19: el perfil canónico completo puede producir una
-candidata operativa con los miembros `species`, `shared` y `partial_pooling`.
-La activación sigue siendo manual y no implica que V6 sea científicamente
-superior; cada miembro solo aporta el score de una celda si mejora la
-prevalencia fuera de muestra y obtiene el menor Brier validado.
+Actualización 2026-08-19 (primera): el perfil canónico completo puede
+producir una candidata operativa con los miembros `species`, `shared` y
+`partial_pooling`. La activación sigue siendo manual y no implica que V6 sea
+científicamente superior; cada miembro solo aporta el score de una celda si
+mejora la prevalencia fuera de muestra y obtiene el menor Brier validado.
+
+Actualización 2026-08-19 (segunda, retirada a `reference`): junto con V5,
+`biology_v6_smooth_hierarchical` (este contrato) pasa a `status: reference`
+— se conserva íntegro para lectura histórica, pero ya no es lanzable ni
+promocionable. Es sucedido por `biology_v6_windowed_smooth_hierarchical`, con
+tres perfiles que aplican la misma proyección B-spline de diez bases sobre
+los cinco canales primarios truncados a 30/60/90 días, en vez de los 365 días
+completos; balance/SMI se mantienen compartidos con el mismo calentamiento de
+siempre. A diferencia de V5, este perfil no mostró fallos de convergencia; se
+retira igualmente para no mezclar un control de 365 días con las ventanas
+nuevas. Genealogía completa en
+`docs/mushrooms/mushroom-ml-contract-versions-es.md` y `docs/decisions.md`
+(2026-08-19). La especificación dedicada de la variante windowed queda
+pendiente de redactar como documento propio.
 
 ## Pregunta
 

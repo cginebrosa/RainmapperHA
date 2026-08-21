@@ -11,6 +11,7 @@ from typing import Any, Mapping, MutableMapping, Sequence
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_raw_weather
+from rainmapper_core import mushroom_ml_smooth_hierarchical
 from rainmapper_core import mushroom_ml_runtime_features
 from rainmapper_core import mushroom_ml_runtime_inference
 from rainmapper_core import mushroom_ml_quality_catalog
@@ -591,6 +592,8 @@ def _weather_requirements(
     long_raw_versions = {
         "biology_v5_raw_weather_discovery",
         "biology_v6_smooth_hierarchical",
+        mushroom_ml_raw_weather.WINDOWED_VERSION_ID,
+        mushroom_ml_smooth_hierarchical.WINDOWED_VERSION_ID,
     }
     physical_profile_tokens = (
         "physical_state",

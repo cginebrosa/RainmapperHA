@@ -102,7 +102,9 @@ def build_runtime_features(
         return dict(sample)
     if model_ref.version_id in {
         "biology_v5_raw_weather_discovery",
+        raw.WINDOWED_VERSION_ID,
         "biology_v6_smooth_hierarchical",
+        smooth.WINDOWED_VERSION_ID,
     }:
         v5_contract = (
             raw.FIXED_CONTRACT_ID
@@ -115,16 +117,25 @@ def build_runtime_features(
             horizon_days=model_ref.horizon_days,
             temporal_contract_id=v5_contract,
         )
-        if model_ref.version_id == "biology_v5_raw_weather_discovery":
+        if model_ref.version_id in {"biology_v5_raw_weather_discovery", raw.WINDOWED_VERSION_ID}:
             profiles = raw.feature_set_contract(v5_contract)["profiles"]
             if model_ref.profile_id not in profiles:
                 raise ValueError(f"Unknown V5 runtime profile: {model_ref.profile_id}")
             columns = list(profiles[model_ref.profile_id])
         else:
-            columns = smooth.raw_columns(
-                include_phenology=True,
-                include_horizon=v5_contract == raw.LAG_CONTRACT_ID,
-            )
+            window_days = smooth.window_days_from_profile_id(model_ref.profile_id)
+            if window_days is not None:
+                columns = smooth.raw_columns(
+                    include_phenology=True,
+                    include_horizon=v5_contract == raw.LAG_CONTRACT_ID,
+                    channels=raw.RAW_CHANNELS,
+                    window_days=window_days,
+                )
+            else:
+                columns = smooth.raw_columns(
+                    include_phenology=True,
+                    include_horizon=v5_contract == raw.LAG_CONTRACT_ID,
+                )
         return {
             "predictive_features": {column: features.get(column) for column in columns},
             "quality": {

@@ -177,18 +177,30 @@ def render_benchmark_history(reports: list[dict[str, object]]) -> str:
         profile_summary = ", ".join(profile_names) or (
             f'{summary.get("profile_count", 0)} {_label("ui.worker_benchmark_profiles").lower()}'
         )
+        batch_id = str(row.get("batch_id") or "")
+        delete_form = (
+            '<form class="worker-revoke-form benchmark-history-delete" method="post" action="">'
+            '<input type="hidden" name="worker_action" value="delete_benchmark">'
+            f'<input type="hidden" name="batch_id" value="{_text(batch_id)}">'
+            f'<button type="submit" data-confirm="{_text(_label("ui.worker_benchmark_delete_confirm"))}" '
+            'onclick="event.stopPropagation(); return confirm(this.dataset.confirm)">'
+            f'{_text(_label("ui.worker_benchmark_delete"))}</button></form>'
+        )
         history_rows.append(
+            '<div class="benchmark-history-item">'
             '<a class="benchmark-history-row" href="?benchmark='
-            + _text(row.get("batch_id"))
+            + _text(batch_id)
             + '"><span><strong>'
             + _text(profile_summary)
             + '</strong><small>'
             + _text(row.get("created_at"))
             + ' · '
-            + _text(row.get("batch_id"))
+            + _text(batch_id)
             + '</small></span><span>'
             + _text(" · ".join(evidence))
             + '</span></a>'
+            + delete_form
+            + '</div>'
         )
     return '<div class="benchmark-history benchmark-history-scroll" data-preserve-refresh-scroll>' + "".join(history_rows) + "</div>"
 
@@ -943,7 +955,7 @@ def render_page(
       .worker-discard-dialog form{{display:block;margin:0;padding:18px}}.worker-discard-dialog h2{{margin:0 0 9px;font-size:19px}}.worker-discard-dialog p{{margin:7px 0;color:var(--muted);line-height:1.45}}.worker-discard-dialog code{{color:var(--fg)}}.worker-dialog-actions{{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}}
       .benchmark-form{{display:block!important;width:100%;margin:10px 0 0!important}}.benchmark-form-head{{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:9px}}.benchmark-executor{{display:grid;gap:4px;width:min(340px,100%);color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}}.benchmark-executor select{{width:100%;height:34px;min-height:34px;padding:5px 8px;font-size:11px;text-transform:none;letter-spacing:normal}}
       .benchmark-profile-fieldset{{min-width:0;margin:0;padding:0;border:0}}.benchmark-profile-fieldset legend{{margin:0 0 6px;padding:0;color:var(--fg);font-size:12px;font-weight:750}}.benchmark-profile-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0}}.benchmark-profile-choice{{display:block;position:relative;min-width:0;margin:0}}.benchmark-profile-choice input[type="checkbox"]{{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0;pointer-events:none}}.benchmark-profile-surface{{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:8px;min-height:54px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}}.benchmark-profile-mark{{display:grid;place-items:center;width:18px;height:18px;border:1px solid var(--line);border-radius:5px;color:transparent;font-size:12px;font-weight:900}}.benchmark-profile-copy{{display:flex;flex-direction:column;gap:1px;min-width:0}}.benchmark-profile-copy strong{{font-size:12px;line-height:1.2;white-space:normal}}.benchmark-profile-copy small{{color:var(--muted);font-size:10px;line-height:1.25;white-space:normal}}.benchmark-profile-choice input:checked + .benchmark-profile-surface{{border-color:var(--accent);background:#102a38;box-shadow:0 0 0 1px rgba(3,169,244,.16)}}.benchmark-profile-choice input:checked + .benchmark-profile-surface .benchmark-profile-mark{{border-color:var(--accent);background:var(--accent);color:#07151d}}.benchmark-profile-choice input:focus-visible + .benchmark-profile-surface{{outline:2px solid var(--accent);outline-offset:2px}}.benchmark-submit-row{{display:flex;align-items:center;justify-content:flex-end;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}}.benchmark-submit-row button{{min-width:190px;height:34px;min-height:34px;padding:6px 11px;font-size:11px;font-weight:750}}
-      .benchmark-history{{display:grid;gap:7px}}.benchmark-history-scroll{{max-height:260px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}}.benchmark-history-row{{display:flex;justify-content:space-between;gap:12px;padding:9px;border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none}}.benchmark-history-row span:first-child{{display:grid;gap:2px}}.benchmark-history-row small{{color:var(--muted)}}
+      .benchmark-history{{display:grid;gap:7px}}.benchmark-history-scroll{{max-height:260px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}}.benchmark-history-item{{display:flex;align-items:stretch;gap:6px}}.benchmark-history-row{{flex:1;min-width:0;display:flex;justify-content:space-between;gap:12px;padding:9px;border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none}}.benchmark-history-row span:first-child{{display:grid;gap:2px}}.benchmark-history-row small{{color:var(--muted)}}.benchmark-history-delete{{flex:0 0 auto;align-self:center;margin:0}}.benchmark-history-delete button{{width:auto;padding:5px 9px;font-size:10px}}
       .benchmark-report-summary{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}}.benchmark-report-summary div{{padding:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}}.benchmark-report-summary dt{{color:var(--muted);font-size:11px}}.benchmark-report-summary dd{{margin:4px 0 0;overflow-wrap:anywhere}}
       .benchmark-promotion-panel{{margin:10px 0;padding:9px;border:1px solid var(--accent);border-radius:8px}}.benchmark-promotion-panel h3{{margin:0 0 3px;font-size:13px}}.benchmark-promotion-actions{{display:flex;gap:7px;flex-wrap:wrap}}.benchmark-promotion-action{{margin:0}}
       .benchmark-report-table table{{width:min(100%,1380px);min-width:1220px;table-layout:fixed}}.benchmark-report-table th:nth-child(1){{width:86px}}.benchmark-report-table th:nth-child(2){{width:58px}}.benchmark-report-table th:nth-child(3){{width:150px}}.benchmark-report-table th:nth-child(4){{width:78px}}.benchmark-report-table th:nth-child(5){{width:170px}}.benchmark-report-table th:nth-child(6){{width:62px}}.benchmark-report-table th:nth-child(7){{width:78px}}.benchmark-report-table th:nth-child(8){{width:62px}}.benchmark-report-table th:nth-child(9){{width:68px}}.benchmark-report-table th:nth-child(10){{width:54px}}.benchmark-report-table th:nth-child(11){{width:100px}}.benchmark-report-table th:nth-child(12){{width:80px}}.benchmark-report-table th:nth-child(13){{width:78px}}.benchmark-report-table th:nth-child(14){{width:82px}}.benchmark-report-table th,.benchmark-report-table td{{padding-left:4px;padding-right:4px}}.benchmark-failures{{margin-top:12px}}

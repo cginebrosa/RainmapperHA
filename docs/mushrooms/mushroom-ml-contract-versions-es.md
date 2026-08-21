@@ -267,6 +267,63 @@ operativa. Especificación e informe:
 `docs/mushrooms/mushroom-ml-biology-v6-smooth-hierarchical-spec-es.md` y
 `docs/reports/V2_V3_V4_V5_V6_smooth_hierarchical_report001.md`.
 
+## Biology V5 windowed raw weather — sucesora de V5 raw365, en corrección local
+
+Creada el 2026-08-19 tras observar que el perfil `raw_primary_plus_physical_state`
+de V5 (365 columnas diarias crudas por canal, ~2.557 columnas totales) no
+converge (`sparse-group logistic did not converge within 1000 iterations`)
+para 4 de 9 especies en el benchmark real, por dimensionalidad excesiva frente
+al soporte disponible. `biology_v5_raw_weather_discovery` pasa a
+`status: reference` (nunca se borra; sus benchmarks archivados siguen siendo
+válidos para lectura histórica) y se retira del selector de benchmark
+(`benchmark_available: false`, `operational_eligible: false` en sus
+perfiles).
+
+`biology_v5_windowed_raw_weather` reutiliza los mismos `temporal_contract_id`
+(`fixed_gap_7d_biology_v5_raw365_v2`, `lag_event_biology_v5_raw365_v2`) y el
+mismo `derived_feature_contract_id` que V5 raw365 — describen la misma forma
+de entrada preparada (serie de área de 365 días); solo cambia qué columnas
+selecciona cada perfil, como ya ocurría con las seis variantes de perfil que
+convivían bajo el mismo contrato en V5. Declara tres perfiles que compiten
+entre sí, idénticos salvo la ventana de columnas crudas de lluvia/temperatura/
+humedad expuesta al modelo: `raw_window_30d_plus_physical_state`,
+`raw_window_60d_plus_physical_state`, `raw_window_90d_plus_physical_state`.
+Balance hídrico y SMI se mantienen comunes a las tres ventanas: siguen
+calculándose con calentamiento de 365 días y se exponen únicamente como los
+siete escalares `PHYSICAL_STATE_SCALARS`, nunca como series diarias completas.
+Pendiente de investigar (no implementado): recalcular balance/SMI de forma
+independiente por ventana en vez de compartirlo.
+
+Sin benchmark real ejecutado todavía sobre esta versión al escribir esta
+entrada. Especificación:
+`docs/mushrooms/mushroom-ml-biology-v5-raw-weather-discovery-spec-es.md`
+(pendiente de ampliar con la variante windowed). Detalle completo de la
+decisión en `docs/decisions.md` (2026-08-19, "Perfiles de ventana predictiva
+30/60/90 días en V5/V6...").
+
+## Biology V6 windowed smooth hierarchical — sucesora de V6 smooth-365, en corrección local
+
+Creada el mismo día y por el mismo motivo que la anterior.
+`biology_v6_smooth_hierarchical` pasa también a `status: reference` con
+`benchmark_available: false`. A diferencia de V5, el perfil original de V6 no
+mostró fallos de convergencia (la compresión a diez bases B-spline por canal
+ya reduce mucho la dimensionalidad); se retira igualmente para mantener el
+mismo diseño de comparación por ventana que V5 y evitar mezclar un control de
+365 días con las nuevas ventanas.
+
+`biology_v6_windowed_smooth_hierarchical` reutiliza los mismos
+`temporal_contract_id` del V6 retirado y declara tres perfiles
+(`smooth_window_30d_plus_physical_state`, `_60d_`, `_90d_`) que aplican la
+misma proyección B-spline de diez bases, pero solo sobre los cinco canales
+meteorológicos primarios truncados a la ventana correspondiente — no sobre
+las series diarias de balance/SMI/ETO, que se mantienen compartidas como los
+mismos siete escalares `PHYSICAL_STATE_SCALARS` de siempre.
+
+Sin benchmark real ejecutado todavía sobre esta versión al escribir esta
+entrada. Especificación:
+`docs/mushrooms/mushroom-ml-biology-v6-smooth-hierarchical-spec-es.md`
+(pendiente de ampliar con la variante windowed).
+
 ## Regla de continuidad
 
 Cada contrato nuevo debe añadir aquí su motivación, entradas, cambio semántico,

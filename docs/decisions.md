@@ -1,5 +1,146 @@
 # Decisions
 
+## 2026-08-19 - [DUDA][ML] `lactarius_deliciosus` no converge en ninguna ventana V5w 30/60/90
+
+- Verificación parcial con datos reales locales del perfil
+  `biology_v5_windowed_raw_weather`: reducir la ventana predictiva sí resuelve
+  la no convergencia de `sparse_group_logistic_raw365_v1` para varias especies
+  (p.ej. `amanita_caesarea` converge en 60/90d pero no en 30d — coherente con
+  un problema de dimensionalidad frente a muestras), pero `lactarius_deliciosus`
+  sigue sin converger en las 3 ventanas (30/60/90d).
+- No se ha investigado la causa: al no ser un problema de dimensionalidad (ya
+  se probó la ventana más corta posible sin éxito), debe tratarse de otra
+  cosa — posible desbalance de clases, colinealidad específica de esa
+  especie, o insuficiente soporte real. Sin datos suficientes para afirmar
+  cuál. Pendiente explícito en `docs/todo.md` (P2 — Ventanas y coste
+  científico).
+
+## 2026-08-20 - [VIGENTE][ML][RENDIMIENTO] Perfilado de predictor y entrenamiento: no se reescribe en C, se elimina redundancia en haversine
+
+- Motivo: el usuario reportó tiempos de 10-12s por consulta del Predictor y 5-6 minutos por entrenamiento de versión completa, y preguntó si convenía reescribir en C el kernel de predicción/entrenamiento.
+- Medido con `cProfile` sobre una consulta real del Predictor (`MushroomMLPredictor`, especie `boletus_edulis`): tiempo total 1.9s. Desglose: IDW meteorológico (`mushroom_weather_idw.py`) ~0.86s con **104.086 llamadas** a `haversine_km`, carga de artefactos joblib ~0.57s, predicción real del modelo ~0.22s. No hay cuello de botella algorítmico "puro Python" que justifique una reescritura en C: sklearn/NumPy ya delegan en BLAS/LAPACK compilado; el coste real es I/O (carga de artefactos) y una redundancia de cálculo evitable en el IDW.
+- Medido sobre un benchmark real completo (suma de duraciones de fit reportadas en manifiestos): V4 41.5s, V3 22.3s, V5w 79.6s, V6w 10.6s, V2 11.0s — la suma de todos los fits está muy por debajo de los 5-6 minutos de reloj de pared que percibe el usuario. Confirmado en vivo (dos comprobaciones seguidas durante una ejecución real) que la fase que domina el tiempo de reloj es la preparación de inputs compartidos / evaluación de filas hold-out (`Preparing shared inputs — Evaluating selected V2--V5 hold-out rows`), no el ajuste de los modelos en sí.
+- Decisión: no se reescribe nada en C. Se corrige la única redundancia identificada como fácil y de bajo riesgo: en `rainmapper_core/mushroom_weather_idw.py`, `build_daily_weather_idw_series` y `build_daily_rain_idw_series` recalculaban `haversine_km` una vez por estación para filtrar por radio y luego otra vez por estación y por día/métrica dentro de `estimate_daily_weather_idw`/`estimate_daily_rain_idw`. Ahora la distancia se calcula una sola vez por estación (`station_distances_km`) y se propaga como parámetro opcional (`Mapping[StationKey, float] | None`) a ambas funciones de estimación; si no se pasa, cada función sigue calculando la distancia como antes (compatible con otros llamadores).
+- Verificado: 960 tests y `git diff --check` limpios tras el cambio.
+- Pendiente explícito (no abordado ahora): investigar por qué la fase de preparación de inputs compartidos / evaluación hold-out domina el tiempo de reloj de un benchmark completo — no se ha perfilado esa fase en detalle, solo se ha confirmado en vivo que es donde se concentra el tiempo. Ver `docs/todo.md`.
+
+## 2026-08-20 - [VIGENTE][BUG CORREGIDO] predict_bundle no aplicaba el preprocesador suave a V6 windowed
+
+- Síntoma real: tras preparar y activar `biology_v6_windowed_smooth_hierarchical` como versión completa, el Predictor mostraba `runtime_model_incompatible` en las 6 combinaciones (3 ventanas × 2 contratos).
+- Causa: `mushroom_ml_runtime_inference.py::predict_bundle` decidía si aplicar el `SmoothLagPreprocessor` comprobando `artifact_ref.version_id == "biology_v6_smooth_hierarchical"` (comparación exacta, solo la versión retirada). Para el version_id nuevo caía al `elif isinstance(preprocessor, Mapping)`, que tampoco aplicaba (el preprocesador es una instancia de clase, no un `Mapping`), y acababa alimentando al modelo la fila cruda sin proyectar — sklearn rechazaba la forma y el error genérico se mostraba como incompatibilidad.
+- Es el mismo patrón de dispatch explícito por `version_id` ya documentado en la entrada de perfiles de ventana; este era un tercer sitio (además de `mushroom_ml_runtime_trainer.py` y `mushroom_ml_runtime_features.py`) que se pasó por alto en la primera implementación porque solo se ejercita en el camino de inferencia real del Predictor, no en el benchmark/entrenamiento.
+- Corregido cambiando la comprobación a `in {"biology_v6_smooth_hierarchical", smooth.WINDOWED_VERSION_ID}`. Verificado con datos reales: fit + `predict_bundle` para 2 especies × 3 ventanas × 3 estimadores (18 combinaciones) devuelven probabilidades válidas sin excepción. 960 pruebas y `git diff --check` limpios.
+- De paso se completaron dos referencias cosméticas que solo afectaban a etiquetas de UI (no a la inferencia): `VERSION_CAUTIONS` en `mushroom_ml_quality_catalog.py` y los diccionarios de nombre corto/descripción en `mushroom_predictor_ui.py`, que no tenían entrada para los dos version_id nuevos y por tanto mostraban el version_id crudo en vez de una etiqueta corta.
+
+## 2026-08-19 - [VIGENTE][EXCEPCIÓN EXPLÍCITA] Los benchmarks científicos archivados son historia viva, no retención permanente
+
+- Decisión explícita del usuario: "no quiero tener benchmarks para siempre... tiene que ser una historia viva. Así puedo mantener únicamente los que sean interesantes." Se añade un botón "Borrar" por fila en "Historial de benchmarks" que elimina físicamente `ml_models/benchmarks/<batch_id>/` (informe, predicciones hold-out, artefactos) del disco. Es irreversible y requiere confirmación en la UI.
+- Verificado antes de implementar: `retention_policy.benchmark_generations: "permanent"` del registro **no aplica hoy** a estos directorios. Los batches de benchmark en `ml_models/benchmarks/` nunca se registran como `generations` dentro de una versión (las 7 versiones del registro tienen `generations: []` vacío); esa política protege únicamente generaciones ya registradas mediante `append_generation`, que hoy no se usa para benchmarks. Por tanto, borrar un batch de benchmark archivado **no contradice** la política de retención documentada tal como está escrita — es una historia paralela, no cubierta por esa regla.
+- Salvaguarda: `mushroom_ml_benchmark_reports.delete_report` solo borra un directorio bajo `ml_models/benchmarks/<batch_id>/` cuyo `manifest.json` declare `job_purpose: "benchmark"` — nunca un batch operativo ni una candidata (`ml_models/candidates/`), y valida el `batch_id` contra el mismo patrón que `load_report`/`list_reports` para evitar traversal.
+- Si en el futuro se implementa el registro de `generations` para benchmarks (hoy sin consumidores), esta excepción debe revisarse explícitamente: no debe poder borrarse un batch que ya esté registrado como generación permanente.
+
+## 2026-08-19 - [VIGENTE] Perfiles de ventana predictiva 30/60/90 días en V5/V6, retirando raw365/smooth-365
+
+- Motivo: el benchmark real de Biology V4 en producción reveló, por una vía
+  distinta, que V5 (`sparse_group_logistic_raw365_v1`) no converge para 4/9
+  especies (`"did not converge within 1000 iterations"`), muy probablemente
+  por la altísima dimensionalidad (~2.557 columnas) de alimentar 365 valores
+  diarios crudos por canal frente a pocas muestras por especie. Esto reabrió
+  una discusión previa (con Codex, sin cerrar entonces) sobre separar el
+  calentamiento físico de 365 días de la ventana que realmente ve el modelo,
+  documentada como pendiente en `docs/todo.md`.
+- Sustituye explícitamente la decisión "Ventanas runtime por contrato y
+  experimento físico V2/V3 preservado" (2026-08-18) en la parte que exigía
+  conservar V5/V6-365 hasta una comparación emparejada previa contra V5/V6-90.
+  Se decide retirar V5/V6-365 directamente, sin esa comparación previa, dado
+  que ya se observó que el diseño de 365 días crudos da señales
+  contradictorias (convergencia nula en varias especies) y complica la
+  interpretación. El resto de esa decisión (V2/V3/V4 a 90 días, cálculo de
+  ET0/balance/SMI por perfil, `LOOKBACK_DAYS` como constante canónica) sigue
+  vigente sin cambios.
+- Diseño: `biology_v5_raw_weather_discovery` y `biology_v6_smooth_hierarchical`
+  pasan a `status: "reference"` y `benchmark_available: false`, con
+  `operational_eligible: false` en todos sus perfiles — **nunca se borran**
+  del registro (`retention_policy.deactivation_action:
+  change_status_to_reference_never_delete`), así que los benchmarks ya
+  archivados que los referencian siguen siendo válidos e íntegros para
+  lectura/comparación histórica.
+- Se crean dos versiones nuevas, cada una con 3 perfiles que compiten entre sí
+  únicamente por la ventana predictiva (30/60/90 días de meteorología cruda):
+  `biology_v5_windowed_raw_weather` (perfiles `raw_window_{30,60,90}d_plus_physical_state`,
+  mismos estimadores y contratos temporales que el V5 retirado) y
+  `biology_v6_windowed_smooth_hierarchical` (perfiles
+  `smooth_window_{30,60,90}d_plus_physical_state`, mismos estimadores que el
+  V6 retirado). No se acuñan contratos temporales nuevos: los perfiles de
+  ventana reutilizan los mismos `temporal_contract_id` y
+  `derived_feature_contract_id` que las versiones retiradas, porque describen
+  la misma forma de entrada preparada (serie de área de 365 días); solo cambia
+  qué subconjunto de columnas ve cada perfil, igual que ya convivían seis
+  variantes de perfil bajo un mismo contrato en el V5 original.
+- Balance hídrico y SMI se mantienen **comunes/compartidos** entre las 3
+  ventanas: siguen calculándose con el calentamiento de 365 días de siempre
+  (sin tocar `mushroom_climatic_water_balance.py`/`mushroom_soil_water_state.py`),
+  y solo se exponen al modelo como los 7 escalares `PHYSICAL_STATE_SCALARS`
+  agregados — nunca las series diarias completas de balance/SMI/ETO. Lo único
+  que se recorta a 30/60/90 días son las columnas crudas de lluvia,
+  temperatura y humedad (`RAW_CHANNELS`).
+  **Pendiente de investigar** (no implementado): si recalcular balance/SMI de
+  forma independiente por cada ventana (en vez de compartir el mismo valor de
+  365 días entre las tres) aísla mejor cuánta señal aporta cada ventana, a
+  costa de dejar de ser comparable con V3+ físico.
+- Implementación: `mushroom_ml_raw_weather.windowed_feature_columns`/
+  `windowed_profile_id` (V5) y los parámetros nuevos `channels`/`window_days`
+  de `mushroom_ml_smooth_hierarchical.smooth_lag_basis`/`raw_columns`/
+  `SmoothLagPreprocessor` (V6, con valores por defecto que preservan el
+  comportamiento exacto del perfil retirado). `mushroom_ml_runtime_trainer.py`
+  (`_columns`, `fit_artifact`, `_fit_v6`), `mushroom_ml_runtime_features.py`
+  (inferencia del Predictor) y `mushroom_ml_multiversion_comparison.py`
+  (`_weather_requirements`) añaden ramas paralelas para los dos version_id
+  nuevos, siguiendo el mismo patrón explícito por versión que ya usaba el
+  código (no hay despacho genérico). `mushroom_ml_multiversion_plan.build_plan`
+  no requirió cambios: es genérico sobre `catalog_entries`.
+- Validado: 957 pruebas (`unittest discover -s tests`), `git diff --check`
+  limpio, y una prueba manual de `fit_artifact` end-to-end para un perfil de
+  cada versión nueva confirma el recorte real de columnas (159 para V5-30d,
+  309 antes de compresión B-spline para V6-60d).
+
+## 2026-08-19 - [VIGENTE][BUG CORREGIDO] Elegibilidad de especies duplicada entre HA local y worker para benchmarks V2–V6
+
+- Síntoma real observado por el usuario: un benchmark científico de Biology V4
+  lanzado en HA real contra el worker M1 (`create_mushroom_ml_multiversion_job`,
+  rama sin `triggered_by_job_id`) planificó 384 fits sobre 16 especies con 168
+  fallos (`"Runtime artifact requires both classes"`), lo que bloqueó
+  `Preparar candidata completa` con `"Operational batch does not contain every
+  required artifact"` (`mushroom_ml_multiversion_transport.py:194-209`). El
+  mismo benchmark lanzado como "Home Assistant local"
+  (`mushroom_local_full_update.run_local_benchmark`) sobre el mismo dataset
+  dio 216/216 fits sin fallos.
+- Causa verificada: **no era un problema de datos** — las observaciones de
+  `docker-data/mushroom-data/` y `/share/rainmapper/mushroom-data/` son
+  idénticas byte a byte (comprobado con diff). El problema era que existían
+  dos funciones de elegibilidad de especies distintas para el mismo concepto
+  ("especies entrenables para un benchmark/operativo V2–V6"):
+  - Ruta HA local: `mushroom_local_full_update._eligible_training_species`
+    (ahora pública, `eligible_training_species`), que exige ≥10 filas válidas
+    en `mushroom_observation_features_v0.json` y **ambas clases**
+    (`favorable`/`unfavorable`) representadas por especie.
+  - Ruta worker sin job de rebuild vinculado: `web_server.py`, función
+    `eligible_model_species_ids(observations)` (`web_server.py:14632`), que
+    solo exige `validation_status=valid`, `calibration_use=include` y
+    coordenadas — sin mínimo de filas ni comprobación de clase. Esta función
+    sigue siendo correcta para su uso original (alcance amplio de ML v0), pero
+    no era apta para decidir el plan de un benchmark/operativo V2–V6.
+- Corrección aplicada: `create_mushroom_ml_multiversion_job` (rama sin
+  `triggered_by_job_id`, `web_server.py:13193-13196`) ahora llama a
+  `mushroom_local_full_update.eligible_training_species(feature_path)`, la
+  misma función que usa la ruta HA local. Las demás llamadas a
+  `eligible_model_species_ids` (ML v0, pendientes de reconstrucción, etc.) no
+  se han tocado porque responden a un alcance distinto y correcto.
+- Validado con 949 pruebas (`unittest discover -s tests`) y `git diff --check`
+  limpio. Pendiente: repetir el benchmark V4 vía worker para confirmar que
+  ahora también resuelve 9 especies (o el conjunto que corresponda con datos
+  vivos) sin fallos, igual que en HA local.
+
 ## 2026-08-19 - [VIGENTE][FASE 4 EN PRUEBA LOCAL] La unidad de promoción es la versión completa
 
 - `operational_eligible` significa que el runtime puede entrenar, verificar y
@@ -248,7 +389,7 @@ multiidioma mediante labels `en`, `es` y `ca`.
   `c5b51e8`. HA `0.2.257` todavía debe instalarse y validarse en la RPi4; no se
   considera instalada ni dada por buena por el hecho de estar en GHCR.
 
-## 2026-08-18 - [VIGENTE][ML][RENDIMIENTO] Ventanas runtime por contrato y experimento físico V2/V3 preservado
+## 2026-08-18 - [VIGENTE SALVO V5/V6-365, SUSTITUIDA 2026-08-19][ML][RENDIMIENTO] Ventanas runtime por contrato y experimento físico V2/V3 preservado
 
 - Los 365 días diarios de V5/V6 son el alcance congelado de esos experimentos,
   no una ventana biológica respaldada por la literatura ni el default del
@@ -265,9 +406,13 @@ multiidioma mediante labels `en`, `es` y `ca`.
 - La evidencia local revisada concentra retardos meteorológicos de fructificación
   en semanas y aproximadamente un mes; 90 días es un máximo conservador para
   meteorología diaria, sujeto a comparación científica. Esto no demuestra que
-  los días 91–365 carezcan de señal: V5/V6-365 se preserva como control y debe
-  compararse en un experimento nuevo, emparejado y con los mismos splits contra
-  V5/V6-90 antes de reducir el contrato. Señales de ciclo previo
+  los días 91–365 carezcan de señal. **Sustituida el 2026-08-19** por
+  «Perfiles de ventana predictiva 30/60/90 días en V5/V6, retirando raw365/
+  smooth-365»: en vez de exigir la comparación emparejada previa contra
+  V5/V6-90, se retiran directamente V5/V6-365 (a `status: reference`,
+  `benchmark_available: false`, `operational_eligible: false` en todos sus
+  perfiles — nunca se borran) y se sustituyen por versiones nuevas con 3
+  perfiles de ventana compitiendo entre sí. Señales de ciclo previo
   como NDVI, huésped o fuego deben entrar como variables ecológicas explícitas,
   no como 275 días meteorológicos extra por defecto.
 - `mushroom_ml_raw_weather.LOOKBACK_DAYS` es la única constante canónica de la

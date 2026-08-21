@@ -23,6 +23,7 @@ from rainmapper_core import mushroom_ml_biology_v3_physical
 from rainmapper_core import mushroom_ml_biology_v4
 from rainmapper_core import mushroom_ml_holdout
 from rainmapper_core import mushroom_ml_model_catalog as catalog
+from rainmapper_core import mushroom_ml_raw_weather as raw
 from rainmapper_core import mushroom_ml_smooth_hierarchical as smooth
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core.mushroom_ml_sparse_group import SparseGroupLogisticClassifier
@@ -90,6 +91,19 @@ def supported_runtime_benchmark_keys() -> frozenset[str]:
                 "smooth_weather_physical_state",
             )
         )
+        for window_days in raw.WINDOW_DAYS_OPTIONS:
+            keys.add(
+                benchmark_key(
+                    raw.WINDOWED_VERSION_ID, v5_contract, raw.windowed_profile_id(window_days)
+                )
+            )
+            keys.add(
+                benchmark_key(
+                    smooth.WINDOWED_VERSION_ID,
+                    v6_contract,
+                    smooth.windowed_profile_id(window_days),
+                )
+            )
     return frozenset(keys)
 
 
@@ -202,17 +216,40 @@ def materialize_runtime_benchmarks(
                     "smooth_weather_physical_state",
                 )
             ] = v5
+            for window_days in raw.WINDOW_DAYS_OPTIONS:
+                result[
+                    benchmark_key(
+                        raw.WINDOWED_VERSION_ID,
+                        v5_contract,
+                        raw.windowed_profile_id(window_days),
+                    )
+                ] = v5
+                result[
+                    benchmark_key(
+                        smooth.WINDOWED_VERSION_ID,
+                        v6_contract,
+                        smooth.windowed_profile_id(window_days),
+                    )
+                ] = v5
     return result
 
 
 def _columns(artifact_ref: catalog.ModelArtifactRef, benchmark: Mapping[str, Any]) -> list[str]:
     feature_set = benchmark.get("feature_set") or {}
-    if artifact_ref.version_id == "biology_v5_raw_weather_discovery":
+    if artifact_ref.version_id in {"biology_v5_raw_weather_discovery", raw.WINDOWED_VERSION_ID}:
         return list((feature_set.get("profiles") or {})[artifact_ref.profile_id])
     if artifact_ref.version_id == "biology_v6_smooth_hierarchical":
         return smooth.raw_columns(
             include_phenology=True,
             include_horizon=artifact_ref.temporal_contract_id.startswith("lag_event_"),
+        )
+    if artifact_ref.version_id == smooth.WINDOWED_VERSION_ID:
+        window_days = smooth.window_days_from_profile_id(artifact_ref.profile_id)
+        return smooth.raw_columns(
+            include_phenology=True,
+            include_horizon=artifact_ref.temporal_contract_id.startswith("lag_event_"),
+            channels=raw.RAW_CHANNELS,
+            window_days=window_days,
         )
     return list(
         feature_set.get("predictive_feature_cols")
@@ -261,7 +298,7 @@ def _fit_v5(
     else:
         model = SparseGroupLogisticClassifier(
             groups=mushroom_ml_holdout._groups(columns),
-            max_iter=1000,
+            max_iter=2000,
             tolerance=1e-5,
             **selected,
         )
@@ -283,7 +320,13 @@ def _fit_v6(
     X: np.ndarray,
     y: np.ndarray,
 ) -> dict[str, Any]:
-    preprocessor = smooth.SmoothLagPreprocessor().fit(X)
+    window_days = smooth.window_days_from_profile_id(artifact_ref.profile_id)
+    if window_days is not None:
+        preprocessor = smooth.SmoothLagPreprocessor(
+            channels=raw.RAW_CHANNELS, window_days=window_days
+        ).fit(X)
+    else:
+        preprocessor = smooth.SmoothLagPreprocessor().fit(X)
     transformed = preprocessor.transform(X)
     species = [_species(sample) for sample in samples]
     species_order = sorted(set(species))
@@ -337,9 +380,9 @@ def fit_artifact(
         raise ValueError(f"Runtime artifact requires both classes: {artifact_ref.key}")
     if artifact_ref.version_id in {"altitude_v2", "biology_v3", "biology_v4"}:
         fitted = _fit_current(artifact_ref.estimator_id, X, y)
-    elif artifact_ref.version_id == "biology_v5_raw_weather_discovery":
+    elif artifact_ref.version_id in {"biology_v5_raw_weather_discovery", raw.WINDOWED_VERSION_ID}:
         fitted = _fit_v5(artifact_ref.estimator_id, samples, X, y, columns)
-    elif artifact_ref.version_id == "biology_v6_smooth_hierarchical":
+    elif artifact_ref.version_id in {"biology_v6_smooth_hierarchical", smooth.WINDOWED_VERSION_ID}:
         fitted = _fit_v6(artifact_ref, samples, X, y)
     else:
         raise ValueError(f"No runtime trainer for {artifact_ref.version_id}")

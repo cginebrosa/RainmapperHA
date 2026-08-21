@@ -285,7 +285,7 @@ def evaluate_dataset(
                         )
                     else:
                         model = SparseGroupLogisticClassifier(
-                            groups=_groups(columns), max_iter=1000, tolerance=1e-5,
+                            groups=_groups(columns), max_iter=2000, tolerance=1e-5,
                             **selected_config,
                         )
                     with warnings.catch_warnings():

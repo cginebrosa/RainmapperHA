@@ -544,14 +544,19 @@ def _multiversion_controls(
         if version_id in seen_versions:
             continue
         seen_versions.add(version_id)
-        short = {"altitude_v2": "V2", "biology_v3": "V3", "biology_v4": "V4",
-                 "biology_v5_raw_weather_discovery": "V5", "biology_v6_smooth_hierarchical": "V6"}.get(version_id, version_id)
+        short = {
+            "altitude_v2": "V2", "biology_v3": "V3", "biology_v4": "V4",
+            "biology_v5_raw_weather_discovery": "V5", "biology_v6_smooth_hierarchical": "V6",
+            "biology_v5_windowed_raw_weather": "V5w", "biology_v6_windowed_smooth_hierarchical": "V6w",
+        }.get(version_id, version_id)
         compact_name = {
             "altitude_v2": "Altitud y meteo común",
             "biology_v3": "Biología base",
             "biology_v4": "Biología y balance hídrico",
             "biology_v5_raw_weather_discovery": "Meteo cruda regularizada",
             "biology_v6_smooth_hierarchical": "Curvas suaves y jerarquía",
+            "biology_v5_windowed_raw_weather": "Meteo cruda por ventana 30/60/90d",
+            "biology_v6_windowed_smooth_hierarchical": "Curvas suaves por ventana 30/60/90d",
         }.get(version_id, str(entry.get("version_display_name") or version_id))
         checked = (
             " checked"
@@ -654,6 +659,7 @@ def _render_multiversion_result(payload: dict[str, Any] | None) -> str:
     version_names = {
         "altitude_v2": "V2", "biology_v3": "V3", "biology_v4": "V4",
         "biology_v5_raw_weather_discovery": "V5", "biology_v6_smooth_hierarchical": "V6",
+        "biology_v5_windowed_raw_weather": "V5w", "biology_v6_windowed_smooth_hierarchical": "V6w",
     }
     cautions = payload.get("version_cautions") or {}
     by_version: dict[str, list[dict[str, Any]]] = {}

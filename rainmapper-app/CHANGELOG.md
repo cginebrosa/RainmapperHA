@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.263
+
+- Fix duplicated species-eligibility logic between the HA-local and
+  worker-triggered V2--V6 benchmark/operational paths: the worker path
+  (`create_mushroom_ml_multiversion_job` without `triggered_by_job_id`) now
+  reuses `mushroom_local_full_update.eligible_training_species` instead of
+  the broader-scope `eligible_model_species_ids`, matching the HA-local
+  behaviour and avoiding fit failures caused by species without both
+  outcome classes.
+- Add predictive-window profiles to Biology V5/V6
+  (`biology_v5_windowed_raw_weather`, `biology_v6_windowed_smooth_hierarchical`,
+  30/60/90-day variants), retiring the original 365-day discovery profiles
+  (`biology_v5_raw_weather_discovery`, `biology_v6_smooth_hierarchical`) to
+  `status: reference` with `benchmark_available: false` after real
+  convergence failures on the 365-day raw dimensionality.
+- Fix `mushroom_ml_runtime_inference.predict_bundle` not applying the smooth
+  preprocessor to windowed V6 bundles, which caused
+  `runtime_model_incompatible` errors in the Predictor.
+- Add a real "Delete" action for archived benchmark reports
+  (`mushroom_ml_benchmark_reports.delete_report`), with UI confirmation, so
+  benchmark history does not have to be kept indefinitely.
+- Remove a redundant `haversine_km` computation per station in
+  `mushroom_weather_idw.py`, found while profiling the Predictor and a full
+  benchmark run.
+
 ## 0.2.262
 
 - Separate operational reconstruction/retraining from on-demand scientific

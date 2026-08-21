@@ -12,10 +12,27 @@ coeficiente pasan estabilidad y se distribuyen casi uniformemente por retardo,
 sin aislar ventanas interpretables. Véase
 `docs/reports/V2_V3_V4_V5_raw_weather_report001.md`.
 
-Actualización 2026-08-19: el resultado científico desfavorable se conserva,
-pero ya no actúa como bloqueo técnico. El perfil canónico completo puede
-prepararse y activarse manualmente; sus dos estimadores compiten mediante la
-misma regla Brier contra prevalencia aplicada al resto de versiones.
+Actualización 2026-08-19 (primera, benchmark real): el resultado científico
+desfavorable se conserva, pero ya no actúa como bloqueo técnico. El perfil
+canónico completo puede prepararse y activarse manualmente; sus dos
+estimadores compiten mediante la misma regla Brier contra prevalencia
+aplicada al resto de versiones.
+
+Actualización 2026-08-19 (segunda, retirada a `reference`): al ejecutar el
+benchmark real contra datos de producción, `sparse_group_logistic_raw365_v1`
+no converge para 4/9 especies por la altísima dimensionalidad de exponer 365
+columnas diarias por canal. `biology_v5_raw_weather_discovery` (este
+contrato) pasa a `status: reference` — se conserva íntegro para lectura
+histórica, pero ya no es lanzable desde el selector de benchmark ni
+promocionable como versión completa. Es sucedido por
+`biology_v5_windowed_raw_weather`, con tres perfiles que compiten por ventana
+predictiva (30/60/90 días de columnas crudas) en vez de exponer los 365 días
+completos, manteniendo balance/SMI compartidos con el mismo calentamiento de
+365 días. Genealogía y razonamiento completos en
+`docs/mushrooms/mushroom-ml-contract-versions-es.md` y `docs/decisions.md`
+(2026-08-19). Esta especificación sigue describiendo con exactitud el
+contrato retirado; la especificación dedicada de la variante windowed queda
+pendiente de redactar como documento propio.
 
 Esta especificación define un experimento reproducible para responder a una
 pregunta concreta: si se proporciona al modelo la historia meteorológica diaria

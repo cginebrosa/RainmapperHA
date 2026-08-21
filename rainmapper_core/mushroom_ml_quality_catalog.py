@@ -35,6 +35,14 @@ VERSION_CAUTIONS = {
         "Suaviza retardos y comparte información entre especies; el pooling puede dar una "
         "señal aparentemente firme a especies con poco soporte propio."
     ),
+    "biology_v5_windowed_raw_weather": (
+        "Sucesora de V5 con ventana predictiva de 30/60/90 días en vez de 365; con pocos "
+        "episodios puede elegir retardos correlacionados e inestables dentro de la ventana."
+    ),
+    "biology_v6_windowed_smooth_hierarchical": (
+        "Sucesora de V6 con ventana predictiva de 30/60/90 días en vez de 365; el pooling "
+        "puede dar una señal aparentemente firme a especies con poco soporte propio."
+    ),
 }
 
 

@@ -111,3 +111,40 @@ class MushroomMLBenchmarkReportsTests(TestCase):
             with self.assertRaisesRegex(ValueError, "integrity"):
                 reports.load_report(models_root, "benchmark-a")
 
+    def test_delete_report_removes_only_archived_scientific_benchmarks(self) -> None:
+        with TemporaryDirectory() as temporary:
+            models_root = Path(temporary) / "models"
+            archive = models_root / "benchmarks" / "benchmark-a"
+            archive.mkdir(parents=True)
+            (archive / "manifest.json").write_text(
+                json.dumps({"job_purpose": "benchmark"}), encoding="utf-8"
+            )
+            self.assertTrue(archive.is_dir())
+
+            reports.delete_report(models_root, "benchmark-a")
+
+            self.assertFalse(archive.exists())
+
+    def test_delete_report_rejects_non_benchmark_batches(self) -> None:
+        with TemporaryDirectory() as temporary:
+            models_root = Path(temporary) / "models"
+            archive = models_root / "benchmarks" / "operational-a"
+            archive.mkdir(parents=True)
+            (archive / "manifest.json").write_text(
+                json.dumps({"job_purpose": "operational"}), encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(ValueError, "scientific benchmarks"):
+                reports.delete_report(models_root, "operational-a")
+            self.assertTrue(archive.is_dir())
+
+    def test_delete_report_rejects_missing_batch_and_traversal(self) -> None:
+        with TemporaryDirectory() as temporary:
+            models_root = Path(temporary) / "models"
+            (models_root / "benchmarks").mkdir(parents=True)
+
+            with self.assertRaisesRegex(ValueError, "not found"):
+                reports.delete_report(models_root, "does-not-exist")
+            with self.assertRaisesRegex(ValueError, "invalid"):
+                reports.delete_report(models_root, "../escape")
+

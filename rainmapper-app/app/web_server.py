@@ -13193,13 +13193,7 @@ def create_mushroom_ml_multiversion_job(
         if triggered_by_job_id:
             species_ids = linked_ml_trained_species_ids(training_job)
         else:
-            store = default_store()
-            store.ensure_seeded()
-            observations_payload = store.load("observations")
-            observations = observation_dicts_from_payload(
-                observations_payload if isinstance(observations_payload, dict) else {}
-            )
-            species_ids = sorted(eligible_model_species_ids(observations))
+            species_ids = mushroom_local_full_update.eligible_training_species(feature_path)
         registry = json.loads(sources["registry.json"].read_text(encoding="utf-8"))
         if purpose == "benchmark":
             selected_profiles = mushroom_ml_version_registry.resolve_benchmark_profiles(
@@ -15343,6 +15337,17 @@ def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
         clear_when_idle=True,
     )
     return 202, {"ok": True, "job_id": job_id}
+
+
+def delete_mushroom_local_benchmark(batch_id: str) -> tuple[int, dict[str, object]]:
+    """Permanently remove one archived scientific benchmark from disk."""
+    try:
+        mushroom_ml_benchmark_reports.delete_report(
+            mushroom_paths.mushroom_ml_models_dir(), batch_id
+        )
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+        return 400, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True}
 
 
 def start_mushroom_local_benchmark(
@@ -20763,6 +20768,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return "./workers?" + urlencode(
                 {"benchmark_profile": profile_keys}, doseq=True
             )
+        if action == "delete_benchmark":
+            status, response = delete_mushroom_local_benchmark(
+                self.form_value(form, "batch_id")
+            )
+            if status != 200:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot delete this benchmark.")),
+                    error=True,
+                )
+            return "./workers"
         if action == "prepare_version_candidate":
             status, response = start_mushroom_local_operational_candidate(
                 benchmark_batch_id=self.form_value(form, "benchmark_batch_id"),

@@ -73,6 +73,18 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         base_registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
         for version in base_registry["versions"]:
             version_id = str(version["version_id"])
+            profiles = [
+                row
+                for row in catalog.catalog_entries(base_registry)
+                if row["version_id"] == version_id
+                and row["operational_eligible"] is True
+            ]
+            if not profiles:
+                # Retired versions (status "reference") keep their registry
+                # entry for historical archives but no longer declare any
+                # operationally-eligible profile; they cannot become the
+                # active operational target.
+                continue
             registry = copy.deepcopy(base_registry)
             registry["active_version_id"] = version_id
             registry["active_operational_target"] = {

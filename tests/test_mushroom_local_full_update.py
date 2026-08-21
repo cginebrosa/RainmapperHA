@@ -83,7 +83,7 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
 
             self.assertEqual(
                 ["eligible"],
-                mushroom_local_full_update._eligible_training_species(features),
+                mushroom_local_full_update.eligible_training_species(features),
             )
 
     def test_runtime_batch_rollback_restores_previous_descriptor(self) -> None:

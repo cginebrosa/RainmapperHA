@@ -3669,6 +3669,16 @@
     "es": "Todavia no hay informes persistentes de benchmarks cientificos archivados.",
     "ca": "Encara no hi ha informes persistents de benchmarks cientifics arxivats."
   },
+  "ui.worker_benchmark_delete": {
+    "en": "Delete",
+    "es": "Borrar",
+    "ca": "Esborrar"
+  },
+  "ui.worker_benchmark_delete_confirm": {
+    "en": "Delete this benchmark permanently? Its report, hold-out predictions and artifacts on disk cannot be recovered.",
+    "es": "Borrar este benchmark de forma permanente? Su informe, predicciones hold-out y artefactos en disco no se podran recuperar.",
+    "ca": "Esborrar aquest benchmark de forma permanent? El seu informe, prediccions hold-out i artefactes al disc no es podran recuperar."
+  },
   "ui.worker_view_comparison": {
     "en": "View comparison",
     "es": "Ver comparacion",

@@ -51,6 +51,56 @@ class SmoothHierarchicalTests(unittest.TestCase):
                 np.zeros((1, 2)), ["c"], species_order=["a", "b"], deviation_scale=None
             )
 
+    def test_windowed_profile_id_round_trips(self):
+        for window_days in raw.WINDOW_DAYS_OPTIONS:
+            profile_id = smooth.windowed_profile_id(window_days)
+            self.assertEqual(smooth.window_days_from_profile_id(profile_id), window_days)
+        self.assertIsNone(
+            smooth.window_days_from_profile_id("smooth_weather_physical_state")
+        )
+
+    def test_windowed_basis_and_columns_use_raw_channels_only(self):
+        for window_days in raw.WINDOW_DAYS_OPTIONS:
+            basis = smooth.smooth_lag_basis(window_days=window_days)
+            self.assertEqual(basis.shape, (window_days, smooth.N_BASIS))
+            np.testing.assert_allclose(
+                basis.sum(axis=0), np.ones(smooth.N_BASIS), atol=1e-10
+            )
+            columns = smooth.raw_columns(
+                include_horizon=True,
+                channels=raw.RAW_CHANNELS,
+                window_days=window_days,
+            )
+            for channel in raw.RAW_CHANNELS:
+                self.assertIn(f"{channel}__lag_{window_days - 1:03d}", columns)
+                self.assertNotIn(f"{channel}__lag_{window_days:03d}", columns)
+            for channel in raw.PHYSICAL_CHANNELS + raw.STATE_CHANNELS:
+                self.assertNotIn(f"{channel}__lag_000", columns)
+
+    def test_windowed_preprocessor_matches_windowed_columns_shape(self):
+        window_days = 30
+        columns = smooth.raw_columns(
+            include_horizon=True, channels=raw.RAW_CHANNELS, window_days=window_days
+        )
+        X = np.ones((4, len(columns)))
+        preprocessor = smooth.SmoothLagPreprocessor(
+            channels=raw.RAW_CHANNELS, window_days=window_days
+        ).fit(X)
+        projected_width = (
+            len(raw.RAW_CHANNELS) * smooth.N_BASIS + len(raw.PHYSICAL_STATE_SCALARS) + 3
+        )
+        self.assertEqual(preprocessor.transform(X).shape, (4, projected_width))
+        self.assertEqual(len(preprocessor.feature_names()), projected_width)
+
+    def test_default_preprocessor_behaviour_is_unchanged(self):
+        """The retired (status=reference) 365-day profile must keep fitting
+        identically to before these windowed variants were added."""
+        width = len(smooth.raw_columns(include_horizon=True))
+        X = np.ones((3, width))
+        preprocessor = smooth.SmoothLagPreprocessor().fit(X)
+        self.assertEqual(preprocessor.channels, raw.DAILY_CHANNELS)
+        self.assertEqual(preprocessor.window_days, raw.LOOKBACK_DAYS)
+
 
 if __name__ == "__main__":
     unittest.main()

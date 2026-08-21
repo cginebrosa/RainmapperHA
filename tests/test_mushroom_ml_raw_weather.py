@@ -89,6 +89,57 @@ class RawWeatherContractTests(unittest.TestCase):
         summary = raw.diagnostic_weather_summary(self.series())
         self.assertEqual(summary["lag_000_006"]["rain_mm_sum"], sum(range(358, 365)))
 
+    def test_windowed_profile_id_round_trips(self):
+        for window_days in raw.WINDOW_DAYS_OPTIONS:
+            profile_id = raw.windowed_profile_id(window_days)
+            self.assertEqual(raw.window_days_from_profile_id(profile_id), window_days)
+        self.assertIsNone(raw.window_days_from_profile_id("raw_primary_plus_physical_state"))
+        with self.assertRaises(ValueError):
+            raw.windowed_profile_id(45)
+
+    def test_windowed_columns_truncate_raw_channels_only(self):
+        for window_days in raw.WINDOW_DAYS_OPTIONS:
+            columns = raw.windowed_feature_columns(window_days, include_horizon=False)
+            for channel in raw.RAW_CHANNELS:
+                self.assertIn(raw.lag_feature_name(channel, 0), columns)
+                self.assertIn(raw.lag_feature_name(channel, window_days - 1), columns)
+                self.assertNotIn(raw.lag_feature_name(channel, window_days), columns)
+            for channel in raw.PHYSICAL_CHANNELS + raw.STATE_CHANNELS:
+                self.assertNotIn(raw.lag_feature_name(channel, 0), columns)
+            for name in raw.PHYSICAL_STATE_SCALARS:
+                self.assertIn(name, columns)
+            self.assertIn("target_day_sin", columns)
+            self.assertNotIn("horizon_days", columns)
+        with_horizon = raw.windowed_feature_columns(30, include_horizon=True)
+        self.assertIn("horizon_days", with_horizon)
+
+    def test_feature_set_contract_includes_windowed_profiles(self):
+        for temporal_contract_id in (raw.FIXED_CONTRACT_ID, raw.LAG_CONTRACT_ID):
+            profiles = raw.feature_set_contract(temporal_contract_id)["profiles"]
+            for window_days in raw.WINDOW_DAYS_OPTIONS:
+                profile_id = raw.windowed_profile_id(window_days)
+                self.assertIn(profile_id, profiles)
+                self.assertEqual(
+                    profiles[profile_id],
+                    raw.windowed_feature_columns(
+                        window_days,
+                        include_horizon=temporal_contract_id == raw.LAG_CONTRACT_ID,
+                    ),
+                )
+
+    def test_windowed_features_reuse_full_365_day_build(self):
+        """Balance/SMI scalars stay shared: built from the same 365-day
+        series regardless of which window profile will later select columns."""
+        features = raw.build_raw_features(
+            self.series(),
+            target_date=date(2026, 1, 1),
+            horizon_days=7,
+            temporal_contract_id=raw.FIXED_CONTRACT_ID,
+        )
+        windowed_columns = raw.windowed_feature_columns(30, include_horizon=False)
+        for column in windowed_columns:
+            self.assertIn(column, features)
+
 
 if __name__ == "__main__":
     unittest.main()

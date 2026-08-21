@@ -151,7 +151,7 @@ def predict_bundle(
     )
     preprocessor = bundle.get("preprocessor")
     design = row
-    if artifact_ref.version_id == "biology_v6_smooth_hierarchical":
+    if artifact_ref.version_id in {"biology_v6_smooth_hierarchical", smooth.WINDOWED_VERSION_ID}:
         if not isinstance(preprocessor, smooth.SmoothLagPreprocessor):
             raise ValueError("V6 runtime artifact has no smooth preprocessor")
         design = preprocessor.transform(row)

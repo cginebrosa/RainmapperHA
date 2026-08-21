@@ -40,6 +40,8 @@ class MushroomMLModelCatalogTests(TestCase):
                 "biology_v4",
                 "biology_v5_raw_weather_discovery",
                 "biology_v6_smooth_hierarchical",
+                "biology_v5_windowed_raw_weather",
+                "biology_v6_windowed_smooth_hierarchical",
             },
         )
         self.assertTrue(all(row["catalog_visible"] for row in entries))
@@ -53,8 +55,8 @@ class MushroomMLModelCatalogTests(TestCase):
                 "altitude_v2",
                 "biology_v3",
                 "biology_v4",
-                "biology_v5_raw_weather_discovery",
-                "biology_v6_smooth_hierarchical",
+                "biology_v5_windowed_raw_weather",
+                "biology_v6_windowed_smooth_hierarchical",
             },
         )
         v3_physical = next(

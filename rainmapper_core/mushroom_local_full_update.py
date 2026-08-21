@@ -263,7 +263,7 @@ def _stage_ml_result(
     )
 
 
-def _eligible_training_species(features_path: Path) -> list[str]:
+def eligible_training_species(features_path: Path) -> list[str]:
     payload = json.loads(features_path.read_text(encoding="utf-8"))
     rows = payload.get("rows") if isinstance(payload, dict) else []
     counts: Counter[str] = Counter()
@@ -360,7 +360,7 @@ def run_local_benchmark(
     """Run and archive a manual V2--V6 benchmark without changing Predictor runtime."""
     _validate_isolated_work_root(paths)
     feature_path = paths.mushroom_data_dir / "mushroom_observation_features_v0.json"
-    species_ids = _eligible_training_species(feature_path)
+    species_ids = eligible_training_species(feature_path)
     if not species_ids:
         raise ValueError("No species meet the minimum row count for local benchmark training")
     registry = mushroom_ml_version_registry.load_registry(paths.registry)
@@ -728,7 +728,7 @@ def run_local_full_update(
         )
         training_input = operation_root / "training-features.json"
         _write_rebased_features(candidate_features, training_input, paths)
-        trained_species = _eligible_training_species(training_input)
+        trained_species = eligible_training_species(training_input)
         if not trained_species:
             raise ValueError("No species meet the minimum row count for local ML training")
         training_spec = operation_root / "ml-job-spec.json"

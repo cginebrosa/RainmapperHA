@@ -17,6 +17,7 @@ from rainmapper_core import mushroom_ml_biology_v4 as biology_v4
 from rainmapper_core import mushroom_ml_biology_v3_physical as biology_v3_physical
 from rainmapper_core import mushroom_ml_error_analysis as error_analysis
 from rainmapper_core import mushroom_ml_holdout as holdout
+from rainmapper_core import mushroom_ml_raw_weather as raw_weather
 from rainmapper_core.mushroom_ml_biology_v3_evaluation import (
     build_observation_altitude_v2_common_idw_benchmark,
     chronological_group_split,
@@ -92,7 +93,9 @@ def main() -> int:
         or "biology_v3/common_idw_plus_physical_state" in selected
     )
     needs_v5 = not selected or any(
-        key.startswith("biology_v5_raw_weather_discovery/") for key in selected
+        key.startswith("biology_v5_raw_weather_discovery/")
+        or key.startswith(f"{raw_weather.WINDOWED_VERSION_ID}/")
+        for key in selected
     )
     sources = {
         "fixed": {
@@ -146,6 +149,11 @@ def main() -> int:
             ):
                 available_datasets[f"biology_v5|{profile_id}"] = (
                     source["v5"], "biology_v5_raw_weather_discovery", profile_id, "v5"
+                )
+            for window_days in raw_weather.WINDOW_DAYS_OPTIONS:
+                profile_id = raw_weather.windowed_profile_id(window_days)
+                available_datasets[f"biology_v5_windowed|{profile_id}"] = (
+                    source["v5"], raw_weather.WINDOWED_VERSION_ID, profile_id, "v5"
                 )
         datasets = {
             name: dataset

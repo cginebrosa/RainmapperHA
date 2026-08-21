@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -266,6 +267,29 @@ def load_report(models_root: Path, batch_id: str) -> dict[str, Any]:
         json.loads(report_path.read_text(encoding="utf-8")),
         root=root,
     )
+
+
+def delete_report(models_root: Path, batch_id: str) -> None:
+    """Permanently remove one archived benchmark batch from disk.
+
+    Scientific benchmarks are deliberately not covered by the registry's
+    permanent-retention policy (that policy applies to registered version
+    generations, not to raw benchmark batches on disk): the user wants a
+    living, prunable history so only interesting runs are kept.
+    """
+    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}", str(batch_id or "")):
+        raise ValueError("Benchmark batch identity is invalid")
+    archive_root = Path(models_root).resolve() / "benchmarks"
+    root = archive_root / batch_id
+    if root.resolve().parent != archive_root.resolve() or not root.is_dir():
+        raise ValueError(f"Archived benchmark batch not found: {batch_id}")
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        raise ValueError(f"Archived benchmark batch has no manifest: {batch_id}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("job_purpose") != "benchmark":
+        raise ValueError("Only archived scientific benchmarks can be deleted this way")
+    shutil.rmtree(root)
 
 
 def list_reports(models_root: Path) -> list[dict[str, Any]]:

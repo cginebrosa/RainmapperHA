@@ -14,6 +14,7 @@ from rainmapper_core.mushroom_ml_raw_weather import (
     DAILY_CHANNELS,
     LOOKBACK_DAYS,
     PHYSICAL_STATE_SCALARS,
+    WINDOW_DAYS_OPTIONS,
 )
 
 
@@ -21,11 +22,27 @@ N_BASIS = 10
 SMOOTH_FEATURE_CONTRACT_ID = (
     "raw365_physical_state_loglag_bspline10_common_idw_v2"
 )
+WINDOWED_VERSION_ID = "biology_v6_windowed_smooth_hierarchical"
 
 
-def smooth_lag_basis(*, n_basis: int = N_BASIS, log_lag: bool = True) -> np.ndarray:
+def windowed_profile_id(window_days: int) -> str:
+    if window_days not in WINDOW_DAYS_OPTIONS:
+        raise ValueError(f"window_days must be one of {WINDOW_DAYS_OPTIONS}")
+    return f"smooth_window_{window_days}d_plus_physical_state"
+
+
+def window_days_from_profile_id(profile_id: str) -> int | None:
+    for window_days in WINDOW_DAYS_OPTIONS:
+        if profile_id == windowed_profile_id(window_days):
+            return window_days
+    return None
+
+
+def smooth_lag_basis(
+    *, n_basis: int = N_BASIS, log_lag: bool = True, window_days: int = LOOKBACK_DAYS
+) -> np.ndarray:
     """Return normalized causal B-spline weights, lag rows × basis columns."""
-    lag = np.arange(LOOKBACK_DAYS, dtype=float)
+    lag = np.arange(window_days, dtype=float)
     # A seven-day offset prevents the boundary spline from collapsing onto
     # lag_000 while retaining substantially finer resolution near the cutoff.
     coordinate = (np.log1p(lag + 7.0) - np.log(8.0)) if log_lag else lag
@@ -41,12 +58,16 @@ def smooth_lag_basis(*, n_basis: int = N_BASIS, log_lag: bool = True) -> np.ndar
 
 
 def raw_columns(
-    *, include_phenology: bool = True, include_horizon: bool = False
+    *,
+    include_phenology: bool = True,
+    include_horizon: bool = False,
+    channels: tuple[str, ...] = DAILY_CHANNELS,
+    window_days: int = LOOKBACK_DAYS,
 ) -> list[str]:
     columns = [
         f"{channel}__lag_{lag:03d}"
-        for channel in DAILY_CHANNELS
-        for lag in range(LOOKBACK_DAYS)
+        for channel in channels
+        for lag in range(window_days)
     ] + list(PHYSICAL_STATE_SCALARS)
     if include_phenology:
         columns.extend(("target_day_sin", "target_day_cos"))
@@ -61,21 +82,25 @@ class SmoothLagPreprocessor:
 
     n_basis: int = N_BASIS
     log_lag: bool = True
+    channels: tuple[str, ...] = DAILY_CHANNELS
+    window_days: int = LOOKBACK_DAYS
 
     def fit(self, X: np.ndarray) -> "SmoothLagPreprocessor":
         self.imputer_ = SimpleImputer(strategy="median", keep_empty_features=True)
         daily = self.imputer_.fit_transform(np.asarray(X, dtype=float))
-        self.basis_ = smooth_lag_basis(n_basis=self.n_basis, log_lag=self.log_lag)
+        self.basis_ = smooth_lag_basis(
+            n_basis=self.n_basis, log_lag=self.log_lag, window_days=self.window_days
+        )
         projected = self._project(daily)
         self.scaler_ = StandardScaler().fit(projected)
         return self
 
     def _project(self, daily: np.ndarray) -> np.ndarray:
         blocks = []
-        for channel_index in range(len(DAILY_CHANNELS)):
-            start = channel_index * LOOKBACK_DAYS
-            blocks.append(daily[:, start : start + LOOKBACK_DAYS] @ self.basis_)
-        scalar_start = len(DAILY_CHANNELS) * LOOKBACK_DAYS
+        for channel_index in range(len(self.channels)):
+            start = channel_index * self.window_days
+            blocks.append(daily[:, start : start + self.window_days] @ self.basis_)
+        scalar_start = len(self.channels) * self.window_days
         if daily.shape[1] > scalar_start:
             blocks.append(daily[:, scalar_start:])
         return np.column_stack(blocks)
@@ -87,13 +112,13 @@ class SmoothLagPreprocessor:
     def feature_names(self) -> list[str]:
         names = [
             f"{channel}__smooth_basis_{index:02d}"
-            for channel in DAILY_CHANNELS
+            for channel in self.channels
             for index in range(self.n_basis)
         ]
         scalar_count = max(
             0,
             int(self.imputer_.n_features_in_)
-            - len(DAILY_CHANNELS) * LOOKBACK_DAYS,
+            - len(self.channels) * self.window_days,
         )
         scalar_names = list(PHYSICAL_STATE_SCALARS) + [
             "target_day_sin",

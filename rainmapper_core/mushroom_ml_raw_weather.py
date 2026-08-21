@@ -13,6 +13,9 @@ VERSION_ID = "biology_v5_raw_weather_discovery"
 RAW_WEATHER_CONTRACT_ID = "area_daily_raw365_common_idw_physical_state_v2"
 FIXED_CONTRACT_ID = "fixed_gap_7d_biology_v5_raw365_v2"
 LAG_CONTRACT_ID = "lag_event_biology_v5_raw365_v2"
+
+WINDOWED_VERSION_ID = "biology_v5_windowed_raw_weather"
+WINDOW_DAYS_OPTIONS = (30, 60, 90)
 RAW_CHANNELS = (
     "rain_mm",
     "temp_min_c",
@@ -66,6 +69,35 @@ def feature_columns(
         columns.extend(PHYSICAL_STATE_SCALARS)
     if include_phenology:
         columns.extend(("target_day_sin", "target_day_cos"))
+    return columns
+
+
+def windowed_profile_id(window_days: int) -> str:
+    if window_days not in WINDOW_DAYS_OPTIONS:
+        raise ValueError(f"window_days must be one of {WINDOW_DAYS_OPTIONS}")
+    return f"raw_window_{window_days}d_plus_physical_state"
+
+
+def window_days_from_profile_id(profile_id: str) -> int | None:
+    for window_days in WINDOW_DAYS_OPTIONS:
+        if profile_id == windowed_profile_id(window_days):
+            return window_days
+    return None
+
+
+def windowed_feature_columns(window_days: int, *, include_horizon: bool) -> list[str]:
+    """Raw weather truncated to the last `window_days`, plus the shared
+    (365-day-warmed) physical-state scalars and phenology — never the full
+    365 daily physical/state channels."""
+    columns = [
+        lag_feature_name(channel, lag)
+        for channel in RAW_CHANNELS
+        for lag in range(window_days)
+    ]
+    columns.extend(PHYSICAL_STATE_SCALARS)
+    columns.extend(("target_day_sin", "target_day_cos"))
+    if include_horizon:
+        columns.append("horizon_days")
     return columns
 
 
@@ -195,13 +227,20 @@ def feature_set_contract(temporal_contract_id: str) -> dict[str, Any]:
     physical_state_no_calendar = feature_columns(
         include_physical=True, include_state=True, include_phenology=False
     )
-    if temporal_contract_id == LAG_CONTRACT_ID:
+    include_horizon = temporal_contract_id == LAG_CONTRACT_ID
+    if include_horizon:
         raw.append("horizon_days")
         physical.append("horizon_days")
         physical_state.append("horizon_days")
         raw_no_calendar.append("horizon_days")
         physical_no_calendar.append("horizon_days")
         physical_state_no_calendar.append("horizon_days")
+    windowed_profiles = {
+        windowed_profile_id(window_days): windowed_feature_columns(
+            window_days, include_horizon=include_horizon
+        )
+        for window_days in WINDOW_DAYS_OPTIONS
+    }
     return {
         "id": temporal_contract_id,
         "description": (
@@ -217,6 +256,7 @@ def feature_set_contract(temporal_contract_id: str) -> dict[str, Any]:
             "raw_primary_plus_physical": physical,
             "raw_primary_plus_physical_state_no_calendar": physical_state_no_calendar,
             "raw_primary_plus_physical_state": physical_state,
+            **windowed_profiles,
         },
         "raw_channels": list(RAW_CHANNELS),
         "physical_channels": list(PHYSICAL_CHANNELS),

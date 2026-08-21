@@ -40,10 +40,21 @@ Referencia operativa completa para publicar una nueva versión de la imagen HA.
    Si no han cambiado JS/CSS, el smoke test igualmente verifica que los
    cache-busters coincidan con la versión — actualizar siempre con el bump.
 
-6. **Segundo smoke test** para verificar que el bump y los cache-busters son correctos:
+6. **Verificar el bump y los cache-busters.** De las comprobaciones del smoke
+   test, solo `check_versions` y `check_viewer_asset_versions` dependen de lo
+   que se acaba de tocar (versión en los 3 sitios, cache-busters de los dos
+   visores); el resto (sintaxis, suite completa de tests, fixtures) no
+   depende de esos ficheros y ya se validó en el paso 2. El script no admite
+   ejecutar un subconjunto de comprobaciones, así que basta con verificar a
+   mano:
    ```bash
-   PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh
+   grep -n 'version:' rainmapper-app/config.yaml
+   grep -n 'io.hass.version\|RAINMAPPER_APP_VERSION' rainmapper-app/Dockerfile
+   grep -n 'v=0\.2\.' rainmapper_core/viewers/maplibre-viewer/index.html \
+     rainmapper_core/viewers/leaflet-viewer/index.html
    ```
+   Repetir el smoke test completo aquí solo si además se ha tocado código
+   entre el paso 2 y el bump (poco habitual en este flujo).
 
 7. **Publicar imagen multi-arch**
    ```bash

@@ -41,7 +41,10 @@
               "weather_lookback_days": 90,
               "predictive_window_days": 90,
               "include_physical_state": false,
-              "prepared_input_ids": ["v3_fixed", "v3_lag"]
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag"
+              ]
             },
             "comparison_eligible_when_trained": true,
             "operational_eligible": true
@@ -102,7 +105,10 @@
               "weather_lookback_days": 90,
               "predictive_window_days": 90,
               "include_physical_state": false,
-              "prepared_input_ids": ["v3_fixed", "v3_lag"]
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag"
+              ]
             },
             "comparison_eligible_when_trained": true,
             "operational_eligible": true
@@ -269,7 +275,7 @@
     {
       "version_id": "biology_v5_raw_weather_discovery",
       "display_name": "Biology V5 Raw Weather Discovery",
-      "status": "candidate",
+      "status": "reference",
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v5_raw365_v2",
         "lag_event_biology_v5_raw365_v2"
@@ -278,7 +284,7 @@
         "area_daily_raw365_common_idw_physical_state_v2"
       ],
       "contract_document": "docs/mushrooms/mushroom-ml-biology-v5-raw-weather-discovery-spec-es.md",
-      "benchmark_available": true,
+      "benchmark_available": false,
       "operational_prediction_available": true,
       "catalog_visible": true,
       "runtime": {
@@ -298,6 +304,197 @@
             "input_requirements": {
               "weather_lookback_days": 365,
               "predictive_window_days": 365,
+              "include_physical_state": true,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v5_fixed",
+                "v5_lag"
+              ]
+            },
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": false
+          }
+        ]
+      },
+      "known_sites_identity_contract": {
+        "id": "area_idw_weather_location_altitude_soilgrids_v2",
+        "collections": [
+          {
+            "path": "micro_areas",
+            "id_field": "micro_area_id",
+            "group_field": "area_id",
+            "fields": [
+              "micro_area_id",
+              "area_id",
+              "archived",
+              "representative_location.lat",
+              "representative_location.lon",
+              "geometry",
+              "derived_context.gis_dem.altitude_mean_m",
+              "derived_context.soilgrids_water.context_hash"
+            ]
+          }
+        ]
+      },
+      "generations": []
+    },
+    {
+      "version_id": "biology_v6_smooth_hierarchical",
+      "display_name": "Biology V6 Smooth Hierarchical",
+      "status": "reference",
+      "temporal_contract_ids": [
+        "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
+        "lag_event_biology_v6_smooth_hierarchical_v2"
+      ],
+      "derived_feature_contract_ids": [
+        "raw365_physical_state_loglag_bspline10_common_idw_v2",
+        "cross_species_partial_pooling_logistic_v1"
+      ],
+      "contract_document": "docs/mushrooms/mushroom-ml-biology-v6-smooth-hierarchical-spec-es.md",
+      "benchmark_available": false,
+      "operational_prediction_available": true,
+      "catalog_visible": true,
+      "runtime": {
+        "adapter_id": "biology_v6_smooth_runtime_v1",
+        "profiles": [
+          {
+            "profile_id": "smooth_weather_physical_state",
+            "display_name": "Biology V6 smooth IDW weather, balance and soil state",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
+              "lag_event_biology_v6_smooth_hierarchical_v2"
+            ],
+            "estimator_ids": [
+              "smooth_species_logistic_v1",
+              "smooth_shared_logistic_v1",
+              "smooth_partial_pooling_logistic_v1"
+            ],
+            "estimator_scopes": {
+              "smooth_species_logistic_v1": "species",
+              "smooth_shared_logistic_v1": "shared",
+              "smooth_partial_pooling_logistic_v1": "shared"
+            },
+            "input_requirements": {
+              "weather_lookback_days": 365,
+              "predictive_window_days": 365,
+              "include_physical_state": true,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v5_fixed",
+                "v5_lag"
+              ]
+            },
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": false
+          }
+        ]
+      },
+      "known_sites_identity_contract": {
+        "id": "area_idw_weather_location_altitude_soilgrids_v2",
+        "collections": [
+          {
+            "path": "micro_areas",
+            "id_field": "micro_area_id",
+            "group_field": "area_id",
+            "fields": [
+              "micro_area_id",
+              "area_id",
+              "archived",
+              "representative_location.lat",
+              "representative_location.lon",
+              "geometry",
+              "derived_context.gis_dem.altitude_mean_m",
+              "derived_context.soilgrids_water.context_hash"
+            ]
+          }
+        ]
+      },
+      "generations": []
+    },
+    {
+      "version_id": "biology_v5_windowed_raw_weather",
+      "display_name": "Biology V5 Windowed Raw Weather Discovery",
+      "status": "candidate",
+      "temporal_contract_ids": [
+        "fixed_gap_7d_biology_v5_raw365_v2",
+        "lag_event_biology_v5_raw365_v2"
+      ],
+      "derived_feature_contract_ids": [
+        "area_daily_raw365_common_idw_physical_state_v2"
+      ],
+      "contract_document": "docs/mushrooms/mushroom-ml-biology-v5-raw-weather-discovery-spec-es.md",
+      "benchmark_available": true,
+      "operational_prediction_available": true,
+      "catalog_visible": true,
+      "runtime": {
+        "adapter_id": "biology_v5_raw365_runtime_v1",
+        "profiles": [
+          {
+            "profile_id": "raw_window_30d_plus_physical_state",
+            "display_name": "Biology V5 windowed 30d raw weather, shared balance and soil state",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v5_raw365_v2",
+              "lag_event_biology_v5_raw365_v2"
+            ],
+            "estimator_ids": [
+              "elastic_net_logistic_raw365_v1",
+              "sparse_group_logistic_raw365_v1"
+            ],
+            "input_requirements": {
+              "weather_lookback_days": 365,
+              "predictive_window_days": 30,
+              "include_physical_state": true,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v5_fixed",
+                "v5_lag"
+              ]
+            },
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": true
+          },
+          {
+            "profile_id": "raw_window_60d_plus_physical_state",
+            "display_name": "Biology V5 windowed 60d raw weather, shared balance and soil state",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v5_raw365_v2",
+              "lag_event_biology_v5_raw365_v2"
+            ],
+            "estimator_ids": [
+              "elastic_net_logistic_raw365_v1",
+              "sparse_group_logistic_raw365_v1"
+            ],
+            "input_requirements": {
+              "weather_lookback_days": 365,
+              "predictive_window_days": 60,
+              "include_physical_state": true,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v5_fixed",
+                "v5_lag"
+              ]
+            },
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": true
+          },
+          {
+            "profile_id": "raw_window_90d_plus_physical_state",
+            "display_name": "Biology V5 windowed 90d raw weather, shared balance and soil state",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v5_raw365_v2",
+              "lag_event_biology_v5_raw365_v2"
+            ],
+            "estimator_ids": [
+              "elastic_net_logistic_raw365_v1",
+              "sparse_group_logistic_raw365_v1"
+            ],
+            "input_requirements": {
+              "weather_lookback_days": 365,
+              "predictive_window_days": 90,
               "include_physical_state": true,
               "prepared_input_ids": [
                 "v3_fixed",
@@ -334,8 +531,8 @@
       "generations": []
     },
     {
-      "version_id": "biology_v6_smooth_hierarchical",
-      "display_name": "Biology V6 Smooth Hierarchical",
+      "version_id": "biology_v6_windowed_smooth_hierarchical",
+      "display_name": "Biology V6 Windowed Smooth Hierarchical",
       "status": "candidate",
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
@@ -353,8 +550,8 @@
         "adapter_id": "biology_v6_smooth_runtime_v1",
         "profiles": [
           {
-            "profile_id": "smooth_weather_physical_state",
-            "display_name": "Biology V6 smooth IDW weather, balance and soil state",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "display_name": "Biology V6 windowed 30d smooth weather, shared balance and soil state",
             "temporal_contract_ids": [
               "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
               "lag_event_biology_v6_smooth_hierarchical_v2"
@@ -371,7 +568,69 @@
             },
             "input_requirements": {
               "weather_lookback_days": 365,
-              "predictive_window_days": 365,
+              "predictive_window_days": 30,
+              "include_physical_state": true,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v5_fixed",
+                "v5_lag"
+              ]
+            },
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": true
+          },
+          {
+            "profile_id": "smooth_window_60d_plus_physical_state",
+            "display_name": "Biology V6 windowed 60d smooth weather, shared balance and soil state",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
+              "lag_event_biology_v6_smooth_hierarchical_v2"
+            ],
+            "estimator_ids": [
+              "smooth_species_logistic_v1",
+              "smooth_shared_logistic_v1",
+              "smooth_partial_pooling_logistic_v1"
+            ],
+            "estimator_scopes": {
+              "smooth_species_logistic_v1": "species",
+              "smooth_shared_logistic_v1": "shared",
+              "smooth_partial_pooling_logistic_v1": "shared"
+            },
+            "input_requirements": {
+              "weather_lookback_days": 365,
+              "predictive_window_days": 60,
+              "include_physical_state": true,
+              "prepared_input_ids": [
+                "v3_fixed",
+                "v3_lag",
+                "v5_fixed",
+                "v5_lag"
+              ]
+            },
+            "comparison_eligible_when_trained": true,
+            "operational_eligible": true
+          },
+          {
+            "profile_id": "smooth_window_90d_plus_physical_state",
+            "display_name": "Biology V6 windowed 90d smooth weather, shared balance and soil state",
+            "temporal_contract_ids": [
+              "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
+              "lag_event_biology_v6_smooth_hierarchical_v2"
+            ],
+            "estimator_ids": [
+              "smooth_species_logistic_v1",
+              "smooth_shared_logistic_v1",
+              "smooth_partial_pooling_logistic_v1"
+            ],
+            "estimator_scopes": {
+              "smooth_species_logistic_v1": "species",
+              "smooth_shared_logistic_v1": "shared",
+              "smooth_partial_pooling_logistic_v1": "shared"
+            },
+            "input_requirements": {
+              "weather_lookback_days": 365,
+              "predictive_window_days": 90,
               "include_physical_state": true,
               "prepared_input_ids": [
                 "v3_fixed",

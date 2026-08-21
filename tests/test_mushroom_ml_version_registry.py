@@ -26,8 +26,10 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "altitude_v2": "active",
                 "biology_v3": "candidate",
                 "biology_v4": "candidate",
-                "biology_v5_raw_weather_discovery": "candidate",
-                "biology_v6_smooth_hierarchical": "candidate",
+                "biology_v5_raw_weather_discovery": "reference",
+                "biology_v6_smooth_hierarchical": "reference",
+                "biology_v5_windowed_raw_weather": "candidate",
+                "biology_v6_windowed_smooth_hierarchical": "candidate",
             },
         )
         self.assertEqual(
@@ -61,8 +63,12 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "biology_v3/common_idw_plus_physical_state",
                 "biology_v4/extended_weather",
                 "biology_v4/climatic_balance",
-                "biology_v5_raw_weather_discovery/raw_primary_plus_physical_state",
-                "biology_v6_smooth_hierarchical/smooth_weather_physical_state",
+                "biology_v5_windowed_raw_weather/raw_window_30d_plus_physical_state",
+                "biology_v5_windowed_raw_weather/raw_window_60d_plus_physical_state",
+                "biology_v5_windowed_raw_weather/raw_window_90d_plus_physical_state",
+                "biology_v6_windowed_smooth_hierarchical/smooth_window_30d_plus_physical_state",
+                "biology_v6_windowed_smooth_hierarchical/smooth_window_60d_plus_physical_state",
+                "biology_v6_windowed_smooth_hierarchical/smooth_window_90d_plus_physical_state",
             ],
         )
 
@@ -74,12 +80,19 @@ class MushroomMLVersionRegistryTests(TestCase):
         self.assertIn("altitude_v2/common_idw", keys)
         self.assertIn("biology_v3/common_idw_plus_physical_state", keys)
         self.assertIn(
+            "biology_v6_windowed_smooth_hierarchical/smooth_window_30d_plus_physical_state",
+            keys,
+        )
+        self.assertNotIn(
             "biology_v6_smooth_hierarchical/smooth_weather_physical_state", keys
+        )
+        self.assertNotIn(
+            "biology_v5_raw_weather_discovery/raw_primary_plus_physical_state", keys
         )
         selected = registry.resolve_benchmark_profiles(
             payload,
             [
-                "biology_v6_smooth_hierarchical/smooth_weather_physical_state",
+                "biology_v6_windowed_smooth_hierarchical/smooth_window_30d_plus_physical_state",
                 "biology_v3/core",
             ],
         )
@@ -87,7 +100,7 @@ class MushroomMLVersionRegistryTests(TestCase):
             [row["profile_key"] for row in selected],
             [
                 "biology_v3/core",
-                "biology_v6_smooth_hierarchical/smooth_weather_physical_state",
+                "biology_v6_windowed_smooth_hierarchical/smooth_window_30d_plus_physical_state",
             ],
         )
         with self.assertRaisesRegex(ValueError, "Unknown benchmark profile"):
@@ -97,8 +110,8 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "altitude_v2",
                 "biology_v3",
                 "biology_v4",
-                "biology_v5_raw_weather_discovery",
-                "biology_v6_smooth_hierarchical",
+                "biology_v5_windowed_raw_weather",
+                "biology_v6_windowed_smooth_hierarchical",
             ],
             registry.training_version_ids(payload, job_purpose="benchmark"),
         )
@@ -135,8 +148,10 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "altitude_v2": "reference",
                 "biology_v3": "active",
                 "biology_v4": "candidate",
-                "biology_v5_raw_weather_discovery": "candidate",
-                "biology_v6_smooth_hierarchical": "candidate",
+                "biology_v5_raw_weather_discovery": "reference",
+                "biology_v6_smooth_hierarchical": "reference",
+                "biology_v5_windowed_raw_weather": "candidate",
+                "biology_v6_windowed_smooth_hierarchical": "candidate",
             },
         )
         self.assertEqual(len(promoted["versions"]), len(payload["versions"]))
@@ -437,8 +452,8 @@ class MushroomMLVersionRegistryTests(TestCase):
         for row in persistent["versions"]:
             if row["version_id"] in {
                 "biology_v4",
-                "biology_v5_raw_weather_discovery",
-                "biology_v6_smooth_hierarchical",
+                "biology_v5_windowed_raw_weather",
+                "biology_v6_windowed_smooth_hierarchical",
             }:
                 row["status"] = "proposed"
                 row["operational_prediction_available"] = False
@@ -452,8 +467,8 @@ class MushroomMLVersionRegistryTests(TestCase):
         }
         for version_id in (
             "biology_v4",
-            "biology_v5_raw_weather_discovery",
-            "biology_v6_smooth_hierarchical",
+            "biology_v5_windowed_raw_weather",
+            "biology_v6_windowed_smooth_hierarchical",
         ):
             self.assertEqual(migrated[version_id]["status"], "candidate")
             self.assertTrue(
