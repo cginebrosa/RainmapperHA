@@ -495,6 +495,168 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "biology_v3",
             )
 
+    def test_seed_migrates_schema_v1_and_preserves_every_generation(self) -> None:
+        packaged = registry.load_registry(DEFAULT_REGISTRY)
+        legacy = json.loads(json.dumps(packaged))
+        legacy["schema_version"] = "1.0"
+        legacy["active_version_id"] = "biology_v4"
+        legacy["active_operational_target"] = {
+            "version_id": "biology_v4",
+            "generation_id": "installed-v4",
+        }
+        legacy["activation_history"] = [{"legacy": "preserved-in-backup"}]
+        legacy.pop("preferred_version_id")
+        for row in legacy["versions"]:
+            row.pop("installed_generation_id")
+            row["status"] = (
+                "active" if row["version_id"] == "biology_v4" else row["status"]
+            )
+        v3 = next(
+            row for row in legacy["versions"] if row["version_id"] == "biology_v3"
+        )
+        v3["generations"] = [
+            {
+                "generation_id": "benchmark-v3",
+                "version_id": "biology_v3",
+                "kind": "benchmark",
+                "retention": "permanent",
+                "promotion_gate_status": "not_evaluated",
+            }
+        ]
+        v4 = next(
+            row for row in legacy["versions"] if row["version_id"] == "biology_v4"
+        )
+        v4["generations"] = [
+            {
+                "generation_id": "installed-v4",
+                "version_id": "biology_v4",
+                "kind": "trained_model",
+                "retention": "permanent",
+                "promotion_gate_status": "passed",
+                "profile_ids": ["extended_weather", "climatic_balance"],
+                "batch_id": "batch-v4",
+            }
+        ]
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            destination = root / "mushroom_ml_version_registry.json"
+            original = json.dumps(legacy, indent=2) + "\n"
+            destination.write_text(original, encoding="utf-8")
+
+            registry.ensure_seeded(
+                default_path=DEFAULT_REGISTRY,
+                persistent_path=destination,
+            )
+
+            migrated = registry.load_registry(destination)
+            rows = {row["version_id"]: row for row in migrated["versions"]}
+            self.assertEqual(migrated["schema_version"], "2.0")
+            self.assertEqual(migrated["preferred_version_id"], "biology_v4")
+            self.assertEqual(
+                rows["biology_v4"]["installed_generation_id"], "installed-v4"
+            )
+            self.assertIsNone(rows["biology_v3"]["installed_generation_id"])
+            self.assertEqual(
+                [
+                    row["generation_id"]
+                    for row in rows["biology_v3"]["generations"]
+                ],
+                ["benchmark-v3"],
+            )
+            self.assertNotIn("active_version_id", migrated)
+            self.assertNotIn("activation_history", migrated)
+            backup = root / "mushroom_ml_version_registry.schema-1.0.backup.json"
+            self.assertEqual(backup.read_text(encoding="utf-8"), original)
+
+            registry.ensure_seeded(
+                default_path=DEFAULT_REGISTRY,
+                persistent_path=destination,
+            )
+            self.assertEqual(registry.load_registry(destination), migrated)
+            self.assertEqual(backup.read_text(encoding="utf-8"), original)
+
+    def test_schema_v1_migration_fails_without_changing_persistent_file(self) -> None:
+        packaged = registry.load_registry(DEFAULT_REGISTRY)
+        legacy = json.loads(json.dumps(packaged))
+        legacy["schema_version"] = "1.0"
+        legacy["active_version_id"] = "biology_v4"
+        legacy["active_operational_target"] = {
+            "version_id": "biology_v4",
+            "generation_id": "missing-generation",
+        }
+        legacy.pop("preferred_version_id")
+        for row in legacy["versions"]:
+            row.pop("installed_generation_id")
+            row["status"] = (
+                "active" if row["version_id"] == "biology_v4" else row["status"]
+            )
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            destination = root / "mushroom_ml_version_registry.json"
+            original = json.dumps(legacy, indent=2) + "\n"
+            destination.write_text(original, encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "not registered"):
+                registry.ensure_seeded(
+                    default_path=DEFAULT_REGISTRY,
+                    persistent_path=destination,
+                )
+
+            self.assertEqual(destination.read_text(encoding="utf-8"), original)
+            self.assertFalse(
+                (
+                    root
+                    / "mushroom_ml_version_registry.schema-1.0.backup.json"
+                ).exists()
+            )
+
+    def test_schema_v1_migration_accepts_legacy_registry_without_target(self) -> None:
+        packaged = registry.load_registry(DEFAULT_REGISTRY)
+        legacy = json.loads(json.dumps(packaged))
+        legacy["schema_version"] = "1.0"
+        legacy["active_version_id"] = "altitude_v2"
+        legacy.pop("active_operational_target", None)
+        legacy.pop("preferred_version_id")
+        legacy["versions"] = legacy["versions"][:3]
+        for row in legacy["versions"]:
+            row.pop("installed_generation_id")
+            row["status"] = (
+                "active" if row["version_id"] == "altitude_v2" else row["status"]
+            )
+        legacy["versions"][0]["generations"] = [
+            {
+                "generation_id": "historical-v2",
+                "version_id": "altitude_v2",
+                "kind": "trained_model",
+                "retention": "permanent",
+                "promotion_gate_status": "passed",
+            }
+        ]
+
+        with TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "mushroom_ml_version_registry.json"
+            destination.write_text(json.dumps(legacy), encoding="utf-8")
+
+            registry.ensure_seeded(
+                default_path=DEFAULT_REGISTRY,
+                persistent_path=destination,
+            )
+
+            migrated = registry.load_registry(destination)
+            v2 = next(
+                row
+                for row in migrated["versions"]
+                if row["version_id"] == "altitude_v2"
+            )
+            self.assertIsNone(migrated["preferred_version_id"])
+            self.assertIsNone(v2["installed_generation_id"])
+            self.assertEqual(
+                [row["generation_id"] for row in v2["generations"]],
+                ["historical-v2"],
+            )
+
     def test_seed_migrates_packaged_contracts_and_preserves_lifecycle(self) -> None:
         packaged = registry.load_registry(DEFAULT_REGISTRY)
         persistent = json.loads(json.dumps(packaged))

@@ -15,6 +15,7 @@ from rainmapper_core import mushroom_paths
 
 
 SCHEMA_VERSION = "2.0"
+LEGACY_SCHEMA_VERSION = "1.0"
 REGISTRY_KIND = "mushroom_ml_version_registry"
 VERSION_STATUSES = frozenset({"candidate", "reference", "proposed"})
 GENERATION_KINDS = frozenset({"benchmark", "trained_model"})
@@ -216,12 +217,163 @@ def validate_registry(payload: object) -> dict[str, Any]:
     return normalized
 
 
-def load_registry(path: Path) -> dict[str, Any]:
+def _read_registry_payload(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot load ML version registry: {exc}") from exc
-    return validate_registry(payload)
+    if not isinstance(payload, dict):
+        raise ValueError("ML version registry must be an object.")
+    return payload
+
+
+def load_registry(path: Path) -> dict[str, Any]:
+    return validate_registry(_read_registry_payload(path))
+
+
+def _migrate_legacy_registry_v1(
+    payload: object,
+    packaged: object,
+) -> dict[str, Any]:
+    """Convert the single-active-version registry without guessing installations."""
+    if not isinstance(payload, dict):
+        raise ValueError("ML version registry must be an object.")
+    if payload.get("schema_version") != LEGACY_SCHEMA_VERSION:
+        raise ValueError("Unsupported ML version registry schema.")
+    if payload.get("kind") != REGISTRY_KIND:
+        raise ValueError("Unsupported ML version registry kind.")
+
+    defaults = validate_registry(packaged)
+    default_by_id = {row["version_id"]: row for row in defaults["versions"]}
+    legacy_rows = payload.get("versions")
+    if not isinstance(legacy_rows, list) or not legacy_rows:
+        raise ValueError("ML version registry must contain versions.")
+
+    legacy_by_id: dict[str, dict[str, Any]] = {}
+    active_versions: list[str] = []
+    seen_generations: set[str] = set()
+    for row in legacy_rows:
+        if not isinstance(row, dict):
+            raise ValueError("ML version registry entries must be objects.")
+        version_id = _non_empty_string(row.get("version_id"), "version_id")
+        if version_id in legacy_by_id:
+            raise ValueError(f"Duplicate ML version_id: {version_id}")
+        if version_id not in default_by_id:
+            raise ValueError(
+                f"Cannot safely migrate unknown legacy ML version: {version_id}"
+            )
+        status = _non_empty_string(row.get("status"), f"{version_id}.status")
+        if status not in VERSION_STATUSES | {"active"}:
+            raise ValueError(f"Unsupported status for {version_id}: {status}")
+        if status == "active":
+            active_versions.append(version_id)
+        generations = row.get("generations", [])
+        if not isinstance(generations, list):
+            raise ValueError(f"{version_id}.generations must be a list.")
+        for generation in generations:
+            if not isinstance(generation, dict):
+                raise ValueError(f"{version_id} generation must be an object.")
+            generation_id = _non_empty_string(
+                generation.get("generation_id"), f"{version_id}.generation_id"
+            )
+            if generation_id in seen_generations:
+                raise ValueError(f"Duplicate generation_id: {generation_id}")
+            seen_generations.add(generation_id)
+            if generation.get("version_id") != version_id:
+                raise ValueError(
+                    f"Generation {generation_id} has the wrong version_id."
+                )
+            if generation.get("kind") not in GENERATION_KINDS:
+                raise ValueError(
+                    f"Generation {generation_id} has an unsupported kind."
+                )
+            if generation.get("retention") != "permanent":
+                raise ValueError(
+                    f"Generation {generation_id} must use permanent retention."
+                )
+        legacy_by_id[version_id] = copy.deepcopy(row)
+
+    active_version_id = _non_empty_string(
+        payload.get("active_version_id"), "active_version_id"
+    )
+    if active_versions != [active_version_id]:
+        raise ValueError("active_version_id does not match the active version entry.")
+    raw_target = payload.get("active_operational_target")
+    if raw_target is None:
+        raw_target = {
+            "version_id": active_version_id,
+            "generation_id": "",
+        }
+    if not isinstance(raw_target, dict):
+        raise ValueError("active_operational_target must be an object.")
+    target_version_id = _non_empty_string(
+        raw_target.get("version_id"), "active_operational_target.version_id"
+    )
+    if target_version_id != active_version_id:
+        raise ValueError("The operational target must belong to the active version.")
+    target_generation_id = str(raw_target.get("generation_id") or "").strip()
+    if target_generation_id:
+        active_generation = next(
+            (
+                generation
+                for generation in legacy_by_id[active_version_id].get(
+                    "generations", []
+                )
+                if generation.get("generation_id") == target_generation_id
+            ),
+            None,
+        )
+        if active_generation is None or active_generation.get("kind") != "trained_model":
+            raise ValueError("The operational target generation is not registered.")
+
+    migrated = copy.deepcopy(defaults)
+    for definition in migrated["versions"]:
+        existing = legacy_by_id.get(definition["version_id"])
+        if existing is None:
+            continue
+        existing_status = existing["status"]
+        if existing_status != "active" and not (
+            existing_status == "proposed" and definition["status"] == "candidate"
+        ):
+            definition["status"] = existing_status
+        definition["generations"] = copy.deepcopy(existing.get("generations", []))
+        definition["installed_generation_id"] = (
+            target_generation_id
+            if definition["version_id"] == active_version_id
+            and target_generation_id
+            else None
+        )
+    migrated["preferred_version_id"] = (
+        active_version_id if target_generation_id else None
+    )
+    return validate_registry(migrated)
+
+
+def _preserve_legacy_registry_backup(path: Path) -> Path:
+    source = Path(path)
+    backup = source.with_name(
+        f"{source.stem}.schema-{LEGACY_SCHEMA_VERSION}.backup{source.suffix}"
+    )
+    original = source.read_bytes()
+    if backup.is_file():
+        if backup.read_bytes() != original:
+            raise ValueError(
+                f"Legacy ML registry backup already exists with different contents: {backup}"
+            )
+        return backup
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{backup.name}.", suffix=".tmp", dir=backup.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(original)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, backup)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return backup
 
 
 def training_version_ids(
@@ -443,9 +595,19 @@ def ensure_seeded(
     )
     packaged = load_registry(source)
     if destination.is_file():
-        persistent = load_registry(destination)
+        raw_persistent = _read_registry_payload(destination)
+        legacy_migration = (
+            raw_persistent.get("schema_version") == LEGACY_SCHEMA_VERSION
+        )
+        persistent = (
+            _migrate_legacy_registry_v1(raw_persistent, packaged)
+            if legacy_migration
+            else validate_registry(raw_persistent)
+        )
         merged = merge_packaged_definitions(packaged, persistent)
-        if merged != persistent:
+        if legacy_migration:
+            _preserve_legacy_registry_backup(destination)
+        if legacy_migration or merged != persistent:
             save_registry(destination, merged)
         return destination
     save_registry(destination, packaged)

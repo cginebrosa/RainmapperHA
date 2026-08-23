@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.265
+
+- Migrate the persistent ML version registry from the single-active-version
+  `1.0` schema to the per-version installation `2.0` schema during startup,
+  preserving every registered generation and the actual operational target.
+- Keep a byte-for-byte backup of the legacy registry before the atomic update,
+  and fail without changing the original when its lifecycle state cannot be
+  migrated safely.
+
 ## 0.2.264
 
 - Install and retain independent V2/V3/V4/V5w/V6w generations, keep V4 as the
