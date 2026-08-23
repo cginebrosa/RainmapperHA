@@ -1,5 +1,26 @@
 # Decisions
 
+## 2026-08-23 - [VIGENTE][RELEASE] HA 0.2.264 y worker 1.0.17 publicados sin instalación HA
+
+- El usuario autorizó publicar conjuntamente el bloque transversal validado.
+  El smoke definitivo previo al bump pasó 1.003 pruebas en 48,411 s, además de
+  compilación, validadores de sintaxis/fixtures y `git diff --check`.
+- `ghcr.io/cginebrosa/rainmapperha:0.2.264` y `latest` comparten el índice
+  multiarch
+  `sha256:3835fa0fe59889873386661f31e1823a77a0b174ef89d8e6772ae14efa195dc5`,
+  con manifests `linux/amd64` y `linux/arm64`. El commit `ea75d95` está
+  publicado en la rama `inicial`.
+- El worker normal se reconstruyó como `1.0.17` reutilizando el volumen externo
+  `rainmapper-worker-data`; conservó `worker_id: worker_1a9a232c20fe2ee2`,
+  quedó sano e idle y el usuario confirmó que HA lo ve. La imagen local
+  `1.0.16` se retiró solo después de esa comprobación; no se tocó el volumen.
+- El paquete privado arm64 contiene el TAR con SHA-256
+  `90e4ce8abd2ddbdda7df0e820d3e2710c76cebe2c43485badf88134fe02e0df8`.
+- La imagen HA no se instaló ni probó en HA real. No se usó Tailscale, no se
+  borraron datos y `ml_storage_reconciliation_apply` permanece deshabilitado.
+  La instalación y cualquier `apply` requieren autorizaciones posteriores y
+  separadas.
+
 ## 2026-08-23 - [OBSOLETA][ML] Benchmark como candidata instalable y rollback manual por versión
 
 - Queda retirada la arquitectura en la que un benchmark se archivaba como

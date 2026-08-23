@@ -15,7 +15,7 @@ este fichero distingue trabajo cerrado de próximas entregas.
   algoritmo-versión por escenario fixed/lag y conserve la auditoría completa
   (Brier, delta, ROC-AUC, soporte, evidencia y aplicabilidad), ayudas y franja
   semanal.
-- [ ] Reproducir y cerrar la divergencia entre la ficha multiversión y la franja
+- [x] Reproducir y cerrar la divergencia entre la ficha multiversión y la franja
   semanal: hoy la ficha usa los ganadores seleccionados, mientras la franja se
   calcula por una ruta auxiliar de la preferida. Trazar también qué muestran
   exactamente `Esta semana`, `Por especie`, el recommender y `Historial`.
@@ -31,10 +31,10 @@ este fichero distingue trabajo cerrado de próximas entregas.
   veredicto explícito entre familias metodológicas elegibles: alto/moderado/bajo
   según separación, o `sin contraste` cuando solo existe una familia; mostrar
   además el acuerdo interno entre variantes sin contarlo como independencia.
-- [ ] Revalidar visualmente en todos los caminos iniciales y posteriores a
+- [x] Revalidar visualmente en todos los caminos iniciales y posteriores a
   `Predecir` los veredictos, criterios de ayuda, espaciado y plegado automático
   de versiones sin algoritmos elegidos.
-- [ ] Ejecutar pruebas dirigidas finales de selección, abstención, coherencia de
+- [x] Ejecutar pruebas dirigidas finales de selección, abstención, coherencia de
   resumen/detalle y UI; reservar el smoke completo para la entrega relevante.
 
 ## P0 — Retención permanente de almacenamiento ML y worker
@@ -77,8 +77,9 @@ Especificación vinculante:
   dry-run idempotente: 312 pruebas correctas.
 - [x] Ejecutar `git diff --check` sobre el worktree completo en el cierre
   documental del 2026-08-23: correcto.
-- [ ] Completar integración remota y smoke completo antes de cualquier build
-  autorizado; repetir `git diff --check` si después cambia el worktree.
+- [x] Completar integración remota y smoke completo antes del build autorizado:
+  1.003 pruebas correctas y `git diff --check`; HA `0.2.264` y worker `1.0.17`
+  publicados/reconstruidos sin activar el reconciliado destructivo.
 - [ ] Ejecutar en HA real el `dry-run`, revisar el informe con el usuario y
   detenerse para autorización explícita antes de cualquier `apply` destructivo.
 - [ ] Tras autorización, instalar la implementación, aplicar la migración,

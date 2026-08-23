@@ -10,11 +10,21 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - El worktree está deliberadamente muy sucio: contiene cambios de código,
   pruebas, documentación, datos, módulos nuevos no rastreados y eliminaciones.
   Preservarlo íntegramente; no restaurar, limpiar ni sobrescribir nada local.
-- Las versiones declaradas en el repositorio son HA `0.2.263` y worker
-  `1.0.16`; el runtime real debe revalidarse antes de describirlo.
-- Esta sesión no hizo bump, build, publicación ni release, no usó Tailscale y no
-  modificó el worker normal. El usuario sí instaló la corrección meteorológica
-  mínima en HA y ejecutó manualmente el runner; su evidencia está abajo.
+- Las versiones declaradas y publicadas son HA `0.2.264` y worker `1.0.17`.
+  La imagen HA multiarch `0.2.264` y `latest` comparte el digest
+  `sha256:3835fa0fe59889873386661f31e1823a77a0b174ef89d8e6772ae14efa195dc5`
+  con manifests `linux/amd64` y `linux/arm64`; todavía no está instalada en HA.
+- El worker normal fue reconstruido como `1.0.17` sobre el mismo volumen
+  `rainmapper-worker-data` y conservó `worker_id: worker_1a9a232c20fe2ee2`;
+  su health quedó `idle` y el usuario confirmó que HA vuelve a verlo. Se retiró
+  únicamente la imagen local `1.0.16`, no el volumen ni su identidad.
+- El paquete privado arm64 está en
+  `/Users/carlosginebrosa/Desktop/RainmapperWorker-1.0.17`; el TAR tiene SHA-256
+  `90e4ce8abd2ddbdda7df0e820d3e2710c76cebe2c43485badf88134fe02e0df8`.
+  El commit de release `ea75d95` está publicado en `inicial`.
+- No se usó Tailscale, no se instaló ni modificó el add-on de HA real y
+  `ml_storage_reconciliation_apply` continúa deshabilitado. El usuario sí había
+  instalado antes la corrección meteorológica mínima y ejecutado su runner.
 
 ## Histórico meteorológico reparado
 
@@ -92,9 +102,10 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   instalada. Se conserva rollback transaccional durante la instalación y el
   backup más reciente del rebuild completo. Resultados operativos terminales
   pesados: 24 h; payloads Predictor: últimos 10 o 24 h, lo que proteja más.
-- Validación vigente: smoke completo correcto con 1.002 pruebas antes del ajuste
-  visual posterior; ese ajuste CSS pasó 2 pruebas dirigidas y la coherencia del
-  Predictor pasó otras 9. El perfil aislado del recommender local cargó 8
+- Validación definitiva previa al bump: smoke completo correcto con 1.003
+  pruebas en 48,411 s, además de compilación Python, sintaxis JS/shell,
+  fixtures y `git diff --check`. El ajuste CSS pasó 2 pruebas dirigidas y la
+  coherencia del Predictor otras 9. El perfil aislado del recommender cargó 8
   predictores, hizo 58 comparaciones y 1.392 inferencias; una petición fría
   tardó 27,78 s, una caliente con fecha distinta 23,09 s y un hit exacto de
   caché tuvo una mediana de 24,6 ms. `dry-run` local con 59 entradas y
@@ -127,16 +138,14 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 ## Próximos pasos, en orden
 
-1. Evaluar de forma acotada la inferencia serie para bosques de una sola muestra,
+1. Detenerse antes de instalar `0.2.264` en HA. Si el usuario lo autoriza,
+   instalar y ejecutar primero el `dry-run` real de retención; revisar juntos su
+   informe y pedir autorización independiente antes de cualquier `apply`.
+2. Evaluar de forma acotada la inferencia serie para bosques de una sola muestra,
    con pruebas de paridad y benchmark repetible; no añadir métricas permanentes.
-2. Auditar la regla 5 %/3 sigma con datos fuera de muestra, documentar evidencia
+3. Auditar la regla 5 %/3 sigma con datos fuera de muestra, documentar evidencia
    y detenerse antes de proponer nuevos umbrales.
-3. Antes de cualquier instalación, revalidar registro y contenedores locales
-   sin tocar HA real ni el worker normal.
-4. Tras validar localmente la retención, pedir autorización para build e
-   instalación HA. En HA: primero `dry-run`, revisión conjunta y autorización
-   independiente antes de cualquier `apply`.
-5. Después de cerrar la retención, realizar la auditoría separada de deuda y
+4. Después de cerrar la retención, realizar la auditoría separada de deuda y
    código obsoleto.
 
 ## Archivos relevantes
@@ -167,8 +176,9 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   solo para prioridades completas.
 - Usar Codebase Memory MCP antes de descubrir o cambiar código y reindexarlo si
   sigue mostrando símbolos retirados.
-- No usar Tailscale, no tocar HA real ni el worker normal y no hacer bump,
-  build, publicación ni release sin autorización explícita nueva.
+- No usar Tailscale, no tocar HA real ni volver a modificar el worker normal y
+  no hacer otro bump, build, publicación ni release sin autorización explícita
+  nueva.
 - Añadir pruebas proporcionadas al riesgo. El bloque transversal tiene smoke
   completo correcto; repetirlo solo si cambia código ejecutable de riesgo
   suficiente para invalidarlo.
