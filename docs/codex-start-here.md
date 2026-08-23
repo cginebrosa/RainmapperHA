@@ -40,7 +40,7 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 ## Estado general al cierre de 2026-08-23
 
 - Rama activa `inicial`; preservar siempre el worktree mixto y cualquier
-  fichero no rastreado. Las versiones declaradas y publicadas son HA `0.2.264`
+  fichero no rastreado. Las versiones declaradas y publicadas son HA `0.2.265`
   y worker `1.0.17`; el runtime real debe revalidarse en cada sesión. La imagen
   HA está publicada pero todavía no instalada; el worker normal conserva su
   identidad y el usuario confirmó que HA vuelve a verlo.
@@ -80,11 +80,12 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   de Rainmapper solo genera `dry-run`. No habilitarlo en HA sin revisar el
   informe con el usuario. Los restos terminales operativos tienen un TTL
   ratificado de 24 h; candidatos e historiales de activación manual son legacy.
-- El smoke definitivo previo a la release pasó 1.003 pruebas. `0.2.264` y
+- El smoke definitivo del parche pasó 1.006 pruebas. `0.2.265` y
   `latest` comparten el digest multiarch
-  `sha256:3835fa0fe59889873386661f31e1823a77a0b174ef89d8e6772ae14efa195dc5`;
-  el commit publicado es `ea75d95`. No instalar en HA ni habilitar el `apply`
-  sin autorización nueva.
+  `sha256:f0c2fee0a90ac365d36cdfd05412475a0357b9483d45648efed46cfbefc511ba`;
+  el commit publicado es `a14560b`. `0.2.264` no migraba el registro persistente
+  1.0 y fue detenida; `0.2.265` añade migración validada con copia exacta previa.
+  No habilitar el `apply` sin autorización nueva.
 - El histórico meteorológico oficial de HA fue reparado y rebasado a una raíz
   autosuficiente; el runner manual posterior terminó correctamente. La próxima
   sesión debe tratar esta migración como cerrada y mantener como deuda la

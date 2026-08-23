@@ -1,6 +1,26 @@
 # Decisions
 
-## 2026-08-23 - [VIGENTE][RELEASE] HA 0.2.264 y worker 1.0.17 publicados sin instalación HA
+## 2026-08-23 - [VIGENTE][PARCHE] HA 0.2.265 migra de forma respaldada el registro ML 1.0
+
+- La instalación HA de `0.2.264` encontró el registro persistente creado por
+  `0.2.263` con esquema 1.0. El seeding rechazó el esquema antes de escribir y
+  el reconciliador quedó en `dry-run`, `removed=0`, `errors=1`; el usuario
+  detuvo el add-on. No se ejecutó `apply` ni se borraron datos.
+- `0.2.265` valida la estructura legacy, conserva todas sus generaciones,
+  convierte únicamente el objetivo operacional explícito en generación
+  instalada/preferida y guarda antes una copia byte a byte
+  `mushroom_ml_version_registry.schema-1.0.backup.json`. Si no puede demostrar
+  una migración segura, no modifica el registro original.
+- Pruebas dirigidas: 278 correctas. Smoke definitivo: 1.006 pruebas y todos los
+  validadores correctos. `git diff --check`: correcto.
+- `0.2.265` y `latest` comparten el digest multiarch
+  `sha256:f0c2fee0a90ac365d36cdfd05412475a0357b9483d45648efed46cfbefc511ba`;
+  commit publicado `a14560b`. El worker permanece en `1.0.17` y no se
+  reconstruyó ni reemparejó para este parche.
+- Pendiente: validar el arranque en HA con `mode=dry-run removed=0 errors=0` y
+  revisar el informe antes de cualquier autorización de `apply`.
+
+## 2026-08-23 - [REEMPLAZADA][RELEASE] HA 0.2.264 y worker 1.0.17 publicados sin instalación HA
 
 - El usuario autorizó publicar conjuntamente el bloque transversal validado.
   El smoke definitivo previo al bump pasó 1.003 pruebas en 48,411 s, además de

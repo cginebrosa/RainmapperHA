@@ -10,10 +10,10 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - El worktree está deliberadamente muy sucio: contiene cambios de código,
   pruebas, documentación, datos, módulos nuevos no rastreados y eliminaciones.
   Preservarlo íntegramente; no restaurar, limpiar ni sobrescribir nada local.
-- Las versiones declaradas y publicadas son HA `0.2.264` y worker `1.0.17`.
-  La imagen HA multiarch `0.2.264` y `latest` comparte el digest
-  `sha256:3835fa0fe59889873386661f31e1823a77a0b174ef89d8e6772ae14efa195dc5`
-  con manifests `linux/amd64` y `linux/arm64`; todavía no está instalada en HA.
+- Las versiones declaradas y publicadas son HA `0.2.265` y worker `1.0.17`.
+  La imagen HA multiarch `0.2.265` y `latest` comparte el digest
+  `sha256:f0c2fee0a90ac365d36cdfd05412475a0357b9483d45648efed46cfbefc511ba`
+  con manifests `linux/amd64` y `linux/arm64`; todavía no está validada en HA.
 - El worker normal fue reconstruido como `1.0.17` sobre el mismo volumen
   `rainmapper-worker-data` y conservó `worker_id: worker_1a9a232c20fe2ee2`;
   su health quedó `idle` y el usuario confirmó que HA vuelve a verlo. Se retiró
@@ -21,7 +21,7 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - El paquete privado arm64 está en
   `/Users/carlosginebrosa/Desktop/RainmapperWorker-1.0.17`; el TAR tiene SHA-256
   `90e4ce8abd2ddbdda7df0e820d3e2710c76cebe2c43485badf88134fe02e0df8`.
-  El commit de release `ea75d95` está publicado en `inicial`.
+  El commit del parche `a14560b` está publicado en `inicial`.
 - No se usó Tailscale, no se instaló ni modificó el add-on de HA real y
   `ml_storage_reconciliation_apply` continúa deshabilitado. El usuario sí había
   instalado antes la corrección meteorológica mínima y ejecutado su runner.
@@ -102,8 +102,8 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   instalada. Se conserva rollback transaccional durante la instalación y el
   backup más reciente del rebuild completo. Resultados operativos terminales
   pesados: 24 h; payloads Predictor: últimos 10 o 24 h, lo que proteja más.
-- Validación definitiva previa al bump: smoke completo correcto con 1.003
-  pruebas en 48,411 s, además de compilación Python, sintaxis JS/shell,
+- Validación definitiva del parche previa al bump: smoke completo correcto con
+  1.006 pruebas en 49,719 s, además de compilación Python, sintaxis JS/shell,
   fixtures y `git diff --check`. El ajuste CSS pasó 2 pruebas dirigidas y la
   coherencia del Predictor otras 9. El perfil aislado del recommender cargó 8
   predictores, hizo 58 comparaciones y 1.392 inferencias; una petición fría
@@ -138,14 +138,17 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 ## Próximos pasos, en orden
 
-1. Detenerse antes de instalar `0.2.264` en HA. Si el usuario lo autoriza,
-   instalar y ejecutar primero el `dry-run` real de retención; revisar juntos su
-   informe y pedir autorización independiente antes de cualquier `apply`.
-2. Evaluar de forma acotada la inferencia serie para bosques de una sola muestra,
+1. Instalar `0.2.265` solo por autorización del usuario y comprobar en el log
+   `Mushroom storage reconciliation mode=dry-run removed=0 errors=0`. La
+   `0.2.264` sí se instaló, falló al leer el registro persistente 1.0 y el
+   usuario la detuvo; su `dry-run` no borró nada.
+2. Revisar juntos el informe real de retención y pedir autorización
+   independiente antes de cualquier `apply`.
+3. Evaluar de forma acotada la inferencia serie para bosques de una sola muestra,
    con pruebas de paridad y benchmark repetible; no añadir métricas permanentes.
-3. Auditar la regla 5 %/3 sigma con datos fuera de muestra, documentar evidencia
+4. Auditar la regla 5 %/3 sigma con datos fuera de muestra, documentar evidencia
    y detenerse antes de proponer nuevos umbrales.
-4. Después de cerrar la retención, realizar la auditoría separada de deuda y
+5. Después de cerrar la retención, realizar la auditoría separada de deuda y
    código obsoleto.
 
 ## Archivos relevantes

@@ -78,8 +78,10 @@ Especificación vinculante:
 - [x] Ejecutar `git diff --check` sobre el worktree completo en el cierre
   documental del 2026-08-23: correcto.
 - [x] Completar integración remota y smoke completo antes del build autorizado:
-  1.003 pruebas correctas y `git diff --check`; HA `0.2.264` y worker `1.0.17`
-  publicados/reconstruidos sin activar el reconciliado destructivo.
+  1.006 pruebas correctas y `git diff --check`; HA `0.2.265` y worker `1.0.17`
+  publicados/reconstruidos sin activar el reconciliado destructivo. El parche
+  HA migra de forma respaldada el registro persistente 1.0 que bloqueó el
+  arranque correcto de `0.2.264`.
 - [ ] Ejecutar en HA real el `dry-run`, revisar el informe con el usuario y
   detenerse para autorización explícita antes de cualquier `apply` destructivo.
 - [ ] Tras autorización, instalar la implementación, aplicar la migración,
