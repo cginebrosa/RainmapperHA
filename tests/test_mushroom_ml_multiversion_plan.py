@@ -55,21 +55,21 @@ class MushroomMLMultiversionPlanTests(TestCase):
                 species_ids=["boletus_edulis"],
             )
 
-    def test_operational_plan_contains_only_active_v2_with_fixed_and_lag(self) -> None:
+    def test_selected_v2_plan_contains_fixed_and_lag(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
-        active_version_id = registry["active_version_id"]
+        version_id = "altitude_v2"
         result = plan.build_plan(
             registry,
             batch_id="batch-operational",
             snapshot_id="sha256:" + "b" * 64,
-            generation_ids={active_version_id: "generation-operational"},
+            generation_ids={version_id: "generation-operational"},
             species_ids=["boletus_edulis"],
-            version_ids=[active_version_id],
+            version_ids=[version_id],
         )
 
         refs = [row["artifact_ref"] for row in result["fits"]]
-        self.assertEqual([active_version_id], result["version_ids"])
-        self.assertEqual({active_version_id}, {row["version_id"] for row in refs})
+        self.assertEqual([version_id], result["version_ids"])
+        self.assertEqual({version_id}, {row["version_id"] for row in refs})
         self.assertEqual(
             {"fixed_gap_7d_altitude_v2", "lag_event_altitude_v2"},
             {row["temporal_contract_id"] for row in refs},

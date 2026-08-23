@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from rainmapper_core import mushroom_worker_jobs
@@ -99,6 +100,71 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 {"response": response, "cold": False},
             )
 
+    def test_predictor_heavy_result_expiry_keeps_newest_ten_or_last_day(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            jobs = []
+            for day in range(1, 13):
+                job_id = f"worker_job_expiry{day:02d}"
+                jobs.append(
+                    {
+                        "job_id": job_id,
+                        "job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+                        "status": "complete",
+                        "created_at": f"2026-08-{day:02d}T10:00:00+00:00",
+                        "finished_at": f"2026-08-{day:02d}T10:01:00+00:00",
+                        "result": {"response": self.predictor_response(padding=day)},
+                    }
+                )
+            jobs.append(
+                {
+                    "job_id": "worker_job_expiryrecent",
+                    "job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+                    "status": "complete",
+                    "created_at": "2026-08-23T08:00:00+00:00",
+                    "finished_at": "2026-08-23T08:01:00+00:00",
+                    "result": {"response": self.predictor_response(padding=20)},
+                }
+            )
+            mushroom_worker_jobs._write_atomic(
+                path,
+                {"schema_version": mushroom_worker_jobs.SCHEMA_VERSION, "jobs": jobs},
+            )
+            before_queue = path.read_bytes()
+            result_dir = path.parent / mushroom_worker_jobs.PREDICTOR_RESULTS_DIRNAME
+            before_files = sorted(child.name for child in result_dir.iterdir())
+
+            plan = mushroom_worker_jobs.plan_predictor_result_expiration(
+                path,
+                now=datetime(2026, 8, 23, 12, tzinfo=UTC),
+            )
+
+            self.assertEqual(
+                [entry["job_id"] for entry in plan["planned"]],
+                ["worker_job_expiry01", "worker_job_expiry02", "worker_job_expiry03"],
+            )
+            self.assertEqual(plan["errors"], [])
+            self.assertEqual(path.read_bytes(), before_queue)
+            self.assertEqual(sorted(child.name for child in result_dir.iterdir()), before_files)
+
+            applied = mushroom_worker_jobs.expire_predictor_results(
+                path,
+                plan,
+                expired_at=datetime(2026, 8, 23, 12, tzinfo=UTC),
+            )
+            stored = json.loads(path.read_text(encoding="utf-8"))
+            expired = {
+                job["job_id"]: job
+                for job in stored["jobs"]
+                if job.get("predictor_result_detail", {}).get("status") == "expired"
+            }
+
+        self.assertEqual(applied["errors"], [])
+        self.assertEqual(set(applied["expired"]), set(expired))
+        self.assertEqual(len(expired), 3)
+        self.assertNotIn("predictor_result_ref", expired["worker_job_expiry01"])
+        self.assertIn("result", expired["worker_job_expiry01"])
+
     def test_predictor_claim_uses_interactive_prediction_message(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"
@@ -169,7 +235,6 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                     "input_size_bytes": 1234,
                 },
                 job_id=job_id,
-                promotion_eligible=True,
             )
             with self.assertRaisesRegex(ValueError, "after the job has finished"):
                 mushroom_worker_jobs.request_candidate_discard(path, job_id=job_id)
@@ -291,7 +356,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 [],
             )
 
-    def test_candidate_rebuild_rejects_overlapping_active_scope_but_allows_disjoint_species(self) -> None:
+    def test_candidate_rebuild_rejects_duplicate_active_full_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"
 
@@ -304,37 +369,25 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                     "input_size_bytes": 1234,
                 }
 
-            mushroom_worker_jobs.create_candidate_rebuild(
+            first = mushroom_worker_jobs.create_candidate_rebuild(
                 path,
                 worker_id="worker_aaaaaaaa",
                 worker_display_name="Worker A",
-                input_bundle=bundle("worker_job_species_a"),
-                job_id="worker_job_species_a",
-                reconstruction_scope="species",
-                scope_key="species:species_a",
-                scope_species_ids=["species_a"],
-            )
-            mushroom_worker_jobs.create_candidate_rebuild(
-                path,
-                worker_id="worker_bbbbbbbb",
-                worker_display_name="Worker B",
-                input_bundle=bundle("worker_job_species_b"),
-                job_id="worker_job_species_b",
-                reconstruction_scope="species",
-                scope_key="species:species_b",
-                scope_species_ids=["species_b"],
+                input_bundle=bundle("worker_job_full_aaaa"),
+                job_id="worker_job_full_aaaa",
             )
             with self.assertRaises(mushroom_worker_jobs.DuplicateActiveWorkError):
                 mushroom_worker_jobs.create_candidate_rebuild(
                     path,
                     worker_id="worker_bbbbbbbb",
                     worker_display_name="Worker B",
-                    input_bundle=bundle("worker_job_pending_ab"),
-                    job_id="worker_job_pending_ab",
-                    reconstruction_scope="pending",
-                    scope_key="pending:species_a,species_b",
-                    scope_species_ids=["species_a", "species_b"],
+                    input_bundle=bundle("worker_job_full_bbbb"),
+                    job_id="worker_job_full_bbbb",
                 )
+            self.assertEqual("all", first["reconstruction_scope"])
+            self.assertTrue(first["full_update"])
+            self.assertTrue(first["promotion_eligible"])
+
     def test_candidate_rebuild_requires_claim_and_trusted_result_summary(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"
@@ -353,7 +406,6 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 worker_display_name="Worker A",
                 input_bundle=input_bundle,
                 job_id="worker_job_candidate123",
-                promotion_eligible=True,
             )
             claimed = mushroom_worker_jobs.claim_next(
                 path,
@@ -751,8 +803,6 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                     "input_size_bytes": 1234,
                 },
                 job_id=rebuild_id,
-                promotion_eligible=True,
-                full_update=True,
             )
             mushroom_worker_jobs.claim_next(
                 path, worker_id="worker_aaaaaaaa", claim_token="rebuild-secret"
@@ -905,6 +955,37 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 job,
                 {"operational_candidate_trained": False},
             )
+
+    def test_operational_multiversion_job_keeps_selected_complete_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            job_id = "worker_job_operationalmulti"
+            job = mushroom_worker_jobs.create_ml_multiversion_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                input_bundle={
+                    "job_id": job_id,
+                    "bundle_digest": "sha256:" + "a" * 64,
+                    "snapshot_id": "sha256:" + "b" * 64,
+                    "job_spec_id": "sha256:" + "c" * 64,
+                    "input_file_count": 4,
+                    "multiversion_spec": {
+                        "kind": "mushroom_ml_multiversion_job",
+                    },
+                },
+                job_id=job_id,
+                job_purpose="operational",
+                profile_keys=[
+                    "biology_v3/core",
+                    "biology_v3/common_idw_plus_physical_state",
+                ],
+                triggered_by_job_id="worker_job_linkedtrain",
+            )
+
+        self.assertEqual(job["job_purpose"], "operational")
+        self.assertEqual(len(job["profile_keys"]), 2)
+        self.assertTrue(job["promotion_eligible"])
 
     def test_benchmark_job_requires_selection_and_verified_report_identity(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

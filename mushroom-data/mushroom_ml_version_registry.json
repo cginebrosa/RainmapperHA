@@ -1,16 +1,13 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "kind": "mushroom_ml_version_registry",
-  "active_version_id": "altitude_v2",
-  "active_operational_target": {
-    "version_id": "altitude_v2",
-    "generation_id": ""
-  },
+  "preferred_version_id": null,
   "versions": [
     {
       "version_id": "altitude_v2",
       "display_name": "Altitude V2",
-      "status": "active",
+      "status": "candidate",
+      "installed_generation_id": null,
       "temporal_contract_ids": [
         "fixed_gap_7d_altitude_v2",
         "lag_event_altitude_v2"
@@ -75,6 +72,7 @@
       "version_id": "biology_v3",
       "display_name": "Biology V3",
       "status": "candidate",
+      "installed_generation_id": null,
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v3",
         "lag_event_biology_v3"
@@ -175,6 +173,7 @@
       "version_id": "biology_v4",
       "display_name": "Biology V4",
       "status": "candidate",
+      "installed_generation_id": null,
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v4",
         "lag_event_biology_v4"
@@ -276,6 +275,7 @@
       "version_id": "biology_v5_raw_weather_discovery",
       "display_name": "Biology V5 Raw Weather Discovery",
       "status": "reference",
+      "installed_generation_id": null,
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v5_raw365_v2",
         "lag_event_biology_v5_raw365_v2"
@@ -343,6 +343,7 @@
       "version_id": "biology_v6_smooth_hierarchical",
       "display_name": "Biology V6 Smooth Hierarchical",
       "status": "reference",
+      "installed_generation_id": null,
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
         "lag_event_biology_v6_smooth_hierarchical_v2"
@@ -417,6 +418,7 @@
       "version_id": "biology_v5_windowed_raw_weather",
       "display_name": "Biology V5 Windowed Raw Weather Discovery",
       "status": "candidate",
+      "installed_generation_id": null,
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v5_raw365_v2",
         "lag_event_biology_v5_raw365_v2"
@@ -534,6 +536,7 @@
       "version_id": "biology_v6_windowed_smooth_hierarchical",
       "display_name": "Biology V6 Windowed Smooth Hierarchical",
       "status": "candidate",
+      "installed_generation_id": null,
       "temporal_contract_ids": [
         "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
         "lag_event_biology_v6_smooth_hierarchical_v2"
@@ -667,11 +670,10 @@
       "generations": []
     }
   ],
-  "activation_history": [],
   "retention_policy": {
     "versions": "permanent",
     "benchmark_generations": "permanent",
-    "trained_model_generations": "permanent",
-    "deactivation_action": "change_status_to_reference_never_delete"
+    "trained_model_generations": "latest_installed_per_version",
+    "deactivation_action": "clear_installed_generation_id"
   }
 }

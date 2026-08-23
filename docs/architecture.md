@@ -191,6 +191,40 @@ Hay varios entry points segun entorno:
   ventanas temporales son 7/30/90 días o toda la retención compacta.
 - Especificación operativa canónica: `docs/runtime-diagnostics.md`.
 
+### Reconciliación de almacenamiento ML y worker
+
+- Orquestador: `rainmapper_core/mushroom_storage_reconciler.py`.
+- Política de modelos: `rainmapper_core/mushroom_ml_storage_reconciler.py`.
+- Responsabilidad: inventariar y planificar de forma referencial la retención de
+  bundles, resultados y staging del worker, payloads completos del Predictor,
+  generaciones, batches, candidatos legacy, historial de promoción y
+  benchmarks. La aplicación reutiliza el mismo plan y valida identidad antes de
+  eliminar; los symlinks o identidades dudosas producen error, no poda.
+- Seguridad: `dry-run` es el modo ordinario. En HA el gate
+  `ml_storage_reconciliation_apply` está desactivado por defecto y requiere una
+  habilitación explícita posterior a la revisión del informe.
+- Almacenamiento: la caché TAR del Predictor es regenerable y se resuelve en
+  `/media/rainmapper/runtime-cache/predictor-runtime-archives`, fuera de
+  `/share/rainmapper` y de sus backups. El laboratorio monta el equivalente en
+  `docker-media/rainmapper`.
+- Ciclo de vida ML: el mantenimiento completo autopromociona conjuntamente las
+  generaciones de las versiones seleccionadas; un benchmark se compacta a
+  evidencia no instalable. No hay ya una capa operativa pública de candidatos
+  o rollback derivada de benchmarks.
+
+### Rebase de generaciones del histórico meteorológico
+
+- CLI: `python -m rainmapper_core.weather_history_rebase --data-dir <Data>`.
+- Implementación: `rainmapper_core/weather_history_rebase.py` delega en
+  `weather_history_writer.rebase_current_generation_as_root`.
+- Responsabilidad: publicar un nuevo manifiesto raíz y actualizar `CURRENT.json`
+  para que una entrega compacta sea autosuficiente cuando no incluye todos sus
+  manifiestos predecesores. Reutiliza los objetos activos existentes y verifica
+  su identidad; no duplica las particiones Parquet.
+- Uso: reparación/migración administrativa excepcional. El runner ordinario
+  sigue creando generaciones hijas y archivando/podando conforme al contrato
+  particionado.
+
 ### Wrapper HA
 - Ruta: `rainmapper-app/run.sh`.
 - Responsabilidad: leer opciones HA, crear persistencia, symlinks, exportar variables, arrancar modo.

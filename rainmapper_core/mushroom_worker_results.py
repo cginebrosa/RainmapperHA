@@ -18,9 +18,7 @@ from rainmapper_core import mushroom_rebuild_pipeline
 from rainmapper_core import mushroom_rebuild_snapshot
 from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_gis_lab
-from rainmapper_core import mushroom_learned_model
 from rainmapper_core import mushroom_observation_context
-from rainmapper_core import mushroom_observation_features
 
 
 SCHEMA_VERSION = "0.1"
@@ -28,7 +26,7 @@ MAX_RESULT_FILE_BYTES = 64 * 1024 * 1024
 MAX_RESULT_BUNDLE_BYTES = 256 * 1024 * 1024
 VERIFICATION_NAME = "candidate_verification.json"
 PROMOTION_RECEIPT_NAME = "promotion_receipt.json"
-MAX_RETAINED_PROMOTION_BACKUPS = 2
+MAX_RETAINED_PROMOTION_BACKUPS = 1
 
 
 def _json_object(path: Path, label: str) -> dict[str, Any]:
@@ -40,247 +38,6 @@ def _json_object(path: Path, label: str) -> dict[str, Any]:
         raise ValueError(f"{label} must contain a JSON object.")
     return payload
 
-
-def _row_id(row: dict[str, Any], key: str) -> str:
-    return str(row.get(key, "") or "").strip()
-
-
-def _merge_selected_rows(
-    live_payload: dict[str, Any],
-    candidate_payload: dict[str, Any],
-    *,
-    rows_key: str,
-    identity_key: str,
-    selected_ids: set[str],
-    label: str,
-) -> list[dict[str, Any]]:
-    live_rows = live_payload.get(rows_key)
-    candidate_rows = candidate_payload.get(rows_key)
-    if not isinstance(live_rows, list) or not isinstance(candidate_rows, list):
-        raise ValueError(f"Partial promotion requires row lists in {label}.")
-    live = [dict(row) for row in live_rows if isinstance(row, dict)]
-    candidate = [dict(row) for row in candidate_rows if isinstance(row, dict)]
-    candidate_selected = {
-        _row_id(row, identity_key): row
-        for row in candidate
-        if _row_id(row, identity_key) in selected_ids
-    }
-    missing = sorted(selected_ids - set(candidate_selected))
-    if missing:
-        raise ValueError(f"Partial candidate {label} is missing selected row {missing[0]}.")
-    merged: list[dict[str, Any]] = []
-    inserted: set[str] = set()
-    for row in live:
-        row_id = _row_id(row, identity_key)
-        if row_id in selected_ids:
-            merged.append(candidate_selected[row_id])
-            inserted.add(row_id)
-        else:
-            merged.append(row)
-    for row in candidate:
-        row_id = _row_id(row, identity_key)
-        if row_id in selected_ids and row_id not in inserted:
-            merged.append(row)
-            inserted.add(row_id)
-    return merged
-
-
-def _merge_partial_candidate_outputs(
-    candidate_root: Path,
-    live_outputs: mushroom_rebuild_pipeline.RebuildOutputPaths,
-    staged_outputs: mushroom_rebuild_pipeline.RebuildOutputPaths,
-    job_spec: dict[str, Any],
-) -> dict[str, int]:
-    """Build a full, promotable artifact set from one verified partial candidate."""
-    scope = job_spec.get("scope")
-    if not isinstance(scope, dict):
-        raise ValueError("Partial candidate job scope is invalid.")
-    selected_ids = {
-        str(value).strip()
-        for value in scope.get("selected_observation_ids", [])
-        if str(value or "").strip()
-    }
-    species_ids = {
-        str(value).strip()
-        for value in scope.get("pending_species_ids", [])
-        if str(value or "").strip()
-    }
-    if not selected_ids or not species_ids:
-        raise ValueError("Partial candidate scope is empty.")
-    for field in mushroom_rebuild_pipeline.ACCEPTED_OUTPUT_FIELDS:
-        if not Path(getattr(live_outputs, field)).is_file():
-            raise FileNotFoundError(
-                f"Partial promotion requires an existing full model artifact: {getattr(live_outputs, field)}"
-            )
-
-    live_gis = _json_object(live_outputs.gis_reconstruction, "live GIS artifact")
-    candidate_gis = _json_object(candidate_root / "mushroom_gis_observation_reconstruction.json", "candidate GIS artifact")
-    gis_rows = _merge_selected_rows(
-        live_gis,
-        candidate_gis,
-        rows_key="results",
-        identity_key="observation_id",
-        selected_ids=selected_ids,
-        label="GIS artifact",
-    )
-    merged_gis = dict(live_gis)
-    merged_gis["generated_at"] = candidate_gis.get("generated_at", live_gis.get("generated_at"))
-    merged_gis["selected_observation_ids"] = [
-        _row_id(row, "observation_id") for row in gis_rows if _row_id(row, "observation_id")
-    ]
-    merged_gis["result_count"] = len(gis_rows)
-    merged_gis["results"] = gis_rows
-    merged_gis["unmapped_candidates"] = mushroom_gis_lab.collect_unmapped_candidates(gis_rows)
-    staged_outputs.gis_reconstruction.parent.mkdir(parents=True, exist_ok=True)
-    staged_outputs.gis_reconstruction.write_text(
-        json.dumps(merged_gis, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-
-    live_weather = _json_object(live_outputs.weather_json, "live weather artifact")
-    candidate_weather = _json_object(candidate_root / "mushroom_observations_weather_features.json", "candidate weather artifact")
-    weather_rows = _merge_selected_rows(
-        live_weather,
-        candidate_weather,
-        rows_key="rows",
-        identity_key="observation_id",
-        selected_ids=selected_ids,
-        label="weather artifact",
-    )
-    merged_weather = dict(live_weather)
-    for key in (
-        "generated_at",
-        "prediction_target_policy",
-        "weather_method",
-        "weather_summary_window_days",
-        "rain_windows_days",
-        "source_files",
-    ):
-        if key in candidate_weather:
-            merged_weather[key] = candidate_weather[key]
-    weather_summary = dict(
-        candidate_weather.get("summary")
-        if isinstance(candidate_weather.get("summary"), dict)
-        else {}
-    )
-    weather_summary.update(
-        {
-            "observations": len(weather_rows),
-            "with_weather_station": sum(bool(row.get("weather_station_code")) for row in weather_rows),
-            "with_gaps": sum(bool(row.get("data_gaps")) for row in weather_rows),
-        }
-    )
-    merged_weather["summary"] = weather_summary
-    merged_weather["rows"] = weather_rows
-    merged_weather["output_paths"] = {
-        "json": str(live_outputs.weather_json),
-        "csv": str(live_outputs.weather_csv),
-        "report": str(live_outputs.weather_report),
-    }
-    mushroom_observation_context.write_json(staged_outputs.weather_json, merged_weather)
-    mushroom_observation_context.write_csv(staged_outputs.weather_csv, weather_rows)
-    mushroom_observation_context.write_report(staged_outputs.weather_report, merged_weather)
-
-    live_features = _json_object(live_outputs.features_json, "live features artifact")
-    candidate_features = _json_object(candidate_root / "mushroom_observation_features_v0.json", "candidate features artifact")
-    feature_rows = _merge_selected_rows(
-        live_features,
-        candidate_features,
-        rows_key="rows",
-        identity_key="observation_id",
-        selected_ids=selected_ids,
-        label="features artifact",
-    )
-    merged_features = dict(live_features)
-    for key in ("generated_at", "prediction_target_policy"):
-        if key in candidate_features:
-            merged_features[key] = candidate_features[key]
-    merged_features["summary"] = {
-        "observations": len(feature_rows),
-        "with_weather": len(feature_rows),
-        "with_gis": sum("missing_gis_reconstruction" not in (row.get("feature_gaps") or []) for row in feature_rows),
-        "with_weather_gaps": sum(bool(row.get("weather_gaps")) for row in feature_rows),
-        "with_gis_or_feature_gaps": sum(bool(row.get("gis_gaps") or row.get("feature_gaps")) for row in feature_rows),
-    }
-    merged_features["rows"] = feature_rows
-    merged_features["output_paths"] = {
-        "json": str(live_outputs.features_json),
-        "csv": str(live_outputs.features_csv),
-        "report": str(live_outputs.features_report),
-    }
-    mushroom_observation_features.write_json(staged_outputs.features_json, merged_features)
-    mushroom_observation_features.write_csv(staged_outputs.features_csv, feature_rows)
-    mushroom_observation_features.write_report(staged_outputs.features_report, merged_features)
-
-    live_model = _json_object(live_outputs.model_json, "live model artifact")
-    candidate_model = _json_object(candidate_root / "mushroom_model_v0.json", "candidate model artifact")
-    live_models = live_model.get("species_models")
-    candidate_models = candidate_model.get("species_models")
-    if not isinstance(live_models, list) or not isinstance(candidate_models, list):
-        raise ValueError("Partial promotion requires species model lists.")
-    model_by_species = {
-        _row_id(model, "species_id"): dict(model)
-        for model in live_models
-        if isinstance(model, dict) and _row_id(model, "species_id")
-    }
-    replacements = {
-        _row_id(model, "species_id"): dict(model)
-        for model in candidate_models
-        if isinstance(model, dict) and _row_id(model, "species_id") in species_ids
-    }
-    for species_id in species_ids:
-        if species_id in replacements:
-            model_by_species[species_id] = replacements[species_id]
-        else:
-            model_by_species.pop(species_id, None)
-    merged_models = [model_by_species[key] for key in sorted(model_by_species)]
-    training_count = sum(int(model.get("observation_count", 0) or 0) for model in merged_models)
-    favorable_count = sum(
-        int(model.get("favorable_count", model.get("positive_count", 0)) or 0)
-        for model in merged_models
-    )
-    unfavorable_count = sum(
-        int(model.get("unfavorable_count", model.get("negative_count", 0)) or 0)
-        for model in merged_models
-    )
-    merged_model = dict(live_model)
-    for key in (
-        "schema_version",
-        "generated_at",
-        "model_status",
-        "prediction_target_policy",
-        "model_notes",
-        "feature_contract",
-    ):
-        if key in candidate_model:
-            merged_model[key] = candidate_model[key]
-    merged_model["scope"] = {"species_id": None}
-    merged_model["summary"] = {
-        "observations": training_count,
-        "source_observations": len(feature_rows),
-        "excluded_observations": max(0, len(feature_rows) - training_count),
-        "species": len(merged_models),
-        "favorable_observations": favorable_count,
-        "unfavorable_observations": unfavorable_count,
-        "positive_observations": favorable_count,
-        "negative_observations": unfavorable_count,
-    }
-    merged_model["species_models"] = merged_models
-    merged_model["last_partial_rebuild"] = {
-        "species_ids": sorted(species_ids),
-        "generated_at": merged_model.get("generated_at"),
-    }
-    merged_model["output_paths"] = {
-        "json": str(live_outputs.model_json),
-        "report": str(live_outputs.model_report),
-    }
-    mushroom_learned_model.write_json(staged_outputs.model_json, merged_model)
-    mushroom_learned_model.write_report(staged_outputs.model_report, merged_model)
-    return {
-        "selected_observations": len(selected_ids),
-        "updated_species": len(species_ids),
-        "model_species": len(merged_models),
-    }
 
 
 def _rebase_promoted_metadata(
@@ -661,9 +418,16 @@ def discard_promoted_result(
 def cleanup_promoted_results(
     result_root: Path,
     jobs: list[dict[str, Any]],
-) -> dict[str, list[str]]:
+    *,
+    apply: bool = True,
+) -> dict[str, Any]:
     """Reconcile legacy promoted results while preserving pending candidates."""
-    report: dict[str, list[str]] = {"discarded": [], "errors": []}
+    report: dict[str, Any] = {
+        "mode": "apply" if apply else "dry-run",
+        "planned": [],
+        "discarded": [],
+        "errors": [],
+    }
     for job in jobs:
         if not isinstance(job, dict) or job.get("promotion_status") != "promoted":
             continue
@@ -672,12 +436,35 @@ def cleanup_promoted_results(
         if job_type not in {"worker_candidate_rebuild", "worker_ml_train_v0"}:
             continue
         try:
-            if discard_promoted_result(
-                result_root,
-                job_id=job_id,
-                job_type=job_type,
+            candidate = (
+                _job_dir(result_root, job_id)
+                if job_type == "worker_candidate_rebuild"
+                else _ml_train_job_dir(result_root, job_id)
+            )
+            if not candidate.exists():
+                continue
+            # Validate the durable promotion receipt even during dry-run.
+            receipt = _json_object(candidate / PROMOTION_RECEIPT_NAME, "promotion receipt")
+            expected_kind = (
+                "rainmapper_worker_candidate_promotion"
+                if job_type == "worker_candidate_rebuild"
+                else "rainmapper_worker_ml_train_promotion"
+            )
+            if (
+                receipt.get("kind") != expected_kind
+                or receipt.get("status") != "promoted"
+                or receipt.get("job_id") != job_id
             ):
-                report["discarded"].append(job_id)
+                raise ValueError(
+                    "Refusing to discard a result without its matching promotion receipt."
+                )
+            report["planned"].append(job_id)
+            if apply and discard_promoted_result(
+                    result_root,
+                    job_id=job_id,
+                    job_type=job_type,
+                ):
+                    report["discarded"].append(job_id)
         except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
             report["errors"].append(f"{job_id}: {exc}")
     return report
@@ -787,24 +574,17 @@ def promote_verified_candidate(
     staged_outputs = mushroom_rebuild_pipeline.RebuildOutputPaths.under(staging)
     final_outputs = mushroom_rebuild_pipeline.RebuildOutputPaths.under(live_root)
     promoted = False
-    partial_merge: dict[str, int] | None = None
     try:
         report(76, "Preparing atomic promotion", "Preparing the complete artifact set in staging.")
         scope = job_spec.get("scope") if isinstance(job_spec.get("scope"), dict) else {}
         reconstruction_scope = str(scope.get("reconstruction_scope", "all"))
-        if reconstruction_scope in {"species", "pending"}:
-            partial_merge = _merge_partial_candidate_outputs(
-                candidate,
-                final_outputs,
-                staged_outputs,
-                job_spec,
-            )
-        else:
-            for relative in mushroom_rebuild_contracts.EXPECTED_ARTIFACT_PATHS:
-                source = candidate / relative
-                destination = staging / relative
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, destination)
+        if reconstruction_scope != "all":
+            raise ValueError("Operational worker promotion requires a complete rebuild.")
+        for relative in mushroom_rebuild_contracts.EXPECTED_ARTIFACT_PATHS:
+            source = candidate / relative
+            destination = staging / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
         rebased_metadata = _rebase_promoted_metadata(
             staged_outputs,
             final_outputs,
@@ -833,7 +613,6 @@ def promote_verified_candidate(
             "result_manifest_id": manifest.get("result_manifest_id"),
             "artifact_count": promotion.get("artifact_count"),
             "reconstruction_scope": reconstruction_scope,
-            "partial_merge": partial_merge or {},
             "rebased_metadata": rebased_metadata,
             "backup_path": str(backup.relative_to(live_root)),
             "backup_retention_limit": MAX_RETAINED_PROMOTION_BACKUPS,

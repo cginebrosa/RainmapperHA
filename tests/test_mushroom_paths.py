@@ -19,6 +19,9 @@ class MushroomPathsTests(unittest.TestCase):
                 "RAINMAPPER_MUSHROOM_DEFAULTS_DIR",
                 "RAINMAPPER_MUSHROOM_OBSERVATIONS_PATH",
                 "RAINMAPPER_WEATHER_DATA_DIR",
+                "RAINMAPPER_MEDIA_ROOT",
+                "RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_DIR",
+                "RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_FALLBACK_DIR",
             )
         }
         self.addCleanup(self.restore_env)
@@ -76,6 +79,33 @@ class MushroomPathsTests(unittest.TestCase):
         live_observations.parent.mkdir(parents=True)
         live_observations.write_text('{"observations": []}', encoding="utf-8")
         self.assertEqual(mushroom_paths.mushroom_observations_path(), live_observations)
+
+    def test_predictor_runtime_archive_prefers_configured_media_and_is_private(self) -> None:
+        share_root = self.root / "share"
+        archive_dir = self.root / "media" / "runtime-cache" / "archives"
+        os.environ["RAINMAPPER_SHARE_ROOT"] = str(share_root)
+        os.environ["RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_DIR"] = str(archive_dir)
+
+        location = mushroom_paths.prepare_predictor_runtime_archive_dir()
+
+        self.assertEqual(location.path, archive_dir)
+        self.assertFalse(location.fallback_used)
+        self.assertEqual(location.path.stat().st_mode & 0o777, 0o700)
+
+    def test_predictor_runtime_archive_rejects_share_and_uses_explicit_fallback(self) -> None:
+        share_root = self.root / "share"
+        forbidden = share_root / "mushroom-data" / "ml_models" / "archives"
+        fallback = self.root / "temporary-cache" / "archives"
+        os.environ["RAINMAPPER_SHARE_ROOT"] = str(share_root)
+        os.environ["RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_DIR"] = str(forbidden)
+        os.environ["RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_FALLBACK_DIR"] = str(fallback)
+
+        location = mushroom_paths.prepare_predictor_runtime_archive_dir()
+
+        self.assertEqual(location.path, fallback)
+        self.assertTrue(location.fallback_used)
+        self.assertIn("cannot reside under share", location.diagnostic or "")
+        self.assertFalse(forbidden.exists())
 
 
 if __name__ == "__main__":

@@ -96,16 +96,62 @@ def _sanitized_training_manifest(path: Path) -> dict:
     return sanitized
 
 
-def main() -> int:
-    args = parse_args()
-    registry = mushroom_ml_version_registry.load_registry(args.registry)
-    generation_ids = dict(args.generation)
-    operational = args.job_purpose == "operational"
-    if operational:
-        requested = list(args.profile_key or [])
+def _input_revisions(training_manifest: dict, registry_path: Path) -> dict[str, str]:
+    files = {
+        str(row.get("role") or ""): str(row.get("sha256") or "")
+        for row in training_manifest.get("files", [])
+        if isinstance(row, dict)
+    }
+    datasets = {
+        str(row.get("dataset_id") or ""): str(row.get("fingerprint") or "")
+        for row in training_manifest.get("datasets", [])
+        if isinstance(row, dict)
+    }
+    weather = training_manifest.get("weather_history")
+    weather = weather if isinstance(weather, dict) else {}
+
+    def revision(role: str) -> str:
+        digest = files.get(role, "")
+        if not digest:
+            raise ValueError(f"Training input revision is missing: {role}")
+        return "sha256:" + digest.removeprefix("sha256:")
+
+    gis_parts = [revision("gis_mappings")]
+    gis_parts.extend(sorted(value for value in datasets.values() if value))
+    gis_revision = "sha256:" + hashlib.sha256(
+        "|".join(gis_parts).encode("utf-8")
+    ).hexdigest()
+    vector = {
+        "observations_revision": revision("observations"),
+        "weather_generation_id": str(weather.get("generation_id") or ""),
+        "weather_manifest_sha256": "sha256:"
+        + str(weather.get("manifest_sha256") or "").removeprefix("sha256:"),
+        "sites_revision": revision("extra:known-sites.json"),
+        "stations_revision": revision("extra:stations.txt"),
+        "catalogs_revision": revision("reference_catalogs"),
+        "gis_revision": gis_revision,
+        "training_contract_version": mushroom_ml_version_registry.training_contract_revision(
+            mushroom_ml_version_registry.load_registry(registry_path)
+        ),
+    }
+    return mushroom_ml_version_registry.validate_revision_vector(vector)
+
+
+def resolve_training_scope(
+    registry: dict,
+    *,
+    job_purpose: str,
+    profile_keys: list[str] | None,
+    version_ids: list[str],
+) -> tuple[list[dict[str, str]], list[str], list[str]]:
+    """Resolve complete operational versions or a benchmark profile selection."""
+    if job_purpose == "operational":
+        requested = list(profile_keys or [])
         if not requested:
             requested = mushroom_ml_version_registry.training_profile_keys(
-                registry, job_purpose="operational"
+                registry,
+                job_purpose="operational",
+                version_ids=version_ids,
             )
         selected_profiles = [
             mushroom_ml_version_registry.resolve_operational_profile(
@@ -113,24 +159,46 @@ def main() -> int:
             )
             for profile_key in requested
         ]
-        version_ids = list(dict.fromkeys(row["version_id"] for row in selected_profiles))
-        if len(version_ids) != 1:
-            raise ValueError("Operational training must contain one complete version")
-        required_profiles = {
-            row["profile_key"]
-            for row in mushroom_ml_version_registry.operational_profile_options(registry)
-            if row["version_id"] == version_ids[0]
-        }
-        profile_keys = [row["profile_key"] for row in selected_profiles]
-        if set(profile_keys) != required_profiles:
-            raise ValueError("Operational training must contain every profile in the version")
-    else:
-        selected_profiles = mushroom_ml_version_registry.resolve_benchmark_profiles(
-            registry,
-            list(args.profile_key) if args.profile_key is not None else None,
+        resolved_versions = list(
+            dict.fromkeys(row["version_id"] for row in selected_profiles)
         )
-        profile_keys = [row["profile_key"] for row in selected_profiles]
-        version_ids = list(dict.fromkeys(row["version_id"] for row in selected_profiles))
+        resolved_profiles = [row["profile_key"] for row in selected_profiles]
+        for version_id in resolved_versions:
+            required_profiles = {
+                row["profile_key"]
+                for row in mushroom_ml_version_registry.operational_profile_options(
+                    registry
+                )
+                if row["version_id"] == version_id
+            }
+            if set(resolved_profiles) & required_profiles != required_profiles:
+                raise ValueError(
+                    f"Operational training must contain every profile in {version_id}"
+                )
+        return selected_profiles, resolved_profiles, resolved_versions
+    selected_profiles = mushroom_ml_version_registry.resolve_benchmark_profiles(
+        registry, profile_keys
+    )
+    resolved_profiles = [row["profile_key"] for row in selected_profiles]
+    resolved_versions = list(
+        dict.fromkeys(row["version_id"] for row in selected_profiles)
+    )
+    return selected_profiles, resolved_profiles, resolved_versions
+
+
+def main() -> int:
+    args = parse_args()
+    registry = mushroom_ml_version_registry.load_registry(args.registry)
+    generation_ids = dict(args.generation)
+    operational = args.job_purpose == "operational"
+    selected_profiles, profile_keys, version_ids = resolve_training_scope(
+        registry,
+        job_purpose=args.job_purpose,
+        profile_keys=(
+            list(args.profile_key) if args.profile_key is not None else None
+        ),
+        version_ids=list(args.version or generation_ids),
+    )
     declared_version_ids = list(args.version or generation_ids)
     if declared_version_ids != version_ids or set(generation_ids) != set(version_ids):
         raise ValueError(
@@ -157,8 +225,7 @@ def main() -> int:
         optional_paths[input_id]
         for input_id in sorted(required_input_ids & set(optional_paths))
     ]
-    if not operational:
-        required_optional_paths.extend([args.v2_v5_heldout, args.v6_heldout])
+    required_optional_paths.extend([args.v2_v5_heldout, args.v6_heldout])
     if any(path is None for path in required_optional_paths):
         raise ValueError("Training is missing inputs required by the selected profiles")
     plan = mushroom_ml_multiversion_plan.build_plan(
@@ -224,7 +291,7 @@ def main() -> int:
                 "path": "batches/" + manifest["batch_id"] + "/quality-catalog.json",
                 "sha256": _sha256(quality_path),
             }
-        if not operational:
+        if args.quality_catalog is None:
             expected_estimators: dict[str, list[str]] = {}
             for fit in plan["fits"]:
                 ref = fit["artifact_ref"]
@@ -272,10 +339,13 @@ def main() -> int:
                 "row_count": report_result["report"]["holdout_predictions"]["row_count"],
             }
         if args.training_input_manifest:
+            sanitized_training = _sanitized_training_manifest(
+                args.training_input_manifest
+            )
             training_input_path = destination / "training-input-manifest.json"
             training_input_path.write_text(
                 json.dumps(
-                    _sanitized_training_manifest(args.training_input_manifest),
+                    sanitized_training,
                     indent=2,
                     ensure_ascii=False,
                 )
@@ -288,6 +358,9 @@ def main() -> int:
                 + "/training-input-manifest.json",
                 "sha256": _sha256(training_input_path),
             }
+            manifest["input_revisions"] = _input_revisions(
+                sanitized_training, args.registry
+            )
         (destination / "manifest.json").write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",

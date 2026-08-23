@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import math
 import os
@@ -98,6 +99,16 @@ class GenerationPruneReport:
     bytes_removed: int
 
 
+@dataclass(frozen=True)
+class StandaloneRebaseReport:
+    source_generation_id: str
+    generation_id: str
+    detached_previous_generation_id: str | None
+    manifest_path: str
+    manifest_sha256: str
+    committed: bool
+
+
 class WeatherHistoryWriterError(RuntimeError):
     """Base error for a rejected or failed transactional archive."""
 
@@ -112,6 +123,90 @@ class WeatherHistoryCoordinateConflict(WeatherHistoryWriterError):
 
 class InjectedWeatherHistoryFailure(WeatherHistoryWriterError):
     """Used by tests to stop a transaction at a precise durability boundary."""
+
+
+def rebase_current_generation_as_root(
+    data_dir: Path,
+    *,
+    lock_timeout_seconds: float = 30.0,
+) -> StandaloneRebaseReport:
+    """Detach CURRENT from an unavailable predecessor without copying objects.
+
+    The active immutable partition and catalog objects are verified and reused.
+    Only a new root manifest plus CURRENT are committed.  Existing manifests and
+    objects are deliberately left untouched for the normal fail-closed pruner.
+    """
+    root = weather_history_root(Path(data_dir))
+    with _writer_lock(root, lock_timeout_seconds):
+        current = resolve_weather_generation(root, verify_hashes=True)
+        if current.previous_generation_id is None:
+            return StandaloneRebaseReport(
+                source_generation_id=current.generation_id,
+                generation_id=current.generation_id,
+                detached_previous_generation_id=None,
+                manifest_path=f"manifests/{current.manifest_path.name}",
+                manifest_sha256=current.manifest_sha256,
+                committed=False,
+            )
+
+        try:
+            manifest = json.loads(current.manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise WeatherHistoryWriterError(
+                f"Cannot read CURRENT manifest for standalone rebase: {exc}"
+            ) from exc
+        if not isinstance(manifest, dict):
+            raise WeatherHistoryWriterError("CURRENT manifest must be a JSON object")
+
+        detached_previous = current.previous_generation_id
+        created = datetime.now(UTC)
+        logical_seed = {
+            "operation": "standalone_rebase_v1",
+            "source_generation_id": current.generation_id,
+            "source_manifest_sha256": current.manifest_sha256,
+            "previous_generation_id": None,
+            "partitions": manifest.get("partitions"),
+            "catalog": manifest.get("catalog"),
+        }
+        suffix = hashlib.sha256(canonical_json_bytes(logical_seed)).hexdigest()[:12]
+        generation_id = created.strftime("%Y%m%dT%H%M%S%fZ") + f"-{suffix}"
+
+        manifest["generation_id"] = generation_id
+        manifest["previous_generation_id"] = None
+        manifest["created_at"] = created.isoformat()
+        update_report = manifest.get("update_report")
+        if not isinstance(update_report, dict):
+            update_report = {}
+            manifest["update_report"] = update_report
+        update_report["standalone_rebase"] = {
+            "source_generation_id": current.generation_id,
+            "source_manifest_sha256": current.manifest_sha256,
+            "detached_previous_generation_id": detached_previous,
+        }
+
+        manifest_path = root / "manifests" / f"{generation_id}.json"
+        write_json_atomic(manifest_path, manifest)
+        manifest_sha = sha256_file(manifest_path)
+        write_json_atomic(
+            root / "CURRENT.json",
+            {
+                "schema_version": CURRENT_SCHEMA_VERSION,
+                "generation_id": generation_id,
+                "manifest_path": manifest_path.relative_to(root).as_posix(),
+                "manifest_sha256": manifest_sha,
+            },
+        )
+        resolved = resolve_weather_generation(root, verify_hashes=True)
+        if resolved.generation_id != generation_id or resolved.previous_generation_id is not None:
+            raise WeatherHistoryWriterError("Standalone root generation did not become CURRENT")
+        return StandaloneRebaseReport(
+            source_generation_id=current.generation_id,
+            generation_id=generation_id,
+            detached_previous_generation_id=detached_previous,
+            manifest_path=f"manifests/{manifest_path.name}",
+            manifest_sha256=manifest_sha,
+            committed=True,
+        )
 
 
 class _FilteredPendingCursor:

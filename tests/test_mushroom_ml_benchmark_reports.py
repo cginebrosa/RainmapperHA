@@ -148,3 +148,50 @@ class MushroomMLBenchmarkReportsTests(TestCase):
             with self.assertRaisesRegex(ValueError, "invalid"):
                 reports.delete_report(models_root, "../escape")
 
+    def test_compaction_keeps_scientific_evidence_and_removes_installable_models(self) -> None:
+        with TemporaryDirectory() as temporary:
+            models_root = Path(temporary) / "models"
+            archive = models_root / "benchmarks" / "benchmark-a"
+            archive.mkdir(parents=True)
+            self._write_report(archive)
+            (archive / "quality-catalog.json").write_text("{}", encoding="utf-8")
+            (archive / "training-input-manifest.json").write_text("{}", encoding="utf-8")
+            model = archive / "generations" / "generation-a" / "model.joblib"
+            model.parent.mkdir(parents=True)
+            model.write_bytes(b"large-model")
+            (archive / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "batch_id": "benchmark-a",
+                        "job_purpose": "benchmark",
+                        "input_revisions": {"observations_revision": "sha256:test"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            before = sorted(path.relative_to(archive).as_posix() for path in archive.rglob("*"))
+
+            plan = reports.benchmark_evidence_plan(models_root, "benchmark-a")
+
+            self.assertEqual(plan["status"], "installable")
+            self.assertGreater(plan["recoverable_bytes"], 0)
+            self.assertTrue(model.is_file())
+            self.assertEqual(
+                sorted(path.relative_to(archive).as_posix() for path in archive.rglob("*")),
+                before,
+            )
+
+            result = reports.compact_benchmark_to_evidence(
+                models_root, "benchmark-a", plan=plan
+            )
+
+            self.assertEqual(result["status"], "evidence_only")
+            self.assertFalse(model.exists())
+            self.assertFalse((archive / "manifest.json").exists())
+            self.assertTrue((archive / reports.EVIDENCE_MANIFEST_NAME).is_file())
+            self.assertEqual(reports.load_report(models_root, "benchmark-a")["batch_id"], "benchmark-a")
+            self.assertEqual(reports.list_reports(models_root)[0]["storage_state"], "evidence_only")
+            (archive / reports.PREDICTIONS_NAME).write_text("tampered\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "integrity checks"):
+                reports.load_report(models_root, "benchmark-a")
+            self.assertEqual(reports.list_reports(models_root), [])

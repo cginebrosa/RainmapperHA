@@ -12,6 +12,7 @@ __pycache__/
 /Data/
 MERGED_*.csv
 /docker-data/
+/docker-media/
 /docker-empty-test/
 /backups/
 /tmp/

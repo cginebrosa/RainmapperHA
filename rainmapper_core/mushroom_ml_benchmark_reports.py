@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
+import tempfile
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +20,8 @@ SCHEMA_VERSION = "1.0"
 KIND = "mushroom_ml_benchmark_report"
 REPORT_NAME = "benchmark-report.json"
 PREDICTIONS_NAME = "holdout-predictions.jsonl"
+EVIDENCE_MANIFEST_NAME = "evidence-manifest.json"
+EVIDENCE_KIND = "mushroom_ml_benchmark_evidence"
 
 
 def sha256(path: Path) -> str:
@@ -262,11 +266,178 @@ def load_report(models_root: Path, batch_id: str) -> dict[str, Any]:
     if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}", str(batch_id or "")):
         raise ValueError("Benchmark batch identity is invalid")
     root = Path(models_root).resolve() / "benchmarks" / batch_id
+    evidence_path = root / EVIDENCE_MANIFEST_NAME
+    if evidence_path.is_file():
+        _validate_evidence_manifest(root, batch_id)
     report_path = root / REPORT_NAME
     return validate_report(
         json.loads(report_path.read_text(encoding="utf-8")),
         root=root,
     )
+
+
+def _validate_evidence_manifest(root: Path, batch_id: str) -> dict[str, Any]:
+    """Validate evidence identity and every retained file before serving it."""
+    evidence = _json_object(root / EVIDENCE_MANIFEST_NAME)
+    if (
+        evidence.get("schema_version") != SCHEMA_VERSION
+        or evidence.get("kind") != EVIDENCE_KIND
+        or evidence.get("state") != "evidence_only"
+        or evidence.get("batch_id") != batch_id
+    ):
+        raise ValueError("Benchmark evidence manifest is invalid")
+    files = evidence.get("files")
+    if not isinstance(files, list) or not files:
+        raise ValueError("Benchmark evidence file inventory is invalid")
+    expected_names = {
+        REPORT_NAME,
+        PREDICTIONS_NAME,
+        "quality-catalog.json",
+        "training-input-manifest.json",
+    }
+    seen: set[str] = set()
+    for row in files:
+        if not isinstance(row, Mapping):
+            raise ValueError("Benchmark evidence file entry is invalid")
+        name = str(row.get("path") or "")
+        if name not in expected_names or name in seen:
+            raise ValueError("Benchmark evidence file inventory is invalid")
+        path = root / name
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or path.resolve().parent != root.resolve()
+            or path.stat().st_size != row.get("size_bytes")
+            or sha256(path) != row.get("sha256")
+        ):
+            raise ValueError(f"Benchmark evidence file failed integrity checks: {name}")
+        seen.add(name)
+    if seen != expected_names:
+        raise ValueError("Benchmark evidence file inventory is incomplete")
+    return evidence
+
+
+def benchmark_evidence_plan(models_root: Path, batch_id: str) -> dict[str, Any]:
+    """Validate one benchmark and describe conversion to non-installable evidence."""
+    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}", str(batch_id or "")):
+        raise ValueError("Benchmark batch identity is invalid")
+    root = Path(models_root).resolve() / "benchmarks" / batch_id
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError(f"Archived benchmark batch not found: {batch_id}")
+    evidence_path = root / EVIDENCE_MANIFEST_NAME
+    if evidence_path.is_file():
+        _validate_evidence_manifest(root, batch_id)
+        return {"batch_id": batch_id, "status": "evidence_only", "remove": [], "recoverable_bytes": 0}
+    report = load_report(models_root, batch_id)
+    manifest_path = root / "manifest.json"
+    manifest = _json_object(manifest_path)
+    if manifest.get("batch_id") != batch_id or manifest.get("job_purpose") != "benchmark":
+        raise ValueError("Benchmark installable manifest identity is invalid")
+    keep_names = {
+        REPORT_NAME,
+        PREDICTIONS_NAME,
+        "quality-catalog.json",
+        "training-input-manifest.json",
+    }
+    files: list[dict[str, Any]] = []
+    for name in sorted(keep_names):
+        path = root / name
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"Benchmark evidence file is missing: {name}")
+        files.append(
+            {"path": name, "size_bytes": path.stat().st_size, "sha256": sha256(path)}
+        )
+    remove = [
+        {
+            "path": path.relative_to(root).as_posix(),
+            "size_bytes": path.stat().st_size,
+        }
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+        and path.relative_to(root).as_posix() not in keep_names
+        and path.relative_to(root).as_posix() != EVIDENCE_MANIFEST_NAME
+    ]
+    return {
+        "batch_id": batch_id,
+        "status": "installable",
+        "report_id": report["report_id"],
+        "snapshot_id": report.get("snapshot_id", ""),
+        "original_manifest_sha256": sha256(manifest_path),
+        "input_revisions": manifest.get("input_revisions"),
+        "files": files,
+        "remove": remove,
+        "recoverable_bytes": sum(int(row["size_bytes"]) for row in remove),
+    }
+
+
+def compact_benchmark_to_evidence(
+    models_root: Path, batch_id: str, *, plan: dict[str, Any]
+) -> dict[str, Any]:
+    """Publish evidence-only identity before removing installable model binaries."""
+    fresh = benchmark_evidence_plan(models_root, batch_id)
+    if fresh.get("remove") != plan.get("remove") or fresh.get("status") != plan.get("status"):
+        raise ValueError("Benchmark archive changed after compaction planning")
+    if fresh["status"] == "evidence_only":
+        return fresh
+    root = Path(models_root).resolve() / "benchmarks" / batch_id
+    evidence = {
+        "schema_version": "1.0",
+        "kind": EVIDENCE_KIND,
+        "state": "evidence_only",
+        "batch_id": batch_id,
+        "report_id": fresh["report_id"],
+        "snapshot_id": fresh["snapshot_id"],
+        "original_manifest_sha256": fresh["original_manifest_sha256"],
+        "input_revisions": fresh.get("input_revisions"),
+        "files": fresh["files"],
+        "compacted_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{EVIDENCE_MANIFEST_NAME}.", suffix=".tmp", dir=root
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(evidence, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, root / EVIDENCE_MANIFEST_NAME)
+    finally:
+        temporary.unlink(missing_ok=True)
+    removed: list[str] = []
+    for entry in fresh["remove"]:
+        path = root / str(entry["path"])
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or not path.resolve().is_relative_to(root)
+        ):
+            raise ValueError("Benchmark compaction path is unsafe")
+        path.unlink()
+        removed.append(str(entry["path"]))
+    for directory in sorted(
+        (path for path in root.rglob("*") if path.is_dir()),
+        key=lambda path: len(path.parts),
+        reverse=True,
+    ):
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+    return {
+        "batch_id": batch_id,
+        "status": "evidence_only",
+        "removed": removed,
+        "recoverable_bytes": fresh["recoverable_bytes"],
+    }
+
+
+def _json_object(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path.name} is not a JSON object")
+    return payload
 
 
 def delete_report(models_root: Path, batch_id: str) -> None:
@@ -284,11 +455,15 @@ def delete_report(models_root: Path, batch_id: str) -> None:
     if root.resolve().parent != archive_root.resolve() or not root.is_dir():
         raise ValueError(f"Archived benchmark batch not found: {batch_id}")
     manifest_path = root / "manifest.json"
-    if not manifest_path.is_file():
+    evidence_path = root / EVIDENCE_MANIFEST_NAME
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("job_purpose") != "benchmark":
+            raise ValueError("Only archived scientific benchmarks can be deleted this way")
+    elif evidence_path.is_file():
+        _validate_evidence_manifest(root, batch_id)
+    else:
         raise ValueError(f"Archived benchmark batch has no manifest: {batch_id}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("job_purpose") != "benchmark":
-        raise ValueError("Only archived scientific benchmarks can be deleted this way")
     shutil.rmtree(root)
 
 
@@ -301,6 +476,8 @@ def list_reports(models_root: Path) -> list[dict[str, Any]]:
         if not directory.is_dir() or not (directory / REPORT_NAME).is_file():
             continue
         try:
+            if (directory / EVIDENCE_MANIFEST_NAME).is_file():
+                _validate_evidence_manifest(directory, directory.name)
             report = validate_report(
                 json.loads((directory / REPORT_NAME).read_text(encoding="utf-8")),
                 root=directory,
@@ -315,6 +492,11 @@ def list_reports(models_root: Path) -> list[dict[str, Any]]:
                 "snapshot_id": report.get("snapshot_id", ""),
                 "selection": report.get("selection", {}),
                 "summary": report.get("summary", {}),
+                "storage_state": (
+                    "evidence_only"
+                    if (directory / EVIDENCE_MANIFEST_NAME).is_file()
+                    else "installable"
+                ),
             }
         )
     return sorted(

@@ -55,14 +55,15 @@ from rainmapper_core import mushroom_worker_jobs
 from rainmapper_core import mushroom_worker_registry
 from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_worker_results
+from rainmapper_core import mushroom_storage_reconciler
 from rainmapper_core import mushroom_predictor_runtime
 from rainmapper_core import mushroom_predictor_stats
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_benchmark_reports
+from rainmapper_core import mushroom_ml_multiversion_comparison
 from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core import mushroom_ml_training_freshness
 from rainmapper_core import mushroom_ml_version_registry
-from rainmapper_core import mushroom_ml_version_promotion
 from rainmapper_core import mushroom_local_full_update
 from rainmapper_core.mushroom_predictor_service import REQUEST_KIND as PREDICTOR_REQUEST_KIND
 from rainmapper_core.mushroom_predictor_service import SCHEMA_VERSION as PREDICTOR_SCHEMA_VERSION
@@ -9253,6 +9254,7 @@ def diagnostic_dashboard_payload(period: str = "30") -> dict[str, object]:
         "executions": executions,
         "evolution_series": evolution_series,
         "version_averages": version_averages,
+        "storage_reconciliation": load_storage_reconciliation_report(),
     }
 
 
@@ -9260,6 +9262,24 @@ def render_diagnostics_history_panel(
     diagnostics: dict[str, object],
     recent_cgroup_peak_text: str,
 ) -> str:
+    storage = diagnostics.get("storage_reconciliation")
+    storage = storage if isinstance(storage, dict) else {}
+    storage_summary = storage.get("summary") if isinstance(storage.get("summary"), dict) else {}
+    inventory = storage.get("inventory") if isinstance(storage.get("inventory"), dict) else {}
+    storage_bytes = sum(
+        int(row.get("bytes", 0) or 0)
+        for row in inventory.values()
+        if isinstance(row, dict)
+    )
+    lifecycle = storage.get("lifecycle") if isinstance(storage.get("lifecycle"), dict) else {}
+    archive = storage.get("predictor_runtime_archive") if isinstance(storage.get("predictor_runtime_archive"), dict) else {}
+    storage_time = format_local_iso_datetime(storage.get("generated_at"))
+    storage_text = f"{storage_bytes / (1024 * 1024):.1f} MiB" if storage else "No data"
+    recoverable_text = (
+        f"{int(storage_summary.get('recoverable_bytes', 0) or 0) / (1024 * 1024):.1f} MiB"
+        if storage
+        else "No data"
+    )
     return f"""
     <div class="control-section">
       <div class="section-header">
@@ -9272,6 +9292,19 @@ def render_diagnostics_history_panel(
         <div class="card"><span class="label">Last OOM</span><span class="value">{html.escape(diagnostic_record_text(diagnostics.get("last_oom")))}</span></div>
         <div class="card"><span class="label">Recent max cgroup</span><span class="value">{html.escape(recent_cgroup_peak_text)}</span></div>
         <div class="card"><span class="label">Pending operations</span><span class="value">{int(diagnostics.get("pending_operation_count") or 0)}</span></div>
+      </div>
+    </div>
+    <div class="control-section">
+      <div class="section-header"><div><h2>Storage retention</h2><p class="meta">Last auditable reconciliation of worker and multiversion storage.</p></div></div>
+      <div class="summary-grid">
+        <div class="card"><span class="label">Last reconciled</span><span class="value">{html.escape(storage_time)}</span></div>
+        <div class="card"><span class="label">Managed storage</span><span class="value">{html.escape(storage_text)}</span></div>
+        <div class="card"><span class="label">Recoverable at plan time</span><span class="value">{html.escape(recoverable_text)}</span></div>
+        <div class="card"><span class="label">Installed / rollback batches</span><span class="value">{int(lifecycle.get('installed_batches', 0) or 0)} / {int(lifecycle.get('retained_rollbacks', 0) or 0)}</span></div>
+        <div class="card"><span class="label">Orphans / expiring Predictor</span><span class="value">{int(lifecycle.get('orphan_results', 0) or 0)} / {int(lifecycle.get('expiring_predictor_results', 0) or 0)}</span></div>
+        <div class="card"><span class="label">Runtime TAR cache</span><span class="value">{html.escape(str(archive.get('location') or 'No data'))} · {int(archive.get('entries', 0) or 0)} TAR</span></div>
+        <div class="card"><span class="label">Legacy TAR still in /share</span><span class="value">{int(archive.get('legacy_share_entries', 0) or 0)} entries · {float(archive.get('legacy_share_bytes', 0) or 0) / (1024 * 1024):.1f} MiB</span></div>
+        <div class="card"><span class="label">Reconciliation errors</span><span class="value">{int(storage_summary.get('errors', 0) or 0)}</span></div>
       </div>
     </div>
     <div class="control-section">
@@ -11675,43 +11708,69 @@ def mushroom_worker_candidate_results_path() -> Path:
     return mushroom_paths.mushroom_data_dir() / ".worker-candidate-results"
 
 
+def storage_reconciliation_report_path() -> Path:
+    return mushroom_paths.mushroom_data_dir() / "diagnostics" / "storage_reconciliation.json"
+
+
+def load_storage_reconciliation_report() -> dict[str, object]:
+    path = storage_reconciliation_report_path()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def storage_reconciliation_apply_enabled() -> bool:
+    """Keep first-install migration in audit mode until explicitly authorized."""
+    return bool_env("RAINMAPPER_ML_STORAGE_RECONCILIATION_APPLY", False)
+
+
 def mushroom_worker_supports(payload: object, capability: str) -> bool:
     worker = payload if isinstance(payload, dict) else {}
     capabilities = worker.get("capabilities", [])
     return isinstance(capabilities, list) and capability in capabilities
 
 
-def reconcile_mushroom_worker_storage_for_launch(worker_id: str) -> dict[str, object]:
+def reconcile_mushroom_worker_storage_for_launch(worker_id: str = "") -> dict[str, object]:
     """Run visible, conservative storage maintenance before queuing external work."""
-    with RUN_LOCK:
-        queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
-        jobs = queue["jobs"]
-        bundle_report = mushroom_worker_transport.cleanup_coordinator_bundles(
-            mushroom_worker_input_bundles_path(),
-            jobs,
-        )
-        result_report = mushroom_worker_results.cleanup_promoted_results(
-            mushroom_worker_candidate_results_path(),
-            jobs,
-        )
-        pending_worker = mushroom_worker_jobs.pending_worker_job_cleanups(
-            mushroom_worker_jobs_path(),
-            worker_id=worker_id,
-        )
-    removed = sum(
-        len(bundle_report.get(key, []))
-        for key in ("discarded_terminal", "discarded_orphan", "discarded_staging")
-    ) + len(result_report.get("discarded", []))
-    errors = [
-        *(str(value) for value in bundle_report.get("errors", [])),
-        *(str(value) for value in result_report.get("errors", [])),
-    ]
+    try:
+        with RUN_LOCK:
+            report = mushroom_storage_reconciler.reconcile_worker_storage(
+                queue_path=mushroom_worker_jobs_path(),
+                bundle_root=mushroom_worker_input_bundles_path(),
+                result_root=mushroom_worker_candidate_results_path(),
+                models_root=mushroom_paths.mushroom_ml_models_dir(),
+                registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+                report_path=storage_reconciliation_report_path(),
+                apply=storage_reconciliation_apply_enabled(),
+            )
+            pending_worker = (
+                mushroom_worker_jobs.pending_worker_job_cleanups(
+                    mushroom_worker_jobs_path(),
+                    worker_id=worker_id,
+                )
+                if worker_id
+                else []
+            )
+    except Exception as exc:
+        return {
+            "removed": 0,
+            "pending_worker": 0,
+            "errors": [f"Storage reconciliation failed: {exc}"],
+            "reconciliation": {},
+        }
+    execution = report.get("execution") if isinstance(report.get("execution"), dict) else {}
+    removed = int(report.get("summary", {}).get("removed_entries", 0) or 0)
+    errors = [str(value) for value in report.get("errors", [])]
+    for section in execution.values():
+        if isinstance(section, dict):
+            errors.extend(str(value) for value in section.get("errors", []))
     return {
         "removed": removed,
         "pending_worker": len(pending_worker),
         "errors": errors,
-        "bundle_report": bundle_report,
-        "result_report": result_report,
+        "reconciliation": report,
     }
 
 
@@ -12339,14 +12398,15 @@ def predictor_launch_script() -> str:
       const errorText = doc =>
         doc.querySelector(".catalog-alert.error, .catalog-alert.warning")?.textContent.trim() || modal.dataset.errorLabel;
       const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
-      const fetchPredictor = async url => {
+      const fetchPredictor = async (url, requestOptions = {}) => {
         if (cancelled) return;
         fetchController = new AbortController();
         const response = await fetch(url, {
           headers: { Accept: "text/html" },
           cache: "no-store",
           credentials: "same-origin",
-          signal: fetchController.signal
+          signal: fetchController.signal,
+          ...requestOptions
         });
         const responseUrl = new URL(response.url, window.location.href);
         currentJobId = responseUrl.searchParams.get("job_id") || currentJobId;
@@ -12430,6 +12490,38 @@ def predictor_launch_script() -> str:
         }
       };
 
+      const runPreferred = async (directForm, submitter) => {
+        reset();
+        const target = new URL(
+          submitter?.formAction || directForm.getAttribute("action") || window.location.href,
+          window.location.href
+        );
+        const executor = target.searchParams.get("executor") || "";
+        const body = new FormData(directForm);
+        if (submitter?.name) body.append(submitter.name, submitter.value);
+        modal.hidden = false;
+        document.body.classList.add("predictor-modal-open");
+        running = true;
+        setCloseEnabled(false);
+        form.hidden = true;
+        progressStep.hidden = false;
+        executorName.textContent = selectedExecutorName(executor);
+        startExpectation(executor, "warm");
+        try {
+          await fetchPredictor(target, { method: "POST", body });
+        } catch (error) {
+          if (cancelled && error?.name === "AbortError") return;
+          stopExpectation();
+          running = false;
+          setCloseEnabled(true);
+          progressStep.hidden = true;
+          const maySelect = modal.dataset.allowManualSelection === "true";
+          form.hidden = !maySelect;
+          errorBox.textContent = error?.message || modal.dataset.errorLabel;
+          errorBox.hidden = false;
+        }
+      };
+
       document.addEventListener("click", event => {
         if (event.target.closest("[data-predictor-job-cancel]")) {
           cancelRunningJob();
@@ -12456,6 +12548,10 @@ def predictor_launch_script() -> str:
         const directForm = event.target.closest("[data-predictor-direct-form]");
         if (!directForm || directForm === form) return;
         event.preventDefault();
+        if (event.submitter?.matches("[data-predictor-preferred-submit]")) {
+          runPreferred(directForm, event.submitter);
+          return;
+        }
         const target = new URL(directForm.getAttribute("action") || window.location.href, window.location.href);
         target.search = new URLSearchParams(new FormData(directForm)).toString();
         runDirect(target, "warm");
@@ -12534,6 +12630,12 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
             raise ValueError("The multiversion model selection is invalid.") from exc
         parsed.pop("token", None)
         multiversion_selection.append(parsed)
+    issue_date = min(current_date, target_date)
+    multiversion_selection = mushroom_ml_multiversion_comparison.operational_selections(
+        multiversion_selection,
+        target_date=target_date,
+        issue_date=issue_date,
+    )
     if (
         multiversion_selection
         and mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY
@@ -12552,7 +12654,7 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
         "filter_mode": (query.get("filter") or [""])[0],
         "compare_models": (query.get("compare") or [""])[0] == "1",
         "multiversion_selection": multiversion_selection,
-        "issue_date": min(current_date, target_date).isoformat(),
+        "issue_date": issue_date.isoformat(),
         "trained_species_ids": trained,
     }
     manifest, _sources = mushroom_predictor_runtime.build_manifest()
@@ -12605,13 +12707,21 @@ def resolve_mushroom_predictor_runtime_download(
         if manifest_only:
             return 200, assigned
         if archive_only:
+            archive_location = mushroom_paths.prepare_predictor_runtime_archive_dir()
+            if archive_location.fallback_used:
+                print(
+                    "Predictor runtime TAR cache fallback active: "
+                    f"{archive_location.path} ({archive_location.diagnostic})",
+                    file=sys.stderr,
+                    flush=True,
+                )
             return 200, mushroom_predictor_runtime.build_runtime_archive(
-                mushroom_paths.mushroom_ml_models_dir() / ".predictor-runtime-archives",
+                archive_location.path,
                 assigned,
                 sources,
             )
         return 200, mushroom_predictor_runtime.resolve_source(assigned, sources, logical_path)
-    except (FileNotFoundError, ValueError) as exc:
+    except (FileNotFoundError, OSError, ValueError) as exc:
         return 409, {"ok": False, "error": str(exc)}
 
 
@@ -12791,10 +12901,6 @@ def start_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int,
 def create_mushroom_worker_candidate_rebuild(
     worker_id: str,
     *,
-    promotion_eligible: bool = False,
-    reconstruction_scope: str = "all",
-    species_id: str = "",
-    full_update: bool = False,
     _preparation_lock_acquired: bool = False,
 ) -> tuple[int, dict[str, object]]:
     if not mushroom_worker_api_enabled():
@@ -12814,10 +12920,8 @@ def create_mushroom_worker_candidate_rebuild(
     payload = worker["payload"]
     if payload.get("job_api") != "candidate_rebuild_v0":
         return 409, {"ok": False, "error": "The selected worker cannot run candidate rebuilds."}
-    if (
-        full_update
-        and mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY
-        not in set(payload.get("capabilities") or [])
+    if mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY not in set(
+        payload.get("capabilities") or []
     ):
         return 409, {
             "ok": False,
@@ -12843,8 +12947,6 @@ def create_mushroom_worker_candidate_rebuild(
             observations,
             eligible_species,
         )
-        scope_label = "all eligible (candidate)"
-        scope_key = "all"
         if not selected_observation_ids:
             return 409, {"ok": False, "error": "The selected external rebuild has no eligible observations."}
         acquired_here = not _preparation_lock_acquired
@@ -12882,12 +12984,6 @@ def create_mushroom_worker_candidate_rebuild(
                         worker_display_name=display_name,
                         input_bundle=input_bundle,
                         job_id=job_id,
-                        reconstruction_scope=scope,
-                        scope_label=scope_label,
-                        scope_key=scope_key,
-                        scope_species_ids=scope_species_ids,
-                        promotion_eligible=promotion_eligible,
-                        full_update=full_update,
                     )
             except BaseException:
                 mushroom_worker_transport.discard_unqueued_bundle(
@@ -13204,10 +13300,38 @@ def create_mushroom_ml_multiversion_job(
                 dict.fromkeys(row["version_id"] for row in selected_profiles)
             )
         else:
-            resolved_profile_keys = []
-            version_ids = mushroom_ml_version_registry.training_version_ids(
-                registry, job_purpose=purpose
+            if profile_keys is None:
+                try:
+                    resolved_profile_keys = mushroom_ml_version_registry.training_profile_keys(
+                        registry, job_purpose="operational"
+                    )
+                except ValueError:
+                    resolved_profile_keys = [
+                        row["profile_key"]
+                        for row in mushroom_ml_version_registry.operational_profile_options(
+                            registry
+                        )
+                    ]
+            else:
+                resolved_profile_keys = list(profile_keys)
+            selected_profiles = [
+                mushroom_ml_version_registry.resolve_operational_profile(
+                    registry, profile_key
+                )
+                for profile_key in resolved_profile_keys
+            ]
+            version_ids = list(
+                dict.fromkeys(row["version_id"] for row in selected_profiles)
             )
+            expected_profile_keys = mushroom_ml_version_registry.training_profile_keys(
+                registry,
+                job_purpose="operational",
+                version_ids=version_ids,
+            )
+            if set(resolved_profile_keys) != set(expected_profile_keys):
+                raise ValueError(
+                    "Operational training must select complete ML versions."
+                )
         generation_ids = {
             str(row["version_id"]): f"{row['version_id']}_{batch_id}"
             for row in registry.get("versions", [])
@@ -13271,7 +13395,7 @@ def create_mushroom_ml_multiversion_job(
                 input_bundle=input_bundle,
                 job_id=job_id,
                 job_purpose=purpose,
-                profile_keys=resolved_profile_keys if purpose == "benchmark" else None,
+                profile_keys=resolved_profile_keys,
                 triggered_by_job_id=triggered_by_job_id,
             )
     except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
@@ -13316,11 +13440,6 @@ def start_mushroom_ml_multiversion_job(
 
 def start_mushroom_worker_candidate_rebuild(
     worker_id: str,
-    *,
-    promotion_eligible: bool = False,
-    reconstruction_scope: str = "all",
-    species_id: str = "",
-    full_update: bool = False,
 ) -> tuple[int, dict[str, object]]:
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
         return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
@@ -13333,18 +13452,13 @@ def start_mushroom_worker_candidate_rebuild(
         try:
             status, response = create_mushroom_worker_candidate_rebuild(
                 worker_id,
-                promotion_eligible=promotion_eligible,
-                reconstruction_scope="all",
-                species_id="",
-                full_update=full_update,
                 _preparation_lock_acquired=True,
             )
             if status == 201:
                 job = response.get("job")
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
-                label_key = "ui.worker_operational_queued" if promotion_eligible else "ui.worker_candidate_queued"
                 set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label(label_key).replace("{worker}", target)
+                    mushroom_profiles_ui.ui_label("ui.worker_operational_queued").replace("{worker}", target)
                     + (f" {response['maintenance_notice']}" if response.get("maintenance_notice") else ""),
                     clear_when_idle=True,
                 )
@@ -13365,107 +13479,6 @@ def start_mushroom_worker_candidate_rebuild(
         name="rainmapper-worker-candidate-preparation",
     ).start()
     return 202, {"ok": True, "preparing": True}
-
-
-def _run_mushroom_worker_candidate_promotion(job_id: str) -> None:
-    try:
-        with MUSHROOM_WORKER_PROMOTION_LOCK:
-            def report_progress(percent: int, phase: str, message: str) -> None:
-                with RUN_LOCK:
-                    mushroom_worker_jobs.update_candidate_promotion_progress(
-                        mushroom_worker_jobs_path(),
-                        job_id=job_id,
-                        percent=percent,
-                        phase=phase,
-                        message=message,
-                    )
-
-            promotion = mushroom_worker_results.promote_verified_candidate(
-                mushroom_worker_candidate_results_path(),
-                mushroom_worker_input_bundles_path(),
-                mushroom_paths.mushroom_data_dir(),
-                job_id=job_id,
-                observations_path=mushroom_paths.mushroom_observations_path(),
-                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
-                gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
-                weather_data_dir=mushroom_paths.weather_data_dir(),
-                gis_root=mushroom_gis_lab.gis_root(),
-                progress_callback=report_progress,
-            )
-            with RUN_LOCK:
-                current_job = mushroom_worker_jobs.get_job(
-                    mushroom_worker_jobs_path(),
-                    job_id=job_id,
-                )
-            state_warning = ""
-            try:
-                if str(current_job.get("reconstruction_scope", "all")) == "all":
-                    mushroom_model_state.clear_all_pending(full_rebuild=True)
-                else:
-                    mushroom_model_state.clear_species_pending(
-                        [
-                            str(species_id)
-                            for species_id in current_job.get("scope_species_ids", [])
-                            if str(species_id or "").strip()
-                        ]
-                    )
-            except Exception as exc:
-                state_warning = f" Model state could not be cleared: {exc}"
-        with RUN_LOCK:
-            promoted_job = mushroom_worker_jobs.finish_candidate_promotion(
-                mushroom_worker_jobs_path(),
-                job_id=job_id,
-                promoted=True,
-                result={**promotion, "state_warning": state_warning},
-            )
-        discard_mushroom_worker_input_bundle(promoted_job)
-        cleanup_warning = discard_promoted_mushroom_worker_result(promoted_job)
-        set_mushroom_workers_flash(
-            mushroom_profiles_ui.ui_label("ui.worker_promotion_complete")
-            + state_warning
-            + (f" {cleanup_warning}" if cleanup_warning else "")
-        )
-    except Exception as exc:
-        try:
-            with RUN_LOCK:
-                mushroom_worker_jobs.finish_candidate_promotion(
-                    mushroom_worker_jobs_path(),
-                    job_id=job_id,
-                    promoted=False,
-                    error=str(exc),
-                )
-        except ValueError:
-            pass
-        set_mushroom_workers_flash(str(exc), error=True)
-    finally:
-        with RUN_LOCK:
-            MUSHROOM_WORKER_PROMOTION_THREADS.pop(job_id, None)
-
-
-def promote_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, object]]:
-    if not mushroom_worker_operational_enabled():
-        return 404, {"ok": False, "error": "External worker promotion is not enabled."}
-    try:
-        with RUN_LOCK:
-            job = mushroom_worker_jobs.begin_candidate_promotion(
-                mushroom_worker_jobs_path(),
-                job_id=job_id,
-            )
-            promotion_thread = threading.Thread(
-                target=_run_mushroom_worker_candidate_promotion,
-                args=(job_id,),
-                daemon=True,
-                name=f"rainmapper-worker-promotion-{job_id[-12:]}",
-            )
-            MUSHROOM_WORKER_PROMOTION_THREADS[job_id] = promotion_thread
-            promotion_thread.start()
-    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
-        return 409, {"ok": False, "error": str(exc)}
-    set_mushroom_workers_flash(
-        mushroom_profiles_ui.ui_label("ui.worker_promotion_started"),
-        clear_when_idle=True,
-    )
-    return 202, {"ok": True, "job": job, "promoting": True}
 
 
 def mushroom_worker_job_wire_payload(job: object) -> object:
@@ -13729,6 +13742,7 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     },
                 )
         discard_mushroom_worker_input_bundle(job)
+        reconcile_mushroom_worker_storage_for_launch(worker_id)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     response_job = dict(job)
@@ -13931,88 +13945,6 @@ def complete_mushroom_ml_multiversion_result(
     return 200, {"ok": True, "verification": verification}
 
 
-def _run_mushroom_worker_ml_train_promotion(job_id: str) -> None:
-    try:
-        with MUSHROOM_WORKER_PROMOTION_LOCK:
-            def report_progress(percent: int, phase: str, message: str) -> None:
-                with RUN_LOCK:
-                    mushroom_worker_jobs.update_candidate_promotion_progress(
-                        mushroom_worker_jobs_path(),
-                        job_id=job_id,
-                        percent=percent,
-                        phase=phase,
-                        message=message,
-                    )
-
-            report_progress(5, "Promoting ML models", "Copying trained models to live directory.")
-            promotion = mushroom_worker_results.promote_ml_train_candidate(
-                mushroom_worker_candidate_results_path(),
-                mushroom_paths.mushroom_ml_models_dir(),
-                job_id=job_id,
-                report_path=mushroom_paths.mushroom_ml_report_json_path(),
-            )
-            promotion["released_predictor_instances"] = (
-                mushroom_predictor_ui.release_predictor_cache()
-            )
-            report_progress(99, "ML models promoted", "Trained models are now live.")
-        with RUN_LOCK:
-            promoted_job = mushroom_worker_jobs.finish_candidate_promotion(
-                mushroom_worker_jobs_path(),
-                job_id=job_id,
-                promoted=True,
-                result=promotion,
-            )
-        discard_mushroom_worker_input_bundle(promoted_job)
-        cleanup_warning = discard_promoted_mushroom_worker_result(promoted_job)
-        set_mushroom_workers_flash(
-            mushroom_profiles_ui.ui_label("ui.worker_ml_train_promoted")
-            + (f" {cleanup_warning}" if cleanup_warning else "")
-        )
-    except Exception as exc:
-        try:
-            with RUN_LOCK:
-                mushroom_worker_jobs.finish_candidate_promotion(
-                    mushroom_worker_jobs_path(),
-                    job_id=job_id,
-                    promoted=False,
-                    error=str(exc),
-                )
-        except ValueError:
-            pass
-        set_mushroom_workers_flash(str(exc), error=True)
-    finally:
-        with RUN_LOCK:
-            MUSHROOM_WORKER_PROMOTION_THREADS.pop(job_id, None)
-
-
-def promote_mushroom_ml_train_candidate_job(job_id: str) -> tuple[int, dict[str, object]]:
-    if not mushroom_worker_operational_enabled():
-        return 404, {"ok": False, "error": "External worker promotion is not enabled."}
-    try:
-        with RUN_LOCK:
-            job = mushroom_worker_jobs.begin_candidate_promotion(
-                mushroom_worker_jobs_path(),
-                job_id=job_id,
-            )
-            if job.get("job_type") != mushroom_worker_jobs.JOB_TYPE_ML_TRAIN:
-                raise ValueError("Only ML training jobs can be promoted via this endpoint.")
-            promotion_thread = threading.Thread(
-                target=_run_mushroom_worker_ml_train_promotion,
-                args=(job_id,),
-                daemon=True,
-                name=f"rainmapper-worker-ml-promotion-{job_id[-12:]}",
-            )
-            MUSHROOM_WORKER_PROMOTION_THREADS[job_id] = promotion_thread
-            promotion_thread.start()
-    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
-        return 409, {"ok": False, "error": str(exc)}
-    set_mushroom_workers_flash(
-        mushroom_profiles_ui.ui_label("ui.worker_ml_train_promoting"),
-        clear_when_idle=True,
-    )
-    return 202, {"ok": True, "job": job, "promoting": True}
-
-
 def _run_mushroom_full_update_promotion(
     rebuild_job_id: str,
     training_job_id: str,
@@ -14020,8 +13952,10 @@ def _run_mushroom_full_update_promotion(
 ) -> None:
     """Publish one verified reconstruction and its linked trained models."""
     models_root = mushroom_paths.mushroom_ml_models_dir()
-    descriptor_path = models_root / "runtime-batch.json"
-    previous_descriptor = descriptor_path.read_bytes() if descriptor_path.is_file() else None
+    registry_path = mushroom_paths.mushroom_ml_version_registry_path()
+    previous_registry = registry_path.read_bytes()
+    revisions_path = models_root / "current-input-revisions.json"
+    previous_revisions = revisions_path.read_bytes() if revisions_path.is_file() else None
     installed_batch_id = ""
     generation_promoted = False
     try:
@@ -14046,6 +13980,26 @@ def _run_mushroom_full_update_promotion(
                 )
             )
             installed_batch_id = str(operational_install["batch_id"])
+            installed_manifest = json.loads(
+                (
+                    models_root
+                    / "batches"
+                    / installed_batch_id
+                    / "manifest.json"
+                ).read_text(encoding="utf-8")
+            )
+            installed_registry = mushroom_ml_version_registry.install_batch_generations(
+                mushroom_ml_version_registry.load_registry(registry_path),
+                installed_manifest,
+                approved_by="linked_full_update",
+            )
+            mushroom_ml_version_registry.save_registry(
+                registry_path, installed_registry
+            )
+            mushroom_ml_training_freshness.publish_current_revisions(
+                revisions_path,
+                installed_manifest["input_revisions"],
+            )
             report_progress(10, "Promoting full generation", "Publishing verified reconstructed artifacts.")
             rebuild_promotion = mushroom_worker_results.promote_verified_candidate(
                 mushroom_worker_candidate_results_path(),
@@ -14104,6 +14058,7 @@ def _run_mushroom_full_update_promotion(
         discard_mushroom_worker_input_bundle(training_job)
         rebuild_cleanup = discard_promoted_mushroom_worker_result(rebuild_job)
         training_cleanup = discard_promoted_mushroom_worker_result(training_job)
+        reconcile_mushroom_worker_storage_for_launch()
         warnings = " ".join(value for value in (rebuild_cleanup, training_cleanup) if value)
         set_mushroom_workers_flash(
             "Complete artifacts and their trained models were promoted as one generation."
@@ -14111,10 +14066,15 @@ def _run_mushroom_full_update_promotion(
         )
     except Exception as exc:
         if installed_batch_id and not generation_promoted:
-            mushroom_ml_multiversion_transport.restore_runtime_batch(
+            mushroom_ml_multiversion_transport.remove_installed_batch(
                 models_root=models_root,
-                installed_batch_id=installed_batch_id,
-                previous_descriptor=previous_descriptor,
+                batch_id=installed_batch_id,
+            )
+            mushroom_ml_version_registry.save_registry(
+                registry_path, json.loads(previous_registry)
+            )
+            mushroom_ml_training_freshness.restore_current_revisions(
+                revisions_path, previous_revisions
             )
         for job_id in (rebuild_job_id, training_job_id):
             try:
@@ -14318,6 +14278,9 @@ def cancel_mushroom_worker_job(job_id: str, *, force: bool = False) -> tuple[int
                 force=force,
             )
         discard_mushroom_worker_input_bundle(job)
+        reconcile_mushroom_worker_storage_for_launch(
+            str(job.get("target_worker_id", ""))
+        )
     except ValueError as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {"ok": True, "job": job}
@@ -15211,6 +15174,21 @@ def mushroom_local_training_paths() -> mushroom_local_full_update.LocalFullUpdat
     )
 
 
+def set_mushroom_predictor_preferred_version(version_id: str) -> dict[str, object]:
+    """Persist the installed version used by default across Predictor views."""
+    registry_path = mushroom_ml_version_registry.ensure_seeded()
+    registry = mushroom_ml_version_registry.load_registry(registry_path)
+    updated = mushroom_ml_version_registry.set_preferred_version(
+        registry, version_id
+    )
+    mushroom_ml_version_registry.save_registry(registry_path, updated)
+    released = mushroom_predictor_ui.release_predictor_cache()
+    return {
+        "preferred_version_id": updated["preferred_version_id"],
+        "released_predictor_instances": released,
+    }
+
+
 def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
     """Start the operational rebuild chain inside an explicitly enabled local HA."""
     if not mushroom_local_ha_compute_enabled():
@@ -15304,7 +15282,7 @@ def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
             released = mushroom_predictor_ui.release_predictor_cache()
             mushroom_model_state.clear_all_pending(full_rebuild=True)
             result["released_predictor_instances"] = released
-            message = "Operational generation promoted after reconstruction, ML v0 and active V2 training."
+            message = "Operational multiversion batch installed after reconstruction and ML v0 training."
             set_mushroom_workers_flash(message)
             set_mushroom_rebuild_progress(
                 job_id,
@@ -15333,7 +15311,7 @@ def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
         daemon=True,
     ).start()
     set_mushroom_workers_flash(
-        "Operational update started: reconstruction, ML v0 and active V2 training will run in sequence.",
+        "Operational update started: reconstruction, ML v0 and multiversion training will run in sequence.",
         clear_when_idle=True,
     )
     return 202, {"ok": True, "job_id": job_id}
@@ -15471,215 +15449,6 @@ def start_mushroom_local_benchmark(
         clear_when_idle=True,
     )
     return 202, {"ok": True, "job_id": job_id}
-
-
-def start_mushroom_local_operational_candidate(
-    *, benchmark_batch_id: str, version_id: str
-) -> tuple[int, dict[str, object]]:
-    """Verify and repackage a complete benchmark version without retraining."""
-    if mushroom_worker_activity_active(mushroom_workers_recent_jobs()):
-        return 409, {"ok": False, "error": "Another mushroom operation is active."}
-    try:
-        report = mushroom_ml_benchmark_reports.load_report(
-            mushroom_paths.mushroom_ml_models_dir(), benchmark_batch_id
-        )
-        registry = mushroom_ml_version_registry.load_registry(
-            mushroom_paths.mushroom_ml_version_registry_path()
-        )
-        required = [
-            row
-            for row in mushroom_ml_version_registry.operational_profile_options(registry)
-            if row["version_id"] == version_id
-        ]
-        reported = {
-            str(row.get("profile_key") or "")
-            for row in (report.get("selection") or {}).get("profiles", [])
-            if isinstance(row, dict)
-        }
-        if not required or not {row["profile_key"] for row in required} <= reported:
-            raise ValueError("This report does not contain the complete promotable version.")
-    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
-        return 400, {"ok": False, "error": str(exc)}
-    operation_id = secrets.token_urlsafe(12)
-    job_id = f"local_candidate_{operation_id}"
-    now = time.time()
-    cancel_event = threading.Event()
-    with RUN_LOCK:
-        MUSHROOM_REBUILD_JOBS[job_id] = {
-            "job_id": job_id,
-            "job_type": "local_ml_operational_candidate",
-            "job_purpose": "operational_candidate",
-            "version_id": version_id,
-            "profile_keys": [row["profile_key"] for row in required],
-            "worker_display_name": "Home Assistant local",
-            "status": "running",
-            "phase": "Verifying benchmark candidate",
-            "phase_index": 1,
-            "phase_count": 2,
-            "phase_percent": 0,
-            "overall_percent": 0,
-            "message": f"Verifying complete {version_id} benchmark artifacts.",
-            "error": "",
-            "result": {},
-            "started_at_ts": now,
-            "phase_started_at_ts": now,
-            "finished_at_ts": None,
-            "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
-            "finished_at": "",
-            "return_url": "./workers",
-            "scope": f"{version_id}: {len(required)} operational profiles",
-            "pipeline": "verified_benchmark_candidate",
-            "cancel_requested": False,
-            "_promotion_started": False,
-            "_cancel_event": cancel_event,
-            "source_benchmark_batch_id": benchmark_batch_id,
-        }
-
-    def report_progress(percent: int, phase: str, message: str) -> None:
-        set_mushroom_rebuild_progress(
-            job_id,
-            phase=phase,
-            phase_index=2 if "Training" in phase or "ready" in phase else 1,
-            phase_count=2,
-            overall_percent=percent,
-            message=message,
-            reset_phase_timer=True,
-        )
-
-    def run() -> None:
-        try:
-            result = mushroom_local_full_update.run_local_operational_candidate(
-                operation_id=operation_id,
-                benchmark_batch_id=benchmark_batch_id,
-                version_id=version_id,
-                paths=mushroom_local_training_paths(),
-                progress=report_progress,
-                cancel_requested=cancel_event.is_set,
-            )
-            message = f"Complete {version_id} candidate reused from benchmark; Predictor was not changed."
-            set_mushroom_workers_flash(message)
-            set_mushroom_rebuild_progress(
-                job_id, status="complete", phase="Operational candidate ready",
-                phase_index=2, phase_count=2, phase_percent=100,
-                overall_percent=100, message=message, result=result,
-            )
-        except mushroom_local_full_update.LocalBenchmarkCancelled:
-            set_mushroom_rebuild_progress(
-                job_id, status="cancelled", phase="Candidate preparation cancelled",
-                message="Candidate preparation cancelled; Predictor was not changed.",
-            )
-        except Exception as exc:
-            error = f"Operational candidate failed: {exc}"
-            set_mushroom_workers_flash(error, error=True)
-            set_mushroom_rebuild_progress(job_id, status="failed", error=error, message=error)
-
-    threading.Thread(
-        target=run, name=f"mushroom-local-candidate-{operation_id}", daemon=True
-    ).start()
-    return 202, {"ok": True, "job_id": job_id}
-
-
-def promote_mushroom_local_version_candidate(job_id: str) -> tuple[int, dict[str, object]]:
-    """Start the explicit human promotion recorded by one completed candidate job."""
-    if mushroom_worker_activity_active(mushroom_workers_recent_jobs()):
-        return 409, {"ok": False, "error": "Another mushroom operation is active."}
-    with RUN_LOCK:
-        source = MUSHROOM_REBUILD_JOBS.get(str(job_id or ""))
-        source = dict(source) if isinstance(source, dict) else None
-    if not source or source.get("job_type") != "local_ml_operational_candidate" or source.get("status") != "complete":
-        return 409, {"ok": False, "error": "The operational candidate is not ready."}
-    candidate_result = source.get("result") if isinstance(source.get("result"), dict) else {}
-    candidate_id = str(candidate_result.get("candidate_id") or "")
-    if not candidate_id:
-        return 409, {"ok": False, "error": "The candidate archive identity is missing."}
-    operation_id = secrets.token_urlsafe(12)
-    promotion_job_id = f"local_promotion_{operation_id}"
-    now = time.time()
-    with RUN_LOCK:
-        MUSHROOM_REBUILD_JOBS[promotion_job_id] = {
-            "job_id": promotion_job_id,
-            "job_type": "local_ml_version_promotion",
-            "job_purpose": "promotion",
-            "worker_display_name": "Home Assistant local",
-            "status": "running",
-            "phase": "Verifying candidate freshness",
-            "phase_index": 1,
-            "phase_count": 2,
-            "phase_percent": 0,
-            "overall_percent": 5,
-            "message": "Revalidating the complete candidate before activation.",
-            "error": "", "result": {}, "started_at_ts": now,
-            "phase_started_at_ts": now, "finished_at_ts": None,
-            "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
-            "finished_at": "", "return_url": "./workers",
-            "scope": str(source.get("scope") or "complete version"),
-            "pipeline": "local_version_promotion", "cancel_requested": False,
-            "_promotion_started": True,
-        }
-
-    def run() -> None:
-        try:
-            result = mushroom_ml_version_promotion.promote_candidate(
-                models_root=mushroom_paths.mushroom_ml_models_dir(),
-                registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
-                candidate_id=candidate_id,
-                observations_path=mushroom_paths.mushroom_observations_path(),
-                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
-                gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
-                weather_data_dir=mushroom_paths.weather_data_dir(),
-                gis_root=mushroom_gis_lab.gis_root(),
-                known_sites_path=mushroom_paths.mushroom_known_sites_path(),
-                stations_path=STATIONS_PATH,
-                observation_features_path=mushroom_paths.mushroom_observation_features_json_path(),
-                source_benchmark_batch_id=str(source.get("source_benchmark_batch_id") or ""),
-            )
-            result["released_predictor_instances"] = mushroom_predictor_ui.release_predictor_cache()
-            message = f"{result['version_id']} activated with {len(result['profile_ids'])} profiles."
-            set_mushroom_workers_flash(message)
-            set_mushroom_rebuild_progress(
-                promotion_job_id, status="complete", phase="Version active",
-                phase_index=2, phase_count=2, phase_percent=100,
-                overall_percent=100, message=message, result=result,
-            )
-        except Exception as exc:
-            error = f"Version promotion failed: {exc}"
-            set_mushroom_workers_flash(error, error=True)
-            set_mushroom_rebuild_progress(
-                promotion_job_id, status="failed", error=error, message=error
-            )
-
-    threading.Thread(
-        target=run, name=f"mushroom-version-promotion-{operation_id}", daemon=True
-    ).start()
-    return 202, {"ok": True, "job_id": promotion_job_id}
-
-
-def rollback_mushroom_local_version_promotion(job_id: str) -> tuple[int, dict[str, object]]:
-    """Roll back the exact active promotion represented by one completed local job."""
-    if mushroom_worker_activity_active(mushroom_workers_recent_jobs()):
-        return 409, {"ok": False, "error": "Another mushroom operation is active."}
-    with RUN_LOCK:
-        source = MUSHROOM_REBUILD_JOBS.get(str(job_id or ""))
-        source = dict(source) if isinstance(source, dict) else None
-    result = source.get("result") if isinstance(source, dict) and isinstance(source.get("result"), dict) else {}
-    if source is None or source.get("job_type") != "local_ml_version_promotion" or source.get("status") != "complete":
-        return 409, {"ok": False, "error": "The selected promotion is not complete."}
-    try:
-        rollback = mushroom_ml_version_promotion.rollback_promotion(
-            models_root=mushroom_paths.mushroom_ml_models_dir(),
-            registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
-            promotion_id=str(result.get("promotion_id") or ""),
-        )
-        rollback["released_predictor_instances"] = mushroom_predictor_ui.release_predictor_cache()
-        with RUN_LOCK:
-            current = MUSHROOM_REBUILD_JOBS.get(str(job_id))
-            if current is not None and isinstance(current.get("result"), dict):
-                current["result"]["rollback_available"] = False
-                current["result"]["rollback"] = rollback
-        set_mushroom_workers_flash("Previous operational version restored.")
-        return 200, {"ok": True, "rollback": rollback}
-    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
-        return 409, {"ok": False, "error": str(exc)}
 
 
 def start_mushroom_model_rebuild_job(
@@ -18833,6 +18602,26 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 return
             result = job.get("result") if isinstance(job.get("result"), dict) else {}
             prepared_response = result.get("response")
+            result_detail = job.get("predictor_result_detail")
+            if (
+                not isinstance(prepared_response, dict)
+                and isinstance(result_detail, dict)
+                and result_detail.get("status") == "expired"
+            ):
+                body = (
+                    '<p><a class="button-link" href="?">← '
+                    f'{html.escape(mushroom_profiles_ui.ui_label("ui.predictor_executor_change"))}</a></p>'
+                    f'<h1>{html.escape(page_title)}</h1><div class="catalog-alert warning">'
+                    f'<strong>{html.escape(mushroom_profiles_ui.ui_label("ui.predictor_result_detail_expired_title"))}</strong>'
+                    f'<p>{html.escape(mushroom_profiles_ui.ui_label("ui.predictor_result_detail_expired_help"))}</p>'
+                    '</div>'
+                )
+                self.send_bytes(
+                    410,
+                    html_page(page_title, body, auto_refresh=False),
+                    "text/html; charset=utf-8",
+                )
+                return
             response_metrics = (
                 prepared_response.get("metrics", {})
                 if isinstance(prepared_response, dict)
@@ -18915,7 +18704,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             profiles_payload = store.load("profiles")
                             known_sites_payload = mushroom_known_sites.load_payload()
                             training_freshness = mushroom_ml_training_freshness.assess(
-                                runtime_manifest_path=mushroom_paths.mushroom_ml_runtime_batch_manifest_path(),
                                 registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
                                 models_root=mushroom_paths.mushroom_ml_models_dir(),
                                 observations_path=mushroom_paths.mushroom_observations_path(),
@@ -19046,20 +18834,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         try:
             store = default_store()
             store.ensure_seeded()
-            profiles_payload = store.load("profiles")
             observations_payload = store.load("observations")
-            profiles = profiles_payload.get("species_profiles", []) if isinstance(profiles_payload, dict) else []
-            profiles = [row for row in profiles if isinstance(row, dict)] if isinstance(profiles, list) else []
             observations = observation_dicts_from_payload(
                 observations_payload if isinstance(observations_payload, dict) else {}
             )
             eligible_species = eligible_model_species_ids(observations)
             eligible_observations = eligible_observation_ids_for_species(observations, eligible_species)
-            pending_species = pending_model_species_ids(
-                mushroom_model_state.load_state(),
-                observations,
-                learned_model_payload=mushroom_learned_model.load_latest_model(),
-            )
             jobs = mushroom_workers_recent_jobs()
             benchmark_registry = mushroom_ml_version_registry.load_registry(
                 mushroom_paths.mushroom_ml_version_registry_path()
@@ -19087,7 +18867,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             selected_benchmark_id = (query.get("benchmark") or [""])[0]
             selected_benchmark_report = None
             benchmark_report_error = ""
-            promotion_versions: list[dict[str, object]] = []
             if selected_benchmark_id:
                 try:
                     selected_benchmark_report = mushroom_ml_benchmark_reports.load_report(
@@ -19095,46 +18874,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     )
                 except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
                     benchmark_report_error = str(exc)
-            if selected_benchmark_report is not None:
-                selection = selected_benchmark_report.get("selection")
-                selection = selection if isinstance(selection, dict) else {}
-                report_profile_keys = {
-                    str(row.get("profile_key") or "")
-                    for row in selection.get("profiles", [])
-                    if isinstance(row, dict)
-                }
-                operational_profiles = mushroom_ml_version_registry.operational_profile_options(
-                    benchmark_registry
-                )
-                for version_id in dict.fromkeys(
-                    row["version_id"] for row in operational_profiles
-                ):
-                    version_profiles = [
-                        row for row in operational_profiles if row["version_id"] == version_id
-                    ]
-                    if {row["profile_key"] for row in version_profiles} <= report_profile_keys:
-                        promotion_versions.append(
-                            {
-                                "version_id": version_id,
-                                "version_name": version_profiles[0]["version_name"],
-                                "profile_keys": [row["profile_key"] for row in version_profiles],
-                            }
-                        )
             worker_registry = mushroom_worker_registry.load_registry(
                 mushroom_worker_registry_path()
             )
             default_executor = str(
                 worker_registry.get("default_executor", "home_assistant")
             )
-            selected_scope = (query.get("scope") or ["all"])[0]
-            if selected_scope not in {"all", "pending", "species"}:
-                selected_scope = "all"
-            selected_species_id = (query.get("species_id") or [""])[0]
-            profile_ids = {
-                str(row.get("species_id", "") or "") for row in profiles
-            }
-            if selected_species_id not in profile_ids:
-                selected_species_id = ""
             flash, flash_error, flash_clear_when_idle = mushroom_workers_flash_details()
             if flash_clear_when_idle and not mushroom_worker_activity_active(jobs):
                 flash = ""
@@ -19147,16 +18892,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             )
             body = mushroom_workers_ui.render_page(
                 worker_statuses=registered_mushroom_worker_statuses(),
-                profiles=profiles,
                 eligible_observation_count=len(eligible_observations),
-                pending_species_count=len(pending_species),
                 jobs=jobs,
                 pipeline=pipeline,
                 operational_enabled=mushroom_worker_operational_enabled(),
                 local_ha_compute_enabled=mushroom_local_ha_compute_enabled(),
                 default_executor=default_executor,
-                selected_scope=selected_scope,
-                selected_species_id=selected_species_id,
                 pairing_required=mushroom_worker_auth_required(),
                 flash=flash,
                 flash_error=flash_error,
@@ -19166,7 +18907,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 benchmark_history=benchmark_history,
                 selected_benchmark_report=selected_benchmark_report,
                 benchmark_report_error=benchmark_report_error,
-                promotion_versions=promotion_versions,
             )
             rebuild_job_id = (query.get("rebuild_job") or [""])[0]
             body += render_mushroom_rebuild_progress_modal(rebuild_job_id, "./workers")
@@ -20383,6 +20123,31 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return
 
         form, files = self.read_form_and_files()
+        if parsed.path.rstrip("/") == "/mushrooms/predictor":
+            if not self.require_trusted_worker_control():
+                return
+            if self.form_action_value(form, "predictor_action") != "set_preferred_version":
+                self.send_bytes(
+                    400,
+                    b"Unknown Predictor action.",
+                    "text/plain; charset=utf-8",
+                )
+                return
+            try:
+                set_mushroom_predictor_preferred_version(
+                    self.form_value(form, "preferred_version_id")
+                )
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                self.send_bytes(
+                    400,
+                    str(exc).encode("utf-8"),
+                    "text/plain; charset=utf-8",
+                )
+                return
+            query = ("?" + parsed.query) if parsed.query else ""
+            self.redirect_to("./predictor" + query)
+            return
+
         if parsed.path.rstrip("/") == "/users":
             self.handle_user_admin_post(form)
             self.redirect_to("./users")
@@ -20658,29 +20423,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
             return "./workers"
-        if action == "run_worker_candidate_rebuild":
-            status, response = start_mushroom_worker_candidate_rebuild(
-                self.form_value(form, "worker_id")
-            )
-            if status != 202:
-                set_mushroom_workers_flash(
-                    str(response.get("error", "Cannot queue candidate rebuild.")),
-                    error=True,
-                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
-                )
-            return "./workers?" + urlencode(
-                {"benchmark_profile": profile_keys}, doseq=True
-            )
-        if action == "promote_worker_candidate":
-            status, response = promote_mushroom_worker_candidate(
-                self.form_value(form, "job_id")
-            )
-            if status != 202:
-                set_mushroom_workers_flash(
-                    str(response.get("error", "Cannot promote worker candidate.")),
-                    error=True,
-                )
-            return "./workers"
         if action == "discard_worker_candidate":
             status, response = discard_mushroom_worker_candidate(
                 self.form_value(form, "job_id")
@@ -20694,22 +20436,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 set_mushroom_workers_flash(
                     str(response.get("error", "Cannot discard worker candidate.")),
                     error=True,
-                )
-            return "./workers"
-        if action == "run_worker_ml_train":
-            worker_id = self.form_value(form, "worker_id")
-            if not mushroom_worker_operational_enabled():
-                set_mushroom_workers_flash(
-                    mushroom_profiles_ui.ui_label("ui.worker_job_api_pending_help"),
-                    error=True,
-                )
-                return "./workers"
-            status, response = start_mushroom_ml_train_job(worker_id)
-            if status != 202:
-                set_mushroom_workers_flash(
-                    str(response.get("error", "Cannot queue ML training job.")),
-                    error=True,
-                    clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
             return "./workers"
         if action == "run_worker_ml_multiversion":
@@ -20778,47 +20504,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     error=True,
                 )
             return "./workers"
-        if action == "prepare_version_candidate":
-            status, response = start_mushroom_local_operational_candidate(
-                benchmark_batch_id=self.form_value(form, "benchmark_batch_id"),
-                version_id=self.form_value(form, "version_id"),
-            )
-            if status != 202:
-                set_mushroom_workers_flash(
-                    str(response.get("error", "Cannot prepare the operational version candidate.")),
-                    error=True,
-                )
-            return "./workers"
-        if action == "promote_version_candidate":
-            status, response = promote_mushroom_local_version_candidate(
-                self.form_value(form, "job_id")
-            )
-            if status != 202:
-                set_mushroom_workers_flash(
-                    str(response.get("error", "Cannot promote the complete version.")),
-                    error=True,
-                )
-            return "./workers"
-        if action == "rollback_version_promotion":
-            status, response = rollback_mushroom_local_version_promotion(
-                self.form_value(form, "job_id")
-            )
-            if status != 200:
-                set_mushroom_workers_flash(
-                    str(response.get("error", "Cannot roll back the operational version.")),
-                    error=True,
-                )
-            return "./workers"
-        if action == "promote_ml_train_candidate":
-            status, response = promote_mushroom_ml_train_candidate_job(
-                self.form_value(form, "job_id")
-            )
-            if status != 202:
-                set_mushroom_workers_flash(
-                    str(response.get("error", "Cannot promote ML training candidate.")),
-                    error=True,
-                )
-            return "./workers"
         if action == "promote_full_update":
             status, response = promote_mushroom_full_update(
                 self.form_value(form, "job_id")
@@ -20847,11 +20532,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 )
                 return "./workers"
             status, response = start_mushroom_worker_candidate_rebuild(
-                executor.removeprefix("worker:"),
-                promotion_eligible=True,
-                reconstruction_scope="all",
-                species_id="",
-                full_update=True,
+                executor.removeprefix("worker:")
             )
             if status != 202:
                 set_mushroom_workers_flash(
@@ -22301,6 +21982,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         status_text = "Running" if running else "Idle"
         disabled = "disabled" if running else ""
         diagnostics = runtime_diagnostics.diagnostics_status()
+        diagnostics["storage_reconciliation"] = load_storage_reconciliation_report()
 
         recent_cgroup_peak = diagnostics.get("recent_max_cgroup_mib")
         recent_cgroup_peak_text = (
@@ -22740,6 +22422,18 @@ def main() -> None:
             )
     except Exception as exc:
         print(f"WARNING: could not seed mushroom data defaults: {exc}", flush=True)
+
+    try:
+        startup_maintenance = reconcile_mushroom_worker_storage_for_launch()
+        print(
+            "Mushroom storage reconciliation "
+            f"mode={'apply' if storage_reconciliation_apply_enabled() else 'dry-run'} "
+            f"removed={startup_maintenance.get('removed', 0)} "
+            f"errors={len(startup_maintenance.get('errors', []))}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(f"WARNING: mushroom storage reconciliation failed: {exc}", flush=True)
 
     scheduler = threading.Thread(target=scheduler_loop, daemon=True)
     scheduler.start()

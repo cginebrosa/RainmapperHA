@@ -202,10 +202,15 @@ def cleanup_coordinator_bundles(
     now: float | None = None,
     staging_grace_seconds: int = DEFAULT_STAGING_GRACE_SECONDS,
     orphan_grace_seconds: int = DEFAULT_ORPHAN_GRACE_SECONDS,
+    apply: bool = True,
 ) -> dict[str, object]:
     """Reconcile private input copies without touching active or undecided jobs."""
     root = bundle_root.resolve()
     report: dict[str, object] = {
+        "mode": "apply" if apply else "dry-run",
+        "planned_terminal": [],
+        "planned_orphan": [],
+        "planned_staging": [],
         "discarded_terminal": [],
         "discarded_orphan": [],
         "discarded_staging": [],
@@ -233,24 +238,36 @@ def cleanup_coordinator_bundles(
         try:
             if _STAGING_DIR_RE.fullmatch(name):
                 if child.is_dir() and age_seconds >= max(0, staging_grace_seconds):
-                    shutil.rmtree(child)
-                    cast_staging = report["discarded_staging"]
-                    assert isinstance(cast_staging, list)
-                    cast_staging.append(name)
+                    planned_staging = report["planned_staging"]
+                    assert isinstance(planned_staging, list)
+                    planned_staging.append(name)
+                    if apply:
+                        shutil.rmtree(child)
+                        cast_staging = report["discarded_staging"]
+                        assert isinstance(cast_staging, list)
+                        cast_staging.append(name)
                 continue
             if not child.is_dir() or not _JOB_ID_RE.fullmatch(name):
                 continue
             job = jobs_by_id.get(name)
             if job is not None and coordinator_bundle_is_discardable(job):
-                discard_coordinator_bundle(root, name)
-                cast_terminal = report["discarded_terminal"]
-                assert isinstance(cast_terminal, list)
-                cast_terminal.append(name)
+                planned_terminal = report["planned_terminal"]
+                assert isinstance(planned_terminal, list)
+                planned_terminal.append(name)
+                if apply:
+                    discard_coordinator_bundle(root, name)
+                    cast_terminal = report["discarded_terminal"]
+                    assert isinstance(cast_terminal, list)
+                    cast_terminal.append(name)
             elif job is None and age_seconds >= max(0, orphan_grace_seconds):
-                discard_coordinator_bundle(root, name)
-                cast_orphan = report["discarded_orphan"]
-                assert isinstance(cast_orphan, list)
-                cast_orphan.append(name)
+                planned_orphan = report["planned_orphan"]
+                assert isinstance(planned_orphan, list)
+                planned_orphan.append(name)
+                if apply:
+                    discard_coordinator_bundle(root, name)
+                    cast_orphan = report["discarded_orphan"]
+                    assert isinstance(cast_orphan, list)
+                    cast_orphan.append(name)
             else:
                 cast_retained = report["retained"]
                 assert isinstance(cast_retained, list)

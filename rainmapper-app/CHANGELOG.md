@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.264
+
+- Install and retain independent V2/V3/V4/V5w/V6w generations, keep V4 as the
+  preferred default, and let Predictor date queries compare only the versions
+  explicitly selected while choosing fixed and lag/event winners separately.
+- Expose Predictor eligibility, applicability, statistical reliability, and
+  cross-family consensus as separate auditable verdicts, with consistent
+  selections across date summary, weekly strip, recommender, species, and
+  history views.
+- Replace manual benchmark promotion paths with one verified operational
+  rebuild/retrain flow and compact every scientific benchmark to
+  `evidence_only` after validation.
+- Add conservative worker/ML storage reconciliation with visible `dry-run`,
+  keep destructive application disabled by default, expire bounded Predictor
+  payloads, and move regenerable runtime TAR files outside `/share` backups.
+- Preserve one bounded rebuild rollback, remove retired promotion routes, and
+  validate installed-generation references before pruning unprotected batches.
+- Add verified partitioned-weather root rebasing for restored generations whose
+  predecessor manifest is unavailable.
+
 ## 0.2.263
 
 - Fix duplicated species-eligibility logic between the HA-local and

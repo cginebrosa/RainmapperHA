@@ -2869,6 +2869,16 @@
     "es": "No se ha podido abrir el Predictor.",
     "ca": "No s'ha pogut obrir el Predictor."
   },
+  "ui.predictor_result_detail_expired_title": {
+    "en": "Prediction detail expired",
+    "es": "Detalle de la predicción expirado",
+    "ca": "Detall de la predicció caducat"
+  },
+  "ui.predictor_result_detail_expired_help": {
+    "en": "The job summary is retained, but its heavy result was removed by the storage policy. Run the prediction again to recover the full detail.",
+    "es": "Se conserva el resumen del trabajo, pero su resultado pesado se eliminó por la política de almacenamiento. Ejecuta de nuevo la predicción para recuperar el detalle completo.",
+    "ca": "Es conserva el resum del treball, però el seu resultat pesat s'ha eliminat per la política d'emmagatzematge. Executa de nou la predicció per recuperar el detall complet."
+  },
   "ui.predictor_executor_change": {
     "es": "Cambiar ejecutor",
     "ca": "Canviar executor",
@@ -3304,20 +3314,10 @@
     "es": "Prueba de envio de entradas",
     "ca": "Prova d'enviament d'entrades"
   },
-  "ui.worker_candidate_button": {
-    "en": "Run candidate rebuild",
-    "es": "Probar reconstruccion candidata",
-    "ca": "Provar reconstruccio candidata"
-  },
-  "ui.worker_candidate_queued": {
-    "en": "Candidate rebuild queued for {worker}; live model promotion is disabled.",
-    "es": "Reconstruccion candidata encolada para {worker}; la promocion al modelo vivo esta deshabilitada.",
-    "ca": "Reconstruccio candidata encuada per a {worker}; la promocio al model viu esta deshabilitada."
-  },
   "ui.worker_candidate_rebuild": {
-    "en": "Candidate rebuild",
-    "es": "Reconstruccion candidata",
-    "ca": "Reconstruccio candidata"
+    "en": "Complete operational rebuild",
+    "es": "Reconstruccion operativa completa",
+    "ca": "Reconstruccio operativa completa"
   },
   "ui.worker_operational_local_ready": {
     "en": "Local operational test ready",
@@ -3325,34 +3325,14 @@
     "ca": "Prova operativa local disponible"
   },
   "ui.worker_operational_queued": {
-    "en": "Operational candidate queued for {worker}; manual promotion will be required.",
-    "es": "Candidato operativo encolado para {worker}; requerira promocion manual.",
-    "ca": "Candidat operatiu encuat per a {worker}; requerira promocio manual."
+    "en": "Complete operational update queued for {worker}; verified outputs will be promoted automatically as one generation.",
+    "es": "Actualizacion operativa completa encolada para {worker}; las salidas verificadas se promocionaran automaticamente como una sola generacion.",
+    "ca": "Actualitzacio operativa completa encuada per a {worker}; les sortides verificades es promocionaran automaticament com una sola generacio."
   },
   "ui.worker_external_all_only": {
     "en": "The first external operational test only supports rebuilding all eligible species.",
     "es": "La primera prueba operativa externa solo admite reconstruir todas las especies elegibles.",
     "ca": "La primera prova operativa externa nomes admet reconstruir totes les especies elegibles."
-  },
-  "ui.worker_promote_candidate": {
-    "en": "Promote",
-    "es": "Promocionar",
-    "ca": "Promocionar"
-  },
-  "ui.worker_promote_confirm": {
-    "en": "Promote this verified candidate to the live local model? Freshness will be checked and rollback preserved.",
-    "es": "Promocionar este candidato verificado al modelo local vivo? Se comprobara la frescura y se conservara rollback.",
-    "ca": "Promocionar aquest candidat verificat al model local viu? Es comprovara la frescor i es conservara rollback."
-  },
-  "ui.worker_promotion_complete": {
-    "en": "Verified worker candidate promoted atomically to the live local model.",
-    "es": "Candidato verificado del worker promocionado atomicamente al modelo local vivo.",
-    "ca": "Candidat verificat del worker promocionat atomicament al model local viu."
-  },
-  "ui.worker_promotion_started": {
-    "en": "Promotion started in the background. Progress is shown in recent jobs.",
-    "es": "Promocion iniciada en segundo plano. El progreso se muestra en trabajos recientes.",
-    "ca": "Promocio iniciada en segon pla. El progres es mostra als treballs recents."
   },
   "ui.worker_promoting": {
     "en": "Promoting",
@@ -3688,51 +3668,6 @@
     "en": "View report",
     "es": "Ver informe",
     "ca": "Veure informe"
-  },
-  "ui.worker_version_promotion": {
-    "en": "Operational version promotion",
-    "es": "Promocion de version operativa",
-    "ca": "Promocio de versio operativa"
-  },
-  "ui.worker_version_promotion_human_choice": {
-    "en": "Metrics are advisory. Preparing a candidate retrains every profile in the version on current data; activation requires a separate explicit human action.",
-    "es": "Las metricas son orientativas. Preparar una candidata reentrena todos los perfiles de la version con los datos actuales; activarla requiere otra accion humana explicita.",
-    "ca": "Les metriques son orientatives. Preparar una candidata torna a entrenar tots els perfils de la versio amb les dades actuals; activar-la requereix una altra accio humana explicita."
-  },
-  "ui.worker_prepare_version_candidate": {
-    "en": "Prepare complete candidate",
-    "es": "Preparar candidata completa",
-    "ca": "Preparar candidata completa"
-  },
-  "ui.worker_version_candidate_job": {
-    "en": "Operational version candidate",
-    "es": "Candidata de version operativa",
-    "ca": "Candidata de versio operativa"
-  },
-  "ui.worker_version_promotion_job": {
-    "en": "Operational version promotion",
-    "es": "Promocion de version operativa",
-    "ca": "Promocio de versio operativa"
-  },
-  "ui.worker_promote_version": {
-    "en": "Activate complete version",
-    "es": "Activar version completa",
-    "ca": "Activar versio completa"
-  },
-  "ui.worker_promote_version_confirm": {
-    "en": "Activate this complete version and all its profiles in Predictor?",
-    "es": "¿Activar esta version completa y todos sus perfiles en Predictor?",
-    "ca": "Activar aquesta versio completa i tots els seus perfils a Predictor?"
-  },
-  "ui.worker_rollback_version": {
-    "en": "Roll back version",
-    "es": "Revertir version",
-    "ca": "Revertir versio"
-  },
-  "ui.worker_rollback_version_confirm": {
-    "en": "Restore the exact operational version that was active before this promotion?",
-    "es": "¿Restaurar exactamente la version operativa que estaba activa antes de esta promocion?",
-    "ca": "Restaurar exactament la versio operativa que estava activa abans d'aquesta promocio?"
   },
   "ui.worker_promote_full_update": {
     "en": "Activate complete generation",
@@ -4149,40 +4084,10 @@
     "es": "Entrenar modelos ML",
     "ca": "Entrenar models ML"
   },
-  "ui.worker_ml_train_help": {
-    "en": "Train species prediction models from the current features artifact",
-    "es": "Entrena modelos de prediccion de especies a partir del artefacto de features actual",
-    "ca": "Entrena models de prediccio d'especies a partir de l'artefacte de features actual"
-  },
-  "ui.worker_ml_train_start": {
-    "en": "Queue ML training",
-    "es": "Encolar entrenamiento ML",
-    "ca": "Encuar entrenament ML"
-  },
   "ui.worker_ml_train_queued": {
     "en": "ML training job queued for {worker}.",
     "es": "Trabajo de entrenamiento ML encolado para {worker}.",
     "ca": "Treball d'entrenament ML encuat per a {worker}."
-  },
-  "ui.worker_ml_train_promoted": {
-    "en": "Trained ML models promoted to live directory.",
-    "es": "Modelos ML entrenados promocionados al directorio activo.",
-    "ca": "Models ML entrenats promocionats al directori actiu."
-  },
-  "ui.worker_ml_train_promoting": {
-    "en": "ML model promotion started in the background.",
-    "es": "Promocion de modelos ML iniciada en segundo plano.",
-    "ca": "Promocio de models ML iniciada en segon pla."
-  },
-  "ui.worker_ml_train_promote": {
-    "en": "Promote models",
-    "es": "Promocionar modelos",
-    "ca": "Promocionar models"
-  },
-  "ui.worker_ml_train_promote_confirm": {
-    "en": "Promote trained ML models to the live ml_models directory?",
-    "es": "Promocionar los modelos ML entrenados al directorio ml_models activo?",
-    "ca": "Promocionar els models ML entrenats al directori ml_models actiu?"
   },
   "ui.worker_ml_train_job_type": {
     "en": "ML training v0",
@@ -4210,9 +4115,9 @@
     "ca": "Mostrar dades tècniques dels models"
   },
   "ui.predictor_hide_model_comparison": {
-    "en": "Hide model comparison",
-    "es": "Ocultar comparación de modelos",
-    "ca": "Amagar comparació de models"
+    "en": "Hide technical model data",
+    "es": "Ocultar datos técnicos de modelos",
+    "ca": "Amagar dades tècniques dels models"
   },
   "ui.predictor_model_comparison_title": {
     "en": "Operational models",
@@ -4230,9 +4135,9 @@
     "ca": "Totes les famílies d'estimadors segueixen la mateixa regla de Brier fora de mostra."
   },
   "ui.predictor_help_estimator_generic": {
-    "en": "Estimator family declared by the active version. It can supply the operational score when its validation Brier improves the prevalence baseline and is the lowest for that profile and contract.",
-    "es": "Familia de estimadores declarada por la versión activa. Puede aportar el score operativo cuando su Brier de validación mejora la prevalencia y es el menor para ese perfil y contrato.",
-    "ca": "Família d'estimadors declarada per la versió activa. Pot aportar l'score operatiu quan el seu Brier de validació millora la prevalença i és el menor per a aquest perfil i contracte."
+    "en": "Estimator family declared by this model version. It can be selected when its validation Brier improves the prevalence baseline and is the lowest for that profile and contract.",
+    "es": "Familia de estimadores declarada por esta versión del modelo. Puede ser elegida cuando su Brier de validación mejora la prevalencia y es el menor para ese perfil y contrato.",
+    "ca": "Família d'estimadors declarada per aquesta versió del model. Pot ser triada quan el seu Brier de validació millora la prevalença i és el menor per a aquest perfil i contracte."
   },
   "ui.predictor_estimator_calibration_insufficient_classes": {
     "en": "Unavailable: calibration requires at least two training examples of each class.",
@@ -4250,24 +4155,24 @@
     "ca": "RF — Random Forest restringit. Mitjana arbres poc profunds per captar interaccions no lineals de manera prudent."
   },
   "ui.predictor_estimator_help_et": {
-    "en": "ET* — Experimental Extra Trees. Uses more randomized trees to test whether the tree-based signal is stable.",
-    "es": "ET* — Extra Trees experimental. Usa árboles más aleatorios para comprobar si la señal basada en árboles es estable.",
-    "ca": "ET* — Extra Trees experimental. Usa arbres més aleatoris per comprovar si el senyal basat en arbres és estable."
+    "en": "ET — Extra Trees. Uses more randomized trees to capture stable nonlinear interactions.",
+    "es": "ET — Extra Trees. Usa árboles más aleatorios para captar interacciones no lineales estables.",
+    "ca": "ET — Extra Trees. Usa arbres més aleatoris per captar interaccions no lineals estables."
   },
   "ui.predictor_estimator_help_hgb": {
-    "en": "HGB* — Experimental histogram gradient boosting. Builds small trees sequentially to learn nonlinear interactions.",
-    "es": "HGB* — Gradient boosting experimental. Construye pequeños árboles sucesivos para aprender interacciones no lineales.",
-    "ca": "HGB* — Gradient boosting experimental. Construeix petits arbres successius per aprendre interaccions no lineals."
+    "en": "HGB — Histogram gradient boosting. Builds small trees sequentially to learn nonlinear interactions.",
+    "es": "HGB — Gradient boosting por histogramas. Construye pequeños árboles sucesivos para aprender interacciones no lineales.",
+    "ca": "HGB — Gradient boosting per histogrames. Construeix petits arbres successius per aprendre interaccions no lineals."
   },
   "ui.predictor_estimator_help_knn": {
-    "en": "KNN* — Experimental nearest neighbours. Changes little while the same neighbours remain closest; far outside the domain it still copies those distant cases.",
-    "es": "KNN* — Vecinos más próximos experimental. Cambia poco mientras conserve los mismos vecinos; fuera del dominio sigue copiando esos casos aunque estén lejos.",
-    "ca": "KNN* — Veïns més propers experimental. Canvia poc mentre conservi els mateixos veïns; fora del domini continua copiant aquests casos encara que siguin lluny."
+    "en": "KNN — Nearest neighbours. Changes little while the same neighbours remain closest; far outside the domain it still copies those distant cases.",
+    "es": "KNN — Vecinos más próximos. Cambia poco mientras conserve los mismos vecinos; fuera del dominio sigue copiando esos casos aunque estén lejos.",
+    "ca": "KNN — Veïns més propers. Canvia poc mentre conservi els mateixos veïns; fora del domini continua copiant aquests casos encara que siguin lluny."
   },
   "ui.predictor_estimator_help_svm": {
-    "en": "SVM* — Experimental calibrated RBF SVM. Learns a nonlinear boundary; far outside its training domain it may flatten to an almost constant score.",
-    "es": "SVM* — SVM RBF calibrada experimental. Aprende una frontera no lineal; muy fuera de su dominio puede quedar casi constante.",
-    "ca": "SVM* — SVM RBF calibrada experimental. Aprèn una frontera no lineal; molt fora del domini pot quedar gairebé constant."
+    "en": "SVM — Calibrated RBF SVM. Learns a nonlinear boundary; far outside its training domain it may flatten to an almost constant score.",
+    "es": "SVM — SVM RBF calibrada. Aprende una frontera no lineal; muy fuera de su dominio puede quedar casi constante.",
+    "ca": "SVM — SVM RBF calibrada. Aprèn una frontera no lineal; molt fora del domini pot quedar gairebé constant."
   },
   "ui.predictor_unweighted_mean": {
     "en": "Unweighted mean",
@@ -4330,14 +4235,40 @@
     "ca": "Millor senyal disponible"
   },
   "ui.predictor_consensus": {
-    "en": "Statistical consensus",
-    "es": "Consenso estadístico",
-    "ca": "Consens estadístic"
+    "en": "Statistical consensus between eligible model families",
+    "es": "Consenso estadístico entre familias de modelos elegibles",
+    "ca": "Consens estadístic entre famílies de models elegibles"
   },
   "ui.predictor_consensus_high": {"en": "high", "es": "alto", "ca": "alt"},
   "ui.predictor_consensus_moderate": {"en": "moderate", "es": "moderado", "ca": "moderat"},
   "ui.predictor_consensus_low": {"en": "low", "es": "bajo", "ca": "baix"},
   "ui.predictor_consensus_unavailable": {"en": "not available", "es": "no disponible", "ca": "no disponible"},
+  "ui.predictor_consensus_window": {"en": "Window h{horizon}", "es": "Ventana h{horizon}", "ca": "Finestra h{horizon}"},
+  "ui.predictor_consensus_delay": {"en": "Delay h{horizon}", "es": "Retardo h{horizon}", "ca": "Retard h{horizon}"},
+  "ui.predictor_consensus_single_family": {"en": "no comparison · {count} eligible family", "es": "sin contraste · {count} familia válida", "ca": "sense contrast · {count} família vàlida"},
+  "ui.predictor_consensus_gap": {"en": "maximum gap {points} pp", "es": "separación máxima {points} pp", "ca": "separació màxima {points} pp"},
+  "ui.predictor_consensus_gap_decimal": {"en": "maximum gap {points} pp", "es": "separación máxima {points} pp", "ca": "separació màxima {points} pp"},
+  "ui.predictor_consensus_contrast_coverage": {"en": "contrast {measured}/{total} scenarios", "es": "contraste {measured}/{total} escenarios", "ca": "contrast {measured}/{total} escenaris"},
+  "ui.predictor_internal_agreement": {"en": "Internal variant agreement", "es": "Acuerdo interno entre variantes", "ca": "Acord intern entre variants"},
+  "ui.predictor_method_family_logistic": {"en": "logistic models", "es": "modelos logísticos", "ca": "models logístics"},
+  "ui.predictor_method_family_bagged_trees": {"en": "bagged trees", "es": "árboles agregados", "ca": "arbres agregats"},
+  "ui.predictor_method_family_boosting": {"en": "boosting", "es": "boosting", "ca": "boosting"},
+  "ui.predictor_method_family_distance": {"en": "distance models", "es": "modelos por distancia", "ca": "models per distància"},
+  "ui.predictor_method_family_kernel": {"en": "kernel models", "es": "modelos de kernel", "ca": "models de kernel"},
+  "ui.predictor_scenario_evidence": {"en": "Out-of-sample evidence by scenario", "es": "Evidencia fuera de muestra por escenario", "ca": "Evidència fora de mostra per escenari"},
+  "ui.predictor_scenario_brier_gain": {"en": "Brier improvement +{value}", "es": "mejora Brier +{value}", "ca": "millora Brier +{value}"},
+  "ui.predictor_scenario_holdout": {"en": "hold-out {count}", "es": "hold-out {count}", "ca": "hold-out {count}"},
+  "ui.predictor_scenario_applicability_within_observed_range": {"en": "within observed range", "es": "dentro del rango observado", "ca": "dins del rang observat"},
+  "ui.predictor_scenario_applicability_caution": {"en": "mild extrapolation", "es": "extrapolación leve", "ca": "extrapolació lleu"},
+  "ui.predictor_abstention_title": {"en": "Operational abstentions", "es": "Abstenciones operativas", "ca": "Abstencions operatives"},
+  "ui.predictor_abstention_compact": {"en": "Abstention: {reasons}", "es": "Abstención: {reasons}", "ca": "Abstenció: {reasons}"},
+  "ui.predictor_abstention_no_eligible": {"en": "no eligible model", "es": "ningún modelo elegible", "ca": "cap model elegible"},
+  "ui.predictor_abstention_applicability": {"en": "applicability", "es": "aplicabilidad", "ca": "aplicabilitat"},
+  "ui.predictor_abstention_brier": {"en": "Brier does not beat prevalence", "es": "Brier no mejora la prevalencia", "ca": "Brier no millora la prevalença"},
+  "ui.predictor_abstention_auc_below_minimum": {"en": "ROC-AUC below 0.55", "es": "ROC-AUC inferior a 0,55", "ca": "ROC-AUC inferior a 0,55"},
+  "ui.predictor_abstention_auc_unavailable": {"en": "ROC-AUC unavailable", "es": "ROC-AUC sin métrica", "ca": "ROC-AUC sense mètrica"},
+  "ui.predictor_abstention_model_unavailable": {"en": "model unavailable", "es": "modelo no disponible", "ca": "model no disponible"},
+  "ui.predictor_abstention_invalid_probability": {"en": "invalid probability", "es": "probabilidad inválida", "ca": "probabilitat invàlida"},
   "ui.predictor_ecological_compatibility": {"en": "Ecological compatibility", "es": "Compatibilidad ecológica", "ca": "Compatibilitat ecològica"},
   "ui.predictor_ecological_compatibility_compatible": {"en": "compatible", "es": "compatible", "ca": "compatible"},
   "ui.predictor_ecological_compatibility_incompatible": {"en": "incompatible", "es": "incompatible", "ca": "incompatible"},
@@ -4353,6 +4284,10 @@
   "ui.predictor_statistical_support_limited": {"en": "limited", "es": "limitada", "ca": "limitada"},
   "ui.predictor_statistical_support_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
   "ui.predictor_statistical_support_strong": {"en": "strong", "es": "fuerte", "ca": "forta"},
+  "ui.predictor_statistical_reliability_high": {"en": "high", "es": "alta", "ca": "alta"},
+  "ui.predictor_statistical_reliability_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
+  "ui.predictor_statistical_reliability_limited": {"en": "limited", "es": "limitada", "ca": "limitada"},
+  "ui.predictor_statistical_reliability_unavailable": {"en": "not available", "es": "no disponible", "ca": "no disponible"},
   "ui.predictor_help_reference_range": {
     "en": "Range formed by the lowest-Brier validated estimator selected independently for each active profile and weather contract. It is a comparison score, not a calibrated probability.",
     "es": "Rango formado por el estimador validado con menor Brier, elegido de forma independiente para cada perfil activo y contrato meteorológico. Es un score comparativo, no una probabilidad calibrada.",
@@ -4374,14 +4309,14 @@
     "ca": "Solidesa de la conclusió ecològica segons la cobertura meteorològica i la concordança entre contractes. Alta pot avalar tant compatibilitat com incompatibilitat."
   },
   "ui.predictor_help_statistical_support": {
-    "en": "Reliability demonstrated by the authorized operational estimators: they must beat the species prevalence baseline outside training and remain valid for the current input. Limited does not mean that the selected estimator fails validation: it means that only one validated family supports the range or that validated families differ by at least 20 points.",
-    "es": "Fiabilidad demostrada por los estimadores operativos autorizados: deben mejorar la prevalencia de la especie fuera del entrenamiento y seguir siendo válidos para la entrada actual. Limitada no significa que el estimador seleccionado falle la validación: significa que solo una familia validada sustenta el rango o que las familias validadas difieren al menos 20 puntos.",
-    "ca": "Fiabilitat demostrada pels estimadors operatius autoritzats: han de millorar la prevalença de l'espècie fora de l'entrenament i continuar sent vàlids per a l'entrada actual. Limitada no significa que l'estimador seleccionat falli la validació: significa que només una família validada sustenta el rang o que les famílies validades difereixen almenys 20 punts."
+    "en": "The global verdict is the weakest temporal scenario. High requires ROC-AUC >= 0.80, relative Brier improvement >= 20%, hold-out >= 50, at least 10 cases of each class and the current input within the observed range. Moderate requires ROC-AUC >= 0.70, relative Brier improvement >= 10%, hold-out >= 30, at least 5 cases of each class and acceptable applicability. Limited means that the winner passes the operational minimum (Brier better than prevalence and ROC-AUC >= 0.55) but not the stronger levels. It is unavailable if any scenario has no evaluable winner.",
+    "es": "El veredicto global es el del escenario temporal más débil. Alta exige ROC-AUC >= 0,80, mejora relativa de Brier >= 20 %, hold-out >= 50, al menos 10 casos de cada clase y la entrada actual dentro del rango observado. Moderada exige ROC-AUC >= 0,70, mejora relativa de Brier >= 10 %, hold-out >= 30, al menos 5 casos de cada clase y aplicabilidad aceptable. Limitada significa que el ganador supera el mínimo operativo (Brier mejor que la prevalencia y ROC-AUC >= 0,55), pero no los niveles superiores. No está disponible si algún escenario carece de ganador evaluable.",
+    "ca": "El veredicte global és el de l'escenari temporal més feble. Alta exigeix ROC-AUC >= 0,80, millora relativa de Brier >= 20 %, hold-out >= 50, almenys 10 casos de cada classe i l'entrada actual dins del rang observat. Moderada exigeix ROC-AUC >= 0,70, millora relativa de Brier >= 10 %, hold-out >= 30, almenys 5 casos de cada classe i aplicabilitat acceptable. Limitada significa que el guanyador supera el mínim operatiu (Brier millor que la prevalença i ROC-AUC >= 0,55), però no els nivells superiors. No està disponible si algun escenari no té guanyador avaluable."
   },
   "ui.predictor_help_consensus": {
-    "en": "Degree of agreement between validated operational estimators and weather contracts. Low may mean disagreement or too little independent validated evidence.",
-    "es": "Grado de acuerdo entre estimadores operativos validados y contratos meteorológicos. Bajo puede indicar discrepancia o poca evidencia validada independiente.",
-    "ca": "Grau d'acord entre estimadors operatius validats i contractes meteorològics. Baix pot indicar discrepància o poca evidència validada independent."
+    "en": "Within each temporal scenario, the verdict uses the maximum probability gap between representatives of eligible methodological families: high <= 10 percentage points, moderate > 10 and < 20, and low >= 20. It is not measurable with fewer than two families. The global verdict is the weakest measurable scenario; contrast x/y reports how many eligible scenarios had at least two families. Internal agreement between variants of one family is shown separately and is not independent family consensus.",
+    "es": "Dentro de cada escenario temporal, el veredicto usa la separación máxima de probabilidad entre representantes de familias metodológicas elegibles: alto <= 10 puntos porcentuales, moderado > 10 y < 20, y bajo >= 20. No es medible con menos de dos familias. El veredicto global es el del escenario medible más débil; contraste x/y indica cuántos escenarios elegibles tenían al menos dos familias. El acuerdo interno entre variantes de una familia se muestra por separado y no constituye consenso entre familias independientes.",
+    "ca": "Dins de cada escenari temporal, el veredicte usa la separació màxima de probabilitat entre representants de famílies metodològiques elegibles: alt <= 10 punts percentuals, moderat > 10 i < 20, i baix >= 20. No és mesurable amb menys de dues famílies. El veredicte global és el de l'escenari mesurable més feble; contrast x/y indica quants escenaris elegibles tenien almenys dues famílies. L'acord intern entre variants d'una família es mostra per separat i no constitueix consens entre famílies independents."
   },
   "ui.predictor_help_experimental_signal": {
     "en": "Each weather contract selects its validated shadow model with the lowest Brier score. The names and range combine those per-contract winners; they are shown for evaluation and still do not change the verdict or ranking.",
@@ -4572,7 +4507,10 @@
   "ui.predictor_help_probability_source": {"en": "Indicates whether the displayed score comes from the final fitted model or from a held-out evaluation that did not train on that episode.", "es": "Indica si el score mostrado procede del ajuste final o de una evaluación reservada que no entrenó con ese episodio.", "ca": "Indica si el score mostrat procedeix de l'ajust final o d'una avaluació reservada que no va entrenar amb aquell episodi."},
   "ui.predictor_help_observed_result": {"en": "Actual field result recorded for this historical episode.", "es": "Resultado real de campo registrado para este episodio histórico.", "ca": "Resultat real de camp registrat per a aquest episodi històric."},
   "ui.predictor_help_brier": {"en": "Mean squared error of probabilistic predictions; lower is better. The baseline is the error obtained by always predicting the species prevalence.", "es": "Error cuadrático medio de las predicciones probabilísticas; cuanto menor, mejor. La base es el error de predecir siempre la prevalencia de la especie.", "ca": "Error quadràtic mitjà de les prediccions probabilístiques; com més baix, millor. La base és l'error de predir sempre la prevalença de l'espècie."},
+  "ui.predictor_help_brier_delta": {"en": "Difference between the prevalence baseline Brier and the estimator Brier (baseline − model). A positive value means that the estimator reduces error versus always predicting prevalence; higher is better. A negative value means that it performs worse than the baseline.", "es": "Diferencia entre el Brier base de prevalencia y el Brier del estimador (base − modelo). Un valor positivo indica que el estimador reduce el error frente a predecir siempre la prevalencia; cuanto mayor, mejor. Un valor negativo indica que empeora la base.", "ca": "Diferència entre el Brier base de prevalença i el Brier de l'estimador (base − model). Un valor positiu indica que l'estimador redueix l'error respecte de predir sempre la prevalença; com més alt, millor. Un valor negatiu indica que empitjora la base."},
+  "ui.predictor_help_prevalence_evidence": {"en": "Categorical summary of the preceding comparison on the hold-out sample: ‘improves’ when the estimator Brier is lower than the prevalence baseline, ‘does not improve’ otherwise, and ‘not evaluated’ when there is not enough information.", "es": "Resumen categórico de la comparación anterior en la muestra hold-out: «mejora» cuando el Brier del estimador es menor que la base de prevalencia, «no mejora» en caso contrario y «sin evaluación» cuando no hay información suficiente.", "ca": "Resum categòric de la comparació anterior a la mostra hold-out: «millora» quan el Brier de l'estimador és menor que la base de prevalença, «no millora» en cas contrari i «sense avaluació» quan no hi ha prou informació."},
   "ui.predictor_help_roc_auc": {"en": "Ability to rank favorable episodes above unfavorable ones; 0.5 is random and 1.0 is perfect. It does not measure probability calibration.", "es": "Capacidad de ordenar episodios favorables por encima de los desfavorables; 0,5 equivale al azar y 1,0 es perfecto. No mide la calibración de la probabilidad.", "ca": "Capacitat d'ordenar episodis favorables per sobre dels desfavorables; 0,5 equival a l'atzar i 1,0 és perfecte. No mesura el calibratge de la probabilitat."},
+  "ui.predictor_help_holdout_sample": {"en": "Number of observations reserved outside training to evaluate this estimator for the species and contract.", "es": "Número de observaciones reservadas fuera del entrenamiento para evaluar este estimador en la especie y el contrato.", "ca": "Nombre d'observacions reservades fora de l'entrenament per avaluar aquest estimador en l'espècie i el contracte."},
   "ui.predictor_help_temporal_validation": {"en": "Chronological check that trains on one time segment and evaluates on another. It may be unavailable when either segment contains only one class.", "es": "Comprobación cronológica que entrena con un tramo temporal y evalúa con otro. Puede no estar disponible si alguno contiene una sola clase.", "ca": "Comprovació cronològica que entrena amb un tram temporal i avalua amb un altre. Pot no estar disponible si algun conté una sola classe."},
   "ui.predictor_model": {
     "en": "Model",
@@ -4702,8 +4640,38 @@
   "ui.predictor_help_rain_coverage": {"en": "Observed / missing / explicitly suppressed rain days. Missing or suppressed rain contributes 0 mm, while coverage remains visible.", "es": "Días de lluvia observados / ausentes / descartados explícitamente. Los ausentes o descartados aportan 0 mm, pero la cobertura permanece visible.", "ca": "Dies de pluja observats / absents / descartats explícitament. Els absents o descartats aporten 0 mm, però la cobertura continua visible."},
   "ui.predictor_help_post_rain_coverage": {"en": "Temperature and humidity days observed after the selected significant rain event.", "es": "Días de temperatura y humedad observados después del episodio de lluvia significativa elegido.", "ca": "Dies de temperatura i humitat observats després de l'episodi de pluja significativa triat."},
   "ui.predictor_help_weather_gaps": {"en": "Warnings about incomplete or suspect weather inputs used by this result.", "es": "Avisos sobre entradas meteorológicas incompletas o sospechosas utilizadas por este resultado.", "ca": "Avisos sobre entrades meteorològiques incompletes o sospitoses utilitzades per aquest resultat."},
-  "ui.predictor_help_out_of_domain": {"en": "Variables outside the range seen during training. The current value is the input being predicted; training is the minimum–maximum range learned by that model; Δ is the signed physical distance to the exceeded limit (+ above the maximum, − below the minimum); and σ is the distance from the learned mean in standard deviations. Severe extrapolations may exclude estimators or add caution to experimental signals.", "es": "Variables fuera del rango visto durante el entrenamiento. El valor actual es la entrada que se está prediciendo; entrenamiento es el rango mínimo–máximo aprendido por ese modelo; Δ es la distancia física con signo hasta el límite rebasado (+ por encima del máximo, − por debajo del mínimo); y σ es la distancia respecto a la media aprendida en desviaciones estándar. Las extrapolaciones severas pueden excluir estimadores o añadir cautela a las señales experimentales.", "ca": "Variables fora del rang vist durant l'entrenament. El valor actual és l'entrada que s'està predient; entrenament és el rang mínim–màxim après per aquell model; Δ és la distància física amb signe fins al límit superat (+ per sobre del màxim, − per sota del mínim); i σ és la distància respecte de la mitjana apresa en desviacions estàndard. Les extrapolacions severes poden excloure estimadors o afegir cautela als senyals experimentals."},
-  "ui.predictor_active_version_role": {"en": "This card shows the operational version selected through manual promotion. Activating it does not imply that it is the best scientific version.", "es": "Esta tarjeta muestra la versión operativa activa elegida mediante promoción manual. Activarla no implica que sea la mejor versión científica.", "ca": "Aquesta targeta mostra la versió operativa activa triada mitjançant promoció manual. Activar-la no implica que sigui la millor versió científica."},
+  "ui.predictor_help_out_of_domain": {"en": "Variables outside the range seen during training. The current value is the input being predicted; training is the minimum–maximum range learned by that model; Δ is the signed physical distance to the exceeded limit (+ above the maximum, − below the minimum); and σ is the distance from the learned mean in standard deviations. Severe extrapolations may exclude estimators or add caution to the result.", "es": "Variables fuera del rango visto durante el entrenamiento. El valor actual es la entrada que se está prediciendo; entrenamiento es el rango mínimo–máximo aprendido por ese modelo; Δ es la distancia física con signo hasta el límite rebasado (+ por encima del máximo, − por debajo del mínimo); y σ es la distancia respecto a la media aprendida en desviaciones estándar. Las extrapolaciones severas pueden excluir estimadores o añadir cautela al resultado.", "ca": "Variables fora del rang vist durant l'entrenament. El valor actual és l'entrada que s'està predient; entrenament és el rang mínim–màxim après per aquell model; Δ és la distància física amb signe fins al límit superat (+ per sobre del màxim, − per sota del mínim); i σ és la distància respecte de la mitjana apresa en desviacions estàndard. Les extrapolacions severes poden excloure estimadors o afegir cautela al resultat."},
+  "ui.predictor_active_version_role": {"en": "This view uses the preferred operational version shown above.", "es": "Esta vista utiliza la versión operativa preferida indicada arriba.", "ca": "Aquesta vista utilitza la versió operativa preferida indicada a dalt."},
+  "ui.predictor_multiversion_card_role": {"en": "This card chooses independently for each temporal scenario among every selected version; the preferred version does not limit this query.", "es": "Esta tarjeta elige de forma independiente para cada escenario temporal entre todas las versiones seleccionadas; la versión preferida no limita esta consulta.", "ca": "Aquesta targeta tria de manera independent per a cada escenari temporal entre totes les versions seleccionades; la versió preferida no limita aquesta consulta."},
+  "ui.predictor_selected_models": {"en": "Selected models", "es": "Modelos elegidos", "ca": "Models triats"},
+  "ui.predictor_selected_range": {"en": "Range of the models selected from the included versions", "es": "Rango de los modelos elegidos entre las versiones incluidas", "ca": "Rang dels models triats entre les versions incloses"},
+  "ui.predictor_selected_model_unvalidated": {"en": "not validated", "es": "sin validación", "ca": "sense validació"},
+  "ui.predictor_selected_model_caution": {"en": "mild extrapolation", "es": "extrapolación leve", "ca": "extrapolació lleu"},
+  "ui.predictor_auc_gate_rule": {"en": "Selection requires Brier better than prevalence and ROC-AUC ≥ {threshold}. A lower AUC cannot reliably rank the most favorable cases, even when probability calibration improves.", "es": "La selección exige un Brier mejor que la prevalencia y ROC-AUC ≥ {threshold}. Un AUC inferior no permite ordenar con fiabilidad los casos más favorables, aunque mejore la calibración probabilística.", "ca": "La selecció exigeix un Brier millor que la prevalença i ROC-AUC ≥ {threshold}. Un AUC inferior no permet ordenar amb fiabilitat els casos més favorables, encara que millori el calibratge probabilístic."},
+  "ui.predictor_preferred_week_context": {"en": "The seven-day strip uses the same selector within the preferred operational version: {version}.", "es": "La franja de siete días usa el mismo selector dentro de la versión operativa preferida: {version}.", "ca": "La franja de set dies usa el mateix selector dins de la versió operativa preferida: {version}."},
+  "ui.predictor_multiversion_week_context": {"en": "The seven-day strip uses the same selected versions and the same selector as the summary.", "es": "La franja de siete días usa las mismas versiones seleccionadas y el mismo selector que el resumen.", "ca": "La franja de set dies usa les mateixes versions seleccionades i el mateix selector que el resum."},
+  "ui.predictor_preferred_badge": {"en": "Preferred operational version", "es": "Versión operativa preferida", "ca": "Versió operativa preferida"},
+  "ui.predictor_preferred_short": {"en": "Preferred", "es": "Preferida", "ca": "Preferida"},
+  "ui.predictor_preferred_title": {
+    "en": "Preferred Predictor version",
+    "es": "Versión preferida del Predictor",
+    "ca": "Versió preferida del Predictor"
+  },
+  "ui.predictor_preferred_help": {
+    "en": "Controls the version used by This week, By species and History. A multiversion dated query uses the versions marked in its own selector.",
+    "es": "Controla la versión utilizada por Esta semana, Por especie e Historial. Una consulta multiversión por fecha utiliza las versiones marcadas en su propio selector.",
+    "ca": "Controla la versió utilitzada per Aquesta setmana, Per espècie i Historial. Una consulta multiversió per data utilitza les versions marcades al seu selector."
+  },
+  "ui.predictor_preferred_save": {
+    "en": "Use as preferred",
+    "es": "Usar como preferida",
+    "ca": "Usar com a preferida"
+  },
+  "ui.predictor_preferred_detail_title": {
+    "en": "Operational detail for preferred version {version}",
+    "es": "Detalle operativo de la versión preferida {version}",
+    "ca": "Detall operatiu de la versió preferida {version}"
+  },
   "ui.worker_abandoned_flash": {
     "en": "Job abandoned.",
     "es": "Trabajo abandonado.",

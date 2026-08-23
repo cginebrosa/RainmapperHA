@@ -41,6 +41,34 @@ def _sha256(path: Path) -> str:
     return value
 
 
+def _runtime_archive_matches(path: Path, manifest: dict[str, Any]) -> bool:
+    expected = {str(row["path"]): row for row in manifest["files"]}
+    try:
+        with tarfile.open(path, mode="r:") as archive:
+            members = archive.getmembers()
+            if (
+                len(members) != len(expected)
+                or any(not member.isfile() or member.name not in expected for member in members)
+            ):
+                return False
+            for member in members:
+                row = expected[member.name]
+                if member.size != int(row["size_bytes"]):
+                    return False
+                source = archive.extractfile(member)
+                if source is None:
+                    return False
+                digest = hashlib.sha256()
+                with source:
+                    for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                if f"sha256:{digest.hexdigest()}" != row["sha256"]:
+                    return False
+    except (OSError, tarfile.TarError, ValueError):
+        return False
+    return True
+
+
 def _entry(role: str, logical_path: str, source: Path) -> dict[str, Any]:
     if not source.is_file():
         raise FileNotFoundError(f"Predictor runtime file is missing: {source}")
@@ -60,7 +88,6 @@ def build_manifest(
     known_sites_path: Path | None = None,
     profiles_path: Path | None = None,
     version_registry_path: Path | None = None,
-    runtime_batch_manifest_path: Path | None = None,
     stations_file_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Path]]:
     weather = Path(weather_data_dir or mushroom_paths.weather_data_dir())
@@ -71,12 +98,6 @@ def build_manifest(
     version_registry = Path(
         version_registry_path or mushroom_paths.mushroom_ml_version_registry_path()
     )
-    if runtime_batch_manifest_path is not None:
-        runtime_batch_manifest = Path(runtime_batch_manifest_path)
-    elif models_dir is not None:
-        runtime_batch_manifest = models / "runtime-batch.json"
-    else:
-        runtime_batch_manifest = mushroom_paths.mushroom_ml_runtime_batch_manifest_path()
     sources: dict[str, Path] = {
         "data/mushroom_observation_features_v0.json": features,
         "data/mushroom_known_sites.json": known_sites,
@@ -116,37 +137,59 @@ def build_manifest(
     for model in sorted(models.glob("mushroom_ml_experiment_*.joblib")):
         sources[f"models/{model.name}"] = model
     model_contract = MODEL_CONTRACT
-    if runtime_batch_manifest.is_file():
+    if version_registry.is_file() and any(
+        models.glob("batches/*/manifest.json")
+    ):
         from rainmapper_core import mushroom_ml_model_catalog
         from rainmapper_core import mushroom_ml_version_registry
 
         registry = mushroom_ml_version_registry.load_registry(version_registry)
-        batch = mushroom_ml_model_catalog.validate_batch_manifest(
-            registry,
-            json.loads(runtime_batch_manifest.read_text(encoding="utf-8")),
-        )
         sources["data/mushroom_ml_version_registry.json"] = version_registry
-        sources["models/runtime-batch.json"] = runtime_batch_manifest
-        quality_ref = batch.get("quality_catalog")
-        if isinstance(quality_ref, dict):
-            relative = Path(str(quality_ref["path"]))
-            source = models / relative
-            if not source.is_file() or _sha256(source) != f"sha256:{quality_ref['sha256']}":
-                raise ValueError("Multiversion quality catalog is missing or has the wrong digest")
-            sources[f"models/{relative.as_posix()}"] = source
-        for artifact in batch["artifacts"]:
-            relative = Path(str(artifact["path"]))
-            source = models / relative
-            if not source.is_file():
+        for version in registry["versions"]:
+            version_id = str(version["version_id"])
+            if version.get("installed_generation_id") is None:
+                continue
+            manifest_path = mushroom_ml_version_registry.installed_manifest_path(
+                registry, version_id, models_root=models
+            )
+            if manifest_path is None or not manifest_path.is_file():
                 raise FileNotFoundError(
-                    f"Multiversion model declared by runtime batch is missing: {source}"
+                    f"Installed manifest is missing for {version_id}"
                 )
-            if _sha256(source) != f"sha256:{artifact['sha256']}":
-                raise ValueError(
-                    f"Multiversion model digest does not match runtime batch: {source}"
-                )
-            sources[f"models/{relative.as_posix()}"] = source
-        model_contract = MULTIVERSION_MODEL_CONTRACT
+            batch = mushroom_ml_model_catalog.validate_batch_manifest(
+                registry, json.loads(manifest_path.read_text(encoding="utf-8"))
+            )
+            manifest_relative = manifest_path.relative_to(models)
+            sources[f"models/{manifest_relative.as_posix()}"] = manifest_path
+            for reference_name in (
+                "quality_catalog",
+                "training_input_manifest",
+                "benchmark_report",
+                "holdout_predictions",
+            ):
+                reference = batch.get(reference_name)
+                if not isinstance(reference, dict):
+                    continue
+                relative = Path(str(reference["path"]))
+                source = models / relative
+                if not source.is_file() or _sha256(source) != f"sha256:{reference['sha256']}":
+                    raise ValueError(
+                        f"Installed {reference_name} is missing or has the wrong digest"
+                    )
+                sources[f"models/{relative.as_posix()}"] = source
+            for artifact in batch["artifacts"]:
+                relative = Path(str(artifact["path"]))
+                source = models / relative
+                if not source.is_file():
+                    raise FileNotFoundError(
+                        f"Installed model is missing for {version_id}: {source}"
+                    )
+                if _sha256(source) != f"sha256:{artifact['sha256']}":
+                    raise ValueError(
+                        f"Installed model digest does not match manifest: {source}"
+                    )
+                sources[f"models/{relative.as_posix()}"] = source
+            model_contract = MULTIVERSION_MODEL_CONTRACT
     if not any(path.startswith("models/") for path in sources):
         raise FileNotFoundError(f"Predictor runtime has no trained models in {models}.")
 
@@ -221,9 +264,19 @@ def build_runtime_archive(
     root = Path(cache_dir)
     destination = root / f"{fingerprint}.tar"
     with _ARCHIVE_LOCK:
-        if destination.is_file():
+        if root.is_symlink():
+            raise ValueError("Predictor runtime archive cache cannot be a symlink.")
+        root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        root.chmod(0o700)
+        if destination.is_symlink():
+            raise ValueError("Predictor runtime archive cannot be a symlink.")
+        if destination.is_file() and _runtime_archive_matches(destination, checked):
+            destination.chmod(0o600)
+            for candidate in root.glob("*.tar"):
+                if candidate != destination:
+                    candidate.unlink(missing_ok=True)
             return destination
-        root.mkdir(parents=True, exist_ok=True)
+        destination.unlink(missing_ok=True)
         temporary = root / f".{fingerprint}.{os.getpid()}.tmp"
         temporary.unlink(missing_ok=True)
         try:
@@ -233,6 +286,7 @@ def build_runtime_archive(
                     source = resolve_source(checked, sources, logical_path)
                     archive.add(source, arcname=logical_path, recursive=False)
             os.replace(temporary, destination)
+            destination.chmod(0o600)
             for candidate in root.glob("*.tar"):
                 if candidate != destination:
                     candidate.unlink(missing_ok=True)
@@ -423,6 +477,5 @@ def service_paths(runtime_root: Path) -> dict[str, Path]:
         "known_sites_path": root / "data/mushroom_known_sites.json",
         "profiles_path": root / "data/mushroom_profiles.json",
         "version_registry_path": root / "data/mushroom_ml_version_registry.json",
-        "runtime_batch_manifest_path": root / "models/runtime-batch.json",
         "stations_file_path": root / "data/stations.txt",
     }

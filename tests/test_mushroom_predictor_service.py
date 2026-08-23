@@ -4,8 +4,9 @@ from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
-from unittest.mock import ANY, Mock
+from unittest.mock import ANY, Mock, patch
 
+from rainmapper_core import mushroom_predictor_service as service_module
 from rainmapper_core.mushroom_ml_predictor import PredictionResult
 from rainmapper_core.mushroom_predictor_service import (
     PreparedPredictor,
@@ -137,7 +138,96 @@ class PredictorServiceTests(TestCase):
 
         self.assertEqual(first["metrics"]["response_cache_status"], "miss")
         self.assertEqual(second["metrics"]["response_cache_status"], "hit")
+        self.assertIn("prediction_data", first["metrics"]["phase_seconds"])
+        self.assertIn(
+            "preferred_model_comparison", first["metrics"]["phase_seconds"]
+        )
+        self.assertEqual(
+            first["metrics"]["phase_call_counts"]["preferred_model_comparison"],
+            7,
+        )
+        self.assertIn("response_cache_lookup", second["metrics"]["phase_seconds"])
+        self.assertEqual(second["metrics"]["detailed_phase_seconds"], {})
         predictor.week_window.assert_called_once()
+
+    def test_installed_runtime_batches_loads_only_requested_version_once(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            service = PredictorService(
+                models_dir=root,
+                weather_data_dir=root,
+                features_artifact_path=root / "features.json",
+                known_sites_path=root / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text("{}", encoding="utf-8")
+            registry = {
+                "versions": [
+                    {
+                        "version_id": "altitude_v2",
+                        "installed_generation_id": "generation-v2",
+                    },
+                    {
+                        "version_id": "biology_v4",
+                        "installed_generation_id": "generation-v4",
+                    },
+                ]
+            }
+            validated = {"batch_id": "batch-v4", "artifacts": []}
+            comparison_cache: dict[str, object] = {}
+            with (
+                patch.object(
+                    service_module.mushroom_ml_version_registry,
+                    "installed_manifest_path",
+                    return_value=manifest_path,
+                ) as installed_path,
+                patch.object(
+                    service_module.mushroom_ml_model_catalog,
+                    "validate_batch_manifest",
+                    return_value=validated,
+                ) as validate_manifest,
+            ):
+                first = service._installed_runtime_batches(
+                    registry,
+                    version_ids={"biology_v4"},
+                    comparison_cache=comparison_cache,
+                )
+                second = service._installed_runtime_batches(
+                    registry,
+                    version_ids={"biology_v4"},
+                    comparison_cache=comparison_cache,
+                )
+
+        self.assertEqual(first, {"biology_v4": validated})
+        self.assertEqual(second, first)
+        self.assertEqual(installed_path.call_count, 1)
+        self.assertEqual(installed_path.call_args.args[1], "biology_v4")
+        validate_manifest.assert_called_once()
+
+    def test_non_query_views_request_catalog_without_installed_artifacts(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.areas_with_species_observations.return_value = []
+            predictor.predict_many.return_value = []
+            service.predictor = Mock(return_value=predictor)
+            service.model_catalog = Mock(
+                return_value={"available": True, "preferred_version_id": "biology_v4"}
+            )
+
+            service.execute(self.request(view="week", area_id=""))
+
+        service.model_catalog.assert_called_once_with(
+            include_installed_artifacts=False,
+            comparison_cache=ANY,
+        )
 
     def test_query_attaches_common_idw_v2_reference_comparison(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -182,6 +272,62 @@ class PredictorServiceTests(TestCase):
             prepared_weather_cache=ANY,
             comparison_cache=ANY,
         )
+
+    def test_query_prepares_multiversion_comparison_for_every_rendered_day(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            predictor.week_window.return_value = [
+                prediction("boletus", "area_one", date(2026, 8, 9 + offset))
+                for offset in range(7)
+            ]
+            service.predictor = Mock(return_value=predictor)
+            service.v2_reference_compare = Mock(
+                return_value={"interpretation": {"verdict": "uncertain"}}
+            )
+            service.multiversion_compare = Mock(
+                side_effect=lambda **kwargs: {
+                    "available": True,
+                    "target_date": kwargs["target_date"].isoformat(),
+                    "operational_comparison": {
+                        "selection_mode": "multiversion",
+                        "interpretation": {"verdict": "uncertain"},
+                    },
+                }
+            )
+            selection = {
+                "version_id": "biology_v3",
+                "temporal_contract_id": "fixed_gap_7d_biology_v3",
+                "profile_id": "core",
+                "estimator_id": "random_forest_restricted_v1",
+                "horizon_days": 7,
+            }
+
+            response = service.execute(
+                self.request(
+                    compare_models=True,
+                    issue_date="2026-08-09",
+                    multiversion_selection=[selection],
+                )
+            )
+
+        species_data = response["data"]["species"]["boletus"]
+        by_date = species_data["multiversion_comparisons"]
+        self.assertEqual(
+            set(by_date),
+            {date(2026, 8, 9 + offset).isoformat() for offset in range(7)},
+        )
+        self.assertEqual(
+            species_data["multiversion_comparison"], by_date["2026-08-09"]
+        )
+        self.assertEqual(service.multiversion_compare.call_count, 7)
 
     def test_week_view_batches_all_area_days(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -268,3 +414,53 @@ class PredictorServiceTests(TestCase):
             response["data"]["species"]["boletus"]["areas"], ["area_one"]
         )
         self.assertEqual(prepared.areas_with_species_observations(), ["area_one"])
+
+    def test_history_preserves_preferred_operational_comparison_in_prepared_adapter(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.observed_episodes.return_value = [
+                {
+                    "area_id": "area_one",
+                    "observed_at": "2026-08-09",
+                    "actual": "favorable",
+                }
+            ]
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            service.predictor = Mock(return_value=predictor)
+            preferred = {
+                "selection_mode": "preferred_version",
+                "selected_winners": [
+                    {
+                        "model_ref": {
+                            "version_id": "biology_v4",
+                            "estimator_id": "random_forest_restricted_v1",
+                        }
+                    }
+                ],
+                "interpretation": {"verdict": "favorable"},
+            }
+            service.v2_reference_compare = Mock(return_value=preferred)
+
+            response = service.execute(self.request(view="history", area_id=""))
+            prepared = PreparedPredictor("boletus", response)
+
+        self.assertEqual(
+            prepared.model_comparison("area_one", date(2026, 8, 9)), preferred
+        )
+        service.v2_reference_compare.assert_called_once_with(
+            species_id="boletus",
+            area_id="area_one",
+            target_date=date(2026, 8, 9),
+            issue_date=date(2026, 8, 9),
+            prepared_weather_cache=ANY,
+            comparison_cache=ANY,
+        )

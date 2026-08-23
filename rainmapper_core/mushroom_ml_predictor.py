@@ -34,6 +34,10 @@ from typing import Any
 from rainmapper_core import mushroom_observation_context as ctx
 from rainmapper_core import mushroom_paths
 from rainmapper_core import runtime_diagnostics
+from rainmapper_core.mushroom_prediction_interpretation import (
+    FAVORABLE_THRESHOLD,
+    UNFAVORABLE_THRESHOLD,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -77,10 +81,10 @@ class PredictionResult:
 
 
 # ---------------------------------------------------------------------------
-# Label thresholds (not production thresholds — for display only)
+# Shared operational decision/display thresholds.
 # ---------------------------------------------------------------------------
-LABEL_FAVORABLE_THRESHOLD = 0.60
-LABEL_UNFAVORABLE_THRESHOLD = 0.40
+LABEL_FAVORABLE_THRESHOLD = FAVORABLE_THRESHOLD
+LABEL_UNFAVORABLE_THRESHOLD = UNFAVORABLE_THRESHOLD
 
 
 def _label(prob: float | None) -> str:

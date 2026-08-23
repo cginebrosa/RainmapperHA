@@ -22,9 +22,9 @@ from pathlib import Path
 from typing import Callable
 
 from rainmapper_core import mushroom_ml_multiversion_transport
-from rainmapper_core import mushroom_ml_benchmark_reports
 from rainmapper_core import mushroom_ml_multiversion_plan
 from rainmapper_core import mushroom_ml_runtime_trainer
+from rainmapper_core import mushroom_ml_training_freshness
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_rebuild_contracts
 from rainmapper_core import mushroom_rebuild_pipeline
@@ -291,15 +291,25 @@ def eligible_training_species(features_path: Path) -> list[str]:
 def _validate_runtime_registry_before_work(
     registry_path: Path,
     species_ids: list[str],
-) -> str:
+) -> list[str]:
     registry = mushroom_ml_version_registry.load_registry(registry_path)
-    active_version_id = mushroom_ml_version_registry.training_version_ids(
-        registry, job_purpose="operational"
-    )[0]
+    try:
+        version_ids = mushroom_ml_version_registry.training_version_ids(
+            registry, job_purpose="operational"
+        )
+    except ValueError:
+        version_ids = list(
+            dict.fromkeys(
+                row["version_id"]
+                for row in mushroom_ml_version_registry.operational_profile_options(
+                    registry
+                )
+            )
+        )
     generation_ids = {
         str(row["version_id"]): f"preflight_{row['version_id']}"
         for row in registry.get("versions", [])
-        if isinstance(row, dict) and row.get("version_id") == active_version_id
+        if isinstance(row, dict) and row.get("version_id") in version_ids
     }
     plan = mushroom_ml_multiversion_plan.build_plan(
         registry,
@@ -307,16 +317,16 @@ def _validate_runtime_registry_before_work(
         snapshot_id="sha256:" + "0" * 64,
         generation_ids=generation_ids,
         species_ids=species_ids or ["preflight_species"],
-        version_ids=[active_version_id],
+        version_ids=version_ids,
         profile_keys=mushroom_ml_version_registry.training_profile_keys(
-            registry, job_purpose="operational"
+            registry, job_purpose="operational", version_ids=version_ids
         ),
     )
     mushroom_ml_runtime_trainer.validate_benchmark_coverage(
         plan,
         mushroom_ml_runtime_trainer.supported_runtime_benchmark_keys(),
     )
-    return active_version_id
+    return version_ids
 
 
 def _write_rebased_features(source: Path, destination: Path, paths: LocalFullUpdatePaths) -> None:
@@ -333,19 +343,6 @@ def _write_rebased_features(source: Path, destination: Path, paths: LocalFullUpd
     destination.write_text(
         json.dumps(rebased, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
-    )
-
-
-def _restore_runtime_batch(
-    *,
-    models_root: Path,
-    installed_batch_id: str,
-    previous_descriptor: bytes | None,
-) -> None:
-    mushroom_ml_multiversion_transport.restore_runtime_batch(
-        models_root=models_root,
-        installed_batch_id=installed_batch_id,
-        previous_descriptor=previous_descriptor,
     )
 
 
@@ -542,106 +539,6 @@ def run_local_benchmark(
         shutil.rmtree(operation_root, ignore_errors=True)
 
 
-def run_local_operational_candidate(
-    *,
-    operation_id: str,
-    benchmark_batch_id: str,
-    version_id: str,
-    paths: LocalFullUpdatePaths,
-    progress: ProgressCallback,
-    cancel_requested: CancelCallback | None = None,
-) -> dict[str, object]:
-    """Verify and archive benchmark artifacts without changing Predictor."""
-    _validate_isolated_work_root(paths)
-    registry = mushroom_ml_version_registry.load_registry(paths.registry)
-    resolved_version_id = str(version_id or "").strip()
-    profile_rows = [
-        row
-        for row in mushroom_ml_version_registry.operational_profile_options(registry)
-        if row["version_id"] == resolved_version_id
-    ]
-    if not profile_rows:
-        raise ValueError("The selected version is not technically promotable")
-    profile_keys = [row["profile_key"] for row in profile_rows]
-    benchmark = mushroom_ml_benchmark_reports.load_report(
-        paths.ml_models_dir, benchmark_batch_id
-    )
-    benchmark_profiles = {
-        str(row.get("profile_key") or "")
-        for row in (benchmark.get("selection") or {}).get("profiles", [])
-        if isinstance(row, dict)
-    }
-    if not set(profile_keys) <= benchmark_profiles:
-        raise ValueError(
-            "The benchmark report does not contain every profile in this version"
-        )
-    if cancel_requested is not None and cancel_requested():
-        raise LocalBenchmarkCancelled("Candidate preparation was cancelled")
-    job_id = mushroom_worker_transport.validate_job_id(
-        f"worker_job_local_candidate_{operation_id}"
-    )
-    source_root = paths.ml_models_dir / "benchmarks" / benchmark_batch_id
-    source_manifest = json.loads(
-        (source_root / "manifest.json").read_text(encoding="utf-8")
-    )
-    if source_manifest.get("snapshot_id") != benchmark.get("snapshot_id"):
-        raise ValueError("The benchmark report and artifact batch use different snapshots")
-    training_ref = source_manifest.get("training_input_manifest")
-    if not isinstance(training_ref, dict):
-        raise ValueError("The benchmark has no immutable training input identity")
-    training_path = source_root / Path(str(training_ref.get("path") or "")).relative_to(
-        Path("batches") / benchmark_batch_id
-    )
-    training_manifest = json.loads(training_path.read_text(encoding="utf-8"))
-    feature_path = paths.mushroom_data_dir / "mushroom_observation_features_v0.json"
-    progress(3, "Verifying benchmark freshness", "Comparing benchmark inputs with current authoritative data.")
-    freshness = mushroom_rebuild_snapshot.verify_live_inputs(
-        training_manifest,
-        observations_path=paths.observations,
-        reference_catalogs_path=paths.reference_catalogs,
-        gis_mappings_path=paths.gis_mappings,
-        weather_data_dir=paths.weather_data_dir,
-        gis_root=paths.gis_root,
-        extra_inputs={
-            "registry.json": paths.registry,
-            "known-sites.json": paths.known_sites,
-            "stations.txt": paths.stations,
-            "observation-features.json": feature_path,
-        },
-        ignored_extra_inputs={"registry.json"},
-        verify_weather_file_hashes=True,
-    )
-    if freshness.get("status") != "valid":
-        raise ValueError(
-            "Benchmark inputs changed; run a new scientific benchmark before preparing a candidate"
-        )
-    candidate_batch_id = (
-        f"candidate_{resolved_version_id}_"
-        + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ_")
-        + operation_id[:8]
-    )
-    try:
-        archived = mushroom_ml_multiversion_transport.archive_benchmark_as_candidate(
-            models_root=paths.ml_models_dir,
-            registry_path=paths.registry,
-            benchmark_batch_id=benchmark_batch_id,
-            version_id=resolved_version_id,
-            candidate_batch_id=candidate_batch_id,
-            job_id=job_id,
-            progress=progress,
-            cancel_requested=cancel_requested,
-        )
-        return {
-            **archived,
-            "executor": "home_assistant_local",
-            "operation_id": operation_id,
-            "source_benchmark_batch_id": benchmark_batch_id,
-            "runtime_changed": False,
-        }
-    except InterruptedError as exc:
-        raise LocalBenchmarkCancelled(str(exc)) from exc
-
-
 def run_local_full_update(
     *,
     operation_id: str,
@@ -650,14 +547,14 @@ def run_local_full_update(
     paths: LocalFullUpdatePaths,
     progress: ProgressCallback,
 ) -> dict[str, object]:
-    """Run reconstruction, ML v0 and the active V2 generation using worker contracts."""
+    """Run reconstruction, ML v0 and selected installed ML versions locally."""
     if not selected_observation_ids:
         raise ValueError("The complete local update has no eligible observations")
     _validate_isolated_work_root(paths)
-    active_version_id = _validate_runtime_registry_before_work(paths.registry, species_ids)
-    active_registry = mushroom_ml_version_registry.load_registry(paths.registry)
-    active_profile_keys = mushroom_ml_version_registry.training_profile_keys(
-        active_registry, job_purpose="operational"
+    version_ids = _validate_runtime_registry_before_work(paths.registry, species_ids)
+    registry_before = mushroom_ml_version_registry.load_registry(paths.registry)
+    profile_keys = mushroom_ml_version_registry.training_profile_keys(
+        registry_before, job_purpose="operational", version_ids=version_ids
     )
     rebuild_job_id = mushroom_worker_transport.validate_job_id(
         f"worker_job_local_rebuild_{operation_id}"
@@ -671,12 +568,9 @@ def run_local_full_update(
     operation_root = paths.work_root / operation_id
     operation_root.mkdir(parents=True, exist_ok=False)
     installed_batch_id = ""
-    previous_descriptor_path = paths.ml_models_dir / "runtime-batch.json"
-    previous_descriptor = (
-        previous_descriptor_path.read_bytes()
-        if previous_descriptor_path.is_file()
-        else None
-    )
+    previous_registry = paths.registry.read_bytes()
+    revisions_path = paths.ml_models_dir / "current-input-revisions.json"
+    previous_revisions = revisions_path.read_bytes() if revisions_path.is_file() else None
     rebuild_promoted = False
     try:
         progress(2, "Preparing immutable inputs", "Creating the local reconstruction snapshot.")
@@ -772,7 +666,7 @@ def run_local_full_update(
             candidate_results_root=paths.candidate_results_root,
         )
 
-        progress(48, "Preparing operational V2", "Creating a fresh immutable training snapshot.")
+        progress(48, "Preparing operational ML", "Creating a fresh immutable training snapshot.")
         comparison_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
             paths.bundle_root,
             job_id=comparison_job_id,
@@ -799,7 +693,7 @@ def run_local_full_update(
         extra_root = snapshot_dir / "inputs" / "extra"
         prepared_root = operation_root / "multiversion-inputs"
         preparation_progress = operation_root / "multiversion-preparation-progress.jsonl"
-        progress(50, "Preparing operational V2", "Building fixed/lag inputs from the fresh snapshot.")
+        progress(50, "Preparing operational ML", "Building shared V2--V6 inputs and hold-out evidence.")
         preparation_command = [
                 sys.executable,
                 str(paths.scripts_dir / "prepare-mushroom-ml-multiversion-inputs.py"),
@@ -824,11 +718,11 @@ def run_local_full_update(
                 "--job-purpose",
                 "operational",
             ]
-        for profile_key in active_profile_keys:
+        for profile_key in profile_keys:
             preparation_command.extend(["--profile-key", profile_key])
         _run_command_with_jsonl_progress(
             preparation_command,
-            description="Local operational V2 input preparation",
+            description="Local operational multiversion input preparation",
             progress_path=preparation_progress,
             progress=progress,
             event_mapper=_preparation_progress_update,
@@ -838,13 +732,13 @@ def run_local_full_update(
         )
         model_inputs = prepared.get("inputs") if isinstance(prepared, dict) else None
         if not isinstance(model_inputs, dict) or prepared.get("operational_candidate_trained") is not False:
-            raise ValueError("Prepared local operational V2 inputs are invalid")
+            raise ValueError("Prepared local operational multiversion inputs are invalid")
         registry = mushroom_ml_version_registry.load_registry(extra_root / "registry.json")
         batch_id = "local_operational_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         generation_ids = {
             str(row["version_id"]): f"{row['version_id']}_{batch_id}"
             for row in registry.get("versions", [])
-            if isinstance(row, dict) and row.get("version_id") == active_version_id
+            if isinstance(row, dict) and row.get("version_id") in version_ids
         }
         comparison_result = operation_root / "multiversion-result"
         comparison_result.mkdir()
@@ -876,18 +770,20 @@ def run_local_full_update(
             str(snapshot_dir / mushroom_rebuild_snapshot.MANIFEST_NAME),
             "--job-purpose",
             "operational",
-            "--version",
-            active_version_id,
         ]
         for option, key in (
             ("--v4-fixed", "v4_fixed"),
             ("--v4-lag", "v4_lag"),
             ("--v5-fixed", "v5_fixed"),
             ("--v5-lag", "v5_lag"),
+            ("--v2-v5-heldout", "v2_v5_heldout"),
+            ("--v6-heldout", "v6_heldout"),
         ):
             if key in model_inputs:
                 command.extend([option, str(model_inputs[key])])
-        for profile_key in active_profile_keys:
+        for version_id in version_ids:
+            command.extend(["--version", version_id])
+        for profile_key in profile_keys:
             command.extend(["--profile-key", profile_key])
         for version_id, generation_id in generation_ids.items():
             command.extend(["--generation", f"{version_id}={generation_id}"])
@@ -897,12 +793,12 @@ def run_local_full_update(
         command.extend(["--progress-jsonl", str(comparison_progress)])
         progress(
             58,
-            "Training active operational generation",
-            f"Training every Predictor artifact required by {active_version_id}.",
+            "Refreshing operational ML versions",
+            f"Training every Predictor artifact required by {len(version_ids)} versions.",
         )
         _run_command_with_jsonl_progress(
             command,
-            description="Local operational V2 training",
+            description="Local operational multiversion training",
             progress_path=comparison_progress,
             progress=progress,
             event_mapper=_training_progress_update,
@@ -926,7 +822,25 @@ def run_local_full_update(
             job_id=comparison_job_id,
         )
         if str(comparison_install["batch_id"]) != installed_batch_id:
-            raise ValueError("Installed operational V2 batch identity changed during promotion")
+            raise ValueError("Installed operational batch identity changed during promotion")
+        installed_manifest = json.loads(
+            (
+                paths.ml_models_dir
+                / "batches"
+                / installed_batch_id
+                / "manifest.json"
+            ).read_text(encoding="utf-8")
+        )
+        installed_registry = mushroom_ml_version_registry.install_batch_generations(
+            mushroom_ml_version_registry.load_registry(paths.registry),
+            installed_manifest,
+            approved_by="local_full_update",
+        )
+        mushroom_ml_version_registry.save_registry(paths.registry, installed_registry)
+        mushroom_ml_training_freshness.publish_current_revisions(
+            revisions_path,
+            installed_manifest["input_revisions"],
+        )
         rebuild_promotion = mushroom_worker_results.promote_verified_candidate(
             paths.candidate_results_root,
             paths.bundle_root,
@@ -973,15 +887,21 @@ def run_local_full_update(
             "training_input_manifest_sha256": _sha256(
                 paths.ml_models_dir / "batches" / installed_batch_id / "training-input-manifest.json"
             ),
-            "active_version_id": active_version_id,
+            "version_ids": version_ids,
+            "preferred_version_id": installed_registry.get("preferred_version_id"),
             "operational_candidate_trained": True,
         }
     except BaseException:
         if installed_batch_id:
-            _restore_runtime_batch(
+            mushroom_ml_multiversion_transport.remove_installed_batch(
                 models_root=paths.ml_models_dir,
-                installed_batch_id=installed_batch_id,
-                previous_descriptor=previous_descriptor,
+                batch_id=installed_batch_id,
+            )
+            mushroom_ml_version_registry.save_registry(
+                paths.registry, json.loads(previous_registry)
+            )
+            mushroom_ml_training_freshness.restore_current_revisions(
+                revisions_path, previous_revisions
             )
         if rebuild_promoted:
             mushroom_worker_results.rollback_promoted_candidate(

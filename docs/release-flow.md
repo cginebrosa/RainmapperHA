@@ -17,7 +17,8 @@ Referencia operativa completa para publicar una nueva versión de la imagen HA.
    ```
    El smoke test verifica: sintaxis Python/JS/shell, alineación de versiones en
    los tres sitios, cache-busters, fixtures GeoJSON y la suite completa de tests.
-   No continuar si falla.
+   No continuar si falla. Este es el único smoke completo ordinario de la
+   release: debe ejecutarse sobre el código definitivo que se va a publicar.
 
 3. **Bump de versión en los tres sitios** (el smoke test falla si no coinciden):
    - `rainmapper-app/config.yaml` → campo `version:`
@@ -119,6 +120,9 @@ Referencia operativa completa para publicar una nueva versión de la imagen HA.
 
 ## Notas
 
+- Aplicar validación incremental: no repetir el smoke después de commit/push o
+  de actualizar únicamente documentación. Repetir solo si cambió código,
+  dependencias, empaquetado o artefactos ejecutables desde el último smoke.
 - No retrasar la prueba en HA por documentación de cierre o hashes documentales.
 - Documentación de continuidad (`docs/active-context.md`) se actualiza después
   del release o al cerrar sesión.

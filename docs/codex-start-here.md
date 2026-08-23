@@ -37,68 +37,51 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-18
+## Estado general al cierre de 2026-08-23
 
-- Rama activa: `inicial`; el worktree grande y mixto es deliberado. Preservar
-  todos los cambios y ficheros no rastreados.
-- HA `0.2.261` está publicada y el worker privado local `1.0.14` construido.
-  La corrección `lag_event` cubre h1..h7 sin multiplicar ajustes. No preparar
-  otra release sin autorización explícita.
-- El Predictor remoto reutiliza el runtime del worker y volvió a tiempos de
-  segundos. El coste pendiente está en el entrenamiento comparativo: una
-  ejecución V2–V6 observada tardó aproximadamente 39m45s y planificó 436 fits.
-- Las fases 1 y 2 de separación entre entrenamiento operativo y benchmark
-  científico están implementadas en el worktree y pendientes de release. La
-  cadena habitual resuelve solo la generación activa V2 fixed/lag; V2–V6 queda
-  como benchmark manual seleccionable, con informe persistente y sin promoción
-  automática. La UI parte sin selección, conserva el perfil lanzado, limita su
-  preparación/hold-out a ese alcance y permite cancelar benchmarks HA locales.
-  El benchmark V3 local real terminó en 2m34 con 108/108 fits y su trazabilidad
-  queda enlazada desde la fila y el historial. Ambas fases pasan el smoke
-  completo de 921 pruebas. El diseño y el estado están en
-  `docs/active-context.md` y
-  `docs/mushrooms/mushroom-ml-operational-benchmark-separation-design-es.md`.
-- Las fases 3 y 4 están implementadas y la imagen HA local fue reconstruida:
-  fase 3 registra
-  `biology_v3/common_idw_plus_physical_state` como `Biology V3+ físico`, sin
-  modificar V3 core. Reutiliza sus filas, targets, splits, contratos y
-  estimadores y añade solamente balance hídrico y SMI causal del mismo IDW.
-  Mantiene 90 días predictivos y usa 365 solo como calentamiento del estado
-  físico. Fase 4 permite preparar desde el informe una candidata de cualquier
-  versión completa V2–V6, activarla mediante otra confirmación humana y revertir
-  registro+batch. V4 declara sus dos perfiles; V5 y V6 declaran sus perfiles y
-  familias propias. La promoción local V3 ya fue ejecutada. La corrección posterior
-  conserva por hash el catálogo Brier del benchmark fuente, reenvía la evidencia
-  de lluvia significativa a interpretación, elimina el texto V2 fijo y oculta
-  reactivaciones redundantes. Predictor presenta fixed/lag de todos los perfiles
-  activos. Cualquier estimador declarado puede aportar el score si mejora la
-  prevalencia fuera de muestra y tiene el menor Brier de su perfil/contrato; ya
-  no existe una excepción operativa LR/RF. La marca
-  `operational_eligible` expresa compatibilidad técnica y no depende de ganar
-  ninguna métrica. El smoke actual pasa 944 pruebas. HA local fue reconstruido
-  con digest `sha256:ead6e5aad21db2a6f6e432dc89083d8c5bd1c5ce6e2807fc6c8e44b8fe08fcad`;
-  falta la revalidación visual del usuario. No hay bump, publicación
-  ni cambios en HA real o el worker normal.
-- Los cambios posteriores corrigen dos problemas de forma
-  transversal: `Preparar candidata completa` reutiliza los bundles verificados
-  del benchmark sin repetir entrenamiento, y la evidencia ecológica se extrae
-  de cualquier nivel anidado de `quality`. La prueba común recorre todas las
-  versiones operativas registradas V2–V6 y exige Brier, lluvia, compatibilidad
-  y rango final coherentes. El smoke completo pasa 949 pruebas y
-  `git diff --check` queda limpio. Una corrección adicional evita que el
-  adaptador diario V4 descarte el contrato ecológico heredado. HA local fue
-  reconstruido con digest
-  `sha256:ed92aa1b2f7ed008324a7010819be65371316da615f5f35d1292d50c6d5f86ec`;
-  raíz, Predictor y Workers responden HTTP 200 y el caso real Edulis/Salteguet
-  devuelve lluvia reciente y compatibilidad. El relevo de publicación está en
-  `docs/active-context.md`; no se tocó HA real ni el worker normal.
-- Los diagnósticos anteriores permanecen cerrados: V2 usa IDW común, MapLibre
-  cuenta ceros finitos y excluye N/A, y V5/V6 v2 consumen IDW, ET0, balance y
-  SMI con paridad de inferencia.
-- El snapshot `mushroom-ml-snapshot-20260816` sigue siendo evidencia científica
-  inmutable, pero ya no es una dependencia de una regeneración operativa.
-- El repositorio GitHub sigue público. Las imágenes no incluyen observaciones,
-  aunque el fichero semilla rastreado debe revisarse por privacidad aparte.
+- Rama activa `inicial`; preservar siempre el worktree mixto y cualquier
+  fichero no rastreado. Las versiones declaradas en el repositorio son HA
+  `0.2.263` y worker `1.0.16`; el runtime real debe revalidarse en cada sesión.
+- La separación entre mantenimiento operativo y benchmark científico está
+  implementada localmente. El mantenimiento completo verifica y autopromociona
+  conjuntamente una generación por cada versión instalada seleccionada; el
+  benchmark conserva evidencia e historial pero no prepara, activa ni revierte
+  versiones. Esas rutas legacy han sido retiradas localmente.
+- El objetivo acordado es una generación instalada por versión y un
+  `preferred_version_id` independiente. El mantenimiento reentrena las
+  versiones instaladas seleccionadas y genera evidencia en la misma pasada;
+  el benchmark científico queda para incorporar o modificar contratos.
+- La vigencia futura se comprobará mediante revisiones pequeñas y avisos, no
+  releyendo todo el histórico durante promociones o consultas. Worker y
+  coordinador deben reutilizar objetos meteorológicos inmutables por digest y
+  evitar copias/rehashes redundantes.
+- V5/V6 operativas son las variantes windowed 30/60/90. Los 365 días se usan
+  como calentamiento físico de balance/SMI, no como ventana predictiva. Las
+  definiciones no-windowed legacy siguen como `reference` y queda pendiente su
+  retirada definitiva tras auditar referencias.
+- El selector operativo elige por separado ventana fija y retardo/evento. Solo
+  entran candidatos aplicables, con Brier estrictamente mejor que prevalencia y
+  ROC-AUC >= 0,55; después prioriza mayor mejora Brier, menor Brier y mayor
+  ROC-AUC. La fiabilidad del ganador y el consenso entre familias metodológicas
+  se muestran como ejes diferentes.
+- La aplicabilidad vigente sigue usando una heurística no calibrada: rango
+  mínimo/máximo aprendido por variable, `outside_feature_ratio >= 0,05` o una
+  variable fuera de rango a `>= 3 sigma`. Esos dos umbrales están fijados por el
+  código, no aprendidos. Deben auditarse antes de modificarlos.
+- La validación debe ser proporcional: pruebas dirigidas por bloque y un smoke
+  completo antes de una entrega relevante, no smoke repetido tras cada cambio
+  documental, commit o bump.
+- No preparar bump, build, publicación, instalación ni release sin autorización
+  explícita nueva.
+- La retención ML/worker está implementada solo en laboratorio. El gate
+  `ml_storage_reconciliation_apply` es `false` por defecto y el primer arranque
+  de Rainmapper solo genera `dry-run`. No habilitarlo en HA sin revisar el
+  informe con el usuario. Los restos terminales operativos tienen un TTL
+  ratificado de 24 h; candidatos e historiales de activación manual son legacy.
+- El histórico meteorológico oficial de HA fue reparado y rebasado a una raíz
+  autosuficiente; el runner manual posterior terminó correctamente. La próxima
+  sesión debe tratar esta migración como cerrada y mantener como deuda la
+  compactación del escritor y el coste del post-drain, no repetir el backfill.
 
 El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.
@@ -122,14 +105,17 @@ El estado exacto, la prueba siguiente y los riesgos están en
   `docs/mushrooms/mushroom-ml-version-lifecycle-es.md`
 - Runtime HA/worker y Predictor V2–V6:
   `docs/mushrooms/mushroom-ml-multiversion-runtime-spec-es.md`
+- Retención permanente, caché TAR fuera de backups y limpieza segura de
+  modelos/artefactos del worker:
+  `docs/mushrooms/mushroom-ml-storage-retention-spec-es.md`
 - Separación propuesta entre entrenamiento operativo, benchmark, informe y
   promoción:
   `docs/mushrooms/mushroom-ml-operational-benchmark-separation-design-es.md`
 - Contrato genérico para perfiles actuales/futuros, candidatas, promoción y
   rollback:
   `docs/mushrooms/mushroom-ml-generic-profile-promotion-plan-es.md`
-- Varias versiones ML instaladas a la vez, preferida vs activa, diseño
-  propuesto sin implementar:
+- Varias versiones ML instaladas a la vez y preferida independiente,
+  implementado en laboratorio local y pendiente de despliegue real:
   `docs/mushrooms/mushroom-ml-multi-version-installation-design-es.md`
 - Auditoría ML v3: `docs/mushrooms/mushroom-ml-v3-data-audit-es.md`
 - Especificación ML v3: `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`
@@ -138,18 +124,9 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Contrato técnico de caché SoilGrids y persistencia por microárea para V4:
   `docs/mushrooms/biology-v4-soilgrids-cache-contract-es.md`
 - Progreso por puntos de Biology V4:
-  `docs/mushrooms/mushroom-ml-biology-v4-progress-es.md`. Los puntos 1
-  (contexto SoilGrids), 2 (balance climático diario), 3 (depósito experimental
-  por microárea) y 4 (registro y benchmarks por bloques) están implementados
-  en local. Las evaluaciones emparejadas de 7/14 días y la comparación genérica
-  V2/V3/V4 sobre filas idénticas ya están cerradas e interpretadas por especie;
-  continuidad `fixed_gap` y `lag_event` ya tienen secuencias reales
-  `core`/balance/suelo. El balance reduce parpadeo global; el depósito no mejora
-  y queda no seleccionado. No hay soporte para aprender aún una capa de estado;
-  la paridad local train/inferencia pasa sin diferencias y solo falta validar
-  el empaquetado/runtime cuando se autorice integrar. HA y M1 no ejecutan este
-  código todavía; la única excepción de datos es el `known_sites` derivado que
-  se instaló en HA de forma autorizada y respaldada.
+  `docs/mushrooms/mushroom-ml-biology-v4-progress-es.md`. Es histórico técnico;
+  la elegibilidad y el runtime vigentes se consultan en el registro y en
+  `docs/active-context.md`, no se infieren de ese informe de progreso.
 - Informe interpretativo y revisión meteorológica de V4:
   `docs/reports/V4_report001.md`.
 - Informe canónico de comparación y consenso V2/V3/V4:
@@ -165,6 +142,9 @@ El estado exacto, la prueba siguiente y los riesgos están en
   `docs/weather-storage-retention-plan-es.md`
 - Implementación del histórico meteorológico particionado:
   `docs/weather-history-partitioned-implementation-spec-es.md`
+- Auditoría de reparación, compactación y corrección de la generación raíz del
+  histórico meteorológico:
+  `docs/reports/mushroom-weather-history-repair-audit-2026-08-23.md`
 - Narrador LLM local opcional:
   `docs/mushrooms/mushroom-worker-local-llm-narrator-design-es.md`
 - Contrato perfiles: `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
@@ -235,6 +215,21 @@ git diff --check
 Para un cambio acotado pueden ejecutarse primero tests dirigidos, pero una
 release requiere el flujo y validación completa definidos en
 `docs/release-flow.md`.
+
+La validación debe ser proporcional al cambio y no un ritual repetido:
+
+- cambios solo documentales: revisión del diff y `git diff --check`;
+- código acotado: pruebas dirigidas de los símbolos y contratos afectados;
+- cambios transversales, de empaquetado o de alto riesgo: ampliar a la suite
+  pertinente y, cuando corresponda, al smoke completo;
+- release: un smoke completo sobre el código definitivo antes del bump; después
+  del bump mecánico verificar únicamente versiones y cache-busters, salvo que se
+  haya modificado código desde el smoke.
+
+No repetir secuencias `smoke → commit/push → documentación → smoke → commit/push`
+si los pasos intermedios no cambian código ni artefactos ejecutables. Documentar
+el resultado ya obtenido y ejecutar de nuevo solo las comprobaciones que puedan
+haber quedado invalidadas.
 
 ## Mantenimiento de continuidad
 

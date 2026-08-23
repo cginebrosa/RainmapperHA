@@ -1,8 +1,20 @@
-# Varias versiones ML instaladas a la vez — diseño propuesto
+# Varias versiones ML instaladas a la vez — diseño objetivo
 
-Estado: **DISEÑO PROPUESTO, NO IMPLEMENTADO.** Discutido y acordado con el
-usuario el 2026-08-20. No tocar código a partir de este documento sin
-autorización explícita adicional.
+Estado: **DISEÑO ACORDADO; IMPLEMENTACIÓN PARCIAL PENDIENTE DE REVALIDAR.**
+Discutido y acordado con el usuario el 2026-08-20 y consolidado el 2026-08-22.
+Este documento define el destino funcional; el estado realmente implementado
+debe comprobarse en código antes de ejecutar cada fase.
+
+## Estado vigente añadido el 2026-08-23
+
+El apartado «Estado actual verificado» inferior es una fotografía histórica
+previa a la implementación multiversión. El laboratorio ya instala una
+`installed_generation_id` independiente por V2/V3/V4/V5w/V6w y una preferida.
+Además, se retiró el flujo intermedio de preparar/activar/rollback desde un
+benchmark: el mantenimiento completo autopromociona todas las versiones
+instaladas y el benchmark nuevo queda inmediatamente como evidencia
+`evidence_only`. `mushroom_ml_version_promotion.py`, candidatos e historial de
+activación manual son legacy y no forman parte del diseño vigente.
 
 Vocabulario (versión, perfil, estimador, modelo, generación, batch): ver
 `docs/mushrooms/mushroom-ml-multiversion-runtime-spec-es.md`.
@@ -104,9 +116,12 @@ no deducido:
 Cada versión (V2, V3, V4, V5w-30d, etc.) tiene **como máximo una generación
 instalada a la vez**. Refrescarla con la acción unificada (punto 4)
 **sustituye** esa generación en el sitio — no se acumula ninguna anterior.
-No hace falta rollback, no hace falta historial de generaciones, no hace
-falta borrado manual de generaciones sueltas: no hay nada que podar porque
-nunca se acumula nada. Esto es una excepción explícita y deliberada a la
+No hace falta rollback histórico, no hace falta historial de generaciones ni
+borrado manual de generaciones sueltas: no hay nada que podar porque nunca se
+acumula nada. Durante la instalación sí se conserva el batch anterior hasta
+confirmar el cambio atómico; ese rollback transaccional no constituye una
+generación operativa retenida y se elimina al completar la operación. Esto es
+una excepción explícita y deliberada a la
 política de retención permanente de `generations[]` ya documentada
 (`retention_policy.benchmark_generations: "permanent"`) — para estas
 generaciones operativas de mantenimiento rutinario, la retención pasa a ser
@@ -174,10 +189,53 @@ varias versiones instaladas y seleccionables en el Predictor.
    directorio de batch en disco que le correspondía. **Nunca se toca la
    definición de contrato** (perfiles, contratos temporales, estimadores,
    declarados en código) — solo su estado entrenado. Si se borra la que no
-   tocaba, se recupera igual que cualquier versión nunca instalada:
-   benchmark → preparar candidata → activar, desde cero con datos vivos
-   actuales. Misma excepción explícita a la retención permanente que la
-   regla central de este documento.
+   tocaba, se recupera mediante el reentrenamiento operativo de esa versión
+   desde cero con datos vivos actuales. Solo requiere benchmark si la
+   definición científica es nueva o ha cambiado. Misma excepción explícita a
+   la retención permanente que la regla central de este documento.
+
+## Vigencia de los entrenamientos sin comprobaciones profundas
+
+Cada generación instalada registra un vector pequeño de revisiones de sus
+entradas, como mínimo:
+
+```text
+observations_revision
+weather_generation_id
+weather_manifest_sha256
+sites_revision
+stations_revision
+catalogs_revision
+gis_revision
+training_contract_version
+```
+
+Estas revisiones se calculan y publican una sola vez cuando se ingiere,
+reconstruye o valida cada dataset. Preparar una candidata, promocionarla,
+cambiar la versión preferida o abrir el Predictor solo compara esos metadatos;
+no vuelve a recorrer observaciones, GIS ni las particiones meteorológicas.
+Todo camino autorizado que modifique una entrada debe actualizar su revisión de
+forma atómica; una modificación externa que eluda esos caminos solo puede
+detectarse mediante la auditoría profunda explícita.
+
+Los estados de vigencia son informativos y explican por categorías qué cambió:
+
+- observaciones posteriores al entrenamiento;
+- generación meteorológica reconstruida posteriormente;
+- sites, estaciones, catálogos o GIS modificados;
+- contrato de entrenamiento diferente;
+- vigencia no verificable para generaciones antiguas sin revisiones.
+
+Una diferencia de revisiones no corrompe los modelos ya entrenados y no bloquea
+su instalación o selección. Sí muestra un aviso de que no incorporan todavía
+los datos actuales. Solo son gates bloqueantes la integridad de los artefactos,
+la completitud de todos los perfiles de la versión y la compatibilidad de su
+contrato con el runtime.
+
+La verificación profunda de hashes se reserva para la ingestión inicial, una
+reparación o una auditoría manual explícita. El reentrenamiento necesariamente
+lee las entradas que utiliza, pero no ejecuta antes otro recorrido completo
+para comprobar si cambiaron.
 
 ## Qué no cambia
 
@@ -186,11 +244,12 @@ varias versiones instaladas y seleccionables en el Predictor.
   residual/opcional para exploración puntual — no para mantenimiento
   rutinario. Su propia historia archivada sigue la regla ya documentada de
   "historia viva, podable manualmente" (`docs/decisions.md`, 2026-08-19).
-- Predecir con un modelo ya instalado nunca comprueba frescura ni recalcula
-  nada de más.
-- La comprobación de frescura solo tiene sentido cuando se instala algo
-  *nuevo* (una candidata preparada antes); desactivar/reactivar una versión
-  ya instalada no cambia el modelo, así que no la necesita.
+- Predecir con un modelo ya instalado compara únicamente su vector de
+  revisiones con el actual y muestra el estado de vigencia; no recalcula hashes
+  ni reentrena nada.
+- Preparar, instalar, desactivar, reactivar o elegir como preferida una versión
+  no hace comprobaciones profundas. Desactivar/reactivar solo cambia su
+  visibilidad y elegir la preferida solo mueve un puntero.
 
 **Deja de existir tal como está hoy**: el camino rápido de V2/altitude_v2
 sin evidencia. Con la fusión del punto 4, V2 pasa a ser una versión más
@@ -218,6 +277,13 @@ desincronizada (el hallazgo empírico de esta misma sesión).
 - `mushroom_predictor_runtime.py` / `mushroom_ml_multiversion_comparison.py`:
   resolver el manifest por versión instalada en vez de leer un único
   fichero; el selector de versiones decide qué se calcula.
+- `mushroom_ml_training_freshness.py` / `mushroom_rebuild_snapshot.py`:
+  sustituir el uso rutinario de hashes profundos por el vector de revisiones,
+  conservar la auditoría profunda como operación explícita y devolver cambios
+  categorizados en lugar de un booleano bloqueante.
+- `mushroom_worker_transport.py`: conservar la caché meteorológica persistente
+  por digest, evitar rematerializar objetos ya presentes y publicar métricas de
+  bytes transferidos y reutilizados.
 - UI: `mushroom_predictor_ui.py` (selector con preferida premarcada),
   `mushroom_workers_ui.py`/`web_server.py` (selector multi-versión con
   "marcar todas", acciones de desactivar/reactivar/borrar por versión), y
@@ -238,9 +304,10 @@ desincronizada (el hallazgo empírico de esta misma sesión).
   que estuviera realmente instalada y descarta el resto.
 - **Preferida sin generación instalada**: cae a **"ninguna"**, sin valor por
   defecto automático.
-- **Una generación por versión, sin historial ni rollback.** Comparar se
-  hace entre versiones distintas instaladas a la vez, no contra el pasado
-  de la misma versión.
+- **Una generación por versión, sin historial ni rollback persistente.** El
+  rollback transaccional existe únicamente mientras se instala atómicamente el
+  reemplazo. Comparar se hace entre versiones distintas instaladas a la vez,
+  no contra el pasado de la misma versión.
 
 ## Pendiente de resolver antes de implementar
 

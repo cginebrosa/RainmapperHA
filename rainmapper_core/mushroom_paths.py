@@ -8,7 +8,17 @@ Assistant and `docker-data/` in local development.
 from __future__ import annotations
 
 import os
+import tempfile
+from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass(frozen=True)
+class PredictorRuntimeArchiveLocation:
+    path: Path
+    preferred_path: Path
+    fallback_used: bool
+    diagnostic: str | None = None
 
 
 def repo_root() -> Path:
@@ -200,13 +210,86 @@ def mushroom_ml_models_dir() -> Path:
     return mushroom_data_dir() / "ml_models"
 
 
-def mushroom_ml_runtime_batch_manifest_path() -> Path:
+def predictor_runtime_archive_preferred_dir() -> Path:
+    """Return the configured/media TAR cache, never a path below /share."""
     configured = os.environ.get(
-        "RAINMAPPER_MUSHROOM_ML_RUNTIME_BATCH_MANIFEST_PATH", ""
+        "RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_DIR", ""
     ).strip()
     if configured:
         return Path(configured)
-    return mushroom_ml_models_dir() / "runtime-batch.json"
+    media_root = os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip()
+    root = Path(media_root) if media_root else Path("/media/rainmapper")
+    return root / "runtime-cache" / "predictor-runtime-archives"
+
+
+def predictor_runtime_archive_fallback_dir() -> Path:
+    configured = os.environ.get(
+        "RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_FALLBACK_DIR", ""
+    ).strip()
+    if configured:
+        return Path(configured)
+    return (
+        Path(tempfile.gettempdir())
+        / "rainmapper-runtime-cache"
+        / "predictor-runtime-archives"
+    )
+
+
+def _path_is_within(path: Path, parent: Path) -> bool:
+    try:
+        Path(path).resolve(strict=False).relative_to(Path(parent).resolve(strict=False))
+    except ValueError:
+        return False
+    return True
+
+
+def _prepare_private_cache_dir(path: Path) -> Path:
+    candidate = Path(path)
+    if _path_is_within(candidate, share_root()):
+        raise OSError(f"Predictor runtime TAR cache cannot reside under share: {candidate}")
+    if candidate.is_symlink():
+        raise OSError(f"Predictor runtime TAR cache cannot be a symlink: {candidate}")
+    candidate.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if candidate.is_symlink() or not candidate.is_dir():
+        raise OSError(f"Predictor runtime TAR cache is not a private directory: {candidate}")
+    candidate.chmod(0o700)
+    return candidate
+
+
+def prepare_predictor_runtime_archive_dir() -> PredictorRuntimeArchiveLocation:
+    """Prepare the media cache, falling back visibly to a non-share temp path."""
+    preferred = predictor_runtime_archive_preferred_dir()
+    configured = bool(
+        os.environ.get("RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_DIR", "").strip()
+        or os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip()
+    )
+    media_root_available = preferred.parents[1].exists()
+    preferred_error: OSError | None = None
+    if configured or media_root_available:
+        try:
+            path = _prepare_private_cache_dir(preferred)
+            return PredictorRuntimeArchiveLocation(path, preferred, False)
+        except OSError as exc:
+            preferred_error = exc
+    else:
+        preferred_error = OSError(
+            f"Predictor runtime media root is unavailable: {preferred.parents[1]}"
+        )
+
+    fallback = predictor_runtime_archive_fallback_dir()
+    try:
+        path = _prepare_private_cache_dir(fallback)
+    except OSError as exc:
+        raise OSError(
+            f"Cannot prepare predictor runtime TAR cache at {preferred} or {fallback}: "
+            f"{preferred_error}; {exc}"
+        ) from exc
+    return PredictorRuntimeArchiveLocation(
+        path,
+        preferred,
+        True,
+        str(preferred_error),
+    )
 
 
 def mushroom_ml_report_json_path() -> Path:

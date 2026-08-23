@@ -1,8 +1,9 @@
 # Especificación de histórico meteorológico particionado
 
-Estado: diseño vinculante para implementación local. Revisado el 2026-08-12
-para una RPi4 con 4 GiB de RAM totales. No autoriza despliegue, promoción,
-compactación de los CSV reales ni escrituras en HA.
+Estado: **IMPLEMENTADO**. Diseño original revisado el 2026-08-12 para una RPi4
+con 4 GiB de RAM; contrato de recuperación de entregas autosuficientes añadido
+el 2026-08-23. Este documento no autoriza por sí mismo nuevas promociones,
+compactaciones ni escrituras en HA.
 
 ## Objetivo y restricciones
 
@@ -603,9 +604,20 @@ obsolescencia comparando dos mtimes.
   manifiestos, verificar todos sus objetos y apuntar atómicamente a la
   generación completa más reciente. Esta recuperación es explícita y deja
   informe; la operación normal nunca hace ese fallback silenciosamente.
-- La primera release no ejecutará garbage collection destructivo en el runner:
-  habrá primero un modo audit-only que liste objetos y referencias. La
-  activación posterior de GC requiere pruebas de leases, backup y rollback.
+- La poda normal conserva `CURRENT`, su predecesora inmediata y todas las
+  generaciones con lease. Si falta cualquier manifiesto que debería retener,
+  falla antes de borrar nada; no interpreta la ausencia como permiso de poda.
+- Una entrega compacta y autosuficiente que omita el historial de generaciones
+  debe publicar una nueva raíz con `previous_generation_id: null`. El comando
+  administrativo `python -m rainmapper_core.weather_history_rebase --data-dir
+  <Data>` verifica íntegramente los objetos activos, escribe un manifiesto raíz
+  nuevo y sustituye `CURRENT` atómicamente; no copia ni elimina objetos. Es
+  idempotente cuando `CURRENT` ya es raíz.
+- El rebase a raíz no es una reparación genérica ni debe debilitar la poda. Se
+  usa únicamente cuando se ha auditado que la entrega pretende ser
+  autosuficiente y contiene todos los objetos del manifiesto activo. Para una
+  instalación que ya conserva esos objetos se copia primero el manifiesto y
+  `CURRENT.json` al final.
 
 ## Bootstrap y migración
 

@@ -91,6 +91,25 @@ class PredictorRuntimeTests(TestCase):
             self.assertEqual(result["transferred_size_bytes"], manifest["size_bytes"])
             self.assertTrue(service_paths(runtime)["features_artifact_path"].is_file())
             self.assertEqual(build_runtime_archive(root / "archives", manifest, sources), archive)
+            self.assertEqual((root / "archives").stat().st_mode & 0o777, 0o700)
+            self.assertEqual(archive.stat().st_mode & 0o777, 0o600)
+
+            archive.write_bytes(b"truncated")
+            rebuilt = build_runtime_archive(root / "archives", manifest, sources)
+            rebuilt_runtime, rebuilt_result = synchronize_runtime_archive(
+                root / "rebuilt-cache",
+                manifest,
+                rebuilt,
+            )
+            self.assertEqual(rebuilt, archive)
+            self.assertGreater(rebuilt.stat().st_size, len(b"truncated"))
+            self.assertEqual(rebuilt_result["status"], "synchronized")
+            self.assertTrue(service_paths(rebuilt_runtime)["profiles_path"].is_file())
+
+            stale = root / "archives" / "stale.tar"
+            stale.write_bytes(b"stale")
+            self.assertEqual(build_runtime_archive(root / "archives", manifest, sources), archive)
+            self.assertFalse(stale.exists())
 
     def test_runtime_reuses_worker_produced_objects_by_digest(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -236,10 +255,10 @@ class PredictorRuntimeTests(TestCase):
                 {
                     "batch_id": "batch-a",
                     "generation_id": "generation-a",
-                    "version_id": "biology_v5_raw_weather_discovery",
-                    "temporal_contract_id": "lag_event_biology_v5_raw365_v2",
-                    "profile_id": "raw_primary_plus_physical_state",
-                    "estimator_id": "elastic_net_logistic_raw365_v1",
+                    "version_id": "altitude_v2",
+                    "temporal_contract_id": "lag_event_altitude_v2",
+                    "profile_id": "common_idw",
+                    "estimator_id": "logistic_regression_reduced_v1",
                     "species_id": "lactarius_deliciosus",
                     "horizon_days": 3,
                 }
@@ -251,7 +270,8 @@ class PredictorRuntimeTests(TestCase):
             import hashlib
             import json
 
-            batch_path = models / "runtime-batch.json"
+            batch_path = models / "batches/batch-a/manifest.json"
+            batch_path.parent.mkdir(parents=True, exist_ok=True)
             batch_path.write_text(
                 json.dumps(
                     {
@@ -272,14 +292,37 @@ class PredictorRuntimeTests(TestCase):
                 encoding="utf-8",
             )
 
+            from rainmapper_core import mushroom_ml_version_registry
+
+            registry_payload = mushroom_ml_version_registry.load_registry(registry)
+            registry_payload = mushroom_ml_version_registry.append_generation(
+                registry_payload,
+                version_id="altitude_v2",
+                generation={
+                    "generation_id": "generation-a",
+                    "kind": "trained_model",
+                    "promotion_gate_status": "passed",
+                    "profile_ids": ["common_idw"],
+                    "batch_id": "batch-a",
+                },
+            )
+            registry_payload = mushroom_ml_version_registry.transition_active_generation(
+                registry_payload,
+                "altitude_v2",
+                generation_id="generation-a",
+            )
+            runtime_registry = root / "runtime-registry.json"
+            mushroom_ml_version_registry.save_registry(
+                runtime_registry, registry_payload
+            )
+
             manifest, sources = build_manifest(
                 weather_data_dir=weather,
                 models_dir=models,
                 features_artifact_path=features,
                 known_sites_path=sites,
                 profiles_path=profiles,
-                version_registry_path=registry,
-                runtime_batch_manifest_path=batch_path,
+                version_registry_path=runtime_registry,
             )
 
             self.assertEqual(
@@ -288,3 +331,5 @@ class PredictorRuntimeTests(TestCase):
             )
             self.assertIn("data/mushroom_ml_version_registry.json", sources)
             self.assertIn(f"models/{relative.as_posix()}", sources)
+            self.assertIn("models/batches/batch-a/manifest.json", sources)
+            self.assertNotIn("models/runtime-batch.json", sources)

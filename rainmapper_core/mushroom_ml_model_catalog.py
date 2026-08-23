@@ -458,6 +458,15 @@ def validate_batch_manifest(
         "snapshot_id": snapshot_id,
         "artifacts": checked_artifacts,
     }
+    input_revisions = payload.get("input_revisions")
+    if input_revisions is not None:
+        from rainmapper_core import mushroom_ml_version_registry  # noqa: PLC0415
+
+        result["input_revisions"] = (
+            mushroom_ml_version_registry.validate_revision_vector(
+                input_revisions
+            )
+        )
     if checked_quality_catalog is not None:
         result["quality_catalog"] = checked_quality_catalog
     benchmark_report = payload.get("benchmark_report")

@@ -55,6 +55,8 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         translations = (ROOT_DIR / "rainmapper-app/translations/en.yaml").read_text(encoding="utf-8")
 
         self.assertIn("COPY rainmapper_core/ /app/rainmapper_core/", dockerfile)
+        self.assertIn("ml_storage_reconciliation_apply: false", config)
+        self.assertIn("RAINMAPPER_ML_STORAGE_RECONCILIATION_APPLY", run_script)
         self.assertIn("mushroom_workers_ui.py", dockerfile)
         self.assertIn("run-mushroom-rebuild-job.py", dockerfile)
         self.assertIn("run-mushroom-ml-train-job.py", dockerfile)

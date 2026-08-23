@@ -35,6 +35,8 @@ ACTIVE_STATUSES = {"queued", "claimed", "running", "cancel_requested"}
 WORK_KEY_CLAIM_PROBE = "worker_claim_probe:v0"
 PREDICTOR_RESULT_MAX_BYTES = 8 * 1024 * 1024
 PREDICTOR_RESULTS_DIRNAME = ".worker-predictor-results"
+PREDICTOR_RESULT_KEEP_RECENT = 10
+PREDICTOR_RESULT_MAX_AGE_HOURS = 24
 
 
 class DuplicateActiveWorkError(ValueError):
@@ -173,6 +175,127 @@ def _hydrate_predictor_result(path: Path, job: dict[str, Any]) -> dict[str, Any]
         raise ValueError("Worker Predictor result file integrity check failed.")
     hydrated["result"] = {**result, "response": response}
     return hydrated
+
+
+def _predictor_result_timestamp(job: dict[str, Any]) -> datetime:
+    value = str(job.get("finished_at") or job.get("created_at") or "")
+    return _parse_timestamp(value)
+
+
+def plan_predictor_result_expiration(
+    path: Path,
+    *,
+    now: datetime | None = None,
+    keep_recent: int = PREDICTOR_RESULT_KEEP_RECENT,
+    max_age_hours: int = PREDICTOR_RESULT_MAX_AGE_HOURS,
+) -> dict[str, Any]:
+    """Plan expiry of heavy Predictor responses without changing the queue."""
+    queue_path = Path(path)
+    queue = load_queue(queue_path)
+    current = (now or datetime.now(UTC)).astimezone(UTC)
+    candidates: list[tuple[datetime, dict[str, Any]]] = []
+    retained: list[dict[str, str]] = []
+    errors: list[str] = []
+    for job in queue["jobs"]:
+        if job.get("job_type") != JOB_TYPE_PREDICTOR:
+            continue
+        reference = job.get("predictor_result_ref")
+        if not isinstance(reference, dict):
+            continue
+        job_id = str(job.get("job_id", ""))
+        try:
+            timestamp = _predictor_result_timestamp(job)
+        except ValueError as exc:
+            errors.append(f"{job_id}: {exc}")
+            retained.append({"job_id": job_id, "reason": "invalid timestamp"})
+            continue
+        candidates.append((timestamp, job))
+
+    newest_ids = {
+        str(job.get("job_id", ""))
+        for _timestamp, job in sorted(candidates, key=lambda row: row[0], reverse=True)[
+            : max(0, int(keep_recent))
+        ]
+    }
+    cutoff = current - timedelta(hours=max(0, int(max_age_hours)))
+    planned: list[dict[str, Any]] = []
+    for timestamp, job in candidates:
+        job_id = str(job.get("job_id", ""))
+        if job.get("status") in ACTIVE_STATUSES:
+            retained.append({"job_id": job_id, "reason": "active"})
+            continue
+        if job_id in newest_ids:
+            retained.append({"job_id": job_id, "reason": "newest retained set"})
+            continue
+        if timestamp >= cutoff:
+            retained.append({"job_id": job_id, "reason": "within retention age"})
+            continue
+        try:
+            result_path = _predictor_result_path(queue_path, job_id)
+            if result_path.is_symlink() or not result_path.is_file():
+                raise ValueError("Predictor result is missing or is not a regular file.")
+            _hydrate_predictor_result(queue_path, job)
+            planned.append(
+                {
+                    "job_id": job_id,
+                    "path": result_path.name,
+                    "size_bytes": result_path.stat().st_size,
+                    "finished_at": timestamp.isoformat(timespec="seconds"),
+                    "reason": (
+                        f"older than {max(0, int(max_age_hours))} h and outside "
+                        f"the newest {max(0, int(keep_recent))} Predictor results"
+                    ),
+                    "reference": dict(job["predictor_result_ref"]),
+                }
+            )
+        except (OSError, ValueError) as exc:
+            errors.append(f"{job_id}: {exc}")
+            retained.append({"job_id": job_id, "reason": "validation error"})
+    return {"planned": planned, "retained": retained, "errors": errors}
+
+
+def expire_predictor_results(
+    path: Path,
+    plan: dict[str, Any],
+    *,
+    expired_at: datetime | None = None,
+) -> dict[str, Any]:
+    """Apply a previously validated expiry plan with the queue update first."""
+    queue_path = Path(path)
+    queue = load_queue(queue_path)
+    jobs_by_id = {
+        str(job.get("job_id", "")): job
+        for job in queue["jobs"]
+        if isinstance(job, dict)
+    }
+    timestamp = (expired_at or datetime.now(UTC)).astimezone(UTC).isoformat(timespec="seconds")
+    expired: list[str] = []
+    errors: list[str] = []
+    for entry in plan.get("planned", []):
+        if not isinstance(entry, dict):
+            continue
+        job_id = str(entry.get("job_id", ""))
+        job = jobs_by_id.get(job_id)
+        try:
+            if job is None or job.get("job_type") != JOB_TYPE_PREDICTOR:
+                raise ValueError("Predictor job is no longer present.")
+            reference = job.get("predictor_result_ref")
+            if not isinstance(reference, dict) or reference != entry.get("reference"):
+                raise ValueError("Predictor result reference changed after planning.")
+            _hydrate_predictor_result(queue_path, job)
+            job.pop("predictor_result_ref", None)
+            job["predictor_result_detail"] = {
+                "status": "expired",
+                "expired_at": timestamp,
+                "previous_size_bytes": int(reference.get("size_bytes", 0)),
+                "previous_sha256": str(reference.get("sha256", "")),
+            }
+            expired.append(job_id)
+        except (OSError, ValueError) as exc:
+            errors.append(f"{job_id}: {exc}")
+    if expired:
+        _write_atomic(queue_path, queue)
+    return {"expired": expired, "errors": errors}
 
 
 def _validate_worker_id(worker_id: str) -> str:
@@ -327,12 +450,6 @@ def create_candidate_rebuild(
     worker_display_name: str,
     input_bundle: dict[str, Any],
     job_id: str,
-    reconstruction_scope: str = "all",
-    scope_label: str = "all eligible (candidate)",
-    scope_key: str = "all",
-    scope_species_ids: list[str] | tuple[str, ...] | None = None,
-    promotion_eligible: bool = False,
-    full_update: bool = False,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     target_worker_id = _validate_worker_id(worker_id)
@@ -349,22 +466,7 @@ def create_candidate_rebuild(
         raise ValueError("Worker input snapshot ID is invalid.")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", job_spec_id):
         raise ValueError("Worker job spec ID is invalid.")
-    resolved_scope = str(reconstruction_scope or "").strip().lower()
-    if resolved_scope not in {"all", "pending", "species"}:
-        raise ValueError("Worker candidate reconstruction scope is invalid.")
-    resolved_scope_key = str(scope_key or "").strip()[:200]
-    if not resolved_scope_key:
-        raise ValueError("Worker candidate reconstruction scope key is required.")
-    work_key = f"rebuild:v0:{snapshot_id}:{resolved_scope_key}"
-    resolved_species_ids = sorted(
-        {
-            str(species_id).strip()
-            for species_id in (scope_species_ids or [])
-            if str(species_id or "").strip()
-        }
-    )
-    if resolved_scope in {"pending", "species"} and not resolved_species_ids:
-        raise ValueError("Partial worker candidate requires scope species IDs.")
+    work_key = f"rebuild:v0:{snapshot_id}:all"
     queue = load_queue(path)
     duplicate = next(
         (
@@ -373,12 +475,7 @@ def create_candidate_rebuild(
             if row.get("status") in ACTIVE_STATUSES
             and row.get("job_type") == JOB_TYPE_CANDIDATE_REBUILD
             and str(row.get("input_bundle", {}).get("snapshot_id", "")) == snapshot_id
-            and (
-                row.get("work_key") == work_key
-                or resolved_scope == "all"
-                or str(row.get("reconstruction_scope", "all")) == "all"
-                or bool(set(resolved_species_ids) & set(row.get("scope_species_ids", [])))
-            )
+            and row.get("work_key") == work_key
         ),
         None,
     )
@@ -395,10 +492,10 @@ def create_candidate_rebuild(
         "target_display_name": display_name,
         "status": "queued",
         "phase": "Waiting for worker",
-        "message": "Candidate rebuild queued without live promotion.",
-        "scope": str(scope_label or resolved_scope_key).strip()[:200],
-        "reconstruction_scope": resolved_scope,
-        "scope_species_ids": resolved_species_ids,
+        "message": "Complete operational rebuild queued for automatic promotion.",
+        "scope": "all eligible",
+        "reconstruction_scope": "all",
+        "scope_species_ids": [],
         "overall_percent": 0,
         "created_at": timestamp,
         "claimed_at": "",
@@ -410,8 +507,8 @@ def create_candidate_rebuild(
         "lease_expires_at": "",
         "claim_token": "",
         "assignment_revision": 1,
-        "promotion_eligible": bool(promotion_eligible),
-        "full_update": bool(full_update),
+        "promotion_eligible": True,
+        "full_update": True,
         "promotion_status": "",
         "promotion_percent": 0,
         "promotion_error": "",
@@ -543,10 +640,8 @@ def create_ml_multiversion_job(
     if purpose not in ML_JOB_PURPOSES:
         raise ValueError("Multiversion job purpose is invalid.")
     selected_profiles = [str(value or "").strip() for value in (profile_keys or [])]
-    if purpose == "benchmark" and (not selected_profiles or any(not value for value in selected_profiles)):
-        raise ValueError("Scientific benchmark must declare selected profiles.")
-    if purpose == "operational" and selected_profiles:
-        raise ValueError("Operational training cannot declare benchmark profiles.")
+    if not selected_profiles or any(not value for value in selected_profiles):
+        raise ValueError("Multiversion training must declare selected profiles.")
     display_name = str(worker_display_name or "").strip()[:80]
     if not display_name or not JOB_ID_PATTERN.fullmatch(str(job_id or "")):
         raise ValueError("Multiversion worker assignment is invalid.")
@@ -591,12 +686,12 @@ def create_ml_multiversion_job(
         "status": "queued",
         "phase": "Waiting for worker",
         "message": (
-            "Active operational generation training queued."
+            "Selected operational ML versions queued for refresh."
             if purpose == "operational"
             else "V2--V6 scientific benchmark queued."
         ),
         "scope": (
-            "active operational generation"
+            "selected operational ML versions"
             if purpose == "operational"
             else "V2--V6 scientific benchmark"
         ),

@@ -161,7 +161,6 @@ class PredictorService:
         runtime_fingerprint: str,
         profiles_path: Path | None = None,
         version_registry_path: Path | None = None,
-        runtime_batch_manifest_path: Path | None = None,
         stations_file_path: Path | None = None,
     ) -> None:
         self.models_dir = Path(models_dir)
@@ -171,11 +170,6 @@ class PredictorService:
         self.profiles_path = Path(profiles_path) if profiles_path is not None else None
         self.version_registry_path = (
             Path(version_registry_path) if version_registry_path is not None else None
-        )
-        self.runtime_batch_manifest_path = (
-            Path(runtime_batch_manifest_path)
-            if runtime_batch_manifest_path is not None
-            else None
         )
         self.stations_file_path = (
             Path(stations_file_path) if stations_file_path is not None else None
@@ -188,14 +182,27 @@ class PredictorService:
         )
         self._lock = RLock()
 
-    def model_catalog(self) -> dict[str, Any]:
-        """Describe catalog and installed batch without claiming absent models."""
+    def model_catalog(
+        self,
+        *,
+        include_installed_artifacts: bool = True,
+        comparison_cache: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Describe catalog and every independently installed version."""
         if self.version_registry_path is None or not self.version_registry_path.is_file():
             return {"available": False, "reason": "version_registry_missing", "entries": []}
         try:
-            registry = mushroom_ml_version_registry.load_registry(
-                self.version_registry_path
+            registry = (
+                comparison_cache.get("service_registry")
+                if comparison_cache is not None
+                else None
             )
+            if not isinstance(registry, dict):
+                registry = mushroom_ml_version_registry.load_registry(
+                    self.version_registry_path
+                )
+                if comparison_cache is not None:
+                    comparison_cache["service_registry"] = registry
             entries = mushroom_ml_model_catalog.catalog_entries(registry)
         except (OSError, ValueError) as exc:
             return {
@@ -206,42 +213,86 @@ class PredictorService:
             }
         result: dict[str, Any] = {
             "available": True,
-            "active_version_id": registry["active_version_id"],
-            "active_operational_target": dict(registry["active_operational_target"]),
+            "preferred_version_id": registry.get("preferred_version_id"),
             "entries": entries,
-            "runtime_batch": None,
+            "runtime_batches": {},
             "installed_artifacts": [],
         }
-        if (
-            self.runtime_batch_manifest_path is None
-            or not self.runtime_batch_manifest_path.is_file()
-        ):
-            result["runtime_batch_status"] = "not_installed"
+        if not include_installed_artifacts:
+            result["runtime_batch_status"] = "not_requested"
             return result
         try:
-            batch = mushroom_ml_model_catalog.validate_batch_manifest(
+            batches = self._installed_runtime_batches(
                 registry,
-                json.loads(
-                    self.runtime_batch_manifest_path.read_text(encoding="utf-8")
-                ),
+                comparison_cache=comparison_cache,
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             result["runtime_batch_status"] = "invalid"
             result["runtime_batch_error"] = str(exc)
             return result
-        result["runtime_batch_status"] = "installed"
-        result["runtime_batch"] = {
-            "batch_id": batch["batch_id"],
-            "snapshot_id": batch["snapshot_id"],
+        result["runtime_batch_status"] = "installed" if batches else "not_installed"
+        result["runtime_batches"] = {
+            version_id: {
+                "batch_id": batch["batch_id"],
+                "snapshot_id": batch["snapshot_id"],
+            }
+            for version_id, batch in batches.items()
         }
-        result["installed_artifacts"] = [
-            {
+        artifacts_by_key = {
+            mushroom_ml_model_catalog.ModelArtifactRef.from_mapping(
+                row["artifact_ref"]
+            ).key: {
                 "artifact_ref": dict(row["artifact_ref"]),
                 "supported_horizons": list(row["supported_horizons"]),
             }
+            for batch in batches.values()
             for row in batch["artifacts"]
-        ]
+        }
+        result["installed_artifacts"] = list(artifacts_by_key.values())
         return result
+
+    def _installed_runtime_batches(
+        self,
+        registry: Mapping[str, object],
+        *,
+        version_ids: set[str] | None = None,
+        comparison_cache: dict[str, Any] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        cached = (
+            comparison_cache.get("service_installed_runtime_batches")
+            if comparison_cache is not None
+            else None
+        )
+        if not isinstance(cached, dict):
+            cached = {}
+            if comparison_cache is not None:
+                comparison_cache["service_installed_runtime_batches"] = cached
+        batches: dict[str, dict[str, Any]] = {}
+        for version in registry.get("versions", []):
+            if not isinstance(version, Mapping):
+                continue
+            version_id = str(version.get("version_id") or "")
+            if version_ids is not None and version_id not in version_ids:
+                continue
+            if version.get("installed_generation_id") is None:
+                continue
+            cached_batch = cached.get(version_id)
+            if isinstance(cached_batch, dict):
+                batches[version_id] = cached_batch
+                continue
+            manifest_path = mushroom_ml_version_registry.installed_manifest_path(
+                registry, version_id, models_root=self.models_dir
+            )
+            if manifest_path is None or not manifest_path.is_file():
+                raise FileNotFoundError(
+                    f"Installed manifest is missing for {version_id}"
+                )
+            batch = mushroom_ml_model_catalog.validate_batch_manifest(
+                registry, json.loads(manifest_path.read_text(encoding="utf-8"))
+            )
+            cached[version_id] = batch
+            batches[version_id] = batch
+        return batches
 
     def multiversion_compare(
         self,
@@ -249,44 +300,135 @@ class PredictorService:
         species_id: str,
         area_id: str,
         target_date: date,
+        issue_date: date,
         selections: Sequence[Mapping[str, object]],
+        prepared_weather_cache: dict[tuple[object, ...], Any] | None = None,
+        comparison_cache: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not selections:
             return {"available": False, "reason": "no_models_selected"}
-        if (
-            self.version_registry_path is None
-            or self.runtime_batch_manifest_path is None
-            or not self.version_registry_path.is_file()
-            or not self.runtime_batch_manifest_path.is_file()
-        ):
+        if self.version_registry_path is None or not self.version_registry_path.is_file():
             return {"available": False, "reason": "runtime_batch_not_installed"}
         try:
-            registry = mushroom_ml_version_registry.load_registry(
-                self.version_registry_path
+            registry = (
+                comparison_cache.get("service_registry")
+                if comparison_cache is not None
+                else None
             )
-            manifest = json.loads(
-                self.runtime_batch_manifest_path.read_text(encoding="utf-8")
-            )
-            result = mushroom_ml_multiversion_comparison.compare_selection(
-                registry,
-                manifest,
+            if not isinstance(registry, dict):
+                registry = mushroom_ml_version_registry.load_registry(
+                    self.version_registry_path
+                )
+                if comparison_cache is not None:
+                    comparison_cache["service_registry"] = registry
+            selections = mushroom_ml_multiversion_comparison.operational_selections(
                 selections,
-                species_id=species_id,
-                area_id=area_id,
                 target_date=target_date,
-                models_root=self.models_dir,
-                known_sites_path=self.known_sites_path,
-                weather_data_dir=self.weather_data_dir,
-                excluded_station_keys=(
-                    mushroom_weather_idw.disabled_wunderground_station_keys(
-                        self.stations_file_path
-                    )
-                    if self.stations_file_path is not None
-                    and self.stations_file_path.is_file()
-                    else frozenset()
-                ),
+                issue_date=issue_date,
             )
-            return {"available": True, **result}
+            if not selections:
+                return {"available": False, "reason": "no_models_for_target_horizon"}
+            selected_version_ids = {
+                str(row.get("version_id") or "") for row in selections
+            }
+            batches = self._installed_runtime_batches(
+                registry,
+                version_ids=selected_version_ids,
+                comparison_cache=comparison_cache,
+            )
+            shared_weather = (
+                prepared_weather_cache
+                if prepared_weather_cache is not None
+                else {}
+            )
+            version_caches = (
+                comparison_cache.setdefault("service_multiversion_caches", {})
+                if comparison_cache is not None
+                else {}
+            )
+            members: list[dict[str, Any]] = []
+            batch_ids: dict[str, str] = {}
+            version_runtime_metrics: dict[str, dict[str, Any]] = {}
+            for version_id in dict.fromkeys(
+                str(row.get("version_id") or "") for row in selections
+            ):
+                batch = batches.get(version_id)
+                if batch is None:
+                    raise FileNotFoundError(
+                        f"No installed generation for {version_id}"
+                    )
+                selected = [
+                    row for row in selections if row.get("version_id") == version_id
+                ]
+                result = mushroom_ml_multiversion_comparison.compare_selection(
+                    registry,
+                    batch,
+                    selected,
+                    species_id=species_id,
+                    area_id=area_id,
+                    target_date=target_date,
+                    models_root=self.models_dir,
+                    known_sites_path=self.known_sites_path,
+                    weather_data_dir=self.weather_data_dir,
+                    excluded_station_keys=(
+                        mushroom_weather_idw.disabled_wunderground_station_keys(
+                            self.stations_file_path
+                        )
+                        if self.stations_file_path is not None
+                        and self.stations_file_path.is_file()
+                        else frozenset()
+                    ),
+                    prepared_weather_cache=shared_weather,
+                    comparison_cache=version_caches.setdefault(version_id, {}),
+                )
+                batch_ids[version_id] = str(result["batch_id"])
+                members.extend(result["members"])
+                version_runtime_metrics[version_id] = dict(
+                    result.get("runtime_metrics") or {}
+                )
+            phenology: dict[str, Any] = {}
+            try:
+                if self.profiles_path is not None:
+                    profiles = json.loads(self.profiles_path.read_text(encoding="utf-8"))
+                    species_profile = next(
+                        (
+                            row
+                            for row in profiles.get("species_profiles", [])
+                            if isinstance(row, dict)
+                            and row.get("species_id") == species_id
+                        ),
+                        {},
+                    )
+                    phenology = dict(species_profile.get("phenology") or {})
+            except (OSError, TypeError, ValueError):
+                phenology = {}
+            operational = (
+                mushroom_ml_multiversion_comparison.build_selected_operational_comparison(
+                    members,
+                    season_phase=self.predictor(species_id).season_phase(target_date),
+                    phenology=phenology,
+                )
+            )
+            return {
+                "available": True,
+                "batch_ids": batch_ids,
+                "area_id": area_id,
+                "target_date": target_date.isoformat(),
+                "members": members,
+                "operational_comparison": operational,
+                "consensus_computed": True,
+                "ensemble_computed": False,
+                "runtime_metrics": {
+                    "versions": version_runtime_metrics,
+                    "phase_seconds": {
+                        f"{version_id}_{phase}": round(float(value), 6)
+                        for version_id, metrics in version_runtime_metrics.items()
+                        for phase, value in (metrics.get("phase_seconds") or {}).items()
+                        if isinstance(value, (int, float))
+                        and not isinstance(value, bool)
+                    },
+                },
+            }
         except (OSError, KeyError, TypeError, ValueError) as exc:
             return {
                 "available": False,
@@ -304,19 +446,14 @@ class PredictorService:
         prepared_weather_cache: dict[tuple[object, ...], Any] | None = None,
         comparison_cache: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Resolve every profile in the active operational version."""
+        """Resolve every profile in the preferred installed version."""
         predictor = self.predictor(species_id)
         season_phase = predictor.season_phase(target_date)
         unavailable = {
             "available": False,
             "reason": "runtime_batch_not_installed",
         }
-        if (
-            self.version_registry_path is None
-            or self.runtime_batch_manifest_path is None
-            or not self.version_registry_path.is_file()
-            or not self.runtime_batch_manifest_path.is_file()
-        ):
+        if self.version_registry_path is None or not self.version_registry_path.is_file():
             payload: dict[str, Any] = {
                 "issue_date": issue_date.isoformat(),
                 "target_date": target_date.isoformat(),
@@ -336,7 +473,15 @@ class PredictorService:
         try:
             if self.profiles_path is None:
                 raise FileNotFoundError("Mushroom profiles are unavailable")
-            profiles = json.loads(self.profiles_path.read_text(encoding="utf-8"))
+            profiles = (
+                comparison_cache.get("service_profiles")
+                if comparison_cache is not None
+                else None
+            )
+            if not isinstance(profiles, dict):
+                profiles = json.loads(self.profiles_path.read_text(encoding="utf-8"))
+                if comparison_cache is not None:
+                    comparison_cache["service_profiles"] = profiles
             species_profile = next(
                 (
                     row
@@ -349,13 +494,29 @@ class PredictorService:
         except (OSError, TypeError, ValueError):
             phenology = {}
         try:
-            return mushroom_ml_multiversion_comparison.compare_operational_reference(
-                mushroom_ml_version_registry.load_registry(
+            registry = (
+                comparison_cache.get("service_registry")
+                if comparison_cache is not None
+                else None
+            )
+            if not isinstance(registry, dict):
+                registry = mushroom_ml_version_registry.load_registry(
                     self.version_registry_path
-                ),
-                json.loads(
-                    self.runtime_batch_manifest_path.read_text(encoding="utf-8")
-                ),
+                )
+                if comparison_cache is not None:
+                    comparison_cache["service_registry"] = registry
+            preferred = registry.get("preferred_version_id")
+            batches = self._installed_runtime_batches(
+                registry,
+                version_ids={str(preferred)} if preferred is not None else set(),
+                comparison_cache=comparison_cache,
+            )
+            manifest = batches.get(str(preferred)) if preferred is not None else None
+            if manifest is None:
+                raise FileNotFoundError("Preferred ML version is not installed")
+            return mushroom_ml_multiversion_comparison.compare_operational_reference(
+                registry,
+                manifest,
                 species_id=species_id,
                 area_id=area_id,
                 target_date=target_date,
@@ -428,12 +589,47 @@ class PredictorService:
         *,
         progress: ProgressCallback | None = None,
     ) -> dict[str, Any]:
-        normalized = normalize_request(request)
         started = monotonic()
+        phase_seconds: dict[str, float] = {}
+        phase_call_counts: dict[str, int] = {}
+        detailed_phase_seconds: dict[str, float] = {}
+
+        def timed(phase: str, operation: Callable[[], Any]) -> Any:
+            phase_started = monotonic()
+            try:
+                return operation()
+            finally:
+                phase_seconds[phase] = phase_seconds.get(phase, 0.0) + (
+                    monotonic() - phase_started
+                )
+                phase_call_counts[phase] = phase_call_counts.get(phase, 0) + 1
+
+        def collect_runtime_metrics(prefix: str, payload: object) -> None:
+            if not isinstance(payload, Mapping):
+                return
+            metrics = payload.get("runtime_metrics")
+            metrics = metrics if isinstance(metrics, Mapping) else {}
+            phases = metrics.get("phase_seconds")
+            phases = phases if isinstance(phases, Mapping) else {}
+            for name, value in phases.items():
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    key = f"{prefix}_{name}"
+                    detailed_phase_seconds[key] = (
+                        detailed_phase_seconds.get(key, 0.0) + float(value)
+                    )
+
+        normalized = timed("request_normalization", lambda: normalize_request(request))
         report = progress or (lambda _percent, _phase, _message: None)
         if normalized["view"] == "query" and normalized["area_id"]:
-            selected_predictor = self.predictor(normalized["species_id"])
-            if normalized["area_id"] not in selected_predictor.areas_with_species_observations():
+            selected_predictor = timed(
+                "predictor_access",
+                lambda: self.predictor(normalized["species_id"]),
+            )
+            known_areas = timed(
+                "prediction_data",
+                selected_predictor.areas_with_species_observations,
+            )
+            if normalized["area_id"] not in known_areas:
                 normalized["area_id"] = ""
         cache_key: tuple[object, ...] = (
             normalized["view"],
@@ -449,45 +645,89 @@ class PredictorService:
                 for row in normalized["multiversion_selection"]
             ),
         )
+        cache_started = monotonic()
         with self._lock:
             cached = self._responses.get(cache_key)
             if cached is not None:
                 self._responses.move_to_end(cache_key)
                 response = copy.deepcopy(cached)
-                response["metrics"] = {
-                    **dict(response.get("metrics", {})),
-                    "backend_seconds": round(monotonic() - started, 4),
-                    "response_cache_status": "hit",
-                    "loaded_predictor_count": len(self._predictors),
-                }
-                report(100, "Prediction complete", "Cached results are ready.")
-                return response
+            else:
+                response = None
+        phase_seconds["response_cache_lookup"] = monotonic() - cache_started
+        phase_call_counts["response_cache_lookup"] = 1
+        if response is not None:
+            response["metrics"] = {
+                **dict(response.get("metrics", {})),
+                "backend_seconds": round(monotonic() - started, 4),
+                "response_cache_status": "hit",
+                "loaded_predictor_count": len(self._predictors),
+                "phase_seconds": {
+                    key: round(value, 6) for key, value in phase_seconds.items()
+                },
+                "phase_call_counts": dict(phase_call_counts),
+                "detailed_phase_seconds": {},
+            }
+            report(100, "Prediction complete", "Cached results are ready.")
+            return response
         report(2, "Preparing predictor", "Validating the prediction request.")
         view = normalized["view"]
         species_ids = normalized["trained_species_ids"]
         selected_species = normalized["species_id"]
         target = date.fromisoformat(normalized["target_date"])
         area_id = normalized["area_id"]
-        data: dict[str, Any] = {
-            "species": {},
-            "model_catalog": self.model_catalog(),
-        }
         prepared_weather_cache: dict[tuple[object, ...], Any] = {}
         comparison_cache: dict[str, Any] = {}
+        data: dict[str, Any] = {
+            "species": {},
+            "model_catalog": timed(
+                "model_catalog",
+                lambda: self.model_catalog(
+                    include_installed_artifacts=view == "query",
+                    comparison_cache=comparison_cache,
+                ),
+            ),
+        }
 
         def comparison_for(
             species_id: str,
             current_area: str,
             current_date: date,
         ) -> dict[str, Any]:
-            return self.v2_reference_compare(
-                species_id=species_id,
-                area_id=current_area,
-                target_date=current_date,
-                issue_date=min(date.today(), current_date),
-                prepared_weather_cache=prepared_weather_cache,
-                comparison_cache=comparison_cache,
+            result = timed(
+                "preferred_model_comparison",
+                lambda: self.v2_reference_compare(
+                    species_id=species_id,
+                    area_id=current_area,
+                    target_date=current_date,
+                    issue_date=min(date.today(), current_date),
+                    prepared_weather_cache=prepared_weather_cache,
+                    comparison_cache=comparison_cache,
+                ),
             )
+            collect_runtime_metrics("preferred", result)
+            return result
+
+        def multiversion_comparison_for(
+            *,
+            species_id: str,
+            current_area: str,
+            current_date: date,
+            selections: Sequence[Mapping[str, object]],
+        ) -> dict[str, Any]:
+            result = timed(
+                "multiversion_model_comparison",
+                lambda: self.multiversion_compare(
+                    species_id=species_id,
+                    area_id=current_area,
+                    target_date=current_date,
+                    issue_date=min(date.today(), current_date),
+                    selections=selections,
+                    prepared_weather_cache=prepared_weather_cache,
+                    comparison_cache=comparison_cache,
+                ),
+            )
+            collect_runtime_metrics("multiversion", result)
+            return result
 
         if view == "recommender":
             total = len(species_ids)
@@ -497,15 +737,22 @@ class PredictorService:
                     "Evaluating species",
                     f"{index + 1}/{total}: {species_id}",
                 )
-                predictor = self.predictor(species_id)
+                predictor = timed(
+                    "predictor_access", lambda: self.predictor(species_id)
+                )
                 season_phase = predictor.season_phase(target)
                 rankings = (
                     []
                     if season_phase == "out_of_season"
-                    else [
-                        serialize_prediction(row)
-                        for row in predictor.rank_areas(target, only_observed=True)
-                    ]
+                    else timed(
+                        "prediction_data",
+                        lambda: [
+                            serialize_prediction(row)
+                            for row in predictor.rank_areas(
+                                target, only_observed=True
+                            )
+                        ],
+                    )
                 )
                 data["species"][species_id] = {
                     "season_phase": season_phase,
@@ -521,8 +768,12 @@ class PredictorService:
                     }
                 }
         elif view == "week":
-            predictor = self.predictor(selected_species)
-            areas = predictor.areas_with_species_observations()
+            predictor = timed(
+                "predictor_access", lambda: self.predictor(selected_species)
+            )
+            areas = timed(
+                "prediction_data", predictor.areas_with_species_observations
+            )
             days = [date.today() + timedelta(days=offset) for offset in range(7)]
             predictions: dict[str, dict[str, Any]] = {}
             comparisons: dict[str, dict[str, Any]] = {}
@@ -533,7 +784,9 @@ class PredictorService:
                 for current_date in days
             ]
             report(10, "Building weekly matrix", f"Evaluating {total} area-days.")
-            rows = predictor.predict_many(requests)
+            rows = timed(
+                "prediction_data", lambda: predictor.predict_many(requests)
+            )
             for completed, ((current_area, current_date), row) in enumerate(
                 zip(requests, rows, strict=True), start=1
             ):
@@ -555,8 +808,12 @@ class PredictorService:
             }
         elif view == "history":
             report(10, "Loading history", f"Backtesting {selected_species}.")
-            predictor = self.predictor(selected_species)
-            backtest = predictor.observed_episodes()
+            predictor = timed(
+                "predictor_access", lambda: self.predictor(selected_species)
+            )
+            backtest = timed(
+                "prediction_data", predictor.observed_episodes
+            )
             history_comparisons: dict[str, dict[str, Any]] = {}
             for row in backtest:
                 history_area = str(row.get("area_id", ""))
@@ -572,24 +829,37 @@ class PredictorService:
                 )
             data["species"][selected_species] = {
                 "backtest": backtest,
-                "areas": predictor.areas_with_species_observations(),
+                "areas": timed(
+                    "prediction_data",
+                    predictor.areas_with_species_observations,
+                ),
                 "model_comparisons": history_comparisons,
             }
         else:
-            predictor = self.predictor(selected_species)
-            areas = predictor.areas_with_species_observations()
+            predictor = timed(
+                "predictor_access", lambda: self.predictor(selected_species)
+            )
+            areas = timed(
+                "prediction_data", predictor.areas_with_species_observations
+            )
             species_data: dict[str, Any] = {"areas": areas}
             if area_id:
                 today = date.today()
                 current_week = {today + timedelta(days=offset) for offset in range(7)}
                 week_start = today if target in current_week else target
                 report(20, "Evaluating area", f"Predicting {area_id}.")
-                week = predictor.week_window(area_id, week_start)
+                week = timed(
+                    "prediction_data",
+                    lambda: predictor.week_window(area_id, week_start),
+                )
                 species_data["predictions"] = {
                     area_id: {row.target_date.isoformat(): serialize_prediction(row) for row in week}
                 }
                 if target.isoformat() not in species_data["predictions"][area_id]:
-                    row = predictor.predict(area_id, target)
+                    row = timed(
+                        "prediction_data",
+                        lambda: predictor.predict(area_id, target),
+                    )
                     species_data["predictions"][area_id][target.isoformat()] = serialize_prediction(row)
                 report(88, "Comparing models", f"Evaluating operational models for {area_id}.")
                 species_data["model_comparisons"] = {
@@ -605,18 +875,44 @@ class PredictorService:
                         comparison_for(selected_species, area_id, target)
                     )
                 if normalized["compare_models"] and normalized["multiversion_selection"]:
-                    species_data["multiversion_comparison"] = self.multiversion_compare(
-                        species_id=selected_species,
-                        area_id=area_id,
-                        target_date=target,
-                        selections=normalized["multiversion_selection"],
+                    comparison_dates = list(
+                        dict.fromkeys(
+                            [row.target_date for row in week]
+                            + ([target] if target not in {row.target_date for row in week} else [])
+                        )
+                    )
+                    multiversion_comparisons = {
+                        current_date.isoformat(): multiversion_comparison_for(
+                            species_id=selected_species,
+                            current_area=area_id,
+                            current_date=current_date,
+                            selections=(
+                                mushroom_ml_multiversion_comparison.retarget_operational_selections(
+                                    normalized["multiversion_selection"],
+                                    target_date=current_date,
+                                    issue_date=min(date.today(), current_date),
+                                )
+                            ),
+                        )
+                        for current_date in comparison_dates
+                    }
+                    species_data["multiversion_comparisons"] = (
+                        multiversion_comparisons
+                    )
+                    species_data["multiversion_comparison"] = (
+                        multiversion_comparisons[target.isoformat()]
                     )
             else:
                 report(20, "Ranking areas", f"Evaluating {selected_species}.")
-                ranking_rows = [
-                    serialize_prediction(row)
-                    for row in predictor.rank_areas(target, only_observed=True)
-                ]
+                ranking_rows = timed(
+                    "prediction_data",
+                    lambda: [
+                        serialize_prediction(row)
+                        for row in predictor.rank_areas(
+                            target, only_observed=True
+                        )
+                    ],
+                )
                 species_data["rankings"] = {target.isoformat(): ranking_rows}
                 species_data["model_comparisons"] = {
                     row["area_id"]: {
@@ -628,8 +924,8 @@ class PredictorService:
                 }
             data["species"][selected_species] = species_data
 
-        elapsed = round(monotonic() - started, 4)
         report(100, "Prediction complete", "Results are ready.")
+        assembly_started = monotonic()
         response = {
             "schema_version": SCHEMA_VERSION,
             "kind": RESPONSE_KIND,
@@ -637,11 +933,27 @@ class PredictorService:
             "request": normalized,
             "data": data,
             "metrics": {
-                "backend_seconds": elapsed,
+                "backend_seconds": 0.0,
                 "response_cache_status": "miss",
                 "loaded_predictor_count": len(self._predictors),
             },
         }
+        phase_seconds["response_assembly"] = monotonic() - assembly_started
+        phase_call_counts["response_assembly"] = 1
+        response["metrics"].update(
+            {
+                "backend_seconds": round(monotonic() - started, 4),
+                "phase_seconds": {
+                    key: round(value, 6)
+                    for key, value in phase_seconds.items()
+                },
+                "phase_call_counts": dict(phase_call_counts),
+                "detailed_phase_seconds": {
+                    key: round(value, 6)
+                    for key, value in detailed_phase_seconds.items()
+                },
+            }
+        )
         with self._lock:
             self._responses[cache_key] = copy.deepcopy(response)
             self._responses.move_to_end(cache_key)

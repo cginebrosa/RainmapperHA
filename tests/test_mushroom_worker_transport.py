@@ -493,6 +493,25 @@ class MushroomWorkerTransportTests(unittest.TestCase):
             },
         ]
 
+        dry_run = mushroom_worker_transport.cleanup_coordinator_bundles(
+            self.bundle_root,
+            jobs,
+            now=now,
+            staging_grace_seconds=60,
+            orphan_grace_seconds=60,
+            apply=False,
+        )
+        self.assertCountEqual(
+            dry_run["planned_terminal"],
+            [self.job_id, failed, promoted],
+        )
+        self.assertEqual(dry_run["planned_orphan"], [old_orphan])
+        self.assertEqual(dry_run["planned_staging"], [stale_staging.name])
+        self.assertEqual(dry_run["discarded_terminal"], [])
+        self.assertTrue((self.bundle_root / self.job_id).is_dir())
+        self.assertTrue((self.bundle_root / old_orphan).is_dir())
+        self.assertTrue(stale_staging.is_dir())
+
         report = mushroom_worker_transport.cleanup_coordinator_bundles(
             self.bundle_root,
             jobs,

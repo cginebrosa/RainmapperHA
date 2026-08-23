@@ -286,6 +286,7 @@ timezone: Europe/Madrid
 schedule_enabled: true
 external_worker_connections_enabled: false
 external_worker_rebuilds_enabled: false
+ml_storage_reconciliation_apply: false
 schedule_time: "23:50"
 schedule_days: all
 scheduled_action: all
@@ -369,9 +370,14 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
   Arranca la API privada autenticada en `8100`; no publica por si sola el
   puerto en el host.
 - `external_worker_rebuilds_enabled`: `Allow external rebuilds and promotion`.
-  Permite que los workers emparejados ejecuten reconstrucciones y devuelvan
-  candidatos promocionables. Mantenerla desactivada si solo se quiere preparar
-  o diagnosticar la conectividad.
+  Permite que los workers emparejados ejecuten el mantenimiento operativo
+  completo y que HA autopromocione conjuntamente sus salidas verificadas.
+  Mantenerla desactivada si solo se quiere diagnosticar la conectividad.
+- `ml_storage_reconciliation_apply`: aplica la política auditada de retención
+  al arrancar Rainmapper y en los puntos terminales del ciclo de vida. Su valor
+  predeterminado es `false`: genera el informe `dry-run`, pero no elimina nada.
+  Solo debe activarse después de revisar ese informe y autorizar expresamente
+  la primera limpieza real.
 - `schedule_time`: una o varias horas `HH:MM`.
 - `schedule_days`: `all` o lista de dias.
 - `scheduled_action`: `update`, `maps` o `all`.
@@ -746,23 +752,23 @@ modelos ML entrenados (`ml_models/*.joblib`). Tiene cuatro vistas:
 Los modelos se cargan bajo demanda; si no hay `.joblib` para una especie, esa
 especie no aparece en el selector.
 
-### Entrenamiento ML con worker externo
+### Mantenimiento ML con worker externo
 
-El tipo de job `ml_train_v0` permite entrenar modelos desde el worker externo:
+La pantalla `Workers y trabajos` ofrece un único mantenimiento operativo:
 
 1. Activar `Enable external worker connections` y `Allow external rebuilds and
    promotion` en las opciones de la app.
-2. Conectar y emparejar un worker desde la pantalla `Workers y trabajos`.
-3. Asegurarse de haber ejecutado antes una reconstruccion completa para que
-   exista el artefacto de features.
-4. En `Workers y trabajos`, usar el panel "Train ML models" para encolar el job
-   en el worker.
-5. El worker entrena un modelo LR+RF por especie con suficientes episodios.
-6. Cuando el job termina, aparece el boton "Promote models". Hacer clic para
-   copiar los `.joblib` al directorio de modelos activos.
+2. Conectar y emparejar un worker.
+3. Ejecutar `Rebuild and retrain operational models`.
+4. El worker encadena reconstrucción completa, ML v0 y entrenamiento
+   multiversión de las versiones instaladas.
+5. HA verifica frescura, integridad y completitud y autopromociona las tres
+   salidas como una sola generación. Si la autopromoción se interrumpe, la UI
+   puede reanudar únicamente esa promoción conjunta.
 
-El entrenamiento no se lanza automaticamente al terminar una reconstruccion;
-siempre requiere una accion manual explicita.
+`Run scientific benchmark` es independiente: genera informe, predicciones
+hold-out, calidad e identidad en estado `evidence_only`. La UI permite consultar
+el historial o borrarlo, pero un benchmark no prepara ni activa modelos.
 
 ## Desarrollo
 

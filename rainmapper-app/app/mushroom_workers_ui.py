@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from mushroom_profiles_ui import ui_label
+from rainmapper_core import mushroom_worker_registry
 
 
 def _text(value: object) -> str:
@@ -31,7 +32,6 @@ def render_benchmark_report(
     report: dict[str, object] | None,
     *,
     error: str = "",
-    promotion_versions: list[dict[str, object]] | None = None,
 ) -> str:
     if error:
         return (
@@ -98,26 +98,6 @@ def render_benchmark_report(
         for row in profiles
         if isinstance(row, dict)
     )
-    promotion_html = ""
-    if promotion_versions:
-        version_actions = "".join(
-            '<form method="post" action="" class="benchmark-promotion-action">'
-            '<input type="hidden" name="worker_action" value="prepare_version_candidate">'
-            f'<input type="hidden" name="benchmark_batch_id" value="{_text(report.get("batch_id"))}">'
-            f'<input type="hidden" name="version_id" value="{_text(row.get("version_id"))}">'
-            f'<button type="submit">{_text(_label("ui.worker_prepare_version_candidate"))} · {_text(row.get("version_name"))}</button>'
-            '</form>'
-            for row in promotion_versions
-        )
-        promotion_html = (
-            '<section class="benchmark-promotion-panel"><h3>'
-            + _text(_label("ui.worker_version_promotion"))
-            + '</h3><p class="meta">'
-            + _text(_label("ui.worker_version_promotion_human_choice"))
-            + '</p><div class="benchmark-promotion-actions">'
-            + version_actions
-            + '</div></section>'
-        )
     return f'''
     <section class="workers-panel benchmark-report-panel">
       <div class="worker-panel-head"><h2>{_text(_label('ui.worker_benchmark_report'))}</h2><a class="button-link" href="./workers">{_text(_label('ui.close'))}</a></div>
@@ -133,7 +113,6 @@ def render_benchmark_report(
         <div><dt>{_text(_label('ui.worker_benchmark_fit_time'))}</dt><dd>{_metric(duration.get('total_fit_seconds'), 3)} s</dd></div>
       </dl>
       <p class="meta">{_text(_label('ui.worker_benchmark_no_average'))}</p>
-      {promotion_html}
       <div class="workers-table-wrap benchmark-report-table"><table><thead><tr>
         <th>Version</th><th>Profile</th><th>Species</th><th>Contract</th><th>Estimator</th>
         <th>Brier</th><th>Prevalence</th><th>Delta</th><th>ROC-AUC</th><th>ECE</th>
@@ -304,20 +283,13 @@ def _worker_card(
                 else ""
             )
             + (
-                '<form method="post" action=""><input type="hidden" name="worker_action" value="run_worker_candidate_rebuild">'
-                f'<input type="hidden" name="worker_id" value="{_text(worker_id)}">'
-                f'<button type="submit">{_text(_label("ui.worker_candidate_button"))}</button></form>'
-                if payload.get("job_api") == "candidate_rebuild_v0"
-                else ""
-            )
-            + (
                 '<form method="post" action=""><input type="hidden" name="worker_action" value="run_worker_ml_multiversion">'
                 f'<input type="hidden" name="worker_id" value="{_text(worker_id)}">'
                 f'<button type="submit">{_text(_label("ui.worker_run_scientific_benchmark"))}</button></form>'
                 if {
-                    "ml_multiversion_training_v1",
-                    "ml_job_purpose_v1",
-                    "ml_benchmark_report_v1",
+                    mushroom_worker_registry.ML_MULTIVERSION_TRAINING_CAPABILITY,
+                    mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY,
+                    mushroom_worker_registry.ML_BENCHMARK_REPORT_CAPABILITY,
                 }.issubset(set(payload.get("capabilities") or []))
                 else ""
             )
@@ -439,13 +411,6 @@ def render_recent_jobs(
         and job.get("status") == "complete"
         and job.get("triggered_by_job_id")
     }
-    promoted_candidate_ids = {
-        str((job.get("result") or {}).get("candidate_id") or "")
-        for job in jobs
-        if job.get("job_type") == "local_ml_version_promotion"
-        and job.get("status") == "complete"
-        and isinstance(job.get("result"), dict)
-    }
     workers: list[tuple[str, str]] = []
     for worker_status in worker_statuses or []:
         payload = worker_status.get("payload")
@@ -470,8 +435,6 @@ def render_recent_jobs(
             "worker_predictor_v1": _label("ui.worker_predictor_job_type"),
             "local_full_update": _label("ui.worker_local_full_update_job"),
             "local_ml_benchmark": _label("ui.worker_scientific_benchmark_job"),
-            "local_ml_operational_candidate": _label("ui.worker_version_candidate_job"),
-            "local_ml_version_promotion": _label("ui.worker_version_promotion_job"),
         }.get(job_type, _label("ui.worker_rebuild_job"))
         if job.get("job_purpose") == "benchmark" and job.get("profile_keys"):
             profile_labels = job.get("profile_labels")
@@ -584,36 +547,20 @@ def render_recent_jobs(
                 )
             if (
                 operational_enabled
-                and job_type == "worker_candidate_rebuild"
-                and status == "complete"
-                and job.get("promotion_eligible")
-                and not job.get("full_update")
-                and promotion_status not in {"promoting", "promoted"}
-            ):
-                action_parts.append(
-                    '<form class="worker-job-action" method="post" action="">'
-                    '<input type="hidden" name="worker_action" value="promote_worker_candidate">'
-                    f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
-                    f'<button type="submit" data-confirm="{_text(_label("ui.worker_promote_confirm"))}" '
-                    'onclick="return confirm(this.dataset.confirm)">'
-                    f'{_text(_label("ui.worker_promote_candidate"))}</button></form>'
-                )
-            if (
-                operational_enabled
                 and job_type == "worker_ml_train_v0"
                 and status == "complete"
                 and job.get("promotion_eligible")
                 and promotion_status not in {"promoting", "promoted"}
             ):
                 full_update = bool(job.get("triggered_by_job_id"))
-                if not full_update or job_id in completed_operational_parents:
+                if full_update and job_id in completed_operational_parents:
                     action_parts.append(
                         '<form class="worker-job-action" method="post" action="">'
-                        f'<input type="hidden" name="worker_action" value="{"promote_full_update" if full_update else "promote_ml_train_candidate"}">'
+                        '<input type="hidden" name="worker_action" value="promote_full_update">'
                         f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
-                        f'<button type="submit" data-confirm="{_text(_label("ui.worker_promote_full_update_confirm") if full_update else _label("ui.worker_ml_train_promote_confirm"))}" '
+                        f'<button type="submit" data-confirm="{_text(_label("ui.worker_promote_full_update_confirm"))}" '
                         'onclick="return confirm(this.dataset.confirm)">'
-                        f'{_text(_label("ui.worker_promote_full_update") if full_update else _label("ui.worker_ml_train_promote"))}</button></form>'
+                        f'{_text(_label("ui.worker_promote_full_update"))}</button></form>'
                     )
             elif promotion_status == "promoting":
                 action_parts.append(
@@ -652,36 +599,6 @@ def render_recent_jobs(
                 '<input type="hidden" name="worker_action" value="cancel_local_benchmark">'
                 f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
                 f'<button type="submit">{_text(_label("ui.worker_cancel_job"))}</button></form>'
-            )
-        elif job_type == "local_ml_operational_candidate":
-            if status == "running":
-                actions = (
-                    '<form class="worker-job-action danger" method="post" action="">'
-                    '<input type="hidden" name="worker_action" value="cancel_local_benchmark">'
-                    f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
-                    f'<button type="submit">{_text(_label("ui.worker_cancel_job"))}</button></form>'
-                )
-            elif (
-                status == "complete"
-                and result.get("candidate_id")
-                and str(result.get("candidate_id")) not in promoted_candidate_ids
-            ):
-                actions = (
-                    '<form class="worker-job-action" method="post" action="">'
-                    '<input type="hidden" name="worker_action" value="promote_version_candidate">'
-                    f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
-                    f'<button type="submit" data-confirm="{_text(_label("ui.worker_promote_version_confirm"))}" '
-                    'onclick="return confirm(this.dataset.confirm)">'
-                    f'{_text(_label("ui.worker_promote_version"))}</button></form>'
-                )
-        elif job_type == "local_ml_version_promotion" and status == "complete" and result.get("rollback_available"):
-            actions = (
-                '<form class="worker-job-action danger" method="post" action="">'
-                '<input type="hidden" name="worker_action" value="rollback_version_promotion">'
-                f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
-                f'<button type="submit" data-confirm="{_text(_label("ui.worker_rollback_version_confirm"))}" '
-                'onclick="return confirm(this.dataset.confirm)">'
-                f'{_text(_label("ui.worker_rollback_version"))}</button></form>'
             )
         elif benchmark_action:
             actions = benchmark_action
@@ -734,16 +651,12 @@ def render_recent_jobs(
 def render_page(
     *,
     worker_statuses: list[dict[str, object]],
-    profiles: list[dict[str, object]],
     eligible_observation_count: int,
-    pending_species_count: int,
     jobs: list[dict[str, object]],
     pipeline: str,
     operational_enabled: bool = False,
     local_ha_compute_enabled: bool = False,
     default_executor: str = "home_assistant",
-    selected_scope: str = "all",
-    selected_species_id: str = "",
     pairing_required: bool = False,
     flash: str = "",
     flash_error: bool = False,
@@ -753,9 +666,7 @@ def render_page(
     benchmark_history: list[dict[str, object]] | None = None,
     selected_benchmark_report: dict[str, object] | None = None,
     benchmark_report_error: str = "",
-    promotion_versions: list[dict[str, object]] | None = None,
 ) -> str:
-    del profiles, selected_scope, selected_species_id
     default_worker_status = next(
         (
             row
@@ -850,10 +761,12 @@ def render_page(
             not worker_id
             or not worker_status.get("reachable")
             or not payload.get("paired")
-            or "ml_multiversion_training_v1"
+            or mushroom_worker_registry.ML_MULTIVERSION_TRAINING_CAPABILITY
             not in set(payload.get("capabilities") or [])
-            or "ml_job_purpose_v1" not in set(payload.get("capabilities") or [])
-            or "ml_benchmark_report_v1" not in set(payload.get("capabilities") or [])
+            or mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY
+            not in set(payload.get("capabilities") or [])
+            or mushroom_worker_registry.ML_BENCHMARK_REPORT_CAPABILITY
+            not in set(payload.get("capabilities") or [])
         ):
             continue
         executor = f"worker:{worker_id}"
@@ -877,7 +790,6 @@ def render_page(
     benchmark_report_html = render_benchmark_report(
         selected_benchmark_report,
         error=benchmark_report_error,
-        promotion_versions=promotion_versions,
     )
 
     recent_jobs = render_recent_jobs(
@@ -957,7 +869,6 @@ def render_page(
       .benchmark-profile-fieldset{{min-width:0;margin:0;padding:0;border:0}}.benchmark-profile-fieldset legend{{margin:0 0 6px;padding:0;color:var(--fg);font-size:12px;font-weight:750}}.benchmark-profile-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0}}.benchmark-profile-choice{{display:block;position:relative;min-width:0;margin:0}}.benchmark-profile-choice input[type="checkbox"]{{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0;pointer-events:none}}.benchmark-profile-surface{{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:8px;min-height:54px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}}.benchmark-profile-mark{{display:grid;place-items:center;width:18px;height:18px;border:1px solid var(--line);border-radius:5px;color:transparent;font-size:12px;font-weight:900}}.benchmark-profile-copy{{display:flex;flex-direction:column;gap:1px;min-width:0}}.benchmark-profile-copy strong{{font-size:12px;line-height:1.2;white-space:normal}}.benchmark-profile-copy small{{color:var(--muted);font-size:10px;line-height:1.25;white-space:normal}}.benchmark-profile-choice input:checked + .benchmark-profile-surface{{border-color:var(--accent);background:#102a38;box-shadow:0 0 0 1px rgba(3,169,244,.16)}}.benchmark-profile-choice input:checked + .benchmark-profile-surface .benchmark-profile-mark{{border-color:var(--accent);background:var(--accent);color:#07151d}}.benchmark-profile-choice input:focus-visible + .benchmark-profile-surface{{outline:2px solid var(--accent);outline-offset:2px}}.benchmark-submit-row{{display:flex;align-items:center;justify-content:flex-end;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}}.benchmark-submit-row button{{min-width:190px;height:34px;min-height:34px;padding:6px 11px;font-size:11px;font-weight:750}}
       .benchmark-history{{display:grid;gap:7px}}.benchmark-history-scroll{{max-height:260px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}}.benchmark-history-item{{display:flex;align-items:stretch;gap:6px}}.benchmark-history-row{{flex:1;min-width:0;display:flex;justify-content:space-between;gap:12px;padding:9px;border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none}}.benchmark-history-row span:first-child{{display:grid;gap:2px}}.benchmark-history-row small{{color:var(--muted)}}.benchmark-history-delete{{flex:0 0 auto;align-self:center;margin:0}}.benchmark-history-delete button{{width:auto;padding:5px 9px;font-size:10px}}
       .benchmark-report-summary{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}}.benchmark-report-summary div{{padding:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}}.benchmark-report-summary dt{{color:var(--muted);font-size:11px}}.benchmark-report-summary dd{{margin:4px 0 0;overflow-wrap:anywhere}}
-      .benchmark-promotion-panel{{margin:10px 0;padding:9px;border:1px solid var(--accent);border-radius:8px}}.benchmark-promotion-panel h3{{margin:0 0 3px;font-size:13px}}.benchmark-promotion-actions{{display:flex;gap:7px;flex-wrap:wrap}}.benchmark-promotion-action{{margin:0}}
       .benchmark-report-table table{{width:min(100%,1380px);min-width:1220px;table-layout:fixed}}.benchmark-report-table th:nth-child(1){{width:86px}}.benchmark-report-table th:nth-child(2){{width:58px}}.benchmark-report-table th:nth-child(3){{width:150px}}.benchmark-report-table th:nth-child(4){{width:78px}}.benchmark-report-table th:nth-child(5){{width:170px}}.benchmark-report-table th:nth-child(6){{width:62px}}.benchmark-report-table th:nth-child(7){{width:78px}}.benchmark-report-table th:nth-child(8){{width:62px}}.benchmark-report-table th:nth-child(9){{width:68px}}.benchmark-report-table th:nth-child(10){{width:54px}}.benchmark-report-table th:nth-child(11){{width:100px}}.benchmark-report-table th:nth-child(12){{width:80px}}.benchmark-report-table th:nth-child(13){{width:78px}}.benchmark-report-table th:nth-child(14){{width:82px}}.benchmark-report-table th,.benchmark-report-table td{{padding-left:4px;padding-right:4px}}.benchmark-failures{{margin-top:12px}}
       @media(max-width:1050px){{.worker-toolbar-spacer{{display:none}}.worker-toolbar-actions{{flex-basis:100%;justify-content:flex-start;margin-left:0}}.workers-grid,.worker-destination-grid,.benchmark-profile-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
       @media(max-width:700px){{.workers-grid,.worker-destination-grid,.worker-scope-grid,.benchmark-profile-grid,.benchmark-report-summary{{grid-template-columns:1fr}}.worker-panel-head{{display:block}}.workers-head{{align-items:flex-start;flex-direction:column;gap:2px}}.worker-metrics{{justify-content:flex-start;margin-top:6px;text-align:left}}.worker-toolbar-actions{{align-items:stretch;flex-direction:column}}.worker-default-form{{align-items:stretch;flex-direction:column}}.worker-default-form select{{width:100%;max-width:none}}.benchmark-form-head{{display:block}}.benchmark-executor{{width:100%}}.benchmark-submit-row button{{width:100%}}.worker-note{{grid-template-columns:1fr}}}}

@@ -1,6 +1,141 @@
 # Decisions
 
-## 2026-08-19 - [DUDA][ML] `lactarius_deliciosus` no converge en ninguna ventana V5w 30/60/90
+## 2026-08-23 - [OBSOLETA][ML] Benchmark como candidata instalable y rollback manual por versión
+
+- Queda retirada la arquitectura en la que un benchmark se archivaba como
+  candidata completa, se preparaba, activaba y revertía manualmente desde la
+  UI. También quedan obsoletos su módulo específico, handlers públicos,
+  `ml_models/candidates` y `promotion-history` como estados operativos vivos.
+- La sustituyen dos flujos: mantenimiento completo autopromocionado para las
+  versiones instaladas y benchmark científico compactado a evidencia no
+  instalable. El rollback que permanece es transaccional durante instalación y
+  el único backup del rebuild completo, no una acción del historial científico.
+- Los documentos que describen la promoción genérica anterior se conservan
+  como diseño histórico y deben leerse con su nota de reemplazo.
+
+## 2026-08-23 - [VIGENTE][ALMACENAMIENTO ML] Auditoría automática primero; borrado solo mediante gate explícito
+
+- La caché TAR del Predictor es regenerable y vive fuera de `/share`, en
+  `/media/rainmapper/runtime-cache/predictor-runtime-archives`; GIS/DEM continúa
+  separado en `/media/rainmapper/mushroom-GIS`.
+- Un reconciliador común calcula primero un plan y solo aplica eliminaciones si
+  `ml_storage_reconciliation_apply` está activado. Su valor predeterminado es
+  `false`; por tanto, el primer arranque del add-on Rainmapper y los hooks del
+  ciclo de vida escriben diagnóstico `dry-run`, no limpian datos.
+- La instalación conserva rollback transaccional mientras está en curso y un
+  único backup del rebuild completo después. Solo quedan protegidos de forma
+  permanente los batches referenciados por una generación instalada.
+- Todo benchmark verificado se compacta inmediatamente a `evidence_only`; no
+  existe ya un candidato operativo derivado del benchmark. Los resultados
+  pesados de ejecuciones operativas fallidas, canceladas o interrumpidas se
+  conservan 24 horas, y los payloads del Predictor los últimos 10 o las últimas
+  24 horas, lo que proteja más.
+- La implementación y las pruebas locales no autorizan migración, instalación,
+  build o release. Evidencia y estado exacto:
+  `docs/mushrooms/mushroom-ml-storage-retention-spec-es.md`.
+
+## 2026-08-23 - [VIGENTE][HISTÓRICO METEO] Promover solo una generación oficial reparada, compacta y sin pérdida
+
+- La generación de HA descargada el 23 de agosto no contenía la reparación
+  oficial auditada: AEMET carecía de humedad en 2012–2025 y Meteocat mantenía
+  particiones dispersas después de 2016. El IDW consumía correctamente esa
+  entrada, pero no podía recuperar métricas inexistentes.
+- La promoción manual debe reemplazar únicamente `weather-history`, con
+  Rainmapper detenido. Los CSV diarios vivos permanecen en HA y el primer
+  runner posterior debe ejecutarse manualmente tras verificar la generación.
+- La entrega válida está en
+  `docker-data/audits/ha-weather-history-check-20260823/ready-to-upload-final/weather-history`.
+  Sus objetos activos contienen 46 particiones, 5.480.224 filas y 49.590.594
+  bytes. Tras detectar que el primer manifiesto compacto conservaba una
+  referencia a un predecesor no entregado, `CURRENT` se rebasó de forma
+  verificada a la raíz `20260823T003617919308Z-58903f62a763`, con los mismos
+  objetos y `previous_generation_id: null`.
+- Una entrega autosuficiente que omite generaciones históricas debe publicar
+  una raíz independiente; no debe conservar referencias a manifiestos no
+  incluidos ni restaurar objetos antiguos solo para satisfacer la poda. La
+  corrección mínima para una instalación que ya tiene los objetos está en
+  `ready-to-upload-root-fix/weather-history` y se aplica manifiesto primero,
+  `CURRENT.json` al final.
+- AEMET y Meteocat superan la puerta de cero claves antiguas perdidas;
+  Wunderground y Meteoclimatic conservan exactamente sus objetos de HA. El
+  preparador ML recupera las 374 observaciones con target operativo.
+- Una reconstrucción masiva no se promoverá directamente si el merge vuelve a
+  materializar grupos de 128 filas. Debe corregirse el escritor o compactarse
+  transaccionalmente a la granularidad contractual de 8.192 filas, verificando
+  igualdad lógica y todos los hashes antes de activar el resultado.
+- Evidencia:
+  `docs/reports/mushroom-weather-history-repair-audit-2026-08-23.md`.
+
+## 2026-08-23 - [VIGENTE][ML] Selección operativa, fiabilidad, consenso y aplicabilidad son contratos separados
+
+- Ventana fija y retardo/evento eligen ganadores independientemente. Los gates
+  son disponibilidad/probabilidad válida, aplicabilidad aceptable, Brier
+  estrictamente mejor que prevalencia y ROC-AUC >= 0,55. El ranking posterior
+  prioriza mayor mejora Brier, menor Brier y mayor ROC-AUC. Si no hay candidato
+  elegible, el escenario se abstiene y conserva motivos por gate.
+- La fiabilidad estadística califica al ganador mediante ROC-AUC, mejora relativa
+  Brier, tamaño/clases del hold-out y aplicabilidad. El consenso no reutiliza esa
+  etiqueta: mide separación entre familias metodológicas elegibles. Variantes
+  Smooth Species/Shared/Partial pertenecen a una sola familia logística; su
+  acuerdo se informa como interno, no como replicación independiente.
+- La UI ofrece veredictos visibles y mantiene debajo la evidencia por escenario.
+  Solo se abren automáticamente los detalles de versiones con algoritmos
+  elegidos; las demás versiones incluidas permanecen plegadas y auditables.
+- La aplicabilidad actual aprende mínimo, máximo, media y desviación por columna,
+  pero clasifica con dos constantes de política no calibradas: 5 % de columnas
+  fuera del rango o una salida a 3 sigma. No describen si lluvia/temperatura son
+  ecológicamente buenas o malas; solo el soporte estadístico marginal del
+  artefacto. Se auditarán antes de discutir cualquier cambio.
+- Diseño y fórmulas completos:
+  `docs/mushrooms/mushroom-ml-multiversion-runtime-spec-es.md`.
+
+## 2026-08-22 - [VIGENTE][ML] Ventana predictiva y calentamiento físico son contratos distintos; retirar V5/V6-365 legacy
+
+- Las versiones operativas son `biology_v5_windowed_raw_weather` y
+  `biology_v6_windowed_smooth_hierarchical`. Cada una tiene perfiles
+  predictivos de 30, 60 y 90 días. El modelo recibe únicamente los retardos
+  meteorológicos de su ventana y los escalares físicos declarados; no recibe
+  365 días de canales diarios como variables predictivas.
+- `weather_lookback_days=365` se conserva solo para los perfiles que necesitan
+  calentamiento causal del estado físico: ET0, balance hídrico, fracción de
+  agua del suelo/SMI y resúmenes derivados. Ese histórico puede prepararse o
+  cachearse una vez y compartirse; `predictive_window_days=30|60|90` determina
+  las columnas que ve cada modelo. Los perfiles sin estado físico no deben
+  solicitar 365 días por defecto.
+- Las definiciones no-windowed `biology_v5_raw_weather_discovery` y
+  `biology_v6_smooth_hierarchical` siguen actualmente en el registro como
+  `status: reference` por compatibilidad. Se decide retirarlas definitivamente
+  en una tarea posterior, una vez demostrado que ninguna generación instalada,
+  puntero, manifiesto, adaptador o ruta runtime las referencia.
+- Esta decisión reemplaza la cláusula «nunca se borran del registro» de la
+  decisión de 2026-08-19. La retirada de los contratos legacy no autoriza
+  borrar informes de benchmark históricos; su conservación o migración se
+  decide aparte.
+
+## 2026-08-22 - [VIGENTE][ML][ARQUITECTURA] Multiversión rutinaria por revisiones y caché; benchmark reservado a contratos nuevos
+
+- Una vez instaladas las versiones actuales, el mantenimiento ordinario debe
+  permitir reentrenar una, varias o todas las versiones instaladas y producir
+  en la misma pasada artefactos y evidencia hold-out sincronizada. El benchmark
+  científico independiente queda para añadir o modificar versiones, perfiles,
+  features, estimadores o contratos, no como requisito de cada mantenimiento.
+- La frescura rutinaria se decide comparando un vector pequeño de revisiones
+  (`observations`, generación/manifiesto meteorológico, sites, estaciones,
+  catálogos, GIS y contrato de entrenamiento). Un cambio posterior al
+  entrenamiento genera un aviso trazable; no desencadena una comprobación
+  profunda ni invalida automáticamente un artefacto íntegro.
+- Los hashes completos siguen protegiendo la entrada de objetos, manifests,
+  instalación y auditorías explícitas. Promocionar, cambiar la versión
+  preferida o consultar el Predictor no debe releer todo el histórico.
+- El worker debe mantener una caché meteorológica persistente por digest y
+  descargar solo objetos ausentes o modificados. El coordinador debe evitar
+  copiar y rehashear snapshots equivalentes. Esta optimización no permite
+  mutar históricos ni omitir verificaciones de integridad al ingresar objetos.
+- El estado instalado actual sigue siendo monoversión hasta implementar la
+  migración documentada; esta decisión describe el objetivo, no afirma que el
+  runtime actual ya lo cumpla.
+
+## 2026-08-19 - [OBSOLETA][ML] `lactarius_deliciosus` no converge en ninguna ventana V5w 30/60/90
 
 - Verificación parcial con datos reales locales del perfil
   `biology_v5_windowed_raw_weather`: reducir la ventana predictiva sí resuelve
@@ -14,6 +149,9 @@
   especie, o insuficiente soporte real. Sin datos suficientes para afirmar
   cuál. Pendiente explícito en `docs/todo.md` (P2 — Ventanas y coste
   científico).
+- Resolución posterior: el benchmark completo del 2026-08-21 terminó con
+  174/174 fits y 0 fallos; `lactarius_deliciosus` convergió en las tres
+  ventanas. La duda dejó de describir el estado actual.
 
 ## 2026-08-20 - [VIGENTE][ML][RENDIMIENTO] Perfilado de predictor y entrenamiento: no se reescribe en C, se elimina redundancia en haversine
 
@@ -39,7 +177,11 @@
 - Salvaguarda: `mushroom_ml_benchmark_reports.delete_report` solo borra un directorio bajo `ml_models/benchmarks/<batch_id>/` cuyo `manifest.json` declare `job_purpose: "benchmark"` — nunca un batch operativo ni una candidata (`ml_models/candidates/`), y valida el `batch_id` contra el mismo patrón que `load_report`/`list_reports` para evitar traversal.
 - Si en el futuro se implementa el registro de `generations` para benchmarks (hoy sin consumidores), esta excepción debe revisarse explícitamente: no debe poder borrarse un batch que ya esté registrado como generación permanente.
 
-## 2026-08-19 - [VIGENTE] Perfiles de ventana predictiva 30/60/90 días en V5/V6, retirando raw365/smooth-365
+## 2026-08-19 - [REEMPLAZADA] Perfiles de ventana predictiva 30/60/90 días en V5/V6, retirando raw365/smooth-365
+
+Reemplazada por la decisión vigente del 2026-08-22. La implementación de
+ventanas permanece válida; queda reemplazada la retención «nunca borrar» de las
+definiciones V5/V6-365 legacy.
 
 - Motivo: el benchmark real de Biology V4 en producción reveló, por una vía
   distinta, que V5 (`sparse_group_logistic_raw365_v1`) no converge para 4/9
@@ -389,7 +531,7 @@ multiidioma mediante labels `en`, `es` y `ca`.
   `c5b51e8`. HA `0.2.257` todavía debe instalarse y validarse en la RPi4; no se
   considera instalada ni dada por buena por el hecho de estar en GHCR.
 
-## 2026-08-18 - [VIGENTE SALVO V5/V6-365, SUSTITUIDA 2026-08-19][ML][RENDIMIENTO] Ventanas runtime por contrato y experimento físico V2/V3 preservado
+## 2026-08-18 - [REEMPLAZADA][ML][RENDIMIENTO] Ventanas runtime por contrato y experimento físico V2/V3 preservado
 
 - Los 365 días diarios de V5/V6 son el alcance congelado de esos experimentos,
   no una ventana biológica respaldada por la literatura ni el default del
@@ -411,8 +553,10 @@ multiidioma mediante labels `en`, `es` y `ca`.
   smooth-365»: en vez de exigir la comparación emparejada previa contra
   V5/V6-90, se retiran directamente V5/V6-365 (a `status: reference`,
   `benchmark_available: false`, `operational_eligible: false` en todos sus
-  perfiles — nunca se borran) y se sustituyen por versiones nuevas con 3
-  perfiles de ventana compitiendo entre sí. Señales de ciclo previo
+  perfiles) y se sustituyen por versiones nuevas con 3 perfiles de ventana
+  compitiendo entre sí. La cláusula posterior de conservar para siempre las
+  definiciones legacy queda reemplazada por la decisión vigente del
+  2026-08-22. Señales de ciclo previo
   como NDVI, huésped o fuego deben entrar como variables ecológicas explícitas,
   no como 275 días meteorológicos extra por defecto.
 - `mushroom_ml_raw_weather.LOOKBACK_DAYS` es la única constante canónica de la
@@ -5099,5 +5243,35 @@ Decisión:
 # 2026-08-13 - [REEMPLAZADA] Worker 1.0.7 no necesitaba actualización
 
 - La conclusión se basaba en que `1.0.7` anunciaba y ejecutaba rebuild y
-  training. La prueba real demostró que no incluía el contrato altitude V2 de
-  extremo a extremo. Queda reemplazada por la decisión anterior.
+training. La prueba real demostró que no incluía el contrato altitude V2 de
+extremo a extremo. Queda reemplazada por la decisión anterior.
+
+# 2026-08-23 - [VIGENTE] Dos únicos flujos ML y evidencia de benchmark no instalable
+
+- El mantenimiento rutinario de las versiones instaladas es un único flujo:
+  rebuild completo, ML v0 y entrenamiento multiversión se verifican y
+  autopromocionan conjuntamente. No existen reconstrucciones operativas
+  parciales ni promociones manuales aisladas.
+- Un benchmark científico sirve para comparar contratos y conservar evidencia.
+  Tras verificarse pasa inmediatamente a `evidence_only`; la UI mantiene
+  Historial, Ver informe y Borrar, pero no prepara, activa ni revierte versiones.
+- Las antiguas rutas de candidato desde benchmark, activación manual y rollback
+  por versión, junto con `ml_models/candidates` y `promotion-history`, son
+  legacy. El reconciliador solo las elimina tras validar identidad y nunca en
+  modo `dry-run`.
+- Los únicos batches protegidos permanentemente son los referenciados por una
+  `installed_generation_id`. La instalación conserva rollback transaccional
+  mientras está en curso y un único backup del rebuild completo después.
+- Los resultados pesados de ejecuciones operativas fallidas, canceladas o
+  interrumpidas se conservan 24 horas para diagnóstico; después queda el
+  resumen ligero del job.
+- Esta decisión está implementada y probada únicamente en laboratorio local.
+  No autoriza `apply` en HA, build ni release.
+
+# 2026-08-23 - [VIGENTE] Auditar deuda de código como entrega separada
+
+- Tras cerrar e instalar la política de retención se hará una auditoría completa
+  del source para localizar rutas legacy, flags sin consumidor, adaptadores
+  monoversión, duplicaciones y parches acumulados.
+- La auditoría empezará por referencias y call paths y no mezclará eliminaciones
+  amplias con el despliegue actual de almacenamiento.

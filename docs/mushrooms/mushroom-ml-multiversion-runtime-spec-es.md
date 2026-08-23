@@ -1,18 +1,24 @@
 # Runtime multiversión V2–V6 para Predictor, HA y worker
 
-Estado: **DESPLEGADO INICIALMENTE EN HA 0.2.256 / WORKER 1.0.10; CORRECCIÓN DE
-REGENERACIÓN Y TRAZABILIDAD EN VALIDACIÓN LOCAL**.
+Estado: **CONTRATO IMPLEMENTADO EN EL LABORATORIO LOCAL; PENDIENTE DE
+REVALIDACIÓN FINAL Y DE CUALQUIER DESPLIEGUE REAL**.
 
-Versiones de software reservadas para esta integración: HA `0.2.256` y worker
-`1.0.10`. Los artefactos anteriores HA `0.2.255` y worker `1.0.9` se saltan y
-no se instalarán. Reservar la numeración no autoriza build, publicación,
-instalación ni promoción de modelos.
+La reserva inicial de esta integración fue HA `0.2.256` y worker `1.0.10`; es
+un dato histórico, no la versión actual. Las versiones declaradas vigentes se
+consultan en `docs/codex-start-here.md` y el runtime real se revalida en cada
+sesión. Ninguna numeración autoriza build, publicación, instalación ni
+promoción de modelos.
+
+Desde el 2026-08-23, «promoción» en este contrato significa exclusivamente la
+instalación automática y conjunta del mantenimiento completo. Los benchmarks
+son evidencia `evidence_only` y no ofrecen preparación, activación ni rollback
+manual por versión.
 
 ## Objetivo
 
-La siguiente pareja HA/worker debe conservar V2, V3, V4, V5 y V6 como modelos
-reales y seleccionables cuando exista una generación entrenada compatible. El
-modo normal usa exclusivamente la generación activa. El modo Comparar ejecuta
+HA y worker deben conservar V2, V3, V4, V5 y V6 como modelos reales y
+seleccionables cuando exista una generación entrenada compatible. El modo
+normal usa exclusivamente la generación preferida. El modo Comparar ejecuta
 las referencias elegidas y muestra sus probabilidades y explicaciones. Una
 referencia ausente, incompatible o corrupta se marca como no disponible con su
 motivo; nunca se sustituye silenciosamente por V2.
@@ -40,8 +46,9 @@ De mayor a menor nivel:
   perfil se entrena para ambos.
 - **Estimador/algoritmo** (`estimator_id`): la técnica de ML concreta — LR,
   RF, ET, HGB, KNN, SVM, o los propios de V5/V6 (sparse-group, suave...). Un
-  mismo perfil se ajusta con varios estimadores a la vez y se elige el de
-  menor Brier validado que mejora la prevalencia.
+  mismo perfil se ajusta con varios estimadores a la vez. En operación solo
+  compiten los aplicables, con Brier mejor que prevalencia y ROC-AUC >= 0,55;
+  el ranking se define más abajo.
 - **Modelo/artefacto**: el objeto entrenado concreto para una combinación
   exacta de versión + perfil + contrato + especie + estimador
   (`artifact_ref`, ver abajo). Una generación contiene cientos de estos —
@@ -58,7 +65,8 @@ Resumen: **Versión → Perfiles → (Contrato × Especie × Estimador) → Mode
 individuales**; todos los modelos de una versión entrenados juntos forman
 **una Generación**, guardada en **un Batch**. Ver también
 `docs/mushrooms/mushroom-ml-multi-version-installation-design-es.md` para el
-diseño (propuesto, no implementado) de varias versiones instaladas a la vez.
+diseño ya implementado en el laboratorio local de varias versiones instaladas
+a la vez. Su despliegue en HA real sigue siendo una operación independiente.
 
 ## Cuatro disponibilidades distintas
 
@@ -66,11 +74,12 @@ diseño (propuesto, no implementado) de varias versiones instaladas a la vez.
 - `benchmark_runnable`: se puede reconstruir y evaluar localmente.
 - `comparison_eligible`: existe un artefacto exacto, compatible y evaluado que
   puede ejecutarse en Comparar.
-- `operational_eligible`: además ha superado el gate de promoción y puede ser la
-  única generación activa del modo normal.
+- `operational_eligible`: además cumple integridad y contrato y puede instalarse
+  como generación operativa de su versión; ser preferida es un puntero aparte.
 
-Que V3–V6 sean visibles no implica que finjan una predicción. Hasta que el batch
-multiversión se entrene, su estado será «sin generación instalada».
+Que V3–V6 sean visibles no implica que finjan una predicción. Cuando una versión
+no tenga un batch multiversión compatible, su estado será «sin generación
+instalada».
 
 ## Identidad canónica
 
@@ -106,15 +115,25 @@ es el horizonte de predicción.
 
 | Versión | Perfil runtime | Estimadores | Modo normal |
 |---|---|---|---|
-| V2 `altitude_v2` | `common_idw` | LR, RF, ET, HGB, KNN, SVM | sí, mientras sea activa |
-| V3 `biology_v3` | `core` | LR, RF, ET, HGB, KNN, SVM | no sin promoción |
-| V4 `biology_v4` | `extended_weather`, `climatic_balance` | LR, RF, ET, HGB, KNN, SVM | no sin promoción |
-| V5 `biology_v5_raw_weather_discovery` | `raw_primary_plus_physical_state` | Elastic Net, sparse-group | no sin promoción |
-| V6 `biology_v6_smooth_hierarchical` | `smooth_weather_physical_state` | suave por especie, compartido, pooling parcial | no sin promoción |
+| V2 `altitude_v2` | `common_idw` | LR, RF, ET, HGB, KNN, SVM | sí si está instalada |
+| V3 `biology_v3` | `core` | LR, RF, ET, HGB, KNN, SVM | sí si está instalada |
+| V4 `biology_v4` | `extended_weather`, `climatic_balance` | LR, RF, ET, HGB, KNN, SVM | sí si está instalada |
+| V5 `biology_v5_windowed_raw_weather` | `raw_window_30d/60d/90d_plus_physical_state` | Elastic Net, sparse-group | sí si está instalada |
+| V6 `biology_v6_windowed_smooth_hierarchical` | `smooth_window_30d/60d/90d_plus_physical_state` | suave por especie, compartido, pooling parcial | sí si está instalada |
 
 V4 `core`, las variantes SoilGrids y las ablaciones V5 quedan reconstruibles en
 el laboratorio, pero no multiplican el catálogo ordinario: V4 core duplica V3
 y las restantes no superaron los benchmarks actuales.
+
+Las definiciones anteriores `biology_v5_raw_weather_discovery` y
+`biology_v6_smooth_hierarchical`, que sí usaban 365 días como ventana
+predictiva completa, permanecen por ahora con `status: reference` únicamente
+por compatibilidad y reproducibilidad histórica. No son versiones operativas
+promocionables. Su retirada definitiva del registro, adaptadores, ramas de
+compatibilidad y pruebas legacy queda pendiente; antes deberá comprobarse que
+ninguna generación instalada, puntero, manifiesto o ruta de runtime las
+referencia. Retirar esos contratos no implica borrar los informes de benchmark
+ya archivados, cuya conservación o migración se decidirá explícitamente.
 
 ## Paridad meteorológica del Predictor
 
@@ -124,17 +143,39 @@ fuentes habilitadas. ET0, balance hídrico y SMI se calculan después desde ese
 IDW solo cuando el perfil exacto instalado declara variables físicas: omitir
 trabajo que el bundle no consume no elimina esa capacidad. V2/V3 actuales usan
 90 días IDW sin estado físico; V4 usa 90 días y activa físicos únicamente en
-sus perfiles correspondientes; V5/V6 conservan su eje experimental de 365
-días y consumen estado físico. V5 recibe los ocho canales diarios y los
-resúmenes SMI; V6 aplica sus bases suaves sobre esos mismos ocho canales y
-conserva los escalares físicos. El registro, el entrenador y el adaptador de
-inferencia deben resolver el mismo perfil y el mismo orden exacto de columnas.
+sus perfiles correspondientes. Las V5/V6 operativas son las variantes
+`windowed`: cada una ofrece perfiles predictivos de 30, 60 y 90 días. V5
+introduce únicamente los retardos de meteorología cruda incluidos en la ventana
+elegida; V6 construye sus bases suaves sobre esa misma ventana. Ambas añaden
+los escalares de estado físico compartidos, pero no introducen como variables
+predictivas los 365 canales diarios completos.
+
+`weather_lookback_days=365` y `predictive_window_days=30|60|90` representan
+dos necesidades distintas. Los 365 días son el histórico causal de
+calentamiento usado por los perfiles que declaran estado físico para derivar
+ET0, balance hídrico, fracción de agua del suelo/SMI y sus resúmenes. La ventana
+30/60/90 determina qué retardos meteorológicos puede consumir el modelo. Por
+tanto, el histórico físico de 365 días puede prepararse o cachearse una vez y
+compartirse entre perfiles, mientras que cada contrato predictivo debe recibir
+solo sus columnas exactas. Los perfiles que no incluyen estado físico no deben
+solicitar esos 365 días por defecto.
+
+El registro, el entrenador y el adaptador de inferencia deben resolver el mismo
+perfil y el mismo orden exacto de columnas.
 Si el runtime no puede reproducir ese contrato, debe abstenerse: no puede
 sustituir ausencias por cero ni degradar a meteorología de una sola estación.
 El bundle remoto incluye además `stations.txt`; así el worker aplica la misma
 lista de estaciones Wunderground habilitadas/deshabilitadas que HA. Omitir ese
 fichero cambia las fuentes del IDW y rompe la paridad aunque los Parquet sean
 idénticos.
+
+La reducción predictiva V5/V6 a 30/60/90 ya está implementada y evaluada. La
+optimización pendiente es evitar releer o transportar repetidamente el mismo
+histórico físico de 365 días: podrá resolverse mediante caché incremental o
+materialización de los escalares, manteniendo identidad, causalidad y paridad
+entre entrenamiento e inferencia. Runtime y entrenamiento deben seguir
+reproduciendo exactamente tanto la ventana predictiva como el calentamiento
+físico declarados por cada generación.
 
 Una variante futura V2/V3 `IDW + balance/SMI` debe registrarse, entrenarse y
 evaluarse como perfil o contrato diferente. La implementación física permanece
@@ -153,7 +194,9 @@ batches/<batch>/generations/<generation>/<version>/<temporal>/<profile>/<estimat
 ```
 
 El batch nuevo se escribe en staging, se verifica por hash y contrato y solo
-entonces se instala atómicamente. El batch anterior permanece como rollback.
+entonces se instala atómicamente. El batch anterior permanece como rollback
+transaccional solo hasta confirmar la instalación y después se elimina; no se
+mantiene un historial operativo de generaciones.
 Una activación parcial que mezcle snapshots está prohibida. Tras una instalación
 verificada, la copia temporal recibida desde el worker se elimina; si falla la
 verificación, se conserva para diagnóstico.
@@ -163,6 +206,28 @@ y verificable de las entradas usadas. Contiene hashes, tamaños, identidad del
 histórico meteorológico y del dataset GIS, pero no incorpora observaciones,
 parquets, predicciones hold-out, modelos ni rutas privadas del host. Su SHA-256
 queda referenciado por el manifiesto del batch.
+
+El manifiesto incorpora además un vector de revisiones para comparar la
+vigencia sin releer los datasets completos:
+
+```text
+observations_revision
+weather_generation_id
+weather_manifest_sha256
+sites_revision
+stations_revision
+catalogs_revision
+gis_revision
+training_contract_version
+```
+
+Cada revisión se publica al crear o validar su entrada. Comparar este vector es
+una operación de metadatos. Los hashes completos siguen formando parte de la
+integridad de los manifiestos, pero no se recalculan durante una promoción, una
+consulta del Predictor o un reentrenamiento rutinario.
+Todo escritor autorizado debe publicar la nueva revisión atómicamente con el
+cambio. Las modificaciones externas que eludan esos escritores quedan fuera de
+la comprobación rápida y se detectan mediante una auditoría profunda explícita.
 
 ## Reconstrucción y entrenamiento
 
@@ -174,33 +239,36 @@ La reconstrucción común materializa una sola vez:
 4. datasets V2–V6 derivados de esa caché.
 
 El entrenamiento multiversión consume esos datasets. El job ordinario ajusta
-solo los perfiles del catálogo; el benchmark científico completo añade
-particiones 7/14, campañas, remuestreos y reportes y se ejecuta aparte. Así no
-se recalcula IDW cinco veces ni se convierte cada regeneración de datos en un
-benchmark largo.
+las versiones instaladas seleccionadas —una, varias o todas— y genera en la
+misma pasada sus artefactos y evidencia hold-out sincronizada. El benchmark
+científico completo añade particiones 7/14, campañas, remuestreos y reportes y
+se ejecuta aparte. Así no se recalcula IDW cinco veces ni se convierte cada
+regeneración de datos en un benchmark largo.
 
-En el flujo instalado, «Reconstruir y reentrenar todo» encadena necesariamente
-la reconstrucción común, el entrenamiento ML v0 y el lote V2–V6. Los
-constructores V3/V4/V5 preparan filas y variables; V2 y V6 también consumen la
-misma generación de entradas y todos los estimadores se vuelven a ajustar. No
-se ofrece una regeneración parcial de comparación: mientras todas las versiones
-sigan habilitadas, la coherencia con la última observación y con el histórico
-meteorológico aceptado exige completar la cadena entera.
+La reconstrucción común se ejecuta cuando cambian sus fuentes y publica nuevas
+revisiones inmutables. Reentrenar una selección consume directamente esas
+generaciones actuales sin ejecutar antes una segunda comprobación profunda. Los
+constructores de cada versión preparan solo las filas y variables requeridas y
+ajustan todos los estimadores declarados por sus perfiles. Las versiones no
+seleccionadas conservan su generación instalada y muestran un aviso de vigencia
+si sus revisiones ya no coinciden.
 
-Cuando el worker externo termina y HA verifica el lote V2–V6 enlazado, el
-coordinador inicia automáticamente la promoción de la generación completa. No
-existe una espera humana entre cálculo y promoción: esa espera permitía que una
-actualización meteorológica programada invalidase un candidato ya terminado.
-La automatización reutiliza, sin omitirlos, el chequeo de frescura de todas las
-entradas, la instalación atómica, el rollback y la invalidación de caché. Si las
-entradas cambian durante el cálculo, la promoción se rechaza y no se relanza
-automáticamente el trabajo pesado. Las reconstrucciones parciales y los
-experimentos no enlazados conservan su promoción explícita cuando corresponda.
+Cuando el worker termina, HA verifica la integridad, completitud y contrato de
+cada generación producida y puede instalarla atómicamente en el slot de su
+versión. Una diferencia entre el vector usado para entrenar y las revisiones
+vivas se conserva como aviso trazable, pero no invalida artefactos correctos ni
+provoca otro trabajo pesado. La promoción no recorre ni vuelve a descargar las
+particiones meteorológicas. Cambiar la versión preferida solo mueve un puntero.
+
+El benchmark científico queda reservado para incorporar una versión nueva,
+modificar perfiles, features, estimadores o contratos, o realizar una
+comparación científica manual. No forma parte del mantenimiento operativo
+ordinario de las versiones ya instaladas.
 
 ## Predictor y explicaciones
 
 El modo normal conserva ranking, semana, consulta e histórico con una única
-generación activa. Comparar añade selector de versión, temporal, perfil y
+versión preferida. Comparar añade selector de versión, temporal, perfil y
 estimador, muestra disponibilidad real y ejecuta referencias exactas.
 
 Cada resultado conserva dos capas:
@@ -210,6 +278,71 @@ Cada resultado conserva dos capas:
 - explicación estadística específica: probabilidad, soporte hold-out por
   especie/contrato, Brier frente a prevalencia y fenología, dominio de variables
   y motivo de exclusión.
+
+### Selector operativo por escenario
+
+Ventana fija y retardo/evento se resuelven independientemente. Un miembro solo
+entra en el ranking cuando está disponible, devuelve una probabilidad finita,
+su aplicabilidad es `within_observed_range` o `caution`, su Brier es
+estrictamente menor que el Brier de prevalencia y su ROC-AUC es al menos 0,55.
+La ausencia de cualquier gate produce una abstención explícita con los motivos;
+no se elige el candidato menos malo.
+
+Entre los elegibles el orden vigente es: mayor mejora absoluta de Brier frente
+a prevalencia, menor Brier, mayor ROC-AUC e identidad estable como desempate
+final. ROC-AUC >= 0,55 es por tanto un suelo de entrada; no sustituye la
+prioridad principal de calibración/Brier.
+
+### Fiabilidad estadística y consenso
+
+Son ejes diferentes. La fiabilidad califica la evidencia fuera de muestra del
+ganador de cada escenario. El veredicto global adopta el peor escenario:
+
+- alta: ROC-AUC >= 0,80, mejora relativa Brier >= 20 %, al menos 50 muestras
+  test, al menos 10 ejemplos de cada clase y aplicabilidad dentro del rango;
+- moderada: ROC-AUC >= 0,70, mejora relativa Brier >= 10 %, al menos 30 muestras
+  test, al menos 5 ejemplos de cada clase y aplicabilidad dentro del rango o
+  con cautela;
+- limitada: el ganador supera los gates operativos, pero no todos los requisitos
+  de los niveles anteriores;
+- no disponible: falta ganador evaluable en algún escenario requerido.
+
+El consenso compara probabilidades entre familias metodológicas elegibles, no
+entre nombres de estimadores que implementan el mismo supuesto. LR, Elastic Net,
+Sparse Group y Smooth Species/Shared/Partial pertenecen a la familia logística;
+RF/ET a árboles agregados; HGB a boosting; KNN a distancia; SVM a kernel. Las
+variantes de una misma familia aportan acuerdo interno, pero no evidencia
+independiente. Entre familias, separación máxima <= 10 puntos es consenso alto,
+entre 10 y 20 moderado y >= 20 bajo. Con una sola familia se informa `sin
+contraste`; el resumen global adopta el peor escenario medible y declara cuántos
+escenarios pudieron contrastarse.
+
+### Aplicabilidad vigente y deuda de calibración
+
+Cada artefacto guarda por columna el mínimo, máximo, media y desviación estándar
+de sus muestras elegibles. En inferencia se compara el valor crudo actual con
+ese soporte marginal. El estado vigente es:
+
+- `within_observed_range`: ninguna columna fuera de su mínimo/máximo;
+- `caution`: existe alguna columna fuera, pero representa menos del 5 % y
+  ninguna de esas columnas alcanza 3 desviaciones respecto a la media;
+- `outside_domain`: al menos el 5 % de las columnas queda fuera o una columna
+  ya fuera del rango alcanza 3 desviaciones.
+
+El 5 % es una proporción de columnas, no una superación física del 5 %. Un
+episodio de lluvia superior al máximo no se considera ecológicamente malo por
+esta regla: solo se marca que el modelo dispone de menos soporte para esa
+entrada. Los límites mínimo/máximo/media/desviación se calculan desde los datos;
+los umbrales 5 % y 3 sigma están hardcoded y no son propiedades del estimador ni
+constan calibrados empíricamente para Rainmapper.
+
+La revisión acordada separará compatibilidad ecológica de aplicabilidad
+estadística y probará, sin cambiar todavía el selector: distribuciones robustas
+por variable, frecuencia de vecinos comparables, combinaciones multivariantes y
+degradación de Brier/ROC-AUC/calibración en hold-out conforme aumenta la novedad.
+Solo después de esa auditoría se discutirán nuevos límites. Si no hay extremos
+fuera de muestra suficientes, el resultado correcto será evidencia insuficiente,
+no un umbral nuevo presentado como validado.
 
 La UI resume antes del detalle cuatro grupos mutuamente excluyentes: miembros
 utilizables (en dominio y mejores que prevalencia), disponibles en dominio con
@@ -225,31 +358,41 @@ V5/V6 no fingirán una importancia causal de cada día. Mostrarán resúmenes po
 banda y, cuando proceda, coeficientes o curvas estables con la advertencia de
 que son diagnósticos de asociación.
 
-Antes de renderizar el Predictor, HA compara la identidad del batch instalado
-con las observaciones y entradas históricas actuales. Si cambian, muestra un
-aviso de que las predicciones no incorporan todavía toda la información y pide
-una reconstrucción y reentrenamiento completos. Los lotes antiguos que no
-guardan identidad se muestran como «vigencia no verificable», nunca como
-actuales por suposición. El chequeo no confunde meteorología futura de una
+Antes de renderizar el Predictor, HA compara el vector de revisiones del batch
+instalado con los metadatos actuales. Si cambian, muestra un aviso de que las
+predicciones no incorporan todavía toda la información y pide reentrenar las
+versiones afectadas. Esta comprobación no abre ni calcula hashes de los
+datasets. Los lotes antiguos que no guardan identidad se muestran como
+«vigencia no verificable», nunca como actuales por suposición. El chequeo no
+confunde meteorología futura de una
 consulta con datos históricos de entrenamiento.
 
 ## Compatibilidad HA/worker
 
-HA coordina catálogo, snapshot, jobs, manifests, activación, rollback y UI. El
-worker declara capacidades explícitas para entrenamiento e inferencia
+HA coordina catálogo, snapshot, jobs, manifests, instalación transaccional,
+selección preferida y UI. El worker declara capacidades explícitas para
+entrenamiento e inferencia
 multiversión. HA solo le asigna un job si entiende su versión de contrato. Si
 no hay worker compatible, el fallback local debe ejecutar el mismo contrato y
 manifest, no otra implementación.
+
+El worker conserva una caché meteorológica persistente direccionada por digest.
+Un job descarga únicamente objetos ausentes o modificados y publica cuántos
+bytes transfirió y reutilizó. La validación profunda de un objeto se realiza al
+ingresarlo o durante una auditoría explícita; no se repite para todos los
+objetos en cada promoción. HA tampoco reconstruye ni copia un snapshot completo
+si puede referenciar la misma generación inmutable.
 
 ## Gates antes de release
 
 - catálogo y `model_ref` validados sin listas V2–V6 hardcodeadas en la UI;
 - adaptadores train/inferencia con paridad por perfil;
 - un único ajuste lag y proyección operativa 1..7 comprobados por tests;
-- batch atómico, hash, incompatibilidad y rollback probados;
+- batch atómico, hash, incompatibilidad y rollback transaccional probados;
 - Comparar mantiene explicaciones y no promedia versiones;
 - worker anuncia capacidades reales y HA las exige;
-- suite completa y smoke test locales;
+- pruebas dirigidas proporcionales durante cada bloque y una suite completa con
+  smoke local antes de release;
 - ningún modelo operativo, HA real, GHCR o release se modifica durante esta
   implementación local.
 
@@ -258,8 +401,11 @@ manifest, no otra implementación.
 Las imágenes HA y worker contienen código, dependencias y defaults públicos.
 HA incluye una plantilla de observaciones vacía para instalaciones nuevas; no
 contiene registros de observación, snapshots canónicos, benchmarks, hold-outs
-ni modelos entrenados. Las entradas reales se congelan en HA al lanzar el trabajo,
-se transfieren al worker mediante el contrato autenticado y se descartan al
-terminar. Reducir la imagen elimina herramientas de compilación o cachés
+ni modelos entrenados. Las entradas reales se congelan en HA al lanzar el
+trabajo y se transfieren al worker mediante el contrato autenticado. Los
+bundles temporales del job se descartan al terminar, pero los objetos
+meteorológicos inmutables pueden permanecer en la caché persistente del worker,
+acotada y verificable por digest. Reducir la imagen elimina herramientas de
+compilación o cachés
 innecesarios; no elimina información del dataset, porque esa información nunca
 debe formar parte de la imagen pública.

@@ -20,6 +20,10 @@ from pathlib import Path
 from typing import Any
 
 from rainmapper_core import mushroom_paths
+from rainmapper_core.mushroom_prediction_interpretation import (
+    FAVORABLE_THRESHOLD,
+    UNFAVORABLE_THRESHOLD,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -80,9 +84,9 @@ MIN_ROWS_DEFAULT = 20
 CV_FOLDS_DEFAULT = 5
 TRAIN_RATIO = 0.70  # fraction of rows used for training (temporal split)
 
-# Label thresholds — must stay in sync with mushroom_ml_predictor.py
-_LABEL_FAVORABLE_THRESHOLD = 0.60
-_LABEL_UNFAVORABLE_THRESHOLD = 0.40
+# Shared operational decision/display thresholds.
+_LABEL_FAVORABLE_THRESHOLD = FAVORABLE_THRESHOLD
+_LABEL_UNFAVORABLE_THRESHOLD = UNFAVORABLE_THRESHOLD
 
 
 def _require_sklearn() -> None:

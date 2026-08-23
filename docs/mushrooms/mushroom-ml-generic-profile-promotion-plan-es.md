@@ -1,7 +1,12 @@
 # Plan de perfiles ML promocionables y extensibles
 
-Estado: **FASE 4 IMPLEMENTADA; V3–V6 DECLARADAS TÉCNICAMENTE
-PROMOCIONABLES COMO VERSIONES COMPLETAS**.
+Estado: **REEMPLAZADO EL 2026-08-23 POR MANTENIMIENTO MULTIVERSIÓN
+AUTOPROMOCIONADO Y BENCHMARK `evidence_only`**.
+
+Este documento conserva el razonamiento histórico de la antigua ruta genérica.
+La UI y el backend ya no preparan, activan ni revierten una versión desde un
+benchmark. Cualquier cambio de contrato se valida científicamente y entra en
+operación mediante el mantenimiento completo de las versiones instaladas.
 
 Este plan define cómo pasar de un benchmark científico a una generación
 operativa sin acoplar la promoción a `altitude_v2`, `biology_v3` ni a ninguna

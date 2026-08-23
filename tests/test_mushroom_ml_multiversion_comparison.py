@@ -17,6 +17,536 @@ REGISTRY_PATH = Path(__file__).resolve().parents[1] / "mushroom-data/mushroom_ml
 
 
 class MushroomMLMultiversionComparisonTests(TestCase):
+    def test_operational_selections_keep_only_the_dated_horizon(self) -> None:
+        selections = [
+            {
+                "version_id": "biology_v3",
+                "temporal_contract_id": "fixed_gap_7d_biology_v3",
+                "profile_id": "core",
+                "estimator_id": "random_forest_restricted_v1",
+                "horizon_days": 7,
+            },
+            *[
+                {
+                    "version_id": "biology_v3",
+                    "temporal_contract_id": "lag_event_biology_v3",
+                    "profile_id": "core",
+                    "estimator_id": "random_forest_restricted_v1",
+                    "horizon_days": horizon,
+                }
+                for horizon in range(1, 8)
+            ],
+        ]
+
+        selected = comparison.operational_selections(
+            selections,
+            target_date=date(2026, 8, 22),
+            issue_date=date(2026, 8, 22),
+        )
+
+        self.assertEqual(
+            {(row["temporal_contract_id"], row["horizon_days"]) for row in selected},
+            {
+                ("fixed_gap_7d_biology_v3", 7),
+                ("lag_event_biology_v3", 1),
+            },
+        )
+
+    def test_retarget_operational_selections_reuses_models_for_each_week_horizon(self) -> None:
+        selections = [
+            {
+                "version_id": "biology_v6_windowed_smooth_hierarchical",
+                "temporal_contract_id": "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
+                "profile_id": "smooth_window_60d_plus_physical_state",
+                "estimator_id": "smooth_shared_logistic_v1",
+                "horizon_days": 7,
+            },
+            {
+                "version_id": "biology_v6_windowed_smooth_hierarchical",
+                "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+                "profile_id": "smooth_window_60d_plus_physical_state",
+                "estimator_id": "smooth_shared_logistic_v1",
+                "horizon_days": 1,
+            },
+        ]
+
+        retargeted = comparison.retarget_operational_selections(
+            selections,
+            target_date=date(2026, 8, 24),
+            issue_date=date(2026, 8, 22),
+        )
+
+        self.assertEqual(
+            {
+                (row["temporal_contract_id"], row["horizon_days"])
+                for row in retargeted
+            },
+            {
+                (
+                    "fixed_gap_7d_biology_v6_smooth_hierarchical_v2",
+                    7,
+                ),
+                (
+                    "lag_event_biology_v6_smooth_hierarchical_v2",
+                    3,
+                ),
+            },
+        )
+
+    def test_selected_operational_comparison_chooses_across_versions(self) -> None:
+        def member(
+            version_id: str,
+            estimator_id: str,
+            probability: float,
+            *,
+            brier: float,
+            improvement: float,
+            contract: str = "fixed",
+            applicability: str = "within_observed_range",
+        ) -> dict[str, object]:
+            contract_id = (
+                f"fixed_gap_7d_{version_id}"
+                if contract == "fixed"
+                else f"lag_event_{version_id}"
+            )
+            return {
+                "model_ref": {
+                    "version_id": version_id,
+                    "temporal_contract_id": contract_id,
+                    "profile_id": "core",
+                    "estimator_id": estimator_id,
+                    "horizon_days": 7 if contract == "fixed" else 1,
+                },
+                "available": True,
+                "prediction": {
+                    "probability": probability,
+                    "applicability": {"status": applicability},
+                },
+                "evaluation": {
+                    "evidence": "better_than_prevalence",
+                    "brier_score": brier,
+                    "prevalence_brier_score": brier + improvement,
+                    "brier_delta_vs_prevalence": improvement,
+                    "roc_auc": 0.8,
+                    "n_test": 20,
+                },
+                "features_used": {
+                    "significant_rain_found_90d": True,
+                    "days_since_significant_rain_at_target": 4,
+                },
+            }
+
+        result = comparison.build_selected_operational_comparison(
+            [
+                member("biology_v3", "logistic_regression_reduced_v1", 0.61, brier=0.22, improvement=0.08),
+                member("biology_v4", "rbf_svm_calibrated_v1", 0.74, brier=0.18, improvement=0.17),
+                member("biology_v3", "random_forest_restricted_v1", 0.66, brier=0.19, improvement=0.14, contract="lag"),
+            ],
+            season_phase="in_season",
+            phenology={
+                "fruiting_delay_after_rain_days": {
+                    "min": 0,
+                    "optimal_min": 2,
+                    "optimal_max": 14,
+                    "max": 30,
+                }
+            },
+        )
+
+        winners = {
+            row["result_key"]: row for row in result["selected_winners"]
+        }
+        self.assertEqual(
+            winners["selected:fixed:h7"]["model_ref"]["version_id"],
+            "biology_v4",
+        )
+        self.assertEqual(
+            winners["selected:fixed:h7"]["model_ref"]["estimator_id"],
+            "rbf_svm_calibrated_v1",
+        )
+        self.assertEqual(
+            result["interpretation"]["reference_range"],
+            {"min": 0.66, "max": 0.74, "midpoint": 0.7},
+        )
+
+    def test_selected_operational_comparison_accepts_caution_but_not_outside_domain(self) -> None:
+        def member(estimator_id: str, probability: float, applicability: str, improvement: float) -> dict[str, object]:
+            return {
+                "model_ref": {
+                    "version_id": "biology_v4",
+                    "temporal_contract_id": "fixed_gap_7d_biology_v4",
+                    "profile_id": "climatic_balance",
+                    "estimator_id": estimator_id,
+                    "horizon_days": 7,
+                },
+                "available": True,
+                "prediction": {
+                    "probability": probability,
+                    "applicability": {"status": applicability},
+                },
+                "evaluation": {
+                    "evidence": "better_than_prevalence",
+                    "brier_score": 0.455 - improvement,
+                    "prevalence_brier_score": 0.455,
+                    "brier_delta_vs_prevalence": improvement,
+                    "roc_auc": 0.7,
+                    "n_test": 26,
+                },
+            }
+
+        result = comparison.build_selected_operational_comparison(
+            [
+                member("logistic_regression_reduced_v1", 0.78, "caution", 0.147),
+                member("random_forest_restricted_v1", 0.91, "outside_domain", 0.2),
+            ],
+            season_phase="in_season",
+        )
+
+        winner = result["selected_winners"][0]
+        self.assertEqual(
+            winner["model_ref"]["estimator_id"],
+            "logistic_regression_reduced_v1",
+        )
+        self.assertEqual(winner["probability"], 0.78)
+        self.assertEqual(winner["applicability_status"], "caution")
+
+    def test_selected_operational_comparison_abstains_when_brier_is_worse_than_prevalence(self) -> None:
+        member = {
+            "model_ref": {
+                "version_id": "biology_v3",
+                "temporal_contract_id": "lag_event_biology_v3",
+                "profile_id": "core",
+                "estimator_id": "rbf_svm_calibrated_v1",
+                "horizon_days": 5,
+            },
+            "available": True,
+            "prediction": {
+                "probability": 0.41,
+                "applicability": {"status": "within_observed_range"},
+            },
+            "evaluation": {
+                "evidence": "worse_than_prevalence",
+                "brier_score": 0.252,
+                "prevalence_brier_score": 0.250,
+                "brier_delta_vs_prevalence": -0.002,
+                "roc_auc": 0.541,
+                "n_test": 42,
+            },
+        }
+
+        result = comparison.build_selected_operational_comparison(
+            [member],
+            season_phase="in_season",
+        )
+
+        self.assertEqual(result["selected_winners"], [])
+        self.assertFalse(result["selected:lag:h5"]["available"])
+        self.assertEqual(
+            result["selected:lag:h5"]["reason"],
+            "no_eligible_selected_member",
+        )
+
+    def test_selected_operational_comparison_rejects_auc_below_055(self) -> None:
+        def member(estimator_id: str, *, brier: float, roc_auc: float) -> dict[str, object]:
+            return {
+                "model_ref": {
+                    "version_id": "biology_v3",
+                    "temporal_contract_id": "fixed_gap_7d_biology_v3",
+                    "profile_id": "core",
+                    "estimator_id": estimator_id,
+                    "horizon_days": 7,
+                },
+                "available": True,
+                "prediction": {
+                    "probability": 0.72,
+                    "applicability": {"status": "within_observed_range"},
+                },
+                "evaluation": {
+                    "evidence": "better_than_prevalence",
+                    "brier_score": brier,
+                    "prevalence_brier_score": 0.30,
+                    "brier_delta_vs_prevalence": 0.30 - brier,
+                    "roc_auc": roc_auc,
+                    "n_test": 24,
+                },
+            }
+
+        result = comparison.build_selected_operational_comparison(
+            [
+                member("random_forest_restricted_v1", brier=0.12, roc_auc=0.375),
+                member("logistic_regression_reduced_v1", brier=0.18, roc_auc=0.55),
+            ],
+            season_phase="in_season",
+        )
+
+        winner = result["selected_winners"][0]
+        self.assertEqual(
+            winner["model_ref"]["estimator_id"],
+            "logistic_regression_reduced_v1",
+        )
+        self.assertEqual(winner["roc_auc"], 0.55)
+        exclusions = result["selected:fixed:h7"]["candidate_exclusions"]
+        self.assertEqual(exclusions[0]["reasons"], ["roc_auc_below_minimum"])
+
+    def test_selected_operational_comparison_measures_consensus_between_eligible_families(self) -> None:
+        def member(
+            estimator_id: str,
+            probability: float,
+            *,
+            brier: float,
+            roc_auc: float,
+        ) -> dict[str, object]:
+            return {
+                "model_ref": {
+                    "version_id": "biology_v4",
+                    "temporal_contract_id": "fixed_gap_7d_biology_v4",
+                    "profile_id": "climatic_balance",
+                    "estimator_id": estimator_id,
+                    "horizon_days": 7,
+                },
+                "available": True,
+                "prediction": {
+                    "probability": probability,
+                    "applicability": {"status": "within_observed_range"},
+                },
+                "evaluation": {
+                    "evidence": "better_than_prevalence",
+                    "brier_score": brier,
+                    "prevalence_brier_score": 0.455,
+                    "brier_delta_vs_prevalence": 0.455 - brier,
+                    "roc_auc": roc_auc,
+                    "n_test": 26,
+                },
+            }
+
+        result = comparison.build_selected_operational_comparison(
+            [
+                member("logistic_regression_reduced_v1", 0.63, brier=0.308, roc_auc=0.667),
+                member("random_forest_restricted_v1", 0.59, brier=0.360, roc_auc=0.583),
+                member("extra_trees_restricted_v1", 0.69, brier=0.439, roc_auc=0.50),
+            ],
+            season_phase="in_season",
+        )
+
+        winner = result["selected_winners"][0]
+        self.assertEqual(
+            winner["model_ref"]["estimator_id"],
+            "logistic_regression_reduced_v1",
+        )
+        scenario = result["scenario_consensus"][0]
+        self.assertEqual(scenario["status"], "high")
+        self.assertEqual(scenario["eligible_family_count"], 2)
+        self.assertEqual(
+            scenario["eligible_estimator_ids"],
+            ["logistic_regression_reduced_v1", "random_forest_restricted_v1"],
+        )
+        self.assertAlmostEqual(scenario["maximum_probability_gap"], 0.04)
+        self.assertEqual(len(result["selected:fixed:h7"]["eligible_candidates"]), 2)
+
+    def test_selected_operational_comparison_uses_auc_only_after_equal_brier(self) -> None:
+        members = []
+        for estimator_id, roc_auc in (
+            ("logistic_regression_reduced_v1", 0.61),
+            ("random_forest_restricted_v1", 0.72),
+        ):
+            members.append(
+                {
+                    "model_ref": {
+                        "version_id": "biology_v4",
+                        "temporal_contract_id": "fixed_gap_7d_biology_v4",
+                        "profile_id": "climatic_balance",
+                        "estimator_id": estimator_id,
+                        "horizon_days": 7,
+                    },
+                    "available": True,
+                    "prediction": {
+                        "probability": 0.61,
+                        "applicability": {"status": "within_observed_range"},
+                    },
+                    "evaluation": {
+                        "evidence": "better_than_prevalence",
+                        "brier_score": 0.20,
+                        "prevalence_brier_score": 0.30,
+                        "brier_delta_vs_prevalence": 0.10,
+                        "roc_auc": roc_auc,
+                        "n_test": 20,
+                    },
+                }
+            )
+
+        result = comparison.build_selected_operational_comparison(
+            members,
+            season_phase="in_season",
+        )
+
+        self.assertEqual(
+            result["selected_winners"][0]["model_ref"]["estimator_id"],
+            "random_forest_restricted_v1",
+        )
+
+    def test_smooth_variants_are_internal_agreement_not_independent_families(self) -> None:
+        def member(estimator_id: str, probability: float, brier: float) -> dict[str, object]:
+            return {
+                "model_ref": {
+                    "version_id": "biology_v6_windowed_smooth_hierarchical",
+                    "temporal_contract_id": "fixed_gap_7d_windowed_smooth_v1",
+                    "profile_id": "window_30d",
+                    "estimator_id": estimator_id,
+                    "horizon_days": 7,
+                },
+                "available": True,
+                "prediction": {
+                    "probability": probability,
+                    "applicability": {"status": "within_observed_range"},
+                },
+                "evaluation": {
+                    "evidence": "better_than_prevalence",
+                    "brier_score": brier,
+                    "prevalence_brier_score": 0.25,
+                    "brier_delta_vs_prevalence": 0.25 - brier,
+                    "roc_auc": 0.76,
+                    "n_test": 71,
+                },
+            }
+
+        result = comparison.build_selected_operational_comparison(
+            [
+                member("smooth_partial_pooling_logistic_v1", 0.60, 0.14),
+                member("smooth_shared_logistic_v1", 0.63, 0.15),
+            ],
+            season_phase="in_season",
+        )
+
+        scenario = result["scenario_consensus"][0]
+        self.assertEqual(scenario["status"], "single_family")
+        self.assertEqual(scenario["eligible_family_count"], 1)
+        self.assertEqual(
+            scenario["eligible_methodological_family_ids"], ["logistic"]
+        )
+        logistic = scenario["methodological_families"][0]
+        self.assertEqual(logistic["internal_agreement_status"], "high")
+        self.assertAlmostEqual(
+            logistic["internal_maximum_probability_gap"], 0.03
+        )
+        self.assertEqual(result["selected_winners"][0]["test_samples"], 71)
+
+    def test_glanceable_statistical_verdicts_use_weakest_scenario(self) -> None:
+        def member(
+            estimator_id: str,
+            probability: float,
+            *,
+            contract_id: str,
+            brier: float,
+            baseline: float,
+            roc_auc: float,
+            n_test: int,
+            positive: int,
+            negative: int,
+        ) -> dict[str, object]:
+            return {
+                "model_ref": {
+                    "version_id": "biology_v4",
+                    "temporal_contract_id": contract_id,
+                    "profile_id": "profile",
+                    "estimator_id": estimator_id,
+                    "horizon_days": 7 if contract_id.startswith("fixed_") else 3,
+                },
+                "available": True,
+                "prediction": {
+                    "probability": probability,
+                    "applicability": {"status": "within_observed_range"},
+                },
+                "evaluation": {
+                    "evidence": "better_than_prevalence",
+                    "brier_score": brier,
+                    "prevalence_brier_score": baseline,
+                    "brier_delta_vs_prevalence": baseline - brier,
+                    "roc_auc": roc_auc,
+                    "n_test": n_test,
+                    "test_positive_count": positive,
+                    "test_negative_count": negative,
+                },
+            }
+
+        result = comparison.build_selected_operational_comparison(
+            [
+                member(
+                    "logistic_regression_reduced_v1", 0.60,
+                    contract_id="fixed_gap_7d_biology_v4", brier=0.14,
+                    baseline=0.25, roc_auc=0.83, n_test=60,
+                    positive=20, negative=40,
+                ),
+                member(
+                    "random_forest_restricted_v1", 0.40,
+                    contract_id="lag_event_biology_v4", brier=0.20,
+                    baseline=0.25, roc_auc=0.75, n_test=40,
+                    positive=15, negative=25,
+                ),
+                member(
+                    "logistic_regression_reduced_v1", 0.62,
+                    contract_id="lag_event_biology_v4", brier=0.21,
+                    baseline=0.25, roc_auc=0.74, n_test=40,
+                    positive=15, negative=25,
+                ),
+            ],
+            season_phase="in_season",
+        )
+
+        self.assertEqual(
+            result["statistical_reliability_summary"]["status"], "moderate"
+        )
+        self.assertEqual(result["consensus_summary"]["status"], "low")
+        self.assertEqual(
+            result["consensus_summary"]["measurable_scenario_count"], 1
+        )
+        self.assertEqual(result["consensus_summary"]["eligible_scenario_count"], 2)
+
+    def test_selected_operational_comparison_abstains_without_eligible_auc(self) -> None:
+        members = []
+        for estimator_id, roc_auc in (
+            ("random_forest_restricted_v1", 0.49),
+            ("extra_trees_restricted_v1", None),
+        ):
+            members.append(
+                {
+                    "model_ref": {
+                        "version_id": "biology_v3",
+                        "temporal_contract_id": "lag_event_biology_v3",
+                        "profile_id": "core",
+                        "estimator_id": estimator_id,
+                        "horizon_days": 3,
+                    },
+                    "available": True,
+                    "prediction": {
+                        "probability": 0.63,
+                        "applicability": {"status": "caution"},
+                    },
+                    "evaluation": {
+                        "evidence": "better_than_prevalence",
+                        "brier_score": 0.18,
+                        "prevalence_brier_score": 0.25,
+                        "brier_delta_vs_prevalence": 0.07,
+                        "roc_auc": roc_auc,
+                        "n_test": 18,
+                    },
+                }
+            )
+
+        result = comparison.build_selected_operational_comparison(
+            members,
+            season_phase="in_season",
+        )
+
+        scenario = result["selected:lag:h3"]
+        self.assertEqual(result["selected_winners"], [])
+        self.assertFalse(scenario["available"])
+        self.assertEqual(scenario["reason"], "no_eligible_selected_member")
+        self.assertEqual(
+            {reason for row in scenario["candidate_exclusions"] for reason in row["reasons"]},
+            {"roc_auc_below_minimum", "roc_auc_unavailable"},
+        )
+        self.assertEqual(result["minimum_roc_auc"], 0.55)
+
     def test_interpretation_features_include_rain_evidence_without_changing_model_inputs(self) -> None:
         predictive = {"rain_sum_21d": 12.0, "days_since_significant_rain_at_target": 4.0}
         sample = {
@@ -86,11 +616,7 @@ class MushroomMLMultiversionComparisonTests(TestCase):
                 # active operational target.
                 continue
             registry = copy.deepcopy(base_registry)
-            registry["active_version_id"] = version_id
-            registry["active_operational_target"] = {
-                "version_id": version_id,
-                "generation_id": f"generation-{version_id}",
-            }
+            registry["preferred_version_id"] = version_id
             profiles = [
                 row
                 for row in catalog.catalog_entries(registry)
@@ -150,11 +676,13 @@ class MushroomMLMultiversionComparisonTests(TestCase):
                             "available": True,
                             "prediction": {
                                 "probability": 0.72,
-                                "applicability": {},
+                                "applicability": {"status": "within_observed_range"},
                             },
                             "evaluation": {
+                                "evidence": "better_than_prevalence",
                                 "brier_score": 0.18,
                                 "prevalence_brier_score": 0.25,
+                                "brier_delta_vs_prevalence": 0.07,
                                 "roc_auc": 0.71,
                                 "n_test": 20,
                             },
@@ -199,7 +727,9 @@ class MushroomMLMultiversionComparisonTests(TestCase):
             self.assertEqual(result["interpretation"]["weather_signal"], "recent_event")
             self.assertEqual(result["interpretation"]["ecological_compatibility"], "compatible")
             self.assertEqual(result["interpretation"]["reference_range"]["min"], 0.72)
-            for key in result["operational_result_keys"]:
+            self.assertEqual(result["selection_mode"], "preferred_version")
+            self.assertTrue(result["selected_winners"])
+            for key in result["comparison_detail_result_keys"]:
                 self.assertTrue(result[key]["evaluation"]["available"])
                 self.assertEqual(
                     next(iter(result[key]["evaluation"]["estimators"].values()))[
@@ -208,7 +738,7 @@ class MushroomMLMultiversionComparisonTests(TestCase):
                     0.18,
                 )
 
-    def test_active_promotion_loads_verified_source_benchmark_quality_catalog(self) -> None:
+    def test_installed_generation_never_falls_back_to_old_benchmark_quality(self) -> None:
         quality = {
             "schema_version": "1.0",
             "kind": "mushroom_ml_quality_catalog",
@@ -218,10 +748,6 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         content = (json.dumps(quality) + "\n").encode()
         digest = hashlib.sha256(content).hexdigest()
         registry = {
-            "active_operational_target": {
-                "version_id": "biology_v3",
-                "generation_id": "generation-v3",
-            },
             "versions": [
                 {
                     "version_id": "biology_v3",
@@ -253,20 +779,27 @@ class MushroomMLMultiversionComparisonTests(TestCase):
 
             loaded = comparison._load_quality_catalog(registry, {}, root)
 
-        self.assertEqual(loaded, quality)
+        self.assertEqual(loaded, {})
 
-    def test_active_v3_exposes_both_profiles_and_both_temporal_contracts(self) -> None:
+    def test_preferred_v3_exposes_both_profiles_and_both_temporal_contracts(self) -> None:
         registry = copy.deepcopy(mushroom_ml_version_registry.load_registry(REGISTRY_PATH))
-        for version in registry["versions"]:
-            if version["version_id"] == "altitude_v2":
-                version["status"] = "reference"
-            elif version["version_id"] == "biology_v3":
-                version["status"] = "active"
-        registry["active_version_id"] = "biology_v3"
-        registry["active_operational_target"] = {
-            "version_id": "biology_v3",
-            "generation_id": "",
-        }
+        v3 = next(
+            version for version in registry["versions"]
+            if version["version_id"] == "biology_v3"
+        )
+        v3["generations"] = [
+            {
+                "generation_id": "generation-v3",
+                "version_id": "biology_v3",
+                "kind": "trained_model",
+                "retention": "permanent",
+                "promotion_gate_status": "passed",
+                "profile_ids": ["core", "common_idw_plus_physical_state"],
+                "batch_id": "batch-v3",
+            }
+        ]
+        v3["installed_generation_id"] = "generation-v3"
+        registry["preferred_version_id"] = "biology_v3"
         registry = mushroom_ml_version_registry.validate_registry(registry)
         artifacts = []
         members = []
@@ -296,8 +829,17 @@ class MushroomMLMultiversionComparisonTests(TestCase):
                     {
                         "model_ref": {**ref.as_dict(), "horizon_days": horizons[0]},
                         "available": True,
-                        "prediction": {"probability": 0.6, "applicability": {}},
-                        "evaluation": {},
+                        "prediction": {
+                            "probability": 0.6,
+                            "applicability": {"status": "within_observed_range"},
+                        },
+                        "evaluation": {
+                            "evidence": "better_than_prevalence",
+                            "brier_score": 0.2,
+                            "prevalence_brier_score": 0.25,
+                            "brier_delta_vs_prevalence": 0.05,
+                            "roc_auc": 0.7,
+                        },
                         "metadata": {"cutoff_date": "2026-08-18"},
                     }
                 )
@@ -325,7 +867,8 @@ class MushroomMLMultiversionComparisonTests(TestCase):
                 weather_data_dir=Path("/unused/weather"),
             )
 
-        self.assertEqual(len(result["operational_result_keys"]), 4)
+        self.assertEqual(len(result["operational_result_keys"]), 2)
+        self.assertEqual(len(result["comparison_detail_result_keys"]), 4)
         self.assertEqual(
             {row["profile_id"] for row in result["operational_profiles"]},
             {"core", "common_idw_plus_physical_state"},
@@ -494,6 +1037,7 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         prepared_cache = {}
         comparison_cache = {}
         prepared = (object(), {3: {"daily_dates": []}}, {})
+        results = []
         with mock.patch.object(
             comparison.catalog,
             "validate_batch_manifest",
@@ -501,28 +1045,44 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         ) as validate_manifest, mock.patch.object(
             comparison, "prepare_area_weather", return_value=prepared
         ) as prepare, mock.patch.object(
-            comparison, "compare_prepared", return_value={"members": []}
+            comparison,
+            "compare_prepared",
+            side_effect=lambda *_args, **_kwargs: {"members": []},
         ):
             for _ in range(2):
-                comparison.compare_selection(
-                    registry,
-                    manifest,
-                    [selection],
-                    species_id="boletus_edulis",
-                    area_id="area-a",
-                    target_date=date(2026, 8, 18),
-                    models_root=Path("/unused/models"),
-                    known_sites_path=Path("/unused/sites.json"),
-                    weather_data_dir=Path("/unused/weather"),
-                    prepared_weather_cache=prepared_cache,
-                    comparison_cache=comparison_cache,
+                results.append(
+                    comparison.compare_selection(
+                        registry,
+                        manifest,
+                        [selection],
+                        species_id="boletus_edulis",
+                        area_id="area-a",
+                        target_date=date(2026, 8, 18),
+                        models_root=Path("/unused/models"),
+                        known_sites_path=Path("/unused/sites.json"),
+                        weather_data_dir=Path("/unused/weather"),
+                        prepared_weather_cache=prepared_cache,
+                        comparison_cache=comparison_cache,
+                    )
                 )
 
         self.assertEqual(prepare.call_count, 1)
         self.assertEqual(validate_manifest.call_count, 1)
+        self.assertEqual(
+            [row["runtime_metrics"]["weather_cache_status"] for row in results],
+            ["miss", "hit"],
+        )
+        self.assertIn(
+            "weather_context", results[0]["runtime_metrics"]["phase_seconds"]
+        )
+        self.assertIn(
+            "prepared_comparison",
+            results[0]["runtime_metrics"]["phase_seconds"],
+        )
 
     def test_v2_reference_uses_installed_common_idw_members_only(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        registry["preferred_version_id"] = "altitude_v2"
         artifacts = []
         for contract_id, horizons in (
             (comparison.V2_FIXED_CONTRACT_ID, [7]),
@@ -602,6 +1162,7 @@ class MushroomMLMultiversionComparisonTests(TestCase):
 
     def test_v2_reference_resolves_intermediate_week_horizons(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        registry["preferred_version_id"] = "altitude_v2"
         artifacts = []
         for contract_id, horizons in (
             (comparison.V2_FIXED_CONTRACT_ID, [7]),
@@ -757,6 +1318,13 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         self.assertEqual(result["members"][0]["prediction"]["probability"], 0.61)
         self.assertFalse(result["ensemble_computed"])
         self.assertFalse(result["consensus_computed"])
+        self.assertEqual(result["runtime_metrics"]["member_count"], 1)
+        self.assertGreaterEqual(result["runtime_metrics"]["backend_seconds"], 0)
+        self.assertIn(
+            "runtime_features", result["runtime_metrics"]["phase_seconds"]
+        )
+        self.assertIn("artifact_load", result["runtime_metrics"]["phase_seconds"])
+        self.assertIn("model_inference", result["runtime_metrics"]["phase_seconds"])
 
     def test_missing_horizon_does_not_fall_back_to_another_model(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)

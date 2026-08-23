@@ -26,10 +26,16 @@ class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
 
             def fake_run_script(path, arguments, **_kwargs):
                 calls.append(Path(path).name)
-                destination = Path(arguments[arguments.index("--output") + 1])
-                destination.write_text(
-                    json.dumps({"feature_set": {}, "samples": []}), encoding="utf-8"
-                )
+                if "--output" in arguments:
+                    destination = Path(arguments[arguments.index("--output") + 1])
+                    destination.write_text(
+                        json.dumps({"feature_set": {}, "samples": []}), encoding="utf-8"
+                    )
+                if Path(path).name == "evaluate-biology-v5-raw-benchmark.py":
+                    evaluation_root = Path(arguments[arguments.index("--v5-dir") + 1])
+                    (evaluation_root / "heldout-predictions.jsonl").write_text(
+                        "", encoding="utf-8"
+                    )
 
             argv = [
                 str(SCRIPT), "--data-dir", str(root / "weather"),
@@ -54,14 +60,18 @@ class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
                     "build-biology-v3-benchmark.py",
                     "build-biology-v4-benchmark.py",
                     "build-biology-v4-benchmark.py",
+                    "evaluate-biology-v5-raw-benchmark.py",
                 ],
             )
             self.assertEqual(
                 set(prepared["inputs"]),
-                {"v3_fixed", "v3_lag", "v4_fixed", "v4_lag"},
+                {
+                    "v3_fixed", "v3_lag", "v4_fixed", "v4_lag",
+                    "v2_v5_heldout", "v6_heldout",
+                },
             )
-            self.assertFalse((output / "v5").exists())
-            self.assertFalse((output / "v6").exists())
+            self.assertTrue((output / "v5").exists())
+            self.assertTrue((output / "v6").exists())
 
     def test_operational_preparation_stops_after_v2_fixed_and_lag_sources(self) -> None:
         spec = importlib.util.spec_from_file_location("prepare_multiversion_inputs", SCRIPT)
@@ -101,9 +111,12 @@ class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
             prepared = json.loads((output / "prepared-inputs.json").read_text())
             self.assertEqual(len(calls), 2)
             self.assertEqual(prepared["job_purpose"], "operational")
-            self.assertEqual(set(prepared["inputs"]), {"v3_fixed", "v3_lag"})
-            self.assertFalse((output / "v5").exists())
-            self.assertFalse((output / "v6").exists())
+            self.assertEqual(
+                set(prepared["inputs"]),
+                {"v3_fixed", "v3_lag", "v2_v5_heldout", "v6_heldout"},
+            )
+            self.assertTrue((output / "v5").exists())
+            self.assertTrue((output / "v6").exists())
 
     def test_v3_benchmark_prepares_and_evaluates_only_selected_profile(self) -> None:
         spec = importlib.util.spec_from_file_location("prepare_multiversion_inputs", SCRIPT)

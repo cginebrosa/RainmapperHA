@@ -29,10 +29,12 @@ from rainmapper_core.weather_history_pending import build_pending_batch, list_pe
 from rainmapper_core.weather_history_writer import (
     InjectedWeatherHistoryFailure,
     WeatherHistoryCoordinateConflict,
+    WeatherHistoryWriterError,
     WeatherHistoryWriterBusy,
     acknowledge_archived_pending,
     archive_pending_batches,
     prune_weather_generations,
+    rebase_current_generation_as_root,
     repair_current_after_restore,
 )
 from rainmapper_core.weather_history_archive import archive_and_close_pending
@@ -414,6 +416,43 @@ class WeatherHistoryWriterTests(unittest.TestCase):
             report["generation_cleanup"]["kept_generation_ids"],
             [self.initial_generation_id],
         )
+
+    def test_rebase_current_as_root_repairs_missing_predecessor_without_copying_objects(self):
+        pending = self._pending([self.row("meteocat", "A", "20260101", 3.0)])
+        archived = archive_pending_batches(self.data_dir, reserve_bytes=0)
+        acknowledge_archived_pending(self.data_dir, pending.batch_id)
+        source = resolve_weather_generation(self.data_dir, verify_hashes=True)
+        source_objects = {
+            value.path for value in source.partitions
+        } | {source.catalog.path}
+        (self.root / "manifests" / f"{self.initial_generation_id}.json").unlink()
+
+        with self.assertRaisesRegex(
+            WeatherHistoryWriterError,
+            "retained generation manifest.*missing",
+        ):
+            prune_weather_generations(self.data_dir)
+
+        report = rebase_current_generation_as_root(self.data_dir)
+        self.assertTrue(report.committed)
+        self.assertEqual(report.source_generation_id, archived.generation_id)
+        self.assertEqual(
+            report.detached_previous_generation_id,
+            self.initial_generation_id,
+        )
+        repaired = resolve_weather_generation(self.data_dir, verify_hashes=True)
+        self.assertIsNone(repaired.previous_generation_id)
+        self.assertEqual(
+            {value.path for value in repaired.partitions} | {repaired.catalog.path},
+            source_objects,
+        )
+        cleanup = prune_weather_generations(self.data_dir)
+        self.assertEqual(cleanup.kept_generation_ids, (repaired.generation_id,))
+        self.assertIn(archived.generation_id, cleanup.removed_generation_ids)
+
+        repeated = rebase_current_generation_as_root(self.data_dir)
+        self.assertFalse(repeated.committed)
+        self.assertEqual(repeated.generation_id, repaired.generation_id)
 
 
 if __name__ == "__main__":

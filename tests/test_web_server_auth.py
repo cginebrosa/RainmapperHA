@@ -67,6 +67,34 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 }
             )
 
+    def test_diagnostics_panel_exposes_storage_reconciliation_summary(self) -> None:
+        rendered = self.web_server.render_diagnostics_history_panel(
+            {
+                "storage_reconciliation": {
+                    "generated_at": "2026-08-23T12:00:00+00:00",
+                    "summary": {"recoverable_bytes": 5 * 1024 * 1024, "errors": 0},
+                    "inventory": {"model_batches": {"bytes": 10 * 1024 * 1024}},
+                    "lifecycle": {
+                        "installed_batches": 1,
+                        "retained_rollbacks": 1,
+                        "orphan_results": 2,
+                        "expiring_predictor_results": 3,
+                    },
+                    "predictor_runtime_archive": {
+                        "location": "/media/rainmapper/runtime-cache/predictor-runtime-archives",
+                        "entries": 1,
+                    },
+                }
+            },
+            "No data",
+        )
+
+        self.assertIn("Storage retention", rendered)
+        self.assertIn("Legacy TAR still in /share", rendered)
+        self.assertIn("10.0 MiB", rendered)
+        self.assertIn("5.0 MiB", rendered)
+        self.assertIn("1 / 1", rendered)
+
     def test_all_stops_before_maps_when_update_artifacts_fail(self) -> None:
         class FailedUpdateProcess:
             stdout = iter(())
@@ -133,72 +161,6 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(details["released_predictor_instances"], 2)
         self.assertEqual(details["cache_release_error"], "")
 
-    def test_ml_train_promotion_promotes_report_and_releases_predictor_cache(self) -> None:
-        result_root = Path(self.temp_dir.name) / "results"
-        models_dir = Path(self.temp_dir.name) / "ml_models"
-        report_path = Path(self.temp_dir.name) / "mushroom_ml_v0_report.json"
-        promotion = {"status": "promoted", "promoted_files": ["model.joblib"]}
-        with (
-            mock.patch.object(
-                self.web_server,
-                "mushroom_worker_candidate_results_path",
-                return_value=result_root,
-            ),
-            mock.patch.object(
-                self.web_server.mushroom_paths,
-                "mushroom_ml_models_dir",
-                return_value=models_dir,
-            ),
-            mock.patch.object(
-                self.web_server.mushroom_paths,
-                "mushroom_ml_report_json_path",
-                return_value=report_path,
-            ),
-            mock.patch.object(
-                self.web_server.mushroom_worker_results,
-                "promote_ml_train_candidate",
-                return_value=dict(promotion),
-            ) as promote_candidate,
-            mock.patch.object(
-                self.web_server.mushroom_predictor_ui,
-                "release_predictor_cache",
-                return_value=3,
-            ) as release_cache,
-            mock.patch.object(
-                self.web_server.mushroom_worker_jobs,
-                "update_candidate_promotion_progress",
-            ),
-            mock.patch.object(
-                self.web_server.mushroom_worker_jobs,
-                "finish_candidate_promotion",
-                return_value={
-                    "job_id": "worker_job_mltrain1234",
-                    "job_type": "worker_ml_train_v0",
-                    "status": "complete",
-                    "promotion_status": "promoted",
-                },
-            ) as finish_promotion,
-            mock.patch.object(
-                self.web_server,
-                "discard_mushroom_worker_input_bundle",
-            ) as discard_input,
-            mock.patch.object(self.web_server, "set_mushroom_workers_flash"),
-        ):
-            self.web_server._run_mushroom_worker_ml_train_promotion(
-                "worker_job_mltrain1234"
-            )
-
-        promote_candidate.assert_called_once_with(
-            result_root,
-            models_dir,
-            job_id="worker_job_mltrain1234",
-            report_path=report_path,
-        )
-        release_cache.assert_called_once_with()
-        promoted_result = finish_promotion.call_args.kwargs["result"]
-        self.assertEqual(promoted_result["released_predictor_instances"], 3)
-        discard_input.assert_called_once_with(finish_promotion.return_value)
-
     def test_predictor_lists_only_models_declared_trained_by_live_report(self) -> None:
         models_dir = Path(self.temp_dir.name) / "ml_models"
         models_dir.mkdir()
@@ -240,6 +202,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn(".pred-tooltip {", css)
         self.assertIn(".pred-week-table {", css)
         self.assertIn("font-size: 1rem", css)
+        self.assertIn("align-self: flex-start", css)
+        self.assertIn("height: 2.55rem", css)
         self.assertIn("@media (max-width: 700px)", css)
         self.assertIn(".pred-week-table { min-width: 980px; }", css)
 
@@ -484,6 +448,31 @@ class AuthDeviceLimitTests(unittest.TestCase):
             available[0]["capabilities"],
         )
 
+    def test_multiversion_training_rejects_worker_with_v1_contract(self) -> None:
+        worker = {
+            "reachable": True,
+            "payload": {
+                "worker_id": "worker_old_contract",
+                "capabilities": [
+                    "ml_multiversion_training_v1",
+                    self.web_server.mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY,
+                    self.web_server.mushroom_worker_registry.ML_BENCHMARK_REPORT_CAPABILITY,
+                ],
+            },
+        }
+        with mock.patch.object(
+            self.web_server,
+            "registered_mushroom_worker_statuses",
+            return_value=[worker],
+        ):
+            status, response = self.web_server.create_mushroom_ml_multiversion_job(
+                "worker_old_contract",
+                job_purpose="benchmark",
+            )
+
+        self.assertEqual(status, 409)
+        self.assertIn("cannot train", response["error"])
+
     def test_predictor_modal_exposes_effective_selection_policy(self) -> None:
         policy = self.web_server.PredictorExecutionPolicy(
             allow_manual_selection=False,
@@ -582,6 +571,99 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(tabs.call_args.args[2], expected_today)
         self.assertEqual(recommender.call_args.args[0], expected_today)
 
+    def test_predictor_query_defaults_to_the_preferred_version_multiversion_path(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        tokens = ["biology_v3|core|fixed_gap_7d_biology_v3|lr|7"]
+        with (
+            mock.patch.object(
+                predictor_ui,
+                "trained_species_ids",
+                return_value=["boletus_aereus"],
+            ),
+            mock.patch.object(
+                predictor_ui, "_preferred_version_id", return_value="biology_v3"
+            ),
+            mock.patch.object(
+                predictor_ui,
+                "multiversion_tokens_for_versions",
+                return_value=tokens,
+            ) as token_builder,
+            mock.patch.object(predictor_ui, "_render_tabs", return_value="tabs"),
+            mock.patch.object(
+                predictor_ui, "_preferred_version_badge", return_value="badge"
+            ),
+            mock.patch.object(
+                predictor_ui, "_render_training_freshness_warning", return_value=""
+            ),
+            mock.patch.object(
+                predictor_ui, "_render_query", return_value="query"
+            ) as render_query,
+        ):
+            predictor_ui._render_page_inner(
+                {
+                    "view": ["query"],
+                    "species": ["boletus_aereus"],
+                    "area": ["olvan"],
+                    "date": ["2026-08-26"],
+                },
+                {},
+                {},
+            )
+
+        token_builder.assert_called_once_with("boletus_aereus", ["biology_v3"])
+        self.assertEqual(
+            render_query.call_args.kwargs["selected_versions"], ["biology_v3"]
+        )
+        self.assertEqual(
+            render_query.call_args.kwargs["selected_multiversion"], tokens
+        )
+
+    def test_predictor_query_preserves_explicitly_selected_versions(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        selected = ["altitude_v2", "biology_v4"]
+        tokens = ["v2-token", "v4-token"]
+        with (
+            mock.patch.object(
+                predictor_ui,
+                "trained_species_ids",
+                return_value=["boletus_aereus"],
+            ),
+            mock.patch.object(
+                predictor_ui, "_preferred_version_id", return_value="biology_v3"
+            ) as preferred,
+            mock.patch.object(
+                predictor_ui,
+                "multiversion_tokens_for_versions",
+                return_value=tokens,
+            ) as token_builder,
+            mock.patch.object(predictor_ui, "_render_tabs", return_value="tabs"),
+            mock.patch.object(
+                predictor_ui, "_preferred_version_badge", return_value="badge"
+            ),
+            mock.patch.object(
+                predictor_ui, "_render_training_freshness_warning", return_value=""
+            ),
+            mock.patch.object(
+                predictor_ui, "_render_query", return_value="query"
+            ) as render_query,
+        ):
+            predictor_ui._render_page_inner(
+                {
+                    "view": ["query"],
+                    "species": ["boletus_aereus"],
+                    "area": ["olvan"],
+                    "date": ["2026-08-26"],
+                    "mvv": selected,
+                },
+                {},
+                {},
+            )
+
+        preferred.assert_not_called()
+        token_builder.assert_called_once_with("boletus_aereus", selected)
+        self.assertEqual(render_query.call_args.kwargs["selected_versions"], selected)
+        self.assertEqual(render_query.call_args.kwargs["selected_multiversion"], tokens)
+
     def test_predictor_week_heading_uses_a_locale_neutral_numeric_date(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
         target = date.today() + timedelta(days=2)
@@ -670,7 +752,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("data-predictor-direct-run", script)
         self.assertIn("data-predictor-direct-form", script)
+        self.assertIn("data-predictor-preferred-submit", script)
         self.assertIn("runDirect", script)
+        self.assertIn("runPreferred", script)
+        self.assertIn('await fetchPredictor(target, { method: "POST", body })', script)
         self.assertIn("refreshOptions", script)
         self.assertIn('await refreshOptions("?")', script)
         self.assertIn("form.hidden = true", script)
@@ -1134,7 +1219,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Brier &amp; baseline", rendered)
         self.assertIn('title="Help with &quot;quotes&quot; &amp; details"', rendered)
 
-    def test_multiversion_summary_separates_confidence_and_weather_abstentions(self) -> None:
+    def test_multiversion_detail_keeps_validation_help_and_highlights_winner(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
 
         def member(
@@ -1163,8 +1248,18 @@ class AuthDeviceLimitTests(unittest.TestCase):
                         },
                         "evaluation": {
                             "evidence": evidence,
+                            "brier_score": 0.21,
+                            "prevalence_brier_score": 0.31,
                             "brier_delta_vs_prevalence": 0.1,
+                            "roc_auc": 0.76,
                             "n_test": 12,
+                        },
+                        "features_used": {
+                            "rain_cutoff_0_3d_mm": 12.5,
+                            "rain_cutoff_4_7d_mm": 8.0,
+                            "rain_observed_days_21": 21,
+                            "rain_missing_days_21": 0,
+                            "rain_suppressed_days_21": 0,
                         },
                     }
                 )
@@ -1200,10 +1295,20 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "metadata": {"cutoff_date": "2026-08-19"},
             }
         )
+        folded_version = {
+            **weak,
+            "model_ref": {
+                **weak["model_ref"],
+                "version_id": "biology_v4",
+                "temporal_contract_id": "lag_event_biology_v4",
+            },
+        }
         payload = {
             "available": True,
-            "members": [usable, weak, extrapolation, weather_pending],
-            "version_cautions": {"biology_v3": "Experimental"},
+            "members": [usable, weak, extrapolation, weather_pending, folded_version],
+            "operational_comparison": {
+                "selected_winners": [{"model_ref": usable["model_ref"]}],
+            },
         }
 
         labels = {
@@ -1216,13 +1321,703 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ):
             rendered = predictor_ui._render_multiversion_result(payload)
 
-        self.assertIn("pred-confidence-usable", rendered)
-        self.assertIn("pred-confidence-weak", rendered)
-        self.assertIn("pred-confidence-not_usable", rendered)
-        self.assertIn("pred-confidence-weather_pending", rendered)
+        self.assertIn("pred-member-selected", rendered)
+        self.assertIn("Elegido", rendered)
+        self.assertEqual(rendered.count('class="pred-diagnostic-selected"'), 5)
+        self.assertIn(
+            '<span class="pred-diagnostic-selected">RF 0.210</span>', rendered
+        )
+        self.assertIn(
+            '<span class="pred-diagnostic-selected">RF +0.100</span>', rendered
+        )
+        self.assertIn(
+            '<span class="pred-diagnostic-selected">RF mejora</span>', rendered
+        )
+        self.assertIn(
+            '<span class="pred-diagnostic-selected">RF en rango</span>', rendered
+        )
+        self.assertIn("ui.predictor_validation_brier", rendered)
+        self.assertIn("Δ Brier frente a prevalencia", rendered)
+        self.assertIn("ui.predictor_validation_auc", rendered)
+        self.assertIn("Muestra hold-out", rendered)
+        self.assertIn("Lluvia 0–3 / 4–7 / 8–14 / 15–21 días", rendered)
+        self.assertIn('title="ui.predictor_help_brier"', rendered)
+        self.assertIn('title="ui.predictor_help_brier_delta"', rendered)
+        self.assertIn('title="ui.predictor_help_prevalence_evidence"', rendered)
+        self.assertIn('title="ui.predictor_help_roc_auc"', rendered)
+        self.assertIn('title="ui.predictor_help_holdout_sample"', rendered)
         self.assertIn("Weather through 2026-08-19", rendered)
         self.assertNotIn("runtime_feature_gates_failed", rendered)
-        self.assertNotIn('<details class="pred-version-breakdown" open>', rendered)
+        self.assertNotIn("pred-confidence-grid", rendered)
+        self.assertEqual(
+            rendered.count('<details class="pred-version-breakdown" open>'), 1
+        )
+        self.assertIn(
+            '<details class="pred-version-breakdown" open>\n  <summary>V3',
+            rendered,
+        )
+        self.assertIn(
+            '<details class="pred-version-breakdown">\n  <summary>V4',
+            rendered,
+        )
+
+    def test_multiversion_controls_offer_only_installed_versions(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        catalog = {
+            "preferred_version_id": "biology_v3",
+            "entries": [
+                {
+                    "version_id": "biology_v3",
+                    "profile_id": "core",
+                    "catalog_visible": True,
+                    "version_display_name": "Biology V3",
+                    "profile_display_name": "Core",
+                },
+                {
+                    "version_id": "biology_v5",
+                    "profile_id": "raw_weather",
+                    "catalog_visible": True,
+                    "version_display_name": "Biology V5 legacy",
+                    "profile_display_name": "Raw weather",
+                },
+            ],
+            "installed_artifacts": [
+                {
+                    "artifact_ref": {
+                        "version_id": "biology_v3",
+                        "profile_id": "core",
+                        "species_id": "boletus_edulis",
+                    }
+                }
+            ],
+        }
+        with (
+            mock.patch.object(
+                predictor_ui, "_multiversion_catalog_payload", return_value=catalog
+            ),
+            mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key),
+        ):
+            rendered = predictor_ui._multiversion_controls(
+                "boletus_edulis", [], []
+            )
+
+        self.assertIn("Versiones incluidas en la predicción", rendered)
+        self.assertIn('value="biology_v3" checked', rendered)
+        self.assertNotIn('value="biology_v5"', rendered)
+        self.assertIn("Biology V5 legacy", rendered)
+
+    def test_preferred_version_badge_identifies_operational_model(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        token = predictor_ui._prepared_response.set(
+            {"data": {"model_catalog": {"preferred_version_id": "biology_v3"}}}
+        )
+        try:
+            with mock.patch.object(
+                predictor_ui,
+                "_lbl",
+                return_value="Versión operativa preferida",
+            ):
+                rendered = predictor_ui._preferred_version_badge()
+        finally:
+            predictor_ui._prepared_response.reset(token)
+
+        self.assertIn("Versión operativa preferida", rendered)
+        self.assertIn("V3", rendered)
+
+    def test_installed_manifests_loads_only_requested_version_once_per_request(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        registry = {
+            "versions": [
+                {
+                    "version_id": "altitude_v2",
+                    "installed_generation_id": "v2-generation",
+                },
+                {
+                    "version_id": "biology_v4",
+                    "installed_generation_id": "v4-generation",
+                },
+            ]
+        }
+        manifest_path = Path(self.temp_dir.name) / "manifest.json"
+        manifest_path.write_text("{}", encoding="utf-8")
+        validated = {"batch_id": "batch-v4", "artifacts": []}
+        cache_token = predictor_ui._comparison_cache.set({})
+        try:
+            with (
+                mock.patch.object(
+                    predictor_ui.mushroom_ml_version_registry,
+                    "installed_manifest_path",
+                    return_value=manifest_path,
+                ) as installed_path,
+                mock.patch.object(
+                    predictor_ui.mushroom_ml_model_catalog,
+                    "validate_batch_manifest",
+                    return_value=validated,
+                ) as validate_manifest,
+            ):
+                first = predictor_ui._installed_manifests(
+                    registry, version_ids={"biology_v4"}
+                )
+                second = predictor_ui._installed_manifests(
+                    registry, version_ids={"biology_v4"}
+                )
+        finally:
+            predictor_ui._comparison_cache.reset(cache_token)
+
+        self.assertEqual(first, {"biology_v4": validated})
+        self.assertEqual(second, first)
+        self.assertEqual(installed_path.call_count, 1)
+        self.assertEqual(installed_path.call_args.args[1], "biology_v4")
+        validate_manifest.assert_called_once()
+
+    def test_multiversion_result_loads_only_selected_version_manifests(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        profiles_path = Path(self.temp_dir.name) / "profiles.json"
+        profiles_path.write_text('{"species_profiles": []}', encoding="utf-8")
+        selection = {
+            "version_id": "biology_v4",
+            "temporal_contract_id": "fixed_gap_7d_biology_v4",
+            "profile_id": "climatic_balance",
+            "estimator_id": "logistic_regression",
+            "horizon_days": 7,
+        }
+        registry = {"preferred_version_id": "biology_v4"}
+        predictor = mock.Mock()
+        predictor.season_phase.return_value = "in_season"
+        cache_token = predictor_ui._comparison_cache.set({})
+        try:
+            with (
+                mock.patch.object(
+                    predictor_ui.mushroom_ml_version_registry,
+                    "load_registry",
+                    return_value=registry,
+                ),
+                mock.patch.object(
+                    predictor_ui.mushroom_ml_model_catalog,
+                    "parse_selection_token",
+                    return_value={**selection, "token": "selection"},
+                ),
+                mock.patch.object(
+                    predictor_ui.mushroom_ml_multiversion_comparison,
+                    "operational_selections",
+                    return_value=[selection],
+                ),
+                mock.patch.object(
+                    predictor_ui,
+                    "_installed_manifests",
+                    return_value={"biology_v4": {"batch_id": "batch-v4"}},
+                ) as installed_manifests,
+                mock.patch.object(
+                    predictor_ui.mushroom_ml_multiversion_comparison,
+                    "compare_selection",
+                    return_value={"batch_id": "batch-v4", "members": []},
+                ),
+                mock.patch.object(
+                    predictor_ui.mushroom_ml_multiversion_comparison,
+                    "build_selected_operational_comparison",
+                    return_value={"selection_mode": "multiversion"},
+                ),
+                mock.patch.object(
+                    predictor_ui.mushroom_paths,
+                    "mushroom_profiles_path",
+                    return_value=profiles_path,
+                ),
+                mock.patch.object(predictor_ui, "_get_predictor", return_value=predictor),
+            ):
+                result = predictor_ui._multiversion_result(
+                    "boletus_edulis",
+                    "salteguet",
+                    date(2026, 8, 22),
+                    ["selection"],
+                )
+        finally:
+            predictor_ui._comparison_cache.reset(cache_token)
+
+        self.assertTrue(result["available"])
+        installed_manifests.assert_called_once_with(
+            registry,
+            version_ids={"biology_v4"},
+        )
+
+    def test_predictor_preferred_control_lists_installed_versions(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        catalog = {
+            "preferred_version_id": "biology_v3",
+            "runtime_batches": {
+                "altitude_v2": {"batch_id": "batch"},
+                "biology_v3": {"batch_id": "batch"},
+            },
+            "entries": [
+                {
+                    "version_id": "altitude_v2",
+                    "version_display_name": "Altitude V2",
+                },
+                {
+                    "version_id": "biology_v3",
+                    "version_display_name": "Biology V3",
+                },
+            ],
+        }
+
+        with (
+            mock.patch.object(
+                predictor_ui, "_multiversion_catalog_payload", return_value=catalog
+            ),
+            mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key),
+        ):
+            rendered = predictor_ui._preferred_version_control(
+                "boletus_edulis",
+                "salteguet",
+                date(2026, 8, 22),
+                compare_models=True,
+                selected_versions=["altitude_v2", "biology_v3"],
+            )
+
+        self.assertIn('name="predictor_action" value="set_preferred_version"', rendered)
+        self.assertIn('<select id="pred-preferred-version"', rendered)
+        self.assertIn('<option value="altitude_v2">', rendered)
+        self.assertIn('<option value="biology_v3" selected>', rendered)
+        self.assertIn("data-predictor-preferred-submit", rendered)
+        self.assertNotIn("pred-preferred-control", rendered)
+        self.assertNotIn("mvv=", rendered)
+
+    def test_multiversion_selection_drives_summary_week_strip_and_detail(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        with (
+            mock.patch.object(
+                predictor_ui, "_model_comparison", return_value={"ok": True}
+            ) as preferred_comparison,
+            mock.patch.object(
+                predictor_ui, "_render_interpretation_card", return_value="INTERPRETATION"
+            ),
+            mock.patch.object(
+                predictor_ui, "_render_model_comparison", return_value="PREFERRED_DETAIL"
+            ) as preferred_detail,
+            mock.patch.object(
+                predictor_ui,
+                "_multiversion_result",
+                return_value={
+                    "available": True,
+                    "operational_comparison": {
+                        "selection_mode": "multiversion",
+                        "selected_winners": [
+                            {
+                                "model_ref": {
+                                    "version_id": "biology_v3",
+                                    "estimator_id": "random_forest_restricted_v1",
+                                }
+                            }
+                        ],
+                    },
+                },
+            ) as selected_comparison,
+            mock.patch.object(
+                predictor_ui,
+                "_render_multiversion_result",
+                return_value="MULTIVERSION_DETAIL",
+            ),
+        ):
+            rendered = predictor_ui._render_query_result(
+                "boletus_edulis",
+                "salteguet",
+                date(2026, 8, 22),
+                {},
+                {},
+                compare_models=True,
+                selected_multiversion=["selection"],
+                selected_versions=["biology_v3"],
+            )
+
+        self.assertIn("MULTIVERSION_DETAIL", rendered)
+        self.assertNotIn("PREFERRED_DETAIL", rendered)
+        preferred_comparison.assert_not_called()
+        self.assertEqual(selected_comparison.call_count, 7)
+        self.assertIn("pred-week-strip", rendered)
+        self.assertIn("RF–V3", rendered)
+        self.assertIn("mvv=biology_v3", rendered)
+        preferred_detail.assert_not_called()
+
+    def test_prepared_multiversion_result_uses_the_requested_day(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        token = predictor_ui._prepared_response.set(
+            {
+                "request": {"target_date": "2026-08-22"},
+                "data": {
+                    "model_catalog": {"preferred_version_id": "biology_v4"},
+                    "species": {
+                        "boletus_edulis": {
+                            "multiversion_comparisons": {
+                                "2026-08-22": {"target_date": "2026-08-22"},
+                                "2026-08-23": {"target_date": "2026-08-23"},
+                            }
+                        }
+                    },
+                },
+            }
+        )
+        try:
+            result = predictor_ui._multiversion_result(
+                "boletus_edulis",
+                "salteguet",
+                date(2026, 8, 23),
+                ["selection"],
+            )
+        finally:
+            predictor_ui._prepared_response.reset(token)
+
+        self.assertEqual(result["target_date"], "2026-08-23")
+        self.assertEqual(result["preferred_version_id"], "biology_v4")
+
+    def test_multiversion_card_identifies_the_selected_algorithm_and_version(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        comparison = {
+            "selection_mode": "multiversion",
+            "scenario_consensus": [
+                {
+                    "result_key": "selected:fixed:h7",
+                    "temporal_family": "fixed",
+                    "horizon_days": 7,
+                    "status": "high",
+                    "eligible_family_count": 2,
+                    "eligible_estimator_ids": [
+                        "logistic_regression_reduced_v1",
+                        "random_forest_restricted_v1",
+                    ],
+                    "maximum_probability_gap": 0.04,
+                }
+            ],
+            "selected_winners": [
+                {
+                    "model_ref": {
+                        "version_id": "biology_v4",
+                        "temporal_contract_id": "fixed_gap_7d_biology_v4",
+                        "estimator_id": "rbf_svm_calibrated_v1",
+                        "horizon_days": 7,
+                    },
+                    "probability": 0.74,
+                    "validated": True,
+                    "applicability_status": "caution",
+                }
+            ],
+            "interpretation": {
+                "verdict": "favorable",
+                "reference_range": {"min": 0.74, "max": 0.74, "midpoint": 0.74},
+                "statistical_consensus": "unavailable",
+                "statistical_support": "limited",
+                "ecological_compatibility": "compatible",
+                "ecological_evidence": "high",
+                "fruiting_timing": "optimal",
+                "weather_signal": "recent_event",
+                "reason_codes": [],
+            },
+        }
+        with mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key):
+            rendered = predictor_ui._render_interpretation_card(
+                comparison,
+                "Edulis",
+                "Salteguet",
+                date(2026, 8, 22),
+            )
+
+        self.assertIn("SVM–V4", rendered)
+        self.assertIn("74%", rendered)
+        self.assertIn("ui.predictor_selected_model_caution", rendered)
+        self.assertIn("ui.predictor_multiversion_card_role", rendered)
+        self.assertIn("ui.predictor_consensus_window", rendered)
+        self.assertIn("ui.predictor_consensus_high", rendered)
+        self.assertIn("ui.predictor_consensus_gap", rendered)
+        self.assertIn("LR/RF", rendered)
+        self.assertNotIn("ui.predictor_consensus_unavailable", rendered)
+
+    def test_multiversion_card_exposes_scenario_evidence_and_internal_agreement(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        comparison = {
+            "selection_mode": "multiversion",
+            "minimum_roc_auc": 0.55,
+            "statistical_reliability_summary": {"status": "moderate"},
+            "consensus_summary": {
+                "status": "low",
+                "measurable_scenario_count": 1,
+                "eligible_scenario_count": 2,
+            },
+            "scenario_consensus": [
+                {
+                    "result_key": "selected:fixed:h7",
+                    "temporal_family": "fixed",
+                    "horizon_days": 7,
+                    "status": "single_family",
+                    "eligible_family_count": 1,
+                    "eligible_methodological_family_ids": ["logistic"],
+                    "eligible_estimator_ids": [
+                        "smooth_partial_pooling_logistic_v1",
+                        "smooth_shared_logistic_v1",
+                    ],
+                    "maximum_probability_gap": None,
+                    "methodological_families": [
+                        {
+                            "methodological_family_id": "logistic",
+                            "estimator_count": 2,
+                            "estimator_ids": [
+                                "smooth_partial_pooling_logistic_v1",
+                                "smooth_shared_logistic_v1",
+                            ],
+                            "internal_agreement_status": "high",
+                            "internal_maximum_probability_gap": 0.013612,
+                        }
+                    ],
+                }
+            ],
+            "selected_winners": [
+                {
+                    "model_ref": {
+                        "version_id": "biology_v6_windowed_smooth_hierarchical",
+                        "temporal_contract_id": "fixed_gap_7d_windowed_smooth_v1",
+                        "estimator_id": "smooth_partial_pooling_logistic_v1",
+                        "horizon_days": 7,
+                    },
+                    "probability": 0.596691,
+                    "validated": True,
+                    "applicability_status": "caution",
+                    "brier_delta_vs_prevalence": 0.106166,
+                    "roc_auc": 0.826087,
+                    "test_samples": 71,
+                }
+            ],
+            "interpretation": {
+                "verdict": "uncertain",
+                "reference_range": {"min": 0.596691, "max": 0.596691},
+                "statistical_support": "limited",
+                "ecological_compatibility": "compatible",
+                "ecological_evidence": "high",
+                "fruiting_timing": "optimal",
+                "weather_signal": "recent_event",
+                "reason_codes": ["statistical_support_limited"],
+            },
+        }
+        labels = {
+            "ui.predictor_consensus_window": "Window h{horizon}",
+            "ui.predictor_scenario_brier_gain": "Brier +{value}",
+            "ui.predictor_scenario_holdout": "hold-out {count}",
+            "ui.predictor_consensus_contrast_coverage": "contrast {measured}/{total}",
+        }
+        with mock.patch.object(
+            predictor_ui, "_lbl", side_effect=lambda key: labels.get(key, key)
+        ):
+            rendered = predictor_ui._render_interpretation_card(
+                comparison,
+                "Pinícola",
+                "Salteguet",
+                date(2026, 8, 24),
+            )
+
+        self.assertIn("59.7%", rendered)
+        self.assertIn("ui.predictor_statistical_support", rendered)
+        self.assertIn("Brier +0.106", rendered)
+        self.assertIn("ROC-AUC 0.826", rendered)
+        self.assertIn("hold-out 71", rendered)
+        self.assertIn("ui.predictor_internal_agreement", rendered)
+        self.assertIn('class="pred-scenario-evidence"', rendered)
+        self.assertIn('class="pred-scenario-row-main"', rendered)
+        self.assertIn('class="pred-scenario-internal"', rendered)
+        self.assertNotIn("<small>ui.predictor_internal_agreement", rendered)
+        self.assertIn("ui.predictor_statistical_support", rendered)
+        self.assertIn("ui.predictor_help_statistical_support", rendered)
+        self.assertIn("ui.predictor_help_consensus", rendered)
+        self.assertIn("ui.predictor_statistical_reliability_moderate", rendered)
+        self.assertIn("ui.predictor_consensus_low · contrast 1/2", rendered)
+        self.assertIn("pred-scenario-verdict-moderate", rendered)
+        self.assertIn("pred-scenario-verdict-low", rendered)
+
+    def test_operational_percentage_does_not_round_across_decision_band(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+
+        self.assertEqual(predictor_ui._operational_pct(0.596691), "59.7%")
+        self.assertEqual(predictor_ui._operational_pct(0.604), "60%")
+        self.assertEqual(predictor_ui._operational_pct(0.404), "40.4%")
+        self.assertEqual(
+            predictor_ui._probability_range({"min": 0.596691, "max": 0.604}),
+            "59.7%–60%",
+        )
+
+    def test_predictor_card_explains_operational_abstention_reasons(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        comparison = {
+            "selection_mode": "preferred_version",
+            "operational_result_keys": ["selected:fixed:h7"],
+            "selected_winners": [],
+            "selected:fixed:h7": {
+                "available": False,
+                "reason": "no_eligible_selected_member",
+                "horizon_days": 7,
+                "candidate_exclusions": [
+                    {
+                        "reasons": [
+                            "brier_not_better_than_prevalence",
+                            "roc_auc_below_minimum",
+                        ]
+                    },
+                    {"reasons": ["unacceptable_applicability"]},
+                ],
+            },
+            "interpretation": {
+                "verdict": "abstain",
+                "reference_range": None,
+                "statistical_consensus": "unavailable",
+                "statistical_support": "unavailable",
+                "ecological_compatibility": "compatible",
+                "ecological_evidence": "high",
+                "fruiting_timing": "optimal",
+                "weather_signal": "recent_event",
+                "reason_codes": [],
+            },
+        }
+
+        with mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key):
+            rendered = predictor_ui._render_interpretation_card(
+                comparison,
+                "Edulis",
+                "Salteguet",
+                date(2026, 8, 22),
+            )
+            compact = predictor_ui._compact_operational_abstention(comparison)
+
+        self.assertIn("ui.predictor_abstention_title", rendered)
+        self.assertIn("ui.predictor_abstention_brier", rendered)
+        self.assertIn("ui.predictor_abstention_auc_below_minimum", rendered)
+        self.assertIn("ui.predictor_abstention_applicability", rendered)
+        self.assertIn("ui.predictor_abstention_compact", compact)
+
+    def test_preferred_card_identifies_the_selected_algorithm_and_version(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        comparison = {
+            "selection_mode": "preferred_version",
+            "minimum_roc_auc": 0.55,
+            "selected_winners": [
+                {
+                    "model_ref": {
+                        "version_id": "biology_v4",
+                        "temporal_contract_id": "fixed_gap_7d_biology_v4",
+                        "estimator_id": "extra_trees_restricted_v1",
+                        "horizon_days": 7,
+                    },
+                    "probability": 0.68,
+                    "validated": True,
+                }
+            ],
+            "interpretation": {
+                "verdict": "favorable",
+                "reference_range": {"min": 0.68, "max": 0.68, "midpoint": 0.68},
+                "statistical_consensus": "unavailable",
+                "statistical_support": "limited",
+                "ecological_compatibility": "compatible",
+                "ecological_evidence": "high",
+                "fruiting_timing": "optimal",
+                "weather_signal": "recent_event",
+                "reason_codes": [],
+            },
+        }
+
+        with mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key):
+            rendered = predictor_ui._render_interpretation_card(
+                comparison,
+                "Edulis",
+                "Salteguet",
+                date(2026, 8, 22),
+            )
+
+        self.assertIn("ET–V4", rendered)
+        self.assertIn("68%", rendered)
+        self.assertIn("ui.predictor_active_version_role", rendered)
+        self.assertIn("ui.predictor_auc_gate_rule", rendered)
+
+    def test_multiversion_card_range_covers_all_selected_winners(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        comparison = {
+            "selection_mode": "multiversion",
+            "selected_winners": [
+                {
+                    "model_ref": {
+                        "version_id": "biology_v3",
+                        "temporal_contract_id": "fixed_gap_7d_biology_v3",
+                        "estimator_id": "extra_trees_restricted_v1",
+                        "horizon_days": 7,
+                    },
+                    "probability": 0.58,
+                    "validated": True,
+                },
+                {
+                    "model_ref": {
+                        "version_id": "biology_v4",
+                        "temporal_contract_id": "lag_event_biology_v4",
+                        "estimator_id": "random_forest_restricted_v1",
+                        "horizon_days": 5,
+                    },
+                    "probability": 0.41,
+                    "validated": True,
+                },
+            ],
+            "interpretation": {
+                "verdict": "uncertain",
+                "reference_range": {"min": 0.58, "max": 0.58, "midpoint": 0.58},
+                "statistical_consensus": "unavailable",
+                "statistical_support": "limited",
+                "ecological_compatibility": "compatible",
+                "ecological_evidence": "high",
+                "fruiting_timing": "optimal",
+                "weather_signal": "recent_event",
+                "reason_codes": [],
+            },
+        }
+
+        with mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key):
+            rendered = predictor_ui._render_interpretation_card(
+                comparison,
+                "Aereus",
+                "Olvan",
+                date(2026, 8, 26),
+            )
+
+        self.assertIn("41%–58%", rendered)
+        self.assertIn("ET–V3", rendered)
+        self.assertIn("RF–V4", rendered)
+
+    def test_setting_predictor_preferred_version_persists_and_releases_cache(self) -> None:
+        registry_path = Path(self.temp_dir.name) / "registry.json"
+        current = {"preferred_version_id": "altitude_v2", "versions": []}
+        updated = {"preferred_version_id": "biology_v3", "versions": []}
+        with (
+            mock.patch.object(
+                self.web_server.mushroom_ml_version_registry,
+                "ensure_seeded",
+                return_value=registry_path,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_ml_version_registry,
+                "load_registry",
+                return_value=current,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_ml_version_registry,
+                "set_preferred_version",
+                return_value=updated,
+            ) as set_preferred,
+            mock.patch.object(
+                self.web_server.mushroom_ml_version_registry, "save_registry"
+            ) as save_registry,
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "release_predictor_cache",
+                return_value=3,
+            ),
+        ):
+            result = self.web_server.set_mushroom_predictor_preferred_version(
+                "biology_v3"
+            )
+
+        set_preferred.assert_called_once_with(current, "biology_v3")
+        save_registry.assert_called_once_with(registry_path, updated)
+        self.assertEqual(result["preferred_version_id"], "biology_v3")
+        self.assertEqual(result["released_predictor_instances"], 3)
 
     def seed_empty_mushroom_observations(self, data_dir: Path) -> None:
         self.web_server.default_store().ensure_seeded()
@@ -5088,9 +5883,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "dataset_cache": {"status": "valid", "file_count": 10, "size_bytes": 6306367027},
                 },
             }],
-            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
             eligible_observation_count=126,
-            pending_species_count=3,
             jobs=[],
             pipeline="shared",
             pairing_required=True,
@@ -5106,8 +5899,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('name="worker_action" value="probe_worker_claim"', page)
         self.assertIn('name="worker_action" value="probe_worker_snapshot_transport"', page)
         self.assertIn("Test input delivery", page)
-        self.assertIn('name="worker_action" value="run_worker_candidate_rebuild"', page)
-        self.assertIn("Run candidate rebuild", page)
+        self.assertNotIn('name="worker_action" value="run_worker_candidate_rebuild"', page)
+        self.assertNotIn("Run candidate rebuild", page)
         self.assertNotIn('name="scope" value="pending"', page)
         self.assertNotIn('name="scope" value="species"', page)
         self.assertNotIn('name="species_id"', page)
@@ -5289,9 +6082,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_workers_page_exposes_separate_operational_and_benchmark_actions(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
-            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
             eligible_observation_count=125,
-            pending_species_count=0,
             jobs=[],
             pipeline="legacy",
         )
@@ -5347,9 +6138,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         }
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
-            profiles=[],
             eligible_observation_count=0,
-            pending_species_count=0,
             jobs=[],
             pipeline="shared",
             local_ha_compute_enabled=True,
@@ -5456,9 +6245,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_workers_page_starts_with_no_benchmark_profiles_selected(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
-            profiles=[],
             eligible_observation_count=0,
-            pending_species_count=0,
             jobs=[],
             pipeline="shared",
             local_ha_compute_enabled=True,
@@ -5502,13 +6289,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_workers_page_does_not_offer_home_assistant_or_species_scope(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
-            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
             eligible_observation_count=125,
-            pending_species_count=2,
             jobs=[],
             pipeline="shared",
-            selected_scope="species",
-            selected_species_id="boletus_pinophilus",
         )
 
         self.assertNotIn('name="scope" value="species"', page)
@@ -5518,9 +6301,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_workers_page_offers_local_ha_only_when_local_compute_is_enabled(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
-            profiles=[],
             eligible_observation_count=125,
-            pending_species_count=0,
             jobs=[],
             pipeline="shared",
             local_ha_compute_enabled=True,
@@ -5552,9 +6333,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         }
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[worker],
-            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
             eligible_observation_count=125,
-            pending_species_count=2,
             jobs=[],
             pipeline="shared",
             operational_enabled=True,
@@ -5566,25 +6345,6 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Default complete-update worker", page)
         self.assertIn("Default", page)
         self.assertNotIn('class="catalog-alert error worker-default-issue"', page)
-
-        legacy_query_page = self.web_server.mushroom_workers_ui.render_page(
-            worker_statuses=[worker],
-            profiles=[{"species_id": "boletus_pinophilus", "scientific_name": "Boletus pinophilus"}],
-            eligible_observation_count=125,
-            pending_species_count=2,
-            jobs=[],
-            pipeline="shared",
-            operational_enabled=True,
-            default_executor="worker:worker_12345678",
-            selected_scope="species",
-            selected_species_id="boletus_pinophilus",
-        )
-
-        self.assertNotIn('name="scope" value="species"', legacy_query_page)
-        self.assertIn('name="executor" value="worker:worker_12345678" checked', legacy_query_page)
-        self.assertNotIn('name="executor" value="home_assistant"', legacy_query_page)
-        self.assertNotIn('name="species_id"', legacy_query_page)
-        self.assertNotIn('class="primary" type="submit" disabled', legacy_query_page)
 
     def test_workers_page_does_not_fall_back_silently_when_default_worker_is_offline(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
@@ -5599,9 +6359,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "job_api": "candidate_rebuild_v0",
                 },
             }],
-            profiles=[],
             eligible_observation_count=125,
-            pending_species_count=2,
             jobs=[],
             pipeline="shared",
             operational_enabled=True,
@@ -5639,9 +6397,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=worker_statuses,
-            profiles=[],
             eligible_observation_count=0,
-            pending_species_count=0,
             jobs=[],
             pipeline="legacy",
         )
@@ -6047,9 +6803,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ) as start_training:
             self.web_server.register_mushroom_worker_heartbeat(heartbeat)
             create_status, created = self.web_server.create_mushroom_worker_candidate_rebuild(
-                "worker_12345678",
-                promotion_eligible=True,
-                full_update=True,
+                "worker_12345678"
             )
             claim_status, claimed = self.web_server.claim_mushroom_worker_job(
                 {"worker_id": "worker_12345678"}
@@ -6168,6 +6922,67 @@ class AuthDeviceLimitTests(unittest.TestCase):
             worker_id="worker_12345678",
             claim_token="claim",
         )
+
+    def test_predictor_runtime_archive_uses_prepared_media_cache(self) -> None:
+        archive_dir = Path(self.temp_dir.name) / "media" / "runtime-cache" / "archives"
+        archive_path = archive_dir / "runtime.tar"
+        manifest = {
+            "fingerprint": "sha256:" + "a" * 64,
+            "files": [],
+        }
+        location = self.web_server.mushroom_paths.PredictorRuntimeArchiveLocation(
+            path=archive_dir,
+            preferred_path=archive_dir,
+            fallback_used=False,
+        )
+        with (
+            mock.patch.object(
+                self.web_server,
+                "authenticate_mushroom_worker",
+                return_value=True,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "authorize_input_download",
+                return_value={
+                    "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+                    "runtime_manifest": manifest,
+                },
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "validate_manifest",
+                return_value=manifest,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "build_manifest",
+                return_value=(manifest, {}),
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_paths,
+                "prepare_predictor_runtime_archive_dir",
+                return_value=location,
+            ) as prepare_cache,
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "build_runtime_archive",
+                return_value=archive_path,
+            ) as build_archive,
+        ):
+            status, response = self.web_server.resolve_mushroom_predictor_runtime_download(
+                job_id="worker_job_predictor123",
+                logical_path="",
+                worker_id="worker_12345678",
+                claim_token="claim",
+                auth_token="secret",
+                archive_only=True,
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response, archive_path)
+        prepare_cache.assert_called_once_with()
+        build_archive.assert_called_once_with(archive_dir, manifest, {})
 
     def test_worker_probe_lifecycle_reassigns_only_before_start_and_cancels_cooperatively(self) -> None:
         registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
@@ -6320,9 +7135,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ]
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=workers,
-            profiles=[],
             eligible_observation_count=0,
-            pending_species_count=0,
             jobs=[{
                 "job_id": "worker_job_12345678",
                 "job_type": "worker_claim_probe",
@@ -6476,29 +7289,18 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
 
     def test_worker_storage_preflight_reports_visible_maintenance_summary(self) -> None:
-        bundle_report = {
-            "discarded_terminal": ["worker_job_oldterminal"],
-            "discarded_orphan": ["worker_job_oldorphan1"],
-            "discarded_staging": [],
-            "errors": ["bundle warning"],
-        }
-        result_report = {
-            "discarded": ["worker_job_oldresult1"],
-            "errors": [],
-        }
-        with mock.patch.object(
-            self.web_server.mushroom_worker_jobs,
-            "load_queue",
-            return_value={"schema_version": "0.1", "jobs": []},
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_ML_STORAGE_RECONCILIATION_APPLY": "false"},
         ), mock.patch.object(
-            self.web_server.mushroom_worker_transport,
-            "cleanup_coordinator_bundles",
-            return_value=bundle_report,
-        ), mock.patch.object(
-            self.web_server.mushroom_worker_results,
-            "cleanup_promoted_results",
-            return_value=result_report,
-        ), mock.patch.object(
+            self.web_server.mushroom_storage_reconciler,
+            "reconcile_worker_storage",
+            return_value={
+                "summary": {"removed_entries": 3},
+                "execution": {},
+                "errors": ["bundle warning"],
+            },
+        ) as reconcile, mock.patch.object(
             self.web_server.mushroom_worker_jobs,
             "pending_worker_job_cleanups",
             return_value=["worker_job_remotecleanup"],
@@ -6509,8 +7311,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(report["removed"], 3)
         self.assertEqual(report["pending_worker"], 1)
         self.assertEqual(report["errors"], ["bundle warning"])
+        self.assertFalse(reconcile.call_args.kwargs["apply"])
         self.assertIn("3", notice)
         self.assertIn("1", notice)
+
+    def test_storage_reconciliation_apply_requires_explicit_true(self) -> None:
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("RAINMAPPER_ML_STORAGE_RECONCILIATION_APPLY", None)
+            self.assertFalse(self.web_server.storage_reconciliation_apply_enabled())
+        with mock.patch.dict(
+            os.environ,
+            {"RAINMAPPER_ML_STORAGE_RECONCILIATION_APPLY": "true"},
+        ):
+            self.assertTrue(self.web_server.storage_reconciliation_apply_enabled())
 
     def test_workers_recent_jobs_sort_mixed_timezones_by_instant(self) -> None:
         local_started = "2026-07-20T21:08:09+02:00"
@@ -6556,110 +7369,6 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn(">Local HA</strong>", rendered)
         self.assertNotIn(">Ercotzq4lmji</strong>", rendered)
 
-    def test_worker_promotion_runs_in_background_and_persists_progress(self) -> None:
-        jobs_path = Path(self.temp_dir.name) / "worker-promotion-jobs.json"
-        input_bundle = {
-            "job_id": "worker_job_promote123",
-            "job_spec_id": "sha256:" + "a" * 64,
-            "snapshot_id": "sha256:" + "b" * 64,
-            "input_file_count": 7,
-            "input_size_bytes": 1234,
-        }
-        created = self.web_server.mushroom_worker_jobs.create_candidate_rebuild(
-            jobs_path,
-            worker_id="worker_aaaaaaaa",
-            worker_display_name="M1 personal",
-            input_bundle=input_bundle,
-            job_id="worker_job_promote123",
-            promotion_eligible=True,
-        )
-        claimed = self.web_server.mushroom_worker_jobs.claim_next(
-            jobs_path,
-            worker_id="worker_aaaaaaaa",
-            claim_token="claim-secret",
-        )
-        self.web_server.mushroom_worker_jobs.start_job(
-            jobs_path,
-            job_id=created["job_id"],
-            worker_id="worker_aaaaaaaa",
-            claim_token=str(claimed["claim_token"]),
-        )
-        self.web_server.mushroom_worker_jobs.finish_job(
-            jobs_path,
-            job_id=created["job_id"],
-            worker_id="worker_aaaaaaaa",
-            claim_token=str(claimed["claim_token"]),
-            status="complete",
-            result={
-                "verification_status": "verified",
-                "snapshot_id": input_bundle["snapshot_id"],
-                "job_spec_id": input_bundle["job_spec_id"],
-                "input_file_count": 7,
-                "input_size_bytes": 1234,
-                "dataset_fingerprint": "sha256:" + "c" * 64,
-                "result_manifest_id": "sha256:" + "d" * 64,
-                "verified_artifacts": 9,
-                "comparison_status": "equivalent",
-            },
-        )
-
-        def promote(*_args, **kwargs):
-            kwargs["progress_callback"](
-                58,
-                "Validating live inputs (9/17)",
-                "Checking authoritative GIS inputs.",
-            )
-            return {"artifact_count": 9}
-
-        with mock.patch.dict(
-            os.environ,
-            {
-                "RAINMAPPER_WORKER_API_ENABLED": "true",
-                "RAINMAPPER_WORKER_AUTH_REQUIRED": "true",
-                "RAINMAPPER_WORKER_OPERATIONAL_ENABLED": "true",
-            },
-        ), mock.patch.object(
-            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
-        ), mock.patch.object(
-            self.web_server.threading, "Thread"
-        ) as thread_class, mock.patch.object(
-            self.web_server.mushroom_worker_results,
-            "promote_verified_candidate",
-            side_effect=promote,
-        ), mock.patch.object(
-            self.web_server.mushroom_model_state,
-            "clear_all_pending",
-        ), mock.patch.object(
-            self.web_server,
-            "discard_mushroom_worker_input_bundle",
-        ) as discard_input:
-            status, response = self.web_server.promote_mushroom_worker_candidate(
-                created["job_id"]
-            )
-            duplicate_status, duplicate = self.web_server.promote_mushroom_worker_candidate(
-                created["job_id"]
-            )
-            promoting = self.web_server.mushroom_worker_jobs.get_job(
-                jobs_path,
-                job_id=created["job_id"],
-            )
-            target = thread_class.call_args.kwargs["target"]
-            args = thread_class.call_args.kwargs["args"]
-            target(*args)
-
-        promoted = self.web_server.mushroom_worker_jobs.get_job(
-            jobs_path,
-            job_id=created["job_id"],
-        )
-        self.assertEqual(status, 202)
-        self.assertTrue(response["promoting"])
-        self.assertEqual(duplicate_status, 409)
-        self.assertIn("already running", duplicate["error"])
-        self.assertEqual(promoting["promotion_status"], "promoting")
-        self.assertEqual(promoted["promotion_status"], "promoted")
-        self.assertEqual(promoted["promotion_percent"], 100)
-        discard_input.assert_called_once_with(promoted)
-        thread_class.return_value.start.assert_called_once_with()
 
     def test_workers_page_shows_promotion_progress_and_hides_duplicate_action(self) -> None:
         rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(
@@ -6687,9 +7396,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_workers_page_discards_terminal_unpromoted_candidate_through_modal(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
-            profiles=[],
             eligible_observation_count=0,
-            pending_species_count=0,
             jobs=[{
                 "job_id": "worker_job_discard123",
                 "job_type": "worker_candidate_rebuild",
@@ -6744,7 +7451,6 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "input_size_bytes": 1234,
             },
             job_id=job_id,
-            promotion_eligible=True,
         )
         claimed = self.web_server.mushroom_worker_jobs.claim_next(
             jobs_path,
@@ -6811,9 +7517,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_workers_page_shows_persistent_probe_job_without_rebuild_modal_link(self) -> None:
         page = self.web_server.mushroom_workers_ui.render_page(
             worker_statuses=[],
-            profiles=[],
             eligible_observation_count=0,
-            pending_species_count=0,
             jobs=[{
                 "job_id": "worker_job_12345678",
                 "job_type": "worker_claim_probe",
@@ -6994,17 +7698,24 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(status, 409)
         self.assertIn("active-generation training must complete", response["error"])
 
-    def test_external_full_update_restores_runtime_batch_when_promotion_fails(self) -> None:
+    def test_external_full_update_restores_registry_slots_when_promotion_fails(self) -> None:
         models_root = Path(self.temp_dir.name) / "models"
         models_root.mkdir()
-        descriptor = models_root / "runtime-batch.json"
-        previous = b'{"batch_id":"previous"}\n'
-        descriptor.write_bytes(previous)
+        registry_path = Path(self.temp_dir.name) / "registry.json"
+        previous_registry = json.loads(
+            Path("mushroom-data/mushroom_ml_version_registry.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        registry_path.write_text(
+            json.dumps(previous_registry, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
 
         def install(*_args, **_kwargs):
             installed = models_root / "batches" / "new-operational"
             installed.mkdir(parents=True)
-            descriptor.write_text('{"batch_id":"new-operational"}\n', encoding="utf-8")
+            (installed / "manifest.json").write_text("{}\n", encoding="utf-8")
             return {"batch_id": "new-operational", "status": "verified_and_installed"}
 
         with mock.patch.object(
@@ -7012,9 +7723,17 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "mushroom_ml_models_dir",
             return_value=models_root,
         ), mock.patch.object(
+            self.web_server.mushroom_paths,
+            "mushroom_ml_version_registry_path",
+            return_value=registry_path,
+        ), mock.patch.object(
             self.web_server.mushroom_ml_multiversion_transport,
             "install_staged_operational_result",
             side_effect=install,
+        ), mock.patch.object(
+            self.web_server.mushroom_ml_version_registry,
+            "install_batch_generations",
+            return_value=previous_registry,
         ), mock.patch.object(
             self.web_server.mushroom_worker_results,
             "promote_verified_candidate",
@@ -7034,8 +7753,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "worker_job_operational123",
             )
 
-        self.assertEqual(previous, descriptor.read_bytes())
+        self.assertEqual(previous_registry, json.loads(registry_path.read_text(encoding="utf-8")))
         self.assertFalse((models_root / "batches" / "new-operational").exists())
+        self.assertFalse((models_root / "runtime-batch.json").exists())
 
     def test_completed_linked_operational_job_starts_full_update_promotion_automatically(self) -> None:
         jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
@@ -7177,7 +7897,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 self.assertIn("Local Home Assistant compute is not enabled", message)
                 self.assertTrue(is_error)
 
-    def test_workers_post_maps_legacy_scopes_to_full_external_rebuild(self) -> None:
+    def test_workers_post_ignores_legacy_scope_fields_for_full_external_rebuild(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         for scope, species_id in (("pending", ""), ("species", "boletus_pinophilus")):
             with self.subTest(scope=scope), mock.patch.dict(
@@ -7201,13 +7921,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 )
 
                 self.assertEqual("./workers", redirect)
-                start.assert_called_once_with(
-                    "worker_12345678",
-                    promotion_eligible=True,
-                    reconstruction_scope="all",
-                    species_id="",
-                    full_update=True,
-                )
+                start.assert_called_once_with("worker_12345678")
                 message, is_error = self.web_server.mushroom_workers_flash()
                 self.assertEqual(message, "")
                 self.assertFalse(is_error)

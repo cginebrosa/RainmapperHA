@@ -5,8 +5,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, mock
 
-import joblib
-
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_benchmark_reports as benchmark_reports
 from rainmapper_core import mushroom_ml_multiversion_plan
@@ -16,158 +14,23 @@ from rainmapper_core import mushroom_ml_version_registry
 
 
 REGISTRY_PATH = Path(__file__).resolve().parents[1] / "mushroom-data/mushroom_ml_version_registry.json"
+REVISION_VECTOR = {
+    "observations_revision": "sha256:observations",
+    "weather_generation_id": "weather-generation",
+    "weather_manifest_sha256": "sha256:weather",
+    "sites_revision": "sha256:sites",
+    "stations_revision": "sha256:stations",
+    "catalogs_revision": "sha256:catalogs",
+    "gis_revision": "sha256:gis",
+    "training_contract_version": "registry-2.0",
+}
 
 
 class MushroomMLMultiversionTransportTests(TestCase):
-    def test_complete_benchmark_is_reused_as_candidate_without_refitting(self) -> None:
-        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
-        version_id = "altitude_v2"
-        profile_key = "altitude_v2/common_idw"
-        source_batch_id = "benchmark-reuse-v2"
-        candidate_batch_id = "candidate-reuse-v2"
-        plan = mushroom_ml_multiversion_plan.build_plan(
-            registry,
-            batch_id=source_batch_id,
-            snapshot_id="sha256:" + "7" * 64,
-            generation_ids={version_id: f"{version_id}_{source_batch_id}"},
-            species_ids=["boletus_edulis"],
-            version_ids=[version_id],
-            profile_keys=[profile_key],
-        )
-        samples = [
-            {
-                "sample_id": f"sample-{index}",
-                "prediction_target": "favorable" if index % 2 else "unfavorable",
-                "predictive_features": {"test_feature": float(index)},
-                "quality": {"training_eligible": True},
-                "metadata": {
-                    "species_id": "boletus_edulis",
-                    "area_id": "area-a",
-                    "target_date": f"2025-03-{index + 1:02d}",
-                },
-            }
-            for index in range(20)
-        ]
-        benchmark = {
-            "feature_set": {"predictive_feature_cols": ["test_feature"]},
-            "samples": samples,
-        }
-        benchmarks = {
-            trainer.benchmark_key(version_id, contract, "common_idw"): benchmark
-            for contract in ("fixed_gap_7d_altitude_v2", "lag_event_altitude_v2")
-        }
-        with TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            produced_root = root / "produced"
-            batch_dir, manifest = trainer.write_batch(
-                registry, plan, benchmarks, models_root=produced_root
-            )
-            quality = batch_dir / "quality-catalog.json"
-            quality.write_text(
-                json.dumps(
-                    {
-                        "schema_version": "1.0",
-                        "kind": "mushroom_ml_quality_catalog",
-                        "snapshot_id": plan["snapshot_id"],
-                        "entries": [
-                            {
-                                "version_id": version_id,
-                                "profile_id": "common_idw",
-                            }
-                        ],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            training_inputs = batch_dir / "training-input-manifest.json"
-            training_inputs.write_text(
-                json.dumps(
-                    {
-                        "schema_version": "0.2",
-                        "kind": "mushroom_rebuild_input_manifest",
-                        "snapshot_id": plan["snapshot_id"],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            manifest.update(
-                {
-                    "job_purpose": "benchmark",
-                    "operational_candidate_trained": False,
-                    "quality_catalog": {
-                        "path": f"batches/{source_batch_id}/quality-catalog.json",
-                        "sha256": trainer.sha256(quality),
-                    },
-                    "training_input_manifest": {
-                        "path": f"batches/{source_batch_id}/training-input-manifest.json",
-                        "sha256": trainer.sha256(training_inputs),
-                    },
-                }
-            )
-            (batch_dir / "manifest.json").write_text(
-                json.dumps(manifest), encoding="utf-8"
-            )
-            models = root / "models"
-            source_archive = models / "benchmarks" / source_batch_id
-            source_archive.parent.mkdir(parents=True)
-            shutil.copytree(batch_dir, source_archive)
-            report = {
-                "batch_id": source_batch_id,
-                "snapshot_id": plan["snapshot_id"],
-                "selection": {
-                    "profiles": [
-                        {
-                            "profile_key": profile_key,
-                            "version_id": version_id,
-                            "profile_id": "common_idw",
-                        }
-                    ]
-                },
-            }
-            with mock.patch.object(
-                transport.mushroom_ml_benchmark_reports,
-                "load_report",
-                return_value=report,
-            ):
-                archived = transport.archive_benchmark_as_candidate(
-                    models_root=models,
-                    registry_path=REGISTRY_PATH,
-                    benchmark_batch_id=source_batch_id,
-                    version_id=version_id,
-                    candidate_batch_id=candidate_batch_id,
-                    job_id="worker_job_reusev2",
-                )
-
-            self.assertEqual("verified_benchmark_reuse", archived["artifact_preparation"])
-            self.assertEqual(plan["fit_count"], archived["reused_artifact_count"])
-            candidate_root = models / "candidates" / candidate_batch_id / "batch"
-            candidate_manifest = json.loads(
-                (candidate_root / "manifest.json").read_text(encoding="utf-8")
-            )
-            self.assertTrue(candidate_manifest["operational_candidate_trained"])
-            self.assertEqual(source_batch_id, candidate_manifest["source_benchmark_batch_id"])
-            source_artifact = manifest["artifacts"][0]
-            candidate_artifact = candidate_manifest["artifacts"][0]
-            source_bundle = joblib.load(
-                source_archive
-                / Path(source_artifact["path"]).relative_to(Path("batches") / source_batch_id)
-            )
-            candidate_bundle = joblib.load(
-                candidate_root
-                / Path(candidate_artifact["path"]).relative_to(
-                    Path("batches") / candidate_batch_id
-                )
-            )
-            self.assertEqual(
-                joblib.hash(source_bundle["model"]), joblib.hash(candidate_bundle["model"])
-            )
-            self.assertEqual(
-                source_bundle["training_row_count"], candidate_bundle["training_row_count"]
-            )
 
     def test_operational_result_stays_staged_until_explicit_install(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
-        active_version = registry["active_version_id"]
+        active_version = "altitude_v2"
         plan = mushroom_ml_multiversion_plan.build_plan(
             registry,
             batch_id="batch-operational-transport",
@@ -207,6 +70,25 @@ class MushroomMLMultiversionTransportTests(TestCase):
             self.assertEqual(0, batch_manifest["failed_fit_count"])
             batch_manifest["job_purpose"] = "operational"
             batch_manifest["operational_candidate_trained"] = True
+            batch_manifest["input_revisions"] = REVISION_VECTOR
+            quality_path = batch_dir / "quality-catalog.json"
+            quality_path.write_text("{}", encoding="utf-8")
+            batch_manifest["quality_catalog"] = {
+                "path": f"batches/{batch_manifest['batch_id']}/quality-catalog.json",
+                "sha256": hashlib.sha256(quality_path.read_bytes()).hexdigest(),
+            }
+            training_input_path = batch_dir / "training-input-manifest.json"
+            training_input_path.write_text(
+                json.dumps({"snapshot_id": batch_manifest["snapshot_id"]}),
+                encoding="utf-8",
+            )
+            batch_manifest["training_input_manifest"] = {
+                "path": (
+                    f"batches/{batch_manifest['batch_id']}/"
+                    "training-input-manifest.json"
+                ),
+                "sha256": hashlib.sha256(training_input_path.read_bytes()).hexdigest(),
+            }
             (batch_dir / "manifest.json").write_text(
                 json.dumps(batch_manifest), encoding="utf-8"
             )
@@ -269,8 +151,11 @@ class MushroomMLMultiversionTransportTests(TestCase):
                 registry_path=REGISTRY_PATH,
                 models_root=models,
             )
-            self.assertEqual("verified_and_installed", installed["status"])
-            self.assertTrue((models / "runtime-batch.json").is_file())
+            self.assertEqual("verified_batch_installed", installed["status"])
+            self.assertFalse((models / "runtime-batch.json").exists())
+            self.assertTrue(
+                (models / "batches" / batch_manifest["batch_id"] / "manifest.json").is_file()
+            )
 
     def test_benchmark_result_is_archived_without_changing_runtime(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
@@ -351,6 +236,13 @@ class MushroomMLMultiversionTransportTests(TestCase):
                 created_at="2026-08-18T12:00:00+00:00",
             )
             report = report_bundle["report"]
+            quality_path = batch_dir / "quality-catalog.json"
+            quality_path.write_text(json.dumps({"entries": []}), encoding="utf-8")
+            training_input_path = batch_dir / "training-input-manifest.json"
+            training_input_path.write_text(
+                json.dumps({"snapshot_id": batch_manifest["snapshot_id"]}),
+                encoding="utf-8",
+            )
             batch_manifest["job_purpose"] = "benchmark"
             batch_manifest["operational_candidate_trained"] = False
             batch_manifest["benchmark_report"] = {
@@ -364,6 +256,17 @@ class MushroomMLMultiversionTransportTests(TestCase):
                     f"batches/{batch_manifest['batch_id']}/"
                     f"{benchmark_reports.PREDICTIONS_NAME}"
                 ),
+            }
+            batch_manifest["quality_catalog"] = {
+                "path": f"batches/{batch_manifest['batch_id']}/quality-catalog.json",
+                "sha256": trainer.sha256(quality_path),
+            }
+            batch_manifest["training_input_manifest"] = {
+                "path": (
+                    f"batches/{batch_manifest['batch_id']}/"
+                    "training-input-manifest.json"
+                ),
+                "sha256": trainer.sha256(training_input_path),
             }
             (batch_dir / "manifest.json").write_text(
                 json.dumps(batch_manifest), encoding="utf-8"
@@ -428,7 +331,12 @@ class MushroomMLMultiversionTransportTests(TestCase):
                 ["biology_v3/core"], verification["selection"]["profile_keys"]
             )
             self.assertFalse((models_root / "runtime-batch.json").exists())
-            self.assertTrue((models_root / "benchmarks" / "batch-transport" / "manifest.json").is_file())
+            benchmark_root = models_root / "benchmarks" / "batch-transport"
+            self.assertFalse((benchmark_root / "manifest.json").exists())
+            self.assertTrue(
+                (benchmark_root / benchmark_reports.EVIDENCE_MANIFEST_NAME).is_file()
+            )
+            self.assertEqual("evidence_only", verification["storage_state"])
             self.assertFalse((staging_root / job_id / "multiversion").exists())
 
     def test_failed_finalization_keeps_staged_result_for_diagnosis(self) -> None:

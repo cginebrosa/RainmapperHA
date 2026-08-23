@@ -206,25 +206,36 @@ class MushroomWorkerResultsTests(unittest.TestCase):
             encoding="utf-8",
         )
 
+        jobs = [
+            {
+                "job_id": self.job_id,
+                "job_type": "worker_candidate_rebuild",
+                "promotion_status": "promoted",
+            },
+            {
+                "job_id": promoted_ml_id,
+                "job_type": "worker_ml_train_v0",
+                "promotion_status": "promoted",
+            },
+            {
+                "job_id": pending_id,
+                "job_type": "worker_candidate_rebuild",
+                "promotion_status": "pending",
+            },
+        ]
+        dry_run = mushroom_worker_results.cleanup_promoted_results(
+            result_root,
+            jobs,
+            apply=False,
+        )
+        self.assertCountEqual(dry_run["planned"], [self.job_id, promoted_ml_id])
+        self.assertEqual(dry_run["discarded"], [])
+        self.assertTrue(promoted_rebuild.is_dir())
+        self.assertTrue(promoted_ml.is_dir())
+
         report = mushroom_worker_results.cleanup_promoted_results(
             result_root,
-            [
-                {
-                    "job_id": self.job_id,
-                    "job_type": "worker_candidate_rebuild",
-                    "promotion_status": "promoted",
-                },
-                {
-                    "job_id": promoted_ml_id,
-                    "job_type": "worker_ml_train_v0",
-                    "promotion_status": "promoted",
-                },
-                {
-                    "job_id": pending_id,
-                    "job_type": "worker_candidate_rebuild",
-                    "promotion_status": "pending",
-                },
-            ],
+            jobs,
         )
 
         self.assertCountEqual(report["discarded"], [self.job_id, promoted_ml_id])
@@ -345,7 +356,7 @@ class MushroomWorkerResultsTests(unittest.TestCase):
 
         self.assertEqual(promotion["status"], "promoted")
         self.assertEqual(promotion["artifact_count"], 9)
-        self.assertEqual(promotion["backup_retention_limit"], 2)
+        self.assertEqual(promotion["backup_retention_limit"], 1)
         self.assertEqual(
             verify_live_inputs.call_args.kwargs["gis_hash_cache_path"],
             self.input_root.resolve() / ".gis-hash-cache.json",
@@ -434,7 +445,7 @@ class MushroomWorkerResultsTests(unittest.TestCase):
         for payload in (rebased_weather, rebased_features, rebased_model):
             self.assertNotIn("/var/lib/rainmapper-worker", json.dumps(payload))
 
-    def test_promotion_backup_retention_keeps_only_two_newest_known_jobs(self) -> None:
+    def test_promotion_backup_retention_keeps_only_current_known_job(self) -> None:
         backup_root = self.live / ".worker-promotion-backups"
         backup_root.mkdir()
         jobs = [
@@ -455,9 +466,9 @@ class MushroomWorkerResultsTests(unittest.TestCase):
             current_job_id=jobs[-1],
         )
 
-        self.assertEqual(removed, [jobs[0]])
+        self.assertEqual(removed, [jobs[1], jobs[0]])
         self.assertFalse((backup_root / jobs[0]).exists())
-        self.assertTrue((backup_root / jobs[1]).is_dir())
+        self.assertFalse((backup_root / jobs[1]).exists())
         self.assertTrue((backup_root / jobs[2]).is_dir())
         self.assertTrue(unrelated.is_dir())
 
@@ -504,107 +515,6 @@ class MushroomWorkerResultsTests(unittest.TestCase):
                     weather_data_dir=self.root / "weather",
                     gis_root=self.root / "gis",
                 )
-
-    def test_partial_candidate_merge_preserves_out_of_scope_rows_and_models(self) -> None:
-        live_outputs = mushroom_rebuild_pipeline.RebuildOutputPaths.under(self.root / "partial-live")
-        staged_outputs = mushroom_rebuild_pipeline.RebuildOutputPaths.under(self.root / "partial-staged")
-        candidate = self.root / "partial-candidate"
-        candidate.mkdir()
-
-        def write_json(path: Path, payload: dict[str, object]) -> None:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(payload), encoding="utf-8")
-
-        live_rows = [
-            {"observation_id": "obs_a", "species_id": "species_a", "marker": "old-a"},
-            {"observation_id": "obs_b", "species_id": "species_b", "marker": "keep-b"},
-        ]
-        candidate_rows = [
-            {"observation_id": "obs_a", "species_id": "species_a", "marker": "new-a"},
-            {"observation_id": "obs_b", "species_id": "species_b", "marker": "wrong-b"},
-        ]
-        write_json(
-            live_outputs.gis_reconstruction,
-            {"generated_at": "old", "results": live_rows, "result_count": 2},
-        )
-        write_json(
-            candidate / "mushroom_gis_observation_reconstruction.json",
-            {"generated_at": "new", "results": candidate_rows, "result_count": 2},
-        )
-        weather_live = [
-            {**row, "weather_station_code": "ST", "data_gaps": []}
-            for row in live_rows
-        ]
-        weather_candidate = [
-            {**row, "weather_station_code": "ST", "data_gaps": []}
-            for row in candidate_rows
-        ]
-        write_json(live_outputs.weather_json, {"rows": weather_live, "summary": {"observations": 2}})
-        write_json(
-            candidate / "mushroom_observations_weather_features.json",
-            {"generated_at": "new", "rows": weather_candidate, "summary": {"observations": 2}},
-        )
-        feature_live = [
-            {**row, "weather_gaps": [], "gis_gaps": [], "feature_gaps": []}
-            for row in live_rows
-        ]
-        feature_candidate = [
-            {**row, "weather_gaps": [], "gis_gaps": [], "feature_gaps": []}
-            for row in candidate_rows
-        ]
-        write_json(live_outputs.features_json, {"rows": feature_live, "summary": {"observations": 2}})
-        write_json(
-            candidate / "mushroom_observation_features_v0.json",
-            {"generated_at": "new", "rows": feature_candidate, "summary": {"observations": 2}},
-        )
-        live_models = [
-            {"species_id": "species_a", "marker": "old-a", "observation_count": 1, "favorable_count": 1, "unfavorable_count": 0},
-            {"species_id": "species_b", "marker": "keep-b", "observation_count": 1, "favorable_count": 0, "unfavorable_count": 1},
-        ]
-        candidate_models = [
-            {"species_id": "species_a", "marker": "new-a", "observation_count": 1, "favorable_count": 0, "unfavorable_count": 1},
-            {"species_id": "species_b", "marker": "wrong-b", "observation_count": 1, "favorable_count": 1, "unfavorable_count": 0},
-        ]
-        write_json(live_outputs.model_json, {"species_models": live_models, "summary": {"species": 2}})
-        write_json(
-            candidate / "mushroom_model_v0.json",
-            {"generated_at": "new", "species_models": candidate_models, "summary": {"species": 2}},
-        )
-        for path in (
-            live_outputs.weather_csv,
-            live_outputs.weather_report,
-            live_outputs.features_csv,
-            live_outputs.features_report,
-            live_outputs.model_report,
-        ):
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("old\n", encoding="utf-8")
-
-        result = mushroom_worker_results._merge_partial_candidate_outputs(
-            candidate,
-            live_outputs,
-            staged_outputs,
-            {
-                "scope": {
-                    "reconstruction_scope": "species",
-                    "selected_observation_ids": ["obs_a"],
-                    "pending_species_ids": ["species_a"],
-                }
-            },
-        )
-
-        merged_gis = json.loads(staged_outputs.gis_reconstruction.read_text(encoding="utf-8"))
-        merged_features = json.loads(staged_outputs.features_json.read_text(encoding="utf-8"))
-        merged_model = json.loads(staged_outputs.model_json.read_text(encoding="utf-8"))
-        self.assertEqual([row["marker"] for row in merged_gis["results"]], ["new-a", "keep-b"])
-        self.assertEqual([row["marker"] for row in merged_features["rows"]], ["new-a", "keep-b"])
-        self.assertEqual(
-            [row["marker"] for row in merged_model["species_models"]],
-            ["new-a", "keep-b"],
-        )
-        self.assertEqual(0, merged_model["summary"]["favorable_observations"])
-        self.assertEqual(2, merged_model["summary"]["species"])
-        self.assertEqual({"selected_observations": 1, "updated_species": 1, "model_species": 2}, result)
 
 
 class PromotedFeaturesIdentityTests(unittest.TestCase):

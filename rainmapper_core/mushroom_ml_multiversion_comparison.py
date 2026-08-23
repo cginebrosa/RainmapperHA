@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import date, timedelta
 import hashlib
 import json
+import math
 from pathlib import Path
+from time import monotonic
 from typing import Any, Mapping, MutableMapping, Sequence
 
 from rainmapper_core import mushroom_ml_model_catalog as catalog
@@ -19,11 +21,38 @@ from rainmapper_core import mushroom_ml_area_weather_runtime
 from rainmapper_core import mushroom_observation_context as weather_context
 from rainmapper_core import mushroom_weather_idw
 from rainmapper_core.mushroom_ml_predictor import _label
-from rainmapper_core.mushroom_prediction_interpretation import build_interpretation
+from rainmapper_core.mushroom_prediction_interpretation import (
+    HIGH_AGREEMENT_GAP,
+    LOW_AGREEMENT_GAP,
+    build_interpretation,
+)
 
 
 V2_FIXED_CONTRACT_ID = "fixed_gap_7d_altitude_v2"
 V2_LAG_CONTRACT_ID = "lag_event_altitude_v2"
+MIN_OPERATIONAL_ROC_AUC = 0.55
+HIGH_RELIABILITY_ROC_AUC = 0.80
+HIGH_RELIABILITY_RELATIVE_BRIER_GAIN = 0.20
+HIGH_RELIABILITY_TEST_SAMPLES = 50
+HIGH_RELIABILITY_MIN_CLASS_SAMPLES = 10
+MODERATE_RELIABILITY_ROC_AUC = 0.70
+MODERATE_RELIABILITY_RELATIVE_BRIER_GAIN = 0.10
+MODERATE_RELIABILITY_TEST_SAMPLES = 30
+MODERATE_RELIABILITY_MIN_CLASS_SAMPLES = 5
+
+METHODOLOGICAL_FAMILY_BY_ESTIMATOR = {
+    "logistic_regression_reduced_v1": "logistic",
+    "elastic_net_logistic_raw365_v1": "logistic",
+    "sparse_group_logistic_raw365_v1": "logistic",
+    "smooth_partial_pooling_logistic_v1": "logistic",
+    "smooth_shared_logistic_v1": "logistic",
+    "smooth_species_logistic_v1": "logistic",
+    "random_forest_restricted_v1": "bagged_trees",
+    "extra_trees_restricted_v1": "bagged_trees",
+    "hist_gradient_boosting_restricted_v1": "boosting",
+    "knn_distance_v1": "distance",
+    "rbf_svm_calibrated_v1": "kernel",
+}
 
 
 def _load_quality_catalog(
@@ -38,34 +67,6 @@ def _load_quality_catalog(
     if isinstance(quality_ref, Mapping):
         quality_path = Path(models_root) / str(quality_ref.get("path") or "")
         expected_sha = str(quality_ref.get("sha256") or "")
-    else:
-        target = registry.get("active_operational_target")
-        target = target if isinstance(target, Mapping) else {}
-        generation_id = str(target.get("generation_id") or "")
-        source_batch_id = ""
-        for version in registry.get("versions", []):
-            if not isinstance(version, Mapping):
-                continue
-            for generation in version.get("generations", []):
-                if (
-                    isinstance(generation, Mapping)
-                    and str(generation.get("generation_id") or "") == generation_id
-                ):
-                    source_batch_id = str(
-                        generation.get("source_benchmark_batch_id") or ""
-                    )
-                    break
-        if source_batch_id:
-            benchmark_root = Path(models_root) / "benchmarks" / source_batch_id
-            benchmark_manifest_path = benchmark_root / "manifest.json"
-            if benchmark_manifest_path.is_file():
-                benchmark_manifest = json.loads(
-                    benchmark_manifest_path.read_text(encoding="utf-8")
-                )
-                source_ref = benchmark_manifest.get("quality_catalog")
-                if isinstance(source_ref, Mapping):
-                    quality_path = benchmark_root / "quality-catalog.json"
-                    expected_sha = str(source_ref.get("sha256") or "")
     if quality_path is None or not quality_path.is_file() or not expected_sha:
         return {}
     content = quality_path.read_bytes()
@@ -128,11 +129,22 @@ def compare_prepared(
     comparison_cache: MutableMapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compare individual members; quality precedes output and no mean is made."""
+    started = monotonic()
+    phase_seconds: dict[str, float] = {}
+
+    def record_phase(name: str, phase_started: float) -> None:
+        phase_seconds[name] = phase_seconds.get(name, 0.0) + (
+            monotonic() - phase_started
+        )
+
+    phase_started = monotonic()
     checked = (
         checked_manifest
         if checked_manifest is not None
         else catalog.validate_batch_manifest(registry, manifest)
     )
+    record_phase("manifest_validation", phase_started)
+    phase_started = monotonic()
     quality_catalog = (
         comparison_cache.get("quality_catalog")
         if comparison_cache is not None
@@ -142,6 +154,8 @@ def compare_prepared(
         quality_catalog = _load_quality_catalog(registry, checked, models_root)
         if comparison_cache is not None:
             comparison_cache["quality_catalog"] = quality_catalog
+    record_phase("quality_catalog", phase_started)
+    phase_started = monotonic()
     artifact_index = (
         comparison_cache.get("artifact_index")
         if comparison_cache is not None
@@ -162,6 +176,7 @@ def compare_prepared(
         }
         if comparison_cache is not None:
             comparison_cache["artifact_index"] = artifact_index
+    record_phase("artifact_index", phase_started)
     results: list[dict[str, Any]] = []
     for raw_ref in model_refs:
         model_ref = (
@@ -181,6 +196,7 @@ def compare_prepared(
             )
             continue
         try:
+            phase_started = monotonic()
             sample = mushroom_ml_runtime_features.build_runtime_features(
                 model_ref,
                 target_date=target_date,
@@ -189,6 +205,7 @@ def compare_prepared(
                 area_series=area_series,
                 stations=stations,
             )
+            record_phase("runtime_features", phase_started)
             quality = dict(sample.get("quality") or {})
             if quality.get("inference_eligible") is False:
                 results.append(
@@ -217,6 +234,7 @@ def compare_prepared(
                 raise FileNotFoundError(
                     f"Model is not present in runtime batch: {model_ref.key}"
                 )
+            phase_started = monotonic()
             bundle = mushroom_ml_runtime_inference.load_exact_artifact(
                 registry,
                 checked,
@@ -226,11 +244,19 @@ def compare_prepared(
                 artifact_row=artifact_row,
                 validated_model_ref=model_ref,
             )
+            record_phase("artifact_load", phase_started)
+            phase_started = monotonic()
             prediction = mushroom_ml_runtime_inference.predict_bundle(
                 bundle,
                 dict(sample.get("predictive_features") or {}),
                 species_id=model_ref.species_id,
             )
+            record_phase("model_inference", phase_started)
+            phase_started = monotonic()
+            evaluation = mushroom_ml_quality_catalog.lookup(
+                quality_catalog, model_ref.as_dict()
+            )
+            record_phase("quality_lookup", phase_started)
             results.append(
                 {
                     **base,
@@ -238,9 +264,7 @@ def compare_prepared(
                     "prediction": prediction,
                     "quality": quality,
                     "metadata": dict(sample.get("metadata") or {}),
-                    "evaluation": mushroom_ml_quality_catalog.lookup(
-                        quality_catalog, model_ref.as_dict()
-                    ),
+                    "evaluation": evaluation,
                     "features_used": _interpretation_features(sample),
                 }
             )
@@ -273,7 +297,537 @@ def compare_prepared(
         "ensemble_computed": False,
         "version_cautions": dict(quality_catalog.get("version_cautions") or {}),
         "species_metrics_are_never_averaged": True,
+        "runtime_metrics": {
+            "backend_seconds": round(monotonic() - started, 6),
+            "phase_seconds": {
+                key: round(value, 6) for key, value in phase_seconds.items()
+            },
+            "member_count": len(model_refs),
+        },
     }
+
+
+def operational_selections(
+    selections: Sequence[Mapping[str, object]],
+    *,
+    target_date: date,
+    issue_date: date,
+) -> list[dict[str, object]]:
+    """Keep the single horizon that can contribute to one dated prediction."""
+    lag_horizon = (target_date - (issue_date - timedelta(days=1))).days
+    selected: list[dict[str, object]] = []
+    for row in selections:
+        contract_id = str(row.get("temporal_contract_id") or "")
+        expected_horizon = 7 if contract_id.startswith("fixed_gap_") else lag_horizon
+        try:
+            horizon = int(row.get("horizon_days") or 0)
+        except (TypeError, ValueError):
+            continue
+        if horizon == expected_horizon:
+            selected.append(dict(row))
+    return selected
+
+
+def retarget_operational_selections(
+    selections: Sequence[Mapping[str, object]],
+    *,
+    target_date: date,
+    issue_date: date,
+) -> list[dict[str, object]]:
+    """Reuse the selected models with the horizon required by another date."""
+    lag_horizon = (target_date - (issue_date - timedelta(days=1))).days
+    retargeted: list[dict[str, object]] = []
+    for row in selections:
+        contract_id = str(row.get("temporal_contract_id") or "")
+        horizon = 7 if contract_id.startswith("fixed_gap_") else lag_horizon
+        if horizon not in range(1, 8):
+            continue
+        candidate = {**dict(row), "horizon_days": horizon}
+        if candidate not in retargeted:
+            retargeted.append(candidate)
+    return retargeted
+
+
+def _selected_member_rank(
+    member: Mapping[str, object],
+) -> tuple[float, float, float, str]:
+    evaluation = member.get("evaluation") or {}
+    evaluation = evaluation if isinstance(evaluation, Mapping) else {}
+    delta = evaluation.get("brier_delta_vs_prevalence")
+    brier = evaluation.get("brier_score")
+    improvement = float(delta) if isinstance(delta, (int, float)) else -999.0
+    score = float(brier) if isinstance(brier, (int, float)) else 999.0
+    roc_auc = evaluation.get("roc_auc")
+    discrimination = (
+        float(roc_auc) if isinstance(roc_auc, (int, float)) else -999.0
+    )
+    ref = member.get("model_ref") or {}
+    identity = json.dumps(ref, sort_keys=True, separators=(",", ":"))
+    return (-improvement, score, -discrimination, identity)
+
+
+def _finite_number(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def _operational_gate_failures(member: Mapping[str, object]) -> list[str]:
+    """Explain why one runtime member cannot enter operational ranking."""
+    if member.get("available") is not True:
+        return ["member_unavailable"]
+    failures: list[str] = []
+    prediction = member.get("prediction") or {}
+    prediction = prediction if isinstance(prediction, Mapping) else {}
+    applicability = prediction.get("applicability") or {}
+    applicability = applicability if isinstance(applicability, Mapping) else {}
+    if str(applicability.get("status") or "") not in {
+        "within_observed_range",
+        "caution",
+    }:
+        failures.append("unacceptable_applicability")
+    probability = _finite_number(prediction.get("probability"))
+    if probability is None or not 0.0 <= probability <= 1.0:
+        failures.append("invalid_probability")
+
+    evaluation = member.get("evaluation") or {}
+    evaluation = evaluation if isinstance(evaluation, Mapping) else {}
+    brier = _finite_number(evaluation.get("brier_score"))
+    baseline = _finite_number(evaluation.get("prevalence_brier_score"))
+    if (
+        evaluation.get("evidence") != "better_than_prevalence"
+        or brier is None
+        or baseline is None
+        or brier >= baseline
+    ):
+        failures.append("brier_not_better_than_prevalence")
+    roc_auc = _finite_number(evaluation.get("roc_auc"))
+    if roc_auc is None:
+        failures.append("roc_auc_unavailable")
+    elif roc_auc < MIN_OPERATIONAL_ROC_AUC:
+        failures.append("roc_auc_below_minimum")
+    return failures
+
+
+def _winner_statistical_reliability(
+    evaluation: Mapping[str, object],
+    prediction: Mapping[str, object],
+) -> dict[str, object]:
+    """Grade the selected winner without mixing reliability with consensus."""
+    baseline = _finite_number(evaluation.get("prevalence_brier_score"))
+    improvement = _finite_number(evaluation.get("brier_delta_vs_prevalence"))
+    roc_auc = _finite_number(evaluation.get("roc_auc"))
+    relative_gain = (
+        improvement / baseline
+        if improvement is not None and baseline is not None and baseline > 0.0
+        else None
+    )
+    n_test = evaluation.get("n_test")
+    positive_count = evaluation.get("test_positive_count")
+    negative_count = evaluation.get("test_negative_count")
+    class_minimum = (
+        min(int(positive_count), int(negative_count))
+        if isinstance(positive_count, int)
+        and not isinstance(positive_count, bool)
+        and isinstance(negative_count, int)
+        and not isinstance(negative_count, bool)
+        else None
+    )
+    applicability = prediction.get("applicability") or {}
+    applicability = applicability if isinstance(applicability, Mapping) else {}
+    applicability_status = str(applicability.get("status") or "")
+    high = (
+        roc_auc is not None
+        and roc_auc >= HIGH_RELIABILITY_ROC_AUC
+        and relative_gain is not None
+        and relative_gain >= HIGH_RELIABILITY_RELATIVE_BRIER_GAIN
+        and isinstance(n_test, int)
+        and not isinstance(n_test, bool)
+        and n_test >= HIGH_RELIABILITY_TEST_SAMPLES
+        and class_minimum is not None
+        and class_minimum >= HIGH_RELIABILITY_MIN_CLASS_SAMPLES
+        and applicability_status == "within_observed_range"
+    )
+    moderate = (
+        roc_auc is not None
+        and roc_auc >= MODERATE_RELIABILITY_ROC_AUC
+        and relative_gain is not None
+        and relative_gain >= MODERATE_RELIABILITY_RELATIVE_BRIER_GAIN
+        and isinstance(n_test, int)
+        and not isinstance(n_test, bool)
+        and n_test >= MODERATE_RELIABILITY_TEST_SAMPLES
+        and class_minimum is not None
+        and class_minimum >= MODERATE_RELIABILITY_MIN_CLASS_SAMPLES
+        and applicability_status in {"within_observed_range", "caution"}
+    )
+    return {
+        "status": "high" if high else "moderate" if moderate else "limited",
+        "relative_brier_gain": (
+            round(relative_gain, 6) if relative_gain is not None else None
+        ),
+        "test_samples": n_test,
+        "test_positive_count": positive_count,
+        "test_negative_count": negative_count,
+        "applicability_status": applicability_status,
+    }
+
+
+def _build_statistical_summaries(comparison: dict[str, Any]) -> None:
+    """Attach glanceable verdicts while retaining all per-scenario evidence."""
+    winners = [
+        row
+        for row in comparison.get("selected_winners") or []
+        if isinstance(row, dict)
+    ]
+    reliability_rank = {"unavailable": 0, "limited": 1, "moderate": 2, "high": 3}
+    reliability_statuses = [
+        str((row.get("statistical_reliability") or {}).get("status") or "unavailable")
+        for row in winners
+    ]
+    scenario_count = len(comparison.get("operational_result_keys") or [])
+    if not reliability_statuses or len(reliability_statuses) < scenario_count:
+        reliability_status = "unavailable"
+    else:
+        reliability_status = min(
+            reliability_statuses, key=lambda value: reliability_rank.get(value, 0)
+        )
+    comparison["statistical_reliability_summary"] = {
+        "status": reliability_status,
+        "evaluated_scenario_count": len(reliability_statuses),
+        "scenario_count": scenario_count,
+    }
+
+    winner_result_keys = {str(row.get("result_key") or "") for row in winners}
+    consensus_rows = [
+        row
+        for row in comparison.get("scenario_consensus") or []
+        if isinstance(row, dict)
+        and str(row.get("result_key") or "") in winner_result_keys
+    ]
+    measurable = [
+        row for row in consensus_rows if row.get("status") in {"high", "moderate", "low"}
+    ]
+    consensus_rank = {"low": 1, "moderate": 2, "high": 3}
+    consensus_status = (
+        min(
+            (str(row["status"]) for row in measurable),
+            key=lambda value: consensus_rank[value],
+        )
+        if measurable
+        else "unavailable"
+    )
+    comparison["consensus_summary"] = {
+        "status": consensus_status,
+        "measurable_scenario_count": len(measurable),
+        "eligible_scenario_count": len(consensus_rows),
+        "coverage": (
+            "complete" if consensus_rows and len(measurable) == len(consensus_rows)
+            else "partial" if measurable
+            else "unavailable"
+        ),
+    }
+
+
+def _eligible_family_summary(
+    candidates: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    """Separate within-method variants from independent method families."""
+    by_estimator: dict[str, list[Mapping[str, object]]] = {}
+    for member in candidates:
+        ref = member.get("model_ref") or {}
+        if not isinstance(ref, Mapping):
+            continue
+        estimator_id = str(ref.get("estimator_id") or "")
+        if estimator_id:
+            by_estimator.setdefault(estimator_id, []).append(member)
+
+    estimator_representatives: list[dict[str, object]] = []
+    for estimator_id, family_members in sorted(by_estimator.items()):
+        representative = min(family_members, key=_selected_member_rank)
+        ref = dict(representative.get("model_ref") or {})
+        prediction = representative.get("prediction") or {}
+        prediction = prediction if isinstance(prediction, Mapping) else {}
+        evaluation = representative.get("evaluation") or {}
+        evaluation = evaluation if isinstance(evaluation, Mapping) else {}
+        estimator_representatives.append(
+            {
+                "estimator_id": estimator_id,
+                "methodological_family_id": METHODOLOGICAL_FAMILY_BY_ESTIMATOR.get(
+                    estimator_id, f"estimator:{estimator_id}"
+                ),
+                "model_ref": ref,
+                "probability": round(float(prediction["probability"]), 6),
+                "brier_score": evaluation.get("brier_score"),
+                "brier_delta_vs_prevalence": evaluation.get(
+                    "brier_delta_vs_prevalence"
+                ),
+                "roc_auc": evaluation.get("roc_auc"),
+                "represented_member_count": len(family_members),
+            }
+        )
+
+    by_methodological_family: dict[str, list[dict[str, object]]] = {}
+    for row in estimator_representatives:
+        family_id = str(row["methodological_family_id"])
+        by_methodological_family.setdefault(family_id, []).append(row)
+
+    methodological_families: list[dict[str, object]] = []
+    family_representatives: list[dict[str, object]] = []
+    for family_id, estimator_rows in sorted(by_methodological_family.items()):
+        raw_members = [
+            member
+            for member in candidates
+            if METHODOLOGICAL_FAMILY_BY_ESTIMATOR.get(
+                str((member.get("model_ref") or {}).get("estimator_id") or ""),
+                "estimator:"
+                + str((member.get("model_ref") or {}).get("estimator_id") or ""),
+            )
+            == family_id
+        ]
+        representative_member = min(raw_members, key=_selected_member_rank)
+        representative_ref = dict(representative_member.get("model_ref") or {})
+        representative_estimator_id = str(
+            representative_ref.get("estimator_id") or ""
+        )
+        representative = next(
+            row
+            for row in estimator_rows
+            if row["estimator_id"] == representative_estimator_id
+        )
+        internal_probabilities = [float(row["probability"]) for row in estimator_rows]
+        internal_gap = (
+            round(max(internal_probabilities) - min(internal_probabilities), 6)
+            if len(internal_probabilities) >= 2
+            else None
+        )
+        if internal_gap is None:
+            internal_status = "single_variant"
+        elif internal_gap >= LOW_AGREEMENT_GAP:
+            internal_status = "low"
+        elif internal_gap <= HIGH_AGREEMENT_GAP:
+            internal_status = "high"
+        else:
+            internal_status = "moderate"
+        methodological_families.append(
+            {
+                "methodological_family_id": family_id,
+                "estimator_ids": [str(row["estimator_id"]) for row in estimator_rows],
+                "estimator_count": len(estimator_rows),
+                "represented_member_count": len(raw_members),
+                "internal_agreement_status": internal_status,
+                "internal_maximum_probability_gap": internal_gap,
+                "estimator_representatives": estimator_rows,
+                "representative": representative,
+            }
+        )
+        family_representatives.append(representative)
+
+    probabilities = [float(row["probability"]) for row in family_representatives]
+    maximum_gap = (
+        round(max(probabilities) - min(probabilities), 6)
+        if len(probabilities) >= 2
+        else None
+    )
+    if not family_representatives:
+        status = "no_eligible_family"
+    elif len(family_representatives) == 1:
+        status = "single_family"
+    elif maximum_gap is not None and maximum_gap >= LOW_AGREEMENT_GAP:
+        status = "low"
+    elif maximum_gap is not None and maximum_gap <= HIGH_AGREEMENT_GAP:
+        status = "high"
+    else:
+        status = "moderate"
+    return {
+        "status": status,
+        "eligible_family_count": len(family_representatives),
+        "eligible_methodological_family_ids": [
+            str(row["methodological_family_id"])
+            for row in methodological_families
+        ],
+        "eligible_estimator_ids": [
+            str(row["estimator_id"]) for row in estimator_representatives
+        ],
+        "maximum_probability_gap": maximum_gap,
+        "family_representatives": family_representatives,
+        "methodological_families": methodological_families,
+    }
+
+
+def build_selected_operational_comparison(
+    members: Sequence[Mapping[str, object]],
+    *,
+    season_phase: str,
+    phenology: Mapping[str, object] | None = None,
+    selection_mode: str = "multiversion",
+) -> dict[str, Any]:
+    """Choose one auditable member per version and scenario, then across versions."""
+    grouped: dict[tuple[str, int], list[Mapping[str, object]]] = {}
+    selected_versions: set[str] = set()
+    for member in members:
+        ref = member.get("model_ref") or {}
+        if not isinstance(ref, Mapping):
+            continue
+        version_id = str(ref.get("version_id") or "")
+        if version_id:
+            selected_versions.add(version_id)
+        contract_id = str(ref.get("temporal_contract_id") or "")
+        family = "fixed" if contract_id.startswith("fixed_gap_") else "lag"
+        try:
+            horizon = int(ref.get("horizon_days") or 0)
+        except (TypeError, ValueError):
+            continue
+        grouped.setdefault((family, horizon), []).append(member)
+
+    comparison: dict[str, Any] = {
+        "selection_mode": selection_mode,
+        "minimum_roc_auc": MIN_OPERATIONAL_ROC_AUC,
+        "consensus_computed": True,
+        "selected_version_ids": sorted(selected_versions),
+        "operational_result_keys": [],
+        "selected_winners": [],
+        "scenario_consensus": [],
+    }
+    for (family, horizon), candidates in sorted(grouped.items()):
+        result_key = f"selected:{family}:h{horizon}"
+        comparison["operational_result_keys"].append(result_key)
+        eligible_by_version: dict[str, list[Mapping[str, object]]] = {}
+        candidate_exclusions: list[dict[str, object]] = []
+        for member in candidates:
+            failures = _operational_gate_failures(member)
+            if failures:
+                candidate_exclusions.append(
+                    {
+                        "model_ref": dict(member.get("model_ref") or {}),
+                        "reasons": failures,
+                    }
+                )
+                continue
+            ref = member.get("model_ref") or {}
+            version_id = str(ref.get("version_id") or "")
+            eligible_by_version.setdefault(version_id, []).append(member)
+        if not eligible_by_version:
+            comparison[result_key] = {
+                "available": False,
+                "reason": "no_eligible_selected_member",
+                "horizon_days": horizon,
+                "minimum_roc_auc": MIN_OPERATIONAL_ROC_AUC,
+                "candidate_exclusions": candidate_exclusions,
+            }
+            comparison["scenario_consensus"].append(
+                {
+                    "result_key": result_key,
+                    "temporal_family": family,
+                    "horizon_days": horizon,
+                    **_eligible_family_summary([]),
+                }
+            )
+            continue
+        eligible_candidates = [
+            member
+            for version_candidates in eligible_by_version.values()
+            for member in version_candidates
+        ]
+        family_summary = _eligible_family_summary(eligible_candidates)
+        version_winners = {
+            version_id: min(version_candidates, key=_selected_member_rank)
+            for version_id, version_candidates in eligible_by_version.items()
+        }
+        winner = min(version_winners.values(), key=_selected_member_rank)
+        ref = dict(winner.get("model_ref") or {})
+        prediction = dict(winner.get("prediction") or {})
+        evaluation = dict(winner.get("evaluation") or {})
+        estimator_id = str(ref.get("estimator_id") or "")
+        probability = float(prediction["probability"])
+        brier = evaluation.get("brier_score")
+        baseline = evaluation.get("prevalence_brier_score")
+        result = {
+            "available": True,
+            "feature_set_id": result_key,
+            "horizon_days": horizon,
+            "temporal_family": family,
+            "selected_model_ref": ref,
+            "selected_model_validated": True,
+            "minimum_roc_auc": MIN_OPERATIONAL_ROC_AUC,
+            "candidate_exclusions": candidate_exclusions,
+            "eligible_candidates": [
+                {
+                    "model_ref": dict(member.get("model_ref") or {}),
+                    "probability": round(
+                        float((member.get("prediction") or {})["probability"]), 6
+                    ),
+                    "brier_score": (member.get("evaluation") or {}).get(
+                        "brier_score"
+                    ),
+                    "brier_delta_vs_prevalence": (
+                        member.get("evaluation") or {}
+                    ).get("brier_delta_vs_prevalence"),
+                    "roc_auc": (member.get("evaluation") or {}).get("roc_auc"),
+                }
+                for member in sorted(eligible_candidates, key=_selected_member_rank)
+            ],
+            "version_winners": {
+                version_id: dict(member.get("model_ref") or {})
+                for version_id, member in sorted(version_winners.items())
+            },
+            "estimator_probabilities": {estimator_id: probability},
+            "interpretation_estimator_probabilities": {estimator_id: probability},
+            "estimator_exclusions": {},
+            "features_used": dict(winner.get("features_used") or {}),
+            "evaluation": {
+                "available": isinstance(brier, (int, float))
+                and isinstance(baseline, (int, float)),
+                "baseline": {"brier_score": baseline},
+                "estimators": {
+                    estimator_id: {
+                        "brier_score": brier,
+                        "roc_auc": evaluation.get("roc_auc"),
+                        "n": evaluation.get("n_test"),
+                    }
+                },
+            },
+        }
+        comparison[result_key] = result
+        comparison["scenario_consensus"].append(
+            {
+                "result_key": result_key,
+                "temporal_family": family,
+                "horizon_days": horizon,
+                **family_summary,
+            }
+        )
+        comparison["selected_winners"].append(
+            {
+                "result_key": result_key,
+                "model_ref": ref,
+                "probability": round(probability, 6),
+                "validated": True,
+                "applicability_status": str(
+                    (prediction.get("applicability") or {}).get("status") or ""
+                ),
+                "brier_score": brier,
+                "prevalence_brier_score": baseline,
+                "brier_delta_vs_prevalence": evaluation.get(
+                    "brier_delta_vs_prevalence"
+                ),
+                "roc_auc": evaluation.get("roc_auc"),
+                "test_samples": evaluation.get("n_test"),
+                "test_positive_count": evaluation.get("test_positive_count"),
+                "test_negative_count": evaluation.get("test_negative_count"),
+                "statistical_reliability": _winner_statistical_reliability(
+                    evaluation, prediction
+                ),
+            }
+        )
+    _build_statistical_summaries(comparison)
+    comparison["interpretation"] = build_interpretation(
+        comparison,
+        season_phase=season_phase,
+        phenology=dict(phenology or {}),
+        feature_set_ids=comparison["operational_result_keys"],
+    )
+    return comparison
 
 
 def _contract_result(
@@ -382,17 +936,15 @@ def compare_operational_reference(
     | None = None,
     comparison_cache: MutableMapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build the operational card from every profile in the active version."""
-    target = registry.get("active_operational_target")
-    target = target if isinstance(target, Mapping) else {}
-    version_id = str(target.get("version_id") or registry.get("active_version_id") or "")
+    """Build the operational card from every profile in the preferred version."""
+    version_id = str(registry.get("preferred_version_id") or "")
     profiles = [
         row
         for row in catalog.catalog_entries(registry)
         if row["version_id"] == version_id and row["operational_eligible"] is True
     ]
     if not profiles:
-        raise ValueError("The active version has no operational profiles")
+        raise ValueError("The preferred version has no operational profiles")
     payload: dict[str, Any] = {
         "issue_date": issue_date.isoformat(),
         "target_date": target_date.isoformat(),
@@ -406,7 +958,7 @@ def compare_operational_reference(
             horizon = 7 if str(contract_id).startswith("fixed_") else lag_horizon
             result_key = str(contract_id) if single_profile else f"{profile['profile_id']}:{contract_id}"
             result_specs.append((result_key, profile, str(contract_id), horizon))
-    payload["active_version_id"] = version_id
+    payload["preferred_version_id"] = version_id
     payload["operational_result_keys"] = [row[0] for row in result_specs]
     payload["operational_profiles"] = [
         {
@@ -425,6 +977,12 @@ def compare_operational_reference(
             phenology=dict(phenology or {}),
             feature_set_ids=payload["operational_result_keys"],
         )
+        payload["selection_mode"] = "preferred_version"
+        payload["comparison_detail_result_keys"] = list(
+            payload["operational_result_keys"]
+        )
+        payload["selected_winners"] = []
+        payload["minimum_roc_auc"] = MIN_OPERATIONAL_ROC_AUC
         return payload
 
     checked = (
@@ -476,25 +1034,34 @@ def compare_operational_reference(
         else {"members": []}
     )
     members = list(runtime.get("members") or [])
+    detail_results: dict[str, dict[str, Any]] = {}
     for result_key, profile, contract_id, horizon in result_specs:
-        payload[result_key] = _contract_result(
+        detail_results[result_key] = _contract_result(
             contract_id,
             members,
             horizon_days=horizon,
             profile_id=str(profile["profile_id"]),
         )
-        payload[result_key]["profile_id"] = profile["profile_id"]
-        payload[result_key]["profile_name"] = profile["profile_display_name"]
-        payload[result_key]["temporal_contract_id"] = contract_id
-    payload["runtime_batch_id"] = checked["batch_id"]
-    payload["spatial_weather_contract"] = "common_multisource_idw_by_microarea"
-    payload["interpretation"] = build_interpretation(
-        payload,
+        detail_results[result_key]["profile_id"] = profile["profile_id"]
+        detail_results[result_key]["profile_name"] = profile["profile_display_name"]
+        detail_results[result_key]["temporal_contract_id"] = contract_id
+    selected = build_selected_operational_comparison(
+        members,
         season_phase=season_phase,
-        phenology=dict(phenology or {}),
-        feature_set_ids=payload["operational_result_keys"],
+        phenology=phenology,
+        selection_mode="preferred_version",
     )
-    return payload
+    selected.update(detail_results)
+    selected["comparison_detail_result_keys"] = [row[0] for row in result_specs]
+    selected["operational_profiles"] = payload["operational_profiles"]
+    selected["preferred_version_id"] = version_id
+    selected["issue_date"] = issue_date.isoformat()
+    selected["target_date"] = target_date.isoformat()
+    selected["season_phase"] = season_phase
+    selected["runtime_batch_id"] = checked["batch_id"]
+    selected["runtime_metrics"] = dict(runtime.get("runtime_metrics") or {})
+    selected["spatial_weather_contract"] = "common_multisource_idw_by_microarea"
+    return selected
 
 
 def compare_v2_reference(*args: Any, **kwargs: Any) -> dict[str, Any]:
@@ -805,6 +1372,13 @@ def compare_selection(
     checked_manifest: Mapping[str, object] | None = None,
     comparison_cache: MutableMapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    started = monotonic()
+    phase_seconds: dict[str, float] = {}
+
+    def record_phase(name: str, phase_started: float) -> None:
+        phase_seconds[name] = round(monotonic() - phase_started, 6)
+
+    phase_started = monotonic()
     checked = checked_manifest
     if checked is None and comparison_cache is not None:
         cached_checked = comparison_cache.get("checked_manifest")
@@ -814,6 +1388,8 @@ def compare_selection(
         checked = catalog.validate_batch_manifest(registry, manifest)
         if comparison_cache is not None:
             comparison_cache["checked_manifest"] = checked
+    record_phase("selection_manifest", phase_started)
+    phase_started = monotonic()
     catalog_profiles = (
         comparison_cache.get("catalog_profiles")
         if comparison_cache is not None
@@ -823,6 +1399,8 @@ def compare_selection(
         catalog_profiles = catalog.catalog_entries(registry)
         if comparison_cache is not None:
             comparison_cache["catalog_profiles"] = catalog_profiles
+    record_phase("selection_catalog", phase_started)
+    phase_started = monotonic()
     refs = [
         resolve_selection(
             registry,
@@ -834,6 +1412,7 @@ def compare_selection(
         )
         for selection in selections
     ]
+    record_phase("selection_resolution", phase_started)
     horizons = tuple(sorted({model_ref.horizon_days for model_ref in refs}))
     lookback_days, include_physical_state = _weather_requirements(
         refs, catalog_profiles=catalog_profiles
@@ -853,6 +1432,8 @@ def compare_selection(
         if prepared_weather_cache is not None
         else None
     )
+    weather_cache_status = "hit" if prepared_tuple is not None else "miss"
+    phase_started = monotonic()
     if prepared_tuple is None:
         prepared_tuple = prepare_area_weather(
             known_sites_path=known_sites_path,
@@ -866,8 +1447,10 @@ def compare_selection(
         )
         if prepared_weather_cache is not None:
             prepared_weather_cache[weather_key] = prepared_tuple
+    record_phase("weather_context", phase_started)
     area_context, prepared, stations = prepared_tuple
-    return compare_prepared(
+    phase_started = monotonic()
+    result = compare_prepared(
         registry,
         checked,
         refs,
@@ -880,3 +1463,19 @@ def compare_selection(
         checked_manifest=checked,
         comparison_cache=comparison_cache,
     )
+    record_phase("prepared_comparison", phase_started)
+    prepared_metrics = result.get("runtime_metrics") or {}
+    prepared_phases = prepared_metrics.get("phase_seconds") or {}
+    result["runtime_metrics"] = {
+        "backend_seconds": round(monotonic() - started, 6),
+        "phase_seconds": {
+            **phase_seconds,
+            **{
+                f"prepared_{key}": value
+                for key, value in prepared_phases.items()
+            },
+        },
+        "weather_cache_status": weather_cache_status,
+        "member_count": len(refs),
+    }
+    return result

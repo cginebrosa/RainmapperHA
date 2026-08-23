@@ -16,14 +16,29 @@ DEFAULT_REGISTRY = (
 
 
 class MushroomMLVersionRegistryTests(TestCase):
-    def test_default_registry_keeps_v2_active_and_experiments_available(self) -> None:
+    def test_monoversion_schema_and_fields_are_rejected(self) -> None:
+        payload = json.loads(DEFAULT_REGISTRY.read_text(encoding="utf-8"))
+        payload["schema_version"] = "1.0"
+        with self.assertRaisesRegex(ValueError, "Unsupported.*schema"):
+            registry.validate_registry(payload)
+
+        payload["schema_version"] = "2.0"
+        payload["active_version_id"] = "altitude_v2"
+        with self.assertRaisesRegex(ValueError, "Obsolete monoversion field"):
+            registry.validate_registry(payload)
+
+    def test_default_registry_starts_clean_and_experiments_available(self) -> None:
         payload = registry.load_registry(DEFAULT_REGISTRY)
 
-        self.assertEqual(payload["active_version_id"], "altitude_v2")
+        self.assertEqual(payload["schema_version"], "2.0")
+        self.assertIsNone(payload["preferred_version_id"])
+        self.assertTrue(
+            all(row["installed_generation_id"] is None for row in payload["versions"])
+        )
         self.assertEqual(
             {row["version_id"]: row["status"] for row in payload["versions"]},
             {
-                "altitude_v2": "active",
+                "altitude_v2": "candidate",
                 "biology_v3": "candidate",
                 "biology_v4": "candidate",
                 "biology_v5_raw_weather_discovery": "reference",
@@ -34,7 +49,7 @@ class MushroomMLVersionRegistryTests(TestCase):
         )
         self.assertEqual(
             payload["retention_policy"]["deactivation_action"],
-            "change_status_to_reference_never_delete",
+            "clear_installed_generation_id",
         )
         v4 = next(
             row for row in payload["versions"] if row["version_id"] == "biology_v4"
@@ -44,12 +59,18 @@ class MushroomMLVersionRegistryTests(TestCase):
             v4["known_sites_identity_contract"]["collections"][0]["fields"],
         )
 
-    def test_training_scope_separates_active_v2_from_scientific_versions(self) -> None:
+    def test_operational_training_scope_is_explicit_before_first_install(self) -> None:
         payload = registry.load_registry(DEFAULT_REGISTRY)
 
+        with self.assertRaisesRegex(ValueError, "Select at least one"):
+            registry.training_version_ids(payload, job_purpose="operational")
         self.assertEqual(
-            ["altitude_v2"],
-            registry.training_version_ids(payload, job_purpose="operational"),
+            ["altitude_v2", "biology_v3"],
+            registry.training_version_ids(
+                payload,
+                job_purpose="operational",
+                requested_version_ids=["altitude_v2", "biology_v3"],
+            ),
         )
 
     def test_every_implemented_version_exposes_its_complete_operational_profiles(self) -> None:
@@ -134,25 +155,19 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "generation_id": "v3-approved",
                 "kind": "trained_model",
                 "promotion_gate_status": "passed",
+                "profile_ids": ["core", "common_idw_plus_physical_state"],
+                "batch_id": "batch-v3",
             },
         )
 
-        promoted = registry.transition_active(
+        promoted = registry.transition_active_generation(
             payload, "biology_v3", generation_id="v3-approved"
         )
 
-        self.assertEqual(promoted["active_version_id"], "biology_v3")
+        self.assertEqual(promoted["preferred_version_id"], "biology_v3")
         self.assertEqual(
-            {row["version_id"]: row["status"] for row in promoted["versions"]},
-            {
-                "altitude_v2": "reference",
-                "biology_v3": "active",
-                "biology_v4": "candidate",
-                "biology_v5_raw_weather_discovery": "reference",
-                "biology_v6_smooth_hierarchical": "reference",
-                "biology_v5_windowed_raw_weather": "candidate",
-                "biology_v6_windowed_smooth_hierarchical": "candidate",
-            },
+            next(row for row in promoted["versions"] if row["version_id"] == "biology_v3")["installed_generation_id"],
+            "v3-approved",
         )
         self.assertEqual(len(promoted["versions"]), len(payload["versions"]))
 
@@ -163,7 +178,7 @@ class MushroomMLVersionRegistryTests(TestCase):
         )["status"] = "proposed"
 
         with self.assertRaisesRegex(ValueError, "proposed version"):
-            registry.transition_active(
+            registry.transition_active_generation(
                 payload, "biology_v4", generation_id="v4-approved"
             )
 
@@ -176,7 +191,7 @@ class MushroomMLVersionRegistryTests(TestCase):
 
         statuses = {row["version_id"]: row["status"] for row in payload["versions"]}
         self.assertEqual(statuses["biology_v4"], "candidate")
-        self.assertEqual(payload["active_version_id"], "altitude_v2")
+        self.assertIsNone(payload["preferred_version_id"])
 
     def test_candidate_without_approved_model_cannot_be_activated(self) -> None:
         payload = registry.append_generation(
@@ -189,7 +204,7 @@ class MushroomMLVersionRegistryTests(TestCase):
         )
 
         with self.assertRaisesRegex(ValueError, "trained_model"):
-            registry.transition_active(
+            registry.transition_active_generation(
                 payload, "biology_v3", generation_id="v3-benchmark-only"
             )
 
@@ -202,6 +217,7 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "kind": "trained_model",
                 "promotion_gate_status": "passed",
                 "profile_ids": ["core", "common_idw_plus_physical_state"],
+                "batch_id": "batch-v3",
             },
         )
 
@@ -209,13 +225,11 @@ class MushroomMLVersionRegistryTests(TestCase):
             payload, "biology_v3", generation_id="v3-complete-candidate"
         )
 
-        self.assertEqual(activated["active_version_id"], "biology_v3")
+        self.assertEqual(activated["preferred_version_id"], "biology_v3")
         self.assertEqual(
-            activated["active_operational_target"],
-            {"version_id": "biology_v3", "generation_id": "v3-complete-candidate"},
-        )
-        self.assertEqual(
-            registry.training_profile_keys(activated, job_purpose="operational"),
+            registry.training_profile_keys(
+                activated, job_purpose="operational", version_ids=["biology_v3"]
+            ),
             [
                 "biology_v3/core",
                 "biology_v3/common_idw_plus_physical_state",
@@ -231,6 +245,7 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "kind": "trained_model",
                 "promotion_gate_status": "passed",
                 "profile_ids": ["core"],
+                "batch_id": "batch-v3",
             },
         )
 
@@ -238,6 +253,98 @@ class MushroomMLVersionRegistryTests(TestCase):
             registry.transition_active_generation(
                 payload, "biology_v3", generation_id="v3-core-only"
             )
+
+    def test_installing_v4_does_not_replace_v3_and_preference_is_independent(self) -> None:
+        payload = registry.load_registry(DEFAULT_REGISTRY)
+        for version_id, generation_id, batch_id, profiles in (
+            (
+                "biology_v3",
+                "generation-v3",
+                "batch-v3",
+                ["core", "common_idw_plus_physical_state"],
+            ),
+            (
+                "biology_v4",
+                "generation-v4",
+                "batch-v4",
+                ["extended_weather", "climatic_balance"],
+            ),
+        ):
+            payload = registry.append_generation(
+                payload,
+                version_id=version_id,
+                generation={
+                    "generation_id": generation_id,
+                    "kind": "trained_model",
+                    "promotion_gate_status": "passed",
+                    "profile_ids": profiles,
+                    "batch_id": batch_id,
+                },
+            )
+            payload = registry.transition_active_generation(
+                payload, version_id, generation_id=generation_id
+            )
+
+        installed = {
+            row["version_id"]: row["installed_generation_id"]
+            for row in payload["versions"]
+        }
+        self.assertEqual(installed["biology_v3"], "generation-v3")
+        self.assertEqual(installed["biology_v4"], "generation-v4")
+        self.assertEqual(payload["preferred_version_id"], "biology_v3")
+        preferred_v4 = registry.set_preferred_version(payload, "biology_v4")
+        self.assertEqual(preferred_v4["preferred_version_id"], "biology_v4")
+        self.assertEqual(
+            next(
+                row for row in preferred_v4["versions"]
+                if row["version_id"] == "biology_v3"
+            )["installed_generation_id"],
+            "generation-v3",
+        )
+
+    def test_joint_batch_installs_v2_v3_v4_v5w_v6w_slots(self) -> None:
+        payload = registry.load_registry(DEFAULT_REGISTRY)
+        version_ids = [
+            "altitude_v2",
+            "biology_v3",
+            "biology_v4",
+            "biology_v5_windowed_raw_weather",
+            "biology_v6_windowed_smooth_hierarchical",
+        ]
+        profile_keys = registry.training_profile_keys(
+            payload,
+            job_purpose="operational",
+            version_ids=version_ids,
+        )
+        manifest = {
+            "batch_id": "joint-batch",
+            "snapshot_id": "sha256:" + "a" * 64,
+            "profile_keys": profile_keys,
+            "artifacts": [
+                {
+                    "artifact_ref": {
+                        "version_id": version_id,
+                        "generation_id": f"generation-{version_id}",
+                    }
+                }
+                for version_id in version_ids
+            ],
+        }
+
+        installed = registry.install_batch_generations(payload, manifest)
+
+        rows = {row["version_id"]: row for row in installed["versions"]}
+        self.assertEqual(installed["preferred_version_id"], "altitude_v2")
+        self.assertEqual(
+            {
+                version_id: rows[version_id]["installed_generation_id"]
+                for version_id in version_ids
+            },
+            {
+                version_id: f"generation-{version_id}"
+                for version_id in version_ids
+            },
+        )
 
     def test_future_version_is_registered_and_activated_without_code_changes(self) -> None:
         payload = registry.load_registry(DEFAULT_REGISTRY)
@@ -277,22 +384,20 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "generation_id": "v7-approved",
                 "kind": "trained_model",
                 "promotion_gate_status": "passed",
+                "profile_ids": ["adaptive"],
+                "batch_id": "batch-v7",
             },
         )
 
-        activated = registry.transition_active(
+        activated = registry.transition_active_generation(
             expanded, "biology_v7", generation_id="v7-approved"
         )
 
-        self.assertEqual(activated["active_version_id"], "biology_v7")
+        self.assertEqual(activated["preferred_version_id"], "biology_v7")
         self.assertEqual(len(activated["versions"]), len(payload["versions"]) + 1)
         self.assertEqual(
-            next(
-                row["status"]
-                for row in activated["versions"]
-                if row["version_id"] == "altitude_v2"
-            ),
-            "reference",
+            next(row["installed_generation_id"] for row in activated["versions"] if row["version_id"] == "biology_v7"),
+            "v7-approved",
         )
         self.assertEqual(
             registry.version_for_temporal_contract(
@@ -351,7 +456,7 @@ class MushroomMLVersionRegistryTests(TestCase):
             registry.save_registry(destination, payload)
 
             self.assertEqual(registry.load_registry(destination), payload)
-            self.assertEqual(json.loads(destination.read_text())["active_version_id"], "altitude_v2")
+            self.assertIsNone(json.loads(destination.read_text())["preferred_version_id"])
 
     def test_seed_never_replaces_persistent_lifecycle_state(self) -> None:
         payload = registry.load_registry(DEFAULT_REGISTRY)
@@ -370,9 +475,11 @@ class MushroomMLVersionRegistryTests(TestCase):
                     "generation_id": "v3-approved",
                     "kind": "trained_model",
                     "promotion_gate_status": "passed",
+                    "profile_ids": ["core", "common_idw_plus_physical_state"],
+                    "batch_id": "batch-v3",
                 },
             )
-            promoted = registry.transition_active(
+            promoted = registry.transition_active_generation(
                 with_generation,
                 "biology_v3",
                 generation_id="v3-approved",
@@ -384,7 +491,7 @@ class MushroomMLVersionRegistryTests(TestCase):
             )
 
             self.assertEqual(
-                registry.load_registry(destination)["active_version_id"],
+                registry.load_registry(destination)["preferred_version_id"],
                 "biology_v3",
             )
 
@@ -444,7 +551,10 @@ class MushroomMLVersionRegistryTests(TestCase):
                 migrated_v5["generations"][0]["generation_id"],
                 "legacy-v5-generation",
             )
-            self.assertEqual(migrated["active_version_id"], persistent["active_version_id"])
+            self.assertEqual(
+                migrated["preferred_version_id"],
+                persistent["preferred_version_id"],
+            )
 
     def test_seed_promotes_newly_implemented_packaged_versions_to_candidate(self) -> None:
         packaged = registry.load_registry(DEFAULT_REGISTRY)

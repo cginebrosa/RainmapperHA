@@ -153,6 +153,12 @@ No hay framework web externo (no Flask, no FastAPI).
 
 ## Validaciones
 
+Elegir la comprobación mínima que pueda detectar una regresión del cambio:
+documentación implica diff + `git diff --check`; código acotado, pruebas
+dirigidas; cambios transversales o release, smoke completo. No repetir el smoke
+si desde el último solo han cambiado documentación, commits o metadatos
+mecánicos ya verificados.
+
 ```bash
 # Smoke test completo (obligatorio antes de cualquier release)
 PYTHON_BIN=.venv/bin/python ./scripts/smoke-test.sh
@@ -190,8 +196,10 @@ siempre que se toque `web_server.py` o cualquier módulo `*_ui.py`.
 
 **Solo con autorización explícita del usuario. Ver pasos completos en `docs/release-flow.md`.**
 
-Resumen: smoke test → bump versión (3 sitios) → actualizar `CHANGELOG.md` →
-cache-busters → smoke test → `build-push-ha-image.sh` → commit/push → avisar usuario.
+Resumen: smoke test sobre el código definitivo → bump versión (3 sitios) →
+actualizar `CHANGELOG.md` y cache-busters → verificar manualmente el bump →
+`build-push-ha-image.sh` → commit/push → avisar usuario. Repetir el smoke tras
+el bump solo si también cambió código.
 
 Durante `build-push-ha-image.sh`, seguir obligatoriamente la supervisión descrita
 en `docs/release-flow.md`: consultar la misma sesión cada 20-30 segundos, informar

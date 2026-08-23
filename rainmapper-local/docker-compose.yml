@@ -48,12 +48,15 @@ services:
       RAINMAPPER_WORKER_WEB_CONTROL_TRUST_LOCAL: "true"
       RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED: "true"
       RAINMAPPER_MUSHROOM_REBUILD_PIPELINE: "shared"
+      RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_DIR: "/media/rainmapper/runtime-cache/predictor-runtime-archives"
+      RAINMAPPER_ML_STORAGE_RECONCILIATION_APPLY: "false"
     ports:
       - "127.0.0.1:8101:8099"
     expose:
       - "8100"
     volumes:
       - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}:/share/rainmapper
+      - ${RAINMAPPER_LOCAL_MEDIA_ROOT:-../docker-media/rainmapper}:/media/rainmapper
       - ../mushroom-GIS:/app/mushroom-GIS:ro
       - ../tmp:/app/tmp
       - ./options.local-ha-ui.json:/data/options.json:ro

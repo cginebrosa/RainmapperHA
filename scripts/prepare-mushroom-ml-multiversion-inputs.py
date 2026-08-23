@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build operational V2 inputs or disposable V2--V6 benchmark inputs."""
+"""Build shared V2--V6 inputs for operational refresh or scientific benchmark."""
 
 from __future__ import annotations
 
@@ -177,9 +177,11 @@ def main() -> int:
         }
     )
     total = (
-        2 + (2 if needs_v4 else 0)
-        if args.job_purpose == "operational"
-        else 3 + (2 if needs_v4 else 0) + int(needs_v5) + int(needs_v2_v5_evaluation) + int(needs_v6)
+        3
+        + (2 if needs_v4 else 0)
+        + int(needs_v5)
+        + int(needs_v2_v5_evaluation)
+        + int(needs_v6)
     )
 
     def stage_progress(step: int, phase: str) -> Callable[[dict[str, object]], None]:
@@ -243,36 +245,6 @@ def main() -> int:
             )
             emit_progress(args.progress_jsonl, step=step, total=total, phase=phase)
 
-    if args.job_purpose == "operational":
-        snapshot_paths = [v3_fixed, v3_lag]
-        if needs_v4:
-            snapshot_paths.extend([v4_fixed, v4_lag])
-        write_json(
-            snapshot / "MANIFEST.json",
-            artifact_manifest(
-                "mushroom_ml_dynamic_operational_profile_inputs",
-                snapshot,
-                [path.name for path in snapshot_paths],
-                args.source_snapshot_id,
-            ),
-        )
-        inputs = {"v3_fixed": str(v3_fixed), "v3_lag": str(v3_lag)}
-        if needs_v4:
-            inputs.update({"v4_fixed": str(v4_fixed), "v4_lag": str(v4_lag)})
-        prepared = {
-            "schema_version": "1.0",
-            "kind": "mushroom_ml_prepared_multiversion_inputs",
-            "source_snapshot_id": args.source_snapshot_id,
-            "job_purpose": "operational",
-            "profile_keys": sorted(selected_profiles),
-            "inputs": inputs,
-            "operational_candidate_trained": False,
-        }
-        write_json(root / "prepared-inputs.json", prepared)
-        emit_progress(args.progress_jsonl, step=total, total=total, phase="Prepared operational profile inputs")
-        print(json.dumps({"output": str(root / "prepared-inputs.json")}, ensure_ascii=False))
-        return 0
-
     v5 = root / "v5"
     v6 = root / "v6"
     v5.mkdir()
@@ -285,7 +257,7 @@ def main() -> int:
     write_json(
         snapshot / "MANIFEST.json",
         artifact_manifest(
-            "mushroom_ml_dynamic_selected_benchmark_snapshot",
+            "mushroom_ml_dynamic_selected_training_snapshot",
             snapshot,
             snapshot_names,
             args.source_snapshot_id,
@@ -368,13 +340,18 @@ def main() -> int:
         "schema_version": "1.0",
         "kind": "mushroom_ml_prepared_multiversion_inputs",
         "source_snapshot_id": args.source_snapshot_id,
-        "job_purpose": "benchmark",
+        "job_purpose": args.job_purpose,
         "profile_keys": list(args.profile_key or []),
         "inputs": inputs,
         "operational_candidate_trained": False,
     }
     write_json(root / "prepared-inputs.json", prepared)
-    emit_progress(args.progress_jsonl, step=total, total=total, phase="Prepared selected disposable benchmark inputs")
+    emit_progress(
+        args.progress_jsonl,
+        step=total,
+        total=total,
+        phase="Prepared selected multiversion inputs",
+    )
     print(json.dumps({"output": str(root / "prepared-inputs.json")}, ensure_ascii=False))
     return 0
 

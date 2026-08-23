@@ -50,3 +50,12 @@ informar al usuario al menos una vez por minuto y no lanzar builds duplicados. S
 el cliente local no termina después de subir las capas, no cancelarlo hasta
 verificar en GHCR los tags de versión y `latest`, el mismo digest y los manifests
 `linux/amd64` y `linux/arm64`.
+
+## Validación proporcional
+
+Ejecutar la comprobación mínima suficiente para el riesgo real del cambio.
+Cambios solo documentales requieren revisar el diff y `git diff --check`;
+código acotado requiere pruebas dirigidas; cambios transversales, de empaquetado
+o una release requieren la suite pertinente y, cuando corresponda, el smoke
+completo. No repetir el smoke tras commit/push, documentación o bumps mecánicos
+si no cambió código ni ningún artefacto ejecutable desde la validación anterior.

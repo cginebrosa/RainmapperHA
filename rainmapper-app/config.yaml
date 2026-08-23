@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.263"
+version: "0.2.264"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -86,6 +86,7 @@ options:
   publish_to_www: false
   external_worker_connections_enabled: false
   external_worker_rebuilds_enabled: false
+  ml_storage_reconciliation_apply: false
   gmap_api_key: ""
   aemet_api_key: ""
 schema:
@@ -146,5 +147,6 @@ schema:
   publish_to_www: bool
   external_worker_connections_enabled: bool
   external_worker_rebuilds_enabled: bool
+  ml_storage_reconciliation_apply: bool
   gmap_api_key: password
   aemet_api_key: password

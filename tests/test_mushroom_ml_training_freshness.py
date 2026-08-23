@@ -13,7 +13,32 @@ REGISTRY_PATH = Path(__file__).resolve().parents[1] / "mushroom-data/mushroom_ml
 
 
 class MushroomMLTrainingFreshnessTests(TestCase):
-    def _manifest(self, training_digest: str | None = None) -> dict:
+    def test_revision_comparison_is_metadata_only_and_categorized(self) -> None:
+        vector = {
+            "observations_revision": "sha256:observations",
+            "weather_generation_id": "weather-1",
+            "weather_manifest_sha256": "sha256:weather",
+            "sites_revision": "sha256:sites",
+            "stations_revision": "sha256:stations",
+            "catalogs_revision": "sha256:catalogs",
+            "gis_revision": "sha256:gis",
+            "training_contract_version": "registry-2.0",
+        }
+        current = dict(vector)
+        current["observations_revision"] = "sha256:new-observations"
+
+        result = freshness.compare_revision_vectors(vector, current)
+
+        self.assertEqual(result["status"], "stale")
+        self.assertEqual(
+            result["changed_categories"], ["observations_revision"]
+        )
+
+    def _manifest(
+        self,
+        training_digest: str | None = None,
+        input_revisions: dict | None = None,
+    ) -> dict:
         artifact_ref = catalog.ModelArtifactRef(
             batch_id="batch-freshness",
             generation_id="generation-v3",
@@ -42,6 +67,8 @@ class MushroomMLTrainingFreshnessTests(TestCase):
                 "path": "batches/batch-freshness/training-input-manifest.json",
                 "sha256": training_digest,
             }
+        if input_revisions is not None:
+            manifest["input_revisions"] = input_revisions
         return manifest
 
     def _assess(self, root: Path, **changes):
@@ -66,9 +93,35 @@ class MushroomMLTrainingFreshnessTests(TestCase):
             (root / "runtime-batch.json").write_text(json.dumps(self._manifest()))
             result = self._assess(root)
             self.assertEqual(result["status"], "unknown")
-            self.assertEqual(result["reason"], "training_identity_unavailable")
+            self.assertEqual(result["reason"], "revision_vector_unavailable")
 
-    def test_matching_and_changed_inputs_are_distinguished(self) -> None:
+    def test_quick_assessment_reads_only_revision_metadata(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            vector = {
+                "observations_revision": "sha256:observations",
+                "weather_generation_id": "weather-1",
+                "weather_manifest_sha256": "sha256:weather",
+                "sites_revision": "sha256:sites",
+                "stations_revision": "sha256:stations",
+                "catalogs_revision": "sha256:catalogs",
+                "gis_revision": "sha256:gis",
+                "training_contract_version": "registry-2.0",
+            }
+            (root / "runtime-batch.json").write_text(
+                json.dumps(self._manifest(input_revisions=vector))
+            )
+            freshness.publish_current_revisions(
+                root / "current-input-revisions.json", vector
+            )
+            with patch(
+                "rainmapper_core.mushroom_ml_training_freshness.mushroom_rebuild_snapshot.verify_live_inputs"
+            ) as verify:
+                result = self._assess(root)
+            self.assertEqual(result["status"], "current")
+            verify.assert_not_called()
+
+    def test_deep_audit_hashes_inputs_and_reports_changes(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             training_path = root / "batches/batch-freshness/training-input-manifest.json"
@@ -80,14 +133,32 @@ class MushroomMLTrainingFreshnessTests(TestCase):
                 "rainmapper_core.mushroom_ml_training_freshness.mushroom_rebuild_snapshot.verify_live_inputs",
                 return_value={"status": "valid", "current_snapshot_id": "sha256:" + "a" * 64, "errors": []},
             ) as verify:
-                self.assertEqual(self._assess(root)["status"], "current")
+                self.assertEqual(self._assess(root, deep=True)["status"], "current")
                 self.assertEqual(
                     verify.call_args.kwargs["ignored_extra_inputs"],
                     {"observation-features.json", "registry.json"},
                 )
-                self.assertFalse(verify.call_args.kwargs["verify_weather_file_hashes"])
+                self.assertTrue(verify.call_args.kwargs["verify_weather_file_hashes"])
+            with patch(
+                "rainmapper_core.mushroom_ml_training_freshness.mushroom_rebuild_snapshot.verify_live_inputs",
+                return_value={"status": "valid", "errors": []},
+            ) as verify:
+                freshness.audit_deep(
+                    runtime_manifest_path=root / "runtime-batch.json",
+                    registry_path=REGISTRY_PATH,
+                    models_root=root,
+                    observations_path=root / "observations.json",
+                    reference_catalogs_path=root / "references.json",
+                    gis_mappings_path=root / "mappings.json",
+                    weather_data_dir=root / "weather",
+                    gis_root=root / "gis",
+                    extra_inputs={},
+                )
+                self.assertTrue(
+                    verify.call_args.kwargs["verify_weather_file_hashes"]
+                )
             with patch(
                 "rainmapper_core.mushroom_ml_training_freshness.mushroom_rebuild_snapshot.verify_live_inputs",
                 return_value={"status": "stale", "current_snapshot_id": "sha256:" + "c" * 64, "errors": ["changed"]},
             ):
-                self.assertEqual(self._assess(root)["status"], "stale")
+                self.assertEqual(self._assess(root, deep=True)["status"], "stale")

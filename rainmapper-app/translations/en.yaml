@@ -5,6 +5,9 @@ configuration:
   external_worker_rebuilds_enabled:
     name: Allow external rebuilds and promotion
     description: Allow connected workers to run real rebuilds and make verified candidates eligible for explicit promotion.
+  ml_storage_reconciliation_apply:
+    name: Apply ML storage retention
+    description: Apply audited ML and worker storage cleanup at Rainmapper startup and lifecycle checkpoints. Keep disabled for dry-run reporting only.
 network:
   8099/TCP: Rainmapper web server for Ingress, MapLibre, and existing protected web access
   8100/TCP: Private Rainmapper external worker coordinator

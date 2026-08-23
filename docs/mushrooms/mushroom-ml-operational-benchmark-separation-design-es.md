@@ -2,6 +2,12 @@
 
 Estado: **FASES 1 Y 2 IMPLEMENTADAS EN EL WORKTREE, PENDIENTES DE RELEASE**.
 
+Actualización 2026-08-23: el contrato vigente amplía el mantenimiento operativo
+a todas las versiones instaladas y lo autopromociona conjuntamente. El benchmark
+permanece separado, pero se compacta inmediatamente a `evidence_only` y no puede
+preparar una candidata. Las descripciones inferiores de V2-only y promoción
+manual son historia de la implementación, no comportamiento vigente.
+
 Validación local: 327 pruebas dirigidas y smoke completo de 915 pruebas,
 incluidas compilación Python/JavaScript/shell y comprobación de whitespace. Con
 autorización posterior se construyó e instaló únicamente la imagen HA local

@@ -1279,20 +1279,19 @@ def serve(
                             "--progress-jsonl", str(preparation_progress_path),
                             "--job-purpose", job_purpose,
                         ]
-                        if job_purpose == "benchmark":
-                            for profile_key in list(spec.get("profile_keys") or []):
-                                preparation_command.extend(
-                                    ["--profile-key", str(profile_key)]
-                                )
+                        for profile_key in list(spec.get("profile_keys") or []):
+                            preparation_command.extend(
+                                ["--profile-key", str(profile_key)]
+                            )
                         multiversion_telemetry.publish(
                             {
                                 "phase": (
-                                    "Preparing active operational inputs"
+                                    "Preparing selected operational inputs"
                                     if job_purpose == "operational"
                                     else "Preparing fresh V2--V6 evaluation inputs"
                                 ),
                                 "message": (
-                                    "Building fixed/lag V2 inputs from the current snapshot."
+                                    "Building shared V2--V6 inputs and hold-out evidence."
                                     if job_purpose == "operational"
                                     else "Building disposable benchmarks from the current snapshot."
                                 ),
@@ -1390,12 +1389,12 @@ def serve(
                     multiversion_telemetry.publish(
                         {
                             "phase": (
-                                "Training active operational generation"
+                                "Refreshing selected operational versions"
                                 if job_purpose == "operational"
                                 else "Training V2--V6 scientific benchmark"
                             ),
                             "message": (
-                                "Training every artifact required by the active Predictor generation."
+                                "Training every profile of the selected installed versions."
                                 if job_purpose == "operational"
                                 else "Training the isolated non-operational benchmark batch."
                             ),
