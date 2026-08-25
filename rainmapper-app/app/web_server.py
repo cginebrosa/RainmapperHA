@@ -12901,6 +12901,7 @@ def start_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int,
 def create_mushroom_worker_candidate_rebuild(
     worker_id: str,
     *,
+    profile_keys: list[str] | None = None,
     _preparation_lock_acquired: bool = False,
 ) -> tuple[int, dict[str, object]]:
     if not mushroom_worker_api_enabled():
@@ -12984,6 +12985,7 @@ def create_mushroom_worker_candidate_rebuild(
                         worker_display_name=display_name,
                         input_bundle=input_bundle,
                         job_id=job_id,
+                        profile_keys=profile_keys,
                     )
             except BaseException:
                 mushroom_worker_transport.discard_unqueued_bundle(
@@ -13034,6 +13036,7 @@ def create_mushroom_ml_train_job(
     worker_id: str,
     *,
     features_path: Path | None = None,
+    profile_keys: list[str] | None = None,
     triggered_by_job_id: str = "",
 ) -> tuple[int, dict[str, object]]:
     if not mushroom_worker_api_enabled():
@@ -13117,6 +13120,7 @@ def create_mushroom_ml_train_job(
                     input_bundle=input_bundle,
                     job_id=job_id,
                     species_ids=eligible_species_ids,
+                    profile_keys=profile_keys,
                     triggered_by_job_id=triggered_by_job_id,
                 )
         except BaseException:
@@ -13139,6 +13143,7 @@ def start_mushroom_ml_train_job(
     worker_id: str,
     *,
     features_path: Path | None = None,
+    profile_keys: list[str] | None = None,
     triggered_by_job_id: str = "",
 ) -> tuple[int, dict[str, object]]:
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
@@ -13153,6 +13158,7 @@ def start_mushroom_ml_train_job(
             status, response = create_mushroom_ml_train_job(
                 worker_id,
                 features_path=features_path,
+                profile_keys=profile_keys,
                 triggered_by_job_id=triggered_by_job_id,
             )
             if status == 201:
@@ -13440,6 +13446,8 @@ def start_mushroom_ml_multiversion_job(
 
 def start_mushroom_worker_candidate_rebuild(
     worker_id: str,
+    *,
+    profile_keys: list[str] | None = None,
 ) -> tuple[int, dict[str, object]]:
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
         return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
@@ -13452,6 +13460,7 @@ def start_mushroom_worker_candidate_rebuild(
         try:
             status, response = create_mushroom_worker_candidate_rebuild(
                 worker_id,
+                profile_keys=profile_keys,
                 _preparation_lock_acquired=True,
             )
             if status == 201:
@@ -13680,6 +13689,10 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
             and bool(current_job.get("full_update"))
         ):
             rebuild_job_id = str(job.get("job_id", ""))
+            training_kwargs: dict[str, object] = {}
+            selected_profiles = list(current_job.get("profile_keys") or [])
+            if selected_profiles:
+                training_kwargs["profile_keys"] = selected_profiles
             training_status, training_response = start_mushroom_ml_train_job(
                 worker_id,
                 features_path=(
@@ -13688,6 +13701,7 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     / "mushroom_observation_features_v0.json"
                 ),
                 triggered_by_job_id=rebuild_job_id,
+                **training_kwargs,
             )
             if training_status != 202:
                 set_mushroom_workers_flash(
@@ -13700,10 +13714,15 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
             and str(payload.get("status", "")) == "complete"
             and bool(current_job.get("triggered_by_job_id"))
         ):
+            operational_kwargs: dict[str, object] = {}
+            selected_profiles = list(current_job.get("profile_keys") or [])
+            if selected_profiles:
+                operational_kwargs["profile_keys"] = selected_profiles
             comparison_status, comparison_response = start_mushroom_ml_multiversion_job(
                 worker_id,
                 job_purpose="operational",
                 triggered_by_job_id=str(job.get("job_id", "")),
+                **operational_kwargs,
             )
             if comparison_status != 202:
                 set_mushroom_workers_flash(
@@ -15189,7 +15208,9 @@ def set_mushroom_predictor_preferred_version(version_id: str) -> dict[str, objec
     }
 
 
-def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
+def start_mushroom_local_full_update(
+    version_ids: list[str] | None = None,
+) -> tuple[int, dict[str, object]]:
     """Start the operational rebuild chain inside an explicitly enabled local HA."""
     if not mushroom_local_ha_compute_enabled():
         return 404, {
@@ -15242,6 +15263,7 @@ def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
             "finished_at": "",
             "return_url": "./workers",
             "scope": "all eligible (complete local update)",
+            "version_ids": list(version_ids or []),
             "pipeline": "local_complete",
             "cancel_requested": False,
             "_promotion_started": False,
@@ -15278,6 +15300,7 @@ def start_mushroom_local_full_update() -> tuple[int, dict[str, object]]:
                 species_ids=species_ids,
                 paths=mushroom_local_training_paths(),
                 progress=report_progress,
+                version_ids=version_ids,
             )
             released = mushroom_predictor_ui.release_predictor_cache()
             mushroom_model_state.clear_all_pending(full_rebuild=True)
@@ -18844,6 +18867,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             benchmark_registry = mushroom_ml_version_registry.load_registry(
                 mushroom_paths.mushroom_ml_version_registry_path()
             )
+            operational_versions = (
+                mushroom_ml_version_registry.operational_version_options(
+                    benchmark_registry
+                )
+            )
             benchmark_profiles = mushroom_ml_version_registry.benchmark_profile_options(
                 benchmark_registry
             )
@@ -18902,6 +18930,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 flash=flash,
                 flash_error=flash_error,
                 flash_clear_when_idle=flash_clear_when_idle,
+                operational_versions=operational_versions,
                 benchmark_profiles=benchmark_profiles,
                 selected_benchmark_profiles=selected_benchmark_profiles,
                 benchmark_history=benchmark_history,
@@ -20524,6 +20553,30 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 error=True,
             )
             return "./workers"
+        selected_version_ids = [
+            str(value or "").strip()
+            for value in form.get("operational_version", [])
+            if str(value or "").strip()
+        ]
+        selection_present = bool(
+            self.form_value(form, "operational_selection_present")
+        )
+        selected_profile_keys: list[str] | None = None
+        if selection_present:
+            try:
+                registry = mushroom_ml_version_registry.load_registry(
+                    mushroom_paths.mushroom_ml_version_registry_path()
+                )
+                selected_profile_keys = (
+                    mushroom_ml_version_registry.training_profile_keys(
+                        registry,
+                        job_purpose="operational",
+                        version_ids=selected_version_ids,
+                    )
+                )
+            except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+                set_mushroom_workers_flash(str(exc), error=True)
+                return "./workers"
         if executor != "home_assistant":
             if not executor.startswith("worker:") or not mushroom_worker_operational_enabled():
                 set_mushroom_workers_flash(
@@ -20531,8 +20584,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     error=True,
                 )
                 return "./workers"
+            start_kwargs: dict[str, object] = {}
+            if selected_profile_keys is not None:
+                start_kwargs["profile_keys"] = selected_profile_keys
             status, response = start_mushroom_worker_candidate_rebuild(
-                executor.removeprefix("worker:")
+                executor.removeprefix("worker:"),
+                **start_kwargs,
             )
             if status != 202:
                 set_mushroom_workers_flash(
@@ -20541,7 +20598,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     clear_when_idle=mushroom_worker_error_tracks_activity(response),
                 )
             return "./workers"
-        status, response = start_mushroom_local_full_update()
+        local_kwargs: dict[str, object] = {}
+        if selection_present:
+            local_kwargs["version_ids"] = selected_version_ids
+        status, response = start_mushroom_local_full_update(**local_kwargs)
         if status != 202:
             set_mushroom_workers_flash(
                 str(response.get("error", "Cannot start the complete local update.")),

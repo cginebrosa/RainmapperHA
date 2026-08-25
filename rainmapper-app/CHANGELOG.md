@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.266
+
+- Let operational rebuilds select any installed V2/V3/V4/V5w/V6w subset and
+  preserve that selection through both Home Assistant-local and external-worker
+  reconstruction, ML v0 training, multiversion training, and promotion.
+- Populate the operational selector from the active ML version registry so
+  partial retraining remains available without hardcoding the installed set.
+- Distinguish stale, unknown-origin, and invalid training generations in
+  Predictor freshness warnings, while hiding the warning after a fully traced
+  rebuild and retraining cycle.
+
 ## 0.2.265
 
 - Migrate the persistent ML version registry from the single-active-version

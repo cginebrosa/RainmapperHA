@@ -95,6 +95,25 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("5.0 MiB", rendered)
         self.assertIn("1 / 1", rendered)
 
+    def test_predictor_training_warning_distinguishes_unknown_from_stale(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+
+        unknown_token = predictor_ui._training_freshness.set({"status": "unknown"})
+        try:
+            unknown = predictor_ui._render_training_freshness_warning()
+        finally:
+            predictor_ui._training_freshness.reset(unknown_token)
+
+        stale_token = predictor_ui._training_freshness.set({"status": "stale"})
+        try:
+            stale = predictor_ui._render_training_freshness_warning()
+        finally:
+            predictor_ui._training_freshness.reset(stale_token)
+
+        self.assertIn("cannot be verified", unknown)
+        self.assertNotIn("does not match", unknown)
+        self.assertIn("does not match", stale)
+
     def test_all_stops_before_maps_when_update_artifacts_fail(self) -> None:
         class FailedUpdateProcess:
             stdout = iter(())
@@ -6268,6 +6287,39 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('value="biology_v3/core" checked', page)
         self.assertNotIn('value="biology_v4/extended_weather" checked', page)
 
+    def test_workers_page_groups_operational_versions_and_defaults_to_installed(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            eligible_observation_count=125,
+            jobs=[],
+            pipeline="shared",
+            local_ha_compute_enabled=True,
+            operational_versions=[
+                {
+                    "version_id": "altitude_v2",
+                    "version_name": "V2",
+                    "profile_names": ["Altitude and shared weather"],
+                    "installed": False,
+                    "preferred": False,
+                },
+                {
+                    "version_id": "biology_v4",
+                    "version_name": "V4",
+                    "profile_names": ["Extended weather", "Climatic balance"],
+                    "installed": True,
+                    "preferred": True,
+                },
+            ],
+        )
+
+        self.assertIn('name="operational_selection_present" value="1"', page)
+        self.assertIn('name="operational_version" value="altitude_v2"', page)
+        self.assertNotIn('value="altitude_v2" checked', page)
+        self.assertIn('name="operational_version" value="biology_v4" checked', page)
+        self.assertIn("Extended weather · Climatic balance", page)
+        self.assertIn("Installed", page)
+        self.assertIn("Preferred", page)
+
     def test_running_local_benchmark_shows_exact_profile_and_cancel(self) -> None:
         jobs = self.web_server.mushroom_workers_ui.render_recent_jobs(
             [
@@ -6435,6 +6487,72 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(redirect, "./workers")
         start.assert_called_once_with()
+
+    def test_workers_post_resolves_selected_versions_to_complete_profiles(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        payload = self.web_server.mushroom_ml_version_registry.load_registry(
+            Path("mushroom-data/mushroom_ml_version_registry.json")
+        )
+        with mock.patch.dict(
+            os.environ,
+            {
+                "RAINMAPPER_WORKER_API_ENABLED": "true",
+                "RAINMAPPER_WORKER_OPERATIONAL_ENABLED": "true",
+            },
+        ), mock.patch.object(
+            self.web_server.mushroom_ml_version_registry,
+            "load_registry",
+            return_value=payload,
+        ), mock.patch.object(
+            self.web_server,
+            "start_mushroom_worker_candidate_rebuild",
+            return_value=(202, {"ok": True, "preparing": True}),
+        ) as start:
+            redirect = handler.handle_mushroom_workers_post(
+                {
+                    "worker_action": ["start_rebuild"],
+                    "executor": ["worker:worker_12345678"],
+                    "operational_selection_present": ["1"],
+                    "operational_version": ["altitude_v2", "biology_v4"],
+                }
+            )
+
+        self.assertEqual("./workers", redirect)
+        start.assert_called_once_with(
+            "worker_12345678",
+            profile_keys=[
+                "altitude_v2/common_idw",
+                "biology_v4/extended_weather",
+                "biology_v4/climatic_balance",
+            ],
+        )
+
+    def test_workers_post_rejects_empty_operational_version_selection(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        payload = self.web_server.mushroom_ml_version_registry.load_registry(
+            Path("mushroom-data/mushroom_ml_version_registry.json")
+        )
+        with mock.patch.object(
+            self.web_server.mushroom_ml_version_registry,
+            "load_registry",
+            return_value=payload,
+        ), mock.patch.object(
+            self.web_server,
+            "start_mushroom_worker_candidate_rebuild",
+        ) as start:
+            redirect = handler.handle_mushroom_workers_post(
+                {
+                    "worker_action": ["start_rebuild"],
+                    "executor": ["worker:worker_12345678"],
+                    "operational_selection_present": ["1"],
+                }
+            )
+
+        self.assertEqual("./workers", redirect)
+        start.assert_not_called()
+        message, is_error = self.web_server.mushroom_workers_flash()
+        self.assertIn("Select at least one", message)
+        self.assertTrue(is_error)
 
     def test_workers_post_starts_local_scientific_benchmark_separately(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
@@ -6803,7 +6921,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ) as start_training:
             self.web_server.register_mushroom_worker_heartbeat(heartbeat)
             create_status, created = self.web_server.create_mushroom_worker_candidate_rebuild(
-                "worker_12345678"
+                "worker_12345678",
+                profile_keys=["altitude_v2/common_idw"],
             )
             claim_status, claimed = self.web_server.claim_mushroom_worker_job(
                 {"worker_id": "worker_12345678"}
@@ -6857,6 +6976,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         start_training.assert_called_once_with(
             "worker_12345678",
             features_path=result_root / job_id / "mushroom_observation_features_v0.json",
+            profile_keys=["altitude_v2/common_idw"],
             triggered_by_job_id=job_id,
         )
 
@@ -7607,6 +7727,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "job_spec_id": "sha256:" + "b" * 64,
             },
             job_id=job_id,
+            profile_keys=["altitude_v2/common_idw"],
             triggered_by_job_id="worker_job_rebuild123",
         )
         claimed = self.web_server.mushroom_worker_jobs.claim_next(
@@ -7664,6 +7785,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         start_multiversion.assert_called_once_with(
             "worker_aaaaaaaa",
             job_purpose="operational",
+            profile_keys=["altitude_v2/common_idw"],
             triggered_by_job_id=job_id,
         )
 

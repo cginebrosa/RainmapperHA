@@ -661,6 +661,7 @@ def render_page(
     flash: str = "",
     flash_error: bool = False,
     flash_clear_when_idle: bool = False,
+    operational_versions: list[dict[str, object]] | None = None,
     benchmark_profiles: list[dict[str, str]] | None = None,
     selected_benchmark_profiles: list[str] | None = None,
     benchmark_history: list[dict[str, object]] | None = None,
@@ -803,6 +804,44 @@ def render_page(
     )
     worker_choices_signature = refresh_signature(worker_choices)
     recent_jobs_signature = refresh_signature(recent_jobs)
+    available_operational_versions = operational_versions or []
+    selected_operational_versions = {
+        str(row.get("version_id") or "")
+        for row in available_operational_versions
+        if row.get("installed") is True
+    }
+    if not selected_operational_versions:
+        selected_operational_versions = {
+            str(row.get("version_id") or "")
+            for row in available_operational_versions
+        }
+
+    def operational_version_badges(row: dict[str, object]) -> str:
+        badges = []
+        if row.get("installed") is True:
+            badges.append(
+                f'<em>{_text(_label("ui.worker_version_installed"))}</em>'
+            )
+        if row.get("preferred") is True:
+            badges.append(
+                f'<em>{_text(_label("ui.worker_version_preferred"))}</em>'
+            )
+        return "".join(badges)
+
+    operational_version_controls = "".join(
+        '<label class="operational-version-choice">'
+        f'<input type="checkbox" name="operational_version" value="{_text(row.get("version_id"))}"'
+        f'{" checked" if str(row.get("version_id") or "") in selected_operational_versions else ""}>'
+        '<span class="operational-version-surface">'
+        '<span class="operational-version-mark" aria-hidden="true">✓</span>'
+        '<span class="operational-version-copy">'
+        f'<strong>{_text(row.get("version_name"))}</strong>'
+        f'<small>{_text(" · ".join(str(value) for value in (row.get("profile_names") or []) if str(value or "")))}</small>'
+        '</span><span class="operational-version-badges">'
+        f'{operational_version_badges(row)}'
+        '</span></span></label>'
+        for row in available_operational_versions
+    )
     pairing_action = ""
     if pairing_required:
         pairing_action = f'''
@@ -854,6 +893,7 @@ def render_page(
       .worker-scope-choice>span{{display:flex;flex-direction:column;gap:0;min-height:35px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer}}.worker-scope-choice strong{{font-size:11px}}.worker-scope-choice small{{color:var(--muted);font-size:9px}}
       .worker-scope-choice input:checked + span{{border-color:var(--accent);background:#102a38;box-shadow:0 0 0 1px rgba(3,169,244,.18)}}.worker-scope-choice input:disabled + span{{opacity:.45;cursor:not-allowed}}
       .worker-species-field{{margin-top:8px}}.worker-species-field[hidden]{{display:none}}.worker-species-field label{{display:block;margin:0 0 4px;color:var(--muted);font-size:11px}}.worker-species-field select{{width:100%;max-width:560px}}
+      .operational-version-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}}.operational-version-choice{{display:block;position:relative;min-width:0;margin:0}}.operational-version-choice input[type="checkbox"]{{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0;pointer-events:none}}.operational-version-surface{{display:grid;grid-template-columns:19px minmax(0,1fr) auto;align-items:center;gap:7px;min-height:48px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer}}.operational-version-mark{{display:grid;place-items:center;width:17px;height:17px;border:1px solid var(--line);border-radius:5px;color:transparent;font-size:11px;font-weight:900}}.operational-version-copy{{display:flex;flex-direction:column;min-width:0}}.operational-version-copy strong{{font-size:12px}}.operational-version-copy small{{color:var(--muted);font-size:9px;line-height:1.25;white-space:normal}}.operational-version-badges{{display:flex;align-items:flex-end;flex-direction:column;gap:3px}}.operational-version-badges em{{padding:1px 5px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:8px;font-style:normal;white-space:nowrap}}.operational-version-choice input:checked + .operational-version-surface{{border-color:var(--accent);background:#102a38;box-shadow:0 0 0 1px rgba(3,169,244,.18)}}.operational-version-choice input:checked + .operational-version-surface .operational-version-mark{{border-color:var(--accent);background:var(--accent);color:#07151d}}.operational-version-choice input:focus-visible + .operational-version-surface{{outline:2px solid var(--accent);outline-offset:2px}}
       .worker-submit-row{{display:flex;align-items:center;justify-content:flex-end;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}}.worker-submit-row button{{min-width:155px;padding:6px 9px;font-size:11px}}
       .workers-table-wrap{{overflow:auto;margin-top:4px}}.workers-table-wrap table{{width:100%;min-width:1120px;table-layout:fixed;border-collapse:collapse;font-size:11px}}.workers-table-wrap th,.workers-table-wrap td{{padding:4px 5px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.workers-table-wrap th{{font-size:10px;font-weight:700;color:var(--muted)}}
       .worker-jobs-history{{max-height:286px;overscroll-behavior:contain}}.worker-jobs-history thead th{{position:sticky;top:0;z-index:2;background:var(--card)}}
@@ -870,8 +910,8 @@ def render_page(
       .benchmark-history{{display:grid;gap:7px}}.benchmark-history-scroll{{max-height:260px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}}.benchmark-history-item{{display:flex;align-items:stretch;gap:6px}}.benchmark-history-row{{flex:1;min-width:0;display:flex;justify-content:space-between;gap:12px;padding:9px;border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none}}.benchmark-history-row span:first-child{{display:grid;gap:2px}}.benchmark-history-row small{{color:var(--muted)}}.benchmark-history-delete{{flex:0 0 auto;align-self:center;margin:0}}.benchmark-history-delete button{{width:auto;padding:5px 9px;font-size:10px}}
       .benchmark-report-summary{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}}.benchmark-report-summary div{{padding:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}}.benchmark-report-summary dt{{color:var(--muted);font-size:11px}}.benchmark-report-summary dd{{margin:4px 0 0;overflow-wrap:anywhere}}
       .benchmark-report-table table{{width:min(100%,1380px);min-width:1220px;table-layout:fixed}}.benchmark-report-table th:nth-child(1){{width:86px}}.benchmark-report-table th:nth-child(2){{width:58px}}.benchmark-report-table th:nth-child(3){{width:150px}}.benchmark-report-table th:nth-child(4){{width:78px}}.benchmark-report-table th:nth-child(5){{width:170px}}.benchmark-report-table th:nth-child(6){{width:62px}}.benchmark-report-table th:nth-child(7){{width:78px}}.benchmark-report-table th:nth-child(8){{width:62px}}.benchmark-report-table th:nth-child(9){{width:68px}}.benchmark-report-table th:nth-child(10){{width:54px}}.benchmark-report-table th:nth-child(11){{width:100px}}.benchmark-report-table th:nth-child(12){{width:80px}}.benchmark-report-table th:nth-child(13){{width:78px}}.benchmark-report-table th:nth-child(14){{width:82px}}.benchmark-report-table th,.benchmark-report-table td{{padding-left:4px;padding-right:4px}}.benchmark-failures{{margin-top:12px}}
-      @media(max-width:1050px){{.worker-toolbar-spacer{{display:none}}.worker-toolbar-actions{{flex-basis:100%;justify-content:flex-start;margin-left:0}}.workers-grid,.worker-destination-grid,.benchmark-profile-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
-      @media(max-width:700px){{.workers-grid,.worker-destination-grid,.worker-scope-grid,.benchmark-profile-grid,.benchmark-report-summary{{grid-template-columns:1fr}}.worker-panel-head{{display:block}}.workers-head{{align-items:flex-start;flex-direction:column;gap:2px}}.worker-metrics{{justify-content:flex-start;margin-top:6px;text-align:left}}.worker-toolbar-actions{{align-items:stretch;flex-direction:column}}.worker-default-form{{align-items:stretch;flex-direction:column}}.worker-default-form select{{width:100%;max-width:none}}.benchmark-form-head{{display:block}}.benchmark-executor{{width:100%}}.benchmark-submit-row button{{width:100%}}.worker-note{{grid-template-columns:1fr}}}}
+      @media(max-width:1050px){{.worker-toolbar-spacer{{display:none}}.worker-toolbar-actions{{flex-basis:100%;justify-content:flex-start;margin-left:0}}.workers-grid,.worker-destination-grid,.operational-version-grid,.benchmark-profile-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
+      @media(max-width:700px){{.workers-grid,.worker-destination-grid,.worker-scope-grid,.operational-version-grid,.benchmark-profile-grid,.benchmark-report-summary{{grid-template-columns:1fr}}.worker-panel-head{{display:block}}.workers-head{{align-items:flex-start;flex-direction:column;gap:2px}}.worker-metrics{{justify-content:flex-start;margin-top:6px;text-align:left}}.worker-toolbar-actions{{align-items:stretch;flex-direction:column}}.worker-default-form{{align-items:stretch;flex-direction:column}}.worker-default-form select{{width:100%;max-width:none}}.benchmark-form-head{{display:block}}.benchmark-executor{{width:100%}}.benchmark-submit-row button{{width:100%}}.worker-note{{grid-template-columns:1fr}}}}
     </style>
     <div class="catalog-toolbar maintenance-top-toolbar">
       <a class="button-link" href="../">{_text(_label('ui.back'))}</a>
@@ -910,12 +950,14 @@ def render_page(
       <form class="worker-rebuild-form" method="post" action="">
         <input type="hidden" name="worker_action" value="start_rebuild">
         <input type="hidden" name="scope" value="all">
+        <input type="hidden" name="operational_selection_present" value="1">
         <div class="worker-form-section"><div class="worker-form-heading"><strong>1 · {_text(_label('ui.execute_on'))}</strong><small>{_text(_label('ui.worker_destination_help'))}</small></div>
           <div class="worker-destination-grid">
             <div id="worker-destination-choices" class="worker-destination-choices" data-refresh-signature="{worker_choices_signature}">{worker_choices}</div>
           </div>
         </div>
         <div class="worker-form-section"><div class="worker-form-heading"><strong>2 · {_text(_label('ui.rebuild_scope_all'))}</strong><small>{eligible_observation_count} {_text(_label('ui.worker_eligible_observations')).lower()}. {_text(_label('ui.worker_scope_help'))}</small></div></div>
+        <div class="worker-form-section"><div class="worker-form-heading"><strong>3 · {_text(_label('ui.worker_operational_versions'))}</strong><small>{_text(_label('ui.worker_operational_versions_help'))}</small></div><div class="operational-version-grid">{operational_version_controls}</div></div>
         <div class="worker-submit-row"><button class="primary" type="submit"{" disabled" if not selected_executor else ""}>{_text(_label('ui.start_rebuild'))}</button></div>
       </form>
     </section>

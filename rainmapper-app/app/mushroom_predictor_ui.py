@@ -3246,14 +3246,17 @@ def _render_training_freshness_warning() -> str:
     if status == "current" or not status:
         return ""
     if status == "stale":
+        warning_key = "ui.predictor_training_stale_warning"
         help_key = "ui.predictor_training_stale_help"
     elif status == "unknown":
+        warning_key = "ui.predictor_training_unknown_warning"
         help_key = "ui.predictor_training_unknown_help"
     else:
+        warning_key = "ui.predictor_training_invalid_warning"
         help_key = "ui.predictor_training_invalid_help"
     return (
         '<div class="pred-training-warning">'
-        f'<strong>{html.escape(_lbl("ui.predictor_training_warning"))}</strong>'
+        f'<strong>{html.escape(_lbl(warning_key))}</strong>'
         f'<span>{html.escape(_lbl(help_key))}</span>'
         "</div>"
     )

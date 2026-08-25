@@ -441,6 +441,35 @@ def operational_profile_options(payload: object) -> list[dict[str, str]]:
     ]
 
 
+def operational_version_options(payload: object) -> list[dict[str, Any]]:
+    """Group executable operational profiles by their registry version."""
+    checked = validate_registry(payload)
+    version_state = {
+        str(row["version_id"]): row
+        for row in checked["versions"]
+    }
+    preferred_version_id = checked.get("preferred_version_id")
+    grouped: dict[str, dict[str, Any]] = {}
+    for profile in operational_profile_options(checked):
+        version_id = profile["version_id"]
+        option = grouped.setdefault(
+            version_id,
+            {
+                "version_id": version_id,
+                "version_name": profile["version_name"],
+                "profile_keys": [],
+                "profile_names": [],
+                "installed": bool(
+                    version_state[version_id].get("installed_generation_id")
+                ),
+                "preferred": version_id == preferred_version_id,
+            },
+        )
+        option["profile_keys"].append(profile["profile_key"])
+        option["profile_names"].append(profile["profile_name"])
+    return list(grouped.values())
+
+
 def resolve_operational_profile(payload: object, profile_key: str) -> dict[str, str]:
     """Resolve one human-selected technically executable operational profile."""
     resolved_key = _non_empty_string(profile_key, "profile_key")

@@ -291,13 +291,18 @@ def eligible_training_species(features_path: Path) -> list[str]:
 def _validate_runtime_registry_before_work(
     registry_path: Path,
     species_ids: list[str],
+    requested_version_ids: list[str] | tuple[str, ...] | None = None,
 ) -> list[str]:
     registry = mushroom_ml_version_registry.load_registry(registry_path)
     try:
         version_ids = mushroom_ml_version_registry.training_version_ids(
-            registry, job_purpose="operational"
+            registry,
+            job_purpose="operational",
+            requested_version_ids=requested_version_ids,
         )
     except ValueError:
+        if requested_version_ids is not None:
+            raise
         version_ids = list(
             dict.fromkeys(
                 row["version_id"]
@@ -546,12 +551,17 @@ def run_local_full_update(
     species_ids: list[str],
     paths: LocalFullUpdatePaths,
     progress: ProgressCallback,
+    version_ids: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, object]:
     """Run reconstruction, ML v0 and selected installed ML versions locally."""
     if not selected_observation_ids:
         raise ValueError("The complete local update has no eligible observations")
     _validate_isolated_work_root(paths)
-    version_ids = _validate_runtime_registry_before_work(paths.registry, species_ids)
+    version_ids = _validate_runtime_registry_before_work(
+        paths.registry,
+        species_ids,
+        version_ids,
+    )
     registry_before = mushroom_ml_version_registry.load_registry(paths.registry)
     profile_keys = mushroom_ml_version_registry.training_profile_keys(
         registry_before, job_purpose="operational", version_ids=version_ids

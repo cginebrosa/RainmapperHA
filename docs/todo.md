@@ -283,6 +283,23 @@ evidencia y cualquier cambio operativo entra por el mantenimiento completo.
   fase que domina el tiempo de reloj (varios minutos), no el ajuste de los
   modelos en sí (suma de fits medida en manifiestos: segundos, no minutos).
   No perfilado todavía.
+- [ ] Optimizar el reentrenamiento operativo multiversión después de validar y
+  desplegar la generación actual. Seguir este orden y medir cada paso antes de
+  avanzar al siguiente:
+  1. Perfilar una reconstrucción y reentrenamiento completos con `py-spy` o
+     `cProfile`, separando preparación, evaluación hold-out y ajuste de
+     artefactos.
+  2. Paralelizar de forma acotada los cálculos independientes por
+     área/cutoff y los fits de modelos, evitando paralelismo anidado y
+     sobreasignación de CPU/memoria.
+  3. Reutilizar ventanas meteorológicas, balances y estados de suelo
+     compartidos para eliminar cálculos repetidos entre versiones, perfiles y
+     contratos.
+  4. Vectorizar con NumPy los bucles que el perfil confirme como dominantes y
+     volver a medir tiempo, memoria y equivalencia numérica.
+  5. Solo si sigue existiendo un núcleo de Python puro dominante, evaluar una
+     implementación compilada y acotada (Cython, Numba o extensión C/Rust),
+     manteniendo compatibilidad `amd64`/`arm64` y Python 3.11.
 - [ ] Evitar reconstrucción redundante del snapshot del coordinador entre
   jobs encadenados de "Reconstruir y reentrenar operativo": el paso 1→2
   (`create_mushroom_ml_train_job`, `web_server.py:12937-13009`) ya es barato

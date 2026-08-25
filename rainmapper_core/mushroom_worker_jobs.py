@@ -450,6 +450,7 @@ def create_candidate_rebuild(
     worker_display_name: str,
     input_bundle: dict[str, Any],
     job_id: str,
+    profile_keys: list[str] | tuple[str, ...] | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     target_worker_id = _validate_worker_id(worker_id)
@@ -466,6 +467,13 @@ def create_candidate_rebuild(
         raise ValueError("Worker input snapshot ID is invalid.")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", job_spec_id):
         raise ValueError("Worker job spec ID is invalid.")
+    selected_profiles = [
+        str(value or "").strip() for value in (profile_keys or [])
+    ]
+    if any(not value for value in selected_profiles) or len(selected_profiles) != len(
+        set(selected_profiles)
+    ):
+        raise ValueError("Operational profile selection is invalid.")
     work_key = f"rebuild:v0:{snapshot_id}:all"
     queue = load_queue(path)
     duplicate = next(
@@ -496,6 +504,7 @@ def create_candidate_rebuild(
         "scope": "all eligible",
         "reconstruction_scope": "all",
         "scope_species_ids": [],
+        "profile_keys": selected_profiles,
         "overall_percent": 0,
         "created_at": timestamp,
         "claimed_at": "",
@@ -537,6 +546,7 @@ def create_ml_train_job(
     input_bundle: dict[str, Any],
     job_id: str,
     species_ids: list[str] | tuple[str, ...] | None = None,
+    profile_keys: list[str] | tuple[str, ...] | None = None,
     triggered_by_job_id: str = "",
     created_at: str | None = None,
 ) -> dict[str, Any]:
@@ -557,6 +567,13 @@ def create_ml_train_job(
     resolved_species_ids = sorted(
         {str(sp).strip() for sp in (species_ids or []) if str(sp or "").strip()}
     )
+    selected_profiles = [
+        str(value or "").strip() for value in (profile_keys or [])
+    ]
+    if any(not value for value in selected_profiles) or len(selected_profiles) != len(
+        set(selected_profiles)
+    ):
+        raise ValueError("Operational profile selection is invalid.")
     work_key = f"ml_train:v0:{features_digest}"
     triggered_by = str(triggered_by_job_id or "").strip()
     if triggered_by and not JOB_ID_PATTERN.fullmatch(triggered_by):
@@ -591,6 +608,7 @@ def create_ml_train_job(
         "message": "ML training job queued.",
         "scope": scope_label,
         "scope_species_ids": resolved_species_ids,
+        "profile_keys": selected_profiles,
         "triggered_by_job_id": triggered_by,
         "overall_percent": 0,
         "created_at": timestamp,

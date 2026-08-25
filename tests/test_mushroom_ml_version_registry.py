@@ -93,6 +93,23 @@ class MushroomMLVersionRegistryTests(TestCase):
             ],
         )
 
+        versions = registry.operational_version_options(payload)
+        self.assertEqual(
+            [row["version_id"] for row in versions],
+            [
+                "altitude_v2",
+                "biology_v3",
+                "biology_v4",
+                "biology_v5_windowed_raw_weather",
+                "biology_v6_windowed_smooth_hierarchical",
+            ],
+        )
+        self.assertEqual(
+            len(next(row for row in versions if row["version_id"] == "biology_v6_windowed_smooth_hierarchical")["profile_keys"]),
+            3,
+        )
+        self.assertFalse(any(row["installed"] for row in versions))
+
     def test_benchmark_profiles_are_selectable_and_resolved_in_registry_order(self) -> None:
         payload = registry.load_registry(DEFAULT_REGISTRY)
         options = registry.benchmark_profile_options(payload)
@@ -387,6 +404,13 @@ class MushroomMLVersionRegistryTests(TestCase):
                 "profile_ids": ["adaptive"],
                 "batch_id": "batch-v7",
             },
+        )
+        self.assertIn(
+            "biology_v7",
+            [
+                row["version_id"]
+                for row in registry.operational_version_options(expanded)
+            ],
         )
 
         activated = registry.transition_active_generation(

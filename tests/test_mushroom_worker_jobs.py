@@ -375,6 +375,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 worker_display_name="Worker A",
                 input_bundle=bundle("worker_job_full_aaaa"),
                 job_id="worker_job_full_aaaa",
+                profile_keys=["altitude_v2/common_idw", "biology_v4/extended_weather"],
             )
             with self.assertRaises(mushroom_worker_jobs.DuplicateActiveWorkError):
                 mushroom_worker_jobs.create_candidate_rebuild(
@@ -387,6 +388,10 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             self.assertEqual("all", first["reconstruction_scope"])
             self.assertTrue(first["full_update"])
             self.assertTrue(first["promotion_eligible"])
+            self.assertEqual(
+                first["profile_keys"],
+                ["altitude_v2/common_idw", "biology_v4/extended_weather"],
+            )
 
     def test_candidate_rebuild_requires_claim_and_trusted_result_summary(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

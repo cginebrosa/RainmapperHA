@@ -3545,9 +3545,29 @@
     "ca": "Una especie"
   },
   "ui.worker_scope_help": {
-    "en": "A complete artifact rebuild will be followed only by training the active operational generation.",
-    "es": "La reconstruccion completa de artefactos ira seguida solo del entrenamiento de la generacion operativa activa.",
-    "ca": "La reconstruccio completa d'artefactes anira seguida nomes de l'entrenament de la generacio operativa activa."
+    "en": "A complete artifact rebuild will be followed by training the selected operational versions.",
+    "es": "La reconstruccion completa de artefactos ira seguida del entrenamiento de las versiones operativas seleccionadas.",
+    "ca": "La reconstruccio completa d'artefactes anira seguida de l'entrenament de les versions operatives seleccionades."
+  },
+  "ui.worker_operational_versions": {
+    "en": "Operational versions to retrain",
+    "es": "Versiones operativas a reentrenar",
+    "ca": "Versions operatives per reentrenar"
+  },
+  "ui.worker_operational_versions_help": {
+    "en": "Every selected version includes all its eligible profiles. Unselected installed versions are preserved.",
+    "es": "Cada version seleccionada incluye todos sus perfiles elegibles. Las versiones instaladas no seleccionadas se conservan.",
+    "ca": "Cada versio seleccionada inclou tots els seus perfils elegibles. Les versions instal.lades no seleccionades es conserven."
+  },
+  "ui.worker_version_installed": {
+    "en": "Installed",
+    "es": "Instalada",
+    "ca": "Instal.lada"
+  },
+  "ui.worker_version_preferred": {
+    "en": "Preferred",
+    "es": "Preferida",
+    "ca": "Preferida"
   },
   "ui.start_rebuild": {
     "en": "Rebuild and retrain operational models",
@@ -4792,10 +4812,20 @@
     "es": "Requiere meteorología observada completa hasta {cutoff}",
     "ca": "Requereix meteorologia observada completa fins a {cutoff}"
   },
-  "ui.predictor_training_warning": {
-    "en": "The predictor is not confirmed to use all currently available training data.",
-    "es": "No está confirmado que el predictor use todos los datos de entrenamiento disponibles actualmente.",
-    "ca": "No està confirmat que el predictor utilitzi totes les dades d'entrenament disponibles actualment."
+  "ui.predictor_training_stale_warning": {
+    "en": "The installed predictor does not match the current training inputs.",
+    "es": "El predictor instalado no coincide con las entradas de entrenamiento actuales.",
+    "ca": "El predictor instal·lat no coincideix amb les entrades d'entrenament actuals."
+  },
+  "ui.predictor_training_unknown_warning": {
+    "en": "The freshness of the installed predictor cannot be verified.",
+    "es": "No se puede verificar la vigencia del predictor instalado.",
+    "ca": "No es pot verificar la vigència del predictor instal·lat."
+  },
+  "ui.predictor_training_invalid_warning": {
+    "en": "The saved training identity could not be verified.",
+    "es": "No se ha podido verificar la identidad de entrenamiento guardada.",
+    "ca": "No s'ha pogut verificar la identitat d'entrenament desada."
   },
   "ui.predictor_training_stale_help": {
     "en": "Observations or historical training inputs have changed since this model generation. Run the full reconstruction and retraining before interpreting its predictions as current.",
