@@ -527,6 +527,42 @@ def validate_batch_manifest(
             "path": training_input_path.as_posix(),
             "sha256": digest,
         }
+    tuning_catalog = payload.get("tuning_catalog")
+    if tuning_catalog is not None:
+        if not isinstance(tuning_catalog, Mapping):
+            raise ValueError("Runtime tuning catalog reference must be an object")
+        catalog_id = str(tuning_catalog.get("catalog_id") or "")
+        source_batch_id = str(tuning_catalog.get("source_batch_id") or "").strip()
+        decision_count = tuning_catalog.get("decision_count")
+        if (
+            not re.fullmatch(r"sha256:[0-9a-f]{64}", catalog_id)
+            or not source_batch_id
+            or not isinstance(decision_count, int)
+            or isinstance(decision_count, bool)
+            or decision_count <= 0
+        ):
+            raise ValueError("Runtime tuning catalog reference is invalid")
+        checked_tuning_catalog = {
+            "catalog_id": catalog_id,
+            "source_batch_id": source_batch_id,
+            "decision_count": decision_count,
+        }
+        tuning_path_value = tuning_catalog.get("path")
+        tuning_digest_value = tuning_catalog.get("sha256")
+        if (tuning_path_value is None) != (tuning_digest_value is None):
+            raise ValueError("Runtime tuning catalog path and digest must be declared together")
+        if tuning_path_value is not None:
+            tuning_path = Path(str(tuning_path_value))
+            expected_tuning_path = Path("batches", batch_id, "tuning-catalog.json")
+            tuning_digest = str(tuning_digest_value or "")
+            if tuning_path != expected_tuning_path or not re.fullmatch(
+                r"[0-9a-f]{64}", tuning_digest
+            ):
+                raise ValueError("Runtime tuning catalog artifact is invalid")
+            checked_tuning_catalog.update(
+                {"path": tuning_path.as_posix(), "sha256": tuning_digest}
+            )
+        result["tuning_catalog"] = checked_tuning_catalog
     return result
 
 

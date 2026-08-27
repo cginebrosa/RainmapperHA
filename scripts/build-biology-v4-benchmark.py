@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import statistics
 import sys
 from collections import Counter, defaultdict
 from datetime import date, timedelta
@@ -18,6 +19,7 @@ from rainmapper_core import mushroom_known_sites
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_biology_v4 as biology_v4
 from rainmapper_core import mushroom_ml_trainer
+from rainmapper_core import mushroom_ml_weather_workspace
 from rainmapper_core import mushroom_observation_context as weather_context
 from rainmapper_core import mushroom_soil_water_state as soil_water
 from rainmapper_core import mushroom_weather_idw
@@ -28,6 +30,40 @@ SOIL_VARIANTS = tuple(
     for depth in soil_water.PROFILE_DEPTH_CANDIDATES_CM
     for field in ("wv0033_mm_per_m", "wv0010_mm_per_m")
 )
+
+
+def daily_soil_fraction_mean(
+    states: dict[str, dict[str, object]], dates: list[date]
+) -> list[float | None]:
+    rows: list[dict[str, float]] = []
+    for state in states.values():
+        quality = state.get("quality")
+        metadata = state.get("metadata")
+        if not isinstance(quality, dict) or not quality.get("training_eligible"):
+            continue
+        if not isinstance(metadata, dict):
+            continue
+        state_dates = list(metadata.get("longest_converged_daily_dates") or [])
+        values = list(
+            metadata.get("longest_converged_daily_storage_fraction") or []
+        )
+        if len(state_dates) == len(values):
+            rows.append(
+                {
+                    str(day): float(value)
+                    for day, value in zip(state_dates, values, strict=True)
+                }
+            )
+    return [
+        (
+            statistics.fmean(
+                row[day.isoformat()] for row in rows if day.isoformat() in row
+            )
+            if any(day.isoformat() in row for row in rows)
+            else None
+        )
+        for day in dates
+    ]
 
 
 def parse_args() -> argparse.Namespace:
@@ -121,36 +157,45 @@ def main() -> int:
         raise SystemExit("V3 benchmark contains no usable area/cutoff pairs")
     earliest = min(day for _area, day in requested) - timedelta(days=364)
     latest = max(day for _area, day in requested)
-    points = list(micro_contexts.values()) + list(areas.values())
-    catalog = weather_context.load_stations_catalog(args.data_dir)
-    station_filter: set[tuple[str, str]] = set()
-    for row in catalog.itertuples(index=False):
-        source = str(getattr(row, "source", "") or "").strip()
-        code = str(getattr(row, "station_code", "") or "").strip()
-        lat = weather_context.parse_float(getattr(row, "lat", None))
-        lon = weather_context.parse_float(getattr(row, "lon", None))
-        if source and code and lat is not None and lon is not None and any(
-            weather_context.haversine_km(point.lat, point.lon, lat, lon)
-            <= weather_context.STATION_MAX_DISTANCE_KM
-            for point in points
-        ):
-            station_filter.add((source, code))
-    stations = weather_context.load_daily_weather_parquet(
-        args.data_dir,
-        station_filter=station_filter,
-        start_date=earliest,
-        end_date=latest,
+    workspace = mushroom_ml_weather_workspace.active_workspace(
+        data_dir=args.data_dir,
+        known_sites=args.known_sites,
+        stations_file=args.stations_file,
     )
     disabled = mushroom_weather_idw.disabled_wunderground_station_keys(args.stations_file)
-    stations = {
-        key: station
-        for key, station in stations.items()
-        if (str(key[0]).lower(), str(key[1]).upper()) not in disabled
-    }
-    duplicates = {
-        key: mushroom_weather_idw.suppressed_rain_dates(station)
-        for key, station in stations.items()
-    }
+    if workspace is not None:
+        stations = workspace.stations_for_view(earliest, latest)
+        duplicates = {}
+    else:
+        points = list(micro_contexts.values()) + list(areas.values())
+        catalog = weather_context.load_stations_catalog(args.data_dir)
+        station_filter: set[tuple[str, str]] = set()
+        for row in catalog.itertuples(index=False):
+            source = str(getattr(row, "source", "") or "").strip()
+            code = str(getattr(row, "station_code", "") or "").strip()
+            lat = weather_context.parse_float(getattr(row, "lat", None))
+            lon = weather_context.parse_float(getattr(row, "lon", None))
+            if source and code and lat is not None and lon is not None and any(
+                weather_context.haversine_km(point.lat, point.lon, lat, lon)
+                <= weather_context.STATION_MAX_DISTANCE_KM
+                for point in points
+            ):
+                station_filter.add((source, code))
+        stations = weather_context.load_daily_weather_parquet(
+            args.data_dir,
+            station_filter=station_filter,
+            start_date=earliest,
+            end_date=latest,
+        )
+        stations = {
+            key: station
+            for key, station in stations.items()
+            if (str(key[0]).lower(), str(key[1]).upper()) not in disabled
+        }
+        duplicates = {
+            key: mushroom_weather_idw.suppressed_rain_dates(station)
+            for key, station in stations.items()
+        }
 
     requested_area_ids = {area_id for area_id, _cutoff in requested}
     cache_days = (latest - earliest).days + 1
@@ -166,32 +211,43 @@ def main() -> int:
         key=lambda item: item.micro_area_id,
     )
     for cache_index, context in enumerate(cached_contexts, start=1):
-        weather = mushroom_weather_idw.build_daily_weather_idw_series(
-            stations,
-            target_lat=context.lat,
-            target_lon=context.lon,
-            target_altitude_m=context.altitude_m,
-            end_day=latest,
-            days=cache_days,
-            excluded_station_keys=disabled,
-            duplicate_dates_by_station=duplicates,
-        )
+        if workspace is not None:
+            weather = workspace.weather_for_contexts(
+                [context], start_day=earliest, end_day=latest
+            )[context.micro_area_id]
+        else:
+            weather = mushroom_weather_idw.build_daily_weather_idw_series(
+                stations,
+                target_lat=context.lat,
+                target_lon=context.lon,
+                target_altitude_m=context.altitude_m,
+                end_day=latest,
+                days=cache_days,
+                excluded_station_keys=disabled,
+                duplicate_dates_by_station=duplicates,
+            )
         microarea_weather_cache[context.micro_area_id] = weather
-        microarea_eto_cache[context.micro_area_id] = [
-            (
-                climate.hargreaves_reference_evapotranspiration_mm(
-                    day, context.lat, low, high
+        microarea_eto_cache[context.micro_area_id] = (
+            workspace.eto_for_context(
+                context.micro_area_id, start_day=earliest, end_day=latest
+            )
+            if workspace is not None
+            else [
+                (
+                    climate.hargreaves_reference_evapotranspiration_mm(
+                        day, context.lat, low, high
+                    )
+                    if low is not None and high is not None
+                    else None
                 )
-                if low is not None and high is not None
-                else None
-            )
-            for day, low, high in zip(
-                cache_dates,
-                weather["daily_temp_min_idw_c"],
-                weather["daily_temp_max_idw_c"],
-                strict=True,
-            )
-        ]
+                for day, low, high in zip(
+                    cache_dates,
+                    weather["daily_temp_min_idw_c"],
+                    weather["daily_temp_max_idw_c"],
+                    strict=True,
+                )
+            ]
+        )
         if cache_index % 5 == 0 or cache_index == len(cached_contexts):
             print(
                 json.dumps(
@@ -204,7 +260,19 @@ def main() -> int:
                 flush=True,
             )
 
-    state_catalog: dict[str, dict[str, object]] = {variant[0]: {} for variant in SOIL_VARIANTS}
+    if workspace is not None:
+        soil_variants = tuple(
+            variant
+            for variant in SOIL_VARIANTS
+            if variant[0] == mushroom_ml_weather_workspace.DEFAULT_SOIL_VARIANT_ID
+        )
+        if len(soil_variants) != 1:
+            raise ValueError("The operational soil variant is not uniquely defined.")
+    else:
+        soil_variants = SOIL_VARIANTS
+    state_catalog: dict[str, dict[str, object]] = {
+        variant[0]: {} for variant in soil_variants
+    }
     for index, (area_id, cutoff) in enumerate(sorted(requested), start=1):
         state_key = f"{area_id}|{cutoff.isoformat()}"
         dates = list(weather_context.date_window(cutoff, 365))
@@ -235,7 +303,15 @@ def main() -> int:
                 "temp_min_observed_days": sum(value is not None for value in temp_min),
                 "temp_max_observed_days": sum(value is not None for value in temp_max),
             }
-        for variant_id, depth, field_property in SOIL_VARIANTS:
+        for variant_id, depth, field_property in soil_variants:
+            cached_bundle = (
+                workspace.soil_bundle(variant_id, area_id, cutoff)
+                if workspace is not None
+                else None
+            )
+            if cached_bundle is not None:
+                state_catalog[variant_id][state_key] = cached_bundle.aggregated
+                continue
             micro_states: dict[str, dict[str, object]] = {}
             for context in micros_by_area.get(area_id, []):
                 soil_context = (
@@ -262,12 +338,26 @@ def main() -> int:
             aggregated = soil_water.aggregate_area_soil_water_states(micro_states)
             aggregated["metadata"]["microarea_weather_idw_quality"] = micro_weather_quality
             state_catalog[variant_id][state_key] = aggregated
+            if workspace is not None:
+                workspace.store_soil_bundle(
+                    variant_id,
+                    area_id,
+                    cutoff,
+                    mushroom_ml_weather_workspace.AreaSoilBundle(
+                        aggregated=aggregated,
+                        daily_fraction_mean=daily_soil_fraction_mean(
+                            micro_states, dates
+                        ),
+                    ),
+                )
         if index % 25 == 0 or index == len(requested):
             print(json.dumps({"completed_area_cutoffs": index, "total_area_cutoffs": len(requested)}), flush=True)
 
     base_samples: list[dict[str, object]] = []
     block_counts = Counter()
-    variant_counts: dict[str, Counter] = {variant[0]: Counter() for variant in SOIL_VARIANTS}
+    variant_counts: dict[str, Counter] = {
+        variant[0]: Counter() for variant in soil_variants
+    }
     for source_sample in source_samples:
         metadata = source_sample.get("metadata", {})
         state_key = f"{metadata.get('area_id') or ''}|{metadata.get('cutoff_date') or ''}"
@@ -280,7 +370,7 @@ def main() -> int:
             if eligible:
                 block_counts[block] += 1
         base_samples.append(base)
-        for variant_id, _depth, _field in SOIL_VARIANTS:
+        for variant_id, _depth, _field in soil_variants:
             state = state_catalog[variant_id].get(state_key)
             candidate = biology_v4.build_biology_v4_sample(
                 source_sample,
@@ -309,7 +399,7 @@ def main() -> int:
                 "eligible_sample_counts": dict(sorted(variant_counts[variant_id].items())),
                 "area_state_catalog": state_catalog[variant_id],
             }
-            for variant_id, depth, field in SOIL_VARIANTS
+            for variant_id, depth, field in soil_variants
         },
         "source": {
             "v3_benchmark_path": str(args.v3_benchmark),
@@ -321,7 +411,11 @@ def main() -> int:
             "weather_data_dir": str(args.data_dir),
             "loaded_weather_station_count": len(stations),
             "weather_materialization": {
-                "mode": "full_microarea_series_then_exact_window_slice",
+                "mode": (
+                    "shared_maximum_range_then_exact_window_slice"
+                    if workspace is not None
+                    else "full_microarea_series_then_exact_window_slice"
+                ),
                 "cache_start_date": earliest.isoformat(),
                 "cache_end_date": latest.isoformat(),
                 "cache_days_per_microarea": cache_days,

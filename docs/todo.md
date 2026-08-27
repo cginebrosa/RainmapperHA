@@ -25,8 +25,16 @@ este fichero distingue trabajo cerrado de próximas entregas.
   motivos por aplicabilidad, Brier y ROC-AUC.
 - [ ] Medir de nuevo, sin navegación concurrente del usuario, el recommender y
   las demás pestañas; confirmar que solo calculan la versión preferida, aplicar
-  reutilización/caché donde proceda y mostrar overlay de carga en toda
-  recomputación provocada por cambiar la preferida.
+  reutilización/caché donde proceda. Localmente los cambios de especie, zona,
+  fecha y versión ya esperan a `Predecir`, la especie actualiza sus zonas sin
+  worker y el detalle semanal reutiliza su resultado terminado; falta validar
+  visualmente y medir el flujo completo.
+- [x] Unificar la selección por defecto entre el job remoto y el render para
+  que el primer clic desde el recommender no muestre un resultado vacío ni
+  obligue a repetir `Predecir`.
+- [x] Elevar localmente el resultado Predictor a 64 MiB, añadir preflight en el
+  worker y timeout de 60 s solo para `finish`, conservando validación, SHA-256,
+  externalización y escritura atómica.
 - [x] Sustituir la ocultación propuesta de `Consenso estadístico` por un
   veredicto explícito entre familias metodológicas elegibles: alto/moderado/bajo
   según separación, o `sin contraste` cuando solo existe una familia; mostrar
@@ -42,9 +50,10 @@ este fichero distingue trabajo cerrado de próximas entregas.
 Especificación vinculante:
 `docs/mushrooms/mushroom-ml-storage-retention-spec-es.md`.
 
-- [ ] **No cerrar este bloque hasta que esté implementado, instalado en HA real
-  y probado allí.** Una implementación o validación exclusivamente local no
-  completa la tarea.
+- [x] **Gate de instalación real completado.** HA `0.2.266` está instalado
+  según confirmación del usuario; el reconciliador real ejecutó
+  `mode=apply removed=74 errors=0`, el Predictor funcionó después y la cadena
+  operativa completa produjo las cinco versiones sin fallos de ajuste.
 - [x] Implementado localmente: mover la caché TAR del runtime remoto desde
   `ml_models/.predictor-runtime-archives` a
   `/media/rainmapper/runtime-cache/predictor-runtime-archives`, con permisos
@@ -82,12 +91,18 @@ Especificación vinculante:
   publicados/reconstruidos sin activar el reconciliado destructivo. El parche
   HA migra de forma respaldada el registro persistente 1.0 que bloqueó el
   arranque correcto de `0.2.264`.
-- [ ] Ejecutar en HA real el `dry-run`, revisar el informe con el usuario y
-  detenerse para autorización explícita antes de cualquier `apply` destructivo.
-- [ ] Tras autorización, instalar la implementación, aplicar la migración,
-  verificar las cinco generaciones V2/V3/V4/V5w/V6w, probar predicción fría y
-  caliente en el worker, reinicio/reutilización del TAR, rollback, Diagnostics y
-  tamaños finales; documentar la evidencia observada antes de marcar completado.
+- [x] Revisar la reconciliación real y obtener autorización explícita antes del
+  `apply`: el usuario habilitó **Apply ML storage retention** y el arranque
+  retiró 74 entradas con cero errores. No hubo borrado manual.
+- [x] Instalar la migración y ejecutar en HA real el mantenimiento completo:
+  374 observaciones, ocho especies, cinco versiones, 636/636 ajustes y cero
+  fallos; promoción y limpieza terminal completadas según la cola persistente.
+- [ ] Cerrar la evidencia operativa secundaria sin repetir el entrenamiento:
+  confirmar visualmente las cinco versiones y la desaparición del aviso de
+  identidad desconocida, registrar tamaños finales de Diagnostics y comprobar
+  reutilización de la caché TAR tras reinicio. Probar rollback solo dentro de
+  un ensayo explícitamente autorizado y seguro; no bloquear el perfil local de
+  rendimiento por esa prueba destructiva.
 
 ## P1 — Auditoría de deuda y código obsoleto
 
@@ -300,6 +315,105 @@ evidencia y cualquier cambio operativo entra por el mantenimiento completo.
   5. Solo si sigue existiendo un núcleo de Python puro dominante, evaluar una
      implementación compilada y acotada (Cython, Numba o extensión C/Rust),
      manteniendo compatibilidad `amd64`/`arm64` y Python 3.11.
+- [ ] Reducir a **10 minutos como máximo extremo a extremo** la acción remota
+  `Reconstruir y reentrenar operativo` con el M1 Pro y su Docker habitual, sin
+  relajar hashes, trazabilidad, cancelación, rollback ni promoción atómica.
+  Auditoría real del 2026-08-25 (374 observaciones elegibles, ocho especies y
+  las cinco versiones instaladas): tres jobs encadenados consumieron 35 min
+  55 s hasta terminar el multiversión — reconstrucción 3 min 30 s, ML v0
+  1 min 18 s y multiversión 30 min 56 s — y la promoción enlazada terminó
+  aproximadamente 1 min 15 s después. El ajuste observado en UI fue solo de
+  unos 2--3 minutos; el tiempo dominante está fuera de los fits.
+
+  Hallazgos confirmados que deben tratarse como un único perfil transversal:
+
+  1. **Transporte de resultados fragmentado:** el lote operativo contiene 636
+     artefactos y produjo 642 POST secuenciales para 173,4 MiB. El primer
+     fichero recibido quedó fechado a las 00:26:50 y el último a las 00:41:41:
+     14 min 51 s de entrega. El JSONL grande de predicciones (86,9 MB) necesitó
+     alrededor de 1 min 49 s, mientras que los 636 modelos pequeños consumieron
+     12 min 43 s (unos 1,2 s/fichero). El cuello es el coste fijo: `urlopen`
+     nuevo, `read_bytes`, validación y un `fsync` por fichero, no el volumen.
+     `RainmapperHandler` conserva HTTP/1.0 por defecto, sin conexión persistente.
+  2. **Cola sobredimensionada en cada señal de telemetría:**
+     `mushroom_worker_jobs.json` medía 5.390.231 bytes y 4.123.442 bytes de su
+     representación compacta correspondían a 43 copias de manifiestos de
+     runtime. `poll_job`, `update_progress` y
+     `update_candidate_promotion_progress` cargan y reescriben toda la cola con
+     indentación, `fsync` y `replace`. El worker consulta control cada dos
+     segundos, y una publicación puede provocar además otra reescritura de
+     progreso; durante un job de media hora esto supone varios GB lógicos de
+     escritura aunque cambien unos pocos bytes. También ejecuta la limpieza de
+     resultados Predictor en cada escritura.
+  3. **La validación/promoción amplifica el mismo patrón:**
+     `Validating live inputs (n/64)` publica una actualización por cada una de
+     las 52 entradas del snapshot y los 12 ficheros GIS; cada callback vuelve a
+     persistir los 5,39 MB de cola. `verify_live_inputs` rehashea además los
+     ficheros meteorológicos porque esa llamada usa el valor por defecto
+     `verify_weather_file_hashes=True`, aun cuando el contrato ya incluye la
+     identidad de la generación meteorológica. La cache GIS sí evita el hash
+     profundo cuando conserva la misma identidad de filesystem.
+  4. **Verificación repetida de los mismos bytes:** cada fichero se valida al
+     recibirlo y `_verified_result` vuelve a hashear todos los declarados;
+     después vuelve a hashear los artefactos al recorrer el manifiesto del
+     batch. `finalize_result` hace esa pasada al completar el upload y
+     `install_verified_result` la repite antes de copiar todo el batch a su
+     destino. En el worker, el manifiesto de resultados y la cache de objetos
+     vuelven a recorrer/hash-ear los modelos. La seguridad es necesaria, pero
+     no todas estas pasadas aportan una frontera de confianza nueva.
+  5. **Preparación previa secuencial y sin tiempos persistentes:** los 15 min
+     56 s anteriores al primer fichero subido mezclan descarga, preparación y
+     fits; hoy no hay marcas que permitan repartirlos con precisión. El
+     preparador ejecuta en serie ocho etapas: V3 fija/lag, V4 fija/lag, V5,
+     hold-out V2--V5 y hold-out V6. Los monitores releen además el JSONL de
+     progreso completo cada 0,5 s. Debe perfilarse por etapa y por
+     área/cutoff, no atribuirse todo ese tramo al trainer.
+  6. **El patrón no es exclusivo del multiversión:** los resultados de
+     reconstrucción y ML v0 usan también un POST y `fsync` por fichero (aunque
+     son aproximadamente 10 y 20, respectivamente); el bundle de entrada usa
+     un GET por fichero y el probe de transporte aún publica control+progreso
+     sin coalescer. El Predictor ya demostró el problema y desactivó su
+     telemetría fina porque las rondas HTTP dominaban el cálculo local.
+
+  Orden de implementación y validación:
+
+  1. Añadir cronometraje monotónico persistente por fase y contadores de bytes,
+     ficheros, peticiones, hashes, copias y fsync; fijar presupuesto orientativo
+     de 2 min reconstrucción, 4 min preparación+fits, 2 min transferencia y
+     2 min verificación/promoción, con total duro de 10 min en cache caliente.
+  2. Sacar de la cola los manifiestos inmutables repetidos (referencia por
+     fingerprint) y separar lease/progreso volátil del historial durable.
+     Persistir solo cambios visibles o checkpoints espaciados; consultar
+     cancelación sin reescribir y no ejecutar housekeeping en cada tick.
+  3. Sustituir los 642 uploads por un paquete efímero determinista y reanudable
+     en chunks de 8--16 MiB (o transporte equivalente), conservando el
+     manifiesto lógico. HA debe limitar tamaño/recuento, rechazar traversal y
+     enlaces, verificar digest antes de extraer en staging y borrar el paquete
+     temporal tras promoción/rollback; no debe aumentar backups permanentes.
+  4. Sellar el staging tras una única verificación completa y emitir un recibo
+     ligado a su manifiesto/digest. Reutilizarlo en instalación, eliminar el
+     segundo hash de artefactos dentro de `_verified_result` y copiar/promover
+     una sola vez sin debilitar la frontera worker→HA.
+  5. Reutilizar inputs preparados por `snapshot_id` + perfiles + versión de
+     contrato, compartir cargas/cálculos meteorológicos entre etapas y leer el
+     JSONL incrementalmente desde un offset. Solo después paralelizar ramas y
+     fits independientes de forma acotada, siguiendo el plan de cinco pasos
+     anterior y evitando paralelismo anidado.
+  6. Aplicar la misma auditoría a candidate/ML v0, bundles, heartbeats,
+     Predictor y benchmark. Validar cache fría/caliente, igualdad contractual y
+     numérica, cancelación, retry interrumpido, rollback, ausencia de residuos
+     y que HA/Predictor no pierdan capacidad de respuesta durante el proceso.
+  Investigado con código, cola y artefactos reales montados el 2026-08-26.
+  Entregas A y B implementadas en laboratorio: catálogo operativo congelado y
+  workspace meteorológico/suelo compartido. La preparación bajó de 459,101 s
+  tras A a aproximadamente 185,4 s tras B; los ocho artefactos operativos son
+  semánticamente idénticos y los hold-out V2--V6 son idénticos byte por byte.
+  El smoke extremo a extremo local terminó en 8 min 55 s frío y 7 min 54 s
+  caliente, con 714/714 fits, cero fallos, reconstrucción equivalente y
+  promoción verificada. La puerta local de 10 minutos queda cumplida; la tarea
+  continúa abierta hasta medir el camino remoto HA↔worker, donde cola y upload
+  todavía pueden añadir coste. Evidencia completa en
+  `docs/reports/operational-rebuild-10m-lab-2026-08-26.md`.
 - [ ] Evitar reconstrucción redundante del snapshot del coordinador entre
   jobs encadenados de "Reconstruir y reentrenar operativo": el paso 1→2
   (`create_mushroom_ml_train_job`, `web_server.py:12937-13009`) ya es barato

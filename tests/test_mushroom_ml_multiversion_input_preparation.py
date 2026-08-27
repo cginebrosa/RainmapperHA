@@ -1,5 +1,7 @@
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -15,6 +17,23 @@ SCRIPT = (
 
 
 class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
+    def test_script_bootstraps_repository_root_when_run_directly(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            completed = subprocess.run(
+                [sys.executable, str(SCRIPT), "--help"],
+                cwd=temporary,
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "PYTHONNOUSERSITE": "1",
+                },
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--source-snapshot-id", completed.stdout)
+
     def test_operational_v3_version_prepares_core_and_physical_inputs_only(self) -> None:
         spec = importlib.util.spec_from_file_location("prepare_multiversion_v3", SCRIPT)
         module = importlib.util.module_from_spec(spec)
@@ -46,10 +65,17 @@ class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
                 "--output-dir", str(output),
                 "--source-snapshot-id", "sha256:" + "d" * 64,
                 "--job-purpose", "operational",
+                "--tuning-catalog", str(root / "tuning-catalog.json"),
                 "--profile-key", "biology_v3/core",
                 "--profile-key", "biology_v3/common_idw_plus_physical_state",
             ]
-            with mock.patch.object(module, "run_script", side_effect=fake_run_script), mock.patch.object(sys, "argv", argv):
+            workspace = mock.Mock()
+            workspace.stats.return_value = {"mode": "test"}
+            with mock.patch.object(module, "run_script", side_effect=fake_run_script), mock.patch.object(
+                module.mushroom_ml_weather_workspace,
+                "activate_operational_workspace",
+                return_value=workspace,
+            ), mock.patch.object(sys, "argv", argv):
                 self.assertEqual(module.main(), 0)
 
             prepared = json.loads((output / "prepared-inputs.json").read_text())
@@ -102,10 +128,15 @@ class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
                 "--output-dir", str(output),
                 "--source-snapshot-id", "sha256:" + "a" * 64,
                 "--job-purpose", "operational",
+                "--tuning-catalog", str(root / "tuning-catalog.json"),
             ]
+            workspace = mock.Mock()
+            workspace.stats.return_value = {"mode": "test"}
             with mock.patch.object(module, "run_script", side_effect=fake_run_script), mock.patch.object(
-                sys, "argv", argv
-            ):
+                module.mushroom_ml_weather_workspace,
+                "activate_operational_workspace",
+                return_value=workspace,
+            ), mock.patch.object(sys, "argv", argv):
                 self.assertEqual(module.main(), 0)
 
             prepared = json.loads((output / "prepared-inputs.json").read_text())

@@ -4,6 +4,8 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest import mock
 
+import numpy as np
+
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_runtime_trainer as trainer
 from rainmapper_core import mushroom_ml_version_registry
@@ -13,6 +15,51 @@ REGISTRY_PATH = Path(__file__).resolve().parents[1] / "mushroom-data/mushroom_ml
 
 
 class MushroomMLRuntimeTrainerTests(TestCase):
+    def test_frozen_v5_config_skips_inner_selection(self) -> None:
+        X = np.asarray(
+            [[float(index), float(index % 3)] for index in range(20)], dtype=float
+        )
+        y = np.asarray([index % 2 for index in range(20)], dtype=int)
+        samples = [
+            {
+                "prediction_target": "favorable" if value else "unfavorable",
+                "metadata": {"validation_group_14d": f"group-{index}"},
+            }
+            for index, value in enumerate(y)
+        ]
+        with mock.patch.object(
+            trainer.mushroom_ml_holdout,
+            "_select_v5",
+            side_effect=AssertionError("inner selection must not run"),
+        ):
+            fitted = trainer._fit_v5(
+                "elastic_net_logistic_raw365_v1",
+                samples,
+                X,
+                y,
+                ["feature_a", "feature_b"],
+                fit_config={
+                    "C": 0.1,
+                    "l1_ratio": 0.9,
+                    "class_weight": None,
+                    "inner_selection_available": True,
+                },
+            )
+
+        self.assertEqual(fitted["fit_config"]["C"], 0.1)
+        self.assertTrue(fitted["fit_config"]["inner_selection_available"])
+
+    def test_invalid_frozen_v5_config_fails_closed(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Frozen V5"):
+            trainer._fit_v5(
+                "elastic_net_logistic_raw365_v1",
+                [],
+                np.asarray([[0.0], [1.0]]),
+                np.asarray([0, 1]),
+                ["feature"],
+                fit_config={"C": 0.1},
+            )
+
     def test_operational_materialization_needs_only_v3_fixed_and_lag_inputs(self) -> None:
         fixed = {"source": "fixed"}
         lag = {"source": "lag"}

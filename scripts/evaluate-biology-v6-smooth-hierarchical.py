@@ -19,6 +19,7 @@ from rainmapper_core import mushroom_ml_error_analysis as error_analysis
 from rainmapper_core import mushroom_ml_holdout as holdout
 from rainmapper_core import mushroom_ml_raw_weather as raw_weather
 from rainmapper_core import mushroom_ml_smooth_hierarchical as smooth
+from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core.mushroom_ml_biology_v3_evaluation import chronological_group_split
 
 
@@ -109,12 +110,26 @@ def evaluate_split(
     version_id: str = "biology_v6_smooth_hierarchical",
     profile_id: str = "smooth_weather_physical_state",
     window_days: int | None = None,
+    tuning_catalog: dict | None = None,
 ) -> tuple[dict, list[dict]]:
     source_contracts = {
         str((sample.get("metadata") or {}).get("temporal_contract_id") or "")
         for sample in train + test
     }
     include_horizon = any(value.startswith("lag_event") for value in source_contracts)
+    if len(source_contracts) != 1:
+        raise ValueError("V6 evaluation requires one temporal contract")
+    source_temporal_contract_id = next(iter(source_contracts))
+    tuning_temporal_contract_id = (
+        mushroom_ml_tuning_catalog.resolve_temporal_contract(
+            tuning_catalog,
+            version_id=version_id,
+            profile_id=profile_id,
+            source_temporal_contract_id=source_temporal_contract_id,
+        )
+        if tuning_catalog is not None
+        else source_temporal_contract_id
+    )
     if window_days is None:
         columns = smooth.raw_columns(include_phenology=True, include_horizon=include_horizon)
         preprocessor = smooth.SmoothLagPreprocessor()
@@ -138,18 +153,56 @@ def evaluate_split(
     availability: dict[str, dict] = {}
 
     species_probabilities = np.full(len(test), np.nan)
+    species_configs: dict[str, dict] = {}
     for value in order:
         train_index = np.asarray([i for i, item in enumerate(train_species) if item == value], dtype=int)
         test_index = np.asarray([i for i, item in enumerate(test_species) if item == value], dtype=int)
         if not len(test_index) or len(np.unique(y_train[train_index])) < 2:
             continue
-        model = smooth.fit_logistic(Z_train[train_index], y_train[train_index], C=0.1)
+        config = {"C": 0.1, "deviation_scale": None}
+        if tuning_catalog is not None:
+            config = dict(
+                mushroom_ml_tuning_catalog.lookup(
+                    tuning_catalog,
+                    {
+                        "version_id": version_id,
+                        "temporal_contract_id": tuning_temporal_contract_id,
+                        "profile_id": profile_id,
+                        "estimator_id": ESTIMATORS[0],
+                        "species_id": value,
+                    },
+                )["fit_config"]
+            )
+        species_configs[value] = config
+        model = smooth.fit_logistic(
+            Z_train[train_index], y_train[train_index], C=config["C"]
+        )
         species_probabilities[test_index] = model.predict_proba(Z_test[test_index])[:, 1]
     probabilities[ESTIMATORS[0]] = species_probabilities
-    availability[ESTIMATORS[0]] = {"C": 0.1, "selection": "predeclared conservative"}
+    availability[ESTIMATORS[0]] = {
+        "configs_by_species": species_configs,
+        "selection": "frozen tuning catalog" if tuning_catalog is not None else "predeclared conservative",
+    }
 
     for estimator_id, partial in ((ESTIMATORS[1], False), (ESTIMATORS[2], True)):
-        config = select_joint_config(Z_train, y_train, train_species, train, partial=partial, group_days=group_days)
+        if tuning_catalog is None:
+            config = select_joint_config(
+                Z_train, y_train, train_species, train,
+                partial=partial, group_days=group_days,
+            )
+        else:
+            config = dict(
+                mushroom_ml_tuning_catalog.lookup(
+                    tuning_catalog,
+                    {
+                        "version_id": version_id,
+                        "temporal_contract_id": tuning_temporal_contract_id,
+                        "profile_id": profile_id,
+                        "estimator_id": estimator_id,
+                        "species_id": "all_species",
+                    },
+                )["fit_config"]
+            )
         design_train = smooth.pooled_design(Z_train, train_species, species_order=order, deviation_scale=config["deviation_scale"])
         design_test = smooth.pooled_design(Z_test, test_species, species_order=order, deviation_scale=config["deviation_scale"])
         model = smooth.fit_logistic(design_train, y_train, C=config["C"])
@@ -242,9 +295,11 @@ def main() -> int:
     parser.add_argument("--v5-dir", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--profile-key", action="append")
+    parser.add_argument("--tuning-catalog", type=Path)
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     profiles = _selected_profiles({str(value) for value in (args.profile_key or [])})
+    tuning_catalog = load(args.tuning_catalog) if args.tuning_catalog else None
     all_rows, artifacts = [], {}
     for profile in profiles:
         version_id = profile["version_id"]
@@ -260,6 +315,7 @@ def main() -> int:
                 report, rows = evaluate_split(
                     benchmark, train, test, split_id=split_id, group_days=group_days,
                     version_id=version_id, profile_id=profile_id, window_days=window_days,
+                    tuning_catalog=tuning_catalog,
                 )
                 path = args.output_dir / f"comparison-{profile_id}-{temporal}-groups{group_days}.json"
                 path.write_text(json.dumps({"kind": "biology_v6_smooth_hierarchical_comparison", "temporal": temporal,
@@ -271,6 +327,7 @@ def main() -> int:
             report, rows = evaluate_split(
                 benchmark, train, test, split_id="campaign_area_year_70_30", group_days=14,
                 version_id=version_id, profile_id=profile_id, window_days=window_days,
+                tuning_catalog=tuning_catalog,
             )
             path = args.output_dir / f"sensitivity-{profile_id}-{temporal}-campaign.json"
             path.write_text(json.dumps({"kind": "biology_v6_campaign_sensitivity", "temporal": temporal,

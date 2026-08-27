@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=1.0.17
+ARG RAINMAPPER_WORKER_VERSION=1.0.18
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -45,6 +45,8 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_ml_input_identity.py \
      rainmapper_core/mushroom_ml_version_registry.py \
      rainmapper_core/mushroom_ml_model_catalog.py \
+     rainmapper_core/mushroom_ml_tuning_catalog.py \
+     rainmapper_core/mushroom_ml_weather_workspace.py \
      rainmapper_core/mushroom_ml_multiversion_plan.py \
      rainmapper_core/mushroom_ml_multiversion_transport.py \
      rainmapper_core/mushroom_ml_runtime_trainer.py \
@@ -75,9 +77,11 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_worker_dataset_cache.py \
      rainmapper_core/mushroom_worker_config.py \
      rainmapper_core/mushroom_worker_registry.py \
+     rainmapper_core/mushroom_worker_jobs.py \
      rainmapper_core/mushroom_worker_service.py \
      rainmapper_core/mushroom_worker_transport.py \
      rainmapper_core/mushroom_worker_results.py \
+     rainmapper_core/mushroom_performance_telemetry.py \
      rainmapper_core/mushroom_weather_idw.py \
      rainmapper_core/mushroom_ml_trainer.py \
      rainmapper_core/runtime_diagnostics.py \
@@ -114,6 +118,8 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_ml_input_identity.py \
         /app/rainmapper_core/mushroom_ml_version_registry.py \
         /app/rainmapper_core/mushroom_ml_model_catalog.py \
+        /app/rainmapper_core/mushroom_ml_tuning_catalog.py \
+        /app/rainmapper_core/mushroom_ml_weather_workspace.py \
         /app/rainmapper_core/mushroom_ml_multiversion_plan.py \
         /app/rainmapper_core/mushroom_ml_multiversion_transport.py \
         /app/rainmapper_core/mushroom_ml_runtime_trainer.py \
@@ -129,9 +135,11 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_worker_dataset_cache.py \
         /app/rainmapper_core/mushroom_worker_config.py \
         /app/rainmapper_core/mushroom_worker_registry.py \
+        /app/rainmapper_core/mushroom_worker_jobs.py \
         /app/rainmapper_core/mushroom_worker_service.py \
         /app/rainmapper_core/mushroom_worker_transport.py \
         /app/rainmapper_core/mushroom_worker_results.py \
+        /app/rainmapper_core/mushroom_performance_telemetry.py \
         /app/rainmapper_core/mushroom_ml_experiments.py \
         /app/rainmapper_core/mushroom_ml_error_analysis.py \
         /app/rainmapper_core/mushroom_ml_experiment_trainer.py \

@@ -16,6 +16,7 @@ from rainmapper_core import mushroom_rebuild_comparison
 from rainmapper_core import mushroom_rebuild_contracts
 from rainmapper_core import mushroom_rebuild_pipeline
 from rainmapper_core import mushroom_rebuild_snapshot
+from rainmapper_core import mushroom_performance_telemetry
 from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_gis_lab
 from rainmapper_core import mushroom_observation_context
@@ -29,9 +30,24 @@ PROMOTION_RECEIPT_NAME = "promotion_receipt.json"
 MAX_RETAINED_PROMOTION_BACKUPS = 1
 
 
+def _read_bytes(path: Path) -> bytes:
+    content = path.read_bytes()
+    mushroom_performance_telemetry.add(files_read=1, bytes_read=len(content))
+    return content
+
+
+def _read_text(path: Path) -> str:
+    content = path.read_text(encoding="utf-8")
+    mushroom_performance_telemetry.add(
+        files_read=1,
+        bytes_read=len(content.encode("utf-8")),
+    )
+    return content
+
+
 def _json_object(path: Path, label: str) -> dict[str, Any]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(_read_text(path))
     except (FileNotFoundError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot load {label}: {exc}") from exc
     if not isinstance(payload, dict):
@@ -201,11 +217,12 @@ def _write_exact(path: Path, content: bytes, *, expected_size: int, expected_sha
         raise ValueError("Candidate result file size does not match its manifest.")
     if len(content) > MAX_RESULT_FILE_BYTES:
         raise ValueError("Candidate result file exceeds the coordinator safety limit.")
+    mushroom_performance_telemetry.add(hashes=1, hash_bytes=len(content))
     if hashlib.sha256(content).hexdigest() != expected_sha256:
         raise ValueError("Candidate result file hash does not match its manifest.")
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
-        if path.read_bytes() != content:
+        if _read_bytes(path) != content:
             raise ValueError("Candidate result upload conflicts with an existing file.")
         return
     temporary = path.parent / f".{path.name}.{uuid.uuid4().hex}.tmp"
@@ -217,6 +234,11 @@ def _write_exact(path: Path, content: bytes, *, expected_size: int, expected_sha
         temporary.replace(path)
     finally:
         temporary.unlink(missing_ok=True)
+    mushroom_performance_telemetry.add(
+        files_written=1,
+        bytes_written=len(content),
+        fsyncs=1,
+    )
 
 
 def receive_result_file(
@@ -672,6 +694,10 @@ def _post_bytes(
     headers: dict[str, str],
     timeout: float,
 ) -> dict[str, Any]:
+    mushroom_performance_telemetry.add(
+        requests=1,
+        bytes_written=len(content),
+    )
     request = Request(url, data=content, headers=headers, method="POST")
     with urlopen(request, timeout=timeout) as response:
         raw = response.read(1024 * 1024 + 1)
@@ -680,6 +706,7 @@ def _post_bytes(
     payload = json.loads(raw.decode("utf-8"))
     if not isinstance(payload, dict) or not payload.get("ok"):
         raise ValueError("Rainmapper rejected the candidate result upload.")
+    mushroom_performance_telemetry.add(bytes_read=len(raw))
     return payload
 
 
@@ -719,7 +746,7 @@ def upload_candidate_result(
 
     files = [mushroom_rebuild_contracts.RESULT_MANIFEST_NAME, *mushroom_rebuild_contracts.EXPECTED_ARTIFACT_PATHS]
     for index, logical_path in enumerate(files, start=1):
-        content = (output_dir / logical_path).read_bytes()
+        content = _read_bytes(output_dir / logical_path)
         query = urlencode({"job_id": job_id, "file": logical_path})
         _post_bytes(
             ha_url.rstrip("/") + endpoint + "?" + query,
@@ -938,7 +965,7 @@ def receive_ml_train_result_file(
 
     if not manifest_path.is_file():
         raise ValueError("ML training result manifest must be uploaded first.")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = json.loads(_read_text(manifest_path))
     artifacts = _validate_ml_train_manifest(manifest, job_id=job_id)
     matches = [
         row for row in artifacts
@@ -1199,7 +1226,7 @@ def upload_ml_train_result(
     headers["Content-Type"] = "application/octet-stream"
     files = [ML_TRAIN_RESULT_NAME] + [str(row["path"]) for row in artifacts if isinstance(row, dict)]
     for index, logical_path in enumerate(files, start=1):
-        content = (output_dir / logical_path).read_bytes()
+        content = _read_bytes(output_dir / logical_path)
         query = urlencode({"job_id": job_id, "file": logical_path})
         _post_bytes(
             ha_url.rstrip("/") + endpoint + "?" + query,
@@ -1257,7 +1284,7 @@ def upload_ml_multiversion_result(
     manifest_path = result_root / mushroom_ml_multiversion_transport.RESULT_MANIFEST_NAME
     job_purpose = str(job.get("job_purpose") or "benchmark")
     manifest = mushroom_ml_multiversion_transport.validate_result_manifest(
-        json.loads(manifest_path.read_text(encoding="utf-8")),
+        json.loads(_read_text(manifest_path)),
         job_id=job_id,
         expected_purpose=job_purpose,
     )
@@ -1269,7 +1296,7 @@ def upload_ml_multiversion_result(
     for index, logical_path in enumerate(logical_paths, start=1):
         _post_bytes(
             ha_url.rstrip("/") + endpoint + "?" + urlencode({"job_id": job_id, "file": logical_path}),
-            (result_root / logical_path).read_bytes(),
+            _read_bytes(result_root / logical_path),
             headers=headers,
             timeout=timeout,
         )

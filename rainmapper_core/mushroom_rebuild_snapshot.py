@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 from rainmapper_core import mushroom_gis_lab, mushroom_observation_context
+from rainmapper_core import mushroom_performance_telemetry
 
 
 SCHEMA_VERSION = "0.2"
@@ -53,9 +54,17 @@ def _resolve_beneath(root: Path, value: object, *, label: str) -> Path:
 
 def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
     digest = hashlib.sha256()
+    size = 0
     with path.open("rb") as handle:
         while chunk := handle.read(chunk_size):
+            size += len(chunk)
             digest.update(chunk)
+    mushroom_performance_telemetry.add(
+        files_read=1,
+        bytes_read=size,
+        hashes=1,
+        hash_bytes=size,
+    )
     return digest.hexdigest()
 
 
@@ -113,6 +122,7 @@ def _write_gis_hash_cache(path: Path, records: list[dict[str, object]]) -> None:
         "kind": GIS_HASH_CACHE_KIND,
         "files": records,
     }
+    content = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{path.name}.",
         suffix=".tmp",
@@ -121,13 +131,17 @@ def _write_gis_hash_cache(path: Path, records: list[dict[str, object]]) -> None:
     temporary_path = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, ensure_ascii=False)
-            handle.write("\n")
+            handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary_path, path)
     finally:
         temporary_path.unlink(missing_ok=True)
+    mushroom_performance_telemetry.add(
+        files_written=1,
+        bytes_written=len(content.encode("utf-8")),
+        fsyncs=1,
+    )
 
 
 def gis_file_records(
@@ -184,6 +198,7 @@ def _fingerprint(records: list[dict[str, object]]) -> str:
         for record in records
     ]
     encoded = json.dumps(normalized, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    mushroom_performance_telemetry.add(hashes=1, hash_bytes=len(encoded))
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -225,6 +240,14 @@ def _copy_snapshot_file(
     source_record = _stable_file_record(source, logical_path=logical_path, role=role)
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, destination)
+    mushroom_performance_telemetry.add(
+        copies=1,
+        copy_bytes=int(source_record["size_bytes"]),
+        files_read=1,
+        bytes_read=int(source_record["size_bytes"]),
+        files_written=1,
+        bytes_written=int(source_record["size_bytes"]),
+    )
     destination_record = _stable_file_record(destination, logical_path=logical_path, role=role)
     if source_record["sha256"] != destination_record["sha256"]:
         raise RuntimeError(f"snapshot copy hash mismatch: {source}")

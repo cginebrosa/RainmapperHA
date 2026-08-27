@@ -27,6 +27,7 @@ from rainmapper_core import mushroom_worker_dataset_cache
 from rainmapper_core import mushroom_worker_config
 from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_worker_results
+from rainmapper_core import mushroom_worker_jobs
 from rainmapper_core import mushroom_worker_registry
 from rainmapper_core import mushroom_predictor_runtime
 from rainmapper_core.mushroom_predictor_service import PredictorService
@@ -37,7 +38,16 @@ IDENTITY_SCHEMA_VERSION = "0.1"
 IDENTITY_RELATIVE_PATH = Path("identity/worker.json")
 JOB_TELEMETRY_INTERVAL_SECONDS = 2.0
 PREDICTOR_RUNTIME_MANIFEST_MAX_BYTES = 8 * 1024 * 1024
+PREDICTOR_FINISH_TIMEOUT_SECONDS = 60.0
 _T = TypeVar("_T")
+
+
+def _job_update_timeout(action: str, job_type: str) -> float:
+    return (
+        PREDICTOR_FINISH_TIMEOUT_SECONDS
+        if action == "finish" and job_type == "worker_predictor_v1"
+        else 3.0
+    )
 
 
 class _CoalescedJobTelemetry:
@@ -643,7 +653,13 @@ def serve(
             def job_update(action: str, payload: dict[str, Any]) -> dict[str, Any]:
                 nonlocal finish_acknowledged
                 result = retry_transient(
-                    lambda: update_job(ha_url, action, payload, token=token),
+                    lambda: update_job(
+                        ha_url,
+                        action,
+                        payload,
+                        token=token,
+                        timeout=_job_update_timeout(action, str(job.get("job_type", ""))),
+                    ),
                     retry_seconds=job_retry_seconds,
                     stop_event=stop_event,
                 )
@@ -710,6 +726,7 @@ def serve(
                     response = execute_interactive_prediction(
                         predictor_service, job.get("predictor_request")
                     )
+                    mushroom_worker_jobs.validate_predictor_result_size(response)
                     control = job_update(
                         "control",
                         {

@@ -741,6 +741,9 @@ class PredictorService:
                     "predictor_access", lambda: self.predictor(species_id)
                 )
                 season_phase = predictor.season_phase(target)
+                observed_areas = timed(
+                    "prediction_data", predictor.areas_with_species_observations
+                )
                 rankings = (
                     []
                     if season_phase == "out_of_season"
@@ -756,7 +759,7 @@ class PredictorService:
                 )
                 data["species"][species_id] = {
                     "season_phase": season_phase,
-                    "areas": [str(row["area_id"]) for row in rankings],
+                    "areas": [str(area_id) for area_id in observed_areas],
                     "rankings": {target.isoformat(): rankings},
                     "model_comparisons": {
                         row["area_id"]: {

@@ -12309,6 +12309,31 @@ def predictor_launch_script() -> str:
       let currentJobId = "";
       let cancelled = false;
       let fetchController = null;
+      const areaMapStorageKey = "rainmapper-predictor-area-map";
+
+      const readAreaMap = element => {
+        try {
+          return JSON.parse(element?.dataset.predictorAreaMap || "{}");
+        } catch (_) {
+          return {};
+        }
+      };
+      const rememberedAreaMap = () => {
+        try {
+          return JSON.parse(sessionStorage.getItem(areaMapStorageKey) || "{}");
+        } catch (_) {
+          return {};
+        }
+      };
+      const rememberAreaMap = element => {
+        const merged = { ...rememberedAreaMap(), ...readAreaMap(element) };
+        try {
+          sessionStorage.setItem(areaMapStorageKey, JSON.stringify(merged));
+        } catch (_) {
+          // The form still retains the currently rendered species without storage.
+        }
+        return merged;
+      };
 
       const setCloseEnabled = enabled => closeButtons.forEach(button => { button.disabled = !enabled; });
       const stopExpectation = () => {
@@ -12464,6 +12489,7 @@ def predictor_launch_script() -> str:
       };
       const runDirect = async (url, timingKind = "warm") => {
         reset();
+        rememberAreaMap(document.querySelector("[data-predictor-area-map]"));
         const target = new URL(url, window.location.href);
         const executor = target.searchParams.get("executor") || "";
         modal.hidden = false;
@@ -12533,7 +12559,7 @@ def predictor_launch_script() -> str:
           open(trigger);
           return;
         }
-        const direct = event.target.closest("[data-predictor-direct-run], .pred-page a[href^='?']");
+        const direct = event.target.closest("[data-predictor-direct-run]");
         if (direct && new URL(direct.getAttribute("href") || "", window.location.href).searchParams.has("executor")) {
           event.preventDefault();
           runDirect(
@@ -12555,6 +12581,21 @@ def predictor_launch_script() -> str:
         const target = new URL(directForm.getAttribute("action") || window.location.href, window.location.href);
         target.search = new URLSearchParams(new FormData(directForm)).toString();
         runDirect(target, "warm");
+      });
+      document.addEventListener("change", event => {
+        const speciesSelect = event.target.closest(
+          "[data-predictor-direct-form] select[name='species']"
+        );
+        if (!speciesSelect) return;
+        const directForm = speciesSelect.closest("[data-predictor-direct-form]");
+        const areaSelect = directForm?.querySelector("select[name='area']");
+        if (!directForm || !areaSelect) return;
+        const areaMap = rememberAreaMap(directForm);
+        const allAreasLabel = areaSelect.options[0]?.textContent || "";
+        areaSelect.replaceChildren(new Option(allAreasLabel, ""));
+        for (const option of areaMap[speciesSelect.value] || []) {
+          areaSelect.add(new Option(option.label, option.value));
+        }
       });
       document.addEventListener("keydown", event => {
         if (event.key === "Escape" && !modal.hidden) close();
@@ -12618,7 +12659,13 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
     )
     multiversion_selection = []
     multiversion_tokens = list(query.get("mv", []))
-    selected_versions = list(query.get("mvv", []))
+    selected_versions = (
+        mushroom_predictor_ui.resolved_query_versions(query)
+        if view == "query"
+        else list(query.get("mvv", []))
+    )
+    if selected_versions:
+        query["mvv"] = list(selected_versions)
     if selected_versions:
         multiversion_tokens = mushroom_predictor_ui.multiversion_tokens_for_versions(
             species, selected_versions

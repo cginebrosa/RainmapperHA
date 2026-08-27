@@ -1,5 +1,31 @@
 # Decisions
 
+## 2026-08-27 - [VIGENTE][RELEASE] HA 0.2.267 y worker privado 1.0.18
+
+- La optimización local de `Reconstruir y reentrenar operativo` queda entregada
+  sin relajar hashes, cancelación, retry, rollback ni promoción atómica. El
+  recorrido completo midió 534,571 s en frío y 473,654 s en caliente, con
+  714/714 ajustes, cero fallos y equivalencia de artefactos; el detalle y la
+  telemetría por fase están en
+  `docs/reports/operational-rebuild-10m-lab-2026-08-26.md`.
+- El smoke definitivo previo al bump pasó 1.035 pruebas en 53,394 s, además de
+  compilación y validadores. Después del bump pasaron las siete pruebas de
+  empaquetado dirigidas y `git diff --check`.
+- `ghcr.io/cginebrosa/rainmapperha:0.2.267` y `latest` comparten el índice OCI
+  `sha256:5efdf1cacdf98e6fb6f402fa2731792cda3091c7a61b0853c0873b2a5b88fe9c`,
+  verificado con manifests `linux/amd64` y `linux/arm64`.
+- El worker normal fue recreado como `1.0.18` sobre el volumen externo
+  `rainmapper-worker-data`. Conservó la identidad
+  `worker_1a9a232c20fe2ee2`, los fingerprints de dataset y Predictor, y quedó
+  `healthy`, `idle`. La imagen local arm64 tiene ID
+  `sha256:2aeaaeab26802c25f0511ca0e44342429a66a52476108db8a7e667c515fbfdfe`.
+- El paquete privado `~/Desktop/RainmapperWorker-1.0.18/` contiene un TAR arm64
+  de 293 MiB con SHA-256
+  `7af6d4ce271bb97d040b9604c0a889f5e601233b7bbd244203f56ad4ab764c34`;
+  no contiene ni modifica el volumen persistente.
+- HA real no fue instalado ni probado, no se lanzó trabajo contra él, no se usó
+  Tailscale, no se cambiaron opciones de retención y no se borraron datos.
+
 ## 2026-08-23 - [VIGENTE][PARCHE] HA 0.2.265 migra de forma respaldada el registro ML 1.0
 
 - La instalación HA de `0.2.264` encontró el registro persistente creado por
@@ -5306,8 +5332,10 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
 - Los resultados pesados de ejecuciones operativas fallidas, canceladas o
   interrumpidas se conservan 24 horas para diagnóstico; después queda el
   resumen ligero del job.
-- Esta decisión está implementada y probada únicamente en laboratorio local.
-  No autoriza `apply` en HA, build ni release.
+- Esta decisión fue desplegada en HA `0.2.266`. El reconciliador real ejecutó
+  `mode=apply removed=74 errors=0` tras autorización del usuario y la cadena
+  completa posterior instaló las cinco versiones con 636/636 ajustes y cero
+  fallos. Esto no autoriza nuevas limpiezas manuales, builds ni releases.
 
 # 2026-08-23 - [VIGENTE] Auditar deuda de código como entrega separada
 
@@ -5316,3 +5344,44 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   monoversión, duplicaciones y parches acumulados.
 - La auditoría empezará por referencias y call paths y no mezclará eliminaciones
   amplias con el despliegue actual de almacenamiento.
+
+# 2026-08-26 - [VIGENTE] El selector operativo procede del registro instalado
+
+- Las versiones disponibles para reconstrucción no se codifican como una lista
+  fija en la UI ni en la cadena de jobs. Se derivan del registro activo y pueden
+  seleccionarse como cualquier subconjunto instalado de V2, V3, V4, V5w y V6w.
+- La selección atraviesa sin alterarse rebuild, ML v0, entrenamiento
+  multiversión y promoción. Esto permite reentrenar solo una versión cuando sea
+  necesario sin desinstalar las demás.
+- `preferred_version_id` permanece separado: determina las vistas operativas
+  normales, pero no restringe una comparación multiversión explícita.
+- La regla quedó publicada en HA `0.2.266`; el ensayo local y la ejecución real
+  completa reconocieron las cinco versiones.
+
+# 2026-08-26 - [VIGENTE] Retención ML activa en HA real mediante el reconciliador
+
+- El usuario habilitó **Apply ML storage retention**. La primera evidencia real
+  registró 74 eliminaciones y cero errores, y Predictor y entrenamiento
+  continuaron funcionando después.
+- La caché TAR regenerable permanece fuera de `/share`, bajo `/media`, para no
+  incorporarse al backup de HA. Los datos persistentes solo se eliminan por el
+  plan auditado y las reglas de identidad; no se complementa con borrados
+  manuales.
+- El valor por defecto del producto sigue siendo `false`. La opción real activa
+  no debe cambiarse sin decisión nueva del usuario.
+
+# 2026-08-26 - [VIGENTE] Presupuesto de diez minutos y optimización transversal antes que C
+
+- `Reconstruir y reentrenar operativo` debe tardar como máximo diez minutos
+  extremo a extremo en el M1 Pro dentro de Docker, conservando hashes,
+  trazabilidad, cancelación, retry, rollback y promoción atómica.
+- La ejecución real tardó unos 37 minutos, pero los fits observados ocuparon
+  solo 2–3. Los cuellos confirmados son microllamadas y `fsync` por artefacto,
+  reescritura de una cola de 5,39 MB en cada tick, validaciones/rehashes
+  repetidos y preparación secuencial sin telemetría suficiente.
+- El orden vinculante es: instrumentar; compactar cola y telemetría; agrupar la
+  transferencia de forma segura y reanudable; sellar/reutilizar verificación;
+  compartir preparación; y solo entonces paralelizar de forma acotada.
+- C, Cython, Numba o Rust solo se evaluarán si un perfil posterior demuestra un
+  núcleo Python puro dominante. No se compila por intuición ni se debilita el
+  contrato de seguridad para alcanzar el presupuesto.

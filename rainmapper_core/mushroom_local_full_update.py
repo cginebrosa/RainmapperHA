@@ -23,8 +23,10 @@ from typing import Callable
 
 from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core import mushroom_ml_multiversion_plan
+from rainmapper_core import mushroom_performance_telemetry
 from rainmapper_core import mushroom_ml_runtime_trainer
 from rainmapper_core import mushroom_ml_training_freshness
+from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_rebuild_contracts
 from rainmapper_core import mushroom_rebuild_pipeline
@@ -35,6 +37,7 @@ from rainmapper_core import mushroom_worker_transport
 
 ProgressCallback = Callable[[int, str, str], None]
 ProgressEventMapper = Callable[[dict[str, object]], tuple[int, str, str]]
+TelemetryEventMapper = Callable[[dict[str, object]], str | None]
 CancelCallback = Callable[[], bool]
 
 
@@ -63,10 +66,33 @@ class LocalFullUpdatePaths:
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
+    size = 0
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            size += len(chunk)
             digest.update(chunk)
+    mushroom_performance_telemetry.add(
+        files_read=1,
+        bytes_read=size,
+        hashes=1,
+        hash_bytes=size,
+    )
     return digest.hexdigest()
+
+
+def _read_bytes(path: Path) -> bytes:
+    content = path.read_bytes()
+    mushroom_performance_telemetry.add(files_read=1, bytes_read=len(content))
+    return content
+
+
+def _read_progress_lines(path: Path) -> list[str]:
+    content = path.read_text(encoding="utf-8")
+    mushroom_performance_telemetry.add(
+        files_read=1,
+        bytes_read=len(content.encode("utf-8")),
+    )
+    return content.splitlines()
 
 
 def _paths_overlap(first: Path, second: Path) -> bool:
@@ -150,12 +176,24 @@ def _run_command_with_jsonl_progress(
     progress_path: Path,
     progress: ProgressCallback,
     event_mapper: ProgressEventMapper,
+    telemetry_event_mapper: TelemetryEventMapper | None = None,
     cancel_requested: CancelCallback | None = None,
 ) -> None:
     """Run one command while forwarding its flushed JSONL progress events."""
     if progress_path.exists():
         raise FileExistsError(f"Progress file already exists: {progress_path}")
     seen_events = 0
+
+    def forward(raw_event: str) -> None:
+        event = json.loads(raw_event)
+        if not isinstance(event, dict):
+            raise ValueError("Local V2--V6 progress event must be an object")
+        if telemetry_event_mapper is not None:
+            telemetry_phase = telemetry_event_mapper(event)
+            if telemetry_phase:
+                mushroom_performance_telemetry.phase(telemetry_phase)
+        progress(*event_mapper(event))
+
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as stdout_handle, tempfile.TemporaryFile(
         mode="w+", encoding="utf-8"
     ) as stderr_handle:
@@ -177,12 +215,9 @@ def _run_command_with_jsonl_progress(
                         process.wait()
                     raise LocalBenchmarkCancelled(f"{description} was cancelled")
                 if progress_path.is_file():
-                    lines = progress_path.read_text(encoding="utf-8").splitlines()
+                    lines = _read_progress_lines(progress_path)
                     for raw_event in lines[seen_events:]:
-                        event = json.loads(raw_event)
-                        if not isinstance(event, dict):
-                            raise ValueError("Local V2--V6 progress event must be an object")
-                        progress(*event_mapper(event))
+                        forward(raw_event)
                     seen_events = len(lines)
                 if process.poll() is not None:
                     break
@@ -192,12 +227,9 @@ def _run_command_with_jsonl_progress(
             process.wait()
             raise
         if progress_path.is_file():
-            lines = progress_path.read_text(encoding="utf-8").splitlines()
+            lines = _read_progress_lines(progress_path)
             for raw_event in lines[seen_events:]:
-                event = json.loads(raw_event)
-                if not isinstance(event, dict):
-                    raise ValueError("Local V2--V6 progress event must be an object")
-                progress(*event_mapper(event))
+                forward(raw_event)
         if process.returncode:
             stdout_handle.seek(0)
             stderr_handle.seek(0)
@@ -226,7 +258,7 @@ def _stage_rebuild_result(
             bundle_root,
             job_id=job_id,
             logical_path=logical_path,
-            content=(output_dir / logical_path).read_bytes(),
+            content=_read_bytes(output_dir / logical_path),
         )
     return mushroom_worker_results.finalize_candidate_result(
         candidate_results_root,
@@ -243,7 +275,7 @@ def _stage_ml_result(
     candidate_results_root: Path,
 ) -> dict[str, object]:
     manifest_path = output_dir / mushroom_worker_results.ML_TRAIN_RESULT_NAME
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = json.loads(_read_bytes(manifest_path).decode("utf-8"))
     artifacts = manifest.get("artifacts") if isinstance(manifest, dict) else None
     if not isinstance(artifacts, list):
         raise ValueError("Local ML result manifest has no artifacts")
@@ -255,7 +287,7 @@ def _stage_ml_result(
             candidate_results_root,
             job_id=job_id,
             logical_path=logical_path,
-            content=(output_dir / logical_path).read_bytes(),
+            content=_read_bytes(output_dir / logical_path),
         )
     return mushroom_worker_results.finalize_ml_train_result(
         candidate_results_root,
@@ -349,6 +381,29 @@ def _write_rebased_features(source: Path, destination: Path, paths: LocalFullUpd
         json.dumps(rebased, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+
+def _materialize_operational_tuning_catalog(
+    *,
+    registry: dict[str, object],
+    version_ids: list[str] | tuple[str, ...],
+    models_root: Path,
+    destination: Path,
+) -> dict[str, object]:
+    source_batch_id = mushroom_ml_tuning_catalog.installed_source_batch_id(
+        registry, version_ids
+    )
+    source_root = Path(models_root) / "batches" / source_batch_id
+    source_manifest = json.loads(
+        _read_bytes(source_root / "manifest.json").decode("utf-8")
+    )
+    catalog = mushroom_ml_tuning_catalog.build_from_batch(
+        registry,
+        source_manifest,
+        batch_root=source_root,
+    )
+    mushroom_ml_tuning_catalog.save(destination, catalog)
+    return catalog
 
 
 def run_local_benchmark(
@@ -552,6 +607,7 @@ def run_local_full_update(
     paths: LocalFullUpdatePaths,
     progress: ProgressCallback,
     version_ids: list[str] | tuple[str, ...] | None = None,
+    telemetry_path: Path | None = None,
 ) -> dict[str, object]:
     """Run reconstruction, ML v0 and selected installed ML versions locally."""
     if not selected_observation_ids:
@@ -577,12 +633,29 @@ def run_local_full_update(
     )
     operation_root = paths.work_root / operation_id
     operation_root.mkdir(parents=True, exist_ok=False)
+    resolved_telemetry_path = telemetry_path or (
+        paths.mushroom_data_dir
+        / "diagnostics"
+        / "operational-performance"
+        / f"{operation_id}.json"
+    )
+    telemetry = mushroom_performance_telemetry.PersistentTelemetry(
+        resolved_telemetry_path,
+        operation_id=operation_id,
+        workload="local_operational_full_update",
+    )
+    telemetry_context = mushroom_performance_telemetry.activate(telemetry)
+    telemetry_context.__enter__()
+    result_payload: dict[str, object] | None = None
+    telemetry_status = "failed"
+    telemetry_error = ""
     installed_batch_id = ""
-    previous_registry = paths.registry.read_bytes()
+    previous_registry = _read_bytes(paths.registry)
     revisions_path = paths.ml_models_dir / "current-input-revisions.json"
-    previous_revisions = revisions_path.read_bytes() if revisions_path.is_file() else None
+    previous_revisions = _read_bytes(revisions_path) if revisions_path.is_file() else None
     rebuild_promoted = False
     try:
+        mushroom_performance_telemetry.phase("reconstruction_snapshot")
         progress(2, "Preparing immutable inputs", "Creating the local reconstruction snapshot.")
         rebuild_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
             paths.bundle_root,
@@ -599,6 +672,7 @@ def run_local_full_update(
         )
         rebuild_bundle_dir = paths.bundle_root / rebuild_job_id
         rebuild_output = operation_root / "rebuild-candidate"
+        mushroom_performance_telemetry.phase("reconstruction_compute")
         progress(5, "Reconstructing artifacts", "Running the shared reconstruction pipeline locally.")
         _run_command(
             [
@@ -617,6 +691,7 @@ def run_local_full_update(
             ],
             description="Local reconstruction",
         )
+        mushroom_performance_telemetry.phase("reconstruction_verification")
         rebuild_verification = _stage_rebuild_result(
             job_id=rebuild_job_id,
             output_dir=rebuild_output,
@@ -653,6 +728,7 @@ def run_local_full_update(
             encoding="utf-8",
         )
         training_output = operation_root / "ml-candidate"
+        mushroom_performance_telemetry.phase("ml_v0_training")
         progress(38, "Training ML v0", "Training operational and shadow v0 models locally.")
         _run_command(
             [
@@ -670,12 +746,13 @@ def run_local_full_update(
             ],
             description="Local ML v0 training",
         )
+        mushroom_performance_telemetry.phase("ml_v0_verification")
         training_verification = _stage_ml_result(
             job_id=training_job_id,
             output_dir=training_output,
             candidate_results_root=paths.candidate_results_root,
         )
-
+        mushroom_performance_telemetry.phase("operational_snapshot")
         progress(48, "Preparing operational ML", "Creating a fresh immutable training snapshot.")
         comparison_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
             paths.bundle_root,
@@ -701,8 +778,17 @@ def run_local_full_update(
             snapshot_dir, input_manifest
         )
         extra_root = snapshot_dir / "inputs" / "extra"
+        registry = mushroom_ml_version_registry.load_registry(extra_root / "registry.json")
+        tuning_catalog_path = operation_root / "tuning-catalog.json"
+        _materialize_operational_tuning_catalog(
+            registry=registry,
+            version_ids=version_ids,
+            models_root=paths.ml_models_dir,
+            destination=tuning_catalog_path,
+        )
         prepared_root = operation_root / "multiversion-inputs"
         preparation_progress = operation_root / "multiversion-preparation-progress.jsonl"
+        mushroom_performance_telemetry.phase("operational_preparation")
         progress(50, "Preparing operational ML", "Building shared V2--V6 inputs and hold-out evidence.")
         preparation_command = [
                 sys.executable,
@@ -727,6 +813,8 @@ def run_local_full_update(
                 str(preparation_progress),
                 "--job-purpose",
                 "operational",
+                "--tuning-catalog",
+                str(tuning_catalog_path),
             ]
         for profile_key in profile_keys:
             preparation_command.extend(["--profile-key", profile_key])
@@ -736,6 +824,10 @@ def run_local_full_update(
             progress_path=preparation_progress,
             progress=progress,
             event_mapper=_preparation_progress_update,
+            telemetry_event_mapper=lambda event: (
+                "operational_preparation:"
+                + str(event.get("phase") or "inputs").strip().lower().replace(" ", "_")
+            ),
         )
         prepared = json.loads(
             (prepared_root / "prepared-inputs.json").read_text(encoding="utf-8")
@@ -743,7 +835,6 @@ def run_local_full_update(
         model_inputs = prepared.get("inputs") if isinstance(prepared, dict) else None
         if not isinstance(model_inputs, dict) or prepared.get("operational_candidate_trained") is not False:
             raise ValueError("Prepared local operational multiversion inputs are invalid")
-        registry = mushroom_ml_version_registry.load_registry(extra_root / "registry.json")
         batch_id = "local_operational_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         generation_ids = {
             str(row["version_id"]): f"{row['version_id']}_{batch_id}"
@@ -778,6 +869,8 @@ def run_local_full_update(
             str(comparison_manifest),
             "--training-input-manifest",
             str(snapshot_dir / mushroom_rebuild_snapshot.MANIFEST_NAME),
+            "--tuning-catalog",
+            str(tuning_catalog_path),
             "--job-purpose",
             "operational",
         ]
@@ -801,6 +894,7 @@ def run_local_full_update(
             command.extend(["--species", species_id])
         comparison_progress = operation_root / "multiversion-progress.jsonl"
         command.extend(["--progress-jsonl", str(comparison_progress)])
+        mushroom_performance_telemetry.phase("operational_training")
         progress(
             58,
             "Refreshing operational ML versions",
@@ -812,12 +906,17 @@ def run_local_full_update(
             progress_path=comparison_progress,
             progress=progress,
             event_mapper=_training_progress_update,
+            telemetry_event_mapper=lambda event: (
+                "operational_training:"
+                + str(event.get("version_id") or "fits").strip().lower().replace(" ", "_")
+            ),
         )
         comparison_result_payload = mushroom_ml_multiversion_transport.validate_result_manifest(
             json.loads(comparison_manifest.read_text(encoding="utf-8")),
             job_id=comparison_job_id,
             expected_purpose="operational",
         )
+        mushroom_performance_telemetry.phase("operational_install_and_promotion")
         progress(
             92,
             "Promoting full generation",
@@ -879,7 +978,7 @@ def run_local_full_update(
             rebuild_promoted = False
             raise
         progress(100, "Complete generation active", "Local reconstruction and all training stages completed.")
-        return {
+        result_payload = {
             "executor": "home_assistant_local",
             "operation_id": operation_id,
             "subjobs": {
@@ -901,7 +1000,14 @@ def run_local_full_update(
             "preferred_version_id": installed_registry.get("preferred_version_id"),
             "operational_candidate_trained": True,
         }
-    except BaseException:
+        result_payload["performance_telemetry"] = telemetry.finish("complete")
+        result_payload["performance_telemetry_path"] = str(resolved_telemetry_path)
+        telemetry_status = "complete"
+        return result_payload
+    except BaseException as exc:
+        telemetry_error = str(exc)
+        if isinstance(exc, LocalBenchmarkCancelled):
+            telemetry_status = "cancelled"
         if installed_batch_id:
             mushroom_ml_multiversion_transport.remove_installed_batch(
                 models_root=paths.ml_models_dir,
@@ -929,3 +1035,8 @@ def run_local_full_update(
             if candidate_dir.is_dir():
                 shutil.rmtree(candidate_dir)
         shutil.rmtree(operation_root, ignore_errors=True)
+        try:
+            if telemetry.snapshot().get("status") == "running":
+                telemetry.finish(telemetry_status, error=telemetry_error)
+        finally:
+            telemetry_context.__exit__(None, None, None)

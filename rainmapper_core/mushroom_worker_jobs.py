@@ -33,10 +33,19 @@ DEFAULT_LEASE_SECONDS = 10
 TERMINAL_STATUSES = {"complete", "cancelled", "failed"}
 ACTIVE_STATUSES = {"queued", "claimed", "running", "cancel_requested"}
 WORK_KEY_CLAIM_PROBE = "worker_claim_probe:v0"
-PREDICTOR_RESULT_MAX_BYTES = 8 * 1024 * 1024
+PREDICTOR_RESULT_MAX_BYTES = 64 * 1024 * 1024
 PREDICTOR_RESULTS_DIRNAME = ".worker-predictor-results"
 PREDICTOR_RESULT_KEEP_RECENT = 10
 PREDICTOR_RESULT_MAX_AGE_HOURS = 24
+
+
+def validate_predictor_result_size(response: object) -> int:
+    """Return the encoded response size or reject it before transport/storage."""
+    encoded_size = len(json.dumps(response, ensure_ascii=False).encode("utf-8"))
+    if encoded_size > PREDICTOR_RESULT_MAX_BYTES:
+        limit_mib = PREDICTOR_RESULT_MAX_BYTES // (1024 * 1024)
+        raise ValueError(f"Worker predictor result exceeds {limit_mib} MiB.")
+    return encoded_size
 
 
 class DuplicateActiveWorkError(ValueError):
@@ -1131,10 +1140,7 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
         from rainmapper_core.mushroom_predictor_service import validate_response  # noqa: PLC0415
 
         response = validate_response(result.get("response"))
-        encoded_size = len(json.dumps(response, ensure_ascii=False).encode("utf-8"))
-        if encoded_size > PREDICTOR_RESULT_MAX_BYTES:
-            limit_mib = PREDICTOR_RESULT_MAX_BYTES // (1024 * 1024)
-            raise ValueError(f"Worker predictor result exceeds {limit_mib} MiB.")
+        validate_predictor_result_size(response)
         cold = result.get("cold")
         if not isinstance(cold, bool):
             raise ValueError("Worker predictor cold flag is invalid.")

@@ -22,6 +22,7 @@ from sklearn.exceptions import ConvergenceWarning
 
 from rainmapper_core import mushroom_ml_biology_v3_evaluation as v3_evaluation
 from rainmapper_core import mushroom_ml_experiment_trainer
+from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core.mushroom_ml_sparse_group import SparseGroupLogisticClassifier
 
 
@@ -219,6 +220,7 @@ def evaluate_dataset(
     test_keys: set[tuple[str, int]],
     mode: str,
     split_id: str | None = None,
+    tuning_catalog: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     samples = eligible_samples(benchmark)
     train = [sample for sample in samples if comparison_key(sample) in train_keys]
@@ -262,7 +264,22 @@ def evaluate_dataset(
         probabilities_by_estimator: dict[str, np.ndarray] = {}
         for estimator_id in estimator_ids:
             try:
+                frozen_config = None
+                if tuning_catalog is not None:
+                    decision = mushroom_ml_tuning_catalog.lookup(
+                        tuning_catalog,
+                        {
+                            "version_id": version_id,
+                            "temporal_contract_id": temporal_contract_id,
+                            "profile_id": profile_id,
+                            "estimator_id": estimator_id,
+                            "species_id": species_id,
+                        },
+                    )
+                    frozen_config = dict(decision["fit_config"])
                 if mode == "current":
+                    if frozen_config:
+                        raise ValueError("Current estimator tuning configuration must be empty")
                     unavailable = mushroom_ml_experiment_trainer._estimator_unavailable_reason(estimator_id, y_train)
                     if estimator_id == "knn_distance_v1" and len(y_train) < 7:
                         unavailable = "KNN requires at least seven training samples"
@@ -274,9 +291,15 @@ def evaluate_dataset(
                     selected_config = None
                     selected_inside = None
                 else:
-                    selected_config, selected_inside = _select_v5(
-                        estimator_id, species_train, X_train, y_train, columns, group_days
-                    )
+                    if frozen_config is None:
+                        selected_config, selected_inside = _select_v5(
+                            estimator_id, species_train, X_train, y_train, columns, group_days
+                        )
+                    else:
+                        selected_config = frozen_config
+                        selected_inside = bool(
+                            selected_config.pop("inner_selection_available", False)
+                        )
                     scaled_train, scaled_test, imputer, scaler = _preprocess(X_train, X_test)
                     if estimator_id == V5_ESTIMATORS[0]:
                         model = LogisticRegression(

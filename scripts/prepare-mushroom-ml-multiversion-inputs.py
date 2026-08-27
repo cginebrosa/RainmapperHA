@@ -12,6 +12,13 @@ from pathlib import Path
 from typing import Callable, TextIO
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from rainmapper_core import mushroom_ml_weather_workspace  # noqa: E402
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--scripts-dir", type=Path, default=Path("/app/scripts"))
@@ -24,6 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-snapshot-id", required=True)
     parser.add_argument("--progress-jsonl", type=Path)
     parser.add_argument("--profile-key", action="append")
+    parser.add_argument("--tuning-catalog", type=Path)
     parser.add_argument(
         "--job-purpose",
         choices=("operational", "benchmark"),
@@ -139,6 +147,19 @@ def artifact_manifest(kind: str, root: Path, names: list[str], source_snapshot_i
 
 def main() -> int:
     args = parse_args()
+    mushroom_ml_weather_workspace.clear_active_workspace()
+    if args.job_purpose == "operational" and args.tuning_catalog is None:
+        raise ValueError("Operational preparation requires a tuning catalog")
+    weather_workspace = None
+    if args.job_purpose == "operational":
+        weather_workspace = (
+            mushroom_ml_weather_workspace.activate_operational_workspace(
+                data_dir=args.data_dir,
+                observations=args.observations,
+                known_sites=args.known_sites,
+                stations_file=args.stations_file,
+            )
+        )
     scripts = args.scripts_dir.resolve()
     root = args.output_dir.resolve()
     snapshot = root / "snapshot"
@@ -284,6 +305,8 @@ def main() -> int:
         step += 1
         phase = "Evaluating selected V2--V5 hold-out rows"
         evaluation_arguments = ["--snapshot", str(snapshot), "--v5-dir", str(v5)]
+        if args.tuning_catalog is not None:
+            evaluation_arguments.extend(["--tuning-catalog", str(args.tuning_catalog)])
         for profile_key in args.profile_key or []:
             evaluation_arguments.extend(["--profile-key", str(profile_key)])
         emit_progress(args.progress_jsonl, step=step - 1, total=total, phase=phase)
@@ -310,6 +333,8 @@ def main() -> int:
         step += 1
         emit_progress(args.progress_jsonl, step=step - 1, total=total, phase="Evaluating selected V6 hold-out rows")
         v6_arguments = ["--snapshot", str(snapshot), "--v5-dir", str(v5), "--output-dir", str(v6)]
+        if args.tuning_catalog is not None:
+            v6_arguments.extend(["--tuning-catalog", str(args.tuning_catalog)])
         for profile_key in args.profile_key or []:
             v6_arguments.extend(["--profile-key", str(profile_key)])
         run_script(
@@ -345,6 +370,8 @@ def main() -> int:
         "inputs": inputs,
         "operational_candidate_trained": False,
     }
+    if weather_workspace is not None:
+        prepared["weather_workspace"] = weather_workspace.stats()
     write_json(root / "prepared-inputs.json", prepared)
     emit_progress(
         args.progress_jsonl,
@@ -353,6 +380,7 @@ def main() -> int:
         phase="Prepared selected multiversion inputs",
     )
     print(json.dumps({"output": str(root / "prepared-inputs.json")}, ensure_ascii=False))
+    mushroom_ml_weather_workspace.clear_active_workspace()
     return 0
 
 

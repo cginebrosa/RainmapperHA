@@ -371,6 +371,7 @@ class PredictorServiceTests(TestCase):
             )
             predictor = Mock()
             predictor.season_phase.return_value = "out_of_season"
+            predictor.areas_with_species_observations.return_value = ["area_one"]
             service.predictor = Mock(return_value=predictor)
 
             response = service.execute(
@@ -383,6 +384,7 @@ class PredictorServiceTests(TestCase):
 
         species_data = response["data"]["species"]["boletus"]
         self.assertEqual(species_data["season_phase"], "out_of_season")
+        self.assertEqual(species_data["areas"], ["area_one"])
         self.assertEqual(species_data["rankings"]["2026-08-10"], [])
         predictor.rank_areas.assert_not_called()
 
@@ -397,6 +399,7 @@ class PredictorServiceTests(TestCase):
             )
             predictor = Mock()
             predictor.season_phase.return_value = "in_season"
+            predictor.areas_with_species_observations.return_value = ["area_one"]
             predictor.rank_areas.return_value = [
                 prediction("boletus", "area_one", date(2026, 8, 10))
             ]

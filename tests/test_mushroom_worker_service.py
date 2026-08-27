@@ -519,6 +519,28 @@ class MushroomWorkerServiceTests(unittest.TestCase):
                 self.assertEqual(request.headers["Authorization"], "Bearer coordinator-secret")
                 self.assertEqual(json.loads(request.data), payload)
 
+    def test_predictor_finish_has_a_longer_bounded_timeout(self) -> None:
+        self.assertEqual(
+            mushroom_worker_service._job_update_timeout(
+                "finish", "worker_predictor_v1"
+            ),
+            60.0,
+        )
+        self.assertEqual(
+            mushroom_worker_service._job_update_timeout(
+                "finish", "worker_ml_multiversion_v1"
+            ),
+            3.0,
+        )
+        for action in ("start", "progress", "control"):
+            with self.subTest(action=action):
+                self.assertEqual(
+                    mushroom_worker_service._job_update_timeout(
+                        action, "worker_predictor_v1"
+                    ),
+                    3.0,
+                )
+
     def test_worker_rejects_unknown_job_lifecycle_action(self) -> None:
         with self.assertRaisesRegex(ValueError, "action is invalid"):
             mushroom_worker_service.update_job(

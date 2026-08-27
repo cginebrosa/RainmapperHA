@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from rainmapper_core import mushroom_climatic_water_balance as climate
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_raw_weather as raw_weather
+from rainmapper_core import mushroom_ml_weather_workspace
 from rainmapper_core import mushroom_observation_context as weather_context
 from rainmapper_core import mushroom_soil_water_state
 from rainmapper_core import mushroom_weather_idw
@@ -81,63 +82,107 @@ def main() -> int:
     cache_days = (latest - earliest).days + 1
     cache_dates = list(weather_context.date_window(latest, cache_days))
 
-    catalog = weather_context.load_stations_catalog(args.data_dir)
-    station_filter: set[tuple[str, str]] = set()
-    for row in catalog.itertuples(index=False):
-        source = str(getattr(row, "source", "") or "").strip()
-        code = str(getattr(row, "station_code", "") or "").strip()
-        lat = weather_context.parse_float(getattr(row, "lat", None))
-        lon = weather_context.parse_float(getattr(row, "lon", None))
-        if source and code and lat is not None and lon is not None and any(
-            weather_context.haversine_km(context.lat, context.lon, lat, lon)
-            <= mushroom_weather_idw.RAINFALL_IDW_RADIUS_KM
-            for context in contexts
-        ):
-            station_filter.add((source, code))
-    stations = weather_context.load_daily_weather_parquet(
-        args.data_dir,
-        station_filter=station_filter,
-        start_date=earliest,
-        end_date=latest,
+    workspace = mushroom_ml_weather_workspace.active_workspace(
+        data_dir=args.data_dir,
+        known_sites=args.known_sites,
+        stations_file=args.stations_file,
     )
     disabled = mushroom_weather_idw.disabled_wunderground_station_keys(args.stations_file)
-    stations = {
-        key: station
-        for key, station in stations.items()
-        if (str(key[0]).lower(), str(key[1]).upper()) not in disabled
-    }
-    duplicates = {key: mushroom_weather_idw.suppressed_rain_dates(value) for key, value in stations.items()}
+    if workspace is not None:
+        stations = {
+            key: station
+            for key, station in workspace.stations_for_view(earliest, latest).items()
+            if any(
+                weather_context.haversine_km(
+                    context.lat, context.lon, station.lat, station.lon
+                )
+                <= mushroom_weather_idw.RAINFALL_IDW_RADIUS_KM
+                for context in contexts
+            )
+        }
+        duplicates = {}
+    else:
+        catalog = weather_context.load_stations_catalog(args.data_dir)
+        station_filter: set[tuple[str, str]] = set()
+        for row in catalog.itertuples(index=False):
+            source = str(getattr(row, "source", "") or "").strip()
+            code = str(getattr(row, "station_code", "") or "").strip()
+            lat = weather_context.parse_float(getattr(row, "lat", None))
+            lon = weather_context.parse_float(getattr(row, "lon", None))
+            if source and code and lat is not None and lon is not None and any(
+                weather_context.haversine_km(context.lat, context.lon, lat, lon)
+                <= mushroom_weather_idw.RAINFALL_IDW_RADIUS_KM
+                for context in contexts
+            ):
+                station_filter.add((source, code))
+        stations = weather_context.load_daily_weather_parquet(
+            args.data_dir,
+            station_filter=station_filter,
+            start_date=earliest,
+            end_date=latest,
+        )
+        stations = {
+            key: station
+            for key, station in stations.items()
+            if (str(key[0]).lower(), str(key[1]).upper()) not in disabled
+        }
+        duplicates = {
+            key: mushroom_weather_idw.suppressed_rain_dates(value)
+            for key, value in stations.items()
+        }
 
     weather_cache: dict[str, dict[str, object]] = {}
     eto_cache: dict[str, list[float | None]] = {}
     for index, context in enumerate(contexts, start=1):
-        weather = mushroom_weather_idw.build_daily_weather_idw_series(
-            stations,
-            target_lat=context.lat,
-            target_lon=context.lon,
-            target_altitude_m=context.altitude_m,
-            end_day=latest,
-            days=cache_days,
-            excluded_station_keys=disabled,
-            duplicate_dates_by_station=duplicates,
-        )
-        weather_cache[context.micro_area_id] = weather
-        eto_cache[context.micro_area_id] = [
-            climate.hargreaves_reference_evapotranspiration_mm(day, context.lat, low, high)
-            if low is not None and high is not None
-            else None
-            for day, low, high in zip(
-                cache_dates,
-                weather["daily_temp_min_idw_c"],
-                weather["daily_temp_max_idw_c"],
-                strict=True,
+        if workspace is not None:
+            weather = workspace.weather_for_contexts(
+                [context], start_day=earliest, end_day=latest
+            )[context.micro_area_id]
+        else:
+            weather = mushroom_weather_idw.build_daily_weather_idw_series(
+                stations,
+                target_lat=context.lat,
+                target_lon=context.lon,
+                target_altitude_m=context.altitude_m,
+                end_day=latest,
+                days=cache_days,
+                excluded_station_keys=disabled,
+                duplicate_dates_by_station=duplicates,
             )
-        ]
+        weather_cache[context.micro_area_id] = weather
+        eto_cache[context.micro_area_id] = (
+            workspace.eto_for_context(
+                context.micro_area_id, start_day=earliest, end_day=latest
+            )
+            if workspace is not None
+            else [
+                climate.hargreaves_reference_evapotranspiration_mm(
+                    day, context.lat, low, high
+                )
+                if low is not None and high is not None
+                else None
+                for day, low, high in zip(
+                    cache_dates,
+                    weather["daily_temp_min_idw_c"],
+                    weather["daily_temp_max_idw_c"],
+                    strict=True,
+                )
+            ]
+        )
         if index % 5 == 0 or index == len(contexts):
             print(json.dumps({"cached_microareas": index, "total_microareas": len(contexts)}), flush=True)
 
     area_cache: dict[str, dict[str, object]] = {}
     for index, (area_id, cutoff) in enumerate(sorted(requested), start=1):
+        cached_soil = (
+            workspace.soil_bundle(
+                mushroom_ml_weather_workspace.DEFAULT_SOIL_VARIANT_ID,
+                area_id,
+                cutoff,
+            )
+            if workspace is not None
+            else None
+        )
         sliced: dict[str, dict[str, object]] = {}
         micro_eto: list[list[float | None]] = []
         micro_balance: list[list[float | None]] = []
@@ -165,26 +210,27 @@ def main() -> int:
                     )
                 ]
             )
-            try:
-                micro_soil_states[context.micro_area_id] = (
-                    mushroom_soil_water_state.build_soil_water_state(
-                        dates=axis,
-                        rain_idw_mm=weather["daily_rain_idw_mm"],
-                        reference_evapotranspiration_mm=eto,
-                        soilgrids_context=context.soilgrids_water or {},
+            if cached_soil is None:
+                try:
+                    micro_soil_states[context.micro_area_id] = (
+                        mushroom_soil_water_state.build_soil_water_state(
+                            dates=axis,
+                            rain_idw_mm=weather["daily_rain_idw_mm"],
+                            reference_evapotranspiration_mm=eto,
+                            soilgrids_context=context.soilgrids_water or {},
+                        )
                     )
-                )
-            except (TypeError, ValueError) as exc:
-                micro_soil_states[context.micro_area_id] = {
-                    "predictive_features": {},
-                    "quality": {
-                        "training_eligible": False,
-                        "training_exclusion_reasons": [
-                            {"code": "soil_state_build_error", "message": str(exc)}
-                        ],
-                    },
-                    "metadata": {"cutoff_date": cutoff.isoformat()},
-                }
+                except (TypeError, ValueError) as exc:
+                    micro_soil_states[context.micro_area_id] = {
+                        "predictive_features": {},
+                        "quality": {
+                            "training_eligible": False,
+                            "training_exclusion_reasons": [
+                                {"code": "soil_state_build_error", "message": str(exc)}
+                            ],
+                        },
+                        "metadata": {"cutoff_date": cutoff.isoformat()},
+                    }
         area = biology_v3.aggregate_area_rainfall_series(sliced)
         area["daily_eto0_mean_mm"] = _mean_series(
             micro_eto, raw_weather.LOOKBACK_DAYS
@@ -192,40 +238,44 @@ def main() -> int:
         area["daily_climatic_balance_mean_mm"] = _mean_series(
             micro_balance, raw_weather.LOOKBACK_DAYS
         )
-        soil_state = mushroom_soil_water_state.aggregate_area_soil_water_states(
-            micro_soil_states
-        )
-        daily_soil_by_microarea: list[dict[str, float]] = []
-        for state in micro_soil_states.values():
-            quality = state.get("quality")
-            metadata = state.get("metadata")
-            if not isinstance(quality, dict) or not quality.get("training_eligible"):
-                continue
-            if not isinstance(metadata, dict):
-                continue
-            dates = list(metadata.get("longest_converged_daily_dates") or [])
-            values = list(
-                metadata.get("longest_converged_daily_storage_fraction") or []
+        if cached_soil is not None:
+            soil_state = cached_soil.aggregated
+            area["daily_soil_water_fraction_mean"] = cached_soil.daily_fraction_mean
+        else:
+            soil_state = mushroom_soil_water_state.aggregate_area_soil_water_states(
+                micro_soil_states
             )
-            if len(dates) == len(values):
-                daily_soil_by_microarea.append(
-                    {
-                        str(day): float(value)
-                        for day, value in zip(dates, values, strict=True)
-                    }
+            daily_soil_by_microarea: list[dict[str, float]] = []
+            for state in micro_soil_states.values():
+                quality = state.get("quality")
+                metadata = state.get("metadata")
+                if not isinstance(quality, dict) or not quality.get("training_eligible"):
+                    continue
+                if not isinstance(metadata, dict):
+                    continue
+                dates = list(metadata.get("longest_converged_daily_dates") or [])
+                values = list(
+                    metadata.get("longest_converged_daily_storage_fraction") or []
                 )
-        area["daily_soil_water_fraction_mean"] = [
-            (
-                statistics.fmean(
-                    row[day.isoformat()]
-                    for row in daily_soil_by_microarea
-                    if day.isoformat() in row
+                if len(dates) == len(values):
+                    daily_soil_by_microarea.append(
+                        {
+                            str(day): float(value)
+                            for day, value in zip(dates, values, strict=True)
+                        }
+                    )
+            area["daily_soil_water_fraction_mean"] = [
+                (
+                    statistics.fmean(
+                        row[day.isoformat()]
+                        for row in daily_soil_by_microarea
+                        if day.isoformat() in row
+                    )
+                    if any(day.isoformat() in row for row in daily_soil_by_microarea)
+                    else None
                 )
-                if any(day.isoformat() in row for row in daily_soil_by_microarea)
-                else None
-            )
-            for day in axis
-        ]
+                for day in axis
+            ]
         area.update(dict(soil_state.get("predictive_features") or {}))
         area["soil_water_quality"] = dict(soil_state.get("quality") or {})
         area["soil_water_metadata"] = dict(soil_state.get("metadata") or {})

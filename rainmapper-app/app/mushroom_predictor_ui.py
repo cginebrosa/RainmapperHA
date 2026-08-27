@@ -44,6 +44,7 @@ _comparison_cache: ContextVar[dict[str, Any] | None] = ContextVar(
     "mushroom_predictor_comparison_cache", default=None
 )
 _executor_query: ContextVar[str] = ContextVar("mushroom_predictor_executor", default="")
+_job_query: ContextVar[str] = ContextVar("mushroom_predictor_job", default="")
 _allow_executor_change: ContextVar[bool] = ContextVar(
     "mushroom_predictor_allow_executor_change", default=True
 )
@@ -373,6 +374,7 @@ def _url(
     species: str = "",
     area: str = "",
     target_date: date | None = None,
+    reuse_result: bool = False,
     **extra: str | list[str],
 ) -> str:
     params: dict[str, str | list[str]] = {"view": view}
@@ -384,6 +386,8 @@ def _url(
         params["date"] = target_date.isoformat()
     if _executor_query.get():
         params["executor"] = _executor_query.get()
+    if reuse_result and _job_query.get():
+        params["job_id"] = _job_query.get()
     params.update({k: v for k, v in extra.items() if v})
     return "?" + urlencode(params, doseq=True)
 
@@ -685,6 +689,7 @@ def _preferred_version_control(
     installed_ids = set((payload.get("runtime_batches") or {}).keys())
     entries = payload.get("entries") if isinstance(payload, dict) else []
     entries = entries if isinstance(entries, list) else []
+    selected_choice = selected_versions[0] if len(selected_versions) == 1 else preferred
     choices = []
     seen: set[str] = set()
     for entry in entries:
@@ -694,7 +699,7 @@ def _preferred_version_control(
         if version_id in seen or version_id not in installed_ids:
             continue
         seen.add(version_id)
-        selected = " selected" if version_id == preferred else ""
+        selected = " selected" if version_id == selected_choice else ""
         short = _VERSION_SHORT_NAMES.get(version_id, version_id)
         compact_name = _VERSION_COMPACT_NAMES.get(
             version_id, str(entry.get("version_display_name") or version_id)
@@ -705,26 +710,11 @@ def _preferred_version_control(
         )
     if not choices:
         return ""
-    return_params: list[tuple[str, str]] = [
-        ("view", "query"),
-        ("species", species_id),
-        ("area", area_id),
-        ("date", target_date.isoformat()),
-        ("compare", "1" if compare_models else "0"),
-    ]
-    executor = _executor_query.get()
-    if executor:
-        return_params.append(("executor", executor))
-    action = "?" + urlencode(return_params)
     return f"""
 <div class="pred-form-row pred-preferred-field">
   <label for="pred-preferred-version">{html.escape(_lbl("ui.predictor_preferred_short"))}</label>
   <select id="pred-preferred-version" name="preferred_version_id"
-          onchange="this.form.requestSubmit(this.nextElementSibling)"
           title="{html.escape(_lbl("ui.predictor_preferred_help"), quote=True)}">{''.join(choices)}</select>
-  <button type="submit" hidden data-predictor-preferred-submit
-          name="predictor_action" value="set_preferred_version"
-          formmethod="post" formaction="{html.escape(action, quote=True)}"></button>
 </div>
 """
 
@@ -755,6 +745,18 @@ def _preferred_version_id() -> str:
                 registry = {}
         preferred_id = str(registry.get("preferred_version_id") or "")
     return preferred_id
+
+
+def resolved_query_versions(query: dict[str, list[str]]) -> list[str]:
+    """Resolve the exact query selection once for queueing and rendering."""
+    selected = [str(value) for value in query.get("mvv", []) if str(value)]
+    if selected:
+        return selected
+    form_choice = str((query.get("preferred_version_id") or [""])[0])
+    if form_choice:
+        return [form_choice]
+    preferred = _preferred_version_id()
+    return [preferred] if preferred else []
 
 
 def _preferred_version_badge() -> str:
@@ -1881,7 +1883,7 @@ def _render_day_strip(target_date: date, view: str, species: str) -> str:
         day_name = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][d.weekday()]
         label_text = f"{day_name}<br><strong>{d.day}/{d.month}</strong>"
         cells.append(
-            f'<a class="{cls}" href="{html.escape(href)}">'
+            f'<a class="{cls}" href="{html.escape(href)}" data-predictor-direct-run>'
             f'{label_text}'
             f'</a>'
         )
@@ -1975,13 +1977,14 @@ def _render_recommender(
 
     # Ranked list
     rows_html = ""
+    area_options_by_species: dict[str, list[dict[str, str]]] = {}
     for interpretation, sp_id, area_id, model_source, abstention in all_results[:15]:
         sp_name = _species_name(sp_id, profiles_payload)
         area_n = _area_name(area_id, known_sites_payload)
         href = _url("query", sp_id, area_id, target_date)
         status = _interpretation_status(interpretation)
         rows_html += f"""
-<a class="pred-rank-row {_status_cls(status)}" href="{html.escape(href)}">
+<a class="pred-rank-row {_status_cls(status)}" href="{html.escape(href)}" data-predictor-direct-run>
   <span class="pred-rank-dot">{_status_dot(status)}</span>
   <span class="pred-rank-species">{html.escape(sp_name)}</span>
   <span class="pred-rank-area">{html.escape(area_n)}</span>
@@ -1989,9 +1992,23 @@ def _render_recommender(
 </a>
 """
 
+    for sp_id in trained:
+        try:
+            area_ids = _get_predictor(sp_id).areas_with_species_observations()
+        except Exception:
+            area_ids = []
+        area_options_by_species[sp_id] = [
+            {"value": area_id, "label": _area_name(area_id, known_sites_payload)}
+            for area_id in sorted(area_ids)
+        ]
+    area_map = html.escape(
+        json.dumps(area_options_by_species, ensure_ascii=False, separators=(",", ":")),
+        quote=True,
+    )
+
     error_block = _render_errors(errors)
     return f"""
-<section class="pred-section">
+<section class="pred-section" data-predictor-area-map="{area_map}">
   <h2>{html.escape(_lbl("ui.predictor_tab_recommender"))} — {html.escape(date_label)}</h2>
   {day_strip}
   {error_block}
@@ -2117,7 +2134,7 @@ def _render_week(
                 cell_href = _url("query", species, area_id, d)
                 row_cells += (
                     f'<td class="pred-cell {_status_cls(status)}">'
-                    f'<a href="{html.escape(cell_href)}">'
+                    f'<a href="{html.escape(cell_href)}" data-predictor-direct-run>'
                     f'{_status_dot(status)} {html.escape(_compact_interpretation_range(interpretation))}'
                     f'<small class="pred-result-source">{html.escape(model_source or abstention)}</small>'
                     f'</a></td>'
@@ -2182,18 +2199,26 @@ def _render_query(
 ) -> str:
     selected_multiversion = list(selected_multiversion or [])
     selected_versions = list(selected_versions or [])
-    # Area options for selected species
-    area_options_html = f'<option value="">{html.escape(_lbl("ui.predictor_all_areas_option"))}</option>'
+    area_options_by_species: dict[str, list[dict[str, str]]] = {species: []}
     try:
-        predictor = _get_predictor(species)
-        area_ids = predictor.areas_with_species_observations()
-        areas = known_sites_payload.get("areas", []) if isinstance(known_sites_payload, dict) else []
-        for a_id in sorted(area_ids):
-            a_name = _area_name(a_id, known_sites_payload)
-            sel = ' selected' if a_id == area else ''
-            area_options_html += f'<option value="{html.escape(a_id)}"{sel}>{html.escape(a_name)}</option>'
+        area_options_by_species[species] = [
+            {"value": area_id, "label": _area_name(area_id, known_sites_payload)}
+            for area_id in sorted(_get_predictor(species).areas_with_species_observations())
+        ]
     except Exception:
         pass
+    area_options_html = f'<option value="">{html.escape(_lbl("ui.predictor_all_areas_option"))}</option>'
+    for option in area_options_by_species.get(species, []):
+        a_id = option["value"]
+        sel = ' selected' if a_id == area else ''
+        area_options_html += (
+            f'<option value="{html.escape(a_id, quote=True)}"{sel}>'
+            f'{html.escape(option["label"])}</option>'
+        )
+    area_map = html.escape(
+        json.dumps(area_options_by_species, ensure_ascii=False, separators=(",", ":")),
+        quote=True,
+    )
 
     # Species options
     species_options_html = ""
@@ -2203,7 +2228,7 @@ def _render_query(
         species_options_html += f'<option value="{html.escape(sp_id)}"{sel}>{html.escape(sp_name)}</option>'
 
     comparison_toggle = (
-        f'<a class="button-link secondary-link" href="{html.escape(_url("query", species, area, target_date, compare="0" if compare_models else "1", mvv=selected_versions))}">'
+        f'<a class="button-link secondary-link" data-predictor-direct-run href="{html.escape(_url("query", species, area, target_date, compare="0" if compare_models else "1", mvv=selected_versions))}">'
         f'{html.escape(_lbl("ui.predictor_hide_model_comparison") if compare_models else _lbl("ui.predictor_compare_models"))}'
         "</a>"
         if area
@@ -2222,17 +2247,18 @@ def _render_query(
         selected_versions=selected_versions,
     )
     form_html = f"""
-<form class="pred-form" method="get" action="" data-predictor-direct-form>
+<form class="pred-form" method="get" action="" data-predictor-direct-form
+      data-predictor-area-map="{area_map}">
   <input type="hidden" name="view" value="query">
   <input type="hidden" name="compare" value="{1 if compare_models else 0}">
   {_executor_hidden_input()}
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.species"))}</label>
-    <select name="species" onchange="this.form.elements.area.value='';this.form.requestSubmit()">{species_options_html}</select>
+    <select name="species">{species_options_html}</select>
   </div>
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.known_site_area"))}</label>
-    <select name="area" onchange="this.form.requestSubmit()">{area_options_html}</select>
+    <select name="area">{area_options_html}</select>
   </div>
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.date_short"))}</label>
@@ -2353,6 +2379,7 @@ def _render_query_result(
                 species,
                 area,
                 current_date,
+                reuse_result=True,
                 compare="1" if compare_models else "",
                 mvv=selected_versions,
             )
@@ -2927,7 +2954,7 @@ def _render_query_all_areas(
         rel_badge = _rel_badge(ep_n)
         status = _interpretation_status(interpretation)
         rows_html += f"""
-<a class="pred-rank-row {_status_cls(status)}" href="{html.escape(href)}">
+<a class="pred-rank-row {_status_cls(status)}" href="{html.escape(href)}" data-predictor-direct-run>
   <span class="pred-rank-dot">{_status_dot(status)}</span>
   <span class="pred-rank-area">{html.escape(area_n)}</span>
   <span class="pred-rank-prob">{html.escape(_compact_interpretation_range(interpretation))}<small class="pred-result-source">{html.escape(model_source or abstention)}</small></span>
@@ -2995,7 +3022,7 @@ def _render_history(
   {_executor_hidden_input()}
   <div class="pred-form-row">
     <label>{html.escape(_lbl("ui.species"))}</label>
-    <select name="species" onchange="this.form.requestSubmit()">{species_options_html}</select>
+    <select name="species">{species_options_html}</select>
   </div>
   <button type="submit" class="primary">{html.escape(_lbl("ui.search"))}</button>
 </form>
@@ -3227,6 +3254,7 @@ def render_page(
     weather_cache_token = _prepared_weather_cache.set({})
     comparison_cache_token = _comparison_cache.set({})
     executor_token = _executor_query.set((query.get("executor") or [""])[0])
+    job_token = _job_query.set((query.get("job_id") or [""])[0])
     executor_change_token = _allow_executor_change.set(allow_executor_change)
     training_freshness_token = _training_freshness.set(training_freshness)
     try:
@@ -3236,6 +3264,7 @@ def render_page(
         _comparison_cache.reset(comparison_cache_token)
         _prepared_weather_cache.reset(weather_cache_token)
         _prepared_response.reset(prepared_token)
+        _job_query.reset(job_token)
         _executor_query.reset(executor_token)
         _training_freshness.reset(training_freshness_token)
 
@@ -3289,11 +3318,9 @@ def _render_page_inner(
 
     if not species or species not in trained:
         species = trained[0]
-    selected_versions = list(query.get("mvv", []))
-    if view == "query" and not selected_versions:
-        preferred_version_id = _preferred_version_id()
-        if preferred_version_id:
-            selected_versions = [preferred_version_id]
+    selected_versions = (
+        resolved_query_versions(query) if view == "query" else list(query.get("mvv", []))
+    )
     selected_multiversion = list(query.get("mv", []))
     if selected_versions:
         selected_multiversion = multiversion_tokens_for_versions(species, selected_versions)

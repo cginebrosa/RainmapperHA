@@ -20,6 +20,7 @@ from rainmapper_core import mushroom_ml_model_catalog  # noqa: E402
 from rainmapper_core import mushroom_ml_benchmark_reports  # noqa: E402
 from rainmapper_core import mushroom_ml_quality_catalog  # noqa: E402
 from rainmapper_core import mushroom_ml_runtime_trainer  # noqa: E402
+from rainmapper_core import mushroom_ml_tuning_catalog  # noqa: E402
 from rainmapper_core import mushroom_ml_version_registry  # noqa: E402
 
 
@@ -58,6 +59,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--result-manifest", type=Path)
     parser.add_argument("--progress-jsonl", type=Path)
     parser.add_argument("--training-input-manifest", type=Path)
+    parser.add_argument("--tuning-catalog", type=Path)
     parser.add_argument(
         "--quality-catalog",
         type=Path,
@@ -237,6 +239,17 @@ def main() -> int:
         version_ids=version_ids,
         profile_keys=profile_keys,
     )
+    tuning_catalog = (
+        mushroom_ml_tuning_catalog.validate_catalog(
+            registry,
+            _load(args.tuning_catalog),
+            training_plan=plan,
+        )
+        if args.tuning_catalog is not None
+        else None
+    )
+    if operational and tuning_catalog is None:
+        raise ValueError("Operational training requires a compatible tuning catalog")
     benchmarks = mushroom_ml_runtime_trainer.materialize_runtime_benchmarks(
         v3_fixed=_load(args.v3_fixed),
         v3_lag=_load(args.v3_lag),
@@ -263,11 +276,20 @@ def main() -> int:
             benchmarks,
             models_root=args.models_root,
             progress_callback=report_progress,
+            tuning_catalog=tuning_catalog,
         )
         if operational and int(manifest.get("failed_fit_count", 0) or 0):
             raise ValueError("Operational training must produce every planned artifact")
         manifest["job_purpose"] = args.job_purpose
         manifest["operational_candidate_trained"] = operational
+        if tuning_catalog is not None:
+            tuning_path = destination / "tuning-catalog.json"
+            mushroom_ml_tuning_catalog.save(tuning_path, tuning_catalog)
+            manifest["tuning_catalog"] = {
+                **manifest["tuning_catalog"],
+                "path": "batches/" + manifest["batch_id"] + "/tuning-catalog.json",
+                "sha256": _sha256(tuning_path),
+            }
         if operational and args.quality_catalog is not None:
             source_catalog = _load(args.quality_catalog)
             if (

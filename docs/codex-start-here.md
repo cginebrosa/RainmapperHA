@@ -37,22 +37,41 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-23
+## Estado general al cierre de 2026-08-27
 
-- Rama activa `inicial`; preservar siempre el worktree mixto y cualquier
-  fichero no rastreado. Las versiones declaradas y publicadas son HA `0.2.265`
-  y worker `1.0.17`; el runtime real debe revalidarse en cada sesión. La imagen
-  HA está publicada pero todavía no instalada; el worker normal conserva su
-  identidad y el usuario confirmó que HA vuelve a verlo.
+- Rama activa `inicial`; preservar siempre el worktree y cualquier fichero no
+  rastreado. HA real continúa en `0.2.266`; la imagen `0.2.267` está publicada
+  pero no instalada. El worker normal es `1.0.18` y conserva la identidad emparejada
+  `worker_1a9a232c20fe2ee2`. Revalidar el runtime al comenzar una sesión nueva.
 - La separación entre mantenimiento operativo y benchmark científico está
-  implementada localmente. El mantenimiento completo verifica y autopromociona
+  desplegada. El mantenimiento completo verifica y autopromociona
   conjuntamente una generación por cada versión instalada seleccionada; el
   benchmark conserva evidencia e historial pero no prepara, activa ni revierte
-  versiones. Esas rutas legacy han sido retiradas localmente.
-- El objetivo acordado es una generación instalada por versión y un
-  `preferred_version_id` independiente. El mantenimiento reentrena las
-  versiones instaladas seleccionadas y genera evidencia en la misma pasada;
-  el benchmark científico queda para incorporar o modificar contratos.
+  versiones.
+- El selector de mantenimiento se deriva del registro activo, no de una lista
+  hardcoded. Admite cualquier subconjunto instalado de V2/V3/V4/V5w/V6w y
+  conserva la selección durante rebuild, ML v0, entrenamiento multiversión y
+  promoción. `preferred_version_id` sigue siendo independiente.
+- El reentreno local y el real terminaron con las cinco versiones. En HA real,
+  el batch `operational_20260825T221049Z` produjo 636/636 ajustes, cero fallos y
+  fue promocionado. Solo queda registrar la comprobación visual final de las
+  cinco opciones y la desaparición del aviso de identidad desconocida.
+- La retención ML está activa en HA real por decisión del usuario. El log
+  observado fue `mode=apply removed=74 errors=0`; Predictor y reentreno
+  funcionaron después. La caché TAR vive bajo `/media`, fuera de `/share` y de
+  los backups. No cambiar la opción ni hacer borrados manuales.
+- El siguiente bloque prioritario es rendimiento: la cadena remota real tardó
+  ~37 minutos aunque los fits ocuparon ~2–3. Están confirmados uploads por
+  fichero, `fsync` repetidos, reescritura de una cola de 5,39 MB en cada tick,
+  rehashes redundantes y preparación sin telemetría suficiente. En laboratorio,
+  telemetría, tuning operativo congelado y workspace meteorológico compartido
+  redujeron el flujo completo a 8 min 55 s frío y 7 min 54 s caliente, con
+  714/714 fits, cero fallos, equivalencia y promoción verificada.
+- El objetivo local de <=10 minutos ya se cumple sin C ni paralelismo. Antes de
+  compactar cola o agrupar transporte, medir el mismo código por el camino
+  remoto HA↔worker después de una entrega autorizada; tocar esas capas solo si
+  la medición lo justifica. El detalle está en `docs/todo.md` y en el informe
+  `docs/reports/operational-rebuild-10m-lab-2026-08-26.md`.
 - La vigencia futura se comprobará mediante revisiones pequeñas y avisos, no
   releyendo todo el histórico durante promociones o consultas. Worker y
   coordinador deben reutilizar objetos meteorológicos inmutables por digest y
@@ -75,17 +94,10 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   documental, commit o bump.
 - No preparar bump, build, publicación, instalación ni release sin autorización
   explícita nueva.
-- La retención ML/worker está implementada solo en laboratorio. El gate
-  `ml_storage_reconciliation_apply` es `false` por defecto y el primer arranque
-  de Rainmapper solo genera `dry-run`. No habilitarlo en HA sin revisar el
-  informe con el usuario. Los restos terminales operativos tienen un TTL
-  ratificado de 24 h; candidatos e historiales de activación manual son legacy.
-- El smoke definitivo del parche pasó 1.006 pruebas. `0.2.265` y
-  `latest` comparten el digest multiarch
-  `sha256:f0c2fee0a90ac365d36cdfd05412475a0357b9483d45648efed46cfbefc511ba`;
-  el commit publicado es `a14560b`. `0.2.264` no migraba el registro persistente
-  1.0 y fue detenida; `0.2.265` añade migración validada con copia exacta previa.
-  No habilitar el `apply` sin autorización nueva.
+- El smoke transversal previo a las releases pasó 1.006 pruebas. `0.2.264` no
+  migraba el registro persistente 1.0 y fue detenida; `0.2.265` añadió la
+  migración validada con copia exacta previa; `0.2.266` añadió el selector
+  dinámico de versiones y es la instalada actual confirmada por el usuario.
 - El histórico meteorológico oficial de HA fue reparado y rebasado a una raíz
   autosuficiente; el runner manual posterior terminó correctamente. La próxima
   sesión debe tratar esta migración como cerrada y mantener como deuda la
@@ -122,8 +134,8 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Contrato genérico para perfiles actuales/futuros, candidatas, promoción y
   rollback:
   `docs/mushrooms/mushroom-ml-generic-profile-promotion-plan-es.md`
-- Varias versiones ML instaladas a la vez y preferida independiente,
-  implementado en laboratorio local y pendiente de despliegue real:
+- Varias versiones ML instaladas a la vez, selector derivado del registro y
+  preferida independiente, desplegado en HA `0.2.266`:
   `docs/mushrooms/mushroom-ml-multi-version-installation-design-es.md`
 - Auditoría ML v3: `docs/mushrooms/mushroom-ml-v3-data-audit-es.md`
 - Especificación ML v3: `docs/mushrooms/mushroom-ml-v3-implementation-spec-es.md`

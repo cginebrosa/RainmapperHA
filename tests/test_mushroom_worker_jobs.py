@@ -89,12 +89,25 @@ class MushroomWorkerJobsTests(unittest.TestCase):
 
         self.assertGreater(len(json.dumps(normalized).encode()), 1024 * 1024)
 
-    def test_predictor_result_limit_rejects_more_than_eight_mib(self) -> None:
+    def test_predictor_result_limit_is_exactly_sixty_four_mib(self) -> None:
+        self.assertEqual(
+            mushroom_worker_jobs.PREDICTOR_RESULT_MAX_BYTES,
+            64 * 1024 * 1024,
+        )
+        base = self.predictor_response()
+        base_size = len(json.dumps(base, ensure_ascii=False).encode("utf-8"))
+        at_limit = self.predictor_response(
+            padding=mushroom_worker_jobs.PREDICTOR_RESULT_MAX_BYTES - base_size
+        )
+        self.assertEqual(
+            mushroom_worker_jobs.validate_predictor_result_size(at_limit),
+            mushroom_worker_jobs.PREDICTOR_RESULT_MAX_BYTES,
+        )
         response = self.predictor_response(
-            padding=mushroom_worker_jobs.PREDICTOR_RESULT_MAX_BYTES + 1
+            padding=mushroom_worker_jobs.PREDICTOR_RESULT_MAX_BYTES - base_size + 1
         )
 
-        with self.assertRaisesRegex(ValueError, "exceeds 8 MiB"):
+        with self.assertRaisesRegex(ValueError, "exceeds 64 MiB"):
             mushroom_worker_jobs._normalized_result(
                 {"job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR},
                 {"response": response, "cold": False},

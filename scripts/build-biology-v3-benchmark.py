@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from rainmapper_core import mushroom_known_sites
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_trainer
+from rainmapper_core import mushroom_ml_weather_workspace
 from rainmapper_core import mushroom_observation_context as weather_context
 from rainmapper_core import mushroom_weather_idw
 
@@ -163,42 +164,51 @@ def main() -> int:
         days=weather_context.DAILY_SERIES_DAYS - 1
     )
     latest_day = max(day for _area_id, day in requested_area_days)
-    target_points = list(micro_contexts.values()) + list(area_contexts.values())
-    catalog = weather_context.load_stations_catalog(args.data_dir)
-    station_filter: set[tuple[str, str]] = set()
-    for row in catalog.itertuples(index=False):
-        source = str(getattr(row, "source", "") or "").strip()
-        station_code = str(getattr(row, "station_code", "") or "").strip()
-        lat = weather_context.parse_float(getattr(row, "lat", None))
-        lon = weather_context.parse_float(getattr(row, "lon", None))
-        if not source or not station_code or lat is None or lon is None:
-            continue
-        if any(
-            point.lat is not None
-            and point.lon is not None
-            and weather_context.haversine_km(point.lat, point.lon, lat, lon)
-            <= weather_context.STATION_MAX_DISTANCE_KM
-            for point in target_points
-        ):
-            station_filter.add((source, station_code))
+    workspace = mushroom_ml_weather_workspace.active_workspace(
+        data_dir=args.data_dir,
+        known_sites=args.known_sites,
+        stations_file=args.stations_file,
+    )
     disabled = mushroom_weather_idw.disabled_wunderground_station_keys(
         args.stations_file
     )
-    stations = weather_context.load_daily_weather_parquet(
-        args.data_dir,
-        station_filter=station_filter,
-        start_date=earliest_day,
-        end_date=latest_day,
-    )
-    stations = {
-        key: station
-        for key, station in stations.items()
-        if (str(key[0]).lower(), str(key[1]).upper()) not in disabled
-    }
-    duplicate_dates = {
-        key: mushroom_weather_idw.suppressed_rain_dates(station)
-        for key, station in stations.items()
-    }
+    if workspace is not None:
+        stations = workspace.stations_for_view(earliest_day, latest_day)
+        duplicate_dates = {}
+    else:
+        target_points = list(micro_contexts.values()) + list(area_contexts.values())
+        catalog = weather_context.load_stations_catalog(args.data_dir)
+        station_filter: set[tuple[str, str]] = set()
+        for row in catalog.itertuples(index=False):
+            source = str(getattr(row, "source", "") or "").strip()
+            station_code = str(getattr(row, "station_code", "") or "").strip()
+            lat = weather_context.parse_float(getattr(row, "lat", None))
+            lon = weather_context.parse_float(getattr(row, "lon", None))
+            if not source or not station_code or lat is None or lon is None:
+                continue
+            if any(
+                point.lat is not None
+                and point.lon is not None
+                and weather_context.haversine_km(point.lat, point.lon, lat, lon)
+                <= weather_context.STATION_MAX_DISTANCE_KM
+                for point in target_points
+            ):
+                station_filter.add((source, station_code))
+        stations = weather_context.load_daily_weather_parquet(
+            args.data_dir,
+            station_filter=station_filter,
+            start_date=earliest_day,
+            end_date=latest_day,
+        )
+        stations = {
+            key: station
+            for key, station in stations.items()
+            if (str(key[0]).lower(), str(key[1]).upper()) not in disabled
+        }
+        duplicate_dates = {
+            key: mushroom_weather_idw.suppressed_rain_dates(station)
+            for key, station in stations.items()
+        }
 
     requested_area_ids = {area_id for area_id, _day in requested_area_days}
     cache_days = (latest_day - earliest_day).days + 1
@@ -212,18 +222,25 @@ def main() -> int:
         key=lambda item: item.micro_area_id,
     )
     for index, context in enumerate(cached_contexts, start=1):
-        microarea_weather_cache[context.micro_area_id] = (
-            mushroom_weather_idw.build_daily_weather_idw_series(
-                stations,
-                target_lat=context.lat,
-                target_lon=context.lon,
-                target_altitude_m=context.altitude_m,
-                end_day=latest_day,
-                days=cache_days,
-                excluded_station_keys=disabled,
-                duplicate_dates_by_station=duplicate_dates,
+        if workspace is not None:
+            microarea_weather_cache.update(
+                workspace.weather_for_contexts(
+                    [context], start_day=earliest_day, end_day=latest_day
+                )
             )
-        )
+        else:
+            microarea_weather_cache[context.micro_area_id] = (
+                mushroom_weather_idw.build_daily_weather_idw_series(
+                    stations,
+                    target_lat=context.lat,
+                    target_lon=context.lon,
+                    target_altitude_m=context.altitude_m,
+                    end_day=latest_day,
+                    days=cache_days,
+                    excluded_station_keys=disabled,
+                    duplicate_dates_by_station=duplicate_dates,
+                )
+            )
         if index % 5 == 0 or index == len(cached_contexts):
             print(
                 json.dumps(
@@ -276,7 +293,11 @@ def main() -> int:
             args.data_dir
         ),
         "weather_materialization": {
-            "mode": "full_microarea_series_then_exact_window_slice",
+            "mode": (
+                "shared_maximum_range_then_exact_window_slice"
+                if workspace is not None
+                else "full_microarea_series_then_exact_window_slice"
+            ),
             "cache_start_date": earliest_day.isoformat(),
             "cache_end_date": latest_day.isoformat(),
             "cache_days_per_microarea": cache_days,

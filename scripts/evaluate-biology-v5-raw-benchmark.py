@@ -29,6 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--snapshot", required=True, type=Path)
     parser.add_argument("--v5-dir", required=True, type=Path)
     parser.add_argument("--profile-key", action="append")
+    parser.add_argument("--tuning-catalog", type=Path)
     return parser.parse_args()
 
 
@@ -87,6 +88,7 @@ def main() -> int:
     args = parse_args()
     args.v5_dir.mkdir(parents=True, exist_ok=True)
     selected = {str(value) for value in (args.profile_key or [])}
+    tuning_catalog = _load(args.tuning_catalog) if args.tuning_catalog else None
     needs_v4 = (
         not selected
         or any(key.startswith("biology_v4/") for key in selected)
@@ -187,6 +189,7 @@ def main() -> int:
                     train_keys=train_keys,
                     test_keys=test_keys,
                     mode=mode,
+                    tuning_catalog=tuning_catalog,
                 )
                 reports[name] = report
                 all_rows.extend(rows)
@@ -233,6 +236,7 @@ def main() -> int:
                 test_keys=campaign_test_keys,
                 mode="v5",
                 split_id="campaign_area_year_70_30",
+                tuning_catalog=tuning_catalog,
             )
             campaign_reports[profile] = report
             all_rows.extend(rows)

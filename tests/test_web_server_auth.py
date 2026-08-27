@@ -732,6 +732,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 return_value=["boletus_aereus"],
             ),
             mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "resolved_query_versions",
+                return_value=[],
+            ),
+            mock.patch.object(
                 self.web_server.mushroom_predictor_runtime,
                 "build_manifest",
                 return_value=({"fingerprint": "sha256:test"}, {}),
@@ -766,15 +771,112 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(request["target_date"], expected_today.isoformat())
         self.assertEqual(request["issue_date"], expected_today.isoformat())
 
+    def test_predictor_query_version_resolution_matches_form_and_default(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        with mock.patch.object(
+            predictor_ui, "_preferred_version_id", return_value="biology_v4"
+        ):
+            self.assertEqual(
+                predictor_ui.resolved_query_versions({"view": ["query"]}),
+                ["biology_v4"],
+            )
+            self.assertEqual(
+                predictor_ui.resolved_query_versions(
+                    {"preferred_version_id": ["biology_v6_windowed"]}
+                ),
+                ["biology_v6_windowed"],
+            )
+            self.assertEqual(
+                predictor_ui.resolved_query_versions(
+                    {"mvv": ["altitude_v2", "biology_v4"]}
+                ),
+                ["altitude_v2", "biology_v4"],
+            )
+
+    def test_remote_query_queues_the_same_default_version_that_ui_renders(self) -> None:
+        capability = (
+            self.web_server.mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY
+        )
+        worker = {
+            "worker_id": "worker_test",
+            "display_name": "Test worker",
+            "worker_version": "1.0.17",
+            "capabilities": [capability],
+        }
+        selection = {"version_id": "biology_v4"}
+        monitor = mock.MagicMock(operation_id="predictor-query-version")
+        query = {
+            "view": ["query"],
+            "species": ["boletus_edulis"],
+            "area": ["salteguet"],
+            "date": ["2026-08-26"],
+        }
+        with (
+            mock.patch.object(self.web_server, "action_is_running", return_value=False),
+            mock.patch.object(
+                self.web_server, "available_predictor_executors", return_value=[worker]
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "trained_species_ids",
+                return_value=["boletus_edulis"],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "resolved_query_versions",
+                return_value=["biology_v4"],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "multiversion_tokens_for_versions",
+                return_value=["selection-token"],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_ml_model_catalog,
+                "parse_selection_token",
+                return_value={**selection, "token": "selection-token"},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_ml_multiversion_comparison,
+                "operational_selections",
+                return_value=[selection],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "build_manifest",
+                return_value=({"fingerprint": "sha256:test"}, {}),
+            ),
+            mock.patch.object(
+                self.web_server,
+                "reconcile_mushroom_worker_storage_for_launch",
+                return_value={},
+            ),
+            mock.patch.object(
+                self.web_server.runtime_diagnostics,
+                "OperationMonitor",
+                return_value=monitor,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "create_predictor_job",
+                return_value={"job_id": "worker_job_query"},
+            ) as create_job,
+        ):
+            self.web_server.create_remote_predictor_job("worker_test", query)
+
+        self.assertEqual(query["mvv"], ["biology_v4"])
+        request = create_job.call_args.kwargs["request"]
+        self.assertEqual(request["multiversion_selection"], [selection])
+
     def test_predictor_modal_controller_handles_internal_navigation(self) -> None:
         script = self.web_server.predictor_launch_script()
 
         self.assertIn("data-predictor-direct-run", script)
         self.assertIn("data-predictor-direct-form", script)
-        self.assertIn("data-predictor-preferred-submit", script)
         self.assertIn("runDirect", script)
-        self.assertIn("runPreferred", script)
-        self.assertIn('await fetchPredictor(target, { method: "POST", body })', script)
+        self.assertNotIn(".pred-page a[href^='?']", script)
+        self.assertIn("dataset.predictorAreaMap", script)
+        self.assertIn("sessionStorage.setItem(areaMapStorageKey", script)
         self.assertIn("refreshOptions", script)
         self.assertIn('await refreshOptions("?")', script)
         self.assertIn("form.hidden = true", script)
@@ -1592,13 +1694,89 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 selected_versions=["altitude_v2", "biology_v3"],
             )
 
-        self.assertIn('name="predictor_action" value="set_preferred_version"', rendered)
         self.assertIn('<select id="pred-preferred-version"', rendered)
         self.assertIn('<option value="altitude_v2">', rendered)
         self.assertIn('<option value="biology_v3" selected>', rendered)
-        self.assertIn("data-predictor-preferred-submit", rendered)
+        self.assertNotIn("requestSubmit", rendered)
+        self.assertNotIn("data-predictor-preferred-submit", rendered)
         self.assertNotIn("pred-preferred-control", rendered)
         self.assertNotIn("mvv=", rendered)
+
+    def test_predictor_query_controls_wait_for_explicit_submit(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        edulis = mock.Mock()
+        edulis.areas_with_species_observations.return_value = ["salteguet"]
+        get_predictor = mock.Mock(return_value=edulis)
+
+        with (
+            mock.patch.object(
+                predictor_ui,
+                "_get_predictor",
+                get_predictor,
+            ),
+            mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key),
+            mock.patch.object(predictor_ui, "_preferred_version_control", return_value=""),
+            mock.patch.object(predictor_ui, "_render_query_all_areas", return_value="RESULT"),
+        ):
+            rendered = predictor_ui._render_query(
+                "boletus_edulis",
+                "",
+                date(2026, 8, 26),
+                ["boletus_edulis", "boletus_pinophilus"],
+                {},
+                {
+                    "areas": [
+                        {"area_id": "salteguet", "name": "Salteguet"},
+                        {"area_id": "guils", "name": "Guils"},
+                    ]
+                },
+            )
+
+        self.assertNotIn("requestSubmit", rendered)
+        self.assertIn("data-predictor-area-map=", rendered)
+        self.assertIn("boletus_pinophilus", rendered)
+        self.assertIn("salteguet", rendered)
+        get_predictor.assert_called_once_with("boletus_edulis")
+
+    def test_predictor_history_species_waits_for_explicit_search(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        predictor = mock.Mock()
+        predictor.observed_episodes.return_value = []
+
+        with (
+            mock.patch.object(predictor_ui, "_get_predictor", return_value=predictor),
+            mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key),
+        ):
+            rendered = predictor_ui._render_history(
+                "boletus_edulis",
+                "",
+                ["boletus_edulis", "boletus_pinophilus"],
+                {},
+                {},
+            )
+
+        self.assertNotIn("requestSubmit", rendered)
+        self.assertIn('name="species"', rendered)
+        self.assertIn('type="submit"', rendered)
+
+    def test_query_week_links_reuse_the_completed_worker_result(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        executor_token = predictor_ui._executor_query.set("worker:test")
+        job_token = predictor_ui._job_query.set("worker_job_12345678")
+        try:
+            url = predictor_ui._url(
+                "query",
+                "boletus_edulis",
+                "salteguet",
+                date(2026, 8, 26),
+                reuse_result=True,
+            )
+        finally:
+            predictor_ui._job_query.reset(job_token)
+            predictor_ui._executor_query.reset(executor_token)
+
+        self.assertIn("job_id=worker_job_12345678", url)
+        self.assertIn("executor=worker%3Atest", url)
 
     def test_multiversion_selection_drives_summary_week_strip_and_detail(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui

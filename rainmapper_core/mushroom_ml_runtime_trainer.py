@@ -25,6 +25,7 @@ from rainmapper_core import mushroom_ml_holdout
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_raw_weather as raw
 from rainmapper_core import mushroom_ml_smooth_hierarchical as smooth
+from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core.mushroom_ml_sparse_group import SparseGroupLogisticClassifier
 
@@ -284,10 +285,23 @@ def _fit_v5(
     X: np.ndarray,
     y: np.ndarray,
     columns: list[str],
+    *,
+    fit_config: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    selected, selected_inside = mushroom_ml_holdout._select_v5(
-        estimator_id, samples, X, y, columns, 14
-    )
+    if fit_config is None:
+        selected, selected_inside = mushroom_ml_holdout._select_v5(
+            estimator_id, samples, X, y, columns, 14
+        )
+    else:
+        selected = dict(fit_config)
+        selected_inside = bool(selected.pop("inner_selection_available", False))
+        expected = (
+            {"C", "l1_ratio", "class_weight"}
+            if estimator_id == mushroom_ml_holdout.V5_ESTIMATORS[0]
+            else {"regularization", "l1_ratio"}
+        )
+        if set(selected) != expected:
+            raise ValueError("Frozen V5 tuning configuration is invalid")
     scaled, _unused, imputer, scaler = mushroom_ml_holdout._preprocess(X, X)
     if estimator_id == mushroom_ml_holdout.V5_ESTIMATORS[0]:
         from sklearn.linear_model import LogisticRegression
@@ -319,6 +333,8 @@ def _fit_v6(
     samples: list[dict[str, Any]],
     X: np.ndarray,
     y: np.ndarray,
+    *,
+    fit_config: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     window_days = smooth.window_days_from_profile_id(artifact_ref.profile_id)
     if window_days is not None:
@@ -330,11 +346,27 @@ def _fit_v6(
     transformed = preprocessor.transform(X)
     species = [_species(sample) for sample in samples]
     species_order = sorted(set(species))
+    default_scale = (
+        4.0
+        if artifact_ref.estimator_id == "smooth_partial_pooling_logistic_v1"
+        else None
+    )
+    config = (
+        {"C": 0.1, "deviation_scale": default_scale}
+        if fit_config is None
+        else dict(fit_config)
+    )
+    if set(config) != {"C", "deviation_scale"}:
+        raise ValueError("Frozen V6 tuning configuration is invalid")
+    if not isinstance(config["C"], (int, float)) or isinstance(config["C"], bool):
+        raise ValueError("Frozen V6 regularization is invalid")
     if artifact_ref.estimator_id == "smooth_species_logistic_v1":
+        if config["deviation_scale"] is not None:
+            raise ValueError("Species V6 tuning cannot use pooled deviations")
         design = transformed
-        config = {"C": 0.1, "deviation_scale": None}
     elif artifact_ref.estimator_id == "smooth_shared_logistic_v1":
-        config = {"C": 0.1, "deviation_scale": None}
+        if config["deviation_scale"] is not None:
+            raise ValueError("Shared V6 tuning cannot use pooled deviations")
         design = smooth.pooled_design(
             transformed,
             species,
@@ -342,12 +374,15 @@ def _fit_v6(
             deviation_scale=None,
         )
     elif artifact_ref.estimator_id == "smooth_partial_pooling_logistic_v1":
-        config = {"C": 0.1, "deviation_scale": 4.0}
+        if not isinstance(config["deviation_scale"], (int, float)) or isinstance(
+            config["deviation_scale"], bool
+        ) or config["deviation_scale"] <= 0:
+            raise ValueError("Partial-pooling V6 deviation scale is invalid")
         design = smooth.pooled_design(
             transformed,
             species,
             species_order=species_order,
-            deviation_scale=4.0,
+            deviation_scale=float(config["deviation_scale"]),
         )
     else:
         raise ValueError(f"Unsupported V6 estimator: {artifact_ref.estimator_id}")
@@ -365,6 +400,7 @@ def fit_artifact(
     benchmark: Mapping[str, Any],
     *,
     snapshot_id: str,
+    tuning_decision: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Fit exactly one plan unit against all eligible rows, without promotion."""
     columns = _columns(artifact_ref, benchmark)
@@ -378,12 +414,33 @@ def fit_artifact(
     X, y = mushroom_ml_holdout.matrix(samples, columns)
     if len(np.unique(y)) < 2:
         raise ValueError(f"Runtime artifact requires both classes: {artifact_ref.key}")
+    frozen_config = None
+    if tuning_decision is not None:
+        if tuning_decision.get("key") != mushroom_ml_tuning_catalog.decision_key(
+            artifact_ref.as_dict()
+        ):
+            raise ValueError("Tuning decision does not match the runtime artifact")
+        raw_config = tuning_decision.get("fit_config")
+        if not isinstance(raw_config, Mapping):
+            raise ValueError("Tuning decision fit_config is invalid")
+        frozen_config = raw_config
     if artifact_ref.version_id in {"altitude_v2", "biology_v3", "biology_v4"}:
+        if frozen_config:
+            raise ValueError("Current-version estimators require an empty fit_config")
         fitted = _fit_current(artifact_ref.estimator_id, X, y)
     elif artifact_ref.version_id in {"biology_v5_raw_weather_discovery", raw.WINDOWED_VERSION_ID}:
-        fitted = _fit_v5(artifact_ref.estimator_id, samples, X, y, columns)
+        fitted = _fit_v5(
+            artifact_ref.estimator_id,
+            samples,
+            X,
+            y,
+            columns,
+            fit_config=frozen_config,
+        )
     elif artifact_ref.version_id in {"biology_v6_smooth_hierarchical", smooth.WINDOWED_VERSION_ID}:
-        fitted = _fit_v6(artifact_ref, samples, X, y)
+        fitted = _fit_v6(
+            artifact_ref, samples, X, y, fit_config=frozen_config
+        )
     else:
         raise ValueError(f"No runtime trainer for {artifact_ref.version_id}")
     feature_support = {}
@@ -417,6 +474,7 @@ def write_batch(
     *,
     models_root: Path,
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    tuning_catalog: Mapping[str, Any] | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """Write a new immutable batch in staging; never activate or overwrite."""
     import joblib
@@ -427,6 +485,13 @@ def write_batch(
     fits = training_plan.get("fits")
     if not isinstance(fits, Sequence) or not fits:
         raise ValueError("Multiversion training plan contains no fits")
+    checked_tuning_catalog = (
+        mushroom_ml_tuning_catalog.validate_catalog(
+            checked_registry, tuning_catalog, training_plan=training_plan
+        )
+        if tuning_catalog is not None
+        else None
+    )
     validate_benchmark_coverage(training_plan, set(benchmarks))
     root = Path(models_root)
     batches = root / "batches"
@@ -455,7 +520,19 @@ def write_batch(
                 raise ValueError(f"Runtime benchmark is missing: {key}")
             fit_started = time.perf_counter()
             try:
-                bundle = fit_artifact(artifact_ref, benchmark, snapshot_id=snapshot_id)
+                tuning_decision = (
+                    mushroom_ml_tuning_catalog.lookup(
+                        checked_tuning_catalog, artifact_ref.as_dict()
+                    )
+                    if checked_tuning_catalog is not None
+                    else None
+                )
+                bundle = fit_artifact(
+                    artifact_ref,
+                    benchmark,
+                    snapshot_id=snapshot_id,
+                    tuning_decision=tuning_decision,
+                )
             except ValueError as exc:
                 duration_seconds = round(time.perf_counter() - fit_started, 6)
                 failed_fits.append(
@@ -484,6 +561,7 @@ def write_batch(
                             "profile_id": artifact_ref.profile_id,
                             "estimator_id": artifact_ref.estimator_id,
                             "duration_seconds": duration_seconds,
+                            "tuning_reused": tuning_decision is not None,
                         }
                     )
                 continue
@@ -507,6 +585,7 @@ def write_batch(
                     "status": "complete",
                     "duration_seconds": duration_seconds,
                     "training_row_count": int(bundle["training_row_count"]),
+                    "tuning_reused": tuning_decision is not None,
                 }
             )
             if progress_callback is not None:
@@ -521,6 +600,7 @@ def write_batch(
                         "profile_id": artifact_ref.profile_id,
                         "estimator_id": artifact_ref.estimator_id,
                         "duration_seconds": duration_seconds,
+                        "tuning_reused": tuning_decision is not None,
                     }
                 )
         manifest = catalog.validate_batch_manifest(
@@ -534,13 +614,22 @@ def write_batch(
                 "species_ids": list(training_plan.get("species_ids") or []),
                 "profile_keys": list(training_plan.get("profile_keys") or []),
                 "artifacts": artifacts,
-                    "active": False,
-                    "operational_candidate_trained": False,
-                    "planned_fit_count": len(fits),
-                    "successful_fit_count": len(artifacts),
-                    "failed_fit_count": len(failed_fits),
-                    "failed_fits": failed_fits,
-                    "fit_results": fit_results,
+                "active": False,
+                "operational_candidate_trained": False,
+                "planned_fit_count": len(fits),
+                "successful_fit_count": len(artifacts),
+                "failed_fit_count": len(failed_fits),
+                "failed_fits": failed_fits,
+                "fit_results": fit_results,
+                "tuning_catalog": (
+                    {
+                        "catalog_id": checked_tuning_catalog["catalog_id"],
+                        "source_batch_id": checked_tuning_catalog["source_batch_id"],
+                        "decision_count": len(checked_tuning_catalog["decisions"]),
+                    }
+                    if checked_tuning_catalog is not None
+                    else None
+                ),
                 },
             )
         (staging / "manifest.json").write_text(

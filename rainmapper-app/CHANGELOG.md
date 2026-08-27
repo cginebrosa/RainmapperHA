@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.267
+
+- Reduce complete local operational rebuild and retraining to 8m55s cold and
+  7m54s warm by freezing operational tuning and sharing in-memory weather and
+  soil calculations across V2/V3/V4/V5w/V6w.
+- Persist monotonic phase timings and bounded I/O, hash, copy, request, and
+  fsync counters without weakening candidate verification or atomic promotion.
+- Raise verified Predictor results to 64 MiB, preflight their encoded size in
+  the worker, and allow 60 seconds only for the final Predictor response.
+- Make Predictor forms wait for an explicit action, refresh species areas in
+  memory, reuse completed weekly results, and keep worker and UI version
+  selection consistent.
+
 ## 0.2.266
 
 - Let operational rebuilds select any installed V2/V3/V4/V5w/V6w subset and

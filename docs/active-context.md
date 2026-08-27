@@ -4,184 +4,210 @@ Ventana operativa para continuar RainmapperHA. Revalidar código, datos, runtime
 y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 `docs/decisions.md`; las prioridades completas, en `docs/todo.md`.
 
-## Estado al cierre — 2026-08-23
+## Estado al cierre — 2026-08-27
 
-- Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
-- El worktree está deliberadamente muy sucio: contiene cambios de código,
-  pruebas, documentación, datos, módulos nuevos no rastreados y eliminaciones.
-  Preservarlo íntegramente; no restaurar, limpiar ni sobrescribir nada local.
-- Las versiones declaradas y publicadas son HA `0.2.265` y worker `1.0.17`.
-  La imagen HA multiarch `0.2.265` y `latest` comparte el digest
-  `sha256:f0c2fee0a90ac365d36cdfd05412475a0357b9483d45648efed46cfbefc511ba`
-  con manifests `linux/amd64` y `linux/arm64`; todavía no está validada en HA.
-- El worker normal fue reconstruido como `1.0.17` sobre el mismo volumen
-  `rainmapper-worker-data` y conservó `worker_id: worker_1a9a232c20fe2ee2`;
-  su health quedó `idle` y el usuario confirmó que HA vuelve a verlo. Se retiró
-  únicamente la imagen local `1.0.16`, no el volumen ni su identidad.
-- El paquete privado arm64 está en
-  `/Users/carlosginebrosa/Desktop/RainmapperWorker-1.0.17`; el TAR tiene SHA-256
-  `90e4ce8abd2ddbdda7df0e820d3e2710c76cebe2c43485badf88134fe02e0df8`.
-  El commit del parche `a14560b` está publicado en `inicial`.
-- No se usó Tailscale, no se instaló ni modificó el add-on de HA real y
-  `ml_storage_reconciliation_apply` continúa deshabilitado. El usuario sí había
-  instalado antes la corrección meteorológica mínima y ejecutado su runner.
+- Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`,
+  `HEAD 795ec59` (`Release Home Assistant 0.2.266`), alineado con
+  `origin/inicial` al comprobar el cierre.
+- HA real continúa en `0.2.266`; la imagen `0.2.267` está publicada pero no se
+  instaló. El worker normal está en `1.0.18`, sano e idle, y conserva la
+  identidad emparejada `worker_1a9a232c20fe2ee2` y su volumen persistente.
+- El último banner aportado, anterior a `0.2.266`, mostraba Python `3.11.16`;
+  confirmar de nuevo el intérprete si una tarea futura depende de su versión
+  exacta.
+- La entrega de rendimiento, Predictor y release coordinada está en el worktree
+  hasta su commit final. Preservar cualquier cambio o fichero no rastreado que
+  aparezca en una sesión posterior.
+- El grafo Codebase Memory tenía 10.647 nodos y 45.213 relaciones y ya no
+  devolvía símbolos retirados de `mushroom_ml_version_promotion`; no fue
+  necesario reindexarlo.
 
-## Histórico meteorológico reparado
+## Estado operativo vigente
 
-- La copia fresca de HA confirmó que el histórico activo no incorporaba el
-  backfill oficial auditado: AEMET carecía de humedad en 2012–2025 y Meteocat
-  conservaba particiones dispersas después de 2016. IDW sí estaba conectado y
-  consumía esos datos incompletos; no era un fallo de selección de fuente.
-- El histórico reparado recupera 374/417 observaciones con target operativo
-  para ventana fija y 2.618/2.919 muestras de retardo. Las otras 43 no tienen
-  target operativo (`review`), incluidas 13 en borrador.
-- La generación compacta original omitía un manifiesto predecesor y el primer
-  runner real se detuvo de forma segura. Se añadió
-  `python -m rainmapper_core.weather_history_rebase`, que convierte de forma
-  verificada e idempotente la generación activa en raíz sin copiar objetos.
-- El usuario instaló con Rainmapper detenido el parche mínimo
-  `ready-to-upload-root-fix`. La raíz
-  `20260823T003617919308Z-58903f62a763` quedó verificada y el runner manual
-  posterior terminó con código 0, creando la hija
-  `20260823T004654212246Z-59a50ee60e80`: 46 particiones, 5.481.652 filas y
-  50.297.632 bytes activos, con hashes verificados.
-- El runner tardó 5 min 50 s; el post-drain meteorológico consumió 2 min 14 s.
-  Queda pendiente optimizarlo. Antes de otro backfill masivo también hay que
-  corregir `_BoundedTableWriter`: generó grupos Parquet de 128 filas y fue
-  necesario compactarlos a la granularidad contractual de 8.192.
-- Evidencia reproducible:
-  `docs/reports/mushroom-weather-history-repair-audit-2026-08-23.md`.
+- HA `0.2.264` reveló que el registro persistente ML 1.0 no podía leerse con el
+  schema nuevo. HA `0.2.265` añadió la migración 1.0→2.0 con copia exacta previa
+  y arrancó sin errores de reconciliación. HA `0.2.266` es la versión instalada
+  actual confirmada por el usuario.
+- `0.2.267` obtiene del registro activo las versiones operativas instaladas en
+  vez de usar una lista fija. La reconstrucción permite seleccionar cualquier
+  subconjunto instalado de V2, V3, V4, V5w y V6w y conserva esa selección a
+  través de rebuild, ML v0, entrenamiento multiversión y promoción. La versión
+  preferida sigue siendo una elección independiente.
+- La prueba local terminó correctamente y el Predictor reconoció las cinco
+  versiones. La validación visual local del selector y de la predicción quedó
+  confirmada por el usuario.
+- El flujo completo optimizado midió 534,571 s en frío y 473,654 s en caliente
+  con 714/714 ajustes, cero fallos, equivalencia y promoción atómica. Una
+  predicción semanal dirigida de Edulis/V6/todas las áreas midió 7,623–7,684 s.
+  El transporte de resultados del Predictor admite 64 MiB con preflight y
+  timeout final de 60 s; el formulario solo calcula mediante `Predecir`, pero
+  recalcula en memoria las áreas válidas cuando cambia la especie.
+- En HA real se ejecutó la cadena completa con 374 observaciones elegibles,
+  ocho especies y las cinco versiones. El batch multiversión
+  `operational_20260825T221049Z` terminó con 636/636 ajustes y cero fallos. La
+  evidencia de la cola muestra promoción completada y limpieza terminal.
+- Queda una comprobación corta, no una reconstrucción nueva: confirmar en la UI
+  de HA real que el Predictor ofrece las cinco versiones y que desapareció el
+  aviso de identidad de origen desconocida después del entrenamiento trazado.
 
-## Predictor multiversión local
+## Retención ML y espacio de backups
 
-- El registro local usa una `installed_generation_id` independiente para cada
-  V2/V3/V4/V5w/V6w y `preferred_version_id: biology_v4`. La preferida es el
-  valor por defecto; no desinstala ni degrada las demás.
-- `Consultar fecha` hace competir las versiones marcadas y elige por separado
-  ventana fija y retardo/evento. Un candidato solo es elegible si tiene
-  probabilidad válida, aplicabilidad `within_observed_range` o `caution`, Brier
-  estrictamente mejor que prevalencia y ROC-AUC >= 0,55. El ranking prioriza
-  mayor mejora Brier, menor Brier, mayor ROC-AUC e identidad estable.
-- La UI expone abstenciones y motivos, probabilidad sin redondeo ambiguo cerca
-  del umbral de 60 %, fiabilidad estadística del ganador y consenso entre
-  familias metodológicas como veredictos separados, con criterio en la ayuda y
-  evidencia por escenario. Smooth Species/Shared/Partial son variantes de una
-  familia logística, no evidencia independiente.
-- Tras una predicción solo quedan desplegadas las versiones que contienen un
-  algoritmo elegido; las demás siguen auditables pero plegadas.
-- La revalidación visual de espaciado/tamaños, ayudas, veredictos y plegado se
-  completó con confirmación del usuario. Se alinearon también los controles de
-  Especies, Área, Fecha y Preferida mediante altura común y anclaje superior.
-- La selección entre vistas quedó trazada y cubierta: `Consultar fecha` usa las
-  versiones marcadas tanto en resumen como en detalle y franja semanal; Esta
-  semana/recommender, Por especie e Historial usan solo la preferida. Ambos
-  caminos delegan la elección independiente por escenario en
-  `build_selected_operational_comparison`, también a través del contrato
-  preparado del worker.
+- La opción real **Apply ML storage retention** fue habilitada por el usuario.
+  El arranque registró
+  `Mushroom storage reconciliation mode=apply removed=74 errors=0`, seguido de
+  servidor y coordinador operativos. Una predicción posterior y el reentreno
+  completo funcionaron.
+- `ml_storage_reconciliation_apply` conserva `false` como valor por defecto del
+  producto, pero la opción del HA real está activa. No cambiarla, no borrar
+  manualmente y no repetir limpiezas destructivas fuera del reconciliador.
+- La caché TAR regenerable vive fuera de `/share`, bajo
+  `/media/rainmapper/runtime-cache/predictor-runtime-archives`, por lo que no
+  engorda los backups de HA. El laboratorio usa el equivalente bajo
+  `docker-media/rainmapper`.
+- Los resultados operativos terminales pesados tienen TTL de 24 horas y la
+  limpieza se ejecuta en arranque y checkpoints del ciclo de vida. No depende
+  únicamente de apagar y encender la app.
+- Aún conviene documentar una lectura final de Diagnostics con tamaños después
+  del ciclo real y comprobar el comportamiento de la caché TAR tras reinicio;
+  esto no bloquea el trabajo de rendimiento local.
 
-## Retención ML/worker implementada solo en local
+## Hallazgo principal: el entrenamiento remoto tarda demasiado
 
-- Especificación vinculante:
-  `docs/mushrooms/mushroom-ml-storage-retention-spec-es.md`.
-- La caché TAR regenerable se resuelve fuera de `/share`, en
-  `/media/rainmapper/runtime-cache/predictor-runtime-archives`; el laboratorio
-  monta el equivalente bajo `docker-media/rainmapper`.
-- `rainmapper_core/mushroom_storage_reconciler.py` y
-  `rainmapper_core/mushroom_ml_storage_reconciler.py` generan un plan para
-  bundles, resultados, staging, payloads Predictor, batches, generaciones,
-  candidatos legacy, promotion-history y benchmarks. `dry-run` es el modo
-  seguro; `ml_storage_reconciliation_apply` vale `false` por defecto.
-- El mantenimiento operativo es un único flujo completo: rebuild, ML v0 y
-  entrenamiento multiversión se verifican y autopromocionan conjuntamente. Se
-  retiraron las rutas públicas de reconstrucción parcial, entrenamiento o
-  promoción aislada y preparar/activar/rollback desde benchmark.
-- Los benchmarks nuevos se compactan inmediatamente a `evidence_only` y solo
-  conservan informe, hold-out, catálogo de calidad, identidad y manifiesto de
-  evidencia. Historial, Ver informe y Borrar permanecen.
-- Solo se protegen permanentemente batches referenciados por una generación
-  instalada. Se conserva rollback transaccional durante la instalación y el
-  backup más reciente del rebuild completo. Resultados operativos terminales
-  pesados: 24 h; payloads Predictor: últimos 10 o 24 h, lo que proteja más.
-- Validación definitiva del parche previa al bump: smoke completo correcto con
-  1.006 pruebas en 49,719 s, además de compilación Python, sintaxis JS/shell,
-  fixtures y `git diff --check`. El ajuste CSS pasó 2 pruebas dirigidas y la
-  coherencia del Predictor otras 9. El perfil aislado del recommender cargó 8
-  predictores, hizo 58 comparaciones y 1.392 inferencias; una petición fría
-  tardó 27,78 s, una caliente con fecha distinta 23,09 s y un hit exacto de
-  caché tuvo una mediana de 24,6 ms. `dry-run` local con 59 entradas y
-  190.107.758 bytes recuperables, cero errores y cero eliminaciones.
-  `git diff --check` correcto.
-- No está instalado ni probado en HA real. Antes de habilitar `apply`: smoke,
-  revisión final, instalación autorizada, `dry-run` real revisado con el usuario
-  y autorización destructiva separada.
+El objetivo acordado es reducir `Reconstruir y reentrenar operativo` a un máximo
+de 10 minutos extremo a extremo en el M1 Pro dentro de Docker, sin relajar
+hashes, trazabilidad, cancelación, rollback ni promoción atómica.
 
-## Riesgos y dudas activos
+Evidencia real del 2026-08-25:
 
-1. **Aplicabilidad no calibrada:** `outside_feature_ratio >= 0,05` y una salida
-   a `>= 3 sigma` son constantes nuestras, no límites aprendidos ni reglas
-   ecológicas. Auditar con hold-out qué variables disparan la regla y cómo se
-   degradan Brier, discriminación y calibración antes de cambiar valores.
-2. **Rendimiento:** el perfil aislado sitúa el coste en las 58 comparaciones:
-   inferencia de modelos ~12 s, contexto meteorológico ~6 s y construcción de
-   variables ~2,7 s en una petición caliente con fecha distinta. Las métricas
-   existentes no aparecen como hotspot y no se añadió instrumentación
-   persistente. Un experimento externo con bosques en serie redujo la inferencia
-   a ~6,1 s y el total de 25,78 s a 20,66 s sin diferencias funcionales en la
-   respuesta; las 465 diferencias observadas fueron solo tiempos internos. Es
-   un candidato, no un cambio aplicado, y requiere implementación acotada,
-   pruebas de paridad y nueva medición antes de adoptarlo.
-3. **Retención destructiva:** nunca activar `ml_storage_reconciliation_apply`
-   ni borrar restos reales basándose solo en el `dry-run` local.
-4. **Código legacy:** las V5/V6 no-windowed siguen como `reference`; no
-   retirarlas sin demostrar que ninguna referencia viva las necesita. La
-   auditoría general de deuda está separada en `docs/todo.md`.
+- reconstrucción candidata: ~3 min 30 s;
+- ML v0: ~1 min 18 s;
+- multiversión: ~30 min 56 s;
+- hasta completar multiversión: 35 min 55 s; la promoción enlazada terminó
+  aproximadamente 1 min 15 s después;
+- el usuario observó que los fits reales consumían solo unos 2–3 minutos.
+
+Cuellos de botella confirmados:
+
+1. El batch produjo 642 POST secuenciales para 173,4 MiB. Los 636 artefactos
+   pequeños tardaron ~12 min 43 s; el upload completo, ~14 min 51 s. Cada
+   fichero abre `urlopen`, se relee, valida y fuerza un `fsync`; el handler usa
+   HTTP/1.0 por defecto.
+2. `mushroom_worker_jobs.json` medía 5,39 MB. Unos 4,12 MB de su forma compacta
+   eran 43 copias de manifiestos de runtime. Cada señal de control/progreso
+   carga y reescribe la cola completa con `fsync` y `replace`; el polling ocurre
+   cada dos segundos.
+3. `Validating live inputs (n/64)` publica 64 actualizaciones —52 entradas del
+   snapshot y 12 ficheros GIS—, reescribiendo la cola en cada callback. También
+   se rehashea meteorología con `verify_weather_file_hashes=True`.
+4. Los mismos bytes se verifican varias veces al recibir, finalizar e instalar,
+   y después se copian. El worker también vuelve a recorrer modelos para
+   manifiesto y caché.
+5. Los ~15 min 56 s previos al primer upload mezclan descarga, preparación y
+   fits; faltan tiempos persistentes por fase. El preparador ejecuta ocho etapas
+   en serie y los monitores releen el JSONL de progreso completo cada 0,5 s.
+6. Candidate, ML v0, bundles, benchmark y telemetría usan variantes del mismo
+   patrón de microllamadas. Deben auditarse de forma transversal.
+
+El detalle y el orden de implementación están en el bloque P2 de
+`docs/todo.md`. En laboratorio ya están implementadas la telemetría persistente,
+el catálogo de tuning congelado y la primera parte del workspace meteorológico
+compartido. La preparación operativa completa del mismo snapshot bajó de
+459,101 s a aproximadamente 185,4 s, con igualdad semántica exacta de los ocho
+artefactos consumidos e igualdad byte por byte de los hold-out V2--V6. No se ha
+ejecutado nada en HA real ni en el worker normal.
+
+El smoke local extremo a extremo terminó en 534,571 s en frío (8 min 55 s) y
+473,654 s en caliente (7 min 54 s), con 714/714 fits, cero fallos,
+reconstrucción equivalente, verificación de candidatos y promoción completa.
+La preparación compartida consumió 260,947/236,058 s y los fits operativos
+149,765/122,149 s. La telemetría se conserva bajo
+`mushroom-data/diagnostics/operational-performance/`. Para validar se sincronizó
+el código de forma reversible dentro del contenedor HA local existente, sin
+crear ni tocar un worker.
+
+El informe completo de cambios, mediciones, equivalencia, pruebas y riesgos es
+`docs/reports/operational-rebuild-10m-lab-2026-08-26.md`.
+
+Durante la misma sesión se corrigió localmente el Predictor, sin build ni
+instalación. El resultado máximo pasa de 8 a 64 MiB, el worker lo comprueba
+antes de enviar y el `finish` Predictor dispone de 60 s. La navegación ya no
+calcula al cambiar desplegables, actualiza las zonas de la especie en memoria,
+unifica la selección que calculan worker y UI y reutiliza el resultado semanal
+terminado al cambiar de día. Una consulta local Edulis/V6 para todas las zonas
+con franja semanal terminó dos veces en 7,623/7,684 s, HTTP 200 y sin errores
+visibles. Falta la validación visual completa y un payload grande remoto antes
+de proponer entrega.
 
 ## Próximos pasos, en orden
 
-1. Instalar `0.2.265` solo por autorización del usuario y comprobar en el log
-   `Mushroom storage reconciliation mode=dry-run removed=0 errors=0`. La
-   `0.2.264` sí se instaló, falló al leer el registro persistente 1.0 y el
-   usuario la detuvo; su `dry-run` no borró nada.
-2. Revisar juntos el informe real de retención y pedir autorización
-   independiente antes de cualquier `apply`.
-3. Evaluar de forma acotada la inferencia serie para bosques de una sola muestra,
-   con pruebas de paridad y benchmark repetible; no añadir métricas permanentes.
-4. Auditar la regla 5 %/3 sigma con datos fuera de muestra, documentar evidencia
-   y detenerse antes de proponer nuevos umbrales.
-5. Después de cerrar la retención, realizar la auditoría separada de deuda y
-   código obsoleto.
+1. Cerrar diff, pruebas dirigidas y documentación; presentar la entrega antes
+   de cualquier bump, build, instalación o release.
+2. Tras autorización y entrega, medir una reconstrucción remota fría/caliente
+   para separar el cálculo ya reducido del transporte HA↔worker.
+3. Solo si la medición remota lo justifica, compactar la cola: deduplicar
+   manifiestos inmutables, separar lease/progreso
+   volátil del historial durable, espaciar checkpoints y sacar housekeeping del
+   tick de telemetría.
+4. Agrupar los uploads en un contenedor efímero determinista y reanudable con
+   chunks de 8–16 MiB, extracción segura y borrado posterior. Mantener el
+   manifiesto lógico y todos los límites de confianza.
+5. Sellar staging con un recibo verificable para reutilizar una única
+   verificación completa durante instalación; eliminar rehashes y copias que no
+   crucen una frontera nueva.
+6. Introducir paralelismo acotado o C/Cython/Numba/Rust únicamente si un perfil
+   futuro demuestra un núcleo Python puro dominante; el objetivo local ya se
+   cumple sin ello.
+7. Validar igualdad contractual y numérica, cache fría/caliente, cancelación,
+   retry, rollback, ausencia de residuos y capacidad de respuesta de HA y del
+   Predictor. Detenerse y presentar resultados antes de otra instalación o
+   release.
+
+## Riesgos y dudas activos
+
+1. **Camino remoto aún sin repetir:** el tramo local ya tiene marcas
+   persistentes, pero falta medir con el código nuevo cuánto añaden descarga,
+   cola y upload en HA↔worker.
+2. **Cambiar transporte o persistencia es transversal:** un paquete agrupado o
+   una cola compacta no pueden debilitar límites de tamaño/recuento, protección
+   contra traversal/enlaces, hashes, cancelación, retry o rollback.
+3. **Aplicabilidad no calibrada:** `outside_feature_ratio >= 0,05` y una salida
+   a `>= 3 sigma` son heurísticas, no límites aprendidos. Su auditoría sigue
+   pendiente, separada de la optimización de transporte.
+4. **Estado visual real pendiente:** la versión instalada es `0.2.266`, pero no
+   se ha registrado en este cierre una captura final de las cinco versiones y
+   de la desaparición del aviso de identidad desconocida.
+5. **Retención real activa:** funcionó con 74 eliminaciones y cero errores; no
+   debe deshabilitarse, forzarse ni complementarse con borrados manuales sin una
+   decisión nueva del usuario.
 
 ## Archivos relevantes
 
-- Selector/UI: `rainmapper_core/mushroom_ml_multiversion_comparison.py`,
-  `rainmapper_core/mushroom_predictor_service.py`,
-  `rainmapper-app/app/mushroom_predictor_ui.py`,
-  `rainmapper-app/app/web_server.py`.
-- Registro/mantenimiento: `rainmapper_core/mushroom_ml_version_registry.py`,
+- Orquestación/jobs: `rainmapper-app/app/web_server.py`,
+  `rainmapper_core/mushroom_worker_jobs.py`,
+  `rainmapper_core/mushroom_worker_transport.py`.
+- Entrenamiento/transporte: `scripts/run-mushroom-ml-multiversion-job.py`,
   `rainmapper_core/mushroom_ml_multiversion_transport.py`,
-  `rainmapper_core/mushroom_local_full_update.py`,
-  `scripts/run-mushroom-ml-multiversion-job.py`.
-- Retención: `rainmapper_core/mushroom_paths.py`,
-  `rainmapper_core/mushroom_storage_reconciler.py`,
+  `rainmapper_core/mushroom_ml_multiversion_training.py`.
+- Verificación/promoción: `rainmapper_core/mushroom_worker_results.py`,
+  `rainmapper_core/mushroom_ml_version_registry.py`,
+  `rainmapper_core/mushroom_local_full_update.py`.
+- Predictor/UI: `rainmapper_core/mushroom_ml_multiversion_comparison.py`,
+  `rainmapper_core/mushroom_predictor_service.py`,
+  `rainmapper-app/app/mushroom_predictor_ui.py`.
+- Retención: `rainmapper_core/mushroom_storage_reconciler.py`,
   `rainmapper_core/mushroom_ml_storage_reconciler.py`,
-  `rainmapper_core/mushroom_worker_results.py`.
-- Histórico: `rainmapper_core/weather_history_writer.py`,
-  `rainmapper_core/weather_history_rebase.py` y el informe citado arriba.
-- Pruebas: `tests/test_mushroom_ml_multiversion_comparison.py`,
-  `tests/test_mushroom_ml_multiversion_transport.py`,
-  `tests/test_mushroom_ml_storage_reconciler.py`,
-  `tests/test_mushroom_storage_reconciler.py`,
-  `tests/test_mushroom_worker_results.py`, `tests/test_web_server_auth.py`.
+  `docs/mushrooms/mushroom-ml-storage-retention-spec-es.md`.
 
 ## Reglas para continuar
 
 - Leer `docs/codex-start-here.md` y este documento; consultar `docs/todo.md`
-  solo para prioridades completas.
-- Usar Codebase Memory MCP antes de descubrir o cambiar código y reindexarlo si
-  sigue mostrando símbolos retirados.
-- No usar Tailscale, no tocar HA real ni volver a modificar el worker normal y
-  no hacer otro bump, build, publicación ni release sin autorización explícita
-  nueva.
-- Añadir pruebas proporcionadas al riesgo. El bloque transversal tiene smoke
-  completo correcto; repetirlo solo si cambia código ejecutable de riesgo
-  suficiente para invalidarlo.
+  solo para las prioridades completas.
+- Cumplir `AGENTS.md`: usar Codebase Memory MCP antes de descubrir o cambiar
+  código y reindexar solo si el grafo contiene símbolos retirados.
+- Comprobar `pwd`, rama y `git status`; preservar todos los cambios locales y
+  ficheros no rastreados.
+- Trabajar primero en el laboratorio local. No usar Tailscale, no tocar HA real
+  ni el worker normal, no cambiar la opción de retención y no borrar datos.
+- No hacer bump, build, publicación, instalación ni release sin autorización
+  explícita nueva. Ejecutar validación proporcional y terminar con
+  `git diff --check`.

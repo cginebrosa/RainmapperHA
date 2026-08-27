@@ -18,6 +18,7 @@ from rainmapper_core import mushroom_ml_runtime_trainer
 from rainmapper_core import mushroom_ml_benchmark_reports
 from rainmapper_core import mushroom_ml_multiversion_plan
 from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_performance_telemetry
 from rainmapper_core import mushroom_worker_transport
 
 
@@ -31,10 +32,31 @@ JOB_PURPOSES = frozenset({"operational", "benchmark"})
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
+    size = 0
     with Path(path).open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            size += len(chunk)
             digest.update(chunk)
+    mushroom_performance_telemetry.add(
+        files_read=1,
+        bytes_read=size,
+        hashes=1,
+        hash_bytes=size,
+    )
     return digest.hexdigest()
+
+
+def _record_tree_copy(source: Path) -> None:
+    files = [path for path in source.rglob("*") if path.is_file()]
+    size = sum(path.stat().st_size for path in files)
+    mushroom_performance_telemetry.add(
+        copies=len(files),
+        copy_bytes=size,
+        files_read=len(files),
+        bytes_read=size,
+        files_written=len(files),
+        bytes_written=size,
+    )
 
 
 def validate_result_manifest(
@@ -274,7 +296,7 @@ def _verified_result(
         )
         if (
             not staged_path.is_file()
-            or mushroom_ml_runtime_trainer.sha256(staged_path) != artifact["sha256"]
+            or sha256(staged_path) != artifact["sha256"]
         ):
             raise ValueError(f"Multiversion artifact integrity failed: {artifact['path']}")
     return result, batch_manifest, extracted
@@ -304,6 +326,7 @@ def install_verified_result(
     staging = Path(tempfile.mkdtemp(prefix=f".{result['batch_id']}.", suffix=".install", dir=batches))
     try:
         shutil.copytree(extracted, staging / "batch")
+        _record_tree_copy(extracted)
         os.replace(staging / "batch", destination)
         return {
             "status": "verified_batch_installed",
@@ -396,6 +419,7 @@ def receive_result_file(
         declaration = next((row for row in manifest["files"] if row["path"] == path), None)
         if declaration is None:
             raise ValueError("Multiversion result file was not declared")
+        mushroom_performance_telemetry.add(hashes=1, hash_bytes=len(content))
         if len(content) != declaration["size_bytes"] or hashlib.sha256(content).hexdigest() != declaration["sha256"]:
             raise ValueError("Multiversion uploaded file integrity failed")
     destination = job_root / path
@@ -411,6 +435,11 @@ def receive_result_file(
         os.replace(temporary_name, destination)
     finally:
         Path(temporary_name).unlink(missing_ok=True)
+    mushroom_performance_telemetry.add(
+        files_written=1,
+        bytes_written=len(content),
+        fsyncs=1,
+    )
     return {"status": "staged", "path": path, "size_bytes": len(content)}
 
 
@@ -482,6 +511,7 @@ def archive_verified_result(
     )
     try:
         shutil.copytree(extracted, staging / "batch")
+        _record_tree_copy(extracted)
         os.replace(staging / "batch", destination)
     finally:
         shutil.rmtree(staging, ignore_errors=True)

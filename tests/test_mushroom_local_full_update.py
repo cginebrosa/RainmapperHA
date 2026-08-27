@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 from rainmapper_core import mushroom_local_full_update
+from rainmapper_core import mushroom_performance_telemetry
 
 
 class MushroomLocalFullUpdateTests(unittest.TestCase):
@@ -86,6 +87,41 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
                 mushroom_local_full_update.eligible_training_species(features),
             )
 
+    def test_operational_tuning_catalog_comes_from_shared_installed_batch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "models" / "batches" / "batch-source"
+            source.mkdir(parents=True)
+            (source / "manifest.json").write_text(
+                json.dumps({"batch_id": "batch-source"}), encoding="utf-8"
+            )
+            destination = root / "operation" / "tuning-catalog.json"
+            catalog = {"catalog_id": "sha256:" + "a" * 64}
+
+            with mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "installed_source_batch_id",
+                return_value="batch-source",
+            ) as source_batch, mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "build_from_batch",
+                return_value=catalog,
+            ) as build, mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "save",
+            ) as save:
+                result = mushroom_local_full_update._materialize_operational_tuning_catalog(
+                    registry={"schema_version": "test"},
+                    version_ids=["biology_v5_windowed_raw_weather"],
+                    models_root=root / "models",
+                    destination=destination,
+                )
+
+            self.assertIs(result, catalog)
+            source_batch.assert_called_once()
+            self.assertEqual(source, build.call_args.kwargs["batch_root"])
+            save.assert_called_once_with(destination, catalog)
+
     def test_runtime_batch_rollback_removes_only_new_batch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             models_root = Path(temporary)
@@ -165,6 +201,42 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
             self.assertEqual([74, 90], [row[0] for row in received])
             self.assertIn("1/2", received[0][2])
             self.assertIn("2/2", received[1][2])
+
+    def test_command_progress_reads_are_counted(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            progress_path = root / "progress.jsonl"
+            telemetry = mushroom_performance_telemetry.PersistentTelemetry(
+                root / "telemetry.json",
+                operation_id="progress_test",
+                workload="test",
+            )
+            child = (
+                "import json,sys; "
+                "p=open(sys.argv[1],'x',encoding='utf-8'); "
+                "p.write(json.dumps({'completed_fit_count':1,'planned_fit_count':1})+'\\n'); "
+                "p.close()"
+            )
+
+            with mushroom_performance_telemetry.activate(telemetry):
+                mushroom_local_full_update._run_command_with_jsonl_progress(
+                    [sys.executable, "-c", child, str(progress_path)],
+                    description="counted progress",
+                    progress_path=progress_path,
+                    progress=lambda *_values: None,
+                    event_mapper=lambda _event: (50, "phase", "detail"),
+                    telemetry_event_mapper=lambda _event: "test_progress_subphase",
+                )
+            summary = telemetry.finish("complete")
+
+            self.assertGreaterEqual(summary["counters"]["files_read"], 1)
+            self.assertGreaterEqual(
+                summary["counters"]["bytes_read"], progress_path.stat().st_size
+            )
+            self.assertIn(
+                "test_progress_subphase",
+                [row["name"] for row in summary["phases"]],
+            )
 
     def test_command_stops_when_local_benchmark_cancel_is_requested(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

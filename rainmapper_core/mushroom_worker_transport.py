@@ -16,6 +16,7 @@ from urllib.request import Request, urlopen
 
 from rainmapper_core import mushroom_rebuild_contracts
 from rainmapper_core import mushroom_rebuild_snapshot
+from rainmapper_core import mushroom_performance_telemetry
 from rainmapper_core import mushroom_worker_dataset_cache
 
 
@@ -397,6 +398,7 @@ def _download_file(
     progress_callback: Callable[[int], None] | None = None,
 ) -> tuple[int, str]:
     request = Request(url, headers=headers, method="GET")
+    mushroom_performance_telemetry.add(requests=1)
     destination.parent.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256()
     total = 0
@@ -427,6 +429,14 @@ def _download_file(
         raise ValueError("Downloaded worker input size does not match its manifest.")
     if expected_sha256 is not None and resolved_digest != expected_sha256:
         raise ValueError("Downloaded worker input hash does not match its manifest.")
+    mushroom_performance_telemetry.add(
+        files_written=1,
+        bytes_read=total,
+        bytes_written=total,
+        hashes=1,
+        hash_bytes=total,
+        fsyncs=1,
+    )
     return total, resolved_digest
 
 
@@ -472,6 +482,14 @@ def _materialize_cached_weather_input(
         os.link(cached, destination)
     except OSError:
         shutil.copy2(cached, destination)
+        mushroom_performance_telemetry.add(
+            copies=1,
+            copy_bytes=size,
+            files_read=1,
+            bytes_read=size,
+            files_written=1,
+            bytes_written=size,
+        )
     return valid
 
 
@@ -591,7 +609,12 @@ def _sync_required_dataset(
 
 
 def _load_downloaded_json(path: Path, label: str) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    content = path.read_text(encoding="utf-8")
+    mushroom_performance_telemetry.add(
+        files_read=1,
+        bytes_read=len(content.encode("utf-8")),
+    )
+    payload = json.loads(content)
     if not isinstance(payload, dict):
         raise ValueError(f"downloaded {label} must contain a JSON object")
     return payload
