@@ -7,8 +7,8 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 ## Estado al cierre — 2026-08-27
 
 - Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`,
-  `HEAD 4b6422d` (`Release Home Assistant 0.2.267 and worker 1.0.18`),
-  publicado en `origin/inicial`.
+  con la entrega principal `4b6422d` (`Release Home Assistant 0.2.267 and
+  worker 1.0.18`) publicada y la rama alineada con `origin/inicial` al cierre.
 - HA real continúa en `0.2.266`; la imagen `0.2.267` está publicada pero no se
   instaló. El worker normal está en `1.0.18`, sano e idle, y conserva la
   identidad emparejada `worker_1a9a232c20fe2ee2` y su volumen persistente.
