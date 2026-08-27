@@ -7,17 +7,17 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 ## Estado al cierre — 2026-08-27
 
 - Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`,
-  `HEAD 795ec59` (`Release Home Assistant 0.2.266`), alineado con
-  `origin/inicial` al comprobar el cierre.
+  `HEAD 4b6422d` (`Release Home Assistant 0.2.267 and worker 1.0.18`),
+  publicado en `origin/inicial`.
 - HA real continúa en `0.2.266`; la imagen `0.2.267` está publicada pero no se
   instaló. El worker normal está en `1.0.18`, sano e idle, y conserva la
   identidad emparejada `worker_1a9a232c20fe2ee2` y su volumen persistente.
 - El último banner aportado, anterior a `0.2.266`, mostraba Python `3.11.16`;
   confirmar de nuevo el intérprete si una tarea futura depende de su versión
   exacta.
-- La entrega de rendimiento, Predictor y release coordinada está en el worktree
-  hasta su commit final. Preservar cualquier cambio o fichero no rastreado que
-  aparezca en una sesión posterior.
+- La entrega de rendimiento, Predictor y release coordinada está contenida en
+  `4b6422d`. Preservar cualquier cambio o fichero no rastreado que aparezca en
+  una sesión posterior.
 - El grafo Codebase Memory tenía 10.647 nodos y 45.213 relaciones y ya no
   devolvía símbolos retirados de `mushroom_ml_version_promotion`; no fue
   necesario reindexarlo.

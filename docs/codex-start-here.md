@@ -39,8 +39,8 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 
 ## Estado general al cierre de 2026-08-27
 
-- Rama activa `inicial`; preservar siempre el worktree y cualquier fichero no
-  rastreado. HA real continúa en `0.2.266`; la imagen `0.2.267` está publicada
+- Rama activa `inicial`, entrega principal `4b6422d`; preservar siempre el
+  worktree y cualquier fichero no rastreado. HA real continúa en `0.2.266`; la imagen `0.2.267` está publicada
   pero no instalada. El worker normal es `1.0.18` y conserva la identidad emparejada
   `worker_1a9a232c20fe2ee2`. Revalidar el runtime al comenzar una sesión nueva.
 - La separación entre mantenimiento operativo y benchmark científico está

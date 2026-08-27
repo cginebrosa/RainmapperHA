@@ -25,6 +25,8 @@
   no contiene ni modifica el volumen persistente.
 - HA real no fue instalado ni probado, no se lanzó trabajo contra él, no se usó
   Tailscale, no se cambiaron opciones de retención y no se borraron datos.
+- La entrega de código y documentación quedó publicada en `origin/inicial` con
+  el commit `4b6422d`.
 
 ## 2026-08-23 - [VIGENTE][PARCHE] HA 0.2.265 migra de forma respaldada el registro ML 1.0
 
