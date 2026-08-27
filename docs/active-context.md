@@ -6,12 +6,14 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 ## Estado al cierre — 2026-08-27
 
-- Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`,
-  con la entrega principal `4b6422d` (`Release Home Assistant 0.2.267 and
-  worker 1.0.18`) publicada y la rama alineada con `origin/inicial` al cierre.
-- HA real continúa en `0.2.266`; la imagen `0.2.267` está publicada pero no se
-  instaló. El worker normal está en `1.0.18`, sano e idle, y conserva la
-  identidad emparejada `worker_1a9a232c20fe2ee2` y su volumen persistente.
+- Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
+  La base era `4b6422d` (`Release Home Assistant 0.2.267 and worker 1.0.18`)
+  y la corrección posterior se publica coordinadamente como HA `0.2.268` y
+  worker `1.0.19`.
+- HA real continúa en `0.2.266`; la imagen `0.2.268` está publicada pero no se
+  instaló. El worker normal no se consultó ni tocó durante esta entrega; su
+  último estado comprobado era `1.0.18`, sano e idle, con identidad emparejada
+  `worker_1a9a232c20fe2ee2` y volumen persistente.
 - El último banner aportado, anterior a `0.2.266`, mostraba Python `3.11.16`;
   confirmar de nuevo el intérprete si una tarea futura depende de su versión
   exacta.
@@ -21,6 +23,11 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - El grafo Codebase Memory tenía 10.647 nodos y 45.213 relaciones y ya no
   devolvía símbolos retirados de `mushroom_ml_version_promotion`; no fue
   necesario reindexarlo.
+- Los tags HA `0.2.268` y `latest` comparten el digest multi-arquitectura
+  `sha256:cc94b6b272c7256ab4796358fcdbb20f65e731e7707e5349a42dadd52fb27c95`.
+  El worker `1.0.19` quedó construido como ARM64 y exportado en un TAR privado
+  de 293 MiB con SHA-256
+  `8ae143e2973f99536103f0431af5bd0420287258affaff597ceefcf6ab8d6a67`.
 
 ## Estado operativo vigente
 
@@ -36,8 +43,12 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - La prueba local terminó correctamente y el Predictor reconoció las cinco
   versiones. La validación visual local del selector y de la predicción quedó
   confirmada por el usuario.
-- El flujo completo optimizado midió 534,571 s en frío y 473,654 s en caliente
-  con 714/714 ajustes, cero fallos, equivalencia y promoción atómica. Una
+- Las primeras mediciones optimizadas fueron 534,571 s en frío y 473,654 s en
+  caliente, pero ya no son líneas base válidas de aceptación: se comprobó que
+  cuatro perfiles completos carecían de probabilidades hold-out por una
+  resolución incorrecta del contrato temporal. El ciclo local corregido midió
+  591,561 s, con 714/714 ajustes, cero fallos, calidad completa y promoción
+  atómica. Una
   predicción semanal dirigida de Edulis/V6/todas las áreas midió 7,623–7,684 s.
   El transporte de resultados del Predictor admite 64 MiB con preflight y
   timeout final de 60 s; el formulario solo calcula mediante `Predecir`, pero
@@ -116,11 +127,12 @@ compartido. La preparación operativa completa del mismo snapshot bajó de
 artefactos consumidos e igualdad byte por byte de los hold-out V2--V6. No se ha
 ejecutado nada en HA real ni en el worker normal.
 
-El smoke local extremo a extremo terminó en 534,571 s en frío (8 min 55 s) y
-473,654 s en caliente (7 min 54 s), con 714/714 fits, cero fallos,
-reconstrucción equivalente, verificación de candidatos y promoción completa.
-La preparación compartida consumió 260,947/236,058 s y los fits operativos
-149,765/122,149 s. La telemetría se conserva bajo
+El smoke local extremo a extremo terminó formalmente en 534,571 s en frío y
+473,654 s en caliente, con 714/714 fits y cero fallos. La revisión posterior
+demostró que la promoción aceptó cuatro perfiles sin probabilidades hold-out;
+por tanto, esos dos tiempos describen el rendimiento del flujo, pero no una
+ejecución semánticamente completa. La preparación compartida consumió
+260,947/236,058 s y los fits operativos 149,765/122,149 s. La telemetría se conserva bajo
 `mushroom-data/diagnostics/operational-performance/`. Para validar se sincronizó
 el código de forma reversible dentro del contenedor HA local existente, sin
 crear ni tocar un worker.
@@ -138,26 +150,46 @@ con franja semanal terminó dos veces en 7,623/7,684 s, HTTP 200 y sin errores
 visibles. Falta la validación visual completa y un payload grande remoto antes
 de proponer entrega.
 
+El 2026-08-27 se corrigió además la regresión estructural del hold-out
+operativo. Los benchmarks materializados podían llevar el contrato temporal
+solo en `sample_id`; el evaluador no lo resolvía al contrato operativo del
+catálogo de tuning y absorbía el fallo por estimador. V2 común, V3 core y los
+dos perfiles V4 quedaban con `n_test = 0`, aunque el batch promocionaba. Ahora
+el evaluador resuelve el contrato mediante el catálogo congelado y el job
+rechaza antes de entrenar cualquier catálogo que deje un perfil seleccionado
+sin probabilidades. El recomendador tampoco presenta la primera abstención
+como «mejor señal».
+
+La operación local completa `6BAUyBn6P2Exoq2e` terminó en 591,561 s, con
+714/714 ajustes, cero fallos, 27.296 filas hold-out y las cinco generaciones
+promovidas. La evaluación restaurada consumió 162,672 s para V2--V5 y 26,031 s
+para V6. Cumple el máximo de 600 s con 8,439 s de margen; falta una repetición
+caliente para medir variabilidad, no para demostrar la corrección funcional.
+El informe reproducible es
+`docs/reports/operational-holdout-contract-fix-2026-08-27.md`.
+
 ## Próximos pasos, en orden
 
-1. Cerrar diff, pruebas dirigidas y documentación; presentar la entrega antes
-   de cualquier bump, build, instalación o release.
-2. Tras autorización y entrega, medir una reconstrucción remota fría/caliente
+1. Presentar la corrección local y su margen de rendimiento antes de cualquier
+   bump, build, instalación o release.
+2. Si se autoriza continuar en laboratorio, repetir una única medición caliente
+   para cuantificar la variabilidad alrededor del límite de 600 s.
+3. Tras autorización y entrega, medir una reconstrucción remota fría/caliente
    para separar el cálculo ya reducido del transporte HA↔worker.
-3. Solo si la medición remota lo justifica, compactar la cola: deduplicar
+4. Solo si la medición remota lo justifica, compactar la cola: deduplicar
    manifiestos inmutables, separar lease/progreso
    volátil del historial durable, espaciar checkpoints y sacar housekeeping del
    tick de telemetría.
-4. Agrupar los uploads en un contenedor efímero determinista y reanudable con
+5. Agrupar los uploads en un contenedor efímero determinista y reanudable con
    chunks de 8–16 MiB, extracción segura y borrado posterior. Mantener el
    manifiesto lógico y todos los límites de confianza.
-5. Sellar staging con un recibo verificable para reutilizar una única
+6. Sellar staging con un recibo verificable para reutilizar una única
    verificación completa durante instalación; eliminar rehashes y copias que no
    crucen una frontera nueva.
-6. Introducir paralelismo acotado o C/Cython/Numba/Rust únicamente si un perfil
+7. Introducir paralelismo acotado o C/Cython/Numba/Rust únicamente si un perfil
    futuro demuestra un núcleo Python puro dominante; el objetivo local ya se
    cumple sin ello.
-7. Validar igualdad contractual y numérica, cache fría/caliente, cancelación,
+8. Validar igualdad contractual y numérica, cache fría/caliente, cancelación,
    retry, rollback, ausencia de residuos y capacidad de respuesta de HA y del
    Predictor. Detenerse y presentar resultados antes de otra instalación o
    release.
@@ -179,6 +211,9 @@ de proponer entrega.
 5. **Retención real activa:** funcionó con 74 eliminaciones y cero errores; no
    debe deshabilitarse, forzarse ni complementarse con borrados manuales sin una
    decisión nueva del usuario.
+6. **Margen local estrecho:** el ciclo corregido cumple los 600 s por 8,439 s;
+   una repetición caliente debe cuantificar variabilidad antes de considerar el
+   rendimiento estable.
 
 ## Archivos relevantes
 

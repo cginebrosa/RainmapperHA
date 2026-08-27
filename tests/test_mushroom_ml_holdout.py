@@ -56,6 +56,67 @@ def _sample(observation, horizon, target, day):
 
 
 class HoldoutEvaluationTests(unittest.TestCase):
+    def test_frozen_tuning_resolves_materialized_contract_from_sample_id(self):
+        train = [
+            _sample(
+                f"train_{day}",
+                7,
+                "favorable" if day % 2 else "unfavorable",
+                day,
+            )
+            for day in range(1, 9)
+        ]
+        test = [_sample("test", 7, "favorable", 9)]
+        source_contract = "fixed_gap_7d_biology_v4_materialized"
+        operational_contract = "fixed_gap_7d_biology_v4"
+        for sample in train + test:
+            sample["sample_id"] = (
+                f"{sample['metadata']['observation_id']}|{source_contract}|h7"
+            )
+            sample["metadata"].pop("temporal_contract_id")
+        scopes = []
+        for estimator_id in holdout.CURRENT_ESTIMATORS:
+            scope = {
+                "version_id": "biology_v4",
+                "temporal_contract_id": operational_contract,
+                "profile_id": "extended_weather",
+                "estimator_id": estimator_id,
+                "species_id": "species_a",
+            }
+            scopes.append(
+                {
+                    "key": "|".join(scope[key] for key in (
+                        "version_id", "temporal_contract_id", "profile_id", "estimator_id", "species_id"
+                    )),
+                    "scope": scope,
+                    "fit_config": {},
+                }
+            )
+        benchmark = {
+            "feature_set": {"predictive_feature_cols": ["target_day_sin", "target_day_cos"]},
+            "samples": train + test,
+        }
+        with (
+            patch.object(holdout.mushroom_ml_experiment_trainer, "_pipeline", return_value=_FakeLogistic()),
+            patch.object(holdout.mushroom_ml_experiment_trainer, "_estimator_unavailable_reason", return_value=None),
+        ):
+            report, rows, _selections = holdout.evaluate_dataset(
+                benchmark,
+                version_id="biology_v4",
+                profile_id="extended_weather",
+                group_days=7,
+                train_keys={holdout.comparison_key(row) for row in train},
+                test_keys={holdout.comparison_key(row) for row in test},
+                mode="current",
+                tuning_catalog={"decisions": scopes},
+            )
+
+        self.assertTrue(
+            all(row["available"] for row in report["species"]["species_a"]["estimators"].values())
+        )
+        self.assertEqual(rows[0]["temporal_contract_id"], operational_contract)
+        self.assertEqual(set(rows[0]["estimator_probabilities"]), set(holdout.CURRENT_ESTIMATORS))
+
     def test_frozen_tuning_skips_v5_inner_search(self):
         train = [_sample("train_a", 1, "unfavorable", 1), _sample("train_b", 2, "favorable", 2)]
         test = [_sample("test", 1, "favorable", 3)]

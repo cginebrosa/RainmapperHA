@@ -38,6 +38,15 @@ def comparison_key(sample: dict[str, Any]) -> tuple[str, int]:
     )
 
 
+def _temporal_contract_id(sample: dict[str, Any]) -> str:
+    metadata = sample.get("metadata") or {}
+    declared = str(metadata.get("temporal_contract_id") or "").strip()
+    if declared:
+        return declared
+    sample_parts = str(sample.get("sample_id") or "").split("|")
+    return sample_parts[1].strip() if len(sample_parts) >= 3 else ""
+
+
 def eligible_samples(benchmark: dict[str, Any]) -> list[dict[str, Any]]:
     return v3_evaluation._eligible_samples(benchmark)
 
@@ -250,8 +259,19 @@ def evaluate_dataset(
             species_report["reason"] = "training partition has a single class"
             continue
         prevalence = float(np.mean(y_train))
-        representative_metadata = species_train[0].get("metadata") or {}
-        temporal_contract_id = str(representative_metadata.get("temporal_contract_id") or "")
+        source_temporal_contract_id = _temporal_contract_id(species_train[0])
+        if tuning_catalog is not None and not source_temporal_contract_id:
+            raise ValueError("Hold-out sample temporal contract is missing")
+        temporal_contract_id = (
+            mushroom_ml_tuning_catalog.resolve_temporal_contract(
+                tuning_catalog,
+                version_id=version_id,
+                profile_id=profile_id,
+                source_temporal_contract_id=source_temporal_contract_id,
+            )
+            if tuning_catalog is not None
+            else source_temporal_contract_id
+        )
         effective_split_id = split_id or f"fruiting_groups_{group_days}d"
         prevalence_probabilities = np.full(len(y_test), prevalence)
         phenology_probabilities = _phenology_probabilities(species_train, species_test, y_train)
@@ -354,10 +374,7 @@ def evaluate_dataset(
         for index, sample in enumerate(species_test):
             metadata = sample.get("metadata") or {}
             sample_id = str(sample.get("sample_id") or "")
-            row_temporal_contract_id = metadata.get("temporal_contract_id")
-            if not row_temporal_contract_id:
-                sample_parts = sample_id.split("|")
-                row_temporal_contract_id = sample_parts[1] if len(sample_parts) >= 3 else None
+            row_temporal_contract_id = temporal_contract_id or None
             row_key = "|".join(
                 (
                     version_id,

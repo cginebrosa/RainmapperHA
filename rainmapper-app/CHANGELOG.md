@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.268
+
+- Resolve materialized hold-out contracts through the frozen tuning catalog so
+  every selected operational profile retains its evaluated probabilities.
+- Reject operational quality catalogs that leave a selected profile without
+  hold-out coverage before training artifacts or progress are written.
+- Exclude abstentions from Predictor recommendations instead of naming the
+  first unavailable species as the best weekly signal.
+- Validate the corrected five-version local rebuild in 9m52s with 714/714
+  successful fits, 27,296 hold-out rows, and atomic promotion.
+
 ## 0.2.267
 
 - Reduce complete local operational rebuild and retraining to 8m55s cold and

@@ -1929,6 +1929,9 @@ def _render_recommender(
             errors.append(f"{species_id}: {html.escape(_predictor_error_text(exc))}")
 
     all_results.sort(key=lambda row: _interpretation_sort_key(row[0]), reverse=True)
+    ranked_results = [
+        row for row in all_results if str(row[0].get("verdict") or "abstain") != "abstain"
+    ]
 
     date_label = (
         "Hoy" if target_date == today
@@ -1936,7 +1939,7 @@ def _render_recommender(
         else f"{target_date.day}/{target_date.month}/{target_date.year}"
     )
 
-    if not all_results:
+    if not ranked_results:
         no_data = f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_no_data"))}</div>'
         error_block = _render_errors(errors)
         return f"""
@@ -1955,7 +1958,7 @@ def _render_recommender(
         best_area,
         best_source,
         best_abstention,
-    ) = all_results[0]
+    ) = ranked_results[0]
     best_species_name = _species_name(best_species, profiles_payload)
     best_area_name = _area_name(best_area, known_sites_payload)
     best_status = _interpretation_status(best_interpretation)
@@ -1978,7 +1981,7 @@ def _render_recommender(
     # Ranked list
     rows_html = ""
     area_options_by_species: dict[str, list[dict[str, str]]] = {}
-    for interpretation, sp_id, area_id, model_source, abstention in all_results[:15]:
+    for interpretation, sp_id, area_id, model_source, abstention in ranked_results[:15]:
         sp_name = _species_name(sp_id, profiles_payload)
         area_n = _area_name(area_id, known_sites_payload)
         href = _url("query", sp_id, area_id, target_date)

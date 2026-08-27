@@ -23,6 +23,43 @@ def load_script():
 
 
 class RunMushroomMLMultiversionJobTests(TestCase):
+    def test_operational_quality_catalog_rejects_profile_without_holdout_probabilities(self) -> None:
+        module = load_script()
+        catalog = {
+            "kind": module.mushroom_ml_quality_catalog.KIND,
+            "schema_version": module.mushroom_ml_quality_catalog.SCHEMA_VERSION,
+            "entries": [
+                {
+                    "version_id": "biology_v4",
+                    "profile_id": "extended_weather",
+                    "n_test": 0,
+                }
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, "no hold-out probabilities"):
+            module.validate_operational_quality_catalog(
+                catalog, ["biology_v4/extended_weather"]
+            )
+
+    def test_operational_quality_catalog_accepts_profile_with_holdout_probabilities(self) -> None:
+        module = load_script()
+        catalog = {
+            "kind": module.mushroom_ml_quality_catalog.KIND,
+            "schema_version": module.mushroom_ml_quality_catalog.SCHEMA_VERSION,
+            "entries": [
+                {
+                    "version_id": "biology_v4",
+                    "profile_id": "extended_weather",
+                    "n_test": 12,
+                }
+            ],
+        }
+
+        module.validate_operational_quality_catalog(
+            catalog, ["biology_v4/extended_weather"]
+        )
+
     def test_operational_bootstrap_selects_five_complete_versions(self) -> None:
         module = load_script()
         registry = mushroom_ml_version_registry.load_registry(REGISTRY)

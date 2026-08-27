@@ -79,6 +79,40 @@ def _load_optional(path: Path | None) -> dict | None:
     return _load(path) if path is not None else None
 
 
+def validate_operational_quality_catalog(
+    source_catalog: dict,
+    profile_keys: list[str],
+) -> None:
+    if (
+        source_catalog.get("kind") != mushroom_ml_quality_catalog.KIND
+        or source_catalog.get("schema_version")
+        != mushroom_ml_quality_catalog.SCHEMA_VERSION
+    ):
+        raise ValueError("Operational quality catalog contract is invalid")
+    entries_by_profile: dict[str, list[dict]] = {}
+    for row in source_catalog.get("entries", []):
+        if not isinstance(row, dict):
+            continue
+        key = f"{row.get('version_id')}/{row.get('profile_id')}"
+        entries_by_profile.setdefault(key, []).append(row)
+    missing = sorted(set(profile_keys) - set(entries_by_profile))
+    if missing:
+        raise ValueError(
+            "Operational quality catalog does not cover every selected profile: "
+            + ", ".join(missing)
+        )
+    empty = sorted(
+        key
+        for key in profile_keys
+        if not any(int(row.get("n_test") or 0) > 0 for row in entries_by_profile[key])
+    )
+    if empty:
+        raise ValueError(
+            "Operational quality catalog has no hold-out probabilities for: "
+            + ", ".join(empty)
+        )
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -258,6 +292,10 @@ def main() -> int:
         v5_fixed=_load_optional(args.v5_fixed),
         v5_lag=_load_optional(args.v5_lag),
     )
+    source_quality_catalog = None
+    if operational and args.quality_catalog is not None:
+        source_quality_catalog = _load(args.quality_catalog)
+        validate_operational_quality_catalog(source_quality_catalog, profile_keys)
     progress_handle = None
     if args.progress_jsonl:
         args.progress_jsonl.parent.mkdir(parents=True, exist_ok=True)
@@ -291,22 +329,7 @@ def main() -> int:
                 "sha256": _sha256(tuning_path),
             }
         if operational and args.quality_catalog is not None:
-            source_catalog = _load(args.quality_catalog)
-            if (
-                source_catalog.get("kind") != mushroom_ml_quality_catalog.KIND
-                or source_catalog.get("schema_version")
-                != mushroom_ml_quality_catalog.SCHEMA_VERSION
-            ):
-                raise ValueError("Operational quality catalog contract is invalid")
-            catalog_profile_keys = {
-                f"{row.get('version_id')}/{row.get('profile_id')}"
-                for row in source_catalog.get("entries", [])
-                if isinstance(row, dict)
-            }
-            if not set(profile_keys) <= catalog_profile_keys:
-                raise ValueError(
-                    "Operational quality catalog does not cover every selected profile"
-                )
+            assert source_quality_catalog is not None
             quality_path = destination / "quality-catalog.json"
             shutil.copyfile(args.quality_catalog, quality_path)
             manifest["quality_catalog"] = {

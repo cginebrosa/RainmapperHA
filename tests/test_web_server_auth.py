@@ -692,6 +692,28 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn(f"{target.day}/{target.month}/{target.year}", rendered)
         self.assertNotIn(target.strftime("%B"), rendered)
 
+    def test_predictor_recommender_does_not_name_first_abstention_as_best_signal(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        predictor = mock.Mock()
+        predictor.season_phase.return_value = "in_season"
+        predictor.areas_with_species_observations.return_value = ["area_a"]
+        with (
+            mock.patch.object(predictor_ui, "_get_predictor", return_value=predictor),
+            mock.patch.object(predictor_ui, "_model_comparison", return_value={}),
+            mock.patch.object(
+                predictor_ui,
+                "_interpretation",
+                return_value={"verdict": "abstain", "reference_range": None},
+            ),
+            mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key),
+        ):
+            rendered = predictor_ui._render_recommender(
+                date.today(), ["amanita_caesarea"], {}, {}
+            )
+
+        self.assertIn("ui.predictor_no_data", rendered)
+        self.assertNotIn("ui.predictor_best_available_signal", rendered)
+
     def test_predictor_species_tab_does_not_reference_query_area(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
         predictor = mock.Mock()
