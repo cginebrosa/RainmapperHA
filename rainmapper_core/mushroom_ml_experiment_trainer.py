@@ -128,7 +128,10 @@ def _pipeline(estimator_id: str) -> Any:
             min_samples_leaf=3,
             random_state=42,
             class_weight="balanced",
-            n_jobs=-1,
+            # These operational partitions contain only tens or hundreds of
+            # rows. Recreating a process-wide joblib pool for every species,
+            # profile and hold-out split costs more than fitting the trees.
+            n_jobs=1,
         )
         return Pipeline(
             [
@@ -143,7 +146,7 @@ def _pipeline(estimator_id: str) -> Any:
             min_samples_leaf=2,
             random_state=42,
             class_weight="balanced",
-            n_jobs=-1,
+            n_jobs=1,
         )
         return Pipeline(
             [

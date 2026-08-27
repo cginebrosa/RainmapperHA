@@ -484,7 +484,7 @@ def render_selection_fragment(
     }
 
 
-def render_page(payload: dict[str, object], observations_payload: dict[str, object], query: dict[str, list[str]], flash: str = "", gis_preview: dict[str, object] | None = None, catalogs_payload: dict[str, object] | None = None) -> str:
+def render_page(payload: dict[str, object], observations_payload: dict[str, object], query: dict[str, list[str]], flash: str = "", gis_preview: dict[str, object] | None = None, catalogs_payload: dict[str, object] | None = None, soilgrids_health: dict[str, object] | None = None) -> str:
     kind = (query.get("kind") or ["micro_area"])[0]
     selected_id = (query.get("id") or [""])[0]
     search_text = (query.get("q") or [""])[0]
@@ -499,6 +499,24 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
     abundance_labels = mushroom_profiles_ui.catalog_label_map(catalog_groups if isinstance(catalog_groups, dict) else {}, "observation_flush_abundance")
     current_url = query_url(kind, selected_id, (query.get("q") or [""])[0], return_to)
     observation_modals = []
+    soilgrids_health = soilgrids_health or {}
+    unresolved_rows = soilgrids_health.get("unresolved")
+    unresolved = {
+        str(row.get("micro_area_id", "")): row
+        for row in unresolved_rows
+        if isinstance(row, dict) and str(row.get("micro_area_id", ""))
+    } if isinstance(unresolved_rows, list) else {}
+    warning_count = len(unresolved)
+    soilgrids_warning = (
+        '<div class="catalog-alert">'
+        f'<strong>{html.escape(label("ui.soilgrids_warning_title"))}</strong><br>'
+        + html.escape(
+            label("ui.soilgrids_warning_help").replace("{count}", str(warning_count))
+        )
+        + "</div>"
+        if warning_count
+        else ""
+    )
 
     rows_html = []
     for area_index, area in enumerate(sorted(areas, key=lambda row: str(row.get("name", "")).casefold())):
@@ -527,11 +545,17 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
                     continue
                 selected_class = " selected-row" if kind == "micro_area" and selected_id == micro_id else ""
                 status_text = label("ui.archived") if micro.get("archived") else label("ui.active")
+                soilgrids_status = (
+                    f'<span class="site-status archived" title="{_text(str(unresolved[micro_id].get("error", "")))}">'
+                    f'{html.escape(label("ui.soilgrids_pending"))}</span>'
+                    if micro_id in unresolved and not micro.get("archived")
+                    else ""
+                )
                 micro_observations = [row for row in observation_rows if str(row.get("micro_area_id", "")) == micro_id]
                 micro_modal_id = f"site-observations-micro-{micro_id}"
                 status_class = " archived" if micro.get("archived") else ""
                 aria_current = ' aria-current="true"' if selected_class else ""
-                rows_html.append(f'<div class="site-tree-row micro{selected_class}"><a class="site-tree-main" data-known-site-select data-known-site-kind="micro_area" data-known-site-id="{_text(micro_id)}"{aria_current} href="{query_url("micro_area", micro_id, search_text, return_to)}"><span class="site-tree-icon">↳</span><strong>{html.escape(str(micro.get("name", micro_id)))}</strong></a><span class="site-status{status_class}">{html.escape(status_text)}</span><a class="site-count" href="#{_text(micro_modal_id)}" title="Ver observaciones">{len(micro_observations)}</a></div>')
+                rows_html.append(f'<div class="site-tree-row micro{selected_class}"><a class="site-tree-main" data-known-site-select data-known-site-kind="micro_area" data-known-site-id="{_text(micro_id)}"{aria_current} href="{query_url("micro_area", micro_id, search_text, return_to)}"><span class="site-tree-icon">↳</span><strong>{html.escape(str(micro.get("name", micro_id)))}</strong></a>{soilgrids_status}<span class="site-status{status_class}">{html.escape(status_text)}</span><a class="site-count" href="#{_text(micro_modal_id)}" title="Ver observaciones">{len(micro_observations)}</a></div>')
                 if micro_observations:
                     observation_modals.append(_site_observations_modal(micro_modal_id, f"{area_names.get(area_id, area_id)} · {micro.get('name', micro_id)}", micro_observations, current_url, abundance_labels))
             rows_html.append('</div></section>')
@@ -558,6 +582,7 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
     </div>
     <div class="sites-page-head"><div><h1>{html.escape(label('ui.known_sites'))}</h1><p>{html.escape(label('ui.known_sites_help'))}</p></div></div>
     {f'<div class="catalog-alert">{html.escape(flash)}</div>' if flash else ''}
+    {soilgrids_warning}
     <div class="sites-metrics">
       <article><span>{html.escape(label('ui.areas'))}</span><strong>{len(areas)}</strong><small>{html.escape(label('ui.active')).lower()}</small></article>
       <article><span>{html.escape(label('ui.micro_areas'))}</span><strong>{len(micro_areas)}</strong><small>{html.escape(label('ui.active')).lower()}</small></article>

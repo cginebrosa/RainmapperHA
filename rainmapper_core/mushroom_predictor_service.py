@@ -631,9 +631,14 @@ class PredictorService:
             )
             if normalized["area_id"] not in known_areas:
                 normalized["area_id"] = ""
+        cache_species_id = (
+            "__all_trained_species__"
+            if normalized["view"] == "recommender"
+            else normalized["species_id"]
+        )
         cache_key: tuple[object, ...] = (
             normalized["view"],
-            normalized["species_id"],
+            cache_species_id,
             normalized["area_id"],
             normalized["target_date"],
             normalized["filter_mode"],
@@ -656,6 +661,10 @@ class PredictorService:
         phase_seconds["response_cache_lookup"] = monotonic() - cache_started
         phase_call_counts["response_cache_lookup"] = 1
         if response is not None:
+            # A recommender response is global to every trained species. Keep
+            # the echoed request truthful when a navigation URL carried a
+            # different, semantically irrelevant species selection.
+            response["request"] = copy.deepcopy(normalized)
             response["metrics"] = {
                 **dict(response.get("metrics", {})),
                 "backend_seconds": round(monotonic() - started, 4),
@@ -744,31 +753,26 @@ class PredictorService:
                 observed_areas = timed(
                     "prediction_data", predictor.areas_with_species_observations
                 )
-                rankings = (
-                    []
+                preferred_comparisons = (
+                    {}
                     if season_phase == "out_of_season"
-                    else timed(
-                        "prediction_data",
-                        lambda: [
-                            serialize_prediction(row)
-                            for row in predictor.rank_areas(
-                                target, only_observed=True
+                    else {
+                        current_area: {
+                            target.isoformat(): comparison_for(
+                                species_id, current_area, target
                             )
-                        ],
-                    )
+                        }
+                        for current_area in observed_areas
+                    }
                 )
                 data["species"][species_id] = {
                     "season_phase": season_phase,
                     "areas": [str(area_id) for area_id in observed_areas],
-                    "rankings": {target.isoformat(): rankings},
-                    "model_comparisons": {
-                        row["area_id"]: {
-                            target.isoformat(): comparison_for(
-                                species_id, row["area_id"], target
-                            )
-                        }
-                        for row in rankings
-                    }
+                    # Retain the response field for contract compatibility. The
+                    # Recommender ranks preferred-version interpretations, not
+                    # legacy base-model probabilities.
+                    "rankings": {target.isoformat(): []},
+                    "model_comparisons": preferred_comparisons,
                 }
         elif view == "week":
             predictor = timed(

@@ -221,6 +221,145 @@ El informe reproducible es
    una repetición caliente debe cuantificar variabilidad antes de considerar el
    rendimiento estable.
 
+## Corrección Predictor pendiente de entrega — 2026-08-27
+
+Tras instalar HA `0.2.268` y worker `1.0.19`, una consulta abierta desde una
+fila del Recommender terminaba en el worker pero HA mostraba `No disponible`.
+La causa confirmada era una divergencia del contrato `compare`: la UI lo activa
+por defecto y el job remoto lo desactivaba salvo `compare=1`. Localmente se ha
+unificado la semántica y se conserva `compare=0` como desactivación explícita.
+
+Un Recommender caliente posterior tardó 44 s porque la clave LRU incluía la
+especie residual de navegación aunque la vista calcula las ocho especies. La
+clave ahora canoniza ese campo y reutiliza el resultado global. La evidencia,
+los tamaños reales y la validación inicial de 273 pruebas están en
+`docs/reports/predictor-remote-navigation-cache-2026-08-27.md`. Estos cambios
+afectan a HA y worker y aún no se han versionado, construido ni instalado.
+
+La revisión posterior confirmó otra divergencia: el worker ejecutaba
+`PredictorService`, pero HA calculaba directamente desde el módulo UI. La ruta
+interna local ya construye el mismo contrato y usa una instancia persistente
+del mismo servicio; update/rebuild/reentreno la liberan mediante el mecanismo
+de caché existente. En el contenedor HA local, Recommender frío/caliente midió
+35,115/0,209 s, una repetición 0,208 s, el detalle Edulis/Vallter 7,832 s y la
+vuelta al Recommender 0,218 s, todos con HTTP 200 y contenido real. Las suites
+dirigidas suman ahora 274 pruebas sin fallos y la suite transversal final pasó
+1.042 pruebas en 51,422 s. `git diff --check` también pasó. No hay bump, build ni
+publicación autorizados.
+
+Una revisión adicional confirmó que el Recommender no ejecuta todas las
+versiones: usa solo la preferida, pero antes calculaba primero un ranking con el
+modelo base sobre exactamente las mismas áreas observadas. Ese ranking se
+retiró sin ampliar a áreas sin observaciones. El frío local bajó de 35,115 a
+31,647 s (−3,467 s; ~9,9 %), el hit caliente midió 0,201 s y el diff de mejor
+apuesta y filas finales fue vacío. El coste frío dominante restante son las
+comparaciones preferidas por especie/área.
+
+La optimización siguiente queda especificada en
+`docs/mushrooms/mushroom-predictor-cold-path-optimization-spec-es.md`. Antes de
+otra refactorización se agregarán los tiempos ya emitidos por
+`compare_selection` para atribuir los 31,647 s restantes entre meteorología,
+artefactos, variables, inferencia y selección. Después se priorizará una caché
+semántica persistente y acotada que permita reutilizar en el detalle cada
+comparación hecha por el Recommender; workspace meteorológico común e
+inferencia por lotes quedan condicionados a la evidencia. Los objetivos son
+Recommender frío <=10 s y detalle reutilizado <=1 s sin alterar áreas,
+probabilidades, modelos, abstenciones ni gates científicos.
+
+## Autocura SoilGrids en implementación local — 2026-08-27
+
+La revisión de la nueva área Espinavell en el `known_sites` real encontró 63
+microáreas: 59 SoilGrids completas y cuatro pendientes, entre ellas Ritort. La
+causa estructural era que `resolve_geometry_context` agregaba antes de
+inicializar la caché; si faltaba `manifest.json`, capturaba la excepción y no
+llegaba a crear ni descargar teselas.
+
+Localmente se ha corregido ese orden y se ha añadido una reconciliación global
+best-effort antes del snapshot operativo. El job nace en estado persistente
+`preparing`, muestra la fase localizada «Reconciliando GIS y SoilGrids», no es
+reclamable todavía y admite cancelación segura. Solo se recalculan contextos no
+vigentes; los fallos se registran por microárea y no detienen el reentreno. La
+promoción de `known_sites` usa el escritor atómico existente y se cancela si el
+fichero cambió concurrentemente.
+
+Una prueba sin escritura leyó el fichero montado de HA real y usó la caché
+local: 59 contextos se reutilizaron por identidad, 4/4 se repararon, no hubo
+peticiones ni descargas y los 63 terminaron completos en 52,259 s. Predictor y
+Setales muestran aviso global y marca por microárea si todavía queda algún
+contexto pendiente. La validación final pasa la suite completa de 1.056 pruebas,
+compilación de los módulos modificados, validación JSON de etiquetas y
+`git diff --check`. La validación operativa completa con la copia fresca se
+describe en la sección siguiente.
+
+El diseño, contadores, degradación y riesgos están en
+`docs/mushrooms/mushroom-soilgrids-autocure-spec-es.md`.
+
+## Validación fresca y optimización adicional — 2026-08-28
+
+Con la copia fresca de 439 observaciones (396 elegibles), el primer proceso
+completo anterior a esta optimización terminó correctamente en 706,517 s
+(11 min 46,5 s), con promoción atómica y cero fits fallidos. La reconstrucción
+consumió 107,399 s; el hold-out V2--V5, 218,108 s; y los fits finales V2--V6,
+aproximadamente 156 s. La telemetría contabilizó 1.365.432.305 bytes leídos,
+2.473 hashes, 826 copias y 97 fsync. Los hashes y la promoción no explican el
+coste dominante: juntos representan una fracción pequeña frente al cálculo de
+hold-out y entrenamiento.
+
+Se rechazaron dos atajos medidos: paralelizar cuatro datasets empeoró el
+hold-out de 125,09 a 170,21 s por sobresuscripción, y limitar globalmente loky a
+un núcleo alteró 62 probabilidades KNN (diferencia máxima 0,1427). En cambio,
+limitar solo RandomForest y ExtraTrees a un hilo durante el fit redujo en el
+contenedor el hold-out V2--V5 de 192,307 a 166,260 s (−26,047 s; −13,5 %) con
+salida completa y SHA del hold-out idénticos. Los artefactos restauran
+`n_jobs=-1` después del fit para conservar el contrato de inferencia.
+
+El entrenamiento final prepara ahora una única matriz por combinación de
+versión, contrato temporal, perfil y especie, y la reutiliza entre algoritmos.
+El manifiesto persiste entradas, aciertos y bytes de esa caché para medir su
+efecto y dimensionar memoria; no crea matrices cuyo ancho dependa del número de
+observaciones. La reconciliación SoilGrids se ejecuta también en el camino
+local antes del snapshot, como quinta fase visible y cancelable, con degradación
+por microárea.
+
+Pasan 35 pruebas dirigidas del núcleo, cuatro pruebas dirigidas web y la suite
+completa de 1.056 pruebas en 47,266 s. `git diff --check` está limpio. Se
+reconstruyó únicamente `rainmapperha:local-ha-ui` (digest local de la lista de
+manifiestos `sha256:259f272b8e566b89a7673c5c09885bbcc6f6e661ae19238c61d369ecd503d8d3`)
+y `/mushrooms/workers` responde 200 dentro del contenedor. No se tocó HA real ni
+el worker normal.
+
+El proceso completo lanzado por el usuario terminó en 548,095 s de telemetría
+monotónica (9 min 8,1 s; la UI redondea el trabajo a 9 min 8 s), frente a
+706,503 s con los mismos datos frescos: ahorro de 158,408 s (22,4 %) y objetivo
+de 600 s cumplido con 51,905 s de margen. El hold-out V2--V5 bajó de 218,108 a
+138,767 s y los fits finales de 156,013 a 101,073 s. La caché preparó 204
+matrices, obtuvo 510 reutilizaciones y ocupó 72.139.352 bytes (68,8 MiB).
+
+La autocura tardó 14,539 s: revisó las 63 microáreas, reparó las cuatro
+pendientes y dejó 63/63 completas, sin peticiones, descargas ni avisos. El
+resultado produjo 714/714 fits, cero fallos, 29.208 predicciones hold-out y
+3.528 métricas. Las cinco versiones seleccionadas quedaron enlazadas en el
+registro a `local_operational_20260827T225123Z`; la UI muestra «Complete
+generation active». Instalación y promoción tardaron 3,270 s. La evidencia
+persistente es `diagnostics/operational-performance/6uCH9V-0EoMEf0SC.json`,
+`diagnostics/soilgrids-reconciliation-latest.json` y el manifiesto del batch.
+
+## Release preparada — 2026-08-28
+
+El smoke definitivo de release pasó 1.056 pruebas y todos los validadores. HA
+`0.2.269` quedó publicada en GHCR con digest multi-arquitectura
+`sha256:4c81d607949d7746f773de9e651e0ef5f7a65fad19de9a4cf368d9e2bbb8f8f3`;
+los tags `0.2.269` y `latest` coinciden y contienen `linux/amd64` y
+`linux/arm64`. El cliente Buildx quedó bloqueado después de completar la subida
+y se canceló solo tras verificar remotamente ambos tags, digest y plataformas.
+
+El worker privado `1.0.20` se construyó para arm64 con imagen local
+`sha256:5ab52bb6d886b93fda98131cf3ba26b12974fcdd0f7e3caae5399dbc3eab52c7`.
+El worker normal fue recreado conservando `rainmapper-worker-data`; responde
+healthy, `idle`, con versión 1.0.20, caché GIS válida y caché Predictor válida.
+No se lanzó ningún trabajo ni se modificaron datos de HA real. Queda que el
+usuario instale HA 0.2.269 y ejecute las pruebas reales.
+
 ## Archivos relevantes
 
 - Orquestación/jobs: `rainmapper-app/app/web_server.py`,
@@ -235,6 +374,9 @@ El informe reproducible es
 - Predictor/UI: `rainmapper_core/mushroom_ml_multiversion_comparison.py`,
   `rainmapper_core/mushroom_predictor_service.py`,
   `rainmapper-app/app/mushroom_predictor_ui.py`.
+- Autocura SoilGrids: `rainmapper_core/mushroom_soilgrids.py`,
+  `rainmapper_core/mushroom_soilgrids_reconciler.py`,
+  `docs/mushrooms/mushroom-soilgrids-autocure-spec-es.md`.
 - Retención: `rainmapper_core/mushroom_storage_reconciler.py`,
   `rainmapper_core/mushroom_ml_storage_reconciler.py`,
   `docs/mushrooms/mushroom-ml-storage-retention-spec-es.md`.

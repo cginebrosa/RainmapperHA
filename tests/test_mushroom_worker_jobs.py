@@ -406,6 +406,76 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 ["altitude_v2/common_idw", "biology_v4/extended_weather"],
             )
 
+    def test_candidate_preparation_is_visible_cancelable_and_not_claimable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            job_id = "worker_job_preparing123"
+            created = mushroom_worker_jobs.create_candidate_preparation(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                job_id=job_id,
+                profile_keys=["biology_v4/extended_weather"],
+            )
+
+            self.assertEqual(created["status"], "preparing")
+            self.assertEqual(created["phase"], "Reconciling GIS and SoilGrids")
+            self.assertIsNone(
+                mushroom_worker_jobs.claim_next(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    claim_token="claim-secret",
+                )
+            )
+            updated = mushroom_worker_jobs.update_candidate_preparation(
+                path,
+                job_id=job_id,
+                phase="Reconciling GIS and SoilGrids",
+                message="2/4 micro-areas",
+                overall_percent=5,
+                telemetry={"processed_micro_areas": 2},
+            )
+            self.assertEqual(updated["preparation_telemetry"]["processed_micro_areas"], 2)
+            cancelled = mushroom_worker_jobs.request_cancel(path, job_id=job_id)
+            self.assertEqual(cancelled["status"], "cancelled")
+            self.assertTrue(
+                mushroom_worker_jobs.candidate_preparation_cancelled(
+                    path, job_id=job_id
+                )
+            )
+
+    def test_candidate_preparation_becomes_claimable_only_after_bundle_is_frozen(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            job_id = "worker_job_prepared1234"
+            mushroom_worker_jobs.create_candidate_preparation(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                job_id=job_id,
+            )
+            queued = mushroom_worker_jobs.finalize_candidate_preparation(
+                path,
+                job_id=job_id,
+                input_bundle={
+                    "job_id": job_id,
+                    "job_spec_id": "sha256:" + "a" * 64,
+                    "snapshot_id": "sha256:" + "b" * 64,
+                    "input_file_count": 7,
+                    "input_size_bytes": 1234,
+                },
+                telemetry={"duration_ms": 12, "warnings": []},
+            )
+
+            self.assertEqual(queued["status"], "queued")
+            self.assertEqual(queued["preparation_telemetry"]["duration_ms"], 12)
+            claimed = mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            self.assertEqual(claimed["job_id"], job_id)
+
     def test_candidate_rebuild_requires_claim_and_trusted_result_summary(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"

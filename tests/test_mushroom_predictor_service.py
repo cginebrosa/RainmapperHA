@@ -150,6 +150,38 @@ class PredictorServiceTests(TestCase):
         self.assertEqual(second["metrics"]["detailed_phase_seconds"], {})
         predictor.week_window.assert_called_once()
 
+    def test_recommender_cache_ignores_irrelevant_selected_species(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.season_phase.return_value = "in_season"
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            service.predictor = Mock(return_value=predictor)
+            service.v2_reference_compare = Mock(
+                return_value={"interpretation": {"verdict": "uncertain"}}
+            )
+            request = self.request(
+                view="recommender",
+                area_id="",
+                trained_species_ids=["amanita", "boletus"],
+                species_id="amanita",
+            )
+
+            first = service.execute(request)
+            second = service.execute({**request, "species_id": "boletus"})
+
+        self.assertEqual(first["metrics"]["response_cache_status"], "miss")
+        self.assertEqual(second["metrics"]["response_cache_status"], "hit")
+        self.assertEqual(second["request"]["species_id"], "boletus")
+        predictor.rank_areas.assert_not_called()
+        self.assertEqual(service.v2_reference_compare.call_count, 2)
+
     def test_installed_runtime_batches_loads_only_requested_version_once(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -388,7 +420,7 @@ class PredictorServiceTests(TestCase):
         self.assertEqual(species_data["rankings"]["2026-08-10"], [])
         predictor.rank_areas.assert_not_called()
 
-    def test_recommender_prepared_adapter_exposes_ranked_areas(self) -> None:
+    def test_recommender_compares_every_observed_area_without_base_ranking(self) -> None:
         with TemporaryDirectory() as temporary:
             service = PredictorService(
                 models_dir=Path(temporary),
@@ -399,14 +431,14 @@ class PredictorServiceTests(TestCase):
             )
             predictor = Mock()
             predictor.season_phase.return_value = "in_season"
-            predictor.areas_with_species_observations.return_value = ["area_one"]
-            predictor.rank_areas.return_value = [
-                prediction("boletus", "area_one", date(2026, 8, 10))
+            predictor.areas_with_species_observations.return_value = [
+                "area_one",
+                "area_two",
             ]
             service.predictor = Mock(return_value=predictor)
-            comparator = Mock()
-            comparator.compare.return_value = {"interpretation": {"verdict": "favorable"}}
-            service.comparator = Mock(return_value=comparator)
+            service.v2_reference_compare = Mock(
+                return_value={"interpretation": {"verdict": "favorable"}}
+            )
 
             response = service.execute(
                 self.request(view="recommender", area_id="", target_date="2026-08-10")
@@ -414,9 +446,18 @@ class PredictorServiceTests(TestCase):
             prepared = PreparedPredictor("boletus", response)
 
         self.assertEqual(
-            response["data"]["species"]["boletus"]["areas"], ["area_one"]
+            response["data"]["species"]["boletus"]["areas"],
+            ["area_one", "area_two"],
         )
-        self.assertEqual(prepared.areas_with_species_observations(), ["area_one"])
+        self.assertEqual(
+            prepared.areas_with_species_observations(), ["area_one", "area_two"]
+        )
+        self.assertEqual(
+            set(response["data"]["species"]["boletus"]["model_comparisons"]),
+            {"area_one", "area_two"},
+        )
+        predictor.rank_areas.assert_not_called()
+        self.assertEqual(service.v2_reference_compare.call_count, 2)
 
     def test_history_preserves_preferred_operational_comparison_in_prepared_adapter(
         self,

@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
 from rainmapper_core import mushroom_soilgrids as soilgrids
 
@@ -352,6 +353,59 @@ class MushroomSoilGridsTests(TestCase):
         stale = copy.deepcopy(context)
         stale["source"]["source_version"] = "old"
         self.assertFalse(soilgrids.context_is_current(stale, geometry))
+
+    def test_resolve_initializes_a_missing_cache_before_aggregation(self) -> None:
+        geometry = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [1, 0], [0, 1], [0, 0]]],
+        }
+        telemetry: dict[str, object] = {}
+        cache_result = {
+            "coverage_count": 54,
+            "tile_ids": ["x0_y0"],
+            "downloaded": 54,
+            "reused": 0,
+            "requests": 54,
+            "downloaded_bytes": 1234,
+            "files_promoted": 108,
+            "asset_hashes_checked": 108,
+            "manifest_writes": 54,
+            "fsyncs": 108,
+        }
+        complete = {"status": "complete"}
+
+        with (
+            patch.object(
+                soilgrids,
+                "aggregate_geometry",
+                side_effect=[
+                    soilgrids.SoilGridsManifestError("missing"),
+                    complete,
+                ],
+            ) as aggregate,
+            patch.object(
+                soilgrids, "transform_geometry", return_value=["polygon"]
+            ),
+            patch.object(
+                soilgrids, "tile_ids_for_geometry", return_value=["x0_y0"]
+            ),
+            patch.object(
+                soilgrids,
+                "ensure_geometry_cache",
+                return_value=cache_result,
+            ) as ensure,
+        ):
+            result = soilgrids.resolve_geometry_context(
+                Path("/missing-cache"),
+                geometry,
+                ensure_missing=True,
+                telemetry=telemetry,
+            )
+
+        self.assertEqual(result, complete)
+        self.assertEqual(aggregate.call_count, 2)
+        ensure.assert_called_once()
+        self.assertEqual(telemetry, cache_result)
 
 
 if __name__ == "__main__":

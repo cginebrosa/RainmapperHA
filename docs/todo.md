@@ -29,6 +29,13 @@ este fichero distingue trabajo cerrado de próximas entregas.
   fecha y versión ya esperan a `Predecir`, la especie actualiza sus zonas sin
   worker y el detalle semanal reutiliza su resultado terminado; falta validar
   visualmente y medir el flujo completo.
+- [ ] Ejecutar la especificación de optimización del camino frío en
+  `docs/mushrooms/mushroom-predictor-cold-path-optimization-spec-es.md`:
+  agregar primero la telemetría por fase y contadores, después implementar
+  caché semántica persistente y acotada, y abordar workspace meteorológico
+  común o inferencia por lotes únicamente según la fase dominante medida.
+  Objetivos: Recommender frío <=10 s y detalle ya calculado <=1 s, con
+  equivalencia contractual y científica completa.
 - [x] Unificar la selección por defecto entre el job remoto y el render para
   que el primer clic desde el recommender no muestre un resultado vacío ni
   obligue a repetir `Predecir`.
@@ -414,6 +421,20 @@ evidencia y cualquier cambio operativo entra por el mantenimiento completo.
   continúa abierta hasta medir el camino remoto HA↔worker, donde cola y upload
   todavía pueden añadir coste. Evidencia completa en
   `docs/reports/operational-rebuild-10m-lab-2026-08-26.md`.
+- [x] Terminar y validar localmente la autocura SoilGrids previa al snapshot
+  operativo. Corrige la inicialización cuando falta `manifest.json`, crea una
+  fase persistente/cancelable y degrada por microárea sin bloquear el
+  reentreno. El proceso completo reparó 4/4 pendientes en 14,539 s, sin red ni
+  avisos, y dejó 63/63 microáreas completas antes del snapshot. Pasan 1.056
+  pruebas; ver `docs/mushrooms/mushroom-soilgrids-autocure-spec-es.md`.
+- [x] Medir el proceso local completo con la imagen reconstruida y los 396
+  registros elegibles. Terminó en 548,095 s frente a la línea base fresca de
+  706,503 s (−158,408 s; −22,4 %), con 714/714 fits, cero fallos y generación
+  completa activa. La caché registró 204 matrices, 510 reutilizaciones y
+  72.139.352 bytes. SoilGrids reparó 4/4 pendientes en 14,539 s y dejó 63/63
+  completas. La instalación/promoción atómica terminó en 3,270 s. Evidencia:
+  `diagnostics/operational-performance/6uCH9V-0EoMEf0SC.json` y batch
+  `local_operational_20260827T225123Z`.
 - [ ] Evitar reconstrucción redundante del snapshot del coordinador entre
   jobs encadenados de "Reconstruir y reentrenar operativo": el paso 1→2
   (`create_mushroom_ml_train_job`, `web_server.py:12937-13009`) ya es barato

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.269
+
+- Align Home Assistant and remote-worker Predictor requests so navigation from
+  a recommendation renders the completed comparison without a second run.
+- Reuse one persistent `PredictorService` in both executors and canonicalize
+  the global Recommender cache independently of residual species navigation.
+- Remove the redundant base-model ranking while preserving every observed
+  species-area comparison, scientific gate, abstention, and final result.
+- Raise the verified remote-result transport ceiling to 128 MiB so weekly and
+  multiversion Predictor results do not fail after successful computation.
+- Reconcile pending SoilGrids contexts before the operational snapshot, expose
+  it as a persistent cancellable phase, and degrade individual failures without
+  blocking unaffected species or profiles.
+- Reuse one prepared training matrix across estimators and limit RF/ET fit
+  parallelism to avoid nested oversubscription; the fresh 396-observation local
+  rebuild completes in 9 min 8 s with 714/714 successful fits.
+
 ## 0.2.268
 
 - Resolve materialized hold-out contracts through the frozen tuning catalog so

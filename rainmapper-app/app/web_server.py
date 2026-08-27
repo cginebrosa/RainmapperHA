@@ -24,6 +24,7 @@ import unicodedata
 from datetime import UTC, date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Callable
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
@@ -47,6 +48,7 @@ from rainmapper_core import mushroom_observation_features
 from rainmapper_core import mushroom_observations
 from rainmapper_core import mushroom_paths
 from rainmapper_core import mushroom_soilgrids
+from rainmapper_core import mushroom_soilgrids_reconciler
 from rainmapper_core import mushroom_rebuild_pipeline
 from rainmapper_core import mushroom_rebuild_contracts
 from rainmapper_core import runtime_diagnostics
@@ -12631,22 +12633,16 @@ def predictor_launch_script() -> str:
     </script>"""
 
 
-def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> dict[str, object]:
-    if action_is_running():
-        raise ValueError("Predictor is unavailable while a runner action is active.")
-    worker = next(
-        (
-            row for row in available_predictor_executors()
-            if row.get("worker_id") == worker_id
-        ),
-        None,
-    )
-    if worker is None:
-        raise ValueError("The selected predictor worker is not available and idle.")
+def build_predictor_request(query: dict[str, list[str]]) -> dict[str, object]:
+    """Translate one UI query into the contract shared by HA and workers."""
     trained = mushroom_predictor_ui.trained_species_ids()
     species = (query.get("species") or [trained[0] if trained else ""])[0]
+    if species not in trained:
+        species = trained[0] if trained else ""
     current_date = datetime.now(get_timezone()).date()
     view = (query.get("view") or ["recommender"])[0]
+    if view not in {"recommender", "week", "query", "history"}:
+        view = "recommender"
     raw_target_date = (query.get("date") or [current_date.isoformat()])[0]
     try:
         parsed_target_date = date.fromisoformat(raw_target_date)
@@ -12683,15 +12679,7 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
         target_date=target_date,
         issue_date=issue_date,
     )
-    if (
-        multiversion_selection
-        and mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY
-        not in set(worker.get("capabilities") or [])
-    ):
-        raise ValueError(
-            "The selected worker does not support multiversion prediction."
-        )
-    request = {
+    return {
         "schema_version": PREDICTOR_SCHEMA_VERSION,
         "kind": PREDICTOR_REQUEST_KIND,
         "view": view,
@@ -12699,11 +12687,36 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
         "area_id": (query.get("area") or [""])[0],
         "target_date": target_date.isoformat(),
         "filter_mode": (query.get("filter") or [""])[0],
-        "compare_models": (query.get("compare") or [""])[0] == "1",
+        # Keep both executors aligned with the Predictor UI: model comparison
+        # is enabled unless the caller explicitly disables it.
+        "compare_models": (query.get("compare") or [None])[0] != "0",
         "multiversion_selection": multiversion_selection,
         "issue_date": issue_date.isoformat(),
         "trained_species_ids": trained,
     }
+
+
+def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> dict[str, object]:
+    if action_is_running():
+        raise ValueError("Predictor is unavailable while a runner action is active.")
+    worker = next(
+        (
+            row for row in available_predictor_executors()
+            if row.get("worker_id") == worker_id
+        ),
+        None,
+    )
+    if worker is None:
+        raise ValueError("The selected predictor worker is not available and idle.")
+    request = build_predictor_request(query)
+    if (
+        request["multiversion_selection"]
+        and mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY
+        not in set(worker.get("capabilities") or [])
+    ):
+        raise ValueError(
+            "The selected worker does not support multiversion prediction."
+        )
     manifest, _sources = mushroom_predictor_runtime.build_manifest()
     maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
     monitor = runtime_diagnostics.OperationMonitor(
@@ -12945,6 +12958,121 @@ def start_mushroom_worker_snapshot_transport_probe(worker_id: str) -> tuple[int,
     return 202, {"ok": True, "preparing": True}
 
 
+def reconcile_mushroom_soilgrids(
+    *,
+    cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[dict[str, object]], None] | None = None,
+) -> dict[str, object]:
+    """Best-effort repair shared by local and external immutable snapshots."""
+    source_payload = mushroom_known_sites.load_payload()
+    source_identity = mushroom_soilgrids_reconciler.payload_sha256(source_payload)
+    try:
+        candidate, report = mushroom_soilgrids_reconciler.reconcile_payload(
+            source_payload,
+            mushroom_soilgrids.default_cache_root(),
+            cancel_check=cancel_check,
+            progress_callback=progress_callback,
+        )
+    except mushroom_soilgrids.SoilGridsCancelledError:
+        raise
+    except Exception as exc:
+        candidate = source_payload
+        report = {
+            "schema_version": "1.0",
+            "phase": "soilgrids_reconciliation",
+            "status": "warning",
+            "duration_ms": 0,
+            "repaired_micro_areas": 0,
+            "warnings": [
+                {
+                    "status": "reconciliation_error",
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                }
+            ],
+            "health": mushroom_soilgrids_reconciler.inspect_payload(source_payload),
+        }
+    report["known_sites_promoted"] = False
+    if int(report.get("repaired_micro_areas", 0) or 0) > 0:
+        with RUN_LOCK:
+            current_payload = mushroom_known_sites.load_payload()
+            if (
+                mushroom_soilgrids_reconciler.payload_sha256(current_payload)
+                == source_identity
+            ):
+                backup_path = mushroom_known_sites.save_payload(candidate)
+                report["known_sites_promoted"] = True
+                report["known_sites_backup_created"] = backup_path is not None
+            else:
+                report.setdefault("warnings", []).append(
+                    {
+                        "status": "concurrent_change",
+                        "error_type": "KnownSitesChanged",
+                        "error": (
+                            "Known sites changed while SoilGrids was being reconciled; "
+                            "the live file was preserved and will be retried next rebuild."
+                        ),
+                    }
+                )
+                report["health"] = mushroom_soilgrids_reconciler.inspect_payload(
+                    current_payload
+                )
+    report_path = (
+        mushroom_paths.mushroom_data_dir()
+        / "diagnostics"
+        / "soilgrids-reconciliation-latest.json"
+    )
+    write_json_atomic(report_path, report)
+    if progress_callback is not None:
+        progress_callback(report)
+    return report
+
+
+def reconcile_mushroom_soilgrids_for_rebuild(job_id: str) -> dict[str, object]:
+    """Best-effort repair before an external-worker snapshot becomes immutable."""
+    queue_path = mushroom_worker_jobs_path()
+    last_update = 0.0
+    last_processed = -1
+
+    def cancelled() -> bool:
+        return mushroom_worker_jobs.candidate_preparation_cancelled(
+            queue_path, job_id=job_id
+        )
+
+    def progress(telemetry: dict[str, object]) -> None:
+        nonlocal last_update, last_processed
+        now = time.monotonic()
+        processed = int(telemetry.get("processed_micro_areas", 0) or 0)
+        total = max(1, int(telemetry.get("total_micro_areas", 0) or 0))
+        if (
+            processed < total
+            and last_processed >= 0
+            and processed - last_processed < 5
+            and now - last_update < 2.0
+        ):
+            return
+        last_update = now
+        last_processed = processed
+        percent = 1 + min(7, int(processed / total * 7))
+        mushroom_worker_jobs.update_candidate_preparation(
+            queue_path,
+            job_id=job_id,
+            phase=mushroom_profiles_ui.ui_label("ui.worker_soilgrids_phase"),
+            message=(
+                mushroom_profiles_ui.ui_label("ui.worker_soilgrids_progress")
+                .replace("{processed}", str(processed))
+                .replace("{total}", str(total))
+            ),
+            overall_percent=percent,
+            telemetry=telemetry,
+        )
+
+    return reconcile_mushroom_soilgrids(
+        cancel_check=cancelled,
+        progress_callback=progress,
+    )
+
+
 def create_mushroom_worker_candidate_rebuild(
     worker_id: str,
     *,
@@ -12977,6 +13105,7 @@ def create_mushroom_worker_candidate_rebuild(
         }
     display_name = str(payload.get("display_name", worker_id))
     job_id = f"worker_job_{secrets.token_urlsafe(12)}"
+    preparation_created = False
     try:
         maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
         store = default_store()
@@ -13004,6 +13133,26 @@ def create_mushroom_worker_candidate_rebuild(
                 "error": "Another external worker input bundle is already being prepared.",
             }
         try:
+            with RUN_LOCK:
+                mushroom_worker_jobs.create_candidate_preparation(
+                    mushroom_worker_jobs_path(),
+                    worker_id=worker_id,
+                    worker_display_name=display_name,
+                    job_id=job_id,
+                    profile_keys=profile_keys,
+                    phase=mushroom_profiles_ui.ui_label("ui.worker_soilgrids_phase"),
+                    message=mushroom_profiles_ui.ui_label("ui.worker_soilgrids_message"),
+                )
+            preparation_created = True
+            soilgrids_report = reconcile_mushroom_soilgrids_for_rebuild(job_id)
+            mushroom_worker_jobs.update_candidate_preparation(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                phase=mushroom_profiles_ui.ui_label("ui.worker_snapshot_phase"),
+                message=mushroom_profiles_ui.ui_label("ui.worker_snapshot_message"),
+                overall_percent=9,
+                telemetry=soilgrids_report,
+            )
             input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
                 mushroom_worker_input_bundles_path(),
                 job_id=job_id,
@@ -13026,13 +13175,11 @@ def create_mushroom_worker_candidate_rebuild(
             )
             try:
                 with RUN_LOCK:
-                    job = mushroom_worker_jobs.create_candidate_rebuild(
+                    job = mushroom_worker_jobs.finalize_candidate_preparation(
                         mushroom_worker_jobs_path(),
-                        worker_id=worker_id,
-                        worker_display_name=display_name,
-                        input_bundle=input_bundle,
                         job_id=job_id,
-                        profile_keys=profile_keys,
+                        input_bundle=input_bundle,
+                        telemetry=soilgrids_report,
                     )
             except BaseException:
                 mushroom_worker_transport.discard_unqueued_bundle(
@@ -13044,8 +13191,16 @@ def create_mushroom_worker_candidate_rebuild(
             if acquired_here:
                 MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
     except mushroom_worker_jobs.DuplicateActiveWorkError as exc:
+        if preparation_created:
+            mushroom_worker_jobs.fail_candidate_preparation(
+                mushroom_worker_jobs_path(), job_id=job_id, error=str(exc)
+            )
         return 409, {"ok": False, "error": str(exc)}
     except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        if preparation_created:
+            mushroom_worker_jobs.fail_candidate_preparation(
+                mushroom_worker_jobs_path(), job_id=job_id, error=str(exc)
+            )
         return 400, {"ok": False, "error": str(exc)}
     return 201, {
         "ok": True,
@@ -15297,7 +15452,7 @@ def start_mushroom_local_full_update(
             "status": "running",
             "phase": "Preparing immutable inputs",
             "phase_index": 0,
-            "phase_count": 4,
+            "phase_count": 5,
             "phase_percent": 0,
             "overall_percent": 0,
             "message": "Queued reconstruction, ML v0 and active-generation training.",
@@ -15317,26 +15472,67 @@ def start_mushroom_local_full_update(
         }
 
     def report_progress(percent: int, phase: str, message: str) -> None:
-        phase_index = 1
-        if "ML v0" in phase:
-            phase_index = 2
-        elif "operational generation" in phase:
+        phase_index = 2
+        if "SoilGrids" in phase:
+            phase_index = 1
+        elif "ML v0" in phase:
             phase_index = 3
-        elif "Promoting" in phase or "active" in phase:
+        elif "operational generation" in phase or "shared inputs" in phase:
             phase_index = 4
+        elif "Promoting" in phase or "active" in phase:
+            phase_index = 5
         with RUN_LOCK:
             current = MUSHROOM_REBUILD_JOBS.get(job_id)
-            if current is not None and phase_index == 4:
+            if current is not None and phase_index == 5:
                 current["_promotion_started"] = True
         set_mushroom_rebuild_progress(
             job_id,
             phase=phase,
             phase_index=phase_index,
-            phase_count=4,
+            phase_count=5,
             phase_percent=100 if percent == 100 else 0,
             overall_percent=percent,
             message=message,
             reset_phase_timer=True,
+        )
+
+    def cancel_requested() -> bool:
+        with RUN_LOCK:
+            current = MUSHROOM_REBUILD_JOBS.get(job_id)
+            return bool(current and current.get("cancel_requested"))
+
+    soilgrids_last_update = 0.0
+    soilgrids_last_processed = -1
+
+    def reconcile_before_snapshot() -> dict[str, object]:
+        def soilgrids_progress(telemetry: dict[str, object]) -> None:
+            nonlocal soilgrids_last_update, soilgrids_last_processed
+            now = time.monotonic()
+            processed = int(telemetry.get("processed_micro_areas", 0) or 0)
+            total = max(1, int(telemetry.get("total_micro_areas", 0) or 0))
+            if (
+                processed < total
+                and soilgrids_last_processed >= 0
+                and processed - soilgrids_last_processed < 5
+                and now - soilgrids_last_update < 2.0
+            ):
+                return
+            soilgrids_last_update = now
+            soilgrids_last_processed = processed
+            set_mushroom_rebuild_progress(
+                job_id,
+                phase="Reconciling GIS and SoilGrids",
+                phase_index=1,
+                phase_count=5,
+                phase_percent=min(100, round(processed / total * 100)),
+                overall_percent=1,
+                message=f"{processed}/{total} microareas checked.",
+                reset_phase_timer=False,
+            )
+
+        return reconcile_mushroom_soilgrids(
+            cancel_check=cancel_requested,
+            progress_callback=soilgrids_progress,
         )
 
     def run() -> None:
@@ -15348,6 +15544,7 @@ def start_mushroom_local_full_update(
                 paths=mushroom_local_training_paths(),
                 progress=report_progress,
                 version_ids=version_ids,
+                pre_snapshot=reconcile_before_snapshot,
             )
             released = mushroom_predictor_ui.release_predictor_cache()
             mushroom_model_state.clear_all_pending(full_rebuild=True)
@@ -15358,8 +15555,8 @@ def start_mushroom_local_full_update(
                 job_id,
                 status="complete",
                 phase="Complete generation active",
-                phase_index=4,
-                phase_count=4,
+                phase_index=5,
+                phase_count=5,
                 phase_percent=100,
                 overall_percent=100,
                 message=message,
@@ -18545,6 +18742,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 mushroom_known_sites_flash(),
                 mushroom_known_sites_gis_preview(),
                 store.load("catalogs"),
+                mushroom_soilgrids_reconciler.inspect_payload(payload),
             )
         except Exception as exc:
             body = (
@@ -18799,6 +18997,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 "predictor_render_started",
                                 {"elapsed_seconds": elapsed()},
                             )
+                            if (
+                                executor
+                                == mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR
+                                and prepared_response is None
+                            ):
+                                predictor_request = build_predictor_request(query)
+                                if predictor_request["trained_species_ids"]:
+                                    prepared_response = (
+                                        mushroom_predictor_ui.execute_predictor_request(
+                                            predictor_request
+                                        )
+                                    )
                             body = mushroom_predictor_ui.render_page(
                                 query,
                                 profiles_payload

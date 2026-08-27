@@ -81,6 +81,10 @@ class SoilGridsRasterError(SoilGridsError):
     """A cached raster does not satisfy the frozen grid contract."""
 
 
+class SoilGridsCancelledError(SoilGridsError):
+    """A caller cancelled cache materialization at a safe point."""
+
+
 def default_cache_root(gis_root: Path | None = None) -> Path:
     configured = os.environ.get("RAINMAPPER_SOILGRIDS_CACHE_ROOT", "").strip()
     if configured:
@@ -1062,12 +1066,30 @@ def ensure_geometry_cache(
     *,
     fetcher: Callable[[str, Path, int], dict[str, Any]] = _default_fetcher,
     timeout: int = 120,
+    cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     polygons = transform_geometry(geometry)
     tiles = tile_ids_for_geometry(polygons)
-    results = {"downloaded": 0, "reused": 0}
-    for coverage in required_coverage_ids():
+    coverages = required_coverage_ids()
+    results = {
+        "downloaded": 0,
+        "reused": 0,
+        "requests": 0,
+        "downloaded_bytes": 0,
+        "files_promoted": 0,
+        "asset_hashes_checked": 0,
+        "manifest_writes": 0,
+        "fsyncs": 0,
+    }
+    total = len(coverages) * len(tiles)
+    completed = 0
+    for coverage in coverages:
         for value in tiles:
+            if cancel_check is not None and cancel_check():
+                raise SoilGridsCancelledError(
+                    "SoilGrids cache materialization was cancelled."
+                )
             outcome = ensure_tile(
                 cache_root,
                 coverage,
@@ -1075,9 +1097,35 @@ def ensure_geometry_cache(
                 fetcher=fetcher,
                 timeout=timeout,
             )
-            results[outcome["status"]] += 1
+            status = str(outcome["status"])
+            results[status] += 1
+            results["asset_hashes_checked"] += 2
+            if status == "downloaded":
+                tile = outcome.get("tile") if isinstance(outcome, dict) else None
+                download = tile.get("download") if isinstance(tile, dict) else None
+                results["requests"] += 1
+                results["downloaded_bytes"] += int(
+                    download.get("size_bytes", 0)
+                    if isinstance(download, dict)
+                    else 0
+                )
+                results["files_promoted"] += 2
+                results["manifest_writes"] += 1
+                # The raw download and the atomic manifest writer both fsync.
+                results["fsyncs"] += 2
+            completed += 1
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "coverage_id": coverage,
+                        "tile_id": value,
+                        "completed": completed,
+                        "total": total,
+                        **results,
+                    }
+                )
     return {
-        "coverage_count": len(required_coverage_ids()),
+        "coverage_count": len(coverages),
         "tile_ids": tiles,
         **results,
     }
@@ -1103,14 +1151,35 @@ def resolve_geometry_context(
     geometry: object,
     *,
     ensure_missing: bool,
+    cancel_check: Callable[[], bool] | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    telemetry: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve a static context, optionally extending the cache first."""
     try:
-        context = aggregate_geometry(cache_root, geometry)
+        try:
+            context = aggregate_geometry(cache_root, geometry)
+        except SoilGridsManifestError:
+            if not ensure_missing:
+                raise
+            context = pending_context(
+                geometry,
+                tile_ids=tile_ids_for_geometry(transform_geometry(geometry)),
+                reasons=["soilgrids_cache_missing"],
+            )
         if context.get("status") == "pending" and ensure_missing:
-            ensure_geometry_cache(cache_root, geometry)
+            cache_result = ensure_geometry_cache(
+                cache_root,
+                geometry,
+                cancel_check=cancel_check,
+                progress_callback=progress_callback,
+            )
+            if telemetry is not None:
+                telemetry.update(cache_result)
             context = aggregate_geometry(cache_root, geometry)
         return context
+    except SoilGridsCancelledError:
+        raise
     except Exception as exc:
         try:
             polygons = transform_geometry(geometry)

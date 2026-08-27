@@ -6,6 +6,7 @@ import joblib
 
 from rainmapper_core.mushroom_ml_experiment_trainer import (
     _estimator_unavailable_reason,
+    _pipeline,
     train_benchmark,
 )
 from rainmapper_core.mushroom_ml_experiments import FIXED_GAP_7D_V1
@@ -31,6 +32,14 @@ class ExperimentTrainerTests(unittest.TestCase):
                 "rbf_svm_calibrated_v1", np.asarray([1, 1, 0, 0])
             )
         )
+
+    def test_small_tree_estimators_do_not_create_nested_parallel_pools(self) -> None:
+        for estimator_id in (
+            "random_forest_restricted_v1",
+            "extra_trees_restricted_v1",
+        ):
+            pipeline = _pipeline(estimator_id)
+            self.assertEqual(pipeline.named_steps["classifier"].n_jobs, 1)
 
     def test_training_excludes_explicitly_ineligible_samples(self) -> None:
         samples = []

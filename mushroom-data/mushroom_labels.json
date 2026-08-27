@@ -4841,5 +4841,45 @@
     "en": "The saved training identity could not be verified. Run the full reconstruction and retraining before relying on these predictions.",
     "es": "No se ha podido verificar la identidad de entrenamiento guardada. Ejecuta la reconstrucción y el reentrenamiento completos antes de confiar en estas predicciones.",
     "ca": "No s'ha pogut verificar la identitat d'entrenament desada. Executa la reconstrucció i el reentrenament complets abans de confiar en aquestes prediccions."
+  },
+  "ui.soilgrids_warning_title": {
+    "en": "Some micro-areas have no complete SoilGrids context",
+    "es": "Algunas microáreas no tienen un contexto SoilGrids completo",
+    "ca": "Algunes microàrees no tenen un context SoilGrids complet"
+  },
+  "ui.soilgrids_warning_help": {
+    "en": "{count} micro-areas will be omitted only from model profiles that require SoilGrids. Other profiles and areas remain operational. A full reconstruction retries them automatically.",
+    "es": "{count} microáreas se omitirán únicamente de los perfiles de modelo que requieren SoilGrids. Las demás áreas y perfiles siguen operativos. Una reconstrucción completa vuelve a intentarlo automáticamente.",
+    "ca": "{count} microàrees s'ometran únicament dels perfils de model que requereixen SoilGrids. La resta d'àrees i perfils continuen operatius. Una reconstrucció completa ho torna a intentar automàticament."
+  },
+  "ui.soilgrids_pending": {
+    "en": "SoilGrids pending",
+    "es": "SoilGrids pendiente",
+    "ca": "SoilGrids pendent"
+  },
+  "ui.worker_soilgrids_phase": {
+    "en": "Reconciling GIS and SoilGrids",
+    "es": "Reconciliando GIS y SoilGrids",
+    "ca": "Reconciliant GIS i SoilGrids"
+  },
+  "ui.worker_soilgrids_message": {
+    "en": "Checking static GIS context before freezing the input snapshot.",
+    "es": "Comprobando el contexto GIS estático antes de congelar el snapshot de entrada.",
+    "ca": "Comprovant el context GIS estàtic abans de congelar l'snapshot d'entrada."
+  },
+  "ui.worker_soilgrids_progress": {
+    "en": "{processed}/{total} micro-areas checked before snapshot.",
+    "es": "{processed}/{total} microáreas comprobadas antes del snapshot.",
+    "ca": "{processed}/{total} microàrees comprovades abans de l'snapshot."
+  },
+  "ui.worker_snapshot_phase": {
+    "en": "Freezing immutable input snapshot",
+    "es": "Congelando el snapshot inmutable de entrada",
+    "ca": "Congelant l'snapshot immutable d'entrada"
+  },
+  "ui.worker_snapshot_message": {
+    "en": "SoilGrids reconciliation finished; preparing worker inputs.",
+    "es": "La reconciliación SoilGrids ha terminado; preparando las entradas del worker.",
+    "ca": "La reconciliació SoilGrids ha acabat; preparant les entrades del worker."
   }
 }

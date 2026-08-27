@@ -31,7 +31,7 @@ ML_JOB_PURPOSES = frozenset({"operational", "benchmark"})
 MAX_JOBS = 50
 DEFAULT_LEASE_SECONDS = 10
 TERMINAL_STATUSES = {"complete", "cancelled", "failed"}
-ACTIVE_STATUSES = {"queued", "claimed", "running", "cancel_requested"}
+ACTIVE_STATUSES = {"preparing", "queued", "claimed", "running", "cancel_requested"}
 WORK_KEY_CLAIM_PROBE = "worker_claim_probe:v0"
 PREDICTOR_RESULT_MAX_BYTES = 64 * 1024 * 1024
 PREDICTOR_RESULTS_DIRNAME = ".worker-predictor-results"
@@ -543,6 +543,202 @@ def create_candidate_rebuild(
     }
     queue["jobs"].append(job)
     queue["jobs"] = queue["jobs"][-MAX_JOBS:]
+    _write_atomic(path, queue)
+    return dict(job)
+
+
+def create_candidate_preparation(
+    path: Path,
+    *,
+    worker_id: str,
+    worker_display_name: str,
+    job_id: str,
+    profile_keys: list[str] | tuple[str, ...] | None = None,
+    created_at: str | None = None,
+    phase: str = "Reconciling GIS and SoilGrids",
+    message: str = "Checking static GIS context before freezing the input snapshot.",
+) -> dict[str, Any]:
+    """Persist coordinator preparation before an immutable bundle exists."""
+    target_worker_id = _validate_worker_id(worker_id)
+    display_name = str(worker_display_name or "").strip()[:80]
+    if not display_name:
+        raise ValueError("Worker display name is required.")
+    if not JOB_ID_PATTERN.fullmatch(str(job_id or "")):
+        raise ValueError("Worker job ID is invalid.")
+    selected_profiles = [str(value or "").strip() for value in (profile_keys or [])]
+    if any(not value for value in selected_profiles) or len(selected_profiles) != len(
+        set(selected_profiles)
+    ):
+        raise ValueError("Operational profile selection is invalid.")
+    queue = load_queue(path)
+    duplicate = next(
+        (
+            row
+            for row in queue["jobs"]
+            if row.get("status") in ACTIVE_STATUSES
+            and row.get("job_type") == JOB_TYPE_CANDIDATE_REBUILD
+            and row.get("reconstruction_scope") == "all"
+        ),
+        None,
+    )
+    if duplicate is not None:
+        raise DuplicateActiveWorkError(
+            f"An operational rebuild is already active: {duplicate.get('job_id', '')}."
+        )
+    timestamp = created_at or utc_now()
+    job = {
+        "job_id": job_id,
+        "job_type": JOB_TYPE_CANDIDATE_REBUILD,
+        "work_key": "rebuild:v0:preparing:all",
+        "target_worker_id": target_worker_id,
+        "target_display_name": display_name,
+        "status": "preparing",
+        "phase": str(phase or "")[:160],
+        "message": str(message or "")[:500],
+        "scope": "all eligible",
+        "reconstruction_scope": "all",
+        "scope_species_ids": [],
+        "profile_keys": selected_profiles,
+        "overall_percent": 1,
+        "created_at": timestamp,
+        "claimed_at": "",
+        "started_at": timestamp,
+        "finished_at": "",
+        "cancel_requested_at": "",
+        "cancel_mode": "",
+        "reassigned_at": "",
+        "lease_expires_at": "",
+        "claim_token": "",
+        "assignment_revision": 1,
+        "promotion_eligible": True,
+        "full_update": True,
+        "promotion_status": "",
+        "promotion_percent": 0,
+        "promotion_error": "",
+        "promotion_result": {},
+        "discard_status": "",
+        "discard_requested_at": "",
+        "preparation_telemetry": {},
+        "input_bundle": {},
+    }
+    queue["jobs"].append(job)
+    queue["jobs"] = queue["jobs"][-MAX_JOBS:]
+    _write_atomic(path, queue)
+    return dict(job)
+
+
+def update_candidate_preparation(
+    path: Path,
+    *,
+    job_id: str,
+    phase: str,
+    message: str,
+    overall_percent: int,
+    telemetry: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    if job.get("status") != "preparing":
+        return dict(job)
+    job.update(
+        {
+            "phase": str(phase or "")[:160],
+            "message": str(message or "")[:500],
+            "overall_percent": max(1, min(9, int(overall_percent))),
+            "preparation_telemetry": dict(telemetry or {}),
+        }
+    )
+    _write_atomic(path, queue)
+    return dict(job)
+
+
+def candidate_preparation_cancelled(path: Path, *, job_id: str) -> bool:
+    job = get_job(path, job_id=job_id)
+    return bool(job and job.get("status") == "cancelled")
+
+
+def finalize_candidate_preparation(
+    path: Path,
+    *,
+    job_id: str,
+    input_bundle: dict[str, Any],
+    telemetry: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if not isinstance(input_bundle, dict) or input_bundle.get("job_id") != job_id:
+        raise ValueError("Worker input bundle contract is invalid.")
+    snapshot_id = str(input_bundle.get("snapshot_id", "") or "")
+    job_spec_id = str(input_bundle.get("job_spec_id", "") or "")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot_id):
+        raise ValueError("Worker input snapshot ID is invalid.")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", job_spec_id):
+        raise ValueError("Worker job spec ID is invalid.")
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    if job.get("status") == "cancelled":
+        raise ValueError("Worker job was cancelled during coordinator preparation.")
+    if job.get("status") != "preparing":
+        raise ValueError("Worker job is not awaiting coordinator preparation.")
+    work_key = f"rebuild:v0:{snapshot_id}:all"
+    duplicate = next(
+        (
+            row
+            for row in queue["jobs"]
+            if row is not job
+            and row.get("status") in ACTIVE_STATUSES
+            and row.get("job_type") == JOB_TYPE_CANDIDATE_REBUILD
+            and str(row.get("input_bundle", {}).get("snapshot_id", "")) == snapshot_id
+            and row.get("work_key") == work_key
+        ),
+        None,
+    )
+    if duplicate is not None:
+        raise DuplicateActiveWorkError(
+            f"Equivalent worker job is already active: {duplicate.get('job_id', '')}."
+        )
+    job.update(
+        {
+            "work_key": work_key,
+            "status": "queued",
+            "phase": "Waiting for worker",
+            "message": "Complete operational rebuild queued for automatic promotion.",
+            "overall_percent": 0,
+            "started_at": "",
+            "preparation_telemetry": dict(telemetry or {}),
+            "input_bundle": {
+                **input_bundle,
+                "endpoint": "/api/mushrooms/workers/jobs/input",
+                "dataset_endpoint": "/api/mushrooms/workers/jobs/dataset",
+            },
+            "result_endpoint": "/api/mushrooms/workers/jobs/result-file",
+            "result_complete_endpoint": "/api/mushrooms/workers/jobs/result-complete",
+        }
+    )
+    _write_atomic(path, queue)
+    return dict(job)
+
+
+def fail_candidate_preparation(
+    path: Path,
+    *,
+    job_id: str,
+    error: str,
+    finished_at: str | None = None,
+) -> dict[str, Any]:
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    if job.get("status") == "cancelled":
+        return dict(job)
+    if job.get("status") != "preparing":
+        raise ValueError("Worker job is not awaiting coordinator preparation.")
+    job.update(
+        {
+            "status": "failed",
+            "phase": "Coordinator preparation failed",
+            "message": str(error or "Coordinator preparation failed.")[:500],
+            "error": str(error or "")[:2000],
+            "finished_at": finished_at or utc_now(),
+        }
+    )
     _write_atomic(path, queue)
     return dict(job)
 
@@ -1675,12 +1871,22 @@ def request_cancel(
     if status in TERMINAL_STATUSES:
         raise ValueError("Worker job has already finished.")
     timestamp = requested_at or utc_now()
-    if status in {"queued", "claimed"} and not job.get("started_at"):
+    if status == "preparing" or (
+        status in {"queued", "claimed"} and not job.get("started_at")
+    ):
         job.update(
             {
                 "status": "cancelled",
-                "phase": "Cancelled before start",
-                "message": "The job was cancelled before worker processing started.",
+                "phase": (
+                    "Cancelled during coordinator preparation"
+                    if status == "preparing"
+                    else "Cancelled before start"
+                ),
+                "message": (
+                    "Coordinator preparation stopped before freezing the input snapshot."
+                    if status == "preparing"
+                    else "The job was cancelled before worker processing started."
+                ),
                 "finished_at": timestamp,
                 "cancel_requested_at": timestamp,
                 "cancel_mode": "force" if force else "cooperative",

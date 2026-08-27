@@ -39,6 +39,7 @@ ProgressCallback = Callable[[int, str, str], None]
 ProgressEventMapper = Callable[[dict[str, object]], tuple[int, str, str]]
 TelemetryEventMapper = Callable[[dict[str, object]], str | None]
 CancelCallback = Callable[[], bool]
+PreSnapshotCallback = Callable[[], dict[str, object]]
 
 
 class LocalBenchmarkCancelled(RuntimeError):
@@ -608,6 +609,7 @@ def run_local_full_update(
     progress: ProgressCallback,
     version_ids: list[str] | tuple[str, ...] | None = None,
     telemetry_path: Path | None = None,
+    pre_snapshot: PreSnapshotCallback | None = None,
 ) -> dict[str, object]:
     """Run reconstruction, ML v0 and selected installed ML versions locally."""
     if not selected_observation_ids:
@@ -654,7 +656,25 @@ def run_local_full_update(
     revisions_path = paths.ml_models_dir / "current-input-revisions.json"
     previous_revisions = _read_bytes(revisions_path) if revisions_path.is_file() else None
     rebuild_promoted = False
+    pre_snapshot_report: dict[str, object] = {}
     try:
+        if pre_snapshot is not None:
+            mushroom_performance_telemetry.phase("soilgrids_reconciliation")
+            progress(
+                1,
+                "Reconciling GIS and SoilGrids",
+                "Repairing missing terrain context before freezing model inputs.",
+            )
+            pre_snapshot_report = pre_snapshot()
+            mushroom_performance_telemetry.add(
+                bytes_written=int(pre_snapshot_report.get("downloaded_bytes", 0) or 0),
+                files_read=int(pre_snapshot_report.get("files_read", 0) or 0),
+                files_written=int(pre_snapshot_report.get("files_promoted", 0) or 0),
+                requests=int(pre_snapshot_report.get("requests", 0) or 0),
+                hashes=int(pre_snapshot_report.get("asset_hashes_checked", 0) or 0),
+                hash_bytes=int(pre_snapshot_report.get("hash_bytes", 0) or 0),
+                fsyncs=int(pre_snapshot_report.get("fsyncs", 0) or 0),
+            )
         mushroom_performance_telemetry.phase("reconstruction_snapshot")
         progress(2, "Preparing immutable inputs", "Creating the local reconstruction snapshot.")
         rebuild_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
@@ -999,6 +1019,7 @@ def run_local_full_update(
             "version_ids": version_ids,
             "preferred_version_id": installed_registry.get("preferred_version_id"),
             "operational_candidate_trained": True,
+            "soilgrids_reconciliation": pre_snapshot_report,
         }
         result_payload["performance_telemetry"] = telemetry.finish("complete")
         result_payload["performance_telemetry_path"] = str(resolved_telemetry_path)

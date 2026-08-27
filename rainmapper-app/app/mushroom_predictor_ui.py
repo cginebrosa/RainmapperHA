@@ -13,6 +13,8 @@ from typing import Any, Callable
 from urllib.parse import urlencode
 
 from rainmapper_core import mushroom_paths
+from rainmapper_core import mushroom_predictor_runtime
+from rainmapper_core import mushroom_soilgrids_reconciler
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_ml_multiversion_comparison
@@ -22,7 +24,11 @@ from rainmapper_core.mushroom_ml_predictor import (
     invalidate_weather_stations_cache,
 )
 from rainmapper_core.mushroom_observation_context import WeatherParquetLayoutError
-from rainmapper_core.mushroom_predictor_service import PreparedPredictor, validate_response
+from rainmapper_core.mushroom_predictor_service import (
+    PredictorService,
+    PreparedPredictor,
+    validate_response,
+)
 from rainmapper_core.mushroom_prediction_interpretation import (
     FAVORABLE_THRESHOLD,
     UNFAVORABLE_THRESHOLD,
@@ -34,6 +40,7 @@ import mushroom_profiles_ui
 # Module-level predictor cache — lazy-loaded, survives across requests
 _predictor_cache: dict[str, MushroomMLPredictor] = {}
 _predictor_cache_lock = RLock()
+_predictor_service: PredictorService | None = None
 _prepared_response: ContextVar[dict[str, Any] | None] = ContextVar(
     "mushroom_predictor_prepared_response", default=None
 )
@@ -201,9 +208,13 @@ def _get_predictor(species_id: str) -> MushroomMLPredictor:
 
 def release_predictor_cache() -> int:
     """Release Predictor instances and shared weather data before a runner action."""
+    global _predictor_service  # noqa: PLW0603
     with _predictor_cache_lock:
         released_instances = len(_predictor_cache)
         _predictor_cache.clear()
+        if _predictor_service is not None:
+            released_instances += 1
+            _predictor_service = None
         invalidate_weather_stations_cache()
     gc.collect()
     return released_instances
@@ -212,14 +223,37 @@ def release_predictor_cache() -> int:
 def predictor_cache_info(species_id: str = "") -> dict[str, int | bool]:
     """Return non-sensitive cache state for request diagnostics."""
     with _predictor_cache_lock:
-        instance_count = len(_predictor_cache)
+        service_loaded = _predictor_service is not None
+        instance_count = len(_predictor_cache) + int(service_loaded)
         cold_request = (
-            species_id not in _predictor_cache if species_id else instance_count == 0
+            not service_loaded and species_id not in _predictor_cache
+            if species_id
+            else instance_count == 0
         )
     return {
         "predictor_instance_count": instance_count,
         "cold_request": cold_request,
     }
+
+
+def execute_predictor_request(request: object) -> dict[str, Any]:
+    """Execute one HA request through the same service used by workers."""
+    global _predictor_service  # noqa: PLW0603
+    with _predictor_cache_lock:
+        if _predictor_service is None:
+            manifest, _sources = mushroom_predictor_runtime.build_manifest()
+            _predictor_service = PredictorService(
+                models_dir=mushroom_paths.mushroom_ml_models_dir(),
+                weather_data_dir=mushroom_paths.weather_data_dir(),
+                features_artifact_path=mushroom_paths.mushroom_observation_features_json_path(),
+                known_sites_path=mushroom_paths.mushroom_known_sites_path(),
+                profiles_path=mushroom_paths.mushroom_profiles_path(),
+                version_registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+                stations_file_path=Path("/app/stations.txt"),
+                runtime_fingerprint=str(manifest["fingerprint"]),
+            )
+        service = _predictor_service
+    return service.execute(request)
 
 
 def _rel_badge(ep_n: int, acc: float | None = None) -> str:
@@ -3294,6 +3328,20 @@ def _render_training_freshness_warning() -> str:
     )
 
 
+def _render_soilgrids_warning(known_sites_payload: dict[str, Any]) -> str:
+    health = mushroom_soilgrids_reconciler.inspect_payload(known_sites_payload)
+    unresolved = health.get("unresolved")
+    count = len(unresolved) if isinstance(unresolved, list) else 0
+    if not count:
+        return ""
+    return (
+        '<div class="pred-training-warning">'
+        f'<strong>{html.escape(_lbl("ui.soilgrids_warning_title"))}</strong>'
+        f'<span>{html.escape(_lbl("ui.soilgrids_warning_help").replace("{count}", str(count)))}</span>'
+        "</div>"
+    )
+
+
 def _render_page_inner(
     query: dict[str, list[str]],
     profiles_payload: dict[str, Any],
@@ -3366,6 +3414,7 @@ def _render_page_inner(
         else ""
     )
     freshness_warning = _render_training_freshness_warning()
+    soilgrids_warning = _render_soilgrids_warning(known_sites_payload)
     return f"""
 <style>
 {_CSS}
@@ -3377,6 +3426,7 @@ def _render_page_inner(
   </div>
   <h1>🍄 {html.escape(_lbl("ui.predictor_title"))}</h1>
   {freshness_warning}
+  {soilgrids_warning}
   {preferred_badge}
   {tabs}
   {content}

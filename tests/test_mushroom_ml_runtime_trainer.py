@@ -15,6 +15,19 @@ REGISTRY_PATH = Path(__file__).resolve().parents[1] / "mushroom-data/mushroom_ml
 
 
 class MushroomMLRuntimeTrainerTests(TestCase):
+    def test_tree_runtime_artifact_restores_all_core_inference(self) -> None:
+        X = np.asarray([[float(index)] for index in range(20)], dtype=float)
+        y = np.asarray([index % 2 for index in range(20)], dtype=int)
+
+        fitted = trainer._fit_current(
+            "random_forest_restricted_v1", X, y
+        )
+
+        self.assertEqual(
+            fitted["model"].named_steps["classifier"].n_jobs,
+            -1,
+        )
+
     def test_frozen_v5_config_skips_inner_selection(self) -> None:
         X = np.asarray(
             [[float(index), float(index % 3)] for index in range(20)], dtype=float
@@ -226,6 +239,9 @@ class MushroomMLRuntimeTrainerTests(TestCase):
             self.assertFalse(stored["active"])
             self.assertFalse((models_root / "runtime-batch.json").exists())
             self.assertEqual(manifest["batch_id"], "batch-test")
+            self.assertEqual(stored["matrix_cache"]["entries"], 1)
+            self.assertEqual(stored["matrix_cache"]["hits"], 0)
+            self.assertGreater(stored["matrix_cache"]["bytes"], 0)
             self.assertEqual(progress_events[-1]["completed_fit_count"], 1)
             self.assertEqual(progress_events[-1]["planned_fit_count"], 1)
             self.assertEqual(stored["fit_results"][0]["status"], "complete")
@@ -240,6 +256,66 @@ class MushroomMLRuntimeTrainerTests(TestCase):
                     {key: benchmark},
                     models_root=models_root,
                 )
+
+    def test_batch_reuses_one_matrix_across_estimators_of_the_same_scope(self) -> None:
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        base = {
+            "batch_id": "batch-matrix-cache",
+            "generation_id": "generation-v3",
+            "version_id": "biology_v3",
+            "temporal_contract_id": "fixed_gap_7d_biology_v3",
+            "profile_id": "core",
+            "species_id": "boletus_edulis",
+        }
+        refs = [
+            catalog.ModelArtifactRef(
+                **base, estimator_id="logistic_regression_reduced_v1"
+            ),
+            catalog.ModelArtifactRef(**base, estimator_id="knn_distance_v1"),
+        ]
+        training_plan = {
+            "batch_id": "batch-matrix-cache",
+            "snapshot_id": "sha256:" + "d" * 64,
+            "fits": [
+                {"artifact_ref": ref.as_dict(), "supported_horizons": [7]}
+                for ref in refs
+            ],
+        }
+        benchmark = {
+            "feature_set": {"predictive_feature_cols": ["test_feature"]},
+            "samples": [
+                {
+                    "sample_id": f"sample-{index}",
+                    "prediction_target": (
+                        "favorable" if index % 2 else "unfavorable"
+                    ),
+                    "predictive_features": {"test_feature": float(index)},
+                    "quality": {"training_eligible": True},
+                    "metadata": {"species_id": "boletus_edulis"},
+                }
+                for index in range(20)
+            ],
+        }
+        key = trainer.benchmark_key(
+            "biology_v3", "fixed_gap_7d_biology_v3", "core"
+        )
+
+        with TemporaryDirectory() as temporary, mock.patch.object(
+            trainer.mushroom_ml_holdout,
+            "matrix",
+            wraps=trainer.mushroom_ml_holdout.matrix,
+        ) as matrix:
+            _destination, manifest = trainer.write_batch(
+                registry,
+                training_plan,
+                {key: benchmark},
+                models_root=Path(temporary),
+            )
+
+        self.assertEqual(manifest["successful_fit_count"], 2)
+        self.assertEqual(manifest["matrix_cache"]["entries"], 1)
+        self.assertEqual(manifest["matrix_cache"]["hits"], 1)
+        matrix.assert_called_once()
 
     def test_untrainable_members_are_reported_without_discarding_batch(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)

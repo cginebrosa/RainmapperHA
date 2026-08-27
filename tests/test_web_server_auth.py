@@ -114,6 +114,42 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("does not match", unknown)
         self.assertIn("does not match", stale)
 
+    def test_soilgrids_warning_is_visible_without_disabling_other_profiles(self) -> None:
+        known_sites = {
+            "areas": [{"area_id": "a", "name": "Area"}],
+            "micro_areas": [
+                {
+                    "micro_area_id": "a_pending",
+                    "area_id": "a",
+                    "name": "Pending site",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[[1.0, 42.0], [1.1, 42.0], [1.0, 42.1], [1.0, 42.0]]]
+                        ],
+                    },
+                }
+            ],
+        }
+
+        predictor_warning = self.web_server.mushroom_predictor_ui._render_soilgrids_warning(
+            known_sites
+        )
+        health = self.web_server.mushroom_soilgrids_reconciler.inspect_payload(
+            known_sites
+        )
+        known_sites_page = self.web_server.mushroom_known_sites_ui.render_page(
+            known_sites,
+            {"observations": []},
+            {},
+            catalogs_payload={"catalogs": {}},
+            soilgrids_health=health,
+        )
+
+        self.assertIn("no complete SoilGrids context", predictor_warning)
+        self.assertIn("Other profiles and areas remain operational", predictor_warning)
+        self.assertIn("SoilGrids pending", known_sites_page)
+
     def test_all_stops_before_maps_when_update_artifacts_fail(self) -> None:
         class FailedUpdateProcess:
             stdout = iter(())
@@ -889,6 +925,68 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(query["mvv"], ["biology_v4"])
         request = create_job.call_args.kwargs["request"]
         self.assertEqual(request["multiversion_selection"], [selection])
+        self.assertTrue(request["compare_models"])
+
+    def test_remote_query_honors_explicit_model_comparison_disable(self) -> None:
+        worker = {
+            "worker_id": "worker_test",
+            "display_name": "Test worker",
+            "worker_version": "1.0.17",
+            "capabilities": [],
+        }
+        monitor = mock.MagicMock(operation_id="predictor-query-no-comparison")
+        query = {
+            "view": ["query"],
+            "species": ["boletus_edulis"],
+            "area": ["salteguet"],
+            "date": ["2026-08-26"],
+            "compare": ["0"],
+        }
+        with (
+            mock.patch.object(self.web_server, "action_is_running", return_value=False),
+            mock.patch.object(
+                self.web_server, "available_predictor_executors", return_value=[worker]
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "trained_species_ids",
+                return_value=["boletus_edulis"],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "resolved_query_versions",
+                return_value=[],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_ml_multiversion_comparison,
+                "operational_selections",
+                return_value=[],
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "build_manifest",
+                return_value=({"fingerprint": "sha256:test"}, {}),
+            ),
+            mock.patch.object(
+                self.web_server,
+                "reconcile_mushroom_worker_storage_for_launch",
+                return_value={},
+            ),
+            mock.patch.object(
+                self.web_server.runtime_diagnostics,
+                "OperationMonitor",
+                return_value=monitor,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "create_predictor_job",
+                return_value={"job_id": "worker_job_query_no_comparison"},
+            ) as create_job,
+        ):
+            self.web_server.create_remote_predictor_job("worker_test", query)
+
+        request = create_job.call_args.kwargs["request"]
+        self.assertFalse(request["compare_models"])
 
     def test_predictor_modal_controller_handles_internal_navigation(self) -> None:
         script = self.web_server.predictor_launch_script()
@@ -967,6 +1065,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         store = mock.MagicMock()
         store.load.return_value = {"species_profiles": []}
+        predictor_request = {
+            "kind": "shared-request",
+            "trained_species_ids": ["boletus_edulis"],
+        }
+        prepared_response = {
+            "metrics": {
+                "backend_seconds": 0.25,
+                "response_cache_status": "miss",
+            }
+        }
 
         with tempfile.TemporaryDirectory() as temporary_dir:
             metrics_path = Path(temporary_dir) / "runtime_metrics.jsonl"
@@ -993,7 +1101,17 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     self.web_server.mushroom_predictor_ui,
                     "render_page",
                     return_value="<div>predictor</div>",
-                ),
+                ) as render_page,
+                mock.patch.object(
+                    self.web_server,
+                    "build_predictor_request",
+                    return_value=predictor_request,
+                ) as build_request,
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_ui,
+                    "execute_predictor_request",
+                    return_value=prepared_response,
+                ) as execute_request,
                 mock.patch.object(
                     self.web_server.mushroom_predictor_stats, "record"
                 ) as record_timing,
@@ -1029,6 +1147,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertEqual(summaries[-1]["operation"], "predictor_request")
         self.assertTrue(summaries[-1]["details"]["cold_request"])
+        build_request.assert_called_once_with({"executor": ["home_assistant"]})
+        execute_request.assert_called_once_with(predictor_request)
+        self.assertIs(
+            render_page.call_args.kwargs["prepared_response"], prepared_response
+        )
         timing = record_timing.call_args.kwargs
         self.assertEqual(timing["executor_id"], "home_assistant")
         self.assertTrue(timing["cold"])
@@ -1205,6 +1328,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
     def test_predictor_cache_release_clears_instances_and_weather_data(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
+        predictor_ui._predictor_service = mock.MagicMock()
         predictor_ui._predictor_cache["species-a"] = mock.MagicMock()
         predictor_ui._predictor_cache["species-b"] = mock.MagicMock()
 
@@ -1217,10 +1341,48 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ):
             released = predictor_ui.release_predictor_cache()
 
-        self.assertEqual(released, 2)
+        self.assertEqual(released, 3)
         self.assertEqual(predictor_ui._predictor_cache, {})
+        self.assertIsNone(predictor_ui._predictor_service)
         invalidate_weather.assert_called_once_with()
         collect.assert_called_once_with()
+
+    def test_ha_predictor_service_is_persistent_and_uses_live_runtime(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        predictor_ui._predictor_service = None
+        self.addCleanup(setattr, predictor_ui, "_predictor_service", None)
+        service = mock.MagicMock()
+        service.execute.side_effect = [{"request": 1}, {"request": 2}]
+
+        with (
+            mock.patch.object(
+                predictor_ui.mushroom_predictor_runtime,
+                "build_manifest",
+                return_value=({"fingerprint": "sha256:live"}, {}),
+            ) as build_manifest,
+            mock.patch.object(
+                predictor_ui,
+                "PredictorService",
+                return_value=service,
+            ) as service_class,
+        ):
+            first = predictor_ui.execute_predictor_request({"species_id": "amanita"})
+            second = predictor_ui.execute_predictor_request({"species_id": "boletus"})
+
+        self.assertEqual(first, {"request": 1})
+        self.assertEqual(second, {"request": 2})
+        build_manifest.assert_called_once_with()
+        service_class.assert_called_once()
+        self.assertEqual(
+            service_class.call_args.kwargs["runtime_fingerprint"], "sha256:live"
+        )
+        self.assertEqual(
+            service.execute.call_args_list,
+            [
+                mock.call({"species_id": "amanita"}),
+                mock.call({"species_id": "boletus"}),
+            ],
+        )
 
     def test_predictor_model_diagnostics_show_weather_contract_features(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
@@ -6821,6 +6983,74 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(work_root, share_root / ".local-full-update")
         self.assertNotEqual(work_root.parent, share_root / "mushroom-data")
 
+    def test_local_full_update_reconciles_soilgrids_before_core_snapshot(self) -> None:
+        store = mock.Mock()
+        store.load.return_value = {"observations": []}
+        reconciliation = {
+            "total_micro_areas": 2,
+            "processed_micro_areas": 2,
+            "repaired_micro_areas": 1,
+            "warnings": [],
+        }
+
+        class ImmediateThread:
+            def __init__(self, *, target, **_kwargs):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        def run_local(**kwargs):
+            report = kwargs["pre_snapshot"]()
+            self.assertEqual(report, reconciliation)
+            return {"soilgrids_reconciliation": report}
+
+        with mock.patch.object(
+            self.web_server, "mushroom_local_ha_compute_enabled", return_value=True
+        ), mock.patch.object(
+            self.web_server, "mushroom_workers_recent_jobs", return_value=[]
+        ), mock.patch.object(
+            self.web_server, "mushroom_worker_activity_active", return_value=False
+        ), mock.patch.object(
+            self.web_server, "default_store", return_value=store
+        ), mock.patch.object(
+            self.web_server, "observation_dicts_from_payload", return_value=[]
+        ), mock.patch.object(
+            self.web_server, "eligible_model_species_ids", return_value=["species_a"]
+        ), mock.patch.object(
+            self.web_server,
+            "eligible_observation_ids_for_species",
+            return_value=["obs_a"],
+        ), mock.patch.object(
+            self.web_server.secrets, "token_urlsafe", return_value="operation123"
+        ), mock.patch.object(
+            self.web_server.threading, "Thread", ImmediateThread
+        ), mock.patch.object(
+            self.web_server, "reconcile_mushroom_soilgrids", return_value=reconciliation
+        ) as reconcile, mock.patch.object(
+            self.web_server.mushroom_local_full_update,
+            "run_local_full_update",
+            side_effect=run_local,
+        ) as update, mock.patch.object(
+            self.web_server.mushroom_predictor_ui,
+            "release_predictor_cache",
+            return_value=0,
+        ), mock.patch.object(
+            self.web_server.mushroom_model_state, "clear_all_pending"
+        ):
+            status, payload = self.web_server.start_mushroom_local_full_update(
+                ["altitude_v2"]
+            )
+
+        self.assertEqual(status, 202)
+        self.assertTrue(payload["ok"])
+        update.assert_called_once()
+        reconcile.assert_called_once()
+        self.assertEqual(
+            self.web_server.MUSHROOM_REBUILD_JOBS[payload["job_id"]]["phase_count"],
+            5,
+        )
+
     def test_workers_post_persists_registered_default_executor(self) -> None:
         registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
         worker = {
@@ -7099,6 +7329,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "prepare_coordinator_bundle",
             side_effect=bundle_metadata,
         ), mock.patch.object(
+            self.web_server,
+            "reconcile_mushroom_soilgrids_for_rebuild",
+            return_value={"duration_ms": 1, "warnings": []},
+        ), mock.patch.object(
             self.web_server.mushroom_worker_results,
             "receive_result_file",
             return_value={"status": "artifact_received"},
@@ -7179,6 +7413,99 @@ class AuthDeviceLimitTests(unittest.TestCase):
             profile_keys=["altitude_v2/common_idw"],
             triggered_by_job_id=job_id,
         )
+
+    def test_soilgrids_rebuild_reconciliation_promotes_only_unchanged_known_sites(self) -> None:
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        data_dir = Path(self.temp_dir.name) / "mushroom-data"
+        job_id = "worker_job_soilgrids123"
+        source = {"schema_version": "1.0", "areas": [], "micro_areas": []}
+        candidate = {**source, "metadata": {"reconciled": True}}
+        report = {
+            "duration_ms": 25,
+            "repaired_micro_areas": 1,
+            "warnings": [],
+        }
+        self.web_server.mushroom_worker_jobs.create_candidate_preparation(
+            jobs_path,
+            worker_id="worker_aaaaaaaa",
+            worker_display_name="Worker A",
+            job_id=job_id,
+        )
+
+        with mock.patch.object(
+            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+        ), mock.patch.object(
+            self.web_server.mushroom_known_sites,
+            "load_payload",
+            side_effect=[source, source],
+        ), mock.patch.object(
+            self.web_server.mushroom_known_sites,
+            "save_payload",
+            return_value=data_dir / "backups" / "known-sites.json",
+        ) as save_payload, mock.patch.object(
+            self.web_server.mushroom_soilgrids,
+            "default_cache_root",
+            return_value=Path(self.temp_dir.name) / "soilgrids",
+        ), mock.patch.object(
+            self.web_server.mushroom_soilgrids_reconciler,
+            "reconcile_payload",
+            return_value=(candidate, report),
+        ), mock.patch.object(
+            self.web_server.mushroom_paths,
+            "mushroom_data_dir",
+            return_value=data_dir,
+        ), mock.patch.object(
+            self.web_server, "write_json_atomic"
+        ) as write_report:
+            result = self.web_server.reconcile_mushroom_soilgrids_for_rebuild(job_id)
+
+        save_payload.assert_called_once_with(candidate)
+        self.assertTrue(result["known_sites_promoted"])
+        self.assertTrue(result["known_sites_backup_created"])
+        self.assertEqual(
+            write_report.call_args.args[0],
+            data_dir / "diagnostics" / "soilgrids-reconciliation-latest.json",
+        )
+
+    def test_soilgrids_reconciliation_preserves_concurrent_known_sites_change(self) -> None:
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        job_id = "worker_job_soilchange12"
+        source = {"schema_version": "1.0", "areas": [], "micro_areas": []}
+        changed = {**source, "metadata": {"changed_by_user": True}}
+        report = {"repaired_micro_areas": 1, "warnings": []}
+        self.web_server.mushroom_worker_jobs.create_candidate_preparation(
+            jobs_path,
+            worker_id="worker_aaaaaaaa",
+            worker_display_name="Worker A",
+            job_id=job_id,
+        )
+
+        with mock.patch.object(
+            self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+        ), mock.patch.object(
+            self.web_server.mushroom_known_sites,
+            "load_payload",
+            side_effect=[source, changed],
+        ), mock.patch.object(
+            self.web_server.mushroom_known_sites, "save_payload"
+        ) as save_payload, mock.patch.object(
+            self.web_server.mushroom_soilgrids_reconciler,
+            "reconcile_payload",
+            return_value=({**source, "metadata": {"reconciled": True}}, report),
+        ), mock.patch.object(
+            self.web_server.mushroom_soilgrids_reconciler,
+            "inspect_payload",
+            return_value={"unresolved": []},
+        ), mock.patch.object(
+            self.web_server.mushroom_paths,
+            "mushroom_data_dir",
+            return_value=Path(self.temp_dir.name),
+        ), mock.patch.object(self.web_server, "write_json_atomic"):
+            result = self.web_server.reconcile_mushroom_soilgrids_for_rebuild(job_id)
+
+        save_payload.assert_not_called()
+        self.assertFalse(result["known_sites_promoted"])
+        self.assertEqual(result["warnings"][-1]["status"], "concurrent_change")
 
     def test_worker_dataset_download_is_authenticated_and_claim_bound(self) -> None:
         dataset_file = Path(self.temp_dir.name) / "dataset.dat"

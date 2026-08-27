@@ -276,6 +276,14 @@ def _fit_current(estimator_id: str, X: np.ndarray, y: np.ndarray) -> dict[str, A
         raise ValueError(unavailable)
     model = mushroom_ml_experiment_trainer._pipeline(estimator_id)
     model.fit(X, y)
+    classifier = model.named_steps.get("classifier")
+    if estimator_id in {
+        "random_forest_restricted_v1",
+        "extra_trees_restricted_v1",
+    } and classifier is not None:
+        # Preserve the established runtime artifact contract: only fitting is
+        # single-threaded; inference retains the prior all-core setting.
+        classifier.n_jobs = -1
     return {"model": model, "preprocessor": None, "fit_config": {}}
 
 
@@ -401,19 +409,25 @@ def fit_artifact(
     *,
     snapshot_id: str,
     tuning_decision: Mapping[str, Any] | None = None,
+    prepared_inputs: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Fit exactly one plan unit against all eligible rows, without promotion."""
-    columns = _columns(artifact_ref, benchmark)
-    if not columns:
-        raise ValueError(f"Benchmark has no runtime columns: {artifact_ref.key}")
-    samples = [dict(row) for row in mushroom_ml_holdout.eligible_samples(dict(benchmark))]
-    if artifact_ref.species_id != "all_species":
-        samples = [row for row in samples if _species(row) == artifact_ref.species_id]
-    if not samples:
-        raise ValueError(f"No eligible rows for runtime artifact: {artifact_ref.key}")
-    X, y = mushroom_ml_holdout.matrix(samples, columns)
-    if len(np.unique(y)) < 2:
-        raise ValueError(f"Runtime artifact requires both classes: {artifact_ref.key}")
+    scope = (
+        artifact_ref.version_id,
+        artifact_ref.temporal_contract_id,
+        artifact_ref.profile_id,
+        artifact_ref.species_id,
+    )
+    if prepared_inputs is None:
+        prepared_inputs = _prepare_fit_inputs(artifact_ref, benchmark)
+    if tuple(prepared_inputs.get("scope") or ()) != scope:
+        raise ValueError("Prepared runtime matrix does not match the artifact scope")
+    columns = list(prepared_inputs["columns"])
+    samples = list(prepared_inputs["samples"])
+    X = prepared_inputs["X"]
+    y = prepared_inputs["y"]
+    if not isinstance(X, np.ndarray) or not isinstance(y, np.ndarray):
+        raise ValueError("Prepared runtime matrix arrays are invalid")
     frozen_config = None
     if tuning_decision is not None:
         if tuning_decision.get("key") != mushroom_ml_tuning_catalog.decision_key(
@@ -443,7 +457,37 @@ def fit_artifact(
         )
     else:
         raise ValueError(f"No runtime trainer for {artifact_ref.version_id}")
-    feature_support = {}
+    feature_support = dict(prepared_inputs["feature_support"])
+    return {
+        "schema_version": ARTIFACT_SCHEMA_VERSION,
+        "kind": ARTIFACT_KIND,
+        "artifact_ref": artifact_ref.as_dict(),
+        "snapshot_id": snapshot_id,
+        "feature_cols": columns,
+        "training_row_count": len(samples),
+        "training_species_ids": list(prepared_inputs["training_species_ids"]),
+        "feature_support": feature_support,
+        **fitted,
+    }
+
+
+def _prepare_fit_inputs(
+    artifact_ref: catalog.ModelArtifactRef,
+    benchmark: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build one reusable in-memory matrix per profile/contract/species scope."""
+    columns = _columns(artifact_ref, benchmark)
+    if not columns:
+        raise ValueError(f"Benchmark has no runtime columns: {artifact_ref.key}")
+    samples = [dict(row) for row in mushroom_ml_holdout.eligible_samples(dict(benchmark))]
+    if artifact_ref.species_id != "all_species":
+        samples = [row for row in samples if _species(row) == artifact_ref.species_id]
+    if not samples:
+        raise ValueError(f"No eligible rows for runtime artifact: {artifact_ref.key}")
+    X, y = mushroom_ml_holdout.matrix(samples, columns)
+    if len(np.unique(y)) < 2:
+        raise ValueError(f"Runtime artifact requires both classes: {artifact_ref.key}")
+    feature_support: dict[str, dict[str, float]] = {}
     for index, column in enumerate(columns):
         values = X[:, index]
         finite = values[np.isfinite(values)]
@@ -455,15 +499,19 @@ def fit_artifact(
                 "std": float(np.std(finite)),
             }
     return {
-        "schema_version": ARTIFACT_SCHEMA_VERSION,
-        "kind": ARTIFACT_KIND,
-        "artifact_ref": artifact_ref.as_dict(),
-        "snapshot_id": snapshot_id,
-        "feature_cols": columns,
-        "training_row_count": len(samples),
+        "scope": (
+            artifact_ref.version_id,
+            artifact_ref.temporal_contract_id,
+            artifact_ref.profile_id,
+            artifact_ref.species_id,
+        ),
+        "columns": tuple(columns),
+        "samples": tuple(samples),
+        "X": X,
+        "y": y,
         "training_species_ids": sorted({_species(row) for row in samples}),
         "feature_support": feature_support,
-        **fitted,
+        "matrix_bytes": int(X.nbytes + y.nbytes),
     }
 
 
@@ -503,6 +551,9 @@ def write_batch(
     artifacts: list[dict[str, Any]] = []
     failed_fits: list[dict[str, Any]] = []
     fit_results: list[dict[str, Any]] = []
+    matrix_cache: dict[tuple[str, str], dict[str, Any]] = {}
+    matrix_cache_hits = 0
+    matrix_cache_bytes = 0
     try:
         for fit_index, fit in enumerate(fits, start=1):
             if not isinstance(fit, Mapping):
@@ -527,11 +578,20 @@ def write_batch(
                     if checked_tuning_catalog is not None
                     else None
                 )
+                matrix_key = (key, artifact_ref.species_id)
+                prepared_inputs = matrix_cache.get(matrix_key)
+                if prepared_inputs is None:
+                    prepared_inputs = _prepare_fit_inputs(artifact_ref, benchmark)
+                    matrix_cache[matrix_key] = prepared_inputs
+                    matrix_cache_bytes += int(prepared_inputs["matrix_bytes"])
+                else:
+                    matrix_cache_hits += 1
                 bundle = fit_artifact(
                     artifact_ref,
                     benchmark,
                     snapshot_id=snapshot_id,
                     tuning_decision=tuning_decision,
+                    prepared_inputs=prepared_inputs,
                 )
             except ValueError as exc:
                 duration_seconds = round(time.perf_counter() - fit_started, 6)
@@ -619,6 +679,11 @@ def write_batch(
                 "planned_fit_count": len(fits),
                 "successful_fit_count": len(artifacts),
                 "failed_fit_count": len(failed_fits),
+                "matrix_cache": {
+                    "entries": len(matrix_cache),
+                    "hits": matrix_cache_hits,
+                    "bytes": matrix_cache_bytes,
+                },
                 "failed_fits": failed_fits,
                 "fit_results": fit_results,
                 "tuning_catalog": (
