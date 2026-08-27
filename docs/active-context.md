@@ -9,16 +9,18 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
   La base era `4b6422d` (`Release Home Assistant 0.2.267 and worker 1.0.18`)
   y la corrección posterior se publica coordinadamente como HA `0.2.268` y
-  worker `1.0.19`.
-- HA real continúa en `0.2.266`; la imagen `0.2.268` está publicada pero no se
-  instaló. El worker normal no se consultó ni tocó durante esta entrega; su
-  último estado comprobado era `1.0.18`, sano e idle, con identidad emparejada
-  `worker_1a9a232c20fe2ee2` y volumen persistente.
+  worker `1.0.19`, en `7fe0974`.
+- HA real arrancó en `0.2.268`, confirmado por el usuario. El worker normal se
+  actualizó a `1.0.19` preservando el volumen `rainmapper-worker-data`; quedó
+  `healthy` e `idle`, con la misma identidad `worker_1a9a232c20fe2ee2`, el
+  mismo dataset de 6.341.520.039 bytes y la misma caché Predictor de
+  253.631.110 bytes. Tras el reinicio de HA, el worker registró
+  `heartbeat_restored` a las 08:43:49 del 2026-08-27.
 - El último banner aportado, anterior a `0.2.266`, mostraba Python `3.11.16`;
   confirmar de nuevo el intérprete si una tarea futura depende de su versión
   exacta.
 - La entrega de rendimiento, Predictor y release coordinada está contenida en
-  `4b6422d`. Preservar cualquier cambio o fichero no rastreado que aparezca en
+  `7fe0974`. Preservar cualquier cambio o fichero no rastreado que aparezca en
   una sesión posterior.
 - El grafo Codebase Memory tenía 10.647 nodos y 45.213 relaciones y ya no
   devolvía símbolos retirados de `mushroom_ml_version_promotion`; no fue
@@ -33,7 +35,7 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 - HA `0.2.264` reveló que el registro persistente ML 1.0 no podía leerse con el
   schema nuevo. HA `0.2.265` añadió la migración 1.0→2.0 con copia exacta previa
-  y arrancó sin errores de reconciliación. HA `0.2.266` es la versión instalada
+  y arrancó sin errores de reconciliación. HA `0.2.268` es la versión instalada
   actual confirmada por el usuario.
 - `0.2.267` obtiene del registro activo las versiones operativas instaladas en
   vez de usar una lista fija. La reconstrucción permite seleccionar cualquier
@@ -57,9 +59,10 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   ocho especies y las cinco versiones. El batch multiversión
   `operational_20260825T221049Z` terminó con 636/636 ajustes y cero fallos. La
   evidencia de la cola muestra promoción completada y limpieza terminal.
-- Queda una comprobación corta, no una reconstrucción nueva: confirmar en la UI
-  de HA real que el Predictor ofrece las cinco versiones y que desapareció el
-  aviso de identidad de origen desconocida después del entrenamiento trazado.
+- Queda una comprobación funcional corta, no una reconstrucción nueva:
+  confirmar en la UI de HA real que el Predictor ofrece las cinco versiones,
+  que desapareció el aviso de identidad de origen desconocida y que una
+  predicción real termina y presenta resultados con el nuevo transporte.
 
 ## Retención ML y espacio de backups
 
@@ -125,7 +128,8 @@ el catálogo de tuning congelado y la primera parte del workspace meteorológico
 compartido. La preparación operativa completa del mismo snapshot bajó de
 459,101 s a aproximadamente 185,4 s, con igualdad semántica exacta de los ocho
 artefactos consumidos e igualdad byte por byte de los hold-out V2--V6. No se ha
-ejecutado nada en HA real ni en el worker normal.
+repetido todavía el ciclo completo optimizado en HA real; la instalación de HA
+`0.2.268` y worker `1.0.19` sí quedó completada y enlazada por heartbeat.
 
 El smoke local extremo a extremo terminó formalmente en 534,571 s en frío y
 473,654 s en caliente, con 714/714 fits y cero fallos. La revisión posterior
@@ -170,11 +174,12 @@ El informe reproducible es
 
 ## Próximos pasos, en orden
 
-1. Presentar la corrección local y su margen de rendimiento antes de cualquier
-   bump, build, instalación o release.
-2. Si se autoriza continuar en laboratorio, repetir una única medición caliente
-   para cuantificar la variabilidad alrededor del límite de 600 s.
-3. Tras autorización y entrega, medir una reconstrucción remota fría/caliente
+1. Ejecutar una predicción funcional corta desde HA real y comprobar las cinco
+   versiones, la presentación del resultado y la ausencia del aviso de identidad
+   desconocida; no requiere reconstruir modelos.
+2. Cuando se decida medir estabilidad, repetir una única ejecución caliente para
+   cuantificar la variabilidad alrededor del límite local de 600 s.
+3. Medir una reconstrucción remota fría/caliente
    para separar el cálculo ya reducido del transporte HA↔worker.
 4. Solo si la medición remota lo justifica, compactar la cola: deduplicar
    manifiestos inmutables, separar lease/progreso
@@ -205,9 +210,10 @@ El informe reproducible es
 3. **Aplicabilidad no calibrada:** `outside_feature_ratio >= 0,05` y una salida
    a `>= 3 sigma` son heurísticas, no límites aprendidos. Su auditoría sigue
    pendiente, separada de la optimización de transporte.
-4. **Estado visual real pendiente:** la versión instalada es `0.2.266`, pero no
-   se ha registrado en este cierre una captura final de las cinco versiones y
-   de la desaparición del aviso de identidad desconocida.
+4. **Validación funcional real pendiente:** HA `0.2.268` y worker `1.0.19` están
+   arrancados y coordinados, pero no se ha registrado todavía una predicción
+   final ni una captura de las cinco versiones y de la desaparición del aviso
+   de identidad desconocida.
 5. **Retención real activa:** funcionó con 74 eliminaciones y cero errores; no
    debe deshabilitarse, forzarse ni complementarse con borrados manuales sin una
    decisión nueva del usuario.
