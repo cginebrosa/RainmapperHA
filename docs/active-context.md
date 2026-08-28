@@ -33,11 +33,11 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   fingerprint de runtime. La primera petición fría tardó 29,617 s; el usuario
   confirmó que varias predicciones locales posteriores funcionan a velocidad
   razonable.
-- HA `0.2.273` está publicada en GHCR. Los tags `0.2.273` y `latest` comparten
+- HA `0.2.274` está publicada en GHCR. Los tags `0.2.274` y `latest` comparten
   el índice OCI
-  `sha256:6d1f21df2006df46888f6099cb1f135386ab25ce3a9d11497459c02aad374af1`
+  `sha256:899d45f797952218ea865e40d3293247ab14d8d6f3e6e53ea7f807595f0fd001`
   y contienen manifests `linux/amd64` y `linux/arm64`.
-- El usuario va a instalar HA `0.2.273`; no darla por instalada hasta que lo
+- El usuario va a instalar HA `0.2.274`; no darla por instalada hasta que lo
   confirme. Después ejecutará el reentrenamiento en HA real con el único worker
   `1.0.22`, y Codex comparará los resultados local/remoto.
 
@@ -68,15 +68,15 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   cachés. Quedó `healthy`, `idle`, con GIS y Predictor válidos; el heartbeat se
   restauró tras el reinicio.
 - HA `0.2.272` y worker `1.0.22` fueron la primera release de la unificación;
-  el hotfix de HA vigente para instalar es `0.2.273`. El worker no necesitó
+  el hotfix de HA vigente para instalar es `0.2.274`. El worker no necesitó
   bump y permanece en `1.0.22`.
 
 - Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
-- HEAD local y remoto antes del commit del hotfix: `2f0fd73`. El worktree
-  contiene exclusivamente el hotfix/versionado HA `0.2.273`, su prueba y esta
+- HEAD local y remoto antes del commit del hotfix: `71c818c`. El worktree
+  contiene exclusivamente el hotfix/versionado HA `0.2.274`, sus pruebas y esta
   actualización documental.
-- HA real tuvo `0.2.272` instalada y ejecutó un scheduled runner, según el
-  usuario. La instalación de `0.2.273` está autorizada y queda en manos del
+- HA real tiene `0.2.273` instalada, según el usuario. La instalación de
+  `0.2.274` queda en manos del
   usuario. El único worker confirmado es `rainmapper-worker:1.0.22`, con
   identidad `worker_1a9a232c20fe2ee2`.
 - La opción real **Apply ML storage retention** permanece activa. No cambiarla,
@@ -181,25 +181,50 @@ entrenamiento, verificación y promoción.
 Especificación vinculante para la siguiente sesión:
 `docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`.
 
+## Fallo de la primera validación real de HA 0.2.273
+
+La reconstrucción y ML v0 terminaron, con ocho especies entrenadas. El trabajo
+operativo V2–V6 posterior falló al 20 % con:
+
+`Operational preparation inputs do not match the sealed scope`.
+
+La causa está confirmada en el código y no es una diferencia de observaciones:
+
+- ML v0 remoto normalizaba el JSON de features para representar sus rutas
+  finales, calculaba el scope sobre esa representación y la sellaba;
+- V2–V6 recibía después el JSON original de la reconstrucción y `known-sites`
+  vivo;
+- el scope identifica el contenido canónico completo de ambos JSON, incluidas
+  sus rutas de metadatos, por lo que el worker rechazó correctamente la mezcla;
+- local no sufría el defecto porque scope, ML v0 y V2–V6 consumían el mismo
+  `training-features.json` normalizado.
+
+La corrección publicada en HA `0.2.274` captura, antes de la limpieza normal
+del bundle de ML v0, los bytes exactos de `features.json` y
+`known_sites.json`, comprueba sus digests sellados y los entrega a V2–V6.
+Antes de construir el plan se vuelve a
+validar que esos dos contenidos producen exactamente el scope certificado. No
+se ha cambiado la retención ni se ha relajado ningún gate.
+
 ## Próximos pasos, en orden
 
-1. El usuario instala HA `0.2.273` y ejecuta el reentrenamiento real con el
-   worker `1.0.22`; Codex no instala ni inicia esa ejecución.
-2. Al terminar, comparar scope, plan, 636 fits, métricas, artefactos,
+1. El usuario instala HA `0.2.274`; el worker permanece en `1.0.22`.
+2. Repetir una única cadena real con esos componentes.
+3. Al terminar, comparar scope, plan, 636 fits, métricas, artefactos,
    verificación y generaciones promocionadas frente al lote local
    `local_operational_20260828T101432Z`.
-3. Ejecutar las mismas predicciones en HA y comparar resultados, fingerprint,
+4. Ejecutar las mismas predicciones en HA y comparar resultados, fingerprint,
    frío/caliente, backend, transferencia y memoria con las mediciones locales.
-4. Corregir después la telemetría/UI pendiente de tiempos de preparación,
+5. Corregir después la telemetría/UI pendiente de tiempos de preparación,
    cola, claim, worker, verificación y transición.
 
 ## Riesgos y dudas activos
 
 - **Política para especie nueva sin tuning:** sigue siendo una decisión
   científica abierta. Un fallback implícito comprometería reproducibilidad.
-- **Equivalencia remota aún no demostrada:** el lote local correcto ya excluye
-  Cantharellus y ejecuta 636 fits, pero falta compararlo con una ejecución real
-  nueva sobre HA `0.2.273` y worker `1.0.22`.
+- **Equivalencia remota aún no demostrada:** la primera cadena real confirmó
+  ocho especies en ML v0, pero V2–V6 se detuvo por mezclar dos representaciones
+  del artefacto de features. Falta validar en HA real la corrección `0.2.274`.
 - **Duraciones engañosas:** los contadores actuales excluyen preparación y
   transiciones; el presupuesto de 10 minutos se mide desde la pulsación hasta
   la promoción final.
@@ -217,6 +242,12 @@ Especificación vinculante para la siguiente sesión:
 
 ## Validación y entrega ya completadas
 
+- Release HA `0.2.274`: handoff exacto ML v0→V2–V6; 271 pruebas del
+  servidor HA y 49 pruebas transversales de scope, preparación, cola y ruta
+  local; smoke completo de 1.082 pruebas superado. `0.2.274` y `latest`
+  comparten el índice OCI
+  `sha256:899d45f797952218ea865e40d3293247ab14d8d6f3e6e53ea7f807595f0fd001`
+  con manifests `linux/amd64` y `linux/arm64`. El worker sigue en `1.0.22`.
 - Release HA 0.2.271: 298 pruebas dirigidas de cola/coordinador/UI y smoke
   completo de 1.071 pruebas; compilación, etiquetas JSON y
   `git diff --check` correctos.

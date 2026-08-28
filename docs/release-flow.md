@@ -69,18 +69,21 @@ Referencia operativa completa para publicar una nueva versión de la imagen HA.
    - Ejecutar una sola instancia del script. No lanzar un segundo build porque
      el primero tarde o deje de mostrar salida.
    - Si la herramienta devuelve un identificador de sesión, conservarlo y
-     consultar esa misma sesión cada 20-30 segundos. Informar al usuario como
-     mínimo una vez por minuto mientras siga trabajando.
-   - Si no aparece salida nueva durante 120 segundos, comprobar el estado del
-     proceso antes de decidir que esta bloqueado. No dejar una espera abierta
-     indefinidamente.
-   - Si Buildx informa que las capas ya se han subido pero no devuelve el
-     control durante 60 segundos, ejecutar la verificación remota del paso 8
-     en una llamada separada.
-   - Solo se puede interrumpir el cliente local atascado cuando GHCR confirme
-     los tags `<version>` y `latest`, el mismo digest y los manifests
-     `linux/amd64` y `linux/arm64`. Esa interrupción no revierte una publicación
-     remota ya confirmada; documentar que el comando local fue cancelado.
+     consultar esa misma sesión cada 20-30 segundos **solo hasta que Buildx
+     termine las etapas de construcción y muestre que ha comenzado realmente
+     la exportación/subida de capas a GHCR**. No confundir «build iniciado» con
+     «imagen construida y push iniciado».
+   - En cuanto empiece el push, informar al usuario y detener las consultas de
+     la sesión. El usuario vigila la espera larga y avisará cuando termine; no
+     gastar tokens haciendo polling durante la subida.
+   - Si la release requiere también una versión nueva del worker, preparar y
+     lanzar su build/publicación en cuanto el push de HA haya empezado y antes
+     de detenerse. Si el worker no cambió, mantener su versión y decirlo.
+   - Cuando el usuario confirme que terminó, recuperar la misma sesión una vez,
+     comprobar su resultado y ejecutar la verificación remota del paso 8.
+   - Si la sesión local no devuelve el control pero GHCR confirma los tags,
+     digest y plataformas, documentar el estado antes de decidir si procede
+     interrumpir el cliente. No lanzar nunca otro build para sustituirlo.
    - Si la verificación remota falla o está incompleta, no hacer commit/push ni
      anunciar la release como publicada. Diagnosticar primero Docker, red y
      credenciales.
@@ -100,7 +103,13 @@ Referencia operativa completa para publicar una nueva versión de la imagen HA.
    `linux/amd64` y `linux/arm64`. Si una consulta se queda esperando, limitarla,
    informar al usuario y reintentar una sola vez antes de diagnosticar Docker.
 
-9. **Commit y push**
+9. **Cerrar documentación, hacer un único commit y push**
+
+   Tras verificar GHCR, actualizar la documentación de continuidad y los
+   resultados finales de la release. Incluir código, pruebas, bump, changelog y
+   documentación en **un solo commit**; no hacer un commit previo al build ni
+   otro commit documental posterior.
+
    ```bash
    git add rainmapper-app/config.yaml \
            rainmapper-app/Dockerfile \
@@ -123,9 +132,9 @@ Referencia operativa completa para publicar una nueva versión de la imagen HA.
 - Aplicar validación incremental: no repetir el smoke después de commit/push o
   de actualizar únicamente documentación. Repetir solo si cambió código,
   dependencias, empaquetado o artefactos ejecutables desde el último smoke.
-- No retrasar la prueba en HA por documentación de cierre o hashes documentales.
-- Documentación de continuidad (`docs/active-context.md`) se actualiza después
-  del release o al cerrar sesión.
+- El changelog y los metadatos necesarios para construir la imagen se preparan
+  antes del build. La documentación de continuidad y los hashes finales se
+  cierran después de verificar GHCR y antes del único commit.
 - No limpiar GHCR durante una instalación HA en curso. Conservar siempre:
   versión activa, `latest`, rollback inmediato y manifests auxiliares multi-arch.
   Ver procedimiento exacto de limpieza en `docs/decisions.md` (sección GHCR).

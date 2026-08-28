@@ -6,6 +6,7 @@ real Home Assistant `/share/rainmapper` files or any developer-local devices.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import io
 import json
@@ -590,6 +591,174 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "snapshot/inputs/extra/tuning-catalog.json",
         )
         materialize_catalog.assert_called_once()
+
+    def test_operational_multiversion_bundle_reuses_exact_ml_v0_scope_inputs(self) -> None:
+        features_payload = {
+            "input_paths": {"weather_features": "/live/weather.json"},
+            "rows": [
+                {
+                    "species_id": "boletus_edulis",
+                    "observed_at": f"2026-08-{day:02d}",
+                    "micro_area_id": "ma-1",
+                    "validation_status": "valid",
+                    "calibration_use": "include",
+                    "prediction_target": "favorable" if day == 1 else "unfavorable",
+                }
+                for day in range(1, 11)
+            ],
+        }
+        known_sites_payload = {
+            "micro_areas": [{"micro_area_id": "ma-1", "area_id": "area-1"}]
+        }
+        features_content = (
+            json.dumps(features_payload, indent=2, ensure_ascii=False) + "\n"
+        ).encode("utf-8")
+        known_sites_content = (
+            json.dumps(known_sites_payload, indent=2, ensure_ascii=False) + "\n"
+        ).encode("utf-8")
+        scope = self.web_server.mushroom_operational_training_scope.build_scope(
+            features_payload,
+            known_sites_payload,
+        )
+        captured: dict[str, bytes] = {}
+
+        def materialize(**kwargs: object) -> dict[str, object]:
+            destination = Path(kwargs["destination"])
+            destination.write_text('{"kind":"tuning"}\n', encoding="utf-8")
+            return {"kind": "tuning"}
+
+        def prepare(sources: dict[str, Path]) -> dict[str, object]:
+            captured["features"] = sources["observation-features.json"].read_bytes()
+            captured["known_sites"] = sources["known-sites.json"].read_bytes()
+            return {"snapshot_id": "sha256:snapshot"}
+
+        with (
+            mock.patch.object(
+                self.web_server.mushroom_local_full_update,
+                "materialize_operational_tuning_catalog",
+                side_effect=materialize,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_paths,
+                "mushroom_ml_models_dir",
+                return_value=Path("/models"),
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_operational_training_scope,
+                "build_plan",
+                return_value={
+                    "scope_id": scope["scope_id"],
+                    "plan_id": "sha256:" + "b" * 64,
+                    "tuning_catalog_id": "sha256:" + "c" * 64,
+                },
+            ),
+        ):
+            self.web_server.prepare_multiversion_bundle_with_tuning(
+                purpose="operational",
+                registry={"versions": []},
+                version_ids=["biology_v4"],
+                profile_keys=["biology_v4/climatic_balance"],
+                operational_scope=scope,
+                sources={
+                    "registry.json": Path("/registry.json"),
+                    "observation-features.json": Path("/raw-features.json"),
+                    "known-sites.json": Path("/live-known-sites.json"),
+                },
+                sealed_scope_inputs={
+                    "features.json": features_content,
+                    "known_sites.json": known_sites_content,
+                },
+                spec={"job_purpose": "operational"},
+                prepare_bundle=prepare,
+            )
+
+        self.assertEqual(captured["features"], features_content)
+        self.assertEqual(captured["known_sites"], known_sites_content)
+
+    def test_linked_operational_inputs_are_loaded_from_the_sealed_ml_v0_bundle(self) -> None:
+        bundle_root = Path(self.temp_dir.name) / "input-bundles"
+        job_id = "worker_job_training123"
+        bundle_dir = bundle_root / job_id
+        bundle_dir.mkdir(parents=True)
+        features_content = b'{"rows":[]}\n'
+        known_sites_content = b'{"micro_areas":[]}\n'
+        (bundle_dir / "features.json").write_bytes(features_content)
+        (bundle_dir / "known_sites.json").write_bytes(known_sites_content)
+        training_job = {
+            "job_id": job_id,
+            "input_bundle": {
+                "features_digest": "sha256:" + hashlib.sha256(features_content).hexdigest(),
+                "known_sites_digest": "sha256:"
+                + hashlib.sha256(known_sites_content).hexdigest(),
+            },
+        }
+
+        with mock.patch.object(
+            self.web_server,
+            "mushroom_worker_input_bundles_path",
+            return_value=bundle_root,
+        ):
+            contents = self.web_server.linked_operational_training_inputs(training_job)
+
+        self.assertEqual(contents["features.json"], features_content)
+        self.assertEqual(contents["known_sites.json"], known_sites_content)
+
+    def test_linked_multiversion_start_captures_scope_inputs_before_async_cleanup(self) -> None:
+        job_id = "worker_job_training123"
+        sealed_inputs = {
+            "features.json": b'{"rows":[]}\n',
+            "known_sites.json": b'{"micro_areas":[]}\n',
+        }
+
+        class ImmediateThread:
+            def __init__(self, *, target: object, **_kwargs: object) -> None:
+                self.target = target
+
+            def start(self) -> None:
+                self.target()
+
+        with (
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "load_queue",
+                return_value={
+                    "jobs": [
+                        {
+                            "job_id": job_id,
+                            "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_ML_TRAIN,
+                        }
+                    ]
+                },
+            ),
+            mock.patch.object(
+                self.web_server,
+                "linked_operational_training_inputs",
+                return_value=sealed_inputs,
+            ) as capture_inputs,
+            mock.patch.object(
+                self.web_server,
+                "create_mushroom_ml_multiversion_job",
+                return_value=(201, {"ok": True}),
+            ) as create_job,
+            mock.patch.object(
+                self.web_server.threading,
+                "Thread",
+                ImmediateThread,
+            ),
+        ):
+            status, response = self.web_server.start_mushroom_ml_multiversion_job(
+                "worker_aaaaaaaa",
+                job_purpose="operational",
+                triggered_by_job_id=job_id,
+            )
+
+        self.assertEqual(status, 202)
+        self.assertTrue(response["preparing"])
+        capture_inputs.assert_called_once()
+        self.assertEqual(
+            create_job.call_args.kwargs["sealed_scope_inputs"],
+            sealed_inputs,
+        )
 
     def test_predictor_modal_exposes_effective_selection_policy(self) -> None:
         policy = self.web_server.PredictorExecutionPolicy(

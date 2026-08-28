@@ -5479,3 +5479,21 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   posterior terminó con HTTP 200.
 - La instalación y el inicio de la cadena real corresponden al usuario. La
   equivalencia local/remoto no queda demostrada hasta comparar esa ejecución.
+
+## 2026-08-28 - [VIGENTE] El handoff operativo reutiliza los inputs exactos de ML v0
+
+- Un `OperationalTrainingScope` identifica el contenido canónico completo de
+  features y `known-sites`, no solo sus filas o especies. Dos representaciones
+  con metadatos de rutas distintos no son el mismo input sellado.
+- La cadena HA→worker debe capturar los bytes exactos y comprobar los digests
+  del bundle de ML v0 antes de su limpieza normal. V2–V6 incorpora esas copias
+  al snapshot y valida que reproducen íntegramente el scope certificado.
+- No se admite reconstruir el input desde el candidato original, leer de nuevo
+  `known-sites` vivo ni relajar la comparación del scope. La decisión conserva
+  retención, gates, retry, rollback y promoción atómica.
+- La primera cadena real de HA `0.2.273` reveló el defecto al fallar V2–V6 con
+  `Operational preparation inputs do not match the sealed scope`; no hubo
+  promoción. La corrección se publicó en HA `0.2.274`; `0.2.274` y `latest`
+  comparten el índice OCI
+  `sha256:899d45f797952218ea865e40d3293247ab14d8d6f3e6e53ea7f807595f0fd001`
+  con manifests `linux/amd64` y `linux/arm64`. El worker permanece en `1.0.22`.

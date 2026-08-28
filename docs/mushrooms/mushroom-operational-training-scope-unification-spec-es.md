@@ -250,6 +250,34 @@ La unificación debe conservar:
 10. La prueba real completa debe terminar en ≤10 minutos; si no, la telemetría
     debe atribuir todos los segundos a fases concretas.
 
+## Evidencia de integración HA→worker del 2026-08-28
+
+La primera ejecución real con HA `0.2.273` y worker `1.0.22` detectó una
+asimetría de representación que las pruebas iniciales no cubrían. ML v0 sellaba
+el scope con el JSON de features normalizado para las rutas finales, mientras
+V2–V6 recibía el JSON original del candidato de reconstrucción. Las filas y las
+ocho especies eran las mismas, pero `source_identity.features_sha256` no podía
+coincidir; la preparación abortó antes de entrenar o promocionar V2–V6.
+
+El contrato queda precisado así:
+
+- el handoff enlazado transporta los bytes exactos de `features.json` y
+  `known_sites.json` usados para calcular el scope de ML v0;
+- sus SHA-256 se validan contra el bundle de ML v0 antes de limpiar ese bundle;
+- esos mismos bytes se incorporan al snapshot V2–V6, sin volver a leer el
+  candidato original ni el `known-sites` vivo para decidir el alcance;
+- V2–V6 recalcula el scope solo como validación de integridad y exige igualdad
+  completa con el scope sellado; no redefine especies ni decisiones.
+
+Las pruebas centinela verifican la captura previa al handoff asíncrono, los
+digests y la igualdad byte a byte de ambas entradas dentro del bundle V2–V6.
+La validación local posterior completó 271 pruebas del servidor, 49 pruebas
+transversales dirigidas y el smoke completo de 1.082 pruebas. La corrección se
+publicó en HA `0.2.274`; su índice OCI es
+`sha256:899d45f797952218ea865e40d3293247ab14d8d6f3e6e53ea7f807595f0fd001`
+y contiene manifests `linux/amd64` y `linux/arm64`. La equivalencia real queda
+pendiente de una nueva ejecución iniciada por el usuario.
+
 ## Orden de implementación propuesto
 
 1. Extraer el cálculo canónico y sus pruebas de agregación/elegibilidad.

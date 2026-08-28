@@ -13479,6 +13479,32 @@ def linked_operational_training_scope(training_job: object) -> dict[str, object]
     return scope
 
 
+def linked_operational_training_inputs(
+    training_job: object,
+) -> dict[str, bytes]:
+    """Load the exact scope-bearing inputs sealed for linked ML v0."""
+    if not isinstance(training_job, dict):
+        raise ValueError("Linked ML training job was not found.")
+    job_id = str(training_job.get("job_id", ""))
+    input_bundle = training_job.get("input_bundle")
+    input_bundle = input_bundle if isinstance(input_bundle, dict) else {}
+    bundle_dir = mushroom_worker_input_bundles_path() / job_id
+    contents: dict[str, bytes] = {}
+    for logical_name, digest_name in (
+        ("features.json", "features_digest"),
+        ("known_sites.json", "known_sites_digest"),
+    ):
+        path = bundle_dir / logical_name
+        content = path.read_bytes()
+        actual_digest = "sha256:" + hashlib.sha256(content).hexdigest()
+        if actual_digest != input_bundle.get(digest_name):
+            raise ValueError(
+                f"Linked ML training {logical_name} does not match its sealed digest."
+            )
+        contents[logical_name] = content
+    return contents
+
+
 def prepare_multiversion_bundle_with_tuning(
     *,
     purpose: str,
@@ -13487,6 +13513,7 @@ def prepare_multiversion_bundle_with_tuning(
     profile_keys: list[str],
     operational_scope: dict[str, object] | None,
     sources: dict[str, Path],
+    sealed_scope_inputs: dict[str, bytes] | None = None,
     spec: dict[str, object],
     prepare_bundle: Callable[[dict[str, Path]], dict[str, object]],
 ) -> dict[str, object]:
@@ -13505,6 +13532,25 @@ def prepare_multiversion_bundle_with_tuning(
         )
         if operational_scope is None:
             raise ValueError("Operational training scope is missing")
+        if sealed_scope_inputs is not None:
+            features_path = Path(temporary) / "observation-features.json"
+            known_sites_path = Path(temporary) / "known-sites.json"
+            features_path.write_bytes(sealed_scope_inputs["features.json"])
+            known_sites_path.write_bytes(sealed_scope_inputs["known_sites.json"])
+            recomputed_scope = mushroom_operational_training_scope.build_scope(
+                json.loads(features_path.read_text(encoding="utf-8")),
+                json.loads(known_sites_path.read_text(encoding="utf-8")),
+                min_episodes=int(operational_scope["min_episodes"]),
+            )
+            if recomputed_scope != operational_scope:
+                raise ValueError(
+                    "Linked ML v0 inputs do not match their sealed operational scope."
+                )
+            sources = {
+                **sources,
+                "observation-features.json": features_path,
+                "known-sites.json": known_sites_path,
+            }
         operational_plan = mushroom_operational_training_scope.build_plan(
             registry,
             operational_scope,
@@ -13541,6 +13587,7 @@ def create_mushroom_ml_multiversion_job(
     job_purpose: str = "benchmark",
     profile_keys: list[str] | None = None,
     triggered_by_job_id: str = "",
+    sealed_scope_inputs: dict[str, bytes] | None = None,
 ) -> tuple[int, dict[str, object]]:
     purpose = str(job_purpose or "").strip()
     if purpose not in mushroom_worker_jobs.ML_JOB_PURPOSES:
@@ -13623,6 +13670,8 @@ def create_mushroom_ml_multiversion_job(
         operational_scope = None
         if triggered_by_job_id:
             operational_scope = linked_operational_training_scope(training_job)
+            if sealed_scope_inputs is None:
+                sealed_scope_inputs = linked_operational_training_inputs(training_job)
             species_ids = list(operational_scope["admitted_species_ids"])
         else:
             species_ids = mushroom_local_full_update.eligible_training_species(feature_path)
@@ -13720,6 +13769,7 @@ def create_mushroom_ml_multiversion_job(
             profile_keys=resolved_profile_keys,
             operational_scope=operational_scope,
             sources=sources,
+            sealed_scope_inputs=sealed_scope_inputs,
             spec=spec,
             prepare_bundle=prepare_bundle,
         )
@@ -13768,6 +13818,25 @@ def start_mushroom_ml_multiversion_job(
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
         return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
 
+    sealed_scope_inputs = None
+    if triggered_by_job_id:
+        try:
+            with RUN_LOCK:
+                queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+            training_job = next(
+                (
+                    row
+                    for row in queue["jobs"]
+                    if str(row.get("job_id", "")) == triggered_by_job_id
+                    and row.get("job_type") == mushroom_worker_jobs.JOB_TYPE_ML_TRAIN
+                ),
+                None,
+            )
+            sealed_scope_inputs = linked_operational_training_inputs(training_job)
+        except (FileNotFoundError, ValueError) as exc:
+            MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+            return 409, {"ok": False, "error": str(exc)}
+
     def prepare() -> None:
         try:
             status, response = create_mushroom_ml_multiversion_job(
@@ -13775,6 +13844,7 @@ def start_mushroom_ml_multiversion_job(
                 job_purpose=job_purpose,
                 profile_keys=profile_keys,
                 triggered_by_job_id=triggered_by_job_id,
+                sealed_scope_inputs=sealed_scope_inputs,
             )
             if status != 201:
                 set_mushroom_workers_flash(str(response.get("error", "Cannot queue V2--V6 training.")), error=True)

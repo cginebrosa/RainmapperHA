@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.274
+
+- Reuse the exact sealed `features.json` and `known_sites.json` inputs from
+  linked ML v0 when preparing operational V2--V6 training.
+- Verify both input digests and reproduce the certified
+  `OperationalTrainingScope` before building the V2--V6 plan.
+
 ## 0.2.273
 
 - Import `re` in `mushroom_worker_results` so ML v0 verification accepts and
