@@ -5497,3 +5497,45 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   comparten el índice OCI
   `sha256:899d45f797952218ea865e40d3293247ab14d8d6f3e6e53ea7f807595f0fd001`
   con manifests `linux/amd64` y `linux/arm64`. El worker permanece en `1.0.22`.
+
+## 2026-08-28 - [VIGENTE] Un resultado calculado espera al coordinador sin reentrenar
+
+- Los fallos transitorios de telemetría de un job remoto no invalidan ni
+  detienen su cálculo local. Los rechazos de contrato, integridad o autorización
+  siguen siendo errores terminales.
+- Una vez generado el resultado de reconstrucción, ML v0 o V2–V6, el worker lo
+  conserva y reintenta la entrega sin plazo hasta recuperar comunicación con el
+  coordinador o recibir una cancelación normal/forzada.
+- El alcance se limita a telemetría y entrega final. No cambia claim, descarga
+  de inputs, inicio, retención ni promoción; tampoco introduce una cola o un
+  estado persistente nuevos.
+- Motiva la decisión el fallo real de V2–V6 de HA `0.2.274` al 90 % con
+  `<urlopen error timed out>` después de completar el trabajo costoso.
+- Una segunda ejecución llegó también al 90 % y falló con `HTTP Error 409:
+  Conflict`: una respuesta perdida permitió que HA conservara un fichero, pero
+  el retry era rechazado solo porque la ruta ya existía. HA `0.2.275` acepta el
+  mismo tamaño y SHA-256 como reentrega idempotente y rechaza contenido distinto.
+- Worker `1.0.24` ejecuta control/progreso en un único intercambio de fondo,
+  conserva el último estado coalescido y usa una cadencia normal de 10 s. El
+  callback científico no espera la latencia del coordinador; cancelación y
+  errores terminales se propagan en el siguiente punto de control.
+- HA `0.2.275` y `latest` se publicaron con el índice OCI
+  `sha256:64f0cbda06a3b0addcb507bf0efac494d98e14d725f73e50d37c6075840e1e6b`
+  y manifests `linux/amd64` y `linux/arm64`. El worker no se publica: se
+  reconstruyó localmente como `1.0.24`, conservando identidad, volumen y cachés.
+
+## 2026-08-28 - [VIGENTE] Duración integral y progreso global no se infieren de fases
+
+- La lista de trabajos debe mostrar por separado duración integral de la cadena,
+  preparación en HA, espera/claim, ejecución remota, transferencia, verificación
+  y duración de la fase actual. Cambiar de `created_at` a `started_at` no puede
+  ocultar tiempo ya consumido.
+- El progreso total debe ser monótono. Un porcentaje interno de una fase no se
+  presenta como total: la validación real mostró una bajada visible de `81 %` a
+  `20 %` al pasar de reutilización de inputs a construcción de V3.
+- Control y progreso son observabilidad y no forman parte del coste científico.
+  Deben conservar cancelación y el último estado útil sin bloquear el cálculo
+  local durante el timeout de cada petición al coordinador.
+- Hasta implementar y validar estas reglas, la columna de porcentaje no sirve
+  para estimar avance o ETA y la duración de cada fila solo describe el intervalo
+  que su ancla actual cubre, no el tiempo total desde la acción del usuario.

@@ -6,14 +6,14 @@ services:
       context: ..
       dockerfile: rainmapper-worker/Dockerfile
       args:
-        RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.22}
-    image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.22}
+        RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.24}
+    image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.24}
     pull_policy: never
     container_name: rainmapper-worker
     environment:
       RAINMAPPER_WORKER_DISPLAY_NAME: ${RAINMAPPER_WORKER_DISPLAY_NAME:-}
       RAINMAPPER_WORKER_HOST_NAME: ${RAINMAPPER_WORKER_HOST_NAME:-}
-      RAINMAPPER_WORKER_HEARTBEAT_INTERVAL: "2"
+      RAINMAPPER_WORKER_HEARTBEAT_INTERVAL: "5"
     command:
       - serve
       - --host

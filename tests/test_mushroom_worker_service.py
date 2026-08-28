@@ -3,10 +3,11 @@ import hashlib
 import io
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 from rainmapper_core import mushroom_worker_service
 
@@ -105,7 +106,7 @@ class MushroomWorkerServiceTests(unittest.TestCase):
                 3,
             )
 
-    def test_job_telemetry_coalesces_progress_and_control_every_two_seconds(self) -> None:
+    def test_job_telemetry_coalesces_progress_and_control_every_ten_seconds(self) -> None:
         now = [10.0]
         calls: list[tuple[str, dict[str, object]]] = []
 
@@ -120,16 +121,18 @@ class MushroomWorkerServiceTests(unittest.TestCase):
             monotonic=lambda: now[0],
         )
         telemetry.publish({"phase": "first", "overall_percent": 10})
+        telemetry._wait_for_idle()
         telemetry.publish({"phase": "intermediate", "overall_percent": 20})
-        now[0] = 11.9
+        now[0] = 19.9
         telemetry.publish({"phase": "newest pending", "overall_percent": 30})
-        now[0] = 12.0
-        telemetry.publish({"phase": "two seconds", "overall_percent": 40})
+        now[0] = 20.0
+        telemetry.publish({"phase": "ten seconds", "overall_percent": 40})
+        telemetry._wait_for_idle()
 
         self.assertEqual([action for action, _ in calls], ["control", "progress", "control", "progress"])
         self.assertEqual(
             [payload["phase"] for action, payload in calls if action == "progress"],
-            ["first", "two seconds"],
+            ["first", "ten seconds"],
         )
 
     def test_job_telemetry_flushes_latest_progress_and_honours_force_cancel(self) -> None:
@@ -150,18 +153,106 @@ class MushroomWorkerServiceTests(unittest.TestCase):
             monotonic=lambda: now[0],
         )
         telemetry.publish({"phase": "first"})
+        telemetry._wait_for_idle()
         telemetry.publish({"phase": "latest"})
         telemetry.flush()
         cancel[0] = True
+        telemetry.poll_control(force=True)
+        telemetry._wait_for_idle()
 
         with self.assertRaisesRegex(InterruptedError, "training cancelled") as raised:
-            telemetry.poll_control(force=True)
+            telemetry.poll_control()
 
         self.assertTrue(getattr(raised.exception, "force_cancel_requested"))
         self.assertEqual(
             [payload["phase"] for action, payload in calls if action == "progress"],
             ["first", "latest"],
         )
+
+    def test_job_telemetry_network_wait_does_not_block_computation_callback(self) -> None:
+        entered = threading.Event()
+        release = threading.Event()
+
+        def update(action: str, payload: dict[str, object]) -> dict[str, object]:
+            entered.set()
+            release.wait(1.0)
+            return {}
+
+        telemetry = mushroom_worker_service._CoalescedJobTelemetry(
+            update,
+            base_payload={"job_id": "worker_job_test"},
+            cancel_message="training cancelled",
+        )
+
+        started = time.monotonic()
+        telemetry.publish({"phase": "local computation continues"})
+        elapsed = time.monotonic() - started
+
+        self.assertTrue(entered.wait(0.5))
+        self.assertLess(elapsed, 0.2)
+        telemetry.publish({"phase": "latest state survives"})
+        release.set()
+        telemetry._wait_for_idle()
+        telemetry.flush()
+
+    def test_transient_telemetry_failure_does_not_abort_and_keeps_latest_progress(self) -> None:
+        failing = [True]
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        def update(action: str, payload: dict[str, object]) -> dict[str, object]:
+            if failing[0]:
+                raise URLError("coordinator unavailable")
+            calls.append((action, payload))
+            return {}
+
+        telemetry = mushroom_worker_service._CoalescedJobTelemetry(
+            update,
+            base_payload={"job_id": "worker_job_test"},
+            cancel_message="training cancelled",
+        )
+
+        telemetry.publish({"phase": "computed", "overall_percent": 90})
+        telemetry.flush()
+        failing[0] = False
+        telemetry.flush()
+
+        self.assertEqual(
+            [payload["phase"] for action, payload in calls if action == "progress"],
+            ["computed"],
+        )
+
+    def test_transient_retry_can_wait_without_deadline(self) -> None:
+        attempts = [0]
+
+        def operation() -> str:
+            attempts[0] += 1
+            if attempts[0] < 3:
+                raise URLError("coordinator unavailable")
+            return "delivered"
+
+        with mock.patch.object(mushroom_worker_service.time, "sleep"):
+            result = mushroom_worker_service.retry_transient(
+                operation,
+                retry_seconds=None,
+                retry_interval=0.01,
+            )
+
+        self.assertEqual(result, "delivered")
+        self.assertEqual(attempts[0], 3)
+
+    def test_unbounded_delivery_retry_still_honours_cancellation(self) -> None:
+        def operation() -> None:
+            raise URLError("coordinator unavailable")
+
+        def cancel() -> None:
+            raise InterruptedError("cancelled from HA")
+
+        with self.assertRaisesRegex(InterruptedError, "cancelled from HA"):
+            mushroom_worker_service.retry_transient(
+                operation,
+                retry_seconds=None,
+                on_retry=cancel,
+            )
 
     def test_interactive_prediction_does_not_publish_synchronous_progress(self) -> None:
         service = mock.Mock()

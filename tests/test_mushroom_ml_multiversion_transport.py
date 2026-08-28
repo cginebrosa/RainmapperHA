@@ -130,13 +130,28 @@ class MushroomMLMultiversionTransportTests(TestCase):
                 logical_path=transport.RESULT_MANIFEST_NAME,
                 content=json.dumps(result).encode(),
             )
+            reused_manifest = transport.receive_result_file(
+                staging,
+                job_id=job_id,
+                logical_path=transport.RESULT_MANIFEST_NAME,
+                content=json.dumps(result).encode(),
+            )
+            self.assertEqual("reused", reused_manifest["status"])
             for record in declared:
+                content = (upload / record["path"]).read_bytes()
                 transport.receive_result_file(
                     staging,
                     job_id=job_id,
                     logical_path=record["path"],
-                    content=(upload / record["path"]).read_bytes(),
+                    content=content,
                 )
+                reused_file = transport.receive_result_file(
+                    staging,
+                    job_id=job_id,
+                    logical_path=record["path"],
+                    content=content,
+                )
+                self.assertEqual("reused", reused_file["status"])
             models = root / "installed"
             verified = transport.finalize_result(
                 staging,

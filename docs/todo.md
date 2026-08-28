@@ -31,9 +31,22 @@ Especificación vinculante:
   sintetizar ni copiar decisiones implícitas.
 - [x] Corregir la carrera/retry de `finish` que dejó un HTTP 409 después de que
   HA ya hubiese aceptado el resultado ML v0.
-- [ ] Mostrar duración total desde `created_at`, espera/claim y duración de
-  fase; persistir el desglose de SoilGrids, GIS, bundle, worker, verificación y
-  transición entre jobs.
+- [ ] Corregir la telemetría temporal y de progreso de la cadena completa:
+  mostrar duración integral desde la pulsación/preparación en HA hasta promoción,
+  espera/claim, duración del job remoto y duración de fase como magnitudes
+  separadas; persistir el desglose de SoilGrids, GIS, bundle, worker,
+  verificación y transición entre jobs. La duración actual pierde la preparación
+  al crear/reclamar el job remoto y no suma las pausas entre jobs.
+- [ ] Sustituir el porcentaje por fase presentado como total por un progreso
+  global monótono. Caso real: V2–V6 pasó de `81 %` en reutilización de inputs a
+  `20 %` al construir V3 y luego a `37 %` al construir V5; mientras no se
+  corrija, no usar esa columna para estimar avance ni ETA.
+- [x] Desacoplar control/progreso del camino de cálculo local: una llamada HTTP
+  síncrona de hasta 3 s no debe bloquear cada fichero o callback. Conservar
+  cancelación, último progreso coalescido y la espera indefinida solo para la
+  entrega de un resultado ya calculado.
+- [ ] Añadir métricas de peticiones, bytes, espera de red y cálculo por fase
+  para atribuir el coste WAN sin inferirlo de CPU o tráfico agregado.
 - [x] Añadir pruebas centinela de 10 filas que agregan a 9 episodios, igualdad
   local/remoto, cobertura de tuning, cancelación, retry, rollback y promoción
   atómica.
@@ -42,8 +55,10 @@ Especificación vinculante:
   de un total desde pulsación hasta promoción de como máximo 10 minutos. Scope,
   plan y preparación ya coinciden; faltan entrenamiento, artefactos y tiempo
   integral.
-- [ ] Solo entonces preparar las versiones necesarias y pedir autorización
-  para una única validación real. No repetir antes la cadena remota.
+- [x] Preparar con autorización HA `0.2.275` y worker local `1.0.24`; publicar
+  HA en GHCR y conservar identidad, volumen y cachés del único worker.
+- [ ] Instalar HA `0.2.275` y ejecutar una única validación real después del
+  scheduled runner y la actualización meteorológica.
 
 ## P0 — Estabilizar Predictor multiversión y coherencia científica
 

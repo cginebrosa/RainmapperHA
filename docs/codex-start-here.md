@@ -40,7 +40,8 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 ## Estado general al cierre de 2026-08-28
 
 - Rama `inicial`. La unificación del scope operativo se entregó en HA `0.2.272`
-  y worker `1.0.22`; el hotfix HA vigente es `0.2.273`. Revalidar `pwd`, rama,
+  y worker `1.0.22`; la release HA publicada es `0.2.275` y el único worker
+  local está en `1.0.24`. Revalidar `pwd`, rama,
   HEAD, worktree y runtime al comenzar; preservar todos los cambios y ficheros
   no rastreados.
 - HA 0.2.271 añadió reutilización persistente exacta del Predictor y tiempos en
@@ -50,9 +51,12 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 - El `OperationalTrainingScope` y el plan serializable sellado ya son comunes a
   local, HA y worker. El laboratorio HA `0.2.273` completó la cadena con ocho
   especies y 636/636 fits, promocionó V2–V6 y ejecutó el Predictor sin errores.
-- HA `0.2.273` está publicada para AMD64/ARM64. El usuario la instalará y
-  lanzará la cadena real con el worker `1.0.22`; la prioridad inmediata es
-  comparar scope, plan, fits, métricas, artefactos y Predictor local/remoto.
+- HA `0.2.274` está instalada en HA real. Dos cadenas superaron scope y
+  preparación, pero V2–V6 falló al 90 %: primero por timeout y después por 409
+  al repetir un fichero que HA ya había recibido. HA `0.2.275` publicada acepta
+  reentregas idénticas; worker `1.0.24` desacopla telemetría del cálculo y reduce
+  su cadencia. Falta instalar HA y repetir la cadena tras actualizar la
+  meteorología; el estado exacto está en `docs/active-context.md`.
 - La retención ML real continúa activa por decisión del usuario. No cambiarla,
   no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
   ni promoción atómica.

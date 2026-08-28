@@ -440,7 +440,20 @@ def receive_result_file(
             raise ValueError("Multiversion uploaded file integrity failed")
     destination = job_root / path
     if destination.exists():
-        raise FileExistsError(f"Multiversion result file already exists: {path}")
+        existing_size = destination.stat().st_size
+        existing_sha256 = sha256(destination)
+        incoming_sha256 = hashlib.sha256(content).hexdigest()
+        mushroom_performance_telemetry.add(
+            files_read=1,
+            bytes_read=existing_size,
+            hashes=2,
+            hash_bytes=existing_size + len(content),
+        )
+        if existing_size == len(content) and existing_sha256 == incoming_sha256:
+            return {"status": "reused", "path": path, "size_bytes": existing_size}
+        raise FileExistsError(
+            f"Multiversion result file already exists with different content: {path}"
+        )
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{destination.name}.", dir=destination.parent)
     try:

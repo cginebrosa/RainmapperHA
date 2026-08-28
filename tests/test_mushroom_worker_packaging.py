@@ -13,7 +13,7 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         dockerignore = (ROOT_DIR / ".dockerignore").read_text(encoding="utf-8")
 
         self.assertIn("FROM python:3.11-slim", dockerfile)
-        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.22", dockerfile)
+        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.24", dockerfile)
         self.assertIn("gdal-bin", dockerfile)
         self.assertIn("gosu", dockerfile)
         self.assertIn("mushroom_rebuild_contracts.py", dockerfile)
@@ -134,11 +134,11 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         stop = (ROOT_DIR / "mushroom_worker_stop.sh").read_text(encoding="utf-8")
 
         self.assertIn(
-            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.22}",
+            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.24}",
             compose,
         )
         self.assertIn(
-            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.22}",
+            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.24}",
             compose,
         )
         self.assertIn("name: rainmapper-worker", compose)
@@ -150,7 +150,7 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertNotIn("RAINMAPPER_HA_URL", compose)
         self.assertIn("RAINMAPPER_WORKER_DISPLAY_NAME", compose)
         self.assertIn("RAINMAPPER_WORKER_HOST_NAME", compose)
-        self.assertIn('RAINMAPPER_WORKER_HEARTBEAT_INTERVAL: "2"', compose)
+        self.assertIn('RAINMAPPER_WORKER_HEARTBEAT_INTERVAL: "5"', compose)
         self.assertNotIn("docker-data", compose)
         self.assertIn("docker compose", start)
         self.assertIn('WORKER_VOLUME="rainmapper-worker-data"', start)

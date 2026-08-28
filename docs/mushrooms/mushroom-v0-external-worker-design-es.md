@@ -1632,7 +1632,7 @@ forma parte de la primera implementacion. Si se incorpora:
 | Situacion | Comportamiento esperado |
 | --- | --- |
 | Worker offline antes de empezar | El job permanece en cola o el usuario elige HA/otro worker. |
-| Se pierde Tailscale durante el calculo | El worker sigue localmente y reintenta; HA marca desconectado tras timeout. |
+| Se pierde comunicación durante el cálculo | La telemetría transitoria no aborta el subproceso; HA puede marcar el worker desconectado hasta que vuelva el enlace. |
 | Se cancela el job | El worker detecta `cancel_requested`, detiene entre unidades seguras y no sube resultados parciales. |
 | El calculo se cuelga pero el supervisor responde | La cancelacion forzada mata el subproceso de calculo y el worker confirma `cancelled`. |
 | Se cuelga o desconecta el contenedor completo | HA cerca el job y rechaza resultados tardios; sin canal de administracion remoto no puede matar fisicamente el proceso del otro host. |
@@ -1641,7 +1641,7 @@ forma parte de la primera implementacion. Si se incorpora:
 | Cambian inputs durante `rebuild_v0` | HA rechaza la promocion por snapshot obsoleto. |
 | Cambian inputs durante un experimento ML | HA puede conservarlo como candidato historico ligado a su snapshot, pero no activarlo automaticamente. |
 | Falla una fase | No se promociona ningun artefacto del paquete. |
-| Falla la subida | Se reintenta de forma idempotente con el mismo `job_id`. |
+| Falla la entrega de un resultado ya calculado | El worker conserva el resultado y reintenta de forma idempotente con el mismo `job_id`, sin plazo, hasta recuperar el coordinador o recibir cancelación. |
 | Resultado corrupto/incompatible | HA lo conserva solo para diagnostico acotado o lo elimina; mantiene el V0 anterior. |
 | Dos workers consultan a la vez | Solo el worker asignado puede reclamar atomicamente el job; el token/lease anterior queda invalidado al reasignar. |
 | Se solicita dos veces trabajo equivalente | El `work_key` global impide el segundo job mientras el primero siga activo. |

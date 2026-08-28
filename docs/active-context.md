@@ -6,6 +6,93 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 ## Estado exacto al cierre — 2026-08-28
 
+### Release preparada tras la tercera validación real: HA 0.2.275 y worker 1.0.24
+
+- La tercera cadena real con HA `0.2.274` y worker `1.0.23` completó
+  reconstrucción y ML v0, pero V2–V6 falló al 90 % después de 13 min 24 s. El
+  error exacto del worker fue `HTTP Error 409: Conflict` durante
+  `Uploading active operational models`; no hubo promoción.
+- La causa confirmada era una entrega repetida después de una respuesta perdida:
+  HA ya conservaba el fichero recibido y rechazaba siempre el segundo intento
+  porque la ruta existía. HA `0.2.275` compara tamaño y SHA-256: acepta como
+  idempotente un duplicado idéntico y mantiene el 409 si el contenido difiere.
+- Worker `1.0.24` desacopla control/progreso del callback científico mediante
+  un único intercambio en segundo plano, conserva solo el último progreso y
+  limita la cadencia normal a 10 s. Los heartbeats locales pasan de 2 a 5 s.
+  La entrega final continúa reintentándose hasta recuperar al coordinador o
+  recibir cancelación.
+- El worker local `1.0.24` está activo con la misma identidad
+  `worker_1a9a232c20fe2ee2`, el mismo volumen persistente y cachés GIS/Predictor
+  válidas. No se publica en GHCR.
+- HA `0.2.275` está publicada. `0.2.275` y `latest` comparten el índice OCI
+  `sha256:64f0cbda06a3b0addcb507bf0efac494d98e14d725f73e50d37c6075840e1e6b`
+  con manifests `linux/amd64` y `linux/arm64`.
+- La siguiente validación real se hará después del scheduled runner y de la
+  actualización meteorológica. Permitirá validar transporte, duración y
+  equivalencia contractual; las métricas no se compararán como igualdad exacta
+  con un entrenamiento que usó otro snapshot meteorológico.
+
+### Tercera validación real: HA 0.2.274 y worker 1.0.23
+
+- El único worker fue actualizado localmente a `1.0.23`, conservando identidad,
+  volumen y cachés; HA real lo reconoció con esa versión y el usuario lanzó una
+  nueva cadena. No se publicó el worker en GHCR.
+- La UI no representa una duración integral de la cadena: el contador pierde
+  aproximadamente un minuto de preparación en HA al pasar al job remoto. Dentro
+  del job V2–V6 la duración sí se conserva entre fases, pero no incluye la
+  preparación anterior ni las transiciones entre jobs.
+- El porcentaje tampoco es global ni monótono. En V2–V6 mostró `81 %` durante
+  `Reusing sealed local inputs` y después bajó a `20 %` al empezar
+  `Building V3 fixed-window inputs`; más tarde mostró `37 %` en
+  `Building V5 raw-weather inputs`. Son escalas internas de fase presentadas en
+  una única columna y no permiten estimar avance total ni ETA.
+- La preparación observada fue aproximadamente: algo más de un minuto antes del
+  job; `Reusing sealed local inputs`, 1 min 43 s hasta 81 %; después la duración
+  del mismo job siguió acumulándose. La reutilización del bundle ML v0 sí tardó
+  solo 1–2 s, lo que confirma que los bundles no tienen el mismo coste.
+- En el worker, el bundle V2–V6 materializó 38 ficheros y 52 MiB. Los objetos
+  sellados con recibo se validan por metadatos y se enlazan; durante esta pasada
+  solo se creó un recibo nuevo para un objeto de 319.193 bytes. Por tanto, el
+  retraso de casi dos minutos no se explica por hashing masivo.
+- Control y progreso siguen siendo llamadas síncronas de hasta 3 s. Con un
+  callback por fichero, un timeout que supera el intervalo de coalescencia puede
+  hacer que el siguiente fichero vuelva a bloquear. Los logs registraron
+  heartbeats intermitentes fallidos; esta telemetría ya no aborta el cálculo en
+  `1.0.23`, pero todavía puede ralentizar una fase local.
+- ML v0 fue reclamado a `16:11:43Z` y verificado a `16:14:23Z`; el usuario
+  observó unos 15–20 s de entrenamiento y unos 120 s de subida. Tras verificar
+  el resultado hubo 71 s hasta reclamar V2–V6 y el heartbeat permaneció fallido
+  durante 66 s. La CPU de HA subió aproximadamente al 35 % en esa transición.
+  Esto demuestra una pausa/respuesta degradada del coordinador, pero todavía no
+  atribuye por sí solo el coste exacto entre ingesta, verificación y preparación.
+- La cadena terminó fallando al 90 % durante la entrega V2–V6; la causa y la
+  corrección publicada se resumen en la sección anterior. Sigue pendiente una
+  cadena completa para comparar scope, plan, fits, métricas, artefactos y
+  promoción frente a la cadena local.
+
+### Segunda validación real de HA 0.2.274: cálculo correcto hasta la entrega
+
+- El usuario instaló HA `0.2.274` y lanzó una cadena real con el worker
+  `1.0.22`. Reconstrucción terminó en 5 min 46 s y ML v0 en 1 min 50 s, con
+  ocho especies. V2–V6 alcanzó el 90 % y falló después de 12 min 34 s según la
+  UI; no hubo promoción.
+- El error exacto del worker fue `<urlopen error timed out>` a
+  `2026-08-28T12:23:03Z`. Los logs registraron además timeouts intermitentes de
+  heartbeat durante el mismo trabajo. Es un fallo de transporte en la entrega,
+  distinto del rechazo de scope corregido en HA `0.2.274`.
+- La CPU de la RPi4 se mantuvo aproximadamente en 26–31 % durante el trabajo y
+  volvió al 11 % al terminar. Esto vincula la carga al job, pero no demuestra
+  por sí solo qué proporción corresponde a telemetría, hashing, recepción o
+  verificación. Queda pendiente medir bytes y peticiones por fase.
+- Cambio incorporado al worker local `1.0.23`: los timeouts
+  transitorios de control/progreso no abortan el cálculo; cuando un resultado
+  ya está calculado, reconstrucción, ML v0 y V2–V6 reintentan su entrega sin
+  límite hasta recuperar el coordinador o recibir cancelación. Descargas,
+  claim, inicio y demás comunicaciones conservan sus límites actuales; no se
+  añade cola ni estado persistente nuevo.
+- Pasan 98 pruebas dirigidas del worker y el smoke completo de 1.085 pruebas.
+  Se hizo bump y build local de `1.0.23`, sin publicación en GHCR.
+
 ### Hotfix HA 0.2.273 y validación local posterior
 
 - El primer reentrenamiento del laboratorio con HA `0.2.272` completó la
@@ -208,8 +295,9 @@ se ha cambiado la retención ni se ha relajado ningún gate.
 
 ## Próximos pasos, en orden
 
-1. El usuario instala HA `0.2.274`; el worker permanece en `1.0.22`.
-2. Repetir una única cadena real con esos componentes.
+1. Instalar HA `0.2.275` cuando el usuario lo decida; el worker local `1.0.24`
+   ya está activo.
+2. Después de la actualización meteorológica, repetir una única cadena real.
 3. Al terminar, comparar scope, plan, 636 fits, métricas, artefactos,
    verificación y generaciones promocionadas frente al lote local
    `local_operational_20260828T101432Z`.
@@ -222,9 +310,10 @@ se ha cambiado la retención ni se ha relajado ningún gate.
 
 - **Política para especie nueva sin tuning:** sigue siendo una decisión
   científica abierta. Un fallback implícito comprometería reproducibilidad.
-- **Equivalencia remota aún no demostrada:** la primera cadena real confirmó
-  ocho especies en ML v0, pero V2–V6 se detuvo por mezclar dos representaciones
-  del artefacto de features. Falta validar en HA real la corrección `0.2.274`.
+- **Equivalencia remota aún no demostrada:** HA `0.2.274` superó la preparación
+  del scope y llegó al 90 % de V2–V6, pero la entrega terminó primero por timeout
+  y después por un 409 de reentrega antes de verificación y promoción. Falta una
+  cadena real completa con HA `0.2.275` y worker `1.0.24`.
 - **Duraciones engañosas:** los contadores actuales excluyen preparación y
   transiciones; el presupuesto de 10 minutos se mide desde la pulsación hasta
   la promoción final.
@@ -242,6 +331,13 @@ se ha cambiado la retención ni se ha relajado ningún gate.
 
 ## Validación y entrega ya completadas
 
+- Release HA `0.2.275` y worker local `1.0.24`: 117 pruebas dirigidas de worker
+  y transportes, 7 de empaquetado y smoke completo de 1.086 pruebas superados
+  antes de los bumps mecánicos. La publicación necesitó reintentos por
+  `DeadlineExceeded` y una cancelación solicitada al desconectar Internet; la
+  ejecución final publicó ambos tags y se verificó el índice OCI y las dos
+  arquitecturas. El worker quedó `idle`, con identidad, volumen y cachés
+  conservados.
 - Release HA `0.2.274`: handoff exacto ML v0→V2–V6; 271 pruebas del
   servidor HA y 49 pruebas transversales de scope, preparación, cola y ruta
   local; smoke completo de 1.082 pruebas superado. `0.2.274` y `latest`

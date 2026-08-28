@@ -700,8 +700,27 @@ def _post_bytes(
         bytes_written=len(content),
     )
     request = Request(url, data=content, headers=headers, method="POST")
-    with urlopen(request, timeout=timeout) as response:
-        raw = response.read(1024 * 1024 + 1)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            raw = response.read(1024 * 1024 + 1)
+    except HTTPError as exc:
+        raw_error = exc.read(1024 * 1024 + 1)
+        detail = ""
+        if len(raw_error) <= 1024 * 1024:
+            try:
+                error_payload = json.loads(raw_error.decode("utf-8"))
+                if isinstance(error_payload, dict):
+                    detail = str(error_payload.get("error", "") or "")
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                detail = raw_error.decode("utf-8", errors="replace").strip()
+        suffix = f": {detail[:1000]}" if detail else ""
+        raise HTTPError(
+            exc.url,
+            exc.code,
+            f"{exc.reason}{suffix}",
+            exc.headers,
+            exc.fp,
+        ) from exc
     if len(raw) > 1024 * 1024:
         raise ValueError("Rainmapper result upload response is too large.")
     payload = json.loads(raw.decode("utf-8"))

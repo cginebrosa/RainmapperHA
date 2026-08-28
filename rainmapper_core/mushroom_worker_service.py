@@ -37,7 +37,7 @@ from rainmapper_core.mushroom_predictor_service import PredictorService
 SCHEMA_VERSION = "0.1"
 IDENTITY_SCHEMA_VERSION = "0.1"
 IDENTITY_RELATIVE_PATH = Path("identity/worker.json")
-JOB_TELEMETRY_INTERVAL_SECONDS = 2.0
+JOB_TELEMETRY_INTERVAL_SECONDS = 10.0
 PREDICTOR_RUNTIME_MANIFEST_MAX_BYTES = 8 * 1024 * 1024
 PREDICTOR_FINISH_TIMEOUT_SECONDS = 60.0
 _T = TypeVar("_T")
@@ -52,7 +52,7 @@ def _job_update_timeout(action: str, job_type: str) -> float:
 
 
 class _CoalescedJobTelemetry:
-    """Bound remote job telemetry while preserving cancellation and final state."""
+    """Publish only the latest job telemetry without blocking local computation."""
 
     def __init__(
         self,
@@ -71,55 +71,141 @@ class _CoalescedJobTelemetry:
         self._next_control_at = 0.0
         self._next_progress_at = 0.0
         self._pending_progress: dict[str, Any] | None = None
+        self._pending_revision = 0
+        self._lock = threading.Lock()
+        self._inflight: threading.Thread | None = None
+        self._terminal_error: BaseException | None = None
+
+    def _raise_terminal_error(self) -> None:
+        with self._lock:
+            error = self._terminal_error
+        if error is not None:
+            raise error
+
+    def _run_exchange(
+        self,
+        *,
+        send_control: bool,
+        progress: dict[str, Any] | None,
+        progress_revision: int,
+    ) -> None:
+        progress_sent = False
+        try:
+            if send_control:
+                control = self._update("control", dict(self._base_payload))
+                if control.get("cancel_requested"):
+                    error = InterruptedError(self._cancel_message)
+                    setattr(
+                        error,
+                        "force_cancel_requested",
+                        bool(control.get("force_cancel_requested")),
+                    )
+                    raise error
+            if progress is not None:
+                self._update("progress", progress)
+                progress_sent = True
+        except (URLError, TimeoutError, ConnectionError, http.client.HTTPException):
+            pass
+        except BaseException as exc:
+            with self._lock:
+                self._terminal_error = exc
+        finally:
+            with self._lock:
+                if progress_sent and self._pending_revision == progress_revision:
+                    self._pending_progress = None
+                self._inflight = None
+
+    def _schedule(
+        self,
+        *,
+        force_control: bool = False,
+        force_progress: bool = False,
+    ) -> None:
+        with self._lock:
+            if self._inflight is not None:
+                return
+            now = self._monotonic()
+            send_control = force_control or now >= self._next_control_at
+            send_progress = self._pending_progress is not None and (
+                force_progress or now >= self._next_progress_at
+            )
+            if not send_control and not send_progress:
+                return
+            if send_control:
+                self._next_control_at = now + self._interval_seconds
+            if send_progress:
+                self._next_progress_at = now + self._interval_seconds
+            progress = dict(self._pending_progress) if send_progress else None
+            progress_revision = self._pending_revision
+            thread = threading.Thread(
+                target=self._run_exchange,
+                kwargs={
+                    "send_control": send_control,
+                    "progress": progress,
+                    "progress_revision": progress_revision,
+                },
+                daemon=True,
+                name="rainmapper-worker-job-telemetry",
+            )
+            self._inflight = thread
+            thread.start()
+
+    def _wait_for_idle(self) -> None:
+        while True:
+            with self._lock:
+                thread = self._inflight
+            if thread is None:
+                return
+            thread.join()
 
     def poll_control(self, *, force: bool = False) -> dict[str, Any]:
-        now = self._monotonic()
-        if not force and now < self._next_control_at:
-            return {}
-        control = self._update("control", dict(self._base_payload))
-        self._next_control_at = now + self._interval_seconds
-        if control.get("cancel_requested"):
-            error = InterruptedError(self._cancel_message)
-            setattr(error, "force_cancel_requested", bool(control.get("force_cancel_requested")))
-            raise error
-        return control
+        self._raise_terminal_error()
+        self._schedule(force_control=force)
+        self._raise_terminal_error()
+        return {}
 
     def publish(self, progress: dict[str, Any], *, force: bool = False) -> None:
-        self._pending_progress = {**self._base_payload, **progress}
-        self.poll_control()
-        now = self._monotonic()
-        if not force and now < self._next_progress_at:
-            return
-        self._update("progress", self._pending_progress)
-        self._pending_progress = None
-        self._next_progress_at = now + self._interval_seconds
+        self._raise_terminal_error()
+        with self._lock:
+            self._pending_progress = {**self._base_payload, **progress}
+            self._pending_revision += 1
+        self._schedule(force_control=force, force_progress=force)
+        self._raise_terminal_error()
 
     def flush(self) -> None:
-        self.poll_control(force=True)
-        if self._pending_progress is not None:
-            self._update("progress", self._pending_progress)
-            self._pending_progress = None
-            self._next_progress_at = self._monotonic() + self._interval_seconds
+        self._wait_for_idle()
+        self._raise_terminal_error()
+        self._schedule(force_control=True, force_progress=True)
+        self._wait_for_idle()
+        self._raise_terminal_error()
 
 
 def retry_transient(
     operation: Callable[[], _T],
     *,
-    retry_seconds: float,
+    retry_seconds: float | None,
     retry_interval: float = 1.0,
     stop_event: threading.Event | None = None,
+    on_retry: Callable[[], None] | None = None,
 ) -> _T:
-    """Retry short transport outages without retrying HTTP contract failures."""
-    deadline = time.monotonic() + max(0.0, retry_seconds)
+    """Retry transport outages, optionally without a deadline, but not HTTP contract failures."""
+    deadline = None if retry_seconds is None else time.monotonic() + max(0.0, retry_seconds)
     while True:
         try:
             return operation()
         except HTTPError:
             raise
         except (URLError, TimeoutError, ConnectionError, http.client.HTTPException):
-            if time.monotonic() >= deadline or (stop_event is not None and stop_event.is_set()):
+            if (
+                (deadline is not None and time.monotonic() >= deadline)
+                or (stop_event is not None and stop_event.is_set())
+            ):
                 raise
-            wait_seconds = min(max(0.01, retry_interval), max(0.01, deadline - time.monotonic()))
+            if on_retry is not None:
+                on_retry()
+            wait_seconds = max(0.01, retry_interval)
+            if deadline is not None:
+                wait_seconds = min(wait_seconds, max(0.01, deadline - time.monotonic()))
             if stop_event is None:
                 time.sleep(wait_seconds)
             else:
@@ -752,6 +838,27 @@ def serve(
                     retry_seconds=job_retry_seconds,
                     stop_event=stop_event,
                 )
+
+            def telemetry_update(action: str, payload: dict[str, Any]) -> dict[str, Any]:
+                return update_job(
+                    ha_url,
+                    action,
+                    payload,
+                    token=token,
+                    timeout=_job_update_timeout(action, str(job.get("job_type", ""))),
+                )
+
+            def deliver_result(
+                operation: Callable[[], _T],
+                telemetry: _CoalescedJobTelemetry,
+            ) -> _T:
+                return retry_transient(
+                    operation,
+                    retry_seconds=None,
+                    stop_event=stop_event,
+                    on_retry=lambda: telemetry.poll_control(force=True),
+                )
+
             try:
                 job_type = str(job.get("job_type", ""))
                 if job_type not in {
@@ -953,7 +1060,7 @@ def serve(
                     return
                 if job_type == "worker_candidate_rebuild":
                     telemetry = _CoalescedJobTelemetry(
-                        job_update,
+                        telemetry_update,
                         base_payload={
                             "job_id": job_id,
                             "worker_id": identity["worker_id"],
@@ -1059,7 +1166,7 @@ def serve(
                     def upload_progress(event: dict[str, Any]) -> None:
                         publish_progress(event)
 
-                    verification = with_transport_retry(
+                    verification = deliver_result(
                         lambda: mushroom_worker_results.upload_candidate_result(
                             ha_url,
                             job,
@@ -1068,7 +1175,8 @@ def serve(
                             claim_token=claim_token,
                             token=token,
                             progress_callback=upload_progress,
-                        )
+                        ),
+                        telemetry,
                     )
                     telemetry.flush()
                     job_update(
@@ -1106,7 +1214,7 @@ def serve(
                     return
                 if job_type == "worker_ml_train_v0":
                     ml_telemetry = _CoalescedJobTelemetry(
-                        job_update,
+                        telemetry_update,
                         base_payload={
                             "job_id": job_id,
                             "worker_id": identity["worker_id"],
@@ -1207,7 +1315,7 @@ def serve(
                     def ml_upload_progress(event: dict[str, Any]) -> None:
                         ml_publish_progress(event)
 
-                    verification = with_transport_retry(
+                    verification = deliver_result(
                         lambda: mushroom_worker_results.upload_ml_train_result(
                             ha_url,
                             job,
@@ -1216,7 +1324,8 @@ def serve(
                             claim_token=claim_token,
                             token=token,
                             progress_callback=ml_upload_progress,
-                        )
+                        ),
+                        ml_telemetry,
                     )
                     try:
                         model_cache = cache_ml_train_predictor_objects(
@@ -1266,7 +1375,7 @@ def serve(
                     return
                 if job_type == "worker_ml_multiversion_v1":
                     multiversion_telemetry = _CoalescedJobTelemetry(
-                        job_update,
+                        telemetry_update,
                         base_payload={
                             "job_id": job_id,
                             "worker_id": identity["worker_id"],
@@ -1331,7 +1440,7 @@ def serve(
                                 "overall_percent": 90,
                             }
                         )
-                        verification = with_transport_retry(
+                        verification = deliver_result(
                             lambda: mushroom_worker_results.upload_ml_multiversion_result(
                                 ha_url,
                                 job,
@@ -1340,7 +1449,8 @@ def serve(
                                 claim_token=claim_token,
                                 token=token,
                                 progress_callback=multiversion_progress,
-                            )
+                            ),
+                            multiversion_telemetry,
                         )
                         try:
                             model_cache = cache_multiversion_predictor_objects(
@@ -1565,7 +1675,7 @@ def serve(
                         )
                     if dynamic_inputs:
                         shutil.rmtree(worker_job_dir / "multiversion_inputs", ignore_errors=True)
-                    verification = with_transport_retry(
+                    verification = deliver_result(
                         lambda: mushroom_worker_results.upload_ml_multiversion_result(
                             ha_url,
                             job,
@@ -1574,7 +1684,8 @@ def serve(
                             claim_token=claim_token,
                             token=token,
                             progress_callback=multiversion_progress,
-                        )
+                        ),
+                        multiversion_telemetry,
                     )
                     try:
                         model_cache = cache_multiversion_predictor_objects(

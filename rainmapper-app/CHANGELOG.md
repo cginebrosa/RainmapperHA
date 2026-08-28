@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.275
+
+- Accept byte-identical repeated V2--V6 result files as idempotent delivery
+  after a lost or delayed coordinator response.
+- Preserve integrity rejection when a repeated result path contains different
+  bytes.
+
 ## 0.2.274
 
 - Reuse the exact sealed `features.json` and `known_sites.json` inputs from
