@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
+import tarfile
 import uuid
 from pathlib import Path
 from typing import Any, Callable
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -569,7 +572,14 @@ def promote_verified_candidate(
         job_dir / mushroom_worker_transport.SNAPSHOT_PREFIX
     )
 
+    last_freshness_bucket = 0
+
     def report_freshness(completed: int, total: int, logical_path: str) -> None:
+        nonlocal last_freshness_bucket
+        bucket = min(8, completed * 8 // max(1, total))
+        if bucket <= last_freshness_bucket and completed < total:
+            return
+        last_freshness_bucket = bucket
         ratio = completed / max(1, total)
         percent = 12 + round(ratio * 60)
         detail = f"Checking {logical_path}." if logical_path else "Checking authoritative inputs."
@@ -584,6 +594,7 @@ def promote_verified_candidate(
         weather_data_dir=weather_data_dir,
         gis_root=gis_root,
         gis_hash_cache_path=input_bundle_root.resolve() / ".gis-hash-cache.json",
+        verify_weather_file_hashes=False,
         progress_callback=report_freshness,
     )
     if freshness.get("status") != "valid":
@@ -1299,6 +1310,7 @@ def upload_ml_multiversion_result(
 
     job_id = mushroom_worker_transport.validate_job_id(str(job.get("job_id", "")))
     endpoint = str(job.get("result_endpoint", "") or "")
+    bundle_endpoint = str(job.get("result_bundle_endpoint", "") or "")
     complete_endpoint = str(job.get("result_complete_endpoint", "") or "")
     if endpoint != "/api/mushrooms/workers/jobs/multiversion-result-file":
         raise ValueError("Worker multiversion result endpoint is invalid.")
@@ -1312,30 +1324,123 @@ def upload_ml_multiversion_result(
         job_id=job_id,
         expected_purpose=job_purpose,
     )
-    logical_paths = [mushroom_ml_multiversion_transport.RESULT_MANIFEST_NAME] + [
-        row["path"] for row in manifest["files"]
-    ]
     headers = mushroom_worker_transport.request_headers(worker_id, claim_token, token)
     headers["Content-Type"] = "application/octet-stream"
-    for index, logical_path in enumerate(logical_paths, start=1):
-        _post_bytes(
-            ha_url.rstrip("/") + endpoint + "?" + urlencode({"job_id": job_id, "file": logical_path}),
-            _read_bytes(result_root / logical_path),
-            headers=headers,
-            timeout=timeout,
-        )
-        if progress_callback is not None:
-            progress_callback(
-                {
-                    "phase": (
-                        "Uploading active operational models"
-                        if job_purpose == "operational"
-                        else "Uploading V2--V6 scientific benchmark"
-                    ),
-                    "message": f"Uploaded result file {index}/{len(logical_paths)}.",
-                    "overall_percent": 90 + int(index / len(logical_paths) * 8),
-                }
+    _post_bytes(
+        ha_url.rstrip("/") + endpoint + "?" + urlencode(
+            {"job_id": job_id, "file": mushroom_ml_multiversion_transport.RESULT_MANIFEST_NAME}
+        ),
+        _read_bytes(manifest_path),
+        headers=headers,
+        timeout=timeout,
+    )
+    if bundle_endpoint == "/api/mushrooms/workers/jobs/multiversion-result-bundle":
+        groups: list[list[dict[str, Any]]] = []
+        legacy_records: list[dict[str, Any]] = []
+        group: list[dict[str, Any]] = []
+        estimated_size = 10 * 1024
+        for record in manifest["files"]:
+            member_size = 512 + ((int(record["size_bytes"]) + 511) // 512) * 512
+            if member_size + 10 * 1024 > mushroom_ml_multiversion_transport.RESULT_BUNDLE_MAX_BYTES:
+                if group:
+                    groups.append(group)
+                    group = []
+                    estimated_size = 10 * 1024
+                legacy_records.append(record)
+                continue
+            if group and estimated_size + member_size > mushroom_ml_multiversion_transport.RESULT_BUNDLE_MAX_BYTES:
+                groups.append(group)
+                group = []
+                estimated_size = 10 * 1024
+            group.append(record)
+            estimated_size += member_size
+        if group:
+            groups.append(group)
+        uploaded_files = 0
+        for bundle_index, records in enumerate(groups, start=1):
+            stream = io.BytesIO()
+            with tarfile.open(fileobj=stream, mode="w") as archive:
+                for record in records:
+                    source = result_root / record["path"]
+                    info = archive.gettarinfo(str(source), arcname=record["path"])
+                    info.uid = info.gid = 0
+                    info.uname = info.gname = ""
+                    info.mtime = 0
+                    with source.open("rb") as handle:
+                        archive.addfile(info, handle)
+            content = stream.getvalue()
+            if len(content) > mushroom_ml_multiversion_transport.RESULT_BUNDLE_MAX_BYTES:
+                raise ValueError("Multiversion result bundle exceeded its transfer limit.")
+            _post_bytes(
+                ha_url.rstrip("/") + bundle_endpoint + "?" + urlencode({"job_id": job_id}),
+                content,
+                headers=headers,
+                timeout=timeout,
             )
+            uploaded_files += len(records)
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "phase": (
+                            "Uploading active operational models"
+                            if job_purpose == "operational"
+                            else "Uploading V2--V6 scientific benchmark"
+                        ),
+                        "message": (
+                            f"Uploaded result bundle {bundle_index}/{len(groups)} "
+                            f"({uploaded_files}/{len(manifest['files'])} files)."
+                        ),
+                        "overall_percent": 90 + int(uploaded_files / len(manifest["files"]) * 8),
+                    }
+                )
+        for record in legacy_records:
+            logical_path = record["path"]
+            _post_bytes(
+                ha_url.rstrip("/") + endpoint + "?" + urlencode(
+                    {"job_id": job_id, "file": logical_path}
+                ),
+                _read_bytes(result_root / logical_path),
+                headers=headers,
+                timeout=timeout,
+            )
+            uploaded_files += 1
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "phase": (
+                            "Uploading active operational models"
+                            if job_purpose == "operational"
+                            else "Uploading V2--V6 scientific benchmark"
+                        ),
+                        "message": (
+                            f"Uploaded large result file {uploaded_files}/"
+                            f"{len(manifest['files'])}."
+                        ),
+                        "overall_percent": 90
+                        + int(uploaded_files / len(manifest["files"]) * 8),
+                    }
+                )
+    else:
+        logical_paths = [row["path"] for row in manifest["files"]]
+        for index, logical_path in enumerate(logical_paths, start=1):
+            _post_bytes(
+                ha_url.rstrip("/") + endpoint + "?" + urlencode({"job_id": job_id, "file": logical_path}),
+                _read_bytes(result_root / logical_path),
+                headers=headers,
+                timeout=timeout,
+            )
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "phase": (
+                            "Uploading active operational models"
+                            if job_purpose == "operational"
+                            else "Uploading V2--V6 scientific benchmark"
+                        ),
+                        "message": f"Uploaded result file {index}/{len(logical_paths)}.",
+                        "overall_percent": 90 + int(index / len(logical_paths) * 8),
+                    }
+                )
     completed = _post_bytes(
         ha_url.rstrip("/") + complete_endpoint,
         json.dumps(

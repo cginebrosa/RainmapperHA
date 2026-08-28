@@ -196,6 +196,19 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
 
         self.assertEqual(manifest["weather_history"]["generation_id"], generation_id)
         self.assertEqual(manifest["weather_history"]["partition_count"], 1)
+        weather_record = next(
+            row
+            for row in manifest["files"]
+            if row.get("role") == "weather-history:partition"
+        )
+        relative = Path(str(weather_record["path"])).relative_to(
+            "inputs/weather/weather-history"
+        )
+        self.assertTrue(
+            (self.weather / "weather-history" / relative).samefile(
+                snapshot / str(weather_record["path"])
+            )
+        )
         self.assertFalse(any(
             str(row.get("path", "")).endswith("weather_daily.parquet")
             for row in manifest["files"]
@@ -294,6 +307,22 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "valid")
         self.assertFalse(any(role.startswith("weather-history:") for role in hashed_roles))
+
+        current_path = self.weather / "weather-history" / "CURRENT.json"
+        current = json.loads(current_path.read_text(encoding="utf-8"))
+        current["generation_id"] = "another-generation"
+        current_path.write_text(json.dumps(current), encoding="utf-8")
+        changed = mushroom_rebuild_snapshot.verify_live_inputs(
+            manifest,
+            observations_path=self.observations,
+            reference_catalogs_path=self.catalogs,
+            gis_mappings_path=self.mappings,
+            weather_data_dir=self.weather,
+            gis_root=self.gis,
+            verify_weather_file_hashes=False,
+        )
+        self.assertEqual(changed["status"], "stale")
+        self.assertIn("generation identity changed", changed["errors"][-1])
 
     def test_snapshot_rejects_partitioned_history_for_incompatible_worker(self) -> None:
         self.create_partitioned_weather()

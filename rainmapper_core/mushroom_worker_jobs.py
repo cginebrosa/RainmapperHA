@@ -935,6 +935,7 @@ def create_ml_multiversion_job(
         "triggered_by_job_id": str(triggered_by_job_id or "")[:100],
         "input_bundle": {**input_bundle, "endpoint": "/api/mushrooms/workers/jobs/input"},
         "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
+        "result_bundle_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-bundle",
         "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
     }
     queue["jobs"].append(job)

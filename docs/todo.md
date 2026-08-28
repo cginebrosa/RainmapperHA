@@ -63,13 +63,15 @@ Especificación vinculante:
   La meteorología no cambió porque el scheduled runner no llegó a activarse.
 - [x] Publicar la corrección final de identidad científica en HA `0.2.276` y
   reconstruir el worker local `1.0.25`, conservando identidad, volumen y cachés.
-- [ ] Confirmar la instalación de HA `0.2.276`; no hace falta repetir una
+- [x] Confirmar la instalación de HA `0.2.276`; no hace falta repetir una
   reconstrucción para la identidad, ya validada directamente con los mismos
   inputs actuales local/HA.
-- [ ] Diagnosticar antes de otro reentrenamiento el último fallo real de
+- [x] Diagnosticar antes de otro reentrenamiento el último fallo real de
   `Reconstrucción operativa completa`: terminó al 55 % en 2 min 9 s después de
-  que corriera un runner meteorológico. Obtener el error exacto y comprobar si
-  cambió el histórico; no asumir causalidad por coincidencia temporal.
+  que corriera un runner meteorológico. El error fue `name 'HTTPError' is not
+  defined` al capturar un rechazo de subida cuyo detalle quedó destruido. El
+  histórico sí cambió en seis filas y el runner acabó unos 33 minutos antes; no
+  hay causalidad demostrada. Worker `1.0.26` conserva el error HTTP si se repite.
 
 ## P0 — Estabilizar Predictor multiversión y coherencia científica
 
@@ -485,6 +487,12 @@ evidencia y cualquier cambio operativo entra por el mantenimiento completo.
      ligado a su manifiesto/digest. Reutilizarlo en instalación, eliminar el
      segundo hash de artefactos dentro de `_verified_result` y copiar/promover
      una sola vez sin debilitar la frontera worker→HA.
+     **Implementación local 2026-08-28, aún sin build/despliegue:** los puntos 3
+     y 4 están cubiertos para multiversión mediante TAR sin compresión limitados
+     a 16 MiB, fallback del fichero grande, validación por miembro y recibos
+     ligados a tamaño/digest/device/inode/mtime/ctime. La promoción meteorológica
+     usa identidad inmutable y publica ocho checkpoints en vez de 64. Mantener
+     abierta la tarea hasta medir HA↔worker real y abordar la cola durable.
   5. Reutilizar inputs preparados por `snapshot_id` + perfiles + versión de
      contrato, compartir cargas/cálculos meteorológicos entre etapas y leer el
      JSONL incrementalmente desde un offset. Solo después paralelizar ramas y

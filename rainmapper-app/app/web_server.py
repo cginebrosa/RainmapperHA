@@ -14366,6 +14366,36 @@ def receive_mushroom_ml_multiversion_result_file(
     return 200, {"ok": True, "result": result}
 
 
+def receive_mushroom_ml_multiversion_result_bundle(
+    *,
+    job_id: str,
+    content: bytes,
+    worker_id: str,
+    claim_token: str,
+    auth_token: str,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            mushroom_worker_jobs.authorize_ml_multiversion_result_upload(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        result = mushroom_ml_multiversion_transport.receive_result_bundle(
+            mushroom_worker_candidate_results_path(),
+            job_id=job_id,
+            content=content,
+        )
+    except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "result": result}
+
+
 def complete_mushroom_ml_multiversion_result(
     payload: object,
     *,
@@ -18733,6 +18763,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return mushroom_worker_results.MAX_ML_TRAIN_MODEL_BYTES
         if path == "/api/mushrooms/workers/jobs/multiversion-result-file":
             return mushroom_ml_multiversion_transport.MAX_RESULT_FILE_BYTES
+        if path == "/api/mushrooms/workers/jobs/multiversion-result-bundle":
+            return mushroom_ml_multiversion_transport.RESULT_BUNDLE_MAX_BYTES
         if path == "/api/mushrooms/workers/jobs/finish":
             return MUSHROOM_PREDICTOR_RESULT_MAX_BYTES
         if path == "/mushrooms/predictor/jobs/cancel":
@@ -20593,6 +20625,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             status, response = receive_mushroom_ml_multiversion_result_file(
                 job_id=(query.get("job_id") or [""])[0],
                 logical_path=(query.get("file") or [""])[0],
+                content=self.read_request_body(),
+                worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
+                claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
+        if path == "/api/mushrooms/workers/jobs/multiversion-result-bundle":
+            worker_token, _device_id = self.auth_credentials()
+            query = parse_qs(parsed.query)
+            status, response = receive_mushroom_ml_multiversion_result_bundle(
+                job_id=(query.get("job_id") or [""])[0],
                 content=self.read_request_body(),
                 worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
                 claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),

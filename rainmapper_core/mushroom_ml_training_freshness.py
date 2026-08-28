@@ -256,7 +256,8 @@ def assess(
                 ignored_extra_inputs={"observation-features.json", "registry.json"},
                 # Partitioned history is immutable and content-addressed. Its
                 # generation id plus manifest digest is sufficient for this UI
-                # freshness hint; candidate promotion still performs deep hashes.
+                # freshness hint; candidate promotion uses the same authoritative
+                # immutable identity while explicit deep audits hash every object.
                 verify_weather_file_hashes=deep,
             )
             result = {

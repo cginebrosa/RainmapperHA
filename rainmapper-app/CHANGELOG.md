@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.277
+
+- Receive multiversion results in bounded uncompressed TAR bundles and verify
+  every declared member before staging it.
+- Reuse identity-bound upload receipts during finalization and installation,
+  while retaining single-file fallback for oversized artifacts.
+- Materialize immutable weather snapshots with hardlinks and validate their
+  generation identity during promotion.
+- Coalesce live-input promotion progress into eight durable checkpoints.
+
 ## 0.2.276
 
 - Derive `OperationalTrainingScope` input identities from scientific feature

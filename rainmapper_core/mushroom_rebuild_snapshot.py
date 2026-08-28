@@ -254,6 +254,50 @@ def _copy_snapshot_file(
     return destination_record
 
 
+def _link_immutable_snapshot_file(
+    source: Path,
+    destination: Path,
+    *,
+    logical_path: str,
+    role: str,
+    size_bytes: int,
+    sha256: str,
+) -> dict[str, object]:
+    """Materialize a manifest-verified immutable object without reading it again."""
+    source_stat = source.stat()
+    if not source.is_file() or source_stat.st_size != size_bytes:
+        raise RuntimeError(f"immutable snapshot input size changed: {source}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(source, destination)
+    except OSError:
+        # Cross-filesystem deployments cannot hard-link. The worker still hashes
+        # the downloaded object against the authoritative generation manifest.
+        shutil.copy2(source, destination)
+        mushroom_performance_telemetry.add(
+            copies=1,
+            copy_bytes=size_bytes,
+            files_read=1,
+            bytes_read=size_bytes,
+            files_written=1,
+            bytes_written=size_bytes,
+        )
+    destination_stat = destination.stat()
+    current_source_stat = source.stat()
+    if (
+        destination_stat.st_size != size_bytes
+        or (source_stat.st_size, source_stat.st_mtime_ns)
+        != (current_source_stat.st_size, current_source_stat.st_mtime_ns)
+    ):
+        raise RuntimeError(f"immutable snapshot input changed while materializing: {source}")
+    return {
+        "role": role,
+        "path": logical_path,
+        "size_bytes": size_bytes,
+        "sha256": sha256,
+    }
+
+
 def create_snapshot(
     snapshot_dir: Path,
     *,
@@ -334,23 +378,39 @@ def create_snapshot(
 
             with pin_weather_generation(weather_root) as generation:
                 history_files = [
-                    ("manifest", generation.manifest_path),
-                    ("catalog", generation.object_path(generation.catalog.path)),
+                    (
+                        "manifest",
+                        generation.manifest_path,
+                        generation.manifest_path.stat().st_size,
+                        generation.manifest_sha256,
+                    ),
+                    (
+                        "catalog",
+                        generation.object_path(generation.catalog.path),
+                        generation.catalog.size_bytes,
+                        generation.catalog.sha256,
+                    ),
                     *[
-                        ("partition", generation.object_path(partition.path))
+                        (
+                            "partition",
+                            generation.object_path(partition.path),
+                            partition.size_bytes,
+                            partition.sha256,
+                        )
                         for partition in generation.partitions
                     ],
                 ]
-                for role_suffix, source in history_files:
+                for role_suffix, source, size_bytes, digest in history_files:
                     relative_under_history = source.relative_to(generation.root).as_posix()
                     relative = f"inputs/weather/weather-history/{relative_under_history}"
                     snapshot_files.append(
-                        _copy_snapshot_file(
+                        _link_immutable_snapshot_file(
                             source,
                             staging / relative,
                             logical_path=relative,
                             role=f"weather-history:{role_suffix}",
-                            required=True,
+                            size_bytes=size_bytes,
+                            sha256=digest,
                         )
                     )
                 current_relative = "inputs/weather/weather-history/CURRENT.json"
@@ -623,8 +683,10 @@ def verify_live_inputs(
     }
     ignored_extras = {str(value) for value in (ignored_extra_inputs or set())}
     matching_weather_identity = False
+    checked_weather_identity = False
     weather_history = input_manifest.get("weather_history")
     if not verify_weather_file_hashes and isinstance(weather_history, dict):
+        checked_weather_identity = True
         try:
             from rainmapper_core.weather_history_dataset import resolve_weather_generation
 
@@ -636,6 +698,8 @@ def verify_live_inputs(
             )
         except (OSError, RuntimeError, ValueError):
             matching_weather_identity = False
+        if not matching_weather_identity:
+            errors.append("live weather history generation identity changed")
     files = input_manifest.get("files")
     if not isinstance(files, list):
         return {"status": "invalid", "errors": ["input manifest files must be a list"]}
@@ -661,7 +725,7 @@ def verify_live_inputs(
         if role.startswith("extra:") and role.removeprefix("extra:") in ignored_extras:
             current_records.append(dict(raw_record))
             continue
-        if role.startswith("weather-history:") and matching_weather_identity:
+        if role.startswith("weather-history:") and checked_weather_identity:
             current_records.append(dict(raw_record))
             continue
         source = fixed_sources.get(role)

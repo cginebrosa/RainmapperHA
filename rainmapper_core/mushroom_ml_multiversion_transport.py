@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import tempfile
+import tarfile
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -27,6 +29,8 @@ RESULT_KIND = "mushroom_ml_multiversion_result"
 RESULT_MANIFEST_NAME = "multiversion_result.json"
 MAX_RESULT_FILE_BYTES = 256 * 1024 * 1024
 MAX_RESULT_BYTES = 2 * 1024 * 1024 * 1024
+RESULT_BUNDLE_MAX_BYTES = 16 * 1024 * 1024
+UPLOAD_RECEIPTS_NAME = ".verified-uploads.json"
 JOB_PURPOSES = frozenset({"operational", "benchmark"})
 
 
@@ -44,6 +48,86 @@ def sha256(path: Path) -> str:
         hash_bytes=size,
     )
     return digest.hexdigest()
+
+
+def _load_upload_receipts(result_root: Path) -> dict[str, dict[str, object]]:
+    path = Path(result_root) / UPLOAD_RECEIPTS_NAME
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    files = payload.get("files") if isinstance(payload, dict) else None
+    if not isinstance(files, list):
+        return {}
+    return {
+        str(row.get("path", "")): dict(row)
+        for row in files
+        if isinstance(row, dict) and str(row.get("path", ""))
+    }
+
+
+def _write_upload_receipts(
+    result_root: Path,
+    receipts: dict[str, dict[str, object]],
+) -> None:
+    root = Path(result_root)
+    content = (
+        json.dumps(
+            {"schema_version": "1.0", "files": [receipts[key] for key in sorted(receipts)]},
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(prefix=".verified-uploads.", dir=root)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, root / UPLOAD_RECEIPTS_NAME)
+    finally:
+        Path(temporary_name).unlink(missing_ok=True)
+    mushroom_performance_telemetry.add(
+        files_written=1,
+        bytes_written=len(content),
+        fsyncs=1,
+    )
+
+
+def _matches_received_digest(
+    result_root: Path,
+    path: Path,
+    digest: object,
+    *,
+    size_bytes: object | None = None,
+    receipts: dict[str, dict[str, object]] | None = None,
+) -> bool:
+    root = Path(result_root).resolve()
+    candidate = Path(path)
+    if candidate.is_symlink() or not candidate.is_file():
+        return False
+    try:
+        logical_path = candidate.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return False
+    record = (receipts or _load_upload_receipts(root)).get(logical_path)
+    stat = candidate.stat()
+    actual_size = stat.st_size
+    if (
+        isinstance(record, dict)
+        and record.get("sha256") == digest
+        and record.get("size_bytes") == actual_size
+        and record.get("device") == stat.st_dev
+        and record.get("inode") == stat.st_ino
+        and record.get("mtime_ns") == stat.st_mtime_ns
+        and record.get("ctime_ns") == stat.st_ctime_ns
+        and (size_bytes is None or actual_size == size_bytes)
+    ):
+        return True
+    return (size_bytes is None or actual_size == size_bytes) and sha256(candidate) == digest
 
 
 def _record_tree_copy(source: Path) -> None:
@@ -156,20 +240,27 @@ def _verified_result(
         job_id=job_id,
         expected_purpose=expected_purpose,
     )
+    receipts = _load_upload_receipts(result_root)
     for record in result["files"]:
         candidate = Path(result_root) / record["path"]
-        if (
-            not candidate.is_file()
-            or candidate.stat().st_size != record["size_bytes"]
-            or sha256(candidate) != record["sha256"]
+        if not _matches_received_digest(
+            result_root,
+            candidate,
+            record["sha256"],
+            size_bytes=record["size_bytes"],
+            receipts=receipts,
         ):
             raise ValueError(f"Multiversion result integrity failed: {record['path']}")
     registry = mushroom_ml_version_registry.load_registry(registry_path)
     extracted = Path(result_root) / "batch"
     batch_manifest_path = extracted / "manifest.json"
     if (
-        not batch_manifest_path.is_file()
-        or sha256(batch_manifest_path) != result["batch_manifest_sha256"]
+        not _matches_received_digest(
+            result_root,
+            batch_manifest_path,
+            result["batch_manifest_sha256"],
+            receipts=receipts,
+        )
     ):
         raise ValueError("Multiversion batch manifest integrity check failed")
     batch_manifest = catalog.validate_batch_manifest(
@@ -253,7 +344,9 @@ def _verified_result(
         quality_path = extracted / Path(str(quality_ref["path"])).relative_to(
             Path("batches") / result["batch_id"]
         )
-        if not quality_path.is_file() or sha256(quality_path) != quality_ref["sha256"]:
+        if not _matches_received_digest(
+            result_root, quality_path, quality_ref["sha256"], receipts=receipts
+        ):
             raise ValueError("Multiversion quality catalog integrity failed")
     elif expected_purpose in {"operational", "benchmark"}:
         raise ValueError(
@@ -265,8 +358,12 @@ def _verified_result(
             Path("batches") / result["batch_id"]
         )
         if (
-            not training_input_path.is_file()
-            or sha256(training_input_path) != training_input_ref["sha256"]
+            not _matches_received_digest(
+                result_root,
+                training_input_path,
+                training_input_ref["sha256"],
+                receipts=receipts,
+            )
         ):
             raise ValueError("Multiversion training input manifest integrity failed")
     elif expected_purpose in {"operational", "benchmark"}:
@@ -289,12 +386,17 @@ def _verified_result(
                 expected_purpose == "benchmark"
                 and report_ref.get("report_id") != result["report_id"]
             )
-            or not report_path.is_file()
-            or sha256(report_path) != report_ref.get("sha256")
+            or not _matches_received_digest(
+                result_root, report_path, report_ref.get("sha256"), receipts=receipts
+            )
             or predictions_ref.get("path")
             != f"batches/{result['batch_id']}/{mushroom_ml_benchmark_reports.PREDICTIONS_NAME}"
-            or not predictions_path.is_file()
-            or sha256(predictions_path) != predictions_ref.get("sha256")
+            or not _matches_received_digest(
+                result_root,
+                predictions_path,
+                predictions_ref.get("sha256"),
+                receipts=receipts,
+            )
         ):
             raise ValueError("Benchmark report artifacts failed integrity checks")
         report = mushroom_ml_benchmark_reports.validate_report(
@@ -311,8 +413,9 @@ def _verified_result(
             Path("batches") / result["batch_id"]
         )
         if (
-            not staged_path.is_file()
-            or sha256(staged_path) != artifact["sha256"]
+            not _matches_received_digest(
+                result_root, staged_path, artifact["sha256"], receipts=receipts
+            )
         ):
             raise ValueError(f"Multiversion artifact integrity failed: {artifact['path']}")
     return result, batch_manifest, extracted
@@ -470,6 +573,113 @@ def receive_result_file(
         fsyncs=1,
     )
     return {"status": "staged", "path": path, "size_bytes": len(content)}
+
+
+def receive_result_bundle(
+    result_root: Path,
+    *,
+    job_id: str,
+    content: bytes,
+) -> dict[str, Any]:
+    """Stage many declared files from one bounded, uncompressed tar request."""
+    if not content or len(content) > RESULT_BUNDLE_MAX_BYTES:
+        raise ValueError("Multiversion result bundle size is invalid")
+    mushroom_worker_transport.validate_job_id(job_id)
+    job_root = Path(result_root) / job_id / "multiversion"
+    manifest = validate_result_manifest(
+        json.loads((job_root / RESULT_MANIFEST_NAME).read_text(encoding="utf-8")),
+        job_id=job_id,
+    )
+    declarations = {row["path"]: row for row in manifest["files"]}
+    receipts = _load_upload_receipts(job_root)
+    staged: list[str] = []
+    seen: set[str] = set()
+    try:
+        archive = tarfile.open(fileobj=io.BytesIO(content), mode="r:")
+    except tarfile.TarError as exc:
+        raise ValueError("Multiversion result bundle is not a valid tar archive") from exc
+    with archive:
+        extracted_size = 0
+        for member in archive:
+            path = safe_input_path(member.name)
+            if not member.isfile() or path in seen or path not in declarations:
+                raise ValueError("Multiversion result bundle contains an invalid member")
+            seen.add(path)
+            declaration = declarations[path]
+            extracted_size += member.size
+            if (
+                member.size != declaration["size_bytes"]
+                or extracted_size > RESULT_BUNDLE_MAX_BYTES
+            ):
+                raise ValueError("Multiversion result bundle expanded size is invalid")
+            extracted = archive.extractfile(member)
+            if extracted is None:
+                raise ValueError("Multiversion result bundle member cannot be read")
+            payload = extracted.read()
+            digest = hashlib.sha256(payload).hexdigest()
+            mushroom_performance_telemetry.add(hashes=1, hash_bytes=len(payload))
+            if len(payload) != declaration["size_bytes"] or digest != declaration["sha256"]:
+                raise ValueError("Multiversion bundled file integrity failed")
+            destination = job_root / path
+            if destination.exists():
+                if _matches_received_digest(
+                    job_root,
+                    destination,
+                    digest,
+                    size_bytes=len(payload),
+                    receipts=receipts,
+                ):
+                    destination_stat = destination.stat()
+                    receipts[path] = {
+                        "path": path,
+                        "size_bytes": len(payload),
+                        "sha256": digest,
+                        "device": destination_stat.st_dev,
+                        "inode": destination_stat.st_ino,
+                        "mtime_ns": destination_stat.st_mtime_ns,
+                        "ctime_ns": destination_stat.st_ctime_ns,
+                    }
+                    staged.append(path)
+                    continue
+                raise FileExistsError(
+                    f"Multiversion result file already exists with different content: {path}"
+                )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{destination.name}.", dir=destination.parent
+            )
+            try:
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(payload)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(temporary_name, destination)
+            finally:
+                Path(temporary_name).unlink(missing_ok=True)
+            destination_stat = destination.stat()
+            receipts[path] = {
+                "path": path,
+                "size_bytes": len(payload),
+                "sha256": digest,
+                "device": destination_stat.st_dev,
+                "inode": destination_stat.st_ino,
+                "mtime_ns": destination_stat.st_mtime_ns,
+                "ctime_ns": destination_stat.st_ctime_ns,
+            }
+            mushroom_performance_telemetry.add(
+                files_written=1,
+                bytes_written=len(payload),
+                fsyncs=1,
+            )
+            staged.append(path)
+    if not staged:
+        raise ValueError("Multiversion result bundle is empty")
+    _write_upload_receipts(job_root, receipts)
+    return {
+        "status": "staged_bundle",
+        "file_count": len(staged),
+        "size_bytes": sum(int(declarations[path]["size_bytes"]) for path in staged),
+    }
 
 
 def finalize_result(

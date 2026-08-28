@@ -1,6 +1,8 @@
 import hashlib
+import io
 import json
 import shutil
+import tarfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, mock
@@ -137,39 +139,76 @@ class MushroomMLMultiversionTransportTests(TestCase):
                 content=json.dumps(result).encode(),
             )
             self.assertEqual("reused", reused_manifest["status"])
-            for record in declared:
-                content = (upload / record["path"]).read_bytes()
-                transport.receive_result_file(
+            invalid_stream = io.BytesIO()
+            with tarfile.open(fileobj=invalid_stream, mode="w") as archive:
+                payload = b"undeclared"
+                info = tarfile.TarInfo("batch/undeclared.bin")
+                info.size = len(payload)
+                archive.addfile(info, io.BytesIO(payload))
+            with self.assertRaisesRegex(ValueError, "invalid member"):
+                transport.receive_result_bundle(
                     staging,
                     job_id=job_id,
-                    logical_path=record["path"],
-                    content=content,
+                    content=invalid_stream.getvalue(),
                 )
-                reused_file = transport.receive_result_file(
+
+            wrong_size_stream = io.BytesIO()
+            with tarfile.open(fileobj=wrong_size_stream, mode="w") as archive:
+                payload = (upload / declared[0]["path"]).read_bytes() + b"extra"
+                info = tarfile.TarInfo(declared[0]["path"])
+                info.size = len(payload)
+                archive.addfile(info, io.BytesIO(payload))
+            with self.assertRaisesRegex(ValueError, "expanded size"):
+                transport.receive_result_bundle(
                     staging,
                     job_id=job_id,
-                    logical_path=record["path"],
-                    content=content,
+                    content=wrong_size_stream.getvalue(),
                 )
-                self.assertEqual("reused", reused_file["status"])
-            models = root / "installed"
-            verified = transport.finalize_result(
+
+            stream = io.BytesIO()
+            with tarfile.open(fileobj=stream, mode="w") as archive:
+                for record in declared:
+                    archive.add(upload / record["path"], arcname=record["path"])
+            bundled = transport.receive_result_bundle(
                 staging,
                 job_id=job_id,
-                registry_path=REGISTRY_PATH,
-                models_root=models,
-                job_purpose="operational",
+                content=stream.getvalue(),
             )
+            self.assertEqual(len(declared), bundled["file_count"])
+            reused_bundle = transport.receive_result_bundle(
+                staging,
+                job_id=job_id,
+                content=stream.getvalue(),
+            )
+            self.assertEqual(len(declared), reused_bundle["file_count"])
+            models = root / "installed"
+            with mock.patch.object(
+                transport,
+                "sha256",
+                side_effect=AssertionError("received files must not be rehashed"),
+            ):
+                verified = transport.finalize_result(
+                    staging,
+                    job_id=job_id,
+                    registry_path=REGISTRY_PATH,
+                    models_root=models,
+                    job_purpose="operational",
+                )
             self.assertEqual("verified", verified["status"])
             self.assertFalse((models / "runtime-batch.json").exists())
             self.assertTrue((staging / job_id / "multiversion").is_dir())
 
-            installed = transport.install_staged_operational_result(
-                staging,
-                job_id=job_id,
-                registry_path=REGISTRY_PATH,
-                models_root=models,
-            )
+            with mock.patch.object(
+                transport,
+                "sha256",
+                side_effect=AssertionError("received files must not be rehashed"),
+            ):
+                installed = transport.install_staged_operational_result(
+                    staging,
+                    job_id=job_id,
+                    registry_path=REGISTRY_PATH,
+                    models_root=models,
+                )
             self.assertEqual("verified_batch_installed", installed["status"])
             self.assertFalse((models / "runtime-batch.json").exists())
             self.assertTrue(

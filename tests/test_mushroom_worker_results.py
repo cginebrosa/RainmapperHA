@@ -1,11 +1,14 @@
 import hashlib
+import io
 import json
 import os
 import shutil
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+from urllib.error import HTTPError
 
 from rainmapper_core import mushroom_rebuild_contracts
 from rainmapper_core import mushroom_rebuild_pipeline
@@ -320,6 +323,30 @@ class MushroomWorkerResultsTests(unittest.TestCase):
         self.assertEqual(result["comparison_status"], "equivalent")
         self.assertEqual(len(progress), 10)
 
+    def test_candidate_upload_preserves_coordinator_http_error_detail(self) -> None:
+        rejected = HTTPError(
+            "http://rainmapper/api/mushrooms/workers/jobs/result-file",
+            409,
+            "Conflict",
+            {},
+            io.BytesIO(b'{"ok":false,"error":"exact upload rejection"}'),
+        )
+        with mock.patch.object(
+            mushroom_worker_results,
+            "urlopen",
+            side_effect=rejected,
+        ):
+            with self.assertRaises(HTTPError) as raised:
+                mushroom_worker_results._post_bytes(
+                    rejected.url,
+                    b"candidate",
+                    headers={},
+                    timeout=1.0,
+                )
+
+        self.assertEqual(raised.exception.code, 409)
+        self.assertIn("exact upload rejection", str(raised.exception.reason))
+
     def test_verified_fresh_candidate_is_promoted_with_backup(self) -> None:
         result_root = self.root / "promotion-results"
         self._finalize_candidate(result_root)
@@ -330,6 +357,14 @@ class MushroomWorkerResultsTests(unittest.TestCase):
             "snapshot_id": "sha256:" + "b" * 64,
             "dataset_fingerprint": "sha256:" + "c" * 64,
         }
+        progress: list[tuple[int, str, str]] = []
+
+        def verify_with_progress(*args, **kwargs):
+            callback = kwargs["progress_callback"]
+            for completed in range(65):
+                callback(completed, 64, f"input-{completed}")
+            return valid_freshness
+
         with (
             mock.patch.object(
                 mushroom_worker_results.mushroom_rebuild_snapshot,
@@ -339,7 +374,7 @@ class MushroomWorkerResultsTests(unittest.TestCase):
             mock.patch.object(
                 mushroom_worker_results.mushroom_rebuild_snapshot,
                 "verify_live_inputs",
-                return_value=valid_freshness,
+                side_effect=verify_with_progress,
             ) as verify_live_inputs,
         ):
             promotion = mushroom_worker_results.promote_verified_candidate(
@@ -352,6 +387,9 @@ class MushroomWorkerResultsTests(unittest.TestCase):
                 gis_mappings_path=self.root / "mappings.json",
                 weather_data_dir=self.root / "weather",
                 gis_root=self.root / "gis",
+                progress_callback=lambda percent, phase, message: progress.append(
+                    (percent, phase, message)
+                ),
             )
 
         self.assertEqual(promotion["status"], "promoted")
@@ -361,6 +399,13 @@ class MushroomWorkerResultsTests(unittest.TestCase):
             verify_live_inputs.call_args.kwargs["gis_hash_cache_path"],
             self.input_root.resolve() / ".gis-hash-cache.json",
         )
+        self.assertFalse(
+            verify_live_inputs.call_args.kwargs["verify_weather_file_hashes"]
+        )
+        freshness_updates = [
+            row for row in progress if row[1].startswith("Validating live inputs (")
+        ]
+        self.assertEqual(8, len(freshness_updates))
         self.assertTrue((self.live / promotion["backup_path"]).is_dir())
         self.assertFalse((self.live / ".worker-promotion-staging").exists())
         for relative in mushroom_rebuild_contracts.EXPECTED_ARTIFACT_PATHS:
@@ -747,6 +792,105 @@ class MushroomMLTrainWorkerResultsTests(unittest.TestCase):
 
 
 class MushroomWorkerMultiversionUploadTests(unittest.TestCase):
+    def test_upload_groups_declared_files_into_one_verified_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            worker_job_dir = Path(temporary)
+            result_root = worker_job_dir / "multiversion_result"
+            result_root.mkdir()
+            (result_root / "multiversion_result.json").write_text("{}", encoding="utf-8")
+            (result_root / "first.bin").write_bytes(b"first")
+            (result_root / "second.bin").write_bytes(b"second")
+            job = {
+                "job_id": "worker_job_multiversion123",
+                "job_purpose": "operational",
+                "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
+                "result_bundle_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-bundle",
+                "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
+            }
+            responses = [
+                {},
+                {},
+                {"verification": {"status": "verified", "job_purpose": "operational"}},
+            ]
+            with mock.patch(
+                "rainmapper_core.mushroom_ml_multiversion_transport.validate_result_manifest",
+                return_value={
+                    "files": [
+                        {"path": "first.bin", "size_bytes": 5},
+                        {"path": "second.bin", "size_bytes": 6},
+                    ]
+                },
+            ), mock.patch.object(
+                mushroom_worker_results,
+                "_post_bytes",
+                side_effect=responses,
+            ) as post:
+                mushroom_worker_results.upload_ml_multiversion_result(
+                    "http://ha.test",
+                    job,
+                    worker_job_dir,
+                    worker_id="worker_12345678",
+                    claim_token="claim-token",
+                    token="api-token",
+                )
+
+            self.assertEqual(3, post.call_count)
+            self.assertIn("multiversion-result-bundle", post.call_args_list[1].args[0])
+            with tarfile.open(
+                fileobj=io.BytesIO(post.call_args_list[1].args[1]), mode="r:"
+            ) as archive:
+                self.assertEqual(["first.bin", "second.bin"], archive.getnames())
+
+    def test_upload_falls_back_to_single_file_for_oversized_bundle_member(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            worker_job_dir = Path(temporary)
+            result_root = worker_job_dir / "multiversion_result"
+            result_root.mkdir()
+            (result_root / "multiversion_result.json").write_text("{}", encoding="utf-8")
+            (result_root / "small.bin").write_bytes(b"small")
+            (result_root / "large.bin").write_bytes(b"x" * 20_000)
+            job = {
+                "job_id": "worker_job_multiversion123",
+                "job_purpose": "benchmark",
+                "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
+                "result_bundle_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-bundle",
+                "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
+            }
+            responses = [
+                {},
+                {},
+                {},
+                {"verification": {"status": "verified_and_archived", "job_purpose": "benchmark"}},
+            ]
+            with mock.patch(
+                "rainmapper_core.mushroom_ml_multiversion_transport.validate_result_manifest",
+                return_value={
+                    "files": [
+                        {"path": "small.bin", "size_bytes": 5},
+                        {"path": "large.bin", "size_bytes": 20_000},
+                    ]
+                },
+            ), mock.patch(
+                "rainmapper_core.mushroom_ml_multiversion_transport.RESULT_BUNDLE_MAX_BYTES",
+                12 * 1024,
+            ), mock.patch.object(
+                mushroom_worker_results,
+                "_post_bytes",
+                side_effect=responses,
+            ) as post:
+                mushroom_worker_results.upload_ml_multiversion_result(
+                    "http://ha.test",
+                    job,
+                    worker_job_dir,
+                    worker_id="worker_12345678",
+                    claim_token="claim-token",
+                    token="api-token",
+                )
+
+            self.assertEqual(4, post.call_count)
+            self.assertIn("multiversion-result-bundle", post.call_args_list[1].args[0])
+            self.assertIn("file=large.bin", post.call_args_list[2].args[0])
+
     def test_upload_accepts_purpose_specific_completion_contract(self) -> None:
         for purpose, expected_status in (
             ("operational", "verified"),

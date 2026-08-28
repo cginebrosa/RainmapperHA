@@ -42,10 +42,10 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 - Rama `inicial`; cierre de código publicado en `8085e46`. Revalidar `pwd`,
   rama, HEAD, worktree y runtime al comenzar, y preservar todos los cambios y
   ficheros no rastreados.
-- HA real confirmada: `0.2.275`. HA `0.2.276` está publicada multiarch, pero su
-  instalación real no está confirmada. El único worker es local al M1, no se
-  publica en GHCR y está reconstruido como `1.0.25` conservando identidad,
-  volumen y cachés.
+- HA real confirmada: `0.2.276`; `0.2.277` está publicada y pendiente de
+  instalación. El único worker es local al M1, no se publica en GHCR y está
+  reconstruido como `1.0.27`, `healthy`/`idle`, conservando identidad, volumen
+  y cachés.
 - `OperationalTrainingScope` y el plan serializable son comunes a local, HA y
   worker. La revisión `.2` deriva identidades únicamente del contenido
   científico y ya produce el mismo scope con los inputs reales actuales local y
@@ -58,8 +58,19 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   La UI de jobs aún pierde preparación/transiciones y su porcentaje puede
   retroceder; es deuda de observabilidad, no un fallo científico confirmado.
 - El último intento manual, después de que corriera un runner meteorológico,
-  falló en la reconstrucción al 55 % tras 2 min 9 s. No se dispone todavía del
-  error concreto y no debe atribuirse al runner sin comprobarlo.
+  falló en la subida de la reconstrucción tras 2 min 9 s. El worker mostró
+  `name 'HTTPError' is not defined`: faltaba el import que debía conservar el
+  rechazo HTTP de HA, por lo que el código y detalle originales son
+  irrecuperables. El runner sí creó una generación meteorológica nueva con seis
+  filas adicionales, pero terminó unos 33 minutos antes y no existe evidencia
+  de causalidad. Worker `1.0.26` corrige y prueba esa captura. Una repetición
+  posterior completó reconstrucción (1 min 39 s), ML v0 (29 s) y multiversión
+  (11 min 20 s); este último movió 638 objetos y 90.087.316 bytes, por lo que
+  `Uploading` incluía trabajo distinto de la transferencia de red.
+- HA `0.2.277` y worker `1.0.27` incluyen TAR sin compresión de
+  hasta 16 MiB para agrupar ficheros, fallback de fichero grande, recibos de
+  verificación, hardlinks meteorológicos y ocho checkpoints de promoción. No
+  afirmar mejora real hasta que el usuario instale HA y lance una medición.
 - La retención ML real continúa activa por decisión del usuario. No cambiarla,
   no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
   ni promoción atómica.

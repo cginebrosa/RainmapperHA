@@ -7,16 +7,16 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 ## Estado operativo al cierre — 2026-08-28
 
 - Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
-  El cierre de código está publicado en `origin/inicial` con commit
-  `8085e464fdca686cc57c2026163ac08d8cdb6374`. El worktree estaba limpio al
-  iniciar este cierre documental; comprobarlo de nuevo al continuar.
-- HA real confirmada por el usuario: `0.2.275`. HA `0.2.276` está publicada en
-  GHCR, pero su instalación real no está confirmada todavía.
-- `0.2.276` y `latest` comparten el índice OCI
-  `sha256:70013bb4d17dfca0ec46652398da39119c00e9e78790dd4941b71f5692635b36`
+  El HEAD previo a esta release era
+  `4f71ff53bfda14009969191f6d41549bceba7726`; revalidar HEAD y worktree al
+  continuar.
+- HA real `0.2.276` sigue siendo la última instalación confirmada por el
+  usuario. HA `0.2.277` está publicada y pendiente de instalación.
+- `0.2.277` y `latest` comparten el índice OCI
+  `sha256:a1a1b5da33bb4a2155b2d73c4bc0f0c82ed797b532637874e020fce9f85402b4`
   con manifests `linux/amd64` y `linux/arm64`.
 - El único worker es local al M1 y no se publica en GHCR. Está reconstruido como
-  `rainmapper-worker:1.0.25`, `healthy` e `idle`, con identidad
+  `rainmapper-worker:1.0.27`, `healthy` e `idle`, con identidad
   `worker_1a9a232c20fe2ee2`, volumen `rainmapper-worker-data` y cachés GIS y
   Predictor válidas. Revalidar runtime antes de reutilizar estos datos.
 - La retención ML real permanece activa por decisión del usuario. No cambiarla,
@@ -24,11 +24,29 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   ni promoción atómica.
 - No existen entrenamientos programados. El usuario inicia manualmente una
   reconstrucción/reentrenamiento cuando añade observaciones.
-- La última tentativa manual del cierre, posterior a la ejecución de un runner
-  meteorológico, falló en el primer job `Reconstrucción operativa completa` al
-  55 % tras 2 min 9 s. La captura no muestra el error concreto. No se ha
-  comprobado si el runner cambió datos ni existe evidencia suficiente para
-  atribuirle el fallo.
+- La última tentativa manual falló al subir el resultado de
+  `Reconstrucción operativa completa` tras 2 min 9 s. El worker registró
+  `name 'HTTPError' is not defined`: `_post_bytes` intentaba capturar un rechazo
+  HTTP de HA sin importar la excepción y destruyó su código y detalle. La
+  reconstrucción ya había terminado y superado su verificación local. El runner
+  anterior creó la generación `20260828T192626159381Z-4c6df0e9daed`, con seis
+  filas más que `20260828T090352707610Z-6ae4e0b0dba3`, y terminó unos 33 minutos
+  antes del claim; no hay evidencia de que causara el rechazo. Worker `1.0.26`
+  corrige el import y conserva el detalle si vuelve a ocurrir.
+- La repetición posterior sí completó los tres jobs: reconstrucción en 1 min
+  39 s, ML v0 en 29 s y multiversión en 11 min 20 s. En el tercero, el worker
+  reclamó el job a las 20:36:18 UTC y HA confirmó 638 objetos y 90.087.316
+  bytes en caché a las 20:47:36 UTC. Por tanto, la fase `Uploading` de la UI no
+  representaba once minutos de transferencia de red: incluía trabajo previo y
+  verificación posterior sin fases visibles suficientemente precisas.
+- La optimización está publicada en HA `0.2.277` y desplegada en el worker
+  `1.0.27`: snapshots
+  meteorológicos mediante hardlinks y verificación por identidad inmutable;
+  resultados multiversión en TAR sin compresión de hasta 16 MiB, con fallback
+  por fichero para artefactos mayores; recibos ligados a identidad de
+  filesystem para evitar rehashes posteriores; y progreso de promoción
+  reducido a ocho checkpoints. No atribuirle mejora real hasta instalar HA y
+  medir una nueva cadena iniciada por el usuario.
 
 ## Resultado principal de la sesión
 
@@ -90,6 +108,13 @@ objetivo de 10 s y no debe optimizarse sin telemetría por fase.
 
 ## Validación de código completada
 
+- smoke definitivo de HA `0.2.277` sobre 1.092 pruebas y todos los validadores;
+- siete pruebas de empaquetado tras los bumps mecánicos;
+- imagen HA multiarch publicada y verificada con el mismo digest en versión y
+  `latest`;
+- worker `1.0.27` reconstruido conservando identidad, volumen y cachés; health
+  local confirma `healthy`/`idle`;
+
 - 49 pruebas dirigidas de scope, ML y worker;
 - 327 pruebas de integración local/HA/worker/resultados/web;
 - siete pruebas de empaquetado del worker;
@@ -102,12 +127,11 @@ proporcional si cambia código, imagen, datos o configuración.
 
 ## Próximos pasos
 
-1. Antes de repetir el entrenamiento, obtener el detalle o log exacto de la
-   reconstrucción fallida al 55 % y determinar si falló meteorología, transporte
-   u otra fase. No corregir ni atribuir causa basándose solo en la captura.
-2. El usuario puede instalar HA `0.2.276`. Después comprobar únicamente versión,
-   arranque, worker `1.0.25` disponible y una predicción conocida. Codex no puede
-   instalarla en HA real.
+1. El usuario instalará HA `0.2.277`; comprobar versión y worker `1.0.27`
+   reconocido antes de iniciar cualquier job.
+2. El usuario, no Codex, lanzará la cadena real. Medirla por marcas monotónicas y contadores de
+   peticiones/bytes; comparar en especial preparación, transferencia y
+   verificación/promoción. No usar el texto `Uploading` como cronómetro de red.
 3. No hace falta reentrenar para validar la corrección de identidad: ya se
    comparó directamente con los mismos inputs local/HA.
 4. Cuando el usuario añada observaciones podrá lanzar voluntariamente una cadena
@@ -122,14 +146,18 @@ proporcional si cambia código, imagen, datos o configuración.
 
 ## Riesgos y dudas activos
 
-- **Instalación pendiente:** HA real `0.2.276` no está confirmada. No atribuirle
-  validación de runtime hasta que el usuario la instale y lo confirme.
-- **Reconstrucción fallida tras runner:** el último intento terminó al 55 % en
-  el primer job. Solo están confirmados tipo, porcentaje y duración; falta el
-  mensaje de error. La relación con el runner meteorológico es una hipótesis.
+- **Rechazo HTTP original irrecuperable:** el `NameError` del worker ocultó el
+  código y detalle enviados por HA. `1.0.26` evita volver a perderlos, pero no
+  demuestra si el rechazo fue transitorio o reproducible.
+- **Runner anterior:** el histórico cambió y la generación nueva fue el input de
+  la reconstrucción, pero el runner terminó unos 33 minutos antes. La relación
+  causal con el rechazo HTTP no está demostrada.
 - **UI de trabajos:** duración no incluye toda la preparación/pausas y el
   porcentaje puede retroceder al cambiar de escala de fase. No usar porcentaje
   ni suma de duraciones mostradas como ETA o tiempo integral.
+- **Optimización pendiente de validación real:** los TAR son contenedores sin compresión. HA
+  recorre, valida y escribe sus miembros, pero no los descomprime. La suite local
+  valida contrato, límites, traversal, retry y fallback; falta la medición real.
 - **Equivalencia completa:** scope e identidades ya coinciden; todavía no se ha
   archivado una comparación exacta de fits, métricas y artefactos de local y
   remoto ejecutados sobre el mismo snapshot final.

@@ -1,6 +1,21 @@
 # Decisions
 
-## 2026-08-28 - [VIGENTE][RELEASE] HA 0.2.276 publicada y worker local 1.0.25
+## 2026-08-28 - [VIGENTE][RELEASE] HA 0.2.277 publicada y worker local 1.0.27
+
+- HA `0.2.277` y `latest` comparten el índice OCI
+  `sha256:a1a1b5da33bb4a2155b2d73c4bc0f0c82ed797b532637874e020fce9f85402b4`
+  con manifests `linux/amd64` y `linux/arm64`.
+- Agrupa los resultados multiversión en TAR sin compresión de hasta 16 MiB,
+  conserva fallback para ficheros grandes, valida cada miembro y reutiliza
+  recibos ligados a la identidad del fichero. La promoción usa identidad de
+  generación meteorológica y ocho checkpoints persistentes.
+- El worker privado se reconstruyó como `1.0.27`, conservando identidad
+  `worker_1a9a232c20fe2ee2`, volumen `rainmapper-worker-data` y caches GIS y
+  Predictor; quedó `healthy` e `idle`.
+- El smoke definitivo pasó 1.092 pruebas y todos los validadores. La instalación
+  de HA y el entrenamiento real quedan en manos del usuario.
+
+## 2026-08-28 - [REEMPLAZADA][RELEASE] HA 0.2.276 publicada y worker local 1.0.25
 
 - HA `0.2.276` y `latest` comparten el índice OCI
   `sha256:70013bb4d17dfca0ec46652398da39119c00e9e78790dd4941b71f5692635b36`
