@@ -58,6 +58,9 @@ _allow_executor_change: ContextVar[bool] = ContextVar(
 _training_freshness: ContextVar[dict[str, Any] | None] = ContextVar(
     "mushroom_predictor_training_freshness", default=None
 )
+_prediction_timing: ContextVar[dict[str, Any] | None] = ContextVar(
+    "mushroom_predictor_timing", default=None
+)
 
 # ML report cache — loaded once per process, reset if file changes
 _ml_report_cache: dict[str, Any] | None = None
@@ -805,6 +808,47 @@ def _preferred_version_badge() -> str:
         f'<span>{html.escape(_lbl("ui.predictor_preferred_badge"))}</span>'
         f'<strong>{html.escape(preferred_name)}</strong>'
         '</div>'
+    )
+
+
+def _prediction_timing_badge() -> str:
+    timing = _prediction_timing.get()
+    if not isinstance(timing, dict):
+        return ""
+    total = timing.get("total_seconds")
+    if not isinstance(total, (int, float)) or isinstance(total, bool) or total < 0:
+        return ""
+
+    def seconds_text(value: float | int) -> str:
+        numeric = float(value)
+        return "<0.1" if 0 <= numeric < 0.05 else f"{numeric:.1f}"
+
+    parts = [
+        _lbl("ui.predictor_job_duration").replace(
+            "{seconds}", seconds_text(total)
+        )
+    ]
+    backend = timing.get("backend_seconds")
+    if (
+        isinstance(backend, (int, float))
+        and not isinstance(backend, bool)
+        and backend >= 0
+        and abs(float(total) - float(backend)) >= 0.05
+    ):
+        parts.append(
+            _lbl("ui.predictor_backend_duration").replace(
+                "{seconds}", seconds_text(backend)
+            )
+        )
+    cache_status = str(timing.get("response_cache_status") or "")
+    if cache_status == "hit":
+        parts.append(_lbl("ui.predictor_result_cache_hit"))
+    elif cache_status == "miss":
+        parts.append(_lbl("ui.predictor_result_cache_miss"))
+    return (
+        '<div class="pred-timing-badge">'
+        + " · ".join(html.escape(part) for part in parts)
+        + "</div>"
     )
 
 
@@ -3286,6 +3330,7 @@ def render_page(
     prepared_response: dict[str, Any] | None = None,
     allow_executor_change: bool = True,
     training_freshness: dict[str, Any] | None = None,
+    prediction_timing: dict[str, Any] | None = None,
 ) -> str:
     if prepared_response is not None:
         prepared_response = validate_response(prepared_response)
@@ -3296,6 +3341,7 @@ def render_page(
     job_token = _job_query.set((query.get("job_id") or [""])[0])
     executor_change_token = _allow_executor_change.set(allow_executor_change)
     training_freshness_token = _training_freshness.set(training_freshness)
+    prediction_timing_token = _prediction_timing.set(prediction_timing)
     try:
         return _render_page_inner(query, profiles_payload, known_sites_payload)
     finally:
@@ -3306,6 +3352,7 @@ def render_page(
         _job_query.reset(job_token)
         _executor_query.reset(executor_token)
         _training_freshness.reset(training_freshness_token)
+        _prediction_timing.reset(prediction_timing_token)
 
 
 def _render_training_freshness_warning() -> str:
@@ -3386,6 +3433,7 @@ def _render_page_inner(
 
     tabs = _render_tabs(view, species, target_date)
     preferred_badge = _preferred_version_badge()
+    prediction_timing_badge = _prediction_timing_badge()
 
     try:
         if view == "week":
@@ -3429,7 +3477,7 @@ def _render_page_inner(
   <h1>🍄 {html.escape(_lbl("ui.predictor_title"))}</h1>
   {freshness_warning}
   {soilgrids_warning}
-  {preferred_badge}
+  <div class="pred-status-row">{preferred_badge}{prediction_timing_badge}</div>
   {tabs}
   {content}
 </div>
@@ -3452,8 +3500,10 @@ _CSS = """
   color: #f5d98b;
 }
 .pred-training-warning span { color: #d6c7a0; }
-.pred-preferred-badge { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0 0 0.8rem; padding: 0.35rem 0.65rem; border: 1px solid #526570; border-radius: 999px; background: #182127; color: #aebbc4; }
+.pred-status-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin: 0 0 0.8rem; flex-wrap: wrap; }
+.pred-preferred-badge { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.35rem 0.65rem; border: 1px solid #526570; border-radius: 999px; background: #182127; color: #aebbc4; }
 .pred-preferred-badge strong { color: #e8eef2; }
+.pred-timing-badge { margin-left: auto; color: #9aa8b2; font-size: 0.9rem; text-align: right; }
 
 /* Tabs */
 .pred-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; }

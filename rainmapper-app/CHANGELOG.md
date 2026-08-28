@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.271
+
+- Reuse an exact persisted Predictor result in Home Assistant when the worker,
+  normalized request, and active runtime fingerprint match.
+- Verify retained result size, SHA-256, and embedded request before reuse, and
+  fall back to the ordinary remote job for missing, expired, or corrupt data.
+- Avoid queueing, polling, and retransmitting completed Predictor responses on
+  exact navigation repeats, even while the original worker is busy.
+- Show total prediction time, backend time, and new/reused result status beside
+  the preferred operational version, with coordinator cache telemetry in
+  Diagnostics.
+
 ## 0.2.270
 
 - Publish one persistent Predictor runtime manifest and reuse unchanged hashes

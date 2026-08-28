@@ -79,6 +79,117 @@ class MushroomWorkerJobsTests(unittest.TestCase):
         self.assertIn("predictor_result_ref", stored)
         self.assertEqual(len(hydrated["result"]["response"]["data"]["padding"]), 2 * 1024 * 1024)
 
+    def test_exact_predictor_result_can_be_reused_only_for_same_worker_request_and_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            fingerprint = "sha256:" + "a" * 64
+            mushroom_worker_jobs.create_predictor_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                request=self.predictor_request(),
+                runtime_manifest={
+                    "schema_version": "1.0",
+                    "kind": "rainmapper_mushroom_predictor_runtime",
+                    "fingerprint": fingerprint,
+                    "files": [
+                        {
+                            "path": "models/model.joblib",
+                            "sha256": "sha256:" + "b" * 64,
+                            "size_bytes": 0,
+                        }
+                    ],
+                },
+                job_id="worker_job_reusable123",
+            )
+            mushroom_worker_jobs.claim_next(
+                path, worker_id="worker_aaaaaaaa", claim_token="claim-secret"
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id="worker_job_reusable123",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            mushroom_worker_jobs.finish_job(
+                path,
+                job_id="worker_job_reusable123",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+                status="complete",
+                result={"response": self.predictor_response(), "cold": False},
+            )
+
+            reusable = mushroom_worker_jobs.find_reusable_predictor_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                request=self.predictor_request(),
+                runtime_fingerprint=fingerprint,
+            )
+            wrong_worker = mushroom_worker_jobs.find_reusable_predictor_job(
+                path,
+                worker_id="worker_bbbbbbbb",
+                request=self.predictor_request(),
+                runtime_fingerprint=fingerprint,
+            )
+            wrong_runtime = mushroom_worker_jobs.find_reusable_predictor_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                request=self.predictor_request(),
+                runtime_fingerprint="sha256:" + "c" * 64,
+            )
+            changed_request = {
+                **self.predictor_request(),
+                "target_date": "2026-08-11",
+            }
+            wrong_request = mushroom_worker_jobs.find_reusable_predictor_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                request=changed_request,
+                runtime_fingerprint=fingerprint,
+            )
+
+        self.assertEqual(reusable["job_id"], "worker_job_reusable123")
+        self.assertIsInstance(reusable["result"]["response"], dict)
+        self.assertIsNone(wrong_worker)
+        self.assertIsNone(wrong_runtime)
+        self.assertIsNone(wrong_request)
+
+    def test_corrupt_predictor_result_is_not_reused(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            fingerprint = "sha256:" + "a" * 64
+            job = {
+                "job_id": "worker_job_corrupt123",
+                "job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+                "target_worker_id": "worker_aaaaaaaa",
+                "status": "complete",
+                "created_at": "2026-08-28T01:00:00+00:00",
+                "finished_at": "2026-08-28T01:01:00+00:00",
+                "predictor_request": self.predictor_request(),
+                "runtime_manifest": {"fingerprint": fingerprint},
+                "result": {"response": self.predictor_response()},
+            }
+            mushroom_worker_jobs._write_atomic(
+                path,
+                {"schema_version": mushroom_worker_jobs.SCHEMA_VERSION, "jobs": [job]},
+            )
+            result_path = (
+                path.parent
+                / mushroom_worker_jobs.PREDICTOR_RESULTS_DIRNAME
+                / "worker_job_corrupt123.json"
+            )
+            result_path.write_text("{}", encoding="utf-8")
+
+            reusable = mushroom_worker_jobs.find_reusable_predictor_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                request=self.predictor_request(),
+                runtime_fingerprint=fingerprint,
+            )
+
+        self.assertIsNone(reusable)
+
     def test_predictor_result_limit_allows_growth_beyond_one_mib(self) -> None:
         response = self.predictor_response(padding=2 * 1024 * 1024)
 

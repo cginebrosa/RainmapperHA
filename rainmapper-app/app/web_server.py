@@ -12727,9 +12727,27 @@ def build_predictor_request(query: dict[str, list[str]]) -> dict[str, object]:
     }
 
 
-def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> dict[str, object]:
+def create_remote_predictor_job(
+    worker_id: str,
+    query: dict[str, list[str]],
+    *,
+    reuse_completed: bool = False,
+) -> dict[str, object]:
     if action_is_running():
         raise ValueError("Predictor is unavailable while a runner action is active.")
+    request = build_predictor_request(query)
+    manifest, _sources, _publication_status = (
+        mushroom_predictor_runtime.load_or_publish_manifest()
+    )
+    if reuse_completed:
+        reusable = mushroom_worker_jobs.find_reusable_predictor_job(
+            mushroom_worker_jobs_path(),
+            worker_id=worker_id,
+            request=request,
+            runtime_fingerprint=str(manifest["fingerprint"]),
+        )
+        if reusable is not None:
+            return {**reusable, "coordinator_result_reused": True}
     worker = next(
         (
             row for row in available_predictor_executors()
@@ -12739,7 +12757,6 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
     )
     if worker is None:
         raise ValueError("The selected predictor worker is not available and idle.")
-    request = build_predictor_request(query)
     if (
         request["multiversion_selection"]
         and mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY
@@ -12748,9 +12765,6 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
         raise ValueError(
             "The selected worker does not support multiversion prediction."
         )
-    manifest, _sources, _publication_status = (
-        mushroom_predictor_runtime.load_or_publish_manifest()
-    )
     maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
     monitor = runtime_diagnostics.OperationMonitor(
         "predictor_request",
@@ -18932,28 +18946,48 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 return
             query["executor"] = [executor]
         if executor.startswith("worker:") and not job_id:
+            coordinator_lookup_started = time.perf_counter()
             try:
-                job = create_remote_predictor_job(executor.removeprefix("worker:"), query)
+                job = create_remote_predictor_job(
+                    executor.removeprefix("worker:"),
+                    query,
+                    reuse_completed=True,
+                )
             except Exception as exc:
                 body = f'<h1>{html.escape(page_title)}</h1><div class="catalog-alert error">{html.escape(str(exc))}</div>'
                 self.send_bytes(409, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
                 return
-            params = {
-                key: list(values)
-                for key, values in query.items()
-                if values and key != "job_id"
-            }
-            job_request = job.get("request")
-            if isinstance(job_request, dict) and job_request.get("target_date"):
-                params["date"] = [str(job_request["target_date"])]
-            params["job_id"] = [str(job["job_id"])]
-            self.redirect_to("./predictor?" + urlencode(params, doseq=True))
-            return
+            coordinator_result_reused = bool(job.get("coordinator_result_reused"))
+            coordinator_lookup_seconds = round(
+                time.perf_counter() - coordinator_lookup_started, 3
+            )
+            if coordinator_result_reused:
+                job_id = str(job["job_id"])
+                query["job_id"] = [job_id]
+            else:
+                params = {
+                    key: list(values)
+                    for key, values in query.items()
+                    if values and key != "job_id"
+                }
+                job_request = job.get("predictor_request")
+                if isinstance(job_request, dict) and job_request.get("target_date"):
+                    params["date"] = [str(job_request["target_date"])]
+                params["job_id"] = [str(job["job_id"])]
+                self.redirect_to("./predictor?" + urlencode(params, doseq=True))
+                return
+        else:
+            coordinator_result_reused = False
+            coordinator_lookup_seconds = 0.0
         prepared_response = None
+        prediction_timing: dict[str, object] | None = None
         remote_diagnostic_details: dict[str, object] = {}
         if job_id:
             try:
-                job = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=job_id)
+                if not coordinator_result_reused:
+                    job = mushroom_worker_jobs.get_job(
+                        mushroom_worker_jobs_path(), job_id=job_id
+                    )
             except ValueError as exc:
                 self.send_bytes(404, html_page(page_title, f'<div class="catalog-alert error">{html.escape(str(exc))}</div>', auto_refresh=False), "text/html; charset=utf-8")
                 return
@@ -19006,7 +19040,34 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 if isinstance(prepared_response, dict)
                 else {}
             )
-            if "cold" in result:
+            prediction_timing = {
+                "total_seconds": (
+                    coordinator_lookup_seconds
+                    if coordinator_result_reused
+                    else worker_job_elapsed_seconds(job)
+                ),
+                "backend_seconds": (
+                    0.0
+                    if coordinator_result_reused
+                    else response_metrics.get("backend_seconds")
+                ),
+                "response_cache_status": (
+                    "hit"
+                    if coordinator_result_reused
+                    else response_metrics.get("response_cache_status")
+                ),
+            }
+            if coordinator_result_reused:
+                remote_diagnostic_details.update(
+                    {
+                        "coordinator_result_cache_status": "hit",
+                        "coordinator_result_lookup_seconds": coordinator_lookup_seconds,
+                        "coordinator_result_job_id": job_id,
+                    }
+                )
+            if coordinator_result_reused:
+                remote_diagnostic_details["cold_request"] = False
+            elif "cold" in result:
                 remote_diagnostic_details["cold_request"] = bool(result.get("cold"))
             remote_diagnostic_details.update(
                 {
@@ -19050,12 +19111,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         cache_info = mushroom_predictor_ui.predictor_cache_info(
             (query.get("species") or [""])[0]
         )
-        request_monitor = MUSHROOM_PREDICTOR_MONITORS.pop(job_id, None) if job_id else None
+        request_monitor = (
+            MUSHROOM_PREDICTOR_MONITORS.pop(job_id, None)
+            if job_id and not coordinator_result_reused
+            else None
+        )
         has_full_remote_timing = bool(job_id and request_monitor is not None)
         if request_monitor is None:
             request_monitor = runtime_diagnostics.OperationMonitor(
                 "predictor_request",
-                operation_id=(str(job.get("operation_id", "")) if job_id else None) or None,
+                operation_id=(
+                    str(job.get("operation_id", ""))
+                    if job_id and not coordinator_result_reused
+                    else None
+                )
+                or None,
                 details={
                     "app_version": app_version(),
                     "view": (query.get("view") or ["recommender"])[0]
@@ -19135,6 +19205,19 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                             predictor_request
                                         )
                                     )
+                                    local_metrics = prepared_response.get("metrics", {})
+                                    if isinstance(local_metrics, dict):
+                                        prediction_timing = {
+                                            "total_seconds": local_metrics.get(
+                                                "backend_seconds"
+                                            ),
+                                            "backend_seconds": local_metrics.get(
+                                                "backend_seconds"
+                                            ),
+                                            "response_cache_status": local_metrics.get(
+                                                "response_cache_status"
+                                            ),
+                                        }
                             body = mushroom_predictor_ui.render_page(
                                 query,
                                 profiles_payload
@@ -19146,6 +19229,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 prepared_response=prepared_response,
                                 allow_executor_change=execution_policy.allow_manual_selection,
                                 training_freshness=training_freshness,
+                                prediction_timing=prediction_timing,
                             )
                             if executor == mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR:
                                 stats_backend_seconds = elapsed()
@@ -19179,16 +19263,23 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     {"elapsed_seconds": elapsed(), "response_bytes": len(page)},
                 )
             if stats_backend_seconds is None:
-                remote_backend_seconds = remote_diagnostic_details.get(
-                    "worker_backend_seconds"
-                )
-                if isinstance(remote_backend_seconds, (int, float)):
-                    stats_backend_seconds = float(remote_backend_seconds)
+                if coordinator_result_reused:
+                    stats_backend_seconds = 0.0
+                else:
+                    remote_backend_seconds = remote_diagnostic_details.get(
+                        "worker_backend_seconds"
+                    )
+                    if isinstance(remote_backend_seconds, (int, float)):
+                        stats_backend_seconds = float(remote_backend_seconds)
             if (
                 status == 200
                 and not unavailable
                 and stats_backend_seconds is not None
-                and (not job_id or has_full_remote_timing)
+                and (
+                    not job_id
+                    or has_full_remote_timing
+                    or coordinator_result_reused
+                )
             ):
                 try:
                     mushroom_predictor_stats.record(

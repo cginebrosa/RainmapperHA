@@ -397,8 +397,49 @@ y contienen `linux/amd64` y `linux/arm64`. HA 0.2.270 fue instalada en HA real
 por el usuario. El worker privado 1.0.21 se instaló en el M1 mediante el script
 oficial, conservando `rainmapper-worker-data`; quedó `healthy`, `idle`, con GIS
 válido (12 ficheros, 6.341.520.039 bytes) y caché Predictor válida (253.657.749
-bytes). Falta medir en HA real Predictor frío/caliente y la cadena remota
-completa.
+bytes). Falta medir en HA real la cadena remota completa de reentrenamiento.
+
+La medición real de Predictor 0.2.270/1.0.21 ya separa dos cuellos: primera
+consulta 48,146 s y repetición 11,495 s; otra fecha 37,235 s y repetición 12,136
+s. En ambos trabajos de la segunda fecha el runtime se reutilizó. Una
+reproducción aislada midió 27,115 s de backend para una fecha nueva, con 27,112
+s en 58 comparaciones (15,643 s inferencia, 6,560 s contexto meteorológico y
+2,944 s variables), mientras el hit idéntico tardó 0,021 s. La respuesta ronda
+2 MB. Queda demostrado que hay que abordar por separado inferencia por lotes y
+workspace meteorológico para fechas nuevas, y reutilización del resultado
+persistido en HA para no crear otro job remoto en repeticiones.
+
+El worktree añade, todavía sin release, una indicación alineada a la derecha de
+la versión preferida con duración total del trabajo, duración del backend y
+estado de caché del resultado. Pasan las 267 pruebas de servidor/UI, las tres
+pruebas dirigidas nuevas, compilación, validación JSON y `git diff --check`.
+
+La optimización siguiente está implementada localmente y pendiente de la
+validación final: HA busca antes de encolar el resultado Predictor persistido
+más reciente que coincida exactamente en worker, petición normalizada y
+fingerprint del runtime. También verifica el fichero externo mediante su tamaño
+y SHA-256 y contrasta la petición contenida en la respuesta. Un acierto renderiza
+sin job nuevo, polling ni transporte y registra el tiempo de búsqueda como hit
+del coordinador; un resultado expirado, ausente, corrupto o divergente cae al
+flujo normal. No añade almacenamiento: reutiliza la retención existente de diez
+resultados recientes o 24 horas. El cambio es solo HA y no requiere bump de
+worker.
+
+La validación local final pasó 298 pruebas dirigidas de cola/coordinador/UI y
+1.071 pruebas del smoke completo en 45,634 s. El primer smoke expuso dos
+expectativas históricas de empaquetado todavía ancladas a worker 1.0.20; se
+sincronizaron con el Dockerfile y Compose ya vigentes en 1.0.21 y el bloque pasó
+7/7. También pasan compilación, etiquetas JSON y `git diff --check`. No se creó
+un worker, no se lanzó entrenamiento y no hubo build, publicación ni instalación.
+
+Con autorización posterior del usuario se publicó HA 0.2.271. Los tags
+`0.2.271` y `latest` comparten el digest multi-arquitectura
+`sha256:31c53e089935804892d057c3ef01470de7e5dd0abde3db1d7a34ddc1e64d6bfd`
+y contienen `linux/amd64` y `linux/arm64`. El worker permanece en 1.0.21 y no se
+reconstruyó ni publicó. Queda pendiente que el usuario instale HA 0.2.271 y mida
+en HA real una consulta nueva y su repetición exacta; la repetición debe
+renderizar el resultado persistido sin crear otro trabajo remoto y mostrar
+`resultado reutilizado` junto al tiempo de la predicción.
 
 ## Archivos relevantes
 

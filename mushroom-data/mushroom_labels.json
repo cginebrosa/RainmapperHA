@@ -4671,6 +4671,10 @@
   "ui.predictor_preferred_week_context": {"en": "The seven-day strip uses the same selector within the preferred operational version: {version}.", "es": "La franja de siete días usa el mismo selector dentro de la versión operativa preferida: {version}.", "ca": "La franja de set dies usa el mateix selector dins de la versió operativa preferida: {version}."},
   "ui.predictor_multiversion_week_context": {"en": "The seven-day strip uses the same selected versions and the same selector as the summary.", "es": "La franja de siete días usa las mismas versiones seleccionadas y el mismo selector que el resumen.", "ca": "La franja de set dies usa les mateixes versions seleccionades i el mateix selector que el resum."},
   "ui.predictor_preferred_badge": {"en": "Preferred operational version", "es": "Versión operativa preferida", "ca": "Versió operativa preferida"},
+  "ui.predictor_job_duration": {"en": "Prediction job: {seconds} s", "es": "Trabajo de predicción: {seconds} s", "ca": "Treball de predicció: {seconds} s"},
+  "ui.predictor_backend_duration": {"en": "calculation {seconds} s", "es": "cálculo {seconds} s", "ca": "càlcul {seconds} s"},
+  "ui.predictor_result_cache_hit": {"en": "reused result", "es": "resultado reutilizado", "ca": "resultat reutilitzat"},
+  "ui.predictor_result_cache_miss": {"en": "new calculation", "es": "cálculo nuevo", "ca": "càlcul nou"},
   "ui.predictor_preferred_short": {"en": "Preferred", "es": "Preferida", "ca": "Preferida"},
   "ui.predictor_preferred_title": {
     "en": "Preferred Predictor version",

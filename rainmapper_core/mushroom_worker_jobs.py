@@ -1094,6 +1094,52 @@ def get_job(path: Path, *, job_id: str) -> dict[str, Any]:
     return _hydrate_predictor_result(path, _find_job(queue, job_id))
 
 
+def find_reusable_predictor_job(
+    path: Path,
+    *,
+    worker_id: str,
+    request: dict[str, Any],
+    runtime_fingerprint: str,
+) -> dict[str, Any] | None:
+    """Return the newest exact, intact Predictor result for one worker/runtime."""
+    from rainmapper_core.mushroom_predictor_service import normalize_request  # noqa: PLC0415
+
+    target_worker_id = _validate_worker_id(worker_id)
+    checked_request = normalize_request(request)
+    fingerprint = str(runtime_fingerprint or "")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", fingerprint):
+        raise ValueError("Predictor runtime fingerprint is invalid.")
+    queue_path = Path(path)
+    for job in reversed(load_queue(queue_path)["jobs"]):
+        if (
+            job.get("job_type") != JOB_TYPE_PREDICTOR
+            or job.get("status") != "complete"
+            or str(job.get("target_worker_id", "")) != target_worker_id
+            or job.get("predictor_request") != checked_request
+            or not isinstance(job.get("predictor_result_ref"), dict)
+        ):
+            continue
+        manifest = job.get("runtime_manifest")
+        if not isinstance(manifest, dict) or manifest.get("fingerprint") != fingerprint:
+            continue
+        try:
+            hydrated = _hydrate_predictor_result(queue_path, job)
+        except (OSError, ValueError):
+            continue
+        result = hydrated.get("result")
+        response = result.get("response") if isinstance(result, dict) else None
+        if not isinstance(response, dict):
+            continue
+        try:
+            response_request = normalize_request(response.get("request"))
+        except ValueError:
+            continue
+        if response_request != checked_request:
+            continue
+        return hydrated
+    return None
+
+
 def validate_candidate_discard(
     job: dict[str, Any],
     *,

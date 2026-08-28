@@ -192,6 +192,87 @@ ni transferencia.
   local normal. Si la red o el polling impiden ese umbral, se documentará por
   separado y no se atribuirá al predictor.
 
+## Medición real posterior a 0.2.270 / 1.0.21 — 2026-08-28
+
+La primera consulta remota tras instalar ambas versiones tardó 48,146 s entre
+`job_claimed` y `prediction_complete`; informó runtime sincronizado. La misma
+consulta repetida tardó 11,495 s, con servicio caliente y runtime reutilizado.
+Una fecha distinta tardó 37,235 s aun con servicio caliente y runtime
+reutilizado; su repetición posterior tardó 12,136 s. Durante los cálculos largos
+se perdió temporalmente un heartbeat y se recuperó al terminar, señal de que el
+trabajo CPU-bound puede retrasar el hilo de coordinación.
+
+Una reproducción aislada dentro del worker, sobre el mismo runtime y sin red,
+midió para una fecha nueva:
+
+- 27,115 s de backend y 2.006.205 bytes de respuesta;
+- 58 llamadas a `preferred_model_comparison`, 27,112 s acumulados;
+- 15,643 s en inferencia de modelos;
+- 6,560 s en preparación de contexto meteorológico;
+- 2,944 s en construcción de variables runtime;
+- 1,355 s en consultas del catálogo de calidad;
+- 0,258 s en carga de artefactos.
+
+La repetición idéntica dentro del mismo proceso tardó 0,021 s y fue un hit de
+respuesta. Por tanto, los dos costes quedan demostrados y separados:
+
+1. Una fecha nueva está dominada por 58 comparaciones área/especie ejecutadas de
+   forma individual. La siguiente optimización científica debe agrupar por
+   artefacto/contrato/horizonte, construir una fila de variables por identidad
+   reutilizable y ejecutar `predict_proba` sobre matrices por lotes. El contexto
+   meteorológico debe cargarse como superconjunto común para todas las áreas y
+   derivar sus ventanas en memoria.
+2. Una repetición tiene un backend de unos 0,02 s pero sigue pagando unos 11--12
+   s en el circuito remoto. HA debe poder reutilizar su resultado ya persistido,
+   identificado por fingerprint del runtime y petición normalizada, sin crear
+   otro job ni volver a transportar aproximadamente 2 MB de JSON.
+
+La UI mostrará en la fila de la versión operativa el tiempo total del trabajo,
+el tiempo de backend cuando difiera materialmente y si el resultado fue nuevo o
+reutilizado. Esto hace visible cuál de los dos costes domina cada navegación.
+
+## Reutilización exacta persistida en HA — implementación local
+
+HA consulta ahora los resultados externos ya terminados antes de crear un job
+Predictor. Solo acepta el resultado más reciente que cumpla simultáneamente:
+
+- mismo worker asignado;
+- petición normalizada idéntica, incluida fecha, vista, especie, área,
+  selección multiversión, fecha de emisión y especies entrenadas;
+- fingerprint exacto del runtime activo;
+- estado completo y referencia de resultado todavía retenida;
+- fichero externo íntegro según el tamaño y SHA-256 persistidos;
+- petición incluida en la respuesta idéntica a la petición del job.
+
+Un acierto no crea una fila nueva en la cola, no espera polling y no vuelve a
+transportar el JSON. HA renderiza directamente el resultado hidratado y muestra
+tiempo de búsqueda, backend 0 y «resultado reutilizado». Diagnostics registra
+`coordinator_result_cache_status`, `coordinator_result_lookup_seconds` y el job
+de origen. Como no necesita ejecutar código remoto, el acierto sigue disponible
+aunque ese worker ya no esté `idle`. Si cualquier condición no se cumple
+—incluido resultado expirado, ausente o corrupto— se usa sin error el flujo
+remoto ordinario.
+
+La caché no añade otra retención ni otro almacén: reutiliza los resultados
+externos ya acotados por la política vigente (los diez más recientes o los que
+no superan 24 horas). Esto limita disco y evita duplicar los payloads de unos
+2 MB observados. El cambio es solo de coordinador HA; no requiere modificar el
+worker ni altera cancelación, retry, promoción o rollback.
+
+La validación local dirigida cubre coincidencia exacta, divergencia de worker,
+petición y runtime, corrupción del fichero y renderizado sin crear job ni
+redirección. La validación real pendiente debe comprobar una fecha nueva y su
+repetición, confirmar una sola fila de trabajo y medir el tiempo mostrado en la
+UI antes de abordar el batching científico.
+
+El cierre local pasó las 298 pruebas de cola/coordinador/UI y el smoke completo:
+1.071 pruebas en 45,634 s. Las dos únicas incidencias del primer smoke eran
+expectativas de empaquetado todavía fijadas a worker 1.0.20; Dockerfile y Compose
+ya estaban en 1.0.21. Se sincronizaron únicamente esas expectativas y el bloque
+de empaquetado pasó 7/7 antes de repetir el smoke. Compilación Python, etiquetas
+JSON y `git diff --check` completan la validación. No se creó ningún worker, no
+se ejecutó entrenamiento y no se construyó ni publicó ninguna imagen.
+
 ## Riesgos
 
 - Una clave incompleta puede servir meteorología o modelos obsoletos.

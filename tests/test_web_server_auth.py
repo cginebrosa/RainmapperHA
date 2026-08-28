@@ -1038,6 +1038,139 @@ class AuthDeviceLimitTests(unittest.TestCase):
         request = create_job.call_args.kwargs["request"]
         self.assertFalse(request["compare_models"])
 
+    def test_remote_predictor_reuses_exact_completed_result_before_queueing(self) -> None:
+        request = {
+            "view": "recommender",
+            "multiversion_selection": [],
+        }
+        manifest = {"fingerprint": "sha256:" + "a" * 64}
+        reusable = {
+            "job_id": "worker_job_reusable123",
+            "status": "complete",
+            "result": {"response": {"metrics": {}}},
+        }
+        with (
+            mock.patch.object(self.web_server, "action_is_running", return_value=False),
+            mock.patch.object(
+                self.web_server, "available_predictor_executors", return_value=[]
+            ),
+            mock.patch.object(
+                self.web_server, "build_predictor_request", return_value=request
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "load_or_publish_manifest",
+                return_value=(manifest, {}, "reused"),
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "find_reusable_predictor_job",
+                return_value=reusable,
+            ) as find_reusable,
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs, "create_predictor_job"
+            ) as create_job,
+            mock.patch.object(
+                self.web_server, "reconcile_mushroom_worker_storage_for_launch"
+            ) as reconcile_storage,
+            mock.patch.object(
+                self.web_server.runtime_diagnostics, "OperationMonitor"
+            ) as operation_monitor,
+        ):
+            result = self.web_server.create_remote_predictor_job(
+                "worker_test", {}, reuse_completed=True
+            )
+
+        self.assertTrue(result["coordinator_result_reused"])
+        self.assertEqual(result["job_id"], "worker_job_reusable123")
+        find_reusable.assert_called_once_with(
+            mock.ANY,
+            worker_id="worker_test",
+            request=request,
+            runtime_fingerprint=manifest["fingerprint"],
+        )
+        create_job.assert_not_called()
+        reconcile_storage.assert_not_called()
+        operation_monitor.assert_not_called()
+
+    def test_remote_predictor_exact_reuse_renders_without_new_job_or_redirect(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        captured: dict[str, object] = {}
+        handler.send_bytes = lambda status, content, content_type: captured.update(
+            status=status, content=content, content_type=content_type
+        )
+        handler.redirect_to = mock.Mock()
+        response = {
+            "runtime_fingerprint": "sha256:" + "a" * 64,
+            "metrics": {"backend_seconds": 27.1, "response_cache_status": "miss"},
+        }
+        cached_job = {
+            "job_id": "worker_job_reusable123",
+            "status": "complete",
+            "coordinator_result_reused": True,
+            "worker_version": "1.0.21",
+            "result": {"response": response, "cold": False},
+        }
+        store = mock.MagicMock()
+        store.load.return_value = {"species_profiles": []}
+        with (
+            mock.patch.object(self.web_server, "action_is_running", return_value=False),
+            mock.patch.object(
+                self.web_server,
+                "create_remote_predictor_job",
+                return_value=cached_job,
+            ) as create_remote,
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs, "get_job"
+            ) as get_job,
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "predictor_cache_info",
+                return_value={"cold_request": False},
+            ),
+            mock.patch.object(self.web_server, "default_store", return_value=store),
+            mock.patch.object(
+                self.web_server.mushroom_known_sites,
+                "load_payload",
+                return_value={"known_sites": []},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_ml_training_freshness,
+                "assess",
+                return_value={"status": "current"},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "render_page",
+                return_value="<div>cached predictor</div>",
+            ) as render_page,
+            mock.patch.object(
+                self.web_server.mushroom_predictor_stats, "record"
+            ) as record_timing,
+        ):
+            handler.render_mushroom_predictor(
+                {
+                    "executor": ["worker:worker_test"],
+                    "view": ["recommender"],
+                    "date": ["2026-08-29"],
+                }
+            )
+
+        self.assertEqual(captured["status"], 200)
+        handler.redirect_to.assert_not_called()
+        get_job.assert_not_called()
+        create_remote.assert_called_once_with(
+            "worker_test", mock.ANY, reuse_completed=True
+        )
+        self.assertIs(render_page.call_args.kwargs["prepared_response"], response)
+        timing = render_page.call_args.kwargs["prediction_timing"]
+        self.assertEqual(timing["backend_seconds"], 0.0)
+        self.assertEqual(timing["response_cache_status"], "hit")
+        self.assertGreaterEqual(timing["total_seconds"], 0.0)
+        self.assertFalse(record_timing.call_args.kwargs["cold"])
+
     def test_predictor_modal_controller_handles_internal_navigation(self) -> None:
         script = self.web_server.predictor_launch_script()
 
@@ -1202,6 +1335,14 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIs(
             render_page.call_args.kwargs["prepared_response"], prepared_response
         )
+        self.assertEqual(
+            render_page.call_args.kwargs["prediction_timing"],
+            {
+                "total_seconds": 0.25,
+                "backend_seconds": 0.25,
+                "response_cache_status": "miss",
+            },
+        )
         timing = record_timing.call_args.kwargs
         self.assertEqual(timing["executor_id"], "home_assistant")
         self.assertTrue(timing["cold"])
@@ -1257,6 +1398,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
             completed_job = {
                 "job_id": job_id,
                 "status": "complete",
+                "started_at": "2026-08-28T01:00:00+00:00",
+                "finished_at": "2026-08-28T01:00:11.5+00:00",
                 "operation_id": monitor.operation_id,
                 "worker_version": "1.0.0",
                 "result": {
@@ -1301,7 +1444,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     self.web_server.mushroom_predictor_ui,
                     "render_page",
                     return_value="<div>remote predictor</div>",
-                ),
+                ) as render_page,
                 mock.patch.object(
                     self.web_server.mushroom_predictor_stats,
                     "record",
@@ -1345,6 +1488,14 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(details["worker_response_cache_status"], "hit")
         self.assertEqual(details["worker_version"], "1.0.0")
         self.assertEqual(details["worker_job_id"], job_id)
+        self.assertEqual(
+            render_page.call_args.kwargs["prediction_timing"],
+            {
+                "total_seconds": 11.5,
+                "backend_seconds": 5.8632,
+                "response_cache_status": "hit",
+            },
+        )
         self.assertEqual(record_timing.call_count, 1)
         timing = record_timing.call_args.kwargs
         self.assertEqual(timing["executor_id"], "worker:worker_test")
@@ -1788,6 +1939,32 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("Versión operativa preferida", rendered)
         self.assertIn("V3", rendered)
+
+    def test_prediction_timing_badge_shows_total_backend_and_cache_status(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        labels = {
+            "ui.predictor_job_duration": "Trabajo de predicción: {seconds} s",
+            "ui.predictor_backend_duration": "cálculo {seconds} s",
+            "ui.predictor_result_cache_hit": "resultado reutilizado",
+        }
+        token = predictor_ui._prediction_timing.set(
+            {
+                "total_seconds": 11.494,
+                "backend_seconds": 0.0214,
+                "response_cache_status": "hit",
+            }
+        )
+        try:
+            with mock.patch.object(
+                predictor_ui, "_lbl", side_effect=lambda key: labels[key]
+            ):
+                rendered = predictor_ui._prediction_timing_badge()
+        finally:
+            predictor_ui._prediction_timing.reset(token)
+
+        self.assertIn("Trabajo de predicción: 11.5 s", rendered)
+        self.assertIn("cálculo &lt;0.1 s", rendered)
+        self.assertIn("resultado reutilizado", rendered)
 
     def test_installed_manifests_loads_only_requested_version_once_per_request(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
