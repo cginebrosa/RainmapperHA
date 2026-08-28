@@ -3,6 +3,48 @@
 Prioridades vigentes. El estado inmediato está en `docs/active-context.md`;
 este fichero distingue trabajo cerrado de próximas entregas.
 
+## P0 — Unificar el alcance operativo local, HA y worker
+
+Especificación vinculante:
+`docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`.
+
+- [x] Reproducir y diagnosticar el fallo real de la cadena completa del
+  2026-08-28: 20 min 19 s hasta fallar V2–V6 por una decisión de tuning ausente
+  para Cantharellus.
+- [x] Demostrar que local y HA real partían de las mismas observaciones, pero
+  no del mismo alcance efectivo ni del mismo catálogo instalado.
+- [x] Documentar la refactorización estructural y preservar promoción atómica,
+  rollback e instalación anterior al fallo.
+- [x] Crear un `OperationalTrainingScope` canónico después de agregar episodios
+  y aplicar todos los gates científicos; debe incluir especies admitidas,
+  excluidas y motivos.
+- [x] Sellar ese alcance dentro de un plan/manifiesto serializable único. Local
+  debe ejecutar exactamente el plan que recibiría el worker; solo puede variar
+  el transporte.
+- [x] Obligar a ML v0, preparación, hold-out, tuning, fits, métricas,
+  verificación y promoción a consumir la lista sellada, sin volver a descubrir
+  especies desde el snapshot. La reconstrucción de features precede por diseño
+  al cálculo del scope y conserva el snapshot que este identifica.
+- [x] Añadir preflight de cobertura completa del catálogo de tuning antes del
+  trabajo pesado y decidir la política científica para una especie elegible
+  nueva sin tuning congelado: fallar cerrado con las claves ausentes, sin
+  sintetizar ni copiar decisiones implícitas.
+- [x] Corregir la carrera/retry de `finish` que dejó un HTTP 409 después de que
+  HA ya hubiese aceptado el resultado ML v0.
+- [ ] Mostrar duración total desde `created_at`, espera/claim y duración de
+  fase; persistir el desglose de SoilGrids, GIS, bundle, worker, verificación y
+  transición entre jobs.
+- [x] Añadir pruebas centinela de 10 filas que agregan a 9 episodios, igualdad
+  local/remoto, cobertura de tuning, cancelación, retry, rollback y promoción
+  atómica.
+- [ ] Validar en laboratorio ambas rutas con los mismos datos, registro y
+  catálogo; exigir igualdad de scope, plan, fits, métricas y artefactos, además
+  de un total desde pulsación hasta promoción de como máximo 10 minutos. Scope,
+  plan y preparación ya coinciden; faltan entrenamiento, artefactos y tiempo
+  integral.
+- [ ] Solo entonces preparar las versiones necesarias y pedir autorización
+  para una única validación real. No repetir antes la cadena remota.
+
 ## P0 — Estabilizar Predictor multiversión y coherencia científica
 
 - [x] Migrar el registro local a `installed_generation_id` independiente por
@@ -29,6 +71,14 @@ este fichero distingue trabajo cerrado de próximas entregas.
   fecha y versión ya esperan a `Predecir`, la especie actualiza sus zonas sin
   worker y el detalle semanal reutiliza su resultado terminado; falta validar
   visualmente y medir el flujo completo.
+- [x] Persistir y reutilizar en HA resultados Predictor exactos por worker,
+  petición normalizada y fingerprint del runtime, verificando tamaño, SHA-256
+  y petición embebida; mostrar tiempo total, cálculo y reutilización en la UI.
+  En HA real 0.2.271, una repetición exacta informó 0,6 s de trabajo y menos de
+  0,1 s de cálculo sin crear un nuevo cálculo científico.
+- [ ] Separar y medir los 6–8 s percibidos en una repetición exacta entre
+  ingress, transferencia y renderizado del detalle técnico grande. No atribuir
+  la causa sin instrumentación.
 - [ ] Ejecutar la especificación de optimización del camino frío en
   `docs/mushrooms/mushroom-predictor-cold-path-optimization-spec-es.md`:
   agregar primero la telemetría por fase y contadores, después implementar
@@ -294,6 +344,12 @@ evidencia y cualquier cambio operativo entra por el mantenimiento completo.
   individual por especie y contrato.
 
 ## P2 — Rendimiento predictor y entrenamiento
+
+- [ ] Rebasar la optimización de rendimiento sobre el alcance unificado. La
+  última cadena real no es una línea base válida de éxito: falló tras 20 min
+  19 s por divergencia de scope. La medición local de 548,095 s demuestra que
+  el cálculo cabe en el presupuesto, pero no demuestra equivalencia remota.
+  El handoff sellado sí quedó observado (`Reusing sealed local inputs`).
 
 - [x] Perfilar una consulta real del Predictor y un benchmark real completo
   ante la pregunta de reescribir el kernel en C — 2026-08-20: no se reescribe

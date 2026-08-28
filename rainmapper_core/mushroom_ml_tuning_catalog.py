@@ -151,6 +151,7 @@ def validate_catalog(
     payload: object,
     *,
     training_plan: Mapping[str, object] | None = None,
+    allow_superset: bool = False,
 ) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise ValueError("Tuning catalog must be an object")
@@ -192,7 +193,7 @@ def validate_catalog(
     checked_decisions.sort(key=lambda row: row["key"])
     if training_plan is not None:
         expected = _expected_keys(training_plan)
-        if seen != expected:
+        if expected - seen or (not allow_superset and seen - expected):
             missing = len(expected - seen)
             unexpected = len(seen - expected)
             raise ValueError(

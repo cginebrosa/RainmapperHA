@@ -33,6 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--observation-features", type=Path)
     parser.add_argument("--stations-file", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--species", action="append")
     parser.add_argument(
         "--feature-set",
         choices=sorted(biology_v3.BIOLOGY_V3_FEATURE_SETS),
@@ -88,6 +89,14 @@ def main() -> int:
     observations = observations_payload.get("observations", [])
     if not isinstance(observations, list):
         raise SystemExit("Observations payload does not contain a list")
+    selected_species = {str(value) for value in (args.species or [])}
+    if selected_species:
+        observations = [
+            row
+            for row in observations
+            if isinstance(row, dict)
+            and str(row.get("species_id") or "") in selected_species
+        ]
 
     micro_area_to_area = mushroom_ml_trainer.load_micro_area_to_area(args.known_sites)
     area_altitudes = mushroom_ml_trainer.load_area_representative_altitudes(
@@ -107,6 +116,8 @@ def main() -> int:
         )
         altitude_by_microarea: dict[str, list[float]] = defaultdict(list)
         for row in feature_rows if isinstance(feature_rows, list) else []:
+            if selected_species and str(row.get("species_id") or "") not in selected_species:
+                continue
             micro_area_id = str(row.get("micro_area_id") or "")
             altitude = row.get("gis_altitude_m")
             try:

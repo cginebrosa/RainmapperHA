@@ -30,6 +30,7 @@ from rainmapper_core import mushroom_worker_results
 from rainmapper_core import mushroom_worker_jobs
 from rainmapper_core import mushroom_worker_registry
 from rainmapper_core import mushroom_predictor_runtime
+from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core.mushroom_predictor_service import PredictorService
 
 
@@ -610,9 +611,42 @@ def multiversion_preparation_command(
                 str(worker_job_dir / str(tuning_catalog_path)),
             ]
         )
+    operational_plan_path = spec.get("operational_plan_path")
+    if job_purpose == "operational":
+        if not operational_plan_path:
+            raise ValueError("Operational worker job has no sealed training plan")
+        command.extend(
+            [
+                "--operational-plan",
+                str(worker_job_dir / str(operational_plan_path)),
+            ]
+        )
     for profile_key in list(spec.get("profile_keys") or []):
         command.extend(["--profile-key", str(profile_key)])
     return command
+
+
+def validate_multiversion_retry_identity(
+    payload: object,
+    *,
+    job_id: str,
+    job_purpose: str,
+    spec: dict[str, Any],
+) -> dict[str, Any]:
+    """Allow reuse only for the exact sealed scientific work."""
+    manifest = mushroom_ml_multiversion_transport.validate_result_manifest(
+        payload,
+        job_id=job_id,
+        expected_purpose=job_purpose,
+    )
+    if job_purpose == "operational" and (
+        manifest.get("operational_scope_id") != spec.get("operational_scope_id")
+        or manifest.get("operational_plan_id") != spec.get("operational_plan_id")
+    ):
+        raise ValueError(
+            "Retry result does not match the sealed operational scope and plan"
+        )
+    return manifest
 
 
 def serve(
@@ -1210,6 +1244,10 @@ def serve(
                                 "verification_status": "verified",
                                 "result_manifest_id": verification.get("result_manifest_id"),
                                 "trained_species_count": verification.get("trained_species_count"),
+                                "trained_species": verification.get("trained_species", []),
+                                "operational_scope_id": verification.get(
+                                    "operational_scope_id", ""
+                                ),
                             },
                         },
                     )
@@ -1280,6 +1318,12 @@ def serve(
                     result_root = worker_job_dir / "multiversion_result"
                     existing_result = result_root / "multiversion_result.json"
                     if existing_result.is_file():
+                        retry_manifest = validate_multiversion_retry_identity(
+                            json.loads(existing_result.read_text(encoding="utf-8")),
+                            job_id=job_id,
+                            job_purpose=job_purpose,
+                            spec=spec,
+                        )
                         multiversion_progress(
                             {
                                 "phase": "Retrying V2--V6 result delivery",
@@ -1434,6 +1478,15 @@ def serve(
                         str(worker_job_dir / "snapshot" / "input_manifest.json"),
                         "--job-purpose", job_purpose,
                     ]
+                    if job_purpose == "operational":
+                        command.extend(
+                            [
+                                "--tuning-catalog",
+                                str(worker_job_dir / str(spec["tuning_catalog_path"])),
+                                "--operational-plan",
+                                str(worker_job_dir / str(spec["operational_plan_path"])),
+                            ]
+                        )
                     for option, key in (
                         ("--v4-fixed", "v4_fixed"),
                         ("--v4-lag", "v4_lag"),

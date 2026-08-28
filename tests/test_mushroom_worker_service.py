@@ -12,6 +12,31 @@ from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_operational_retry_requires_same_scope_and_plan(self) -> None:
+        verified = {
+            "operational_scope_id": "sha256:" + "a" * 64,
+            "operational_plan_id": "sha256:" + "b" * 64,
+        }
+        with mock.patch.object(
+            mushroom_worker_service.mushroom_ml_multiversion_transport,
+            "validate_result_manifest",
+            return_value=verified,
+        ):
+            accepted = mushroom_worker_service.validate_multiversion_retry_identity(
+                {},
+                job_id="worker_job_retryidentity",
+                job_purpose="operational",
+                spec=dict(verified),
+            )
+            self.assertEqual(verified, accepted)
+            with self.assertRaisesRegex(ValueError, "sealed operational scope and plan"):
+                mushroom_worker_service.validate_multiversion_retry_identity(
+                    {},
+                    job_id="worker_job_retryidentity",
+                    job_purpose="operational",
+                    spec={**verified, "operational_plan_id": "sha256:" + "c" * 64},
+                )
+
     def test_operational_multiversion_command_requires_sealed_tuning_catalog(self) -> None:
         root = Path("/worker/jobs/operational")
         command = mushroom_worker_service.multiversion_preparation_command(
@@ -23,6 +48,7 @@ class MushroomWorkerServiceTests(unittest.TestCase):
                 "observation_features_path": "snapshot/inputs/features.json",
                 "stations_path": "snapshot/inputs/stations.txt",
                 "tuning_catalog_path": "snapshot/inputs/tuning-catalog.json",
+                "operational_plan_path": "snapshot/inputs/operational-plan.json",
                 "profile_keys": ["biology_v4/climatic_balance"],
             },
             {"snapshot_id": "sha256:snapshot"},
@@ -37,6 +63,11 @@ class MushroomWorkerServiceTests(unittest.TestCase):
             str(root / "snapshot/inputs/tuning-catalog.json"),
         )
         self.assertIn("operational", command)
+        plan_index = command.index("--operational-plan")
+        self.assertEqual(
+            command[plan_index + 1],
+            str(root / "snapshot/inputs/operational-plan.json"),
+        )
 
     def test_worker_seeds_predictor_cache_from_its_multiversion_batch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

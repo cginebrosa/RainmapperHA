@@ -13,7 +13,7 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         dockerignore = (ROOT_DIR / ".dockerignore").read_text(encoding="utf-8")
 
         self.assertIn("FROM python:3.11-slim", dockerfile)
-        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.21", dockerfile)
+        self.assertIn("ARG RAINMAPPER_WORKER_VERSION=1.0.22", dockerfile)
         self.assertIn("gdal-bin", dockerfile)
         self.assertIn("gosu", dockerfile)
         self.assertIn("mushroom_rebuild_contracts.py", dockerfile)
@@ -25,6 +25,7 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn("mushroom_ml_experiment_trainer.py", dockerfile)
         self.assertIn("mushroom_ml_input_identity.py", dockerfile)
         self.assertIn("mushroom_ml_tuning_catalog.py", dockerfile)
+        self.assertIn("mushroom_operational_training_scope.py", dockerfile)
         self.assertIn("mushroom_ml_weather_workspace.py", dockerfile)
         self.assertIn("mushroom_ml_version_registry.py", dockerfile)
         self.assertIn("mushroom_ml_version_registry.json", dockerfile)
@@ -133,11 +134,11 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         stop = (ROOT_DIR / "mushroom_worker_stop.sh").read_text(encoding="utf-8")
 
         self.assertIn(
-            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.21}",
+            "image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.22}",
             compose,
         )
         self.assertIn(
-            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.21}",
+            "RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.22}",
             compose,
         )
         self.assertIn("name: rainmapper-worker", compose)

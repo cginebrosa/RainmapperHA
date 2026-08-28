@@ -898,6 +898,9 @@ def _validate_ml_train_manifest(
     }
     if actual_operational_models != expected_models:
         raise ValueError("ML training result models do not match trained_species.")
+    operational_scope_id = str(manifest.get("operational_scope_id") or "")
+    if operational_scope_id and not re.fullmatch(r"sha256:[0-9a-f]{64}", operational_scope_id):
+        raise ValueError("ML training result operational scope identity is invalid.")
     shadow_models = manifest.get("shadow_models", [])
     if not isinstance(shadow_models, list):
         raise ValueError("ML training result shadow_models is invalid.")
@@ -1034,6 +1037,7 @@ def finalize_ml_train_result(result_root: Path, *, job_id: str) -> dict[str, Any
         "verified_artifacts": len(artifacts),
         "trained_species": trained_species,
         "trained_species_count": len(trained_species),
+        "operational_scope_id": str(manifest.get("operational_scope_id") or ""),
         "shadow_feature_set_ids": list(REQUIRED_SHADOW_FEATURE_SET_IDS),
     }
     (staging / VERIFICATION_NAME).write_text(

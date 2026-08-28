@@ -17,6 +17,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from rainmapper_core import mushroom_ml_weather_workspace  # noqa: E402
+from rainmapper_core import mushroom_operational_training_scope  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,6 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--progress-jsonl", type=Path)
     parser.add_argument("--profile-key", action="append")
     parser.add_argument("--tuning-catalog", type=Path)
+    parser.add_argument("--operational-plan", type=Path)
     parser.add_argument(
         "--job-purpose",
         choices=("operational", "benchmark"),
@@ -145,11 +147,74 @@ def artifact_manifest(kind: str, root: Path, names: list[str], source_snapshot_i
     }
 
 
+def assert_json_species_scope(path: Path, species_ids: list[str]) -> None:
+    if not species_ids:
+        return
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    samples = payload.get("samples", []) if isinstance(payload, dict) else []
+    actual = {
+        str((row.get("metadata") or {}).get("species_id") or row.get("species_id") or "")
+        for row in samples
+        if isinstance(row, dict)
+    }
+    outside = sorted(value for value in actual if value and value not in species_ids)
+    if outside:
+        raise ValueError(
+            f"Prepared dataset {path.name} escaped the sealed species scope: "
+            + ", ".join(outside)
+        )
+
+
+def assert_jsonl_species_scope(path: Path, species_ids: list[str]) -> None:
+    if not species_ids or not path.is_file():
+        return
+    outside: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        species_id = str(
+            row.get("species_id")
+            or (row.get("metadata") or {}).get("species_id")
+            or ""
+        )
+        if species_id and species_id not in species_ids:
+            outside.add(species_id)
+    if outside:
+        raise ValueError(
+            f"Prepared hold-out {path.name} escaped the sealed species scope: "
+            + ", ".join(sorted(outside))
+        )
+
+
 def main() -> int:
     args = parse_args()
     mushroom_ml_weather_workspace.clear_active_workspace()
     if args.job_purpose == "operational" and args.tuning_catalog is None:
         raise ValueError("Operational preparation requires a tuning catalog")
+    operational_plan = None
+    species_ids: list[str] = []
+    if args.job_purpose == "operational":
+        if args.operational_plan is None:
+            raise ValueError("Operational preparation requires a sealed training plan")
+        operational_plan = mushroom_operational_training_scope.validate_plan(
+            json.loads(args.operational_plan.read_text(encoding="utf-8"))
+        )
+        recomputed_scope = mushroom_operational_training_scope.build_scope(
+            json.loads(args.observation_features.read_text(encoding="utf-8")),
+            json.loads(args.known_sites.read_text(encoding="utf-8")),
+            min_episodes=int(operational_plan["scope"]["min_episodes"]),
+        )
+        if recomputed_scope != operational_plan["scope"]:
+            raise ValueError(
+                "Operational preparation inputs do not match the sealed scope"
+            )
+        tuning_payload = json.loads(args.tuning_catalog.read_text(encoding="utf-8"))
+        if tuning_payload.get("catalog_id") != operational_plan["tuning_catalog_id"]:
+            raise ValueError("Operational preparation tuning catalog does not match its plan")
+        species_ids = list(operational_plan["scope"]["admitted_species_ids"])
+        if sorted(args.profile_key or []) != operational_plan["profile_keys"]:
+            raise ValueError("Operational preparation profiles do not match its plan")
     weather_workspace = None
     if args.job_purpose == "operational":
         weather_workspace = (
@@ -228,12 +293,15 @@ def main() -> int:
         "--observation-features", str(args.observation_features),
         "--stations-file", str(args.stations_file),
     ]
+    for species_id in species_ids:
+        common_v3.extend(["--species", species_id])
     emit_progress(args.progress_jsonl, step=0, total=total, phase="Building V3 fixed-window inputs")
     run_script(
         scripts / "build-biology-v3-benchmark.py",
         [*common_v3, "--feature-set", "fixed_gap_7d_biology_v3", "--output", str(v3_fixed)],
         progress_event=stage_progress(1, "Building V3 fixed-window inputs"),
     )
+    assert_json_species_scope(v3_fixed, species_ids)
     emit_progress(args.progress_jsonl, step=1, total=total, phase="Built V3 fixed-window inputs")
     emit_progress(args.progress_jsonl, step=1, total=total, phase="Building V3 lag/event inputs")
     run_script(
@@ -241,6 +309,7 @@ def main() -> int:
         [*common_v3, "--feature-set", "lag_event_biology_v3", "--output", str(v3_lag)],
         progress_event=stage_progress(2, "Building V3 lag/event inputs"),
     )
+    assert_json_species_scope(v3_lag, species_ids)
     emit_progress(args.progress_jsonl, step=2, total=total, phase="Built V3 lag/event inputs")
 
     step = 2
@@ -264,6 +333,7 @@ def main() -> int:
                 ],
                 progress_event=stage_progress(step, phase.replace("Built", "Building")),
             )
+            assert_json_species_scope(output, species_ids)
             emit_progress(args.progress_jsonl, step=step, total=total, phase=phase)
 
     v5 = root / "v5"
@@ -299,6 +369,8 @@ def main() -> int:
             ],
             progress_event=stage_progress(step, "Building V5 raw-weather inputs"),
         )
+        assert_json_species_scope(v5 / "biology-v5-fixed.json", species_ids)
+        assert_json_species_scope(v5 / "biology-v5-lag.json", species_ids)
         emit_progress(args.progress_jsonl, step=step, total=total, phase="Built V5 raw-weather inputs")
     v2_v5_heldout = v5 / "heldout-predictions.jsonl"
     if needs_v2_v5_evaluation:
@@ -315,6 +387,7 @@ def main() -> int:
             evaluation_arguments,
             progress_event=stage_progress(step, phase),
         )
+        assert_jsonl_species_scope(v2_v5_heldout, species_ids)
         emit_progress(args.progress_jsonl, step=step, total=total, phase="Evaluated selected V2--V5 hold-out rows")
     else:
         v2_v5_heldout.write_text("", encoding="utf-8")
@@ -342,6 +415,7 @@ def main() -> int:
             v6_arguments,
             progress_event=stage_progress(step, "Evaluating selected V6 hold-out rows"),
         )
+        assert_jsonl_species_scope(v6_heldout, species_ids)
         emit_progress(args.progress_jsonl, step=step, total=total, phase="Evaluated selected V6 hold-out rows")
     else:
         v6_heldout.write_text("", encoding="utf-8")
@@ -367,6 +441,13 @@ def main() -> int:
         "source_snapshot_id": args.source_snapshot_id,
         "job_purpose": args.job_purpose,
         "profile_keys": list(args.profile_key or []),
+        "species_ids": species_ids,
+        "operational_scope_id": (
+            operational_plan["scope_id"] if operational_plan is not None else ""
+        ),
+        "operational_plan_id": (
+            operational_plan["plan_id"] if operational_plan is not None else ""
+        ),
         "inputs": inputs,
         "operational_candidate_trained": False,
     }

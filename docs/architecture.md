@@ -269,11 +269,12 @@ Hay varios entry points segun entorno:
 > `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`.
 
 - Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
-  El estado observado el 2026-08-17 es HA `0.2.256` con worker M1 `1.0.10`.
-  La primera regeneración real descubrió una dependencia incorrecta de un JSON
-  del laboratorio en el tercer paso V2–V6; la corrección está implementada y
-  pendiente de validación/release. El laboratorio usa el mismo contrato y datos
-  montados, no una bifurcación funcional del worker normal.
+  El estado confirmado al cierre de 2026-08-28 es HA `0.2.271` con worker M1
+  `1.0.21`. Comparten repositorio, contratos y primitivas, pero una ejecución
+  real demostró que las rutas de orquestación local y remota todavía derivan el
+  conjunto de especies en momentos distintos. La unificación pendiente está en
+  `docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`;
+  hasta completarla, un éxito local no demuestra equivalencia remota.
 - Coordinador: `web_server.py` conserva autoridad sobre pairing, registro,
   heartbeats, jobs/claims, snapshots, datasets, candidatos y promocion;
   `mushroom_workers_ui.py` renderiza la pagina humana `Workers y trabajos`.
@@ -323,15 +324,15 @@ Hay varios entry points segun entorno:
   transaccional particionada por fuente/año. El snapshot manifiesta sus objetos
   inmutables y el worker reutiliza por hash las particiones sin cambios. Los CSV
   vivos de 180 fechas son colas de ingestión/recuperación, no el histórico ML.
-- Pipeline de actualización: HA y worker llaman a
-  `rainmapper_core/mushroom_rebuild_pipeline.py`, pero el único alcance operativo
-  expuesto es completo. Al verificar el candidato, HA encadena automáticamente
-  `worker_ml_train_v0` usando sus features candidatos y después un job
-  `job_purpose=operational`. El registro resuelve la versión activa
-  (`altitude_v2` actualmente), el preparador materializa solo fixed/lag y el
-  plan exige todos sus artefactos sin fallos. Cada ejecución deriva las entradas
-  operativas del snapshot fresco del propio job; los snapshots fijos bajo
+- Pipeline de actualización: reconstrucción, ML v0 y entrenamiento de las
+  versiones instaladas seleccionadas V2/V3/V4/V5w/V6w son jobs enlazados. Cada
+  ejecución deriva sus entradas del snapshot fresco; los snapshots bajo
   `docker-data/audits/` son evidencia de laboratorio, no dependencias runtime.
+  En la arquitectura vigente aún existe una divergencia: la ruta local cuenta
+  filas, ML v0 vuelve a aplicar el mínimo después de agregar episodios y la
+  preparación V2–V6 puede recorrer otra vez el snapshot. La arquitectura
+  objetivo calcula una sola vez un `OperationalTrainingScope`, lo sella dentro
+  de un plan serializable y obliga a todos los pasos a consumirlo.
 - Benchmark científico: `job_purpose=benchmark` conserva la preparación
   V2–V6, pero entrena únicamente los perfiles compatibles seleccionados en la
   acción manual. La selección queda en job, plan, manifiesto e informe. HA
@@ -362,6 +363,12 @@ Hay varios entry points segun entorno:
   conservan transitoriamente por SHA-256 y se enlazan a la caché de runtime; no
   se descargan de nuevo desde HA. Los hashes ausentes viajan en un único tar
   verificado, con fallback compatible al transporte por fichero.
+- Handoff entre jobs: el worker conserva inputs inmutables sellados en objetos
+  direccionados por contenido y entrega receipts verificables a HA. Un job
+  enlazado puede reutilizarlos localmente; si identidad, alcance o integridad no
+  coinciden, vuelve al transporte canónico desde HA. La cadena real del
+  2026-08-28 mostró `Reusing sealed local inputs`, por lo que esta optimización
+  funcionó aunque el entrenamiento posterior fallara por divergencia de scope.
 - Publicación: el worker solo produce candidatos. Reconstrucción, ML v0 y V2
   son tres jobs enlazados e independientes para diagnóstico. La UI no ofrece y
   el backend no acepta la promoción completa hasta que los tres terminan. HA
@@ -370,12 +377,14 @@ Hay varios entry points segun entorno:
   elimina el batch instalado, restaura el descriptor runtime y revierte los
   artefactos; los pendientes solo se limpian tras éxito completo. No se
   promocionan ni mezclan candidatos parciales o benchmarks.
-- Ejecución HA local: `mushroom_local_full_update.py` usa los mismos
-  `InputManifest`, `JobSpec`, `ResultManifest`, verificadores y scripts que el
-  worker. Encadena los tres trabajos dentro del contenedor, instala V2 fixed/lag y
-  publica rebuild+ML v0 en una única fase final con rollback compensatorio. El
-  gate de entorno solo se declara en `rainmapper-local/docker-compose.yml`; no
-  existe fallback silencioso desde un worker desconectado.
+- Ejecución HA local: `mushroom_local_full_update.py` usa los mismos contratos,
+  verificadores y scripts científicos que el worker y encadena el cálculo
+  dentro del contenedor HA, sin crear un worker local. Sin embargo, actualmente
+  conserva una orquestación propia y decide especies antes de la agregación de
+  episodios; por ello debe pasar a ejecutar el mismo plan sellado que recibiría
+  el worker. El gate de entorno solo se declara en
+  `rainmapper-local/docker-compose.yml`; no existe fallback silencioso desde un
+  worker desconectado.
 - Datos semiestaticos: HA/Rainmapper es la fuente autoritativa de GIS/DEM. El
   worker los descarga a staging solo si falta/cambia su fingerprint y activa
   la version validada en el volumen; las ejecuciones siguientes reutilizan la
@@ -415,6 +424,12 @@ Hay varios entry points segun entorno:
   transiciones duraderas de inicio/final; la ETA intermedia es una animación del
   navegador basada en tiempos comparables y no forma parte del protocolo. El
   resultado final aporta el diagnóstico autoritativo.
+  HA conserva además, bajo la retención Predictor existente, resultados
+  externalizados aptos para reutilización exacta. La clave incluye worker,
+  petición normalizada y fingerprint del runtime; antes del render se verifican
+  tamaño, SHA-256 y petición embebida. Un miss o fallo de integridad crea el job
+  remoto normal. La UI expone tiempo total, cálculo y si el resultado fue
+  reutilizado.
   Una integración futura desde MapLibre reutilizará este gateway y nunca
   conectará el navegador directamente con un worker. Para usuarios normales
   será automática y worker-only: si no hay capacidad disponible no habrá

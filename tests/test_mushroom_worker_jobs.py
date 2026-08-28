@@ -28,6 +28,63 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             "metrics": {},
         }
 
+    def test_finish_retry_is_idempotent_but_cannot_change_terminal_status(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            mushroom_worker_jobs.create_predictor_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                request=self.predictor_request(),
+                runtime_manifest={
+                    "schema_version": "1.0",
+                    "kind": "rainmapper_mushroom_predictor_runtime",
+                    "fingerprint": "sha256:" + "a" * 64,
+                    "files": [
+                        {
+                            "path": "models/model.joblib",
+                            "sha256": "sha256:" + "b" * 64,
+                            "size_bytes": 0,
+                        }
+                    ],
+                },
+                job_id="worker_job_finishretry",
+            )
+            mushroom_worker_jobs.claim_next(
+                path, worker_id="worker_aaaaaaaa", claim_token="claim-secret"
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id="worker_job_finishretry",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+            )
+            first = mushroom_worker_jobs.finish_job(
+                path,
+                job_id="worker_job_finishretry",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+                status="complete",
+                result={"response": self.predictor_response(), "cold": False},
+            )
+            retried = mushroom_worker_jobs.finish_job(
+                path,
+                job_id="worker_job_finishretry",
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-secret",
+                status="complete",
+            )
+            self.assertEqual("complete", first["status"])
+            self.assertTrue(retried["finish_reused"])
+            with self.assertRaisesRegex(ValueError, "different status"):
+                mushroom_worker_jobs.finish_job(
+                    path,
+                    job_id="worker_job_finishretry",
+                    worker_id="worker_aaaaaaaa",
+                    claim_token="claim-secret",
+                    status="failed",
+                )
+
     def test_predictor_result_is_externalized_from_hot_queue_and_hydrated(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"
@@ -1166,6 +1223,8 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             {
                 "verification_status": "verified",
                 "operational_candidate_trained": True,
+                "operational_scope_id": "sha256:" + "a" * 64,
+                "operational_plan_id": "sha256:" + "b" * 64,
             },
         )
 
@@ -1174,7 +1233,11 @@ class MushroomWorkerJobsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "does not match"):
             mushroom_worker_jobs._normalized_result(
                 job,
-                {"operational_candidate_trained": False},
+                {
+                    "operational_candidate_trained": False,
+                    "operational_scope_id": "sha256:" + "a" * 64,
+                    "operational_plan_id": "sha256:" + "b" * 64,
+                },
             )
 
     def test_operational_multiversion_job_keeps_selected_complete_profiles(self) -> None:

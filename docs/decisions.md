@@ -1,6 +1,82 @@
 # Decisions
 
-## 2026-08-27 - [VIGENTE][RELEASE] HA 0.2.267 y worker privado 1.0.18
+## 2026-08-28 - [VIGENTE][RELEASE] HA 0.2.272 y worker privado 1.0.22 preparados
+
+- HA `0.2.272` está publicada en GHCR. `0.2.272` y `latest` comparten el índice
+  OCI `sha256:d54ec58efa88b01c650d9c1f6a23fc754419d491e0856365a58cd1fad52d433a`
+  y contienen manifests `linux/amd64` y `linux/arm64`.
+- El worker privado `1.0.22` se construyó localmente y se verificó importando el
+  módulo de alcance canónico dentro de la imagen. No se publicó ni instaló.
+- Antes del bump pasó el smoke completo de 1.078 pruebas; después, 301 pruebas
+  dirigidas de scope, worker, empaquetado y HA. No se tocó HA real, el worker
+  normal, la retención ni los datos reales.
+- La instalación y los entrenamientos comparativos quedan pendientes de las
+  acciones del usuario. Hasta su confirmación, el estado real sigue siendo HA
+  `0.2.271` y worker `1.0.21`.
+
+## 2026-08-28 - [VIGENTE][ML] Un único alcance sellado gobierna local, HA y worker
+
+- El conjunto de especies operativo se calcula una sola vez, después de la
+  agregación canónica de episodios y de todos los gates científicos. El
+  resultado incluye admitidas, excluidas y motivos, y queda sellado con el
+  snapshot y el plan.
+- Reconstrucción, ML v0, preparación, hold-out, tuning, entrenamiento,
+  verificación y promoción deben consumir ese alcance exacto. Ningún paso puede
+  redescubrir especies recorriendo de nuevo las observaciones.
+- La ruta local ejecutará el mismo plan serializable que la ruta HA/worker. La
+  diferencia permitida es el transporte, no el contenido científico ni la
+  selección.
+- Antes del trabajo pesado se comprobará que el catálogo de tuning cubre todo
+  el alcance. Una carencia es visible y preserva los modelos vivos; no autoriza
+  decisiones implícitas ni una promoción parcial.
+- Diseño vinculante:
+  `docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`.
+
+## 2026-08-28 - [REEMPLAZADA][ML] Compartir source y scripts garantizaba equivalencia local/remota
+
+- La ejecución real demostró que compartir repositorio, primitivas y scripts no
+  basta: `mushroom_local_full_update` decidió por filas, ML v0 volvió a decidir
+  por episodios y V2–V6 recorrió otra vez el snapshot.
+- Catálogos instalados diferentes ocultaron localmente el defecto. La sustituye
+  la decisión de alcance y plan únicos; una validación local solo prueba la ruta
+  remota cuando ambas ejecutan ese mismo plan sobre idénticos inputs y catálogo.
+
+## 2026-08-28 - [DUDA][ML] Alta de una especie elegible sin tuning congelado
+
+- Falta decidir si una especie recién elegible exige benchmark previo o puede
+  entrar mediante una configuración base explícita y versionada.
+- Hasta resolverlo no se copiará tuning de otra especie ni se sintetizará un
+  fallback. El preflight debe exponer el hueco y preservar la generación viva.
+
+## 2026-08-28 - [VIGENTE][PREDICTOR] HA reutiliza únicamente resultados exactos persistidos
+
+- La clave liga worker, petición normalizada y fingerprint del runtime. Antes
+  del uso se verifican referencia externa, tamaño, SHA-256 y petición embebida;
+  cualquier discrepancia ejecuta el camino remoto normal.
+- Se conserva la retención existente y la UI distingue trabajo, cálculo y
+  resultado reutilizado. En HA real 0.2.271 se observó un hit de 0,6 s con
+  cálculo inferior a 0,1 s.
+
+## 2026-08-28 - [VIGENTE][TELEMETRÍA] El presupuesto operativo empieza en created_at
+
+- Los 10 minutos se miden desde la pulsación/creación hasta la promoción final,
+  no desde que el worker reclama cada job.
+- La UI debe separar duración total, espera/claim y duración de fase. La cadena
+  fallida ocultó 3 min 55 s antes del primer claim y 1 min 27 s entre ML v0 y
+  V2–V6 al mostrar solo tiempos desde `started_at`.
+
+## 2026-08-28 - [VIGENTE][RELEASE] HA 0.2.271 instalada; worker 1.0.21 conservado
+
+- HA 0.2.271 está instalada en HA real según confirmación del usuario; el
+  worker normal observado es 1.0.21 y conserva su identidad y volumen.
+- `0.2.271` y `latest` comparten el índice OCI
+  `sha256:31c53e089935804892d057c3ef01470de7e5dd0abde3db1d7a34ddc1e64d6bfd`
+  con manifests `linux/amd64` y `linux/arm64`; commit `29aca9c`.
+- Antes de la release pasaron 298 pruebas dirigidas y el smoke completo de
+  1.071 pruebas. La release incorpora reutilización exacta persistida del
+  Predictor y telemetría visual; no modifica la retención.
+
+## 2026-08-27 - [REEMPLAZADA][RELEASE] HA 0.2.267 y worker privado 1.0.18
 
 - La optimización local de `Reconstruir y reentrenar operativo` queda entregada
   sin relajar hashes, cancelación, retry, rollback ni promoción atómica. El

@@ -67,6 +67,7 @@ from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core import mushroom_ml_training_freshness
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_local_full_update
+from rainmapper_core import mushroom_operational_training_scope
 from rainmapper_core.mushroom_predictor_service import REQUEST_KIND as PREDICTOR_REQUEST_KIND
 from rainmapper_core.mushroom_predictor_service import SCHEMA_VERSION as PREDICTOR_SCHEMA_VERSION
 from rainmapper_core.mushroom_store import default_store, write_json_atomic
@@ -13324,28 +13325,24 @@ def create_mushroom_ml_train_job(
             linked_rebuild=bool(triggered_by_job_id),
         )
         features_digest = f"sha256:{hashlib.sha256(features_content).hexdigest()}"
-        rows = features_payload.get("rows") if isinstance(features_payload, dict) else []
-        if not isinstance(rows, list):
-            rows = []
-        from collections import Counter
-        counts = Counter(
-            r.get("species_id")
-            for r in rows
-            if isinstance(r, dict)
-            and r.get("validation_status") == "valid"
-            and r.get("calibration_use") == "include"
-            and r.get("prediction_target") in ("favorable", "unfavorable")
-            and r.get("micro_area_id") is not None
+        known_sites_content = (
+            known_sites_path.read_bytes() if known_sites_path.exists() else b"{}"
         )
-        eligible_species_ids = [sp for sp, cnt in counts.most_common() if cnt >= 10]
+        known_sites_payload = json.loads(known_sites_content.decode("utf-8"))
+        operational_scope = mushroom_operational_training_scope.build_scope(
+            features_payload,
+            known_sites_payload,
+        )
+        eligible_species_ids = list(operational_scope["admitted_species_ids"])
         job_spec_content = json.dumps(
             {
                 "schema_version": "0.1",
                 "kind": "mushroom_ml_train_v0_spec",
                 "job_id": job_id,
                 "species_ids": eligible_species_ids,
-                "min_rows": 10,
+                "min_rows": operational_scope["min_episodes"],
                 "cv_folds": 3,
+                "operational_scope": operational_scope,
             },
             indent=2,
             ensure_ascii=False,
@@ -13355,7 +13352,6 @@ def create_mushroom_ml_train_job(
         bundle_dir.mkdir(parents=True, exist_ok=True)
         (bundle_dir / "job_spec.json").write_bytes(job_spec_content)
         (bundle_dir / "features.json").write_bytes(features_content)
-        known_sites_content = known_sites_path.read_bytes() if known_sites_path.exists() else b"{}"
         (bundle_dir / "known_sites.json").write_bytes(known_sites_content)
         input_bundle = {
             "job_id": job_id,
@@ -13367,6 +13363,8 @@ def create_mushroom_ml_train_job(
                 "sha256:" + hashlib.sha256(known_sites_content).hexdigest()
             ),
             "known_sites_size_bytes": len(known_sites_content),
+            "operational_scope": operational_scope,
+            "operational_scope_id": operational_scope["scope_id"],
         }
         try:
             with RUN_LOCK:
@@ -13447,8 +13445,19 @@ def start_mushroom_ml_train_job(
 
 def linked_ml_trained_species_ids(training_job: object) -> list[str]:
     """Return the exact verified species scope produced by linked ML v0 training."""
+    scope = linked_operational_training_scope(training_job)
+    return list(scope["admitted_species_ids"])
+
+
+def linked_operational_training_scope(training_job: object) -> dict[str, object]:
+    """Validate the immutable scope requested by HA and certified by ML v0."""
     if not isinstance(training_job, dict):
         raise ValueError("Linked ML training job was not found.")
+    input_bundle = training_job.get("input_bundle")
+    input_bundle = input_bundle if isinstance(input_bundle, dict) else {}
+    scope = mushroom_operational_training_scope.validate_scope(
+        input_bundle.get("operational_scope")
+    )
     training_result = training_job.get("result")
     training_result = training_result if isinstance(training_result, dict) else {}
     trained_species = training_result.get("trained_species")
@@ -13461,7 +13470,13 @@ def linked_ml_trained_species_ids(training_job: object) -> list[str]:
         raise ValueError(
             "Linked ML training result does not declare its verified trained species."
         )
-    return sorted(str(value) for value in trained_species)
+    if training_result.get("operational_scope_id") != scope["scope_id"]:
+        raise ValueError("Linked ML training result does not certify its requested scope.")
+    mushroom_operational_training_scope.assert_scope_trained_species(
+        scope,
+        trained_species,
+    )
+    return scope
 
 
 def prepare_multiversion_bundle_with_tuning(
@@ -13469,6 +13484,8 @@ def prepare_multiversion_bundle_with_tuning(
     purpose: str,
     registry: dict[str, object],
     version_ids: list[str],
+    profile_keys: list[str],
+    operational_scope: dict[str, object] | None,
     sources: dict[str, Path],
     spec: dict[str, object],
     prepare_bundle: Callable[[dict[str, Path]], dict[str, object]],
@@ -13480,17 +13497,41 @@ def prepare_multiversion_bundle_with_tuning(
         prefix="rainmapper-operational-tuning-"
     ) as temporary:
         tuning_catalog_path = Path(temporary) / "tuning-catalog.json"
-        mushroom_local_full_update.materialize_operational_tuning_catalog(
+        tuning_catalog = mushroom_local_full_update.materialize_operational_tuning_catalog(
             registry=registry,
             version_ids=version_ids,
             models_root=mushroom_paths.mushroom_ml_models_dir(),
             destination=tuning_catalog_path,
         )
+        if operational_scope is None:
+            raise ValueError("Operational training scope is missing")
+        operational_plan = mushroom_operational_training_scope.build_plan(
+            registry,
+            operational_scope,
+            tuning_catalog,
+            version_ids=version_ids,
+            profile_keys=profile_keys,
+        )
+        operational_plan_path = Path(temporary) / "operational-training-plan.json"
+        operational_plan_path.write_text(
+            json.dumps(operational_plan, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         spec["tuning_catalog_path"] = (
             "snapshot/inputs/extra/tuning-catalog.json"
         )
+        spec["operational_plan_path"] = (
+            "snapshot/inputs/extra/operational-training-plan.json"
+        )
+        spec["operational_scope_id"] = operational_plan["scope_id"]
+        spec["operational_plan_id"] = operational_plan["plan_id"]
+        spec["tuning_catalog_id"] = operational_plan["tuning_catalog_id"]
         return prepare_bundle(
-            {**sources, "tuning-catalog.json": tuning_catalog_path}
+            {
+                **sources,
+                "tuning-catalog.json": tuning_catalog_path,
+                "operational-training-plan.json": operational_plan_path,
+            }
         )
 
 
@@ -13579,8 +13620,10 @@ def create_mushroom_ml_multiversion_job(
             )
         batch_prefix = "operational" if purpose == "operational" else "benchmark_v2_v6"
         batch_id = batch_prefix + "_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        operational_scope = None
         if triggered_by_job_id:
-            species_ids = linked_ml_trained_species_ids(training_job)
+            operational_scope = linked_operational_training_scope(training_job)
+            species_ids = list(operational_scope["admitted_species_ids"])
         else:
             species_ids = mushroom_local_full_update.eligible_training_species(feature_path)
         registry = json.loads(sources["registry.json"].read_text(encoding="utf-8"))
@@ -13674,6 +13717,8 @@ def create_mushroom_ml_multiversion_job(
             purpose=purpose,
             registry=registry,
             version_ids=version_ids,
+            profile_keys=resolved_profile_keys,
+            operational_scope=operational_scope,
             sources=sources,
             spec=spec,
             prepare_bundle=prepare_bundle,
@@ -13919,6 +13964,19 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
             )
             if current_job is None:
                 raise ValueError("Worker job was not found.")
+            if current_job.get("status") in mushroom_worker_jobs.TERMINAL_STATUSES:
+                reused_job = mushroom_worker_jobs.finish_job(
+                    mushroom_worker_jobs_path(),
+                    job_id=str(payload.get("job_id", "")),
+                    worker_id=worker_id,
+                    claim_token=str(payload.get("claim_token", "")),
+                    status=str(payload.get("status", "")),
+                )
+                return 200, {
+                    "ok": True,
+                    "idempotent": True,
+                    "job": mushroom_worker_job_wire_payload(reused_job),
+                }
             trusted_result = payload.get("result") if isinstance(payload.get("result"), dict) else None
             if (
                 current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD
@@ -13963,7 +14021,16 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     "result_manifest_id": verification.get("result_manifest_id"),
                     "trained_species_count": verification.get("trained_species_count"),
                     "trained_species": verification.get("trained_species"),
+                    "operational_scope_id": verification.get("operational_scope_id"),
                 }
+                input_bundle = current_job.get("input_bundle")
+                input_bundle = input_bundle if isinstance(input_bundle, dict) else {}
+                if trusted_result["operational_scope_id"] != input_bundle.get(
+                    "operational_scope_id"
+                ):
+                    raise ValueError(
+                        "Verified ML v0 result does not match its requested operational scope"
+                    )
             job = mushroom_worker_jobs.finish_job(
                 mushroom_worker_jobs_path(),
                 job_id=str(payload.get("job_id", "")),
@@ -14257,6 +14324,22 @@ def complete_mushroom_ml_multiversion_result(
             models_root=mushroom_paths.mushroom_ml_models_dir(),
             job_purpose=job_purpose,
         )
+        if job_purpose == "operational":
+            input_bundle = job.get("input_bundle")
+            input_bundle = input_bundle if isinstance(input_bundle, dict) else {}
+            multiversion_spec = input_bundle.get("multiversion_spec")
+            multiversion_spec = (
+                multiversion_spec if isinstance(multiversion_spec, dict) else {}
+            )
+            if (
+                verification.get("operational_scope_id")
+                != multiversion_spec.get("operational_scope_id")
+                or verification.get("operational_plan_id")
+                != multiversion_spec.get("operational_plan_id")
+            ):
+                raise ValueError(
+                    "Verified operational result does not match its queued scope and plan"
+                )
     except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {"ok": True, "verification": verification}

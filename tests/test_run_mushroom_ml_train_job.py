@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from rainmapper_core import mushroom_ml_experiment_trainer, mushroom_ml_trainer
+from rainmapper_core import mushroom_operational_training_scope
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -30,6 +31,60 @@ def load_script_module():
 
 
 class RunMushroomMLTrainJobTests(unittest.TestCase):
+    def test_sealed_scope_rejects_different_feature_inputs_before_training(self) -> None:
+        module = load_script_module()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            features_payload = {
+                "rows": [
+                    {
+                        "species_id": "boletus_aereus",
+                        "observed_at": f"2026-08-{day:02d}",
+                        "micro_area_id": "ma-1",
+                        "validation_status": "valid",
+                        "calibration_use": "include",
+                        "prediction_target": "favorable" if day == 1 else "unfavorable",
+                    }
+                    for day in range(1, 11)
+                ]
+            }
+            known_sites_payload = {
+                "micro_areas": [{"micro_area_id": "ma-1", "area_id": "area-1"}]
+            }
+            scope = mushroom_operational_training_scope.build_scope(
+                features_payload, known_sites_payload
+            )
+            features_payload["rows"][0]["observed_at"] = "2026-07-31"
+            job_spec = root / "job_spec.json"
+            features = root / "features.json"
+            known_sites = root / "known_sites.json"
+            job_spec.write_text(
+                json.dumps(
+                    {
+                        "job_id": "worker_job_scopemismatch",
+                        "species_ids": scope["admitted_species_ids"],
+                        "min_rows": scope["min_episodes"],
+                        "cv_folds": 3,
+                        "operational_scope": scope,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            features.write_text(json.dumps(features_payload), encoding="utf-8")
+            known_sites.write_text(json.dumps(known_sites_payload), encoding="utf-8")
+            argv = [
+                str(SCRIPT_PATH),
+                "--job-spec", str(job_spec),
+                "--features", str(features),
+                "--known-sites", str(known_sites),
+                "--output-dir", str(root / "output"),
+                "--quiet",
+            ]
+            with mock.patch.object(sys, "argv", argv), self.assertRaisesRegex(
+                ValueError, "inputs do not match"
+            ):
+                module.main()
+
     def test_result_manifest_declares_report_and_model(self) -> None:
         module = load_script_module()
         with tempfile.TemporaryDirectory() as temporary:

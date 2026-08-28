@@ -70,6 +70,8 @@ class MushroomMLMultiversionTransportTests(TestCase):
             self.assertEqual(0, batch_manifest["failed_fit_count"])
             batch_manifest["job_purpose"] = "operational"
             batch_manifest["operational_candidate_trained"] = True
+            batch_manifest["operational_scope_id"] = "sha256:" + "a" * 64
+            batch_manifest["operational_plan_id"] = "sha256:" + "b" * 64
             batch_manifest["input_revisions"] = REVISION_VECTOR
             quality_path = batch_dir / "quality-catalog.json"
             quality_path.write_text("{}", encoding="utf-8")
@@ -118,6 +120,8 @@ class MushroomMLMultiversionTransportTests(TestCase):
                 "failed_fit_count": 0,
                 "job_purpose": "operational",
                 "operational_candidate_trained": True,
+                "operational_scope_id": batch_manifest["operational_scope_id"],
+                "operational_plan_id": batch_manifest["operational_plan_id"],
             }
             staging = root / "staging"
             transport.receive_result_file(

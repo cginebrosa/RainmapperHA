@@ -120,6 +120,15 @@ def validate_result_manifest(
         raise ValueError("Benchmark result report identity is invalid")
     if purpose == "operational" and report_id:
         raise ValueError("Operational result cannot declare a benchmark report")
+    operational_scope_id = str(payload.get("operational_scope_id") or "")
+    operational_plan_id = str(payload.get("operational_plan_id") or "")
+    if purpose == "operational" and (
+        not re.fullmatch(r"sha256:[0-9a-f]{64}", operational_scope_id)
+        or not re.fullmatch(r"sha256:[0-9a-f]{64}", operational_plan_id)
+    ):
+        raise ValueError("Operational result does not declare sealed scope and plan identities")
+    if purpose == "benchmark" and (operational_scope_id or operational_plan_id):
+        raise ValueError("Benchmark result cannot declare an operational plan")
     return {
         **dict(payload),
         "batch_id": batch_id,
@@ -128,6 +137,8 @@ def validate_result_manifest(
         "job_purpose": purpose,
         "operational_candidate_trained": operational,
         "report_id": report_id,
+        "operational_scope_id": operational_scope_id,
+        "operational_plan_id": operational_plan_id,
         **counts,
     }
 
@@ -172,6 +183,11 @@ def _verified_result(
         != (expected_purpose == "operational")
     ):
         raise ValueError("Multiversion batch identity does not match its result")
+    if expected_purpose == "operational" and (
+        batch_manifest.get("operational_scope_id") != result["operational_scope_id"]
+        or batch_manifest.get("operational_plan_id") != result["operational_plan_id"]
+    ):
+        raise ValueError("Operational batch scope or plan does not match its result")
     for key in ("planned_fit_count", "successful_fit_count", "failed_fit_count"):
         if int(batch_manifest.get(key, -1)) != int(result[key]):
             raise ValueError("Multiversion result and batch fit counts disagree")
@@ -470,6 +486,8 @@ def finalize_result(
         "artifact_count": len(batch_manifest["artifacts"]),
         "job_purpose": purpose,
         "operational_candidate_trained": purpose == "operational",
+        "operational_scope_id": result["operational_scope_id"],
+        "operational_plan_id": result["operational_plan_id"],
     }
     if purpose == "operational":
         return verification

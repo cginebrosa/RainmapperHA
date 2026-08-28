@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.272
+
+- Calculate one canonical `OperationalTrainingScope` after area-episode
+  aggregation and scientific eligibility gates.
+- Seal the exact species, versions, profiles, fits, and frozen tuning catalog
+  into one transport-neutral operational training plan.
+- Make local, Home Assistant, and worker execution reject scope, plan, tuning,
+  or trained-species divergence before heavy work or promotion.
+- Filter V2--V6 preparation, hold-outs, metrics, and artifact training by the
+  sealed species set instead of rediscovering species from the snapshot.
+- Make repeated worker completion idempotent while preserving cancellation,
+  retry, rollback, and atomic promotion safeguards.
+
 ## 0.2.271
 
 - Reuse an exact persisted Predictor result in Home Assistant when the worker,

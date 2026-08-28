@@ -535,7 +535,10 @@ def write_batch(
         raise ValueError("Multiversion training plan contains no fits")
     checked_tuning_catalog = (
         mushroom_ml_tuning_catalog.validate_catalog(
-            checked_registry, tuning_catalog, training_plan=training_plan
+            checked_registry,
+            tuning_catalog,
+            training_plan=training_plan,
+            allow_superset=True,
         )
         if tuning_catalog is not None
         else None

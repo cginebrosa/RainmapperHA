@@ -546,6 +546,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             tuning = sources["tuning-catalog.json"]
             captured["tuning_exists"] = tuning.is_file()
             captured["tuning_content"] = tuning.read_text(encoding="utf-8")
+            captured["plan_exists"] = sources["operational-training-plan.json"].is_file()
             return {"snapshot_id": "sha256:snapshot"}
 
         with (
@@ -559,11 +560,22 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "mushroom_ml_models_dir",
                 return_value=Path("/models"),
             ),
+            mock.patch.object(
+                self.web_server.mushroom_operational_training_scope,
+                "build_plan",
+                return_value={
+                    "scope_id": "sha256:" + "a" * 64,
+                    "plan_id": "sha256:" + "b" * 64,
+                    "tuning_catalog_id": "sha256:" + "c" * 64,
+                },
+            ),
         ):
             result = self.web_server.prepare_multiversion_bundle_with_tuning(
                 purpose="operational",
                 registry={"versions": []},
                 version_ids=["biology_v4"],
+                profile_keys=["biology_v4/climatic_balance"],
+                operational_scope={"scope_id": "sha256:" + "a" * 64},
                 sources={"registry.json": Path("/registry.json")},
                 spec=spec,
                 prepare_bundle=prepare,
@@ -571,6 +583,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(result, {"snapshot_id": "sha256:snapshot"})
         self.assertTrue(captured["tuning_exists"])
+        self.assertTrue(captured["plan_exists"])
         self.assertEqual(captured["tuning_content"], '{"kind":"tuning"}\n')
         self.assertEqual(
             spec["tuning_catalog_path"],
@@ -8459,13 +8472,31 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('value="promote_full_update"', after)
 
     def test_linked_multiversion_scope_uses_only_verified_trained_species(self) -> None:
+        rows = [
+            {
+                "species_id": species_id,
+                "observed_at": f"2026-08-{day:02d}",
+                "micro_area_id": "ma-1",
+                "validation_status": "valid",
+                "calibration_use": "include",
+                "prediction_target": "favorable" if day == 1 else "unfavorable",
+            }
+            for species_id in ("boletus_edulis", "amanita_caesarea")
+            for day in range(1, 11)
+        ]
+        scope = self.web_server.mushroom_operational_training_scope.build_scope(
+            {"rows": rows},
+            {"micro_areas": [{"micro_area_id": "ma-1", "area_id": "area-1"}]},
+        )
         species = self.web_server.linked_ml_trained_species_ids(
             {
                 "status": "complete",
+                "input_bundle": {"operational_scope": scope},
                 "result": {
                     "verification_status": "verified",
                     "trained_species_count": 2,
                     "trained_species": ["boletus_edulis", "amanita_caesarea"],
+                    "operational_scope_id": scope["scope_id"],
                 },
             }
         )
@@ -8475,6 +8506,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.web_server.linked_ml_trained_species_ids(
                 {
                     "status": "complete",
+                    "input_bundle": {"operational_scope": scope},
                     "result": {
                         "verification_status": "verified",
                         "trained_species_count": 2,

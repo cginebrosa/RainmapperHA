@@ -1449,6 +1449,11 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
             if not re.fullmatch(r"sha256:[0-9a-f]{64}", result_manifest_id):
                 raise ValueError("Worker ML result result_manifest_id is invalid.")
             normalized["result_manifest_id"] = result_manifest_id
+        operational_scope_id = str(result.get("operational_scope_id", "") or "")
+        if operational_scope_id:
+            if not re.fullmatch(r"sha256:[0-9a-f]{64}", operational_scope_id):
+                raise ValueError("Worker ML result operational_scope_id is invalid.")
+            normalized["operational_scope_id"] = operational_scope_id
         return normalized
     if job_type == JOB_TYPE_ML_MULTIVERSION:
         normalized = {}
@@ -1489,6 +1494,14 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
             raise ValueError("Worker multiversion result purpose does not match its job.")
         normalized["job_purpose"] = purpose
         normalized["operational_candidate_trained"] = purpose == "operational"
+        for key in ("operational_scope_id", "operational_plan_id"):
+            value = str(result.get(key, "") or "")
+            if purpose == "operational":
+                if not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
+                    raise ValueError(f"Worker multiversion {key} is invalid.")
+                normalized[key] = value
+            elif value:
+                raise ValueError("Benchmark result cannot declare an operational plan.")
         return normalized
     normalized = {}
     status = str(result.get("verification_status", "") or "")[:40]
@@ -1767,6 +1780,10 @@ def finish_job(
     queue = load_queue(path)
     job = _find_job(queue, job_id)
     _validate_claim(job, worker_id=worker_id, claim_token=claim_token)
+    if job.get("status") in TERMINAL_STATUSES:
+        if job.get("status") != status:
+            raise ValueError("Worker job was already finished with a different status.")
+        return {**dict(job), "finish_reused": True}
     if job.get("status") not in {"running", "cancel_requested"}:
         raise ValueError("Worker job cannot finish from its current state.")
     if job.get("status") == "cancel_requested" and status != "cancelled":

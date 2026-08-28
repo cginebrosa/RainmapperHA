@@ -28,6 +28,7 @@ from rainmapper_core import mushroom_ml_runtime_trainer
 from rainmapper_core import mushroom_ml_training_freshness
 from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_operational_training_scope
 from rainmapper_core import mushroom_rebuild_contracts
 from rainmapper_core import mushroom_rebuild_pipeline
 from rainmapper_core import mushroom_rebuild_snapshot
@@ -731,7 +732,11 @@ def run_local_full_update(
         )
         training_input = operation_root / "training-features.json"
         _write_rebased_features(candidate_features, training_input, paths)
-        trained_species = eligible_training_species(training_input)
+        operational_scope = mushroom_operational_training_scope.build_scope(
+            json.loads(training_input.read_text(encoding="utf-8")),
+            json.loads(paths.known_sites.read_text(encoding="utf-8")),
+        )
+        trained_species = list(operational_scope["admitted_species_ids"])
         if not trained_species:
             raise ValueError("No species meet the minimum row count for local ML training")
         training_spec = operation_root / "ml-job-spec.json"
@@ -742,8 +747,9 @@ def run_local_full_update(
                     "kind": "mushroom_ml_train_v0_spec",
                     "job_id": training_job_id,
                     "species_ids": trained_species,
-                    "min_rows": 10,
+                    "min_rows": operational_scope["min_episodes"],
                     "cv_folds": 3,
+                    "operational_scope": operational_scope,
                 },
                 indent=2,
                 ensure_ascii=False,
@@ -776,6 +782,12 @@ def run_local_full_update(
             output_dir=training_output,
             candidate_results_root=paths.candidate_results_root,
         )
+        if training_verification.get("operational_scope_id") != operational_scope["scope_id"]:
+            raise ValueError("Verified local ML v0 result does not match its requested scope")
+        mushroom_operational_training_scope.assert_scope_trained_species(
+            operational_scope,
+            training_verification.get("trained_species") or [],
+        )
         mushroom_performance_telemetry.phase("operational_snapshot")
         progress(48, "Preparing operational ML", "Creating a fresh immutable training snapshot.")
         comparison_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
@@ -804,11 +816,23 @@ def run_local_full_update(
         extra_root = snapshot_dir / "inputs" / "extra"
         registry = mushroom_ml_version_registry.load_registry(extra_root / "registry.json")
         tuning_catalog_path = operation_root / "tuning-catalog.json"
-        materialize_operational_tuning_catalog(
+        tuning_catalog = materialize_operational_tuning_catalog(
             registry=registry,
             version_ids=version_ids,
             models_root=paths.ml_models_dir,
             destination=tuning_catalog_path,
+        )
+        operational_plan = mushroom_operational_training_scope.build_plan(
+            registry,
+            operational_scope,
+            tuning_catalog,
+            version_ids=version_ids,
+            profile_keys=profile_keys,
+        )
+        operational_plan_path = operation_root / "operational-training-plan.json"
+        operational_plan_path.write_text(
+            json.dumps(operational_plan, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
         )
         prepared_root = operation_root / "multiversion-inputs"
         preparation_progress = operation_root / "multiversion-preparation-progress.jsonl"
@@ -839,6 +863,8 @@ def run_local_full_update(
                 "operational",
                 "--tuning-catalog",
                 str(tuning_catalog_path),
+                "--operational-plan",
+                str(operational_plan_path),
             ]
         for profile_key in profile_keys:
             preparation_command.extend(["--profile-key", profile_key])
@@ -897,6 +923,8 @@ def run_local_full_update(
             str(tuning_catalog_path),
             "--job-purpose",
             "operational",
+            "--operational-plan",
+            str(operational_plan_path),
         ]
         for option, key in (
             ("--v4-fixed", "v4_fixed"),
@@ -1012,6 +1040,10 @@ def run_local_full_update(
             },
             "snapshot_id": rebuild_bundle["snapshot_id"],
             "operational_snapshot_id": comparison_bundle["snapshot_id"],
+            "operational_scope_id": operational_scope["scope_id"],
+            "operational_plan_id": operational_plan["plan_id"],
+            "tuning_catalog_id": operational_plan["tuning_catalog_id"],
+            "species_ids": list(operational_scope["admitted_species_ids"]),
             "rebuild_verification": rebuild_verification,
             "training_verification": training_verification,
             "comparison_install": comparison_install,

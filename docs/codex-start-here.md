@@ -37,91 +37,33 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-27
+## Estado general al cierre de 2026-08-28
 
-- Rama activa `inicial`, entrega principal `4b6422d`; preservar siempre el
-  worktree y cualquier fichero no rastreado. HA real continúa en `0.2.266`; la imagen `0.2.267` está publicada
-  pero no instalada. El worker normal es `1.0.18` y conserva la identidad emparejada
-  `worker_1a9a232c20fe2ee2`. Revalidar el runtime al comenzar una sesión nueva.
-- La separación entre mantenimiento operativo y benchmark científico está
-  desplegada. El mantenimiento completo verifica y autopromociona
-  conjuntamente una generación por cada versión instalada seleccionada; el
-  benchmark conserva evidencia e historial pero no prepara, activa ni revierte
-  versiones.
-- El selector de mantenimiento se deriva del registro activo, no de una lista
-  hardcoded. Admite cualquier subconjunto instalado de V2/V3/V4/V5w/V6w y
-  conserva la selección durante rebuild, ML v0, entrenamiento multiversión y
-  promoción. `preferred_version_id` sigue siendo independiente.
-- El reentreno local y el real terminaron con las cinco versiones. En HA real,
-  el batch `operational_20260825T221049Z` produjo 636/636 ajustes, cero fallos y
-  fue promocionado. Solo queda registrar la comprobación visual final de las
-  cinco opciones y la desaparición del aviso de identidad desconocida.
-- La retención ML está activa en HA real por decisión del usuario. El log
-  observado fue `mode=apply removed=74 errors=0`; Predictor y reentreno
-  funcionaron después. La caché TAR vive bajo `/media`, fuera de `/share` y de
-  los backups. No cambiar la opción ni hacer borrados manuales.
-- El siguiente bloque prioritario es rendimiento: la cadena remota real tardó
-  ~37 minutos aunque los fits ocuparon ~2–3. Están confirmados uploads por
-  fichero, `fsync` repetidos, reescritura de una cola de 5,39 MB en cada tick,
-  rehashes redundantes y preparación sin telemetría suficiente. En laboratorio,
-  telemetría, tuning operativo congelado y workspace meteorológico compartido
-  redujeron el flujo completo a 8 min 55 s frío y 7 min 54 s caliente, con
-  714/714 fits, cero fallos, equivalencia y promoción verificada.
-- El objetivo local de <=10 minutos ya se cumple sin C ni paralelismo. Antes de
-  compactar cola o agrupar transporte, medir el mismo código por el camino
-  remoto HA↔worker después de una entrega autorizada; tocar esas capas solo si
-  la medición lo justifica. El detalle está en `docs/todo.md` y en el informe
-  `docs/reports/operational-rebuild-10m-lab-2026-08-26.md`.
-- La vigencia futura se comprobará mediante revisiones pequeñas y avisos, no
-  releyendo todo el histórico durante promociones o consultas. Worker y
-  coordinador deben reutilizar objetos meteorológicos inmutables por digest y
-  evitar copias/rehashes redundantes.
-- V5/V6 operativas son las variantes windowed 30/60/90. Los 365 días se usan
-  como calentamiento físico de balance/SMI, no como ventana predictiva. Las
-  definiciones no-windowed legacy siguen como `reference` y queda pendiente su
-  retirada definitiva tras auditar referencias.
-- El selector operativo elige por separado ventana fija y retardo/evento. Solo
-  entran candidatos aplicables, con Brier estrictamente mejor que prevalencia y
-  ROC-AUC >= 0,55; después prioriza mayor mejora Brier, menor Brier y mayor
-  ROC-AUC. La fiabilidad del ganador y el consenso entre familias metodológicas
-  se muestran como ejes diferentes.
-- La aplicabilidad vigente sigue usando una heurística no calibrada: rango
-  mínimo/máximo aprendido por variable, `outside_feature_ratio >= 0,05` o una
-  variable fuera de rango a `>= 3 sigma`. Esos dos umbrales están fijados por el
-  código, no aprendidos. Deben auditarse antes de modificarlos.
-- La autocura SoilGrids previa al snapshot operativo está implementada y
-  validada de extremo a extremo. Un fallo individual no bloquea el reentreno y
-  queda visible por microárea. El proceso fresco reparó los cuatro contextos
-  pendientes en 14,539 s, sin red ni avisos, y dejó 63/63 completos.
-- Con los datos frescos (439 totales, 396 elegibles), la línea base integrada
-  posterior midió 706,517 s. El worktree limita solo RF/ET durante el fit
-  (hold-out Docker 192,307 -> 166,260 s, salida idéntica) y reutiliza una matriz
-  preparada por versión/contrato/perfil/especie entre algoritmos. Pasan 1.056
-  pruebas y la imagen local fue reconstruida. La medición integrada posterior
-  terminó en 548,095 s (9 min 8,1 s), con 714/714 fits, cero fallos y promoción
-  completa. La caché usó 204 matrices/68,8 MiB y registró 510 reutilizaciones;
-  SoilGrids reparó 4/4 pendientes y dejó 63/63 completas. Durante esa validación
-  local no se tocaron HA real ni el worker normal.
-- Release siguiente: HA 0.2.270 publicada y verificada en GHCR con digest
-  `sha256:7692f3805bc90cd4172de1700993962a571cc80da5b3c09382b87760c3282cca`;
-  los tags de versión y `latest` incluyen `linux/amd64` y `linux/arm64`. El
-  worker privado 1.0.21 está instalado en el M1, `healthy` e `idle`, conservando
-  su volumen, GIS y caché Predictor. HA 0.2.270 está instalada en HA real. Falta
-  medir Predictor frío/caliente y la cadena remota completa. No lanzar esas
-  pruebas automáticamente.
-- La validación debe ser proporcional: pruebas dirigidas por bloque y un smoke
-  completo antes de una entrega relevante, no smoke repetido tras cada cambio
-  documental, commit o bump.
-- No preparar bump, build, publicación, instalación ni release sin autorización
-  explícita nueva.
-- El smoke transversal previo a las releases pasó 1.006 pruebas. `0.2.264` no
-  migraba el registro persistente 1.0 y fue detenida; `0.2.265` añadió la
-  migración validada con copia exacta previa; `0.2.266` añadió el selector
-  dinámico de versiones y es la instalada actual confirmada por el usuario.
-- El histórico meteorológico oficial de HA fue reparado y rebasado a una raíz
-  autosuficiente; el runner manual posterior terminó correctamente. La próxima
-  sesión debe tratar esta migración como cerrada y mantener como deuda la
-  compactación del escritor y el coste del post-drain, no repetir el backfill.
+- Rama `inicial`, HEAD local/remoto `29aca9c`. HA real está en `0.2.271` y el
+  worker normal observado en `1.0.21`. Revalidar `pwd`, rama, worktree y runtime
+  al comenzar; preservar todos los cambios y ficheros no rastreados.
+- HA 0.2.271 añadió reutilización persistente exacta del Predictor y tiempos en
+  UI. En HA real, una repetición idéntica informó 0,6 s de trabajo y menos de
+  0,1 s de cálculo; la percepción caliente sigue en 6–8 s y el camino frío en
+  35–40 s, pendientes de desglose y optimización basada en telemetría.
+- La cadena real completa del 2026-08-28 falló tras 20 min 19 s en V2–V6. No se
+  promocionó nada y la generación anterior sigue operativa. La causa confirmada
+  es que local, ML v0 y V2–V6 deciden el conjunto de especies en momentos
+  distintos; un catálogo local más amplio había enmascarado el defecto.
+- La prioridad inmediata es un único `OperationalTrainingScope` y un plan
+  serializable sellado que consuman sin redescubrimientos local, HA y worker.
+  La especificación vinculante está en
+  `docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`.
+- La medición local de 548,095 s (9 min 8,1 s), 714/714 fits y cero fallos sigue
+  siendo evidencia de rendimiento, pero no prueba equivalencia remota hasta
+  unificar alcance, plan e inputs. El handoff sellado entre jobs sí se observó
+  funcionando en real.
+- La retención ML real continúa activa por decisión del usuario. No cambiarla,
+  no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
+  ni promoción atómica.
+- No repetir la cadena real ni preparar bump, build, publicación, instalación o
+  release hasta implementar y validar localmente la unificación y recibir una
+  autorización explícita nueva.
 
 El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.
@@ -140,6 +82,8 @@ El estado exacto, la prueba siguiente y los riesgos están en
   `docs/mushrooms/mushroom-predictor-cold-path-optimization-spec-es.md`
 - Entrega local sellada entre trabajos encadenados del worker:
   `docs/mushrooms/mushroom-worker-chained-job-local-handoff-spec-es.md`
+- Alcance y plan operativo únicos para local, HA y worker:
+  `docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`
 - Plataforma de workers: `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
 - Evolución pendiente del worker para conservar varios coordinadores:
   `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`

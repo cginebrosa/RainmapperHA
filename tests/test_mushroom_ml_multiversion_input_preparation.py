@@ -17,6 +17,33 @@ SCRIPT = (
 
 
 class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
+    def test_scope_guards_reject_builder_and_holdout_rows_outside_plan(self) -> None:
+        spec = importlib.util.spec_from_file_location("prepare_scope_guards", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            dataset = root / "dataset.json"
+            dataset.write_text(
+                json.dumps(
+                    {
+                        "samples": [
+                            {"metadata": {"species_id": "outside_species"}}
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            holdout = root / "heldout.jsonl"
+            holdout.write_text(
+                json.dumps({"species_id": "outside_species"}) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "escaped the sealed species scope"):
+                module.assert_json_species_scope(dataset, ["inside_species"])
+            with self.assertRaisesRegex(ValueError, "escaped the sealed species scope"):
+                module.assert_jsonl_species_scope(holdout, ["inside_species"])
+
     def test_script_bootstraps_repository_root_when_run_directly(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             completed = subprocess.run(
@@ -41,6 +68,8 @@ class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             output = root / "prepared"
+            (root / "features.json").write_text("{}", encoding="utf-8")
+            (root / "known-sites.json").write_text("{}", encoding="utf-8")
             calls = []
 
             def fake_run_script(path, arguments, **_kwargs):
@@ -66,15 +95,41 @@ class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
                 "--source-snapshot-id", "sha256:" + "d" * 64,
                 "--job-purpose", "operational",
                 "--tuning-catalog", str(root / "tuning-catalog.json"),
+                "--operational-plan", str(root / "operational-plan.json"),
                 "--profile-key", "biology_v3/core",
                 "--profile-key", "biology_v3/common_idw_plus_physical_state",
             ]
             workspace = mock.Mock()
             workspace.stats.return_value = {"mode": "test"}
+            (root / "operational-plan.json").write_text("{}", encoding="utf-8")
+            (root / "tuning-catalog.json").write_text(
+                json.dumps({"catalog_id": "catalog-test"}), encoding="utf-8"
+            )
+            checked_plan = {
+                "scope": {
+                    "admitted_species_ids": ["boletus_edulis"],
+                    "min_episodes": 10,
+                },
+                "scope_id": "scope-test",
+                "plan_id": "plan-test",
+                "tuning_catalog_id": "catalog-test",
+                "profile_keys": [
+                    "biology_v3/common_idw_plus_physical_state",
+                    "biology_v3/core",
+                ],
+            }
             with mock.patch.object(module, "run_script", side_effect=fake_run_script), mock.patch.object(
                 module.mushroom_ml_weather_workspace,
                 "activate_operational_workspace",
                 return_value=workspace,
+            ), mock.patch.object(
+                module.mushroom_operational_training_scope,
+                "validate_plan",
+                return_value=checked_plan,
+            ), mock.patch.object(
+                module.mushroom_operational_training_scope,
+                "build_scope",
+                return_value=checked_plan["scope"],
             ), mock.patch.object(sys, "argv", argv):
                 self.assertEqual(module.main(), 0)
 
@@ -108,6 +163,8 @@ class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             output = root / "prepared"
+            (root / "features.json").write_text("{}", encoding="utf-8")
+            (root / "known-sites.json").write_text("{}", encoding="utf-8")
             calls = []
 
             def fake_run_script(_path, arguments, **_kwargs):
@@ -129,13 +186,36 @@ class MushroomMLMultiversionInputPreparationTests(unittest.TestCase):
                 "--source-snapshot-id", "sha256:" + "a" * 64,
                 "--job-purpose", "operational",
                 "--tuning-catalog", str(root / "tuning-catalog.json"),
+                "--operational-plan", str(root / "operational-plan.json"),
             ]
             workspace = mock.Mock()
             workspace.stats.return_value = {"mode": "test"}
+            (root / "operational-plan.json").write_text("{}", encoding="utf-8")
+            (root / "tuning-catalog.json").write_text(
+                json.dumps({"catalog_id": "catalog-test"}), encoding="utf-8"
+            )
+            checked_plan = {
+                "scope": {
+                    "admitted_species_ids": ["boletus_edulis"],
+                    "min_episodes": 10,
+                },
+                "scope_id": "scope-test",
+                "plan_id": "plan-test",
+                "tuning_catalog_id": "catalog-test",
+                "profile_keys": [],
+            }
             with mock.patch.object(module, "run_script", side_effect=fake_run_script), mock.patch.object(
                 module.mushroom_ml_weather_workspace,
                 "activate_operational_workspace",
                 return_value=workspace,
+            ), mock.patch.object(
+                module.mushroom_operational_training_scope,
+                "validate_plan",
+                return_value=checked_plan,
+            ), mock.patch.object(
+                module.mushroom_operational_training_scope,
+                "build_scope",
+                return_value=checked_plan["scope"],
             ), mock.patch.object(sys, "argv", argv):
                 self.assertEqual(module.main(), 0)
 

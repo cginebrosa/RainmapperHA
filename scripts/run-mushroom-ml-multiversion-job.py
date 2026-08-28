@@ -22,6 +22,7 @@ from rainmapper_core import mushroom_ml_quality_catalog  # noqa: E402
 from rainmapper_core import mushroom_ml_runtime_trainer  # noqa: E402
 from rainmapper_core import mushroom_ml_tuning_catalog  # noqa: E402
 from rainmapper_core import mushroom_ml_version_registry  # noqa: E402
+from rainmapper_core import mushroom_operational_training_scope  # noqa: E402
 
 
 def _generation(value: str) -> tuple[str, str]:
@@ -60,6 +61,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--progress-jsonl", type=Path)
     parser.add_argument("--training-input-manifest", type=Path)
     parser.add_argument("--tuning-catalog", type=Path)
+    parser.add_argument("--operational-plan", type=Path)
     parser.add_argument(
         "--quality-catalog",
         type=Path,
@@ -273,17 +275,51 @@ def main() -> int:
         version_ids=version_ids,
         profile_keys=profile_keys,
     )
+    operational_plan = None
+    if operational:
+        if args.operational_plan is None:
+            raise ValueError("Operational training requires a sealed operational plan")
+        operational_plan = mushroom_operational_training_scope.validate_plan(
+            _load(args.operational_plan)
+        )
+        if sorted(args.species) != operational_plan["scope"]["admitted_species_ids"]:
+            raise ValueError("Training species do not match the sealed operational plan")
+        if version_ids != operational_plan["version_ids"]:
+            raise ValueError("Training versions do not match the sealed operational plan")
+        if sorted(profile_keys) != operational_plan["profile_keys"]:
+            raise ValueError("Training profiles do not match the sealed operational plan")
+        actual_fit_scopes = [
+            {
+                "artifact_scope": {
+                    key: value
+                    for key, value in fit["artifact_ref"].items()
+                    if key not in {"batch_id", "generation_id"}
+                },
+                "estimator_scope": fit["estimator_scope"],
+                "training_species_ids": fit["training_species_ids"],
+                "supported_horizons": fit["supported_horizons"],
+            }
+            for fit in plan["fits"]
+        ]
+        if actual_fit_scopes != operational_plan["fits"]:
+            raise ValueError("Runtime fits do not match the sealed operational plan")
     tuning_catalog = (
         mushroom_ml_tuning_catalog.validate_catalog(
             registry,
             _load(args.tuning_catalog),
             training_plan=plan,
+            allow_superset=operational,
         )
         if args.tuning_catalog is not None
         else None
     )
     if operational and tuning_catalog is None:
         raise ValueError("Operational training requires a compatible tuning catalog")
+    if (
+        operational_plan is not None
+        and tuning_catalog["catalog_id"] != operational_plan["tuning_catalog_id"]
+    ):
+        raise ValueError("Training tuning catalog does not match the sealed operational plan")
     benchmarks = mushroom_ml_runtime_trainer.materialize_runtime_benchmarks(
         v3_fixed=_load(args.v3_fixed),
         v3_lag=_load(args.v3_lag),
@@ -320,6 +356,9 @@ def main() -> int:
             raise ValueError("Operational training must produce every planned artifact")
         manifest["job_purpose"] = args.job_purpose
         manifest["operational_candidate_trained"] = operational
+        if operational_plan is not None:
+            manifest["operational_scope_id"] = operational_plan["scope_id"]
+            manifest["operational_plan_id"] = operational_plan["plan_id"]
         if tuning_catalog is not None:
             tuning_path = destination / "tuning-catalog.json"
             mushroom_ml_tuning_catalog.save(tuning_path, tuning_catalog)
@@ -425,6 +464,12 @@ def main() -> int:
         "job_purpose": args.job_purpose,
         "version_ids": version_ids,
         "profile_keys": list(plan.get("profile_keys") or []),
+        "operational_scope_id": (
+            operational_plan["scope_id"] if operational_plan is not None else ""
+        ),
+        "operational_plan_id": (
+            operational_plan["plan_id"] if operational_plan is not None else ""
+        ),
         "report_id": (
             str((manifest.get("benchmark_report") or {}).get("report_id") or "")
             if not operational
@@ -506,6 +551,8 @@ def main() -> int:
             "job_purpose": args.job_purpose,
             "report_id": summary["report_id"],
             "operational_candidate_trained": operational,
+            "operational_scope_id": summary["operational_scope_id"],
+            "operational_plan_id": summary["operational_plan_id"],
         }
         args.result_manifest.parent.mkdir(parents=True, exist_ok=True)
         args.result_manifest.write_text(

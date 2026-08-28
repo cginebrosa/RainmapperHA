@@ -72,6 +72,7 @@ def main() -> None:
     try:
         sys.path.insert(0, str(Path(__file__).parent.parent))
         from rainmapper_core import mushroom_ml_experiment_trainer, mushroom_ml_trainer
+        from rainmapper_core import mushroom_operational_training_scope
     except ImportError as exc:
         print(f"ERROR: Cannot import mushroom_ml_trainer: {exc}", file=sys.stderr)
         sys.exit(2)
@@ -85,6 +86,22 @@ def main() -> None:
 
     min_rows = positive_int_setting("min_rows", mushroom_ml_trainer.MIN_ROWS_DEFAULT, 1)
     cv_folds = positive_int_setting("cv_folds", mushroom_ml_trainer.CV_FOLDS_DEFAULT, 2)
+    operational_scope = job_spec.get("operational_scope")
+    if operational_scope is not None:
+        operational_scope = mushroom_operational_training_scope.validate_scope(
+            operational_scope
+        )
+        recomputed_scope = mushroom_operational_training_scope.build_scope(
+            json.loads(features_path.read_text(encoding="utf-8")),
+            json.loads(known_sites_path.read_text(encoding="utf-8")),
+            min_episodes=int(operational_scope["min_episodes"]),
+        )
+        if recomputed_scope != operational_scope:
+            raise ValueError("ML v0 inputs do not match the sealed operational scope")
+        if species_ids != operational_scope["admitted_species_ids"]:
+            raise ValueError("ML v0 job species do not match its sealed operational scope")
+        if min_rows != operational_scope["min_episodes"]:
+            raise ValueError("ML v0 minimum does not match its sealed operational scope")
 
     emit_progress(10, "Starting training...")
     def emit_operational_progress(percent: int, message: str) -> None:
@@ -111,6 +128,11 @@ def main() -> None:
         for r in (species_results or [])
         if isinstance(r, dict) and not r.get("skipped") and r.get("species_id")
     ]
+    if operational_scope is not None:
+        mushroom_operational_training_scope.assert_scope_trained_species(
+            operational_scope,
+            trained_species,
+        )
 
     emit_progress(82, "Training shadow comparison models...")
     shadow_report_path = output_dir / "ml_experiment_report.json"
@@ -200,6 +222,9 @@ def main() -> None:
             "kind": "mushroom_ml_v0_result",
             "job_id": str(job_spec.get("job_id", "") if isinstance(job_spec, dict) else ""),
             "trained_species": trained_species,
+            "operational_scope_id": (
+                operational_scope["scope_id"] if operational_scope is not None else ""
+            ),
             "shadow_feature_set_ids": shadow_feature_set_ids,
             "shadow_models": declared_shadow_models,
             "artifacts": artifacts,
