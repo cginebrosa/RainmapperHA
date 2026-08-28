@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.270
+
+- Publish one persistent Predictor runtime manifest and reuse unchanged hashes
+  across requests and Home Assistant restarts.
+- Seal verified worker runtimes and immutable inputs with atomic receipts so
+  warm predictions and chained jobs avoid redundant downloads and rehashing.
+- Reuse content-addressed reconstruction and ML inputs across consecutive jobs
+  while preserving Home Assistant fallback, retry, cancellation, and atomic
+  promotion.
+- Include the frozen operational tuning catalog in remote V2--V6 training so
+  the external chain enforces the same scientific contract as local training.
+- Persist runtime synchronization time, transferred bytes, hashes, and reused
+  or fetched file counts for transport attribution.
+
 ## 0.2.269
 
 - Align Home Assistant and remote-worker Predictor requests so navigation from

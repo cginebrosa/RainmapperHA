@@ -1340,7 +1340,7 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
         cold = result.get("cold")
         if not isinstance(cold, bool):
             raise ValueError("Worker predictor cold flag is invalid.")
-        return {
+        normalized = {
             "response": response,
             "cold": cold,
             "runtime_cache_status": str(result.get("runtime_cache_status", ""))[:40],
@@ -1348,6 +1348,28 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
                 0, int(result.get("runtime_transferred_size_bytes", 0) or 0)
             ),
         }
+        verification_status = str(
+            result.get("runtime_verification_status", "") or ""
+        )[:40]
+        if verification_status:
+            normalized["runtime_verification_status"] = verification_status
+        for key in (
+            "runtime_hashed_file_count",
+            "runtime_reused_file_count",
+            "runtime_fetched_file_count",
+        ):
+            value = result.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"Worker predictor {key} is invalid.")
+            normalized[key] = value
+        elapsed = result.get("runtime_sync_seconds")
+        if elapsed is not None:
+            if not isinstance(elapsed, (int, float)) or isinstance(elapsed, bool) or elapsed < 0:
+                raise ValueError("Worker predictor runtime_sync_seconds is invalid.")
+            normalized["runtime_sync_seconds"] = round(float(elapsed), 6)
+        return normalized
     if job_type == JOB_TYPE_ML_TRAIN:
         normalized: dict[str, Any] = {}
         status = str(result.get("verification_status", "") or "")[:40]

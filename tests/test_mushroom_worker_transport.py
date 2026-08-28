@@ -244,6 +244,62 @@ class MushroomWorkerTransportTests(unittest.TestCase):
         self.assertEqual(first.read_bytes(), content)
         self.assertEqual(second.read_bytes(), content)
 
+    def test_immutable_input_receipt_reuses_object_without_network_or_rehash(self) -> None:
+        content = b"sealed chained input"
+        digest = hashlib.sha256(content).hexdigest()
+
+        class Response(io.BytesIO):
+            def __init__(self):
+                super().__init__(content)
+                self.headers = {"Content-Length": str(len(content))}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args: object) -> None:
+                self.close()
+
+        first = self.root / "first-input.json"
+        second = self.root / "second-input.json"
+        with mock.patch.object(
+            mushroom_worker_transport,
+            "urlopen",
+            side_effect=lambda *_args, **_kwargs: Response(),
+        ) as urlopen:
+            first_reused = (
+                mushroom_worker_transport._materialize_cached_immutable_input(
+                    "http://rainmapper/input",
+                    first,
+                    worker_data_dir=self.worker_data,
+                    digest=digest,
+                    size=len(content),
+                    headers={},
+                    timeout=1.0,
+                )
+            )
+            with mock.patch.object(
+                mushroom_worker_transport.mushroom_rebuild_snapshot,
+                "sha256_file",
+                side_effect=AssertionError("sealed objects must not be rehashed"),
+            ):
+                second_reused = (
+                    mushroom_worker_transport._materialize_cached_immutable_input(
+                        "http://rainmapper/input",
+                        second,
+                        worker_data_dir=self.worker_data,
+                        digest=digest,
+                        size=len(content),
+                        headers={},
+                        timeout=1.0,
+                    )
+                )
+
+        self.assertFalse(first_reused)
+        self.assertTrue(second_reused)
+        self.assertEqual(urlopen.call_count, 1)
+        self.assertEqual(first.read_bytes(), content)
+        self.assertEqual(second.read_bytes(), content)
+
     def test_worker_downloads_missing_gis_dataset_transactionally_over_http(self) -> None:
         seen_dataset_requests: list[tuple[str, str, str]] = []
 

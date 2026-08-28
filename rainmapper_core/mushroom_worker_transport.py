@@ -37,6 +37,9 @@ _STAGING_DIR_RE = re.compile(
 DEFAULT_STAGING_GRACE_SECONDS = 60 * 60
 DEFAULT_ORPHAN_GRACE_SECONDS = 24 * 60 * 60
 WEATHER_INPUT_CACHE_DIR = "weather-input-cache/objects"
+IMMUTABLE_INPUT_CACHE_DIR = "immutable-input-cache/objects"
+IMMUTABLE_RECEIPT_VERSION = "1.0"
+MAX_IMMUTABLE_INPUT_CACHE_BYTES = 1024 * 1024 * 1024
 MAX_WEATHER_INPUT_CACHE_BYTES = 512 * 1024 * 1024
 
 
@@ -454,11 +457,7 @@ def _materialize_cached_weather_input(
     cache_root = worker_data_dir.resolve() / WEATHER_INPUT_CACHE_DIR
     cache_root.mkdir(parents=True, exist_ok=True)
     cached = cache_root / digest
-    valid = (
-        cached.is_file()
-        and cached.stat().st_size == size
-        and mushroom_rebuild_snapshot.sha256_file(cached) == digest
-    )
+    valid = _sealed_immutable_object(cached, digest, size)
     if not valid:
         cached.unlink(missing_ok=True)
         temporary = cache_root / f".{digest}.{uuid.uuid4().hex}.tmp"
@@ -473,6 +472,7 @@ def _materialize_cached_weather_input(
                 timeout=timeout,
             )
             os.replace(temporary, cached)
+            _write_immutable_receipt(cached, digest, size)
         finally:
             temporary.unlink(missing_ok=True)
     else:
@@ -493,11 +493,149 @@ def _materialize_cached_weather_input(
     return valid
 
 
+def _immutable_receipt_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.verified.json")
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _write_immutable_receipt(path: Path, digest: str, size: int) -> None:
+    receipt = _immutable_receipt_path(path)
+    temporary = receipt.with_name(f".{receipt.name}.{uuid.uuid4().hex}.tmp")
+    payload = {
+        "schema_version": IMMUTABLE_RECEIPT_VERSION,
+        "sha256": digest,
+        "size_bytes": size,
+    }
+    try:
+        with temporary.open("x", encoding="utf-8") as handle:
+            json.dump(payload, handle, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, receipt)
+        _fsync_directory(receipt.parent)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _sealed_immutable_object(path: Path, digest: str, size: int) -> bool:
+    if not path.is_file() or path.stat().st_size != size:
+        return False
+    expected = {
+        "schema_version": IMMUTABLE_RECEIPT_VERSION,
+        "sha256": digest,
+        "size_bytes": size,
+    }
+    try:
+        receipt = json.loads(
+            _immutable_receipt_path(path).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError, json.JSONDecodeError):
+        receipt = None
+    if receipt == expected:
+        return True
+    if mushroom_rebuild_snapshot.sha256_file(path) != digest:
+        return False
+    _write_immutable_receipt(path, digest, size)
+    return True
+
+
+def _materialize_cached_immutable_input(
+    url: str,
+    destination: Path,
+    *,
+    worker_data_dir: Path,
+    digest: str,
+    size: int,
+    headers: dict[str, str],
+    timeout: float,
+) -> bool:
+    """Link one sealed object into a job, downloading it only when absent."""
+    cache_root = worker_data_dir.resolve() / IMMUTABLE_INPUT_CACHE_DIR
+    cache_root.mkdir(parents=True, exist_ok=True)
+    cached = cache_root / digest
+    valid = _sealed_immutable_object(cached, digest, size)
+    if not valid:
+        temporary = cache_root / f".{digest}.{uuid.uuid4().hex}.tmp"
+        try:
+            _download_file(
+                url,
+                temporary,
+                headers=headers,
+                expected_size=size,
+                expected_sha256=digest,
+                max_bytes=MAX_INPUT_FILE_BYTES,
+                timeout=timeout,
+            )
+            os.replace(temporary, cached)
+            _fsync_directory(cache_root)
+            _write_immutable_receipt(cached, digest, size)
+        finally:
+            temporary.unlink(missing_ok=True)
+    else:
+        os.utime(cached, None)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(cached, destination)
+    except OSError:
+        shutil.copy2(cached, destination)
+        mushroom_performance_telemetry.add(
+            copies=1,
+            copy_bytes=size,
+            files_read=1,
+            bytes_read=size,
+            files_written=1,
+            bytes_written=size,
+        )
+    return valid
+
+
+def _prune_immutable_input_cache(
+    worker_data_dir: Path, protected: set[str]
+) -> int:
+    cache_root = worker_data_dir.resolve() / IMMUTABLE_INPUT_CACHE_DIR
+    if not cache_root.is_dir():
+        return 0
+    entries = [
+        path
+        for path in cache_root.iterdir()
+        if path.is_file()
+        and not path.name.startswith(".")
+        and not path.name.endswith(".verified.json")
+    ]
+    total = sum(path.stat().st_size for path in entries)
+    removed = 0
+    for path in sorted(entries, key=lambda candidate: candidate.stat().st_mtime_ns):
+        if total <= MAX_IMMUTABLE_INPUT_CACHE_BYTES:
+            break
+        if path.name in protected:
+            continue
+        size = path.stat().st_size
+        path.unlink(missing_ok=True)
+        _immutable_receipt_path(path).unlink(missing_ok=True)
+        total -= size
+        removed += size
+    return removed
+
+
 def _prune_weather_input_cache(worker_data_dir: Path, protected: set[str]) -> int:
     cache_root = worker_data_dir.resolve() / WEATHER_INPUT_CACHE_DIR
     if not cache_root.is_dir():
         return 0
-    entries = [path for path in cache_root.iterdir() if path.is_file() and not path.name.startswith(".")]
+    entries = [
+        path
+        for path in cache_root.iterdir()
+        if path.is_file()
+        and not path.name.startswith(".")
+        and not path.name.endswith(".verified.json")
+    ]
     total = sum(path.stat().st_size for path in entries)
     removed = 0
     for path in sorted(entries, key=lambda candidate: candidate.stat().st_mtime_ns):
@@ -507,6 +645,7 @@ def _prune_weather_input_cache(worker_data_dir: Path, protected: set[str]) -> in
             continue
         size = path.stat().st_size
         path.unlink(missing_ok=True)
+        _immutable_receipt_path(path).unlink(missing_ok=True)
         total -= size
         removed += size
     return removed
@@ -758,8 +897,10 @@ def download_input_bundle(
 
         transferred = 0
         reused_weather_bytes = 0
+        reused_immutable_bytes = 0
         processed = 0
         protected_weather_digests: set[str] = set()
+        protected_immutable_digests: set[str] = set()
         for index, raw_record in enumerate(records, start=1):
             relative = safe_relative_path(raw_record.get("path"))
             size = raw_record.get("size_bytes")
@@ -785,22 +926,33 @@ def download_input_bundle(
                 else:
                     transferred += size
             else:
-                _download_file(
+                protected_immutable_digests.add(digest)
+                reused = _materialize_cached_immutable_input(
                     file_url(f"{SNAPSHOT_PREFIX}/{relative.as_posix()}"),
                     staging / SNAPSHOT_PREFIX / relative,
+                    worker_data_dir=worker_data_dir,
+                    digest=digest,
+                    size=size,
                     headers=headers,
-                    expected_size=size,
-                    expected_sha256=digest,
-                    max_bytes=MAX_INPUT_FILE_BYTES,
                     timeout=timeout,
                 )
-                transferred += size
+                if reused:
+                    reused_immutable_bytes += size
+                else:
+                    transferred += size
             processed += size
             if progress_callback is not None:
                 progress_callback(
                     {
-                        "phase": "Downloading immutable inputs",
-                        "message": f"Verified input file {index}/{len(records)}.",
+                        "phase": (
+                            "Reusing sealed local inputs"
+                            if reused
+                            else "Downloading missing inputs"
+                        ),
+                        "message": (
+                            f"Materialized input file {index}/{len(records)} "
+                            f"from {'local cache' if reused else 'HA'}."
+                        ),
                         "overall_percent": 50 + int((processed / total_bytes) * 40) if total_bytes else 90,
                     }
                 )
@@ -810,6 +962,7 @@ def download_input_bundle(
             job_spec,
             staging / SNAPSHOT_PREFIX,
             gis_root_override=Path(str(dataset["path"])),
+            verify_snapshot_files=False,
             verify_gis_file_hashes=False,
         )
         if verification["status"] != "valid":
@@ -817,6 +970,9 @@ def download_input_bundle(
         staging.replace(destination)
         pruned_weather_bytes = _prune_weather_input_cache(
             worker_data_dir, protected_weather_digests
+        )
+        pruned_immutable_bytes = _prune_immutable_input_cache(
+            worker_data_dir, protected_immutable_digests
         )
         return {
             **verification,
@@ -830,6 +986,8 @@ def download_input_bundle(
             "input_transferred_size_bytes": transferred,
             "weather_cache_reused_size_bytes": reused_weather_bytes,
             "weather_cache_pruned_size_bytes": pruned_weather_bytes,
+            "immutable_cache_reused_size_bytes": reused_immutable_bytes,
+            "immutable_cache_pruned_size_bytes": pruned_immutable_bytes,
         }
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
@@ -849,7 +1007,8 @@ def download_ml_train_inputs(
 ) -> dict[str, Any]:
     """Download the three input files for a ml_train_v0 job (job_spec, features, known_sites)."""
     job_id = validate_job_id(str(job.get("job_id", "")))
-    endpoint = str((job.get("input_bundle") or {}).get("endpoint", "") or "")
+    input_bundle = job.get("input_bundle") or {}
+    endpoint = str(input_bundle.get("endpoint", "") or "")
     if endpoint != "/api/mushrooms/workers/jobs/input":
         raise ValueError("Worker ML training input endpoint is invalid.")
     destination = worker_data_dir / job_id
@@ -861,31 +1020,76 @@ def download_ml_train_inputs(
     try:
         headers = request_headers(worker_id, claim_token, token)
         logical_paths = ["job_spec.json", "features.json", "known_sites.json"]
+        contracts = {
+            "job_spec.json": (
+                str(input_bundle.get("job_spec_id", "")).removeprefix("sha256:"),
+                input_bundle.get("job_spec_size_bytes"),
+            ),
+            "features.json": (
+                str(input_bundle.get("features_digest", "")).removeprefix("sha256:"),
+                input_bundle.get("features_size_bytes"),
+            ),
+            "known_sites.json": (
+                str(input_bundle.get("known_sites_digest", "")).removeprefix("sha256:"),
+                input_bundle.get("known_sites_size_bytes"),
+            ),
+        }
         total_bytes = 0
+        transferred_bytes = 0
+        reused_bytes = 0
+        protected_digests: set[str] = set()
         for idx, logical_path in enumerate(logical_paths):
             query = urlencode({"job_id": job_id, "file": logical_path})
             url = ha_url.rstrip("/") + endpoint + "?" + query
             dest_path = staging / logical_path
-            size, _ = _download_file(
+            digest, raw_size = contracts[logical_path]
+            if not re.fullmatch(r"[0-9a-f]{64}", digest) or not isinstance(
+                raw_size, int
+            ):
+                raise ValueError("Worker ML training input contract is incomplete.")
+            size = int(raw_size)
+            protected_digests.add(digest)
+            reused = _materialize_cached_immutable_input(
                 url,
                 dest_path,
+                worker_data_dir=worker_data_dir,
+                digest=digest,
+                size=size,
                 headers=headers,
-                expected_size=None,
-                expected_sha256=None,
-                max_bytes=MAX_INPUT_FILE_BYTES,
                 timeout=timeout,
             )
             total_bytes += size
+            if reused:
+                reused_bytes += size
+            else:
+                transferred_bytes += size
             if progress_callback is not None:
                 progress_callback(
                     {
-                        "phase": "Downloading ML training inputs",
-                        "message": f"Downloaded {logical_path} ({idx + 1}/{len(logical_paths)}).",
+                        "phase": (
+                            "Reusing sealed local inputs"
+                            if reused
+                            else "Downloading missing inputs"
+                        ),
+                        "message": (
+                            f"Materialized {logical_path} ({idx + 1}/{len(logical_paths)}) "
+                            f"from {'local cache' if reused else 'HA'}."
+                        ),
                         "overall_percent": 5 + int((idx + 1) / len(logical_paths) * 10),
                     }
                 )
         staging.replace(destination)
-        return {"status": "verified", "input_dir": str(destination), "input_size_bytes": total_bytes}
+        pruned_bytes = _prune_immutable_input_cache(
+            worker_data_dir, protected_digests
+        )
+        return {
+            "status": "verified",
+            "input_dir": str(destination),
+            "input_size_bytes": total_bytes,
+            "input_transferred_size_bytes": transferred_bytes,
+            "immutable_cache_reused_size_bytes": reused_bytes,
+            "immutable_cache_pruned_size_bytes": pruned_bytes,
+        }
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise

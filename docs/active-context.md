@@ -360,6 +360,45 @@ healthy, `idle`, con versión 1.0.20, caché GIS válida y caché Predictor vál
 No se lanzó ningún trabajo ni se modificaron datos de HA real. Queda que el
 usuario instale HA 0.2.269 y ejecute las pruebas reales.
 
+## Evidencia real y trabajo local posterior — 2026-08-28
+
+En HA real 0.2.269 con worker 1.0.20, una recomendación cuyo resultado científico
+ya estaba cacheado empleó unos 25 s aunque el backend informó 0,023 s. El runtime
+tenía 713 ficheros y 253.657.749 bytes. El worker volvía a verificar su contenido
+en cada sincronización aun cuando el fingerprint coincidía. La corrección añade
+publicación persistente en HA y un recibo sellado en el worker: una reutilización
+válida hace cero hashes y cero transferencias. La vía ordinaria calcula hashes al
+publicar cambios; una mutación externa se detecta por ruta, tamaño y mtime y solo
+rehasea los ficheros alterados para autocurar el manifiesto.
+
+La primera reconstrucción real posterior produjo esta cadena: reconstrucción
+7 min 21 s, ML v0 2 min 28 s y un tercer trabajo multiversión que falló tras
+4 min 17 s. El fallo exacto fue `Operational preparation requires a tuning
+catalog`: el bundle remoto operativo omitía el catálogo congelado que sí usa el
+camino local. La corrección local lo sella en el snapshot y lo pasa explícitamente
+al preparador; no relaja la validación científica.
+
+La misma ejecución mostró materialización y verificación redundantes entre los
+tres trabajos. El diseño de entrega local sellada, fallback canónico a HA,
+telemetría y criterios de aceptación está en
+`docs/mushrooms/mushroom-worker-chained-job-local-handoff-spec-es.md`.
+La primera entrega local ya incorpora objetos inmutables por SHA-256 con recibo
+atómico para entradas generales y meteorológicas, reutilización por enlace y
+fases distintas para caché local y descarga. ML v0 declara hashes y tamaños para
+que V2--V6 reutilice exactamente sus entradas. La caché tiene presupuesto blando
+de 1 GiB y nunca poda objetos protegidos por la operación actual.
+
+La validación local posterior pasa 1.066 pruebas en 44,479 s, compilación de los
+módulos modificados y `git diff --check`. El smoke completo previo al bump pasó
+1.066 pruebas en 48,378 s. HA 0.2.270 quedó publicada y verificada en GHCR: los
+tags `0.2.270` y `latest` comparten el digest multi-arquitectura
+`sha256:7692f3805bc90cd4172de1700993962a571cc80da5b3c09382b87760c3282cca`
+y contienen `linux/amd64` y `linux/arm64`. El worker privado 1.0.21 se construyó
+localmente para arm64 como
+`sha256:da0c16bbb0b5f4b8e1a1cc7eca708cb7e4c267d0e6fcce733d8d61285e34d1a9`;
+no se instaló ni se reinició el worker normal. Falta instalar ambas versiones y
+medir en HA real Predictor frío/caliente y la cadena remota completa.
+
 ## Archivos relevantes
 
 - Orquestación/jobs: `rainmapper-app/app/web_server.py`,
@@ -380,6 +419,8 @@ usuario instale HA 0.2.269 y ejecute las pruebas reales.
 - Retención: `rainmapper_core/mushroom_storage_reconciler.py`,
   `rainmapper_core/mushroom_ml_storage_reconciler.py`,
   `docs/mushrooms/mushroom-ml-storage-retention-spec-es.md`.
+- Entrega local entre trabajos encadenados:
+  `docs/mushrooms/mushroom-worker-chained-job-local-handoff-spec-es.md`.
 
 ## Reglas para continuar
 

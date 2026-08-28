@@ -241,7 +241,9 @@ def execute_predictor_request(request: object) -> dict[str, Any]:
     global _predictor_service  # noqa: PLW0603
     with _predictor_cache_lock:
         if _predictor_service is None:
-            manifest, _sources = mushroom_predictor_runtime.build_manifest()
+            manifest, _sources, _publication_status = (
+                mushroom_predictor_runtime.load_or_publish_manifest()
+            )
             _predictor_service = PredictorService(
                 models_dir=mushroom_paths.mushroom_ml_models_dir(),
                 weather_data_dir=mushroom_paths.weather_data_dir(),

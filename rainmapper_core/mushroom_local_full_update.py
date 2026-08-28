@@ -384,7 +384,7 @@ def _write_rebased_features(source: Path, destination: Path, paths: LocalFullUpd
     )
 
 
-def _materialize_operational_tuning_catalog(
+def materialize_operational_tuning_catalog(
     *,
     registry: dict[str, object],
     version_ids: list[str] | tuple[str, ...],
@@ -405,6 +405,10 @@ def _materialize_operational_tuning_catalog(
     )
     mushroom_ml_tuning_catalog.save(destination, catalog)
     return catalog
+
+
+# Compatibility alias for callers/tests predating the public chained-worker API.
+_materialize_operational_tuning_catalog = materialize_operational_tuning_catalog
 
 
 def run_local_benchmark(
@@ -800,7 +804,7 @@ def run_local_full_update(
         extra_root = snapshot_dir / "inputs" / "extra"
         registry = mushroom_ml_version_registry.load_registry(extra_root / "registry.json")
         tuning_catalog_path = operation_root / "tuning-catalog.json"
-        _materialize_operational_tuning_catalog(
+        materialize_operational_tuning_catalog(
             registry=registry,
             version_ids=version_ids,
             models_root=paths.ml_models_dir,

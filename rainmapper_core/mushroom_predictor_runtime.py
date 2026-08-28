@@ -9,6 +9,7 @@ import shutil
 import tarfile
 import tempfile
 import threading
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -22,8 +23,13 @@ MODEL_CONTRACT = "mushroom_ml_v0_plus_shadow_v1_joblib"
 MULTIVERSION_MODEL_CONTRACT = "mushroom_ml_v0_plus_multiversion_v1_joblib"
 WEATHER_CONTRACT = "weather_parquet_v1"
 PARTITIONED_WEATHER_CONTRACT = "partitioned_weather_history_v1"
+VERIFIED_RECEIPT_SCHEMA_VERSION = "1.0"
+VERIFIED_RECEIPT_KIND = "rainmapper_mushroom_predictor_runtime_verified"
+PUBLICATION_SCHEMA_VERSION = "1.1"
+PUBLICATION_KIND = "rainmapper_mushroom_predictor_runtime_publication"
 _DIGEST_CACHE: dict[tuple[str, int, int], str] = {}
 _ARCHIVE_LOCK = threading.Lock()
+_PUBLICATION_LOCK = threading.Lock()
 
 
 def _sha256(path: Path) -> str:
@@ -78,6 +84,60 @@ def _entry(role: str, logical_path: str, source: Path) -> dict[str, Any]:
         "size_bytes": source.stat().st_size,
         "sha256": _sha256(source),
     }
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _atomic_write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.parent / f".{path.name}.{os.getpid()}.tmp"
+    temporary.unlink(missing_ok=True)
+    try:
+        with temporary.open("x", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        _fsync_directory(path.parent)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _verified_receipt_payload(manifest: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": VERIFIED_RECEIPT_SCHEMA_VERSION,
+        "kind": VERIFIED_RECEIPT_KIND,
+        "fingerprint": manifest["fingerprint"],
+        "file_count": len(manifest["files"]),
+        "size_bytes": manifest["size_bytes"],
+    }
+
+
+def _write_verified_receipt(root: Path, manifest: dict[str, Any]) -> None:
+    _atomic_write_json(Path(root) / "verified-runtime.json", _verified_receipt_payload(manifest))
+
+
+def _verified_receipt_matches(root: Path, manifest: dict[str, Any]) -> bool:
+    runtime_root = Path(root)
+    receipt_path = runtime_root / "verified-runtime.json"
+    manifest_path = runtime_root / "manifest.json"
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        installed = validate_manifest(json.loads(manifest_path.read_text(encoding="utf-8")))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+    return (
+        receipt == _verified_receipt_payload(manifest)
+        and installed == manifest
+        and runtime_root.name == str(manifest["fingerprint"]).removeprefix("sha256:")
+    )
 
 
 def build_manifest(
@@ -211,6 +271,171 @@ def build_manifest(
     identity["fingerprint"] = f"sha256:{hashlib.sha256(encoded).hexdigest()}"
     identity["size_bytes"] = sum(row["size_bytes"] for row in files)
     return identity, sources
+
+
+def default_publication_path() -> Path:
+    """Return the regenerable HA-side publication outside backup storage."""
+    return mushroom_paths.prepare_predictor_runtime_archive_dir().path / "published-runtime.json"
+
+
+def _dirty_publication_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.dirty")
+
+
+def _publication_source_state(
+    manifest: dict[str, Any], sources: dict[str, Path]
+) -> dict[str, dict[str, object]]:
+    rows = {str(row["path"]): row for row in manifest["files"]}
+    state: dict[str, dict[str, object]] = {}
+    for logical_path, source in sources.items():
+        stat = source.stat()
+        state[logical_path] = {
+            "size_bytes": stat.st_size,
+            "mtime_ns": stat.st_mtime_ns,
+            "sha256": rows[logical_path]["sha256"],
+        }
+    return state
+
+
+def _seed_digest_cache_from_publication(publication_path: Path) -> None:
+    """Reuse persisted digests whose size and mtime still match the source."""
+    try:
+        payload = json.loads(Path(publication_path).read_text(encoding="utf-8"))
+        if (
+            payload.get("schema_version") != PUBLICATION_SCHEMA_VERSION
+            or payload.get("kind") != PUBLICATION_KIND
+        ):
+            return
+        manifest = validate_manifest(payload["manifest"])
+        rows = {str(row["path"]): row for row in manifest["files"]}
+        raw_sources = payload["sources"]
+        raw_state = payload["source_state"]
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+        return
+    if not isinstance(raw_sources, dict) or not isinstance(raw_state, dict):
+        return
+    for logical_path, raw_path in raw_sources.items():
+        metadata = raw_state.get(logical_path)
+        row = rows.get(str(logical_path))
+        if not isinstance(metadata, dict) or row is None:
+            continue
+        source = Path(str(raw_path))
+        try:
+            stat = source.stat()
+            size = int(metadata["size_bytes"])
+            mtime_ns = int(metadata["mtime_ns"])
+            digest = str(metadata["sha256"])
+        except (KeyError, OSError, TypeError, ValueError):
+            continue
+        if (
+            stat.st_size == size
+            and stat.st_mtime_ns == mtime_ns
+            and digest == row["sha256"]
+            and size == row["size_bytes"]
+        ):
+            _DIGEST_CACHE[(str(source.resolve()), mtime_ns, size)] = digest
+
+
+def publish_manifest(
+    publication_path: Path,
+    **build_options: Path | None,
+) -> tuple[dict[str, Any], dict[str, Path]]:
+    """Hash changed live inputs and atomically publish one reusable identity."""
+    destination = Path(publication_path)
+    _seed_digest_cache_from_publication(destination)
+    manifest, sources = build_manifest(**build_options)
+    publication = {
+        "schema_version": PUBLICATION_SCHEMA_VERSION,
+        "kind": PUBLICATION_KIND,
+        "manifest": manifest,
+        "sources": {
+            logical_path: str(source.resolve())
+            for logical_path, source in sorted(sources.items())
+        },
+        "source_state": _publication_source_state(manifest, sources),
+    }
+    with _PUBLICATION_LOCK:
+        _atomic_write_json(destination, publication)
+        dirty = _dirty_publication_path(destination)
+        if dirty.exists():
+            dirty.unlink()
+            _fsync_directory(destination.parent)
+    return manifest, sources
+
+
+def load_published_manifest(
+    publication_path: Path,
+) -> tuple[dict[str, Any], dict[str, Path]]:
+    """Load a published identity without opening or hashing runtime objects."""
+    source = Path(publication_path)
+    if _dirty_publication_path(source).exists():
+        raise ValueError("Predictor runtime publication is dirty.")
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    if (
+        not isinstance(payload, dict)
+        or payload.get("schema_version") != PUBLICATION_SCHEMA_VERSION
+        or payload.get("kind") != PUBLICATION_KIND
+    ):
+        raise ValueError("Predictor runtime publication is invalid.")
+    manifest = validate_manifest(payload.get("manifest"))
+    raw_sources = payload.get("sources")
+    raw_state = payload.get("source_state")
+    if not isinstance(raw_sources, dict) or set(raw_sources) != {
+        str(row["path"]) for row in manifest["files"]
+    }:
+        raise ValueError("Predictor runtime publication source map is invalid.")
+    if not isinstance(raw_state, dict) or set(raw_state) != set(raw_sources):
+        raise ValueError("Predictor runtime publication source state is invalid.")
+    sources: dict[str, Path] = {}
+    manifest_rows = {str(row["path"]): row for row in manifest["files"]}
+    for logical_path, raw_path in raw_sources.items():
+        source_path = Path(str(raw_path))
+        if not source_path.is_absolute():
+            raise ValueError("Predictor runtime publication source path is invalid.")
+        metadata = raw_state.get(logical_path)
+        if not isinstance(metadata, dict):
+            raise ValueError("Predictor runtime publication source state is invalid.")
+        stat = source_path.stat()
+        if (
+            stat.st_size != int(metadata.get("size_bytes", -1))
+            or stat.st_mtime_ns != int(metadata.get("mtime_ns", -1))
+            or str(metadata.get("sha256", ""))
+            != manifest_rows[logical_path]["sha256"]
+        ):
+            raise ValueError("Predictor runtime publication source changed.")
+        sources[str(logical_path)] = source_path
+        _DIGEST_CACHE[
+            (str(source_path.resolve()), stat.st_mtime_ns, stat.st_size)
+        ] = str(metadata["sha256"])
+    return manifest, sources
+
+
+def load_or_publish_manifest(
+    publication_path: Path | None = None,
+    **build_options: Path | None,
+) -> tuple[dict[str, Any], dict[str, Path], str]:
+    """Read the persistent publication, rebuilding it once when unavailable."""
+    destination = Path(publication_path or default_publication_path())
+    try:
+        manifest, sources = load_published_manifest(destination)
+        return manifest, sources, "reused"
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
+        manifest, sources = publish_manifest(destination, **build_options)
+        return manifest, sources, "published"
+
+
+def invalidate_published_manifest(publication_path: Path | None = None) -> None:
+    """Mark a publication unusable before a writer changes runtime inputs."""
+    destination = Path(publication_path or default_publication_path())
+    with _PUBLICATION_LOCK:
+        _atomic_write_json(
+            _dirty_publication_path(destination),
+            {
+                "schema_version": PUBLICATION_SCHEMA_VERSION,
+                "kind": PUBLICATION_KIND,
+                "status": "dirty",
+            },
+        )
 
 
 def validate_manifest(payload: object) -> dict[str, Any]:
@@ -359,6 +584,7 @@ def synchronize_runtime(
     fetch: Callable[[str, Path], None],
 ) -> tuple[Path, dict[str, Any]]:
     """Materialize one runtime, reusing identical files from the current one."""
+    synchronization_started = time.perf_counter()
     checked = validate_manifest(manifest)
     fingerprint = checked["fingerprint"].removeprefix("sha256:")
     root = Path(cache_root)
@@ -369,9 +595,22 @@ def synchronize_runtime(
         try:
             existing = json.loads(manifest_path.read_text(encoding="utf-8"))
             if existing.get("fingerprint") == checked["fingerprint"]:
-                verify_runtime(destination, checked)
+                receipt_matched = _verified_receipt_matches(destination, checked)
+                if not receipt_matched:
+                    verify_runtime(destination, checked)
+                    _write_verified_receipt(destination, checked)
                 _set_current(root, destination)
-                return destination, {"status": "reused", "transferred_size_bytes": 0}
+                return destination, {
+                    "status": "reused",
+                    "transferred_size_bytes": 0,
+                    "verification_status": "receipt",
+                    "hashed_file_count": 0 if receipt_matched else len(checked["files"]),
+                    "reused_file_count": len(checked["files"]),
+                    "fetched_file_count": 0,
+                    "elapsed_seconds": round(
+                        time.perf_counter() - synchronization_started, 6
+                    ),
+                }
         except (OSError, ValueError, json.JSONDecodeError):
             pass
 
@@ -379,16 +618,54 @@ def synchronize_runtime(
     staging = Path(tempfile.mkdtemp(prefix=f".{fingerprint}.", suffix=".tmp", dir=versions))
     transferred = 0
     current = current_runtime(root)
+    current_manifest: dict[str, Any] | None = None
+    current_rows: dict[str, dict[str, Any]] = {}
+    current_is_verified = False
+    if current is not None:
+        try:
+            current_manifest = validate_manifest(
+                json.loads((current / "manifest.json").read_text(encoding="utf-8"))
+            )
+            current_is_verified = _verified_receipt_matches(current, current_manifest)
+            if current_is_verified:
+                current_rows = {
+                    str(row["path"]): row for row in current_manifest["files"]
+                }
+        except (OSError, ValueError, json.JSONDecodeError):
+            current_manifest = None
     objects = root / "objects"
+    hashed_files = 0
+    reused_files = 0
+    fetched_files = 0
     try:
         for row in checked["files"]:
             relative = Path(row["path"])
             target = staging / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             reused = False
+            reused_verified = False
             if current is not None:
                 old = current / relative
-                if old.is_file() and old.stat().st_size == row["size_bytes"] and _sha256(old) == row["sha256"]:
+                old_row = current_rows.get(str(row["path"]))
+                if (
+                    current_is_verified
+                    and old_row is not None
+                    and old_row["size_bytes"] == row["size_bytes"]
+                    and old_row["sha256"] == row["sha256"]
+                ):
+                    try:
+                        os.link(old, target)
+                    except OSError:
+                        shutil.copy2(old, target)
+                    reused = True
+                    reused_verified = True
+                elif (
+                    not current_is_verified
+                    and old.is_file()
+                    and old.stat().st_size == row["size_bytes"]
+                    and _sha256(old) == row["sha256"]
+                ):
+                    hashed_files += 1
                     try:
                         os.link(old, target)
                     except OSError:
@@ -401,23 +678,33 @@ def synchronize_runtime(
                     and cached_object.stat().st_size == row["size_bytes"]
                     and _sha256(cached_object) == row["sha256"]
                 ):
+                    hashed_files += 1
                     try:
                         os.link(cached_object, target)
                     except OSError:
                         shutil.copy2(cached_object, target)
                     reused = True
+                    reused_verified = True
             if not reused:
                 fetch(row["path"], target)
                 transferred += row["size_bytes"]
-            if target.stat().st_size != row["size_bytes"] or _sha256(target) != row["sha256"]:
+                fetched_files += 1
+            else:
+                reused_files += 1
+            if not reused_verified:
+                hashed_files += 1
+            if (
+                target.stat().st_size != row["size_bytes"]
+                or (not reused_verified and _sha256(target) != row["sha256"])
+            ):
                 raise ValueError(f"Predictor runtime file verification failed: {row['path']}")
         manifest_path_staging = staging / "manifest.json"
-        manifest_path_staging.write_text(
-            json.dumps(checked, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
+        _atomic_write_json(manifest_path_staging, checked)
+        _write_verified_receipt(staging, checked)
         if destination.exists():
             shutil.rmtree(destination)
         os.replace(staging, destination)
+        _fsync_directory(versions)
         _set_current(root, destination)
         pruned = _prune_runtime_versions(versions, keep={destination, current})
         shutil.rmtree(objects, ignore_errors=True)
@@ -425,6 +712,13 @@ def synchronize_runtime(
             "status": "synchronized",
             "transferred_size_bytes": transferred,
             "pruned_versions": pruned,
+            "verification_status": "full",
+            "hashed_file_count": hashed_files,
+            "reused_file_count": reused_files,
+            "fetched_file_count": fetched_files,
+            "elapsed_seconds": round(
+                time.perf_counter() - synchronization_started, 6
+            ),
         }
     finally:
         if staging.exists():

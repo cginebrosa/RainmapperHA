@@ -10360,6 +10360,8 @@ def run_action(action: str, source: str, only_source: str | None = None) -> bool
             )
         try:
             released_instances = mushroom_predictor_ui.release_predictor_cache()
+            if action in {"update", "all"}:
+                mushroom_predictor_runtime.invalidate_published_manifest()
             cache_release_error = ""
         except Exception as exc:
             released_instances = 0
@@ -10624,10 +10626,39 @@ def _run_action_thread_impl(
                 log_file.write(f"=== publish phase duration {format_seconds_duration(time.perf_counter() - publish_started)} ===\n")
                 log_file.flush()
 
-        finished = datetime.now(get_timezone())
-        duration = format_duration(started.isoformat(timespec="seconds"), finished.isoformat(timespec="seconds"))
         if final_exit_code == 0:
             final_exit_code = exit_code
+        if action in {"update", "all"} and final_exit_code in {0, 2}:
+            publication_started = time.perf_counter()
+            try:
+                runtime_manifest, _runtime_sources = (
+                    mushroom_predictor_runtime.publish_manifest(
+                        mushroom_predictor_runtime.default_publication_path()
+                    )
+                )
+                action_monitor.mark(
+                    "predictor_runtime_published",
+                    {
+                        "fingerprint": runtime_manifest["fingerprint"],
+                        "file_count": len(runtime_manifest["files"]),
+                        "size_bytes": runtime_manifest["size_bytes"],
+                        "elapsed_seconds": round(
+                            time.perf_counter() - publication_started, 3
+                        ),
+                    },
+                )
+            except (FileNotFoundError, OSError, ValueError) as exc:
+                final_exit_code = 2 if final_exit_code == 0 else final_exit_code
+                log_file.write(
+                    "=== predictor runtime publication deferred: "
+                    f"{type(exc).__name__}: {exc} ===\n"
+                )
+                log_file.flush()
+        finished = datetime.now(get_timezone())
+        duration = format_duration(
+            started.isoformat(timespec="seconds"),
+            finished.isoformat(timespec="seconds"),
+        )
         log_file.write(f"=== finished with exit code {final_exit_code} at {finished.isoformat(timespec='seconds')} ===\n")
         log_file.write(f"=== duration {duration} ===\n")
 
@@ -12717,7 +12748,9 @@ def create_remote_predictor_job(worker_id: str, query: dict[str, list[str]]) -> 
         raise ValueError(
             "The selected worker does not support multiversion prediction."
         )
-    manifest, _sources = mushroom_predictor_runtime.build_manifest()
+    manifest, _sources, _publication_status = (
+        mushroom_predictor_runtime.load_or_publish_manifest()
+    )
     maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
     monitor = runtime_diagnostics.OperationMonitor(
         "predictor_request",
@@ -12761,7 +12794,9 @@ def resolve_mushroom_predictor_runtime_download(
         if job.get("job_type") != mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
             raise ValueError("Worker job is not a predictor request.")
         assigned = mushroom_predictor_runtime.validate_manifest(job.get("runtime_manifest"))
-        current, sources = mushroom_predictor_runtime.build_manifest()
+        current, sources, _publication_status = (
+            mushroom_predictor_runtime.load_or_publish_manifest()
+        )
         if current["fingerprint"] != assigned["fingerprint"]:
             raise ValueError("Live predictor runtime changed; retry the prediction.")
         if manifest_only:
@@ -13311,7 +13346,13 @@ def create_mushroom_ml_train_job(
         input_bundle = {
             "job_id": job_id,
             "features_digest": features_digest,
+            "features_size_bytes": len(features_content),
             "job_spec_id": job_spec_digest,
+            "job_spec_size_bytes": len(job_spec_content),
+            "known_sites_digest": (
+                "sha256:" + hashlib.sha256(known_sites_content).hexdigest()
+            ),
+            "known_sites_size_bytes": len(known_sites_content),
         }
         try:
             with RUN_LOCK:
@@ -13407,6 +13448,36 @@ def linked_ml_trained_species_ids(training_job: object) -> list[str]:
             "Linked ML training result does not declare its verified trained species."
         )
     return sorted(str(value) for value in trained_species)
+
+
+def prepare_multiversion_bundle_with_tuning(
+    *,
+    purpose: str,
+    registry: dict[str, object],
+    version_ids: list[str],
+    sources: dict[str, Path],
+    spec: dict[str, object],
+    prepare_bundle: Callable[[dict[str, Path]], dict[str, object]],
+) -> dict[str, object]:
+    """Seal the frozen operational tuning decisions into a worker snapshot."""
+    if purpose != "operational":
+        return prepare_bundle(sources)
+    with tempfile.TemporaryDirectory(
+        prefix="rainmapper-operational-tuning-"
+    ) as temporary:
+        tuning_catalog_path = Path(temporary) / "tuning-catalog.json"
+        mushroom_local_full_update.materialize_operational_tuning_catalog(
+            registry=registry,
+            version_ids=version_ids,
+            models_root=mushroom_paths.mushroom_ml_models_dir(),
+            destination=tuning_catalog_path,
+        )
+        spec["tuning_catalog_path"] = (
+            "snapshot/inputs/extra/tuning-catalog.json"
+        )
+        return prepare_bundle(
+            {**sources, "tuning-catalog.json": tuning_catalog_path}
+        )
 
 
 def create_mushroom_ml_multiversion_job(
@@ -13564,23 +13635,34 @@ def create_mushroom_ml_multiversion_job(
             "job_purpose": purpose,
             "operational_candidate_trained": purpose == "operational",
         }
-        input_bundle = mushroom_worker_transport.prepare_coordinator_bundle(
-            mushroom_worker_input_bundles_path(),
-            job_id=job_id,
-            observations_path=mushroom_paths.mushroom_observations_path(),
-            reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
-            gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
-            weather_data_dir=mushroom_paths.weather_data_dir(),
-            gis_root=mushroom_gis_lab.gis_root(),
-            prefer_weather_parquet=mushroom_worker_supports(
-                worker_payload,
-                mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
-            ),
-            allow_partitioned_weather_history=mushroom_worker_supports(
-                worker_payload,
-                mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,
-            ),
-            extra_inputs=sources,
+
+        def prepare_bundle(extra_inputs: dict[str, Path]) -> dict[str, object]:
+            return mushroom_worker_transport.prepare_coordinator_bundle(
+                mushroom_worker_input_bundles_path(),
+                job_id=job_id,
+                observations_path=mushroom_paths.mushroom_observations_path(),
+                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+                gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+                weather_data_dir=mushroom_paths.weather_data_dir(),
+                gis_root=mushroom_gis_lab.gis_root(),
+                prefer_weather_parquet=mushroom_worker_supports(
+                    worker_payload,
+                    mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
+                ),
+                allow_partitioned_weather_history=mushroom_worker_supports(
+                    worker_payload,
+                    mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,
+                ),
+                extra_inputs=extra_inputs,
+            )
+
+        input_bundle = prepare_multiversion_bundle_with_tuning(
+            purpose=purpose,
+            registry=registry,
+            version_ids=version_ids,
+            sources=sources,
+            spec=spec,
+            prepare_bundle=prepare_bundle,
         )
         bundle_digest = "sha256:" + hashlib.sha256(
             json.dumps(
@@ -14252,6 +14334,7 @@ def _run_mushroom_full_update_promotion(
                 )
                 raise
             released = mushroom_predictor_ui.release_predictor_cache()
+            runtime_publication = refresh_mushroom_predictor_runtime_publication()
             mushroom_model_state.clear_all_pending(full_rebuild=True)
             generation_promoted = True
             report_progress(99, "Full generation promoted", "Artifacts and trained models are now active.")
@@ -14270,6 +14353,7 @@ def _run_mushroom_full_update_promotion(
                     **training_promotion,
                     "operational_install": operational_install,
                     "released_predictor_instances": released,
+                    "predictor_runtime_publication": runtime_publication,
                 },
             )
         mushroom_ml_multiversion_transport.discard_staged_result(
@@ -15395,6 +15479,29 @@ def mushroom_local_training_paths() -> mushroom_local_full_update.LocalFullUpdat
     )
 
 
+def refresh_mushroom_predictor_runtime_publication() -> dict[str, object]:
+    """Publish changed Predictor inputs outside the prediction request path."""
+    started = time.perf_counter()
+    try:
+        mushroom_predictor_runtime.invalidate_published_manifest()
+        manifest, _sources = mushroom_predictor_runtime.publish_manifest(
+            mushroom_predictor_runtime.default_publication_path()
+        )
+        return {
+            "status": "published",
+            "fingerprint": manifest["fingerprint"],
+            "file_count": len(manifest["files"]),
+            "size_bytes": manifest["size_bytes"],
+            "elapsed_seconds": round(time.perf_counter() - started, 3),
+        }
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        return {
+            "status": "dirty",
+            "error": f"{type(exc).__name__}: {exc}",
+            "elapsed_seconds": round(time.perf_counter() - started, 3),
+        }
+
+
 def set_mushroom_predictor_preferred_version(version_id: str) -> dict[str, object]:
     """Persist the installed version used by default across Predictor views."""
     registry_path = mushroom_ml_version_registry.ensure_seeded()
@@ -15404,9 +15511,11 @@ def set_mushroom_predictor_preferred_version(version_id: str) -> dict[str, objec
     )
     mushroom_ml_version_registry.save_registry(registry_path, updated)
     released = mushroom_predictor_ui.release_predictor_cache()
+    runtime_publication = refresh_mushroom_predictor_runtime_publication()
     return {
         "preferred_version_id": updated["preferred_version_id"],
         "released_predictor_instances": released,
+        "predictor_runtime_publication": runtime_publication,
     }
 
 
@@ -15547,8 +15656,10 @@ def start_mushroom_local_full_update(
                 pre_snapshot=reconcile_before_snapshot,
             )
             released = mushroom_predictor_ui.release_predictor_cache()
+            runtime_publication = refresh_mushroom_predictor_runtime_publication()
             mushroom_model_state.clear_all_pending(full_rebuild=True)
             result["released_predictor_instances"] = released
+            result["predictor_runtime_publication"] = runtime_publication
             message = "Operational multiversion batch installed after reconstruction and ML v0 training."
             set_mushroom_workers_flash(message)
             set_mushroom_rebuild_progress(
@@ -18904,6 +19015,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         "runtime_cache_status": result.get("runtime_cache_status"),
                         "runtime_transferred_size_bytes": result.get(
                             "runtime_transferred_size_bytes"
+                        ),
+                        "runtime_verification_status": result.get(
+                            "runtime_verification_status"
+                        ),
+                        "runtime_hashed_file_count": result.get(
+                            "runtime_hashed_file_count"
+                        ),
+                        "runtime_reused_file_count": result.get(
+                            "runtime_reused_file_count"
+                        ),
+                        "runtime_fetched_file_count": result.get(
+                            "runtime_fetched_file_count"
+                        ),
+                        "runtime_sync_seconds": result.get(
+                            "runtime_sync_seconds"
                         ),
                         "worker_backend_seconds": response_metrics.get(
                             "backend_seconds"

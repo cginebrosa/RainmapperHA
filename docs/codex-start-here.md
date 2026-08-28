@@ -102,11 +102,12 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   completa. La caché usó 204 matrices/68,8 MiB y registró 510 reutilizaciones;
   SoilGrids reparó 4/4 pendientes y dejó 63/63 completas. Durante esa validación
   local no se tocaron HA real ni el worker normal.
-- Release siguiente: HA 0.2.269 publicada y verificada en GHCR con digest
-  `sha256:4c81d607949d7746f773de9e651e0ef5f7a65fad19de9a4cf368d9e2bbb8f8f3`;
-  worker 1.0.20 construido e instalado localmente sobre el volumen persistente,
-  healthy e idle. Falta instalar 0.2.269 en HA real y probar Predictor y un
-  reentrenamiento remoto. No lanzar esas pruebas automáticamente.
+- Release siguiente: HA 0.2.270 publicada y verificada en GHCR con digest
+  `sha256:7692f3805bc90cd4172de1700993962a571cc80da5b3c09382b87760c3282cca`;
+  los tags de versión y `latest` incluyen `linux/amd64` y `linux/arm64`. El
+  worker privado 1.0.21 está construido localmente para arm64, pero no instalado.
+  Falta instalar ambos en sus destinos y medir Predictor frío/caliente y la
+  cadena remota completa. No lanzar esas pruebas automáticamente.
 - La validación debe ser proporcional: pruebas dirigidas por bloque y un smoke
   completo antes de una entrega relevante, no smoke repetido tras cada cambio
   documental, commit o bump.
@@ -136,6 +137,8 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Optimización acordada del camino frío del Predictor, caché semántica,
   workspace meteorológico común e inferencia por lotes:
   `docs/mushrooms/mushroom-predictor-cold-path-optimization-spec-es.md`
+- Entrega local sellada entre trabajos encadenados del worker:
+  `docs/mushrooms/mushroom-worker-chained-job-local-handoff-spec-es.md`
 - Plataforma de workers: `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
 - Evolución pendiente del worker para conservar varios coordinadores:
   `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`

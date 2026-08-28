@@ -89,6 +89,28 @@ class MushroomWorkerJobsTests(unittest.TestCase):
 
         self.assertGreater(len(json.dumps(normalized).encode()), 1024 * 1024)
 
+    def test_predictor_result_preserves_runtime_reuse_telemetry(self) -> None:
+        normalized = mushroom_worker_jobs._normalized_result(
+            {"job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR},
+            {
+                "response": self.predictor_response(),
+                "cold": False,
+                "runtime_cache_status": "reused",
+                "runtime_transferred_size_bytes": 0,
+                "runtime_verification_status": "receipt",
+                "runtime_hashed_file_count": 0,
+                "runtime_reused_file_count": 713,
+                "runtime_fetched_file_count": 0,
+                "runtime_sync_seconds": 0.004321,
+            },
+        )
+
+        self.assertEqual(normalized["runtime_verification_status"], "receipt")
+        self.assertEqual(normalized["runtime_hashed_file_count"], 0)
+        self.assertEqual(normalized["runtime_reused_file_count"], 713)
+        self.assertEqual(normalized["runtime_fetched_file_count"], 0)
+        self.assertEqual(normalized["runtime_sync_seconds"], 0.004321)
+
     def test_predictor_result_limit_is_exactly_sixty_four_mib(self) -> None:
         self.assertEqual(
             mushroom_worker_jobs.PREDICTOR_RESULT_MAX_BYTES,

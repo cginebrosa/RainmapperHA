@@ -570,6 +570,51 @@ def execute_interactive_prediction(
     return predictor_service.execute(request)
 
 
+def multiversion_preparation_command(
+    worker_job_dir: Path,
+    spec: dict[str, Any],
+    input_bundle: dict[str, Any],
+    *,
+    preparation_root: Path,
+    progress_path: Path,
+    job_purpose: str,
+) -> list[str]:
+    """Build the dynamic V2--V6 command from its sealed input contract."""
+    command = [
+        sys.executable,
+        "/app/scripts/prepare-mushroom-ml-multiversion-inputs.py",
+        "--data-dir",
+        str(worker_job_dir / str(spec["weather_data_dir"])),
+        "--observations",
+        str(worker_job_dir / str(spec["observations_path"])),
+        "--known-sites",
+        str(worker_job_dir / str(spec["known_sites_path"])),
+        "--observation-features",
+        str(worker_job_dir / str(spec["observation_features_path"])),
+        "--stations-file",
+        str(worker_job_dir / str(spec["stations_path"])),
+        "--output-dir",
+        str(preparation_root),
+        "--source-snapshot-id",
+        str(input_bundle["snapshot_id"]),
+        "--progress-jsonl",
+        str(progress_path),
+        "--job-purpose",
+        job_purpose,
+    ]
+    tuning_catalog_path = spec.get("tuning_catalog_path")
+    if tuning_catalog_path:
+        command.extend(
+            [
+                "--tuning-catalog",
+                str(worker_job_dir / str(tuning_catalog_path)),
+            ]
+        )
+    for profile_key in list(spec.get("profile_keys") or []):
+        command.extend(["--profile-key", str(profile_key)])
+    return command
+
+
 def serve(
     worker_data_dir: Path,
     *,
@@ -771,6 +816,21 @@ def serve(
                                 "runtime_transferred_size_bytes": runtime_sync[
                                     "transferred_size_bytes"
                                 ],
+                                "runtime_verification_status": runtime_sync.get(
+                                    "verification_status", ""
+                                ),
+                                "runtime_hashed_file_count": runtime_sync.get(
+                                    "hashed_file_count", 0
+                                ),
+                                "runtime_reused_file_count": runtime_sync.get(
+                                    "reused_file_count", 0
+                                ),
+                                "runtime_fetched_file_count": runtime_sync.get(
+                                    "fetched_file_count", 0
+                                ),
+                                "runtime_sync_seconds": runtime_sync.get(
+                                    "elapsed_seconds", 0.0
+                                ),
                             },
                         },
                     )
@@ -1281,25 +1341,14 @@ def serve(
                     if dynamic_inputs:
                         preparation_root = worker_job_dir / "multiversion_inputs"
                         preparation_progress_path = worker_job_dir / "multiversion-preparation-progress.jsonl"
-                        preparation_command = [
-                            sys.executable,
-                            "/app/scripts/prepare-mushroom-ml-multiversion-inputs.py",
-                            "--data-dir", str(worker_job_dir / str(spec["weather_data_dir"])),
-                            "--observations", str(worker_job_dir / str(spec["observations_path"])),
-                            "--known-sites", str(worker_job_dir / str(spec["known_sites_path"])),
-                            "--observation-features", str(
-                                worker_job_dir / str(spec["observation_features_path"])
-                            ),
-                            "--stations-file", str(worker_job_dir / str(spec["stations_path"])),
-                            "--output-dir", str(preparation_root),
-                            "--source-snapshot-id", str(input_bundle["snapshot_id"]),
-                            "--progress-jsonl", str(preparation_progress_path),
-                            "--job-purpose", job_purpose,
-                        ]
-                        for profile_key in list(spec.get("profile_keys") or []):
-                            preparation_command.extend(
-                                ["--profile-key", str(profile_key)]
-                            )
+                        preparation_command = multiversion_preparation_command(
+                            worker_job_dir,
+                            spec,
+                            input_bundle,
+                            preparation_root=preparation_root,
+                            progress_path=preparation_progress_path,
+                            job_purpose=job_purpose,
+                        )
                         multiversion_telemetry.publish(
                             {
                                 "phase": (

@@ -7,10 +7,15 @@ from unittest import TestCase
 from unittest import mock
 
 from rainmapper_core import mushroom_ml_model_catalog
+from rainmapper_core import mushroom_predictor_runtime
 from rainmapper_core.mushroom_predictor_runtime import (
     build_manifest,
     build_runtime_archive,
     cache_runtime_objects,
+    invalidate_published_manifest,
+    load_or_publish_manifest,
+    load_published_manifest,
+    publish_manifest,
     service_paths,
     synchronize_runtime,
     synchronize_runtime_archive,
@@ -59,13 +64,242 @@ class PredictorRuntimeTests(TestCase):
 
             self.assertEqual(runtime, reused)
             self.assertEqual(first["status"], "synchronized")
-            self.assertEqual(second, {"status": "reused", "transferred_size_bytes": 0})
+            self.assertEqual(second["status"], "reused")
+            self.assertEqual(second["transferred_size_bytes"], 0)
+            self.assertEqual(second["verification_status"], "receipt")
+            self.assertEqual(second["hashed_file_count"], 0)
+            self.assertEqual(second["reused_file_count"], len(manifest["files"]))
+            self.assertEqual(second["fetched_file_count"], 0)
+            self.assertGreaterEqual(second["elapsed_seconds"], 0.0)
             self.assertEqual(len(fetched), len(manifest["files"]))
             self.assertTrue(service_paths(runtime)["known_sites_path"].is_file())
+            self.assertTrue((runtime / "verified-runtime.json").is_file())
             self.assertTrue(service_paths(runtime)["profiles_path"].is_file())
             self.assertIn(
                 "models/mushroom_ml_experiment_fixed_gap_7d_v1_boletus.joblib",
                 sources,
+            )
+
+    def test_reused_runtime_receipt_does_not_rehash_installed_files(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            manifest, sources = build_manifest(
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+            cache = root / "cache"
+            synchronize_runtime(
+                cache,
+                manifest,
+                lambda logical_path, target: target.write_bytes(
+                    sources[logical_path].read_bytes()
+                ),
+            )
+
+            with mock.patch.object(
+                mushroom_predictor_runtime,
+                "_sha256",
+                side_effect=AssertionError("a sealed runtime must not be rehashed"),
+            ):
+                reused, result = synchronize_runtime(
+                    cache,
+                    manifest,
+                    lambda _logical_path, _target: self.fail("nothing should be fetched"),
+                )
+
+            self.assertEqual(
+                reused.resolve(),
+                mushroom_predictor_runtime.current_runtime(cache),
+            )
+            self.assertEqual(result["verification_status"], "receipt")
+
+    def test_missing_runtime_receipt_forces_full_verification_once(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            manifest, sources = build_manifest(
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+            cache = root / "cache"
+            runtime, _result = synchronize_runtime(
+                cache,
+                manifest,
+                lambda logical_path, target: target.write_bytes(
+                    sources[logical_path].read_bytes()
+                ),
+            )
+            (runtime / "verified-runtime.json").unlink()
+
+            with mock.patch.object(
+                mushroom_predictor_runtime,
+                "_sha256",
+                wraps=mushroom_predictor_runtime._sha256,
+            ) as digest:
+                _runtime, result = synchronize_runtime(
+                    cache,
+                    manifest,
+                    lambda _logical_path, _target: self.fail("nothing should be fetched"),
+                )
+
+            self.assertEqual(digest.call_count, len(manifest["files"]))
+            self.assertEqual(result["verification_status"], "receipt")
+            self.assertTrue((runtime / "verified-runtime.json").is_file())
+
+    def test_published_manifest_is_reused_without_hashing_sources(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            publication = root / "cache/published-runtime.json"
+            expected, _sources = publish_manifest(
+                publication,
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+
+            with mock.patch.object(
+                mushroom_predictor_runtime,
+                "_sha256",
+                side_effect=AssertionError("a published manifest must not rehash sources"),
+            ):
+                manifest, sources, status = load_or_publish_manifest(publication)
+
+            self.assertEqual(status, "reused")
+            self.assertEqual(manifest, expected)
+            self.assertEqual(set(sources), {row["path"] for row in expected["files"]})
+
+    def test_dirty_publication_is_rebuilt_after_source_change(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            publication = root / "cache/published-runtime.json"
+            original, _sources = publish_manifest(
+                publication,
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+            (models / "mushroom_ml_v0_boletus.joblib").write_bytes(b"changed-model")
+            invalidate_published_manifest(publication)
+
+            updated, _sources, status = load_or_publish_manifest(
+                publication,
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+
+            self.assertEqual(status, "published")
+            self.assertNotEqual(updated["fingerprint"], original["fingerprint"])
+            self.assertEqual(load_published_manifest(publication)[0], updated)
+
+    def test_publication_detects_unannounced_change_and_hashes_only_that_file(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            publication = root / "cache/published-runtime.json"
+            original, _sources = publish_manifest(
+                publication,
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+            changed = models / "mushroom_ml_v0_boletus.joblib"
+            changed.write_bytes(b"a-different-sized-model")
+            mushroom_predictor_runtime._DIGEST_CACHE.clear()
+            original_sha256 = mushroom_predictor_runtime._sha256
+            content_hashes: list[Path] = []
+
+            def tracked_sha256(path: Path) -> str:
+                stat = path.stat()
+                cache_key = (str(path.resolve()), stat.st_mtime_ns, stat.st_size)
+                if cache_key not in mushroom_predictor_runtime._DIGEST_CACHE:
+                    content_hashes.append(path)
+                return original_sha256(path)
+
+            with mock.patch.object(
+                mushroom_predictor_runtime,
+                "_sha256",
+                side_effect=tracked_sha256,
+            ):
+                updated, _sources, status = load_or_publish_manifest(
+                    publication,
+                    weather_data_dir=weather,
+                    models_dir=models,
+                    features_artifact_path=features,
+                    known_sites_path=sites,
+                    profiles_path=profiles,
+                )
+
+            self.assertEqual(status, "published")
+            self.assertNotEqual(updated["fingerprint"], original["fingerprint"])
+            self.assertEqual(content_hashes, [changed])
+
+    def test_changed_runtime_reuses_unchanged_sealed_files_by_manifest(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            original, original_sources = build_manifest(
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+            cache = root / "cache"
+            synchronize_runtime(
+                cache,
+                original,
+                lambda logical_path, target: target.write_bytes(
+                    original_sources[logical_path].read_bytes()
+                ),
+            )
+            changed_path = models / "mushroom_ml_v0_boletus.joblib"
+            changed_path.write_bytes(b"changed-model")
+            updated, updated_sources = build_manifest(
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+            fetched: list[str] = []
+
+            with mock.patch.object(
+                mushroom_predictor_runtime,
+                "_sha256",
+                wraps=mushroom_predictor_runtime._sha256,
+            ) as digest:
+                _runtime, result = synchronize_runtime(
+                    cache,
+                    updated,
+                    lambda logical_path, target: (
+                        fetched.append(logical_path),
+                        target.write_bytes(updated_sources[logical_path].read_bytes()),
+                    ),
+                )
+
+            self.assertEqual(fetched, ["models/mushroom_ml_v0_boletus.joblib"])
+            self.assertEqual(digest.call_count, 1)
+            self.assertEqual(
+                result["transferred_size_bytes"],
+                changed_path.stat().st_size,
             )
 
     def test_runtime_archive_transfers_all_files_in_one_verified_container(self) -> None:

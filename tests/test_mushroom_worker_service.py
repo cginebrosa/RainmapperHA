@@ -12,6 +12,32 @@ from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_operational_multiversion_command_requires_sealed_tuning_catalog(self) -> None:
+        root = Path("/worker/jobs/operational")
+        command = mushroom_worker_service.multiversion_preparation_command(
+            root,
+            {
+                "weather_data_dir": "snapshot/inputs/weather",
+                "observations_path": "snapshot/inputs/observations.json",
+                "known_sites_path": "snapshot/inputs/known-sites.json",
+                "observation_features_path": "snapshot/inputs/features.json",
+                "stations_path": "snapshot/inputs/stations.txt",
+                "tuning_catalog_path": "snapshot/inputs/tuning-catalog.json",
+                "profile_keys": ["biology_v4/climatic_balance"],
+            },
+            {"snapshot_id": "sha256:snapshot"},
+            preparation_root=root / "prepared",
+            progress_path=root / "progress.jsonl",
+            job_purpose="operational",
+        )
+
+        tuning_index = command.index("--tuning-catalog")
+        self.assertEqual(
+            command[tuning_index + 1],
+            str(root / "snapshot/inputs/tuning-catalog.json"),
+        )
+        self.assertIn("operational", command)
+
     def test_worker_seeds_predictor_cache_from_its_multiversion_batch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -193,6 +193,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 return_value=2,
             ) as release_cache,
             mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "invalidate_published_manifest",
+            ) as invalidate_publication,
+            mock.patch.object(
                 self.web_server.runtime_diagnostics,
                 "new_operation_id",
                 return_value="coordination-test",
@@ -211,6 +215,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertTrue(started)
         release_cache.assert_called_once_with()
+        invalidate_publication.assert_called_once_with()
         fake_runner_thread.start.assert_called_once_with()
         details = record_event.call_args.args[3]
         self.assertEqual(details["released_predictor_instances"], 2)
@@ -527,6 +532,51 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(status, 409)
         self.assertIn("cannot train", response["error"])
+
+    def test_operational_multiversion_bundle_seals_tuning_catalog(self) -> None:
+        captured: dict[str, object] = {}
+        spec: dict[str, object] = {"job_purpose": "operational"}
+
+        def materialize(**kwargs: object) -> dict[str, object]:
+            destination = Path(kwargs["destination"])
+            destination.write_text('{"kind":"tuning"}\n', encoding="utf-8")
+            return {"kind": "tuning"}
+
+        def prepare(sources: dict[str, Path]) -> dict[str, object]:
+            tuning = sources["tuning-catalog.json"]
+            captured["tuning_exists"] = tuning.is_file()
+            captured["tuning_content"] = tuning.read_text(encoding="utf-8")
+            return {"snapshot_id": "sha256:snapshot"}
+
+        with (
+            mock.patch.object(
+                self.web_server.mushroom_local_full_update,
+                "materialize_operational_tuning_catalog",
+                side_effect=materialize,
+            ) as materialize_catalog,
+            mock.patch.object(
+                self.web_server.mushroom_paths,
+                "mushroom_ml_models_dir",
+                return_value=Path("/models"),
+            ),
+        ):
+            result = self.web_server.prepare_multiversion_bundle_with_tuning(
+                purpose="operational",
+                registry={"versions": []},
+                version_ids=["biology_v4"],
+                sources={"registry.json": Path("/registry.json")},
+                spec=spec,
+                prepare_bundle=prepare,
+            )
+
+        self.assertEqual(result, {"snapshot_id": "sha256:snapshot"})
+        self.assertTrue(captured["tuning_exists"])
+        self.assertEqual(captured["tuning_content"], '{"kind":"tuning"}\n')
+        self.assertEqual(
+            spec["tuning_catalog_path"],
+            "snapshot/inputs/extra/tuning-catalog.json",
+        )
+        materialize_catalog.assert_called_once()
 
     def test_predictor_modal_exposes_effective_selection_policy(self) -> None:
         policy = self.web_server.PredictorExecutionPolicy(
@@ -1213,6 +1263,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "cold": True,
                     "runtime_cache_status": "synchronized",
                     "runtime_transferred_size_bytes": 12_630_650,
+                    "runtime_verification_status": "full",
+                    "runtime_hashed_file_count": 7,
+                    "runtime_reused_file_count": 5,
+                    "runtime_fetched_file_count": 2,
+                    "runtime_sync_seconds": 1.25,
                     "response": {
                         "metrics": {
                             "backend_seconds": 5.8632,
@@ -1281,6 +1336,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertTrue(details["cold_request"])
         self.assertEqual(details["runtime_cache_status"], "synchronized")
         self.assertEqual(details["runtime_transferred_size_bytes"], 12_630_650)
+        self.assertEqual(details["runtime_verification_status"], "full")
+        self.assertEqual(details["runtime_hashed_file_count"], 7)
+        self.assertEqual(details["runtime_reused_file_count"], 5)
+        self.assertEqual(details["runtime_fetched_file_count"], 2)
+        self.assertEqual(details["runtime_sync_seconds"], 1.25)
         self.assertEqual(details["worker_backend_seconds"], 5.8632)
         self.assertEqual(details["worker_response_cache_status"], "hit")
         self.assertEqual(details["worker_version"], "1.0.0")
@@ -1357,9 +1417,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         with (
             mock.patch.object(
                 predictor_ui.mushroom_predictor_runtime,
-                "build_manifest",
-                return_value=({"fingerprint": "sha256:live"}, {}),
-            ) as build_manifest,
+                "load_or_publish_manifest",
+                return_value=({"fingerprint": "sha256:live"}, {}, "reused"),
+            ) as load_manifest,
             mock.patch.object(
                 predictor_ui,
                 "PredictorService",
@@ -1371,7 +1431,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(first, {"request": 1})
         self.assertEqual(second, {"request": 2})
-        build_manifest.assert_called_once_with()
+        load_manifest.assert_called_once_with()
         service_class.assert_called_once()
         self.assertEqual(
             service_class.call_args.kwargs["runtime_fingerprint"], "sha256:live"
@@ -2389,6 +2449,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 self.web_server.mushroom_predictor_ui,
                 "release_predictor_cache",
                 return_value=3,
+            ),
+            mock.patch.object(
+                self.web_server,
+                "refresh_mushroom_predictor_runtime_publication",
+                return_value={"status": "published"},
             ),
         ):
             result = self.web_server.set_mushroom_predictor_preferred_version(
@@ -7603,8 +7668,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
             ),
             mock.patch.object(
                 self.web_server.mushroom_predictor_runtime,
-                "build_manifest",
-                return_value=(manifest, {}),
+                "load_or_publish_manifest",
+                return_value=(manifest, {}, "reused"),
             ),
             mock.patch.object(
                 self.web_server.mushroom_paths,
