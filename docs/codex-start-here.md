@@ -39,31 +39,25 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 
 ## Estado general al cierre de 2026-08-28
 
-- Rama `inicial`, HEAD local/remoto `29aca9c`. HA real está en `0.2.271` y el
-  worker normal observado en `1.0.21`. Revalidar `pwd`, rama, worktree y runtime
-  al comenzar; preservar todos los cambios y ficheros no rastreados.
+- Rama `inicial`. La unificación del scope operativo se entregó en HA `0.2.272`
+  y worker `1.0.22`; el hotfix HA vigente es `0.2.273`. Revalidar `pwd`, rama,
+  HEAD, worktree y runtime al comenzar; preservar todos los cambios y ficheros
+  no rastreados.
 - HA 0.2.271 añadió reutilización persistente exacta del Predictor y tiempos en
   UI. En HA real, una repetición idéntica informó 0,6 s de trabajo y menos de
   0,1 s de cálculo; la percepción caliente sigue en 6–8 s y el camino frío en
   35–40 s, pendientes de desglose y optimización basada en telemetría.
-- La cadena real completa del 2026-08-28 falló tras 20 min 19 s en V2–V6. No se
-  promocionó nada y la generación anterior sigue operativa. La causa confirmada
-  es que local, ML v0 y V2–V6 deciden el conjunto de especies en momentos
-  distintos; un catálogo local más amplio había enmascarado el defecto.
-- La prioridad inmediata es un único `OperationalTrainingScope` y un plan
-  serializable sellado que consuman sin redescubrimientos local, HA y worker.
-  La especificación vinculante está en
-  `docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`.
-- La medición local de 548,095 s (9 min 8,1 s), 714/714 fits y cero fallos sigue
-  siendo evidencia de rendimiento, pero no prueba equivalencia remota hasta
-  unificar alcance, plan e inputs. El handoff sellado entre jobs sí se observó
-  funcionando en real.
+- El `OperationalTrainingScope` y el plan serializable sellado ya son comunes a
+  local, HA y worker. El laboratorio HA `0.2.273` completó la cadena con ocho
+  especies y 636/636 fits, promocionó V2–V6 y ejecutó el Predictor sin errores.
+- HA `0.2.273` está publicada para AMD64/ARM64. El usuario la instalará y
+  lanzará la cadena real con el worker `1.0.22`; la prioridad inmediata es
+  comparar scope, plan, fits, métricas, artefactos y Predictor local/remoto.
 - La retención ML real continúa activa por decisión del usuario. No cambiarla,
   no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
   ni promoción atómica.
-- No repetir la cadena real ni preparar bump, build, publicación, instalación o
-  release hasta implementar y validar localmente la unificación y recibir una
-  autorización explícita nueva.
+- Codex no instala ni inicia la cadena real. No hacer nuevos bumps, builds,
+  publicaciones o cambios de retención sin autorización explícita.
 
 El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.

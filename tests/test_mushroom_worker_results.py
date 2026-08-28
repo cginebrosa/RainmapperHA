@@ -652,6 +652,13 @@ class MushroomMLTrainWorkerResultsTests(unittest.TestCase):
             ["mushroom_ml_v0_boletus_aereus.joblib", "mushroom_ml_v0_report.json"],
         )
 
+    def test_ml_train_manifest_accepts_valid_operational_scope_identity(self) -> None:
+        self.manifest["operational_scope_id"] = "sha256:" + "a" * 64
+
+        verification = self._receive_and_finalize()
+
+        self.assertEqual(verification["verified_artifacts"], 2)
+
     def test_ml_train_manifest_requires_exactly_one_report(self) -> None:
         self.manifest["artifacts"] = self.manifest["artifacts"][1:]
         with self.assertRaisesRegex(ValueError, "exactly one training report"):

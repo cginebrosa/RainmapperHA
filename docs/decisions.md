@@ -5465,3 +5465,17 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
 - C, Cython, Numba o Rust solo se evaluarán si un perfil posterior demuestra un
   núcleo Python puro dominante. No se compila por intuición ni se debilita el
   contrato de seguridad para alcanzar el presupuesto.
+## 2026-08-28 - [VIGENTE][RELEASE] Hotfix HA 0.2.273 publicado y cadena local validada
+
+- HA `0.2.273` corrige el `NameError` de la verificación de
+  `operational_scope_id`; el worker permanece en `1.0.22` porque su artefacto no
+  necesitó cambios.
+- `0.2.273` y `latest` comparten el índice OCI
+  `sha256:6d1f21df2006df46888f6099cb1f135386ab25ce3a9d11497459c02aad374af1`
+  con manifests `linux/amd64` y `linux/arm64`.
+- La cadena local definitiva ejecutó el mismo scope sellado en V0 y V2–V6:
+  ocho especies, cinco versiones, once perfiles y 636/636 fits sin fallos. La
+  promoción atómica instaló todas las generaciones del lote y un Predictor frío
+  posterior terminó con HTTP 200.
+- La instalación y el inicio de la cadena real corresponden al usuario. La
+  equivalencia local/remoto no queda demostrada hasta comparar esa ejecución.

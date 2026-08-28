@@ -6,6 +6,41 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 ## Estado exacto al cierre — 2026-08-28
 
+### Hotfix HA 0.2.273 y validación local posterior
+
+- El primer reentrenamiento del laboratorio con HA `0.2.272` completó la
+  reconstrucción y ML v0, pero falló al verificar ML v0 con
+  `name 're' is not defined`. La causa era un `re.fullmatch` añadido al validar
+  `operational_scope_id` sin importar `re` en
+  `rainmapper_core/mushroom_worker_results.py`.
+- El hotfix añade el import y una prueba centinela que acepta una identidad
+  operacional SHA-256 válida. Pasan las 32 pruebas dirigidas de resultados,
+  scope y actualización local, y el smoke completo de 1.079 pruebas.
+- El laboratorio se reconstruyó con HA `0.2.273`. Con la copia local actual de
+  weather-history, observaciones, known-sites, registro y catálogo, la cadena
+  local terminó correctamente entre `10:06:51Z` y `10:16:18Z`, sin fases
+  fallidas.
+- El scope realmente ejecutado fue
+  `sha256:ee11675beb09ab1a8b2609a346c895f7ae853cdbce7c7d1870028d52c4b2c699`
+  y el plan
+  `sha256:fa280ce72e935ea888f3ccad04eaee01a210bcb0df1cb4a160b488c686601ea6`.
+  El lote `local_operational_20260828T101432Z` ejecutó 636/636 fits, cero
+  fallos, ocho especies, cinco versiones y once perfiles.
+- La promoción atómica instaló las generaciones de ese lote para V2, V3, V4,
+  V5 windowed y V6 windowed; todos sus gates persistidos figuran como
+  `passed`. La versión preferida sigue siendo Biology V4.
+- Un Predictor local posterior terminó con HTTP 200, sin OOM, usando un nuevo
+  fingerprint de runtime. La primera petición fría tardó 29,617 s; el usuario
+  confirmó que varias predicciones locales posteriores funcionan a velocidad
+  razonable.
+- HA `0.2.273` está publicada en GHCR. Los tags `0.2.273` y `latest` comparten
+  el índice OCI
+  `sha256:6d1f21df2006df46888f6099cb1f135386ab25ce3a9d11497459c02aad374af1`
+  y contienen manifests `linux/amd64` y `linux/arm64`.
+- El usuario va a instalar HA `0.2.273`; no darla por instalada hasta que lo
+  confirme. Después ejecutará el reentrenamiento en HA real con el único worker
+  `1.0.22`, y Codex comparará los resultados local/remoto.
+
 ### Implementación y release posterior al cierre
 
 - Se implementó `OperationalTrainingScope` canónico después de la agregación
@@ -32,28 +67,24 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   `rainmapper-worker-data`, la identidad `worker_1a9a232c20fe2ee2` y sus
   cachés. Quedó `healthy`, `idle`, con GIS y Predictor válidos; el heartbeat se
   restauró tras el reinicio.
-- HA `0.2.272` quedó publicada en GHCR. Los tags `0.2.272` y `latest` comparten
-  el índice OCI
-  `sha256:d54ec58efa88b01c650d9c1f6a23fc754419d491e0856365a58cd1fad52d433a`
-  y contienen manifests `linux/amd64` y `linux/arm64`.
-- No se ha tocado HA real, el worker normal, la retención ni los datos reales.
-  La instalación y la ejecución real quedan en manos del usuario.
+- HA `0.2.272` y worker `1.0.22` fueron la primera release de la unificación;
+  el hotfix de HA vigente para instalar es `0.2.273`. El worker no necesitó
+  bump y permanece en `1.0.22`.
 
 - Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
-- HEAD local y remoto: `29aca9c9504aa836efff4ea3406726d302dfd6aa`
-  (`Release Home Assistant 0.2.271`).
-- HA real está en `0.2.271`, según confirmación del usuario. El worker normal
-  observado es `rainmapper-worker:1.0.21`, `healthy`, con identidad
-  `worker_1a9a232c20fe2ee2`.
-- La release nueva aún no está confirmada como instalada en HA real. El estado
-  confirmado es HA `0.2.271` hasta que el usuario informe de la actualización;
-  el único worker ya está en `1.0.22`.
+- HEAD local y remoto antes del commit del hotfix: `2f0fd73`. El worktree
+  contiene exclusivamente el hotfix/versionado HA `0.2.273`, su prueba y esta
+  actualización documental.
+- HA real tuvo `0.2.272` instalada y ejecutó un scheduled runner, según el
+  usuario. La instalación de `0.2.273` está autorizada y queda en manos del
+  usuario. El único worker confirmado es `rainmapper-worker:1.0.22`, con
+  identidad `worker_1a9a232c20fe2ee2`.
 - La opción real **Apply ML storage retention** permanece activa. No cambiarla,
   no borrar datos manualmente y no ampliar retención sin una decisión nueva.
 - No se usó Tailscale. El `share` real se consultó solo en lectura para el
   diagnóstico. No se modificaron HA real, el worker ni sus datos desde Codex.
 
-## Predictor 0.2.271: resultado y límite actual
+## Predictor 0.2.271: referencia histórica y límite aún vigente
 
 - HA puede reutilizar un resultado Predictor persistido si coinciden
   exactamente worker, petición normalizada y fingerprint del runtime. Antes de
@@ -76,11 +107,13 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - Diseño de continuación:
   `docs/mushrooms/mushroom-predictor-cold-path-optimization-spec-es.md`.
 
-## Fallo real de Reconstruir y reentrenar operativo
+## Fallo real anterior de Reconstruir y reentrenar operativo
 
-No repetir la cadena real hasta corregir y validar localmente el alcance. La
-ejecución del 2026-08-28 no promocionó modelos nuevos; los modelos operativos
-anteriores permanecen protegidos por la promoción atómica.
+Este apartado conserva el diagnóstico de la ejecución anterior. El alcance ya
+está unificado y la cadena local `0.2.273` está validada; la siguiente cadena
+real está autorizada y la inicia el usuario. Aquella ejecución no promocionó
+modelos nuevos y los modelos operativos anteriores quedaron protegidos por la
+promoción atómica.
 
 Cronología persistida en
 `/share/rainmapper/mushroom-data/mushroom_worker_jobs.json`:
@@ -150,20 +183,23 @@ Especificación vinculante para la siguiente sesión:
 
 ## Próximos pasos, en orden
 
-1. Validar la ejecución del mismo plan por ambos transportes y comparar fits,
-   métricas y artefactos; no usar HA real para esta comprobación.
-2. Corregir la telemetría/UI para duración total, duración de fase y tiempos de
-   reconciliación, bundle, claim, worker, verificación y transición.
-3. Solo tras pruebas dirigidas, smoke completo y una cadena local correcta,
-    proponer las versiones HA/worker necesarias. No hacer bump, build,
-    publicación, instalación ni prueba real sin autorización explícita.
+1. El usuario instala HA `0.2.273` y ejecuta el reentrenamiento real con el
+   worker `1.0.22`; Codex no instala ni inicia esa ejecución.
+2. Al terminar, comparar scope, plan, 636 fits, métricas, artefactos,
+   verificación y generaciones promocionadas frente al lote local
+   `local_operational_20260828T101432Z`.
+3. Ejecutar las mismas predicciones en HA y comparar resultados, fingerprint,
+   frío/caliente, backend, transferencia y memoria con las mediciones locales.
+4. Corregir después la telemetría/UI pendiente de tiempos de preparación,
+   cola, claim, worker, verificación y transición.
 
 ## Riesgos y dudas activos
 
 - **Política para especie nueva sin tuning:** sigue siendo una decisión
   científica abierta. Un fallback implícito comprometería reproducibilidad.
-- **Lote local no representa la ruta remota:** incluye Cantharellus por el
-  criterio de filas y no debe usarse como prueba de equivalencia.
+- **Equivalencia remota aún no demostrada:** el lote local correcto ya excluye
+  Cantharellus y ejecuta 636 fits, pero falta compararlo con una ejecución real
+  nueva sobre HA `0.2.273` y worker `1.0.22`.
 - **Duraciones engañosas:** los contadores actuales excluyen preparación y
   transiciones; el presupuesto de 10 minutos se mide desde la pulsación hasta
   la promoción final.
@@ -172,7 +208,8 @@ Especificación vinculante para la siguiente sesión:
   aviso de cuatro microáreas incompletas desapareció tras la reconciliación.
 - **Carrera de finalización ML v0:** el cierre repetido con el mismo estado final
   es ahora idempotente; un retry que intente cambiarlo sigue rechazándose. La
-  prueba local cubre ambos casos, pero no se ha revalidado en el worker real.
+  prueba local cubre ambos casos, pero no se ha revalidado en la nueva cadena
+  real.
 - **Predictor frío:** 35–40 s sigue lejos del objetivo de 10 s. El hit HA es
   correcto; quedan por separar cálculo frío y renderizado caliente.
 - **Integridad:** conservar snapshots, hashes, cancelación, retry, rollback,

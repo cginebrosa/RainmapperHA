@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.273
+
+- Import `re` in `mushroom_worker_results` so ML v0 verification accepts and
+  validates the sealed operational scope identity.
+
 ## 0.2.272
 
 - Calculate one canonical `OperationalTrainingScope` after area-episode
