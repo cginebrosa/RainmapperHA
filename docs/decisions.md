@@ -1,18 +1,20 @@
 # Decisions
 
-## 2026-08-28 - [VIGENTE][RELEASE] HA 0.2.272 y worker privado 1.0.22 preparados
+## 2026-08-28 - [VIGENTE][RELEASE] HA 0.2.272 publicada y worker 1.0.22 instalado
 
 - HA `0.2.272` está publicada en GHCR. `0.2.272` y `latest` comparten el índice
   OCI `sha256:d54ec58efa88b01c650d9c1f6a23fc754419d491e0856365a58cd1fad52d433a`
   y contienen manifests `linux/amd64` y `linux/arm64`.
-- El worker privado `1.0.22` se construyó localmente y se verificó importando el
-  módulo de alcance canónico dentro de la imagen. No se publicó ni instaló.
+- El único worker se actualizó a `1.0.22` con el script oficial y el volumen
+  `rainmapper-worker-data`. Conservó la identidad
+  `worker_1a9a232c20fe2ee2`; quedó `healthy`, `idle`, con GIS y Predictor
+  válidos y heartbeat restaurado.
 - Antes del bump pasó el smoke completo de 1.078 pruebas; después, 301 pruebas
   dirigidas de scope, worker, empaquetado y HA. No se tocó HA real, el worker
   normal, la retención ni los datos reales.
-- La instalación y los entrenamientos comparativos quedan pendientes de las
-  acciones del usuario. Hasta su confirmación, el estado real sigue siendo HA
-  `0.2.271` y worker `1.0.21`.
+- La instalación de HA y los entrenamientos comparativos quedan pendientes de
+  las acciones del usuario. Hasta su confirmación, el estado HA conocido sigue
+  siendo `0.2.271`; el worker está confirmado en `1.0.22`.
 
 ## 2026-08-28 - [VIGENTE][ML] Un único alcance sellado gobierna local, HA y worker
 

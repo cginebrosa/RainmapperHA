@@ -28,9 +28,10 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   y el smoke local completo de 1.078 pruebas. Falta comparar fits ejecutados,
   métricas y artefactos entre ambos ejecutores antes de considerar cerrada la
   validación.
-- Se construyó el worker privado `1.0.22` localmente y se comprobó dentro de la
-  imagen que importa el módulo canónico. No se instaló ni reinició el worker
-  normal.
+- El único worker se actualizó a `1.0.22` con el script oficial conservando
+  `rainmapper-worker-data`, la identidad `worker_1a9a232c20fe2ee2` y sus
+  cachés. Quedó `healthy`, `idle`, con GIS y Predictor válidos; el heartbeat se
+  restauró tras el reinicio.
 - HA `0.2.272` quedó publicada en GHCR. Los tags `0.2.272` y `latest` comparten
   el índice OCI
   `sha256:d54ec58efa88b01c650d9c1f6a23fc754419d491e0856365a58cd1fad52d433a`
@@ -44,9 +45,9 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - HA real está en `0.2.271`, según confirmación del usuario. El worker normal
   observado es `rainmapper-worker:1.0.21`, `healthy`, con identidad
   `worker_1a9a232c20fe2ee2`.
-- La release nueva aún no está instalada en HA real. El estado real confirmado
-  sigue siendo HA `0.2.271` y worker `1.0.21` hasta que el usuario informe de la
-  actualización.
+- La release nueva aún no está confirmada como instalada en HA real. El estado
+  confirmado es HA `0.2.271` hasta que el usuario informe de la actualización;
+  el único worker ya está en `1.0.22`.
 - La opción real **Apply ML storage retention** permanece activa. No cambiarla,
   no borrar datos manualmente y no ampliar retención sin una decisión nueva.
 - No se usó Tailscale. El `share` real se consultó solo en lectura para el
