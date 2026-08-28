@@ -412,21 +412,22 @@ def materialize_operational_tuning_catalog(
         except ValueError as exc:
             raise ValueError("Runtime tuning catalog is outside its batch") from exc
         source_catalog_path = source_root / within_batch
-        content = _read_bytes(source_catalog_path)
-        actual_digest = hashlib.sha256(content).hexdigest()
-        if actual_digest != str(catalog_reference.get("sha256") or ""):
-            raise ValueError("Runtime tuning catalog does not match its manifest")
-        catalog = mushroom_ml_tuning_catalog.validate_catalog(
-            registry, json.loads(content.decode("utf-8"))
-        )
-        if (
-            catalog["source_batch_id"] != source_batch_id
-            or catalog["catalog_id"] != catalog_reference.get("catalog_id")
-            or len(catalog["decisions"]) != catalog_reference.get("decision_count")
-        ):
-            raise ValueError("Runtime tuning catalog identity does not match its batch")
-        mushroom_ml_tuning_catalog.save(destination, catalog)
-        return catalog
+        if source_catalog_path.is_file():
+            content = _read_bytes(source_catalog_path)
+            actual_digest = hashlib.sha256(content).hexdigest()
+            if actual_digest != str(catalog_reference.get("sha256") or ""):
+                raise ValueError("Runtime tuning catalog does not match its manifest")
+            catalog = mushroom_ml_tuning_catalog.validate_catalog(
+                registry, json.loads(content.decode("utf-8"))
+            )
+            if (
+                catalog["source_batch_id"] != source_batch_id
+                or catalog["catalog_id"] != catalog_reference.get("catalog_id")
+                or len(catalog["decisions"]) != catalog_reference.get("decision_count")
+            ):
+                raise ValueError("Runtime tuning catalog identity does not match its batch")
+            mushroom_ml_tuning_catalog.save(destination, catalog)
+            return catalog
     catalog = mushroom_ml_tuning_catalog.build_from_batch(
         registry,
         source_manifest,

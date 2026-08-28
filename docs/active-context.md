@@ -8,13 +8,13 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 - Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
   El HEAD previo a esta release era
-  `2e8a076c3db55ff2e9a3e93133c7f42463a7e0fe`; revalidar HEAD y worktree al
+  `877c71dee0245f38e6e440e59467af9fb217893f`; revalidar HEAD y worktree al
   continuar.
 - La versión exacta instalada en HA real no se ha revalidado después de la
-  última prueba del usuario. HA `0.2.279` está publicada y pendiente de
+  última prueba del usuario. HA `0.2.280` está publicada y pendiente de
   instalación confirmada.
-- `0.2.279` y `latest` comparten el índice OCI
-  `sha256:da7a0d034e22542a4f95c01fc02e68cdd0474212f624793f2b35390012941967`
+- `0.2.280` y `latest` comparten el índice OCI
+  `sha256:91dba9bf08c2d428a0541814d348c4eaaf3b367746a2d14f4a6b07fb3a3789c6`
   con manifests `linux/amd64` y `linux/arm64`.
 - El único worker es local al M1 y no se publica en GHCR. Está reconstruido como
   `rainmapper-worker:1.0.29` e `idle`, con identidad
@@ -58,6 +58,13 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   El endpoint TAR estaba implementado y anunciado, pero faltaba en
   `MUSHROOM_WORKER_PROTOCOL_POST_PATHS`, por lo que el listener dedicado lo
   rechazaba antes de llegar al handler. HA `0.2.279` corrige la allowlist.
+- Tras instalar esa corrección, reconstrucción (1 min 37 s) y ML v0 (26 s)
+  completaron, pero el coordinador abortó el tercer job al 1 % en 1 s. El error
+  exacto era la ausencia de
+  `batches/operational_20260828T203505Z/tuning-catalog.json`: el manifest del
+  batch lo declaraba, pero el fichero no existía. HA `0.2.280` reconstruye el
+  catálogo desde los modelos del mismo batch cuando falta; si existe, mantiene
+  intactas las validaciones de hash e identidad.
 
 ## Resultado principal de la sesión
 
@@ -119,7 +126,7 @@ objetivo de 10 s y no debe optimizarse sin telemetría por fase.
 
 ## Validación de código completada
 
-- smoke definitivo de HA `0.2.279` sobre 1.099 pruebas y todos los validadores;
+- smoke definitivo de HA `0.2.280` sobre 1.100 pruebas y todos los validadores;
 - siete pruebas de empaquetado tras los bumps mecánicos;
 - imagen HA multiarch publicada y verificada con el mismo digest en versión y
   `latest`;
@@ -138,7 +145,7 @@ proporcional si cambia código, imagen, datos o configuración.
 
 ## Próximos pasos
 
-1. El usuario instalará HA `0.2.279`; comprobar versión y worker `1.0.29`
+1. El usuario instalará HA `0.2.280`; comprobar versión y worker `1.0.29`
    reconocido antes de iniciar cualquier job.
 2. El usuario, no Codex, lanzará la cadena real. Medirla por marcas monotónicas y contadores de
    peticiones/bytes; comparar en especial preparación, transferencia y
@@ -168,7 +175,7 @@ proporcional si cambia código, imagen, datos o configuración.
   ni suma de duraciones mostradas como ETA o tiempo integral.
 - **Optimización pendiente de validación real:** la suite valida el job visible,
   el catálogo persistido, gzip acotado, TAR comprimido, recibos, reanudación y
-  fallback, pero falta medir una cadena real con HA `0.2.279`.
+  fallback, pero falta medir una cadena real con HA `0.2.280`.
 - **Equivalencia completa:** scope e identidades ya coinciden; todavía no se ha
   archivado una comparación exacta de fits, métricas y artefactos de local y
   remoto ejecutados sobre el mismo snapshot final.

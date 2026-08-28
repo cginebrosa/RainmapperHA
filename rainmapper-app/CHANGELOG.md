@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.280
+
+- Rebuild a missing operational tuning catalog from its installed batch models
+  before preparing the next chained training job.
+- Keep persisted tuning-catalog digest and identity validation unchanged when
+  the declared artifact exists.
+
 ## 0.2.279
 
 - Show multiversion preparation as a durable worker job before Home Assistant

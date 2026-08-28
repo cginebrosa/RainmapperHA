@@ -180,6 +180,57 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
             build.assert_not_called()
             save.assert_called_once_with(destination, catalog)
 
+    def test_operational_tuning_catalog_rebuilds_when_persisted_file_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "models" / "batches" / "batch-source"
+            source.mkdir(parents=True)
+            source_manifest = {"batch_id": "batch-source"}
+            (source / "manifest.json").write_text(
+                json.dumps(source_manifest), encoding="utf-8"
+            )
+            destination = root / "operation" / "tuning-catalog.json"
+            catalog = {"catalog_id": "sha256:" + "a" * 64}
+
+            with mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "installed_source_batch_id",
+                return_value="batch-source",
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_model_catalog,
+                "validate_batch_manifest",
+                return_value={
+                    "tuning_catalog": {
+                        "catalog_id": "sha256:" + "b" * 64,
+                        "source_batch_id": "batch-source",
+                        "decision_count": 1,
+                        "path": "batches/batch-source/tuning-catalog.json",
+                        "sha256": "c" * 64,
+                    }
+                },
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "build_from_batch",
+                return_value=catalog,
+            ) as build, mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "save",
+            ) as save:
+                result = mushroom_local_full_update.materialize_operational_tuning_catalog(
+                    registry={"schema_version": "test"},
+                    version_ids=["biology_v5_windowed_raw_weather"],
+                    models_root=root / "models",
+                    destination=destination,
+                )
+
+            self.assertIs(result, catalog)
+            build.assert_called_once_with(
+                {"schema_version": "test"},
+                source_manifest,
+                batch_root=source,
+            )
+            save.assert_called_once_with(destination, catalog)
+
     def test_runtime_batch_rollback_removes_only_new_batch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             models_root = Path(temporary)

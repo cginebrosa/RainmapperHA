@@ -43,7 +43,7 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   rama, HEAD, worktree y runtime al comenzar, y preservar todos los cambios y
   ficheros no rastreados.
 - La versión instalada en HA real no se ha revalidado tras la última prueba;
-  `0.2.279` está publicada y pendiente de instalación. El único worker es local
+  `0.2.280` está publicada y pendiente de instalación. El único worker es local
   al M1, no se publica en GHCR y está reconstruido como `1.0.29` e `idle`,
   conservando identidad, volumen
   y cachés.
@@ -68,11 +68,11 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   posterior completó reconstrucción (1 min 39 s), ML v0 (29 s) y multiversión
   (11 min 20 s); este último movió 638 objetos y 90.087.316 bytes, por lo que
   `Uploading` incluía trabajo distinto de la transferencia de red.
-- HA `0.2.279` muestra el job antes de preparar sus inputs, permite los paquetes
+- HA `0.2.280` muestra el job antes de preparar sus inputs, permite los paquetes
   TAR en el listener dedicado y reutiliza por hash el catálogo de tuning que el
-  worker `1.0.29` persiste con cada generación nueva. Una generación antigua
-  conserva un único recorrido completo. No afirmar mejora real hasta que el
-  usuario instale HA y lance una medición.
+  worker `1.0.29` persiste con cada generación nueva. Si un batch instalado
+  declara el catálogo pero el fichero falta, lo reconstruye desde sus modelos.
+  No afirmar mejora real hasta que el usuario instale HA y lance una medición.
 - La retención ML real continúa activa por decisión del usuario. No cambiarla,
   no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
   ni promoción atómica.

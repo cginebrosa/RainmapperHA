@@ -1,6 +1,19 @@
 # Decisions
 
-## 2026-08-29 - [VIGENTE][RELEASE] HA 0.2.279 publicada y worker local 1.0.29
+## 2026-08-29 - [VIGENTE][RELEASE] HA 0.2.280 publicada y worker local 1.0.29
+
+- HA `0.2.280` y `latest` comparten el índice OCI
+  `sha256:91dba9bf08c2d428a0541814d348c4eaaf3b367746a2d14f4a6b07fb3a3789c6`,
+  con manifests `linux/amd64` y `linux/arm64`.
+- El coordinador reconstruye desde los modelos instalados el catálogo de tuning
+  cuando el manifest del batch lo declara pero el fichero falta. Los catálogos
+  presentes conservan la validación estricta de digest e identidad.
+- El worker no cambia y permanece en `1.0.29`; el fallo ocurría antes de que el
+  tercer job fuese reclamado.
+- Validación definitiva: smoke completo con 1.100 pruebas y todos los
+  validadores, más `git diff --check` correcto.
+
+## 2026-08-29 - [REEMPLAZADA][RELEASE] HA 0.2.279 publicada y worker local 1.0.29
 
 - HA `0.2.279` y `latest` comparten el índice OCI
   `sha256:da7a0d034e22542a4f95c01fc02e68cdd0474212f624793f2b35390012941967`,
