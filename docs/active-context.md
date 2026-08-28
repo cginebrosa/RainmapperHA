@@ -393,11 +393,12 @@ módulos modificados y `git diff --check`. El smoke completo previo al bump pas�
 1.066 pruebas en 48,378 s. HA 0.2.270 quedó publicada y verificada en GHCR: los
 tags `0.2.270` y `latest` comparten el digest multi-arquitectura
 `sha256:7692f3805bc90cd4172de1700993962a571cc80da5b3c09382b87760c3282cca`
-y contienen `linux/amd64` y `linux/arm64`. El worker privado 1.0.21 se construyó
-localmente para arm64 como
-`sha256:da0c16bbb0b5f4b8e1a1cc7eca708cb7e4c267d0e6fcce733d8d61285e34d1a9`;
-no se instaló ni se reinició el worker normal. Falta instalar ambas versiones y
-medir en HA real Predictor frío/caliente y la cadena remota completa.
+y contienen `linux/amd64` y `linux/arm64`. HA 0.2.270 fue instalada en HA real
+por el usuario. El worker privado 1.0.21 se instaló en el M1 mediante el script
+oficial, conservando `rainmapper-worker-data`; quedó `healthy`, `idle`, con GIS
+válido (12 ficheros, 6.341.520.039 bytes) y caché Predictor válida (253.657.749
+bytes). Falta medir en HA real Predictor frío/caliente y la cadena remota
+completa.
 
 ## Archivos relevantes
 

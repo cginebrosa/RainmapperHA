@@ -105,9 +105,10 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 - Release siguiente: HA 0.2.270 publicada y verificada en GHCR con digest
   `sha256:7692f3805bc90cd4172de1700993962a571cc80da5b3c09382b87760c3282cca`;
   los tags de versión y `latest` incluyen `linux/amd64` y `linux/arm64`. El
-  worker privado 1.0.21 está construido localmente para arm64, pero no instalado.
-  Falta instalar ambos en sus destinos y medir Predictor frío/caliente y la
-  cadena remota completa. No lanzar esas pruebas automáticamente.
+  worker privado 1.0.21 está instalado en el M1, `healthy` e `idle`, conservando
+  su volumen, GIS y caché Predictor. HA 0.2.270 está instalada en HA real. Falta
+  medir Predictor frío/caliente y la cadena remota completa. No lanzar esas
+  pruebas automáticamente.
 - La validación debe ser proporcional: pruebas dirigidas por bloque y un smoke
   completo antes de una entrega relevante, no smoke repetido tras cada cambio
   documental, commit o bump.
