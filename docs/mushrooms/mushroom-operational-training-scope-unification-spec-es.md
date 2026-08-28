@@ -1,6 +1,6 @@
 # Unificación del alcance del entrenamiento operativo
 
-Estado: implementación local en validación; sin despliegue ni reconstrucción real
+Estado: implementado, validado localmente y en una cadena real; corrección final de identidad publicada
 Fecha: 2026-08-28
 
 ## Estado de implementación local
@@ -52,6 +52,39 @@ promocionar modelos:
 Siguen pendientes la igualdad de fits ejecutados, métricas y artefactos entre
 ejecutores, la telemetría/UI y una medición integral. No debe
 repetirse la reconstrucción real sin autorización.
+
+## Cierre de identidad científica y validación real
+
+La cadena real con HA `0.2.275` y worker `1.0.24` completó reconstrucción, ML v0,
+V2–V6 y promoción. Sus duraciones declaradas fueron 1 min 45 s, 33 s y
+10 min 15 s, respectivamente. La meteorología no cambió durante el ensayo porque
+el scheduled runner no llegó a activarse. El Predictor posterior funcionó sobre
+la generación promocionada y reutilizó una repetición exacta en 0,6 s.
+
+La comparación posterior de los inputs actuales detectó un último defecto de
+identidad: local y HA contenían las mismas 439 filas científicas y el mismo
+contenido científico de known-sites, pero sus envolturas conservaban timestamps
+y rutas de reconciliación diferentes. La revisión `.2` del contrato calcula:
+
+- la identidad de features exclusivamente sobre las filas científicas ordenadas;
+- la identidad de known-sites sobre su contenido científico, omitiendo de forma
+  recursiva solo `generated_at` y `updated_at`;
+- una identidad distinta si cambia una feature, una altitud u otro valor
+  científico.
+
+Con los inputs reales actuales ambas rutas producen exactamente:
+
+- `scope_id`:
+  `sha256:47d934d7c4fadde8b533efc35964b833d4e0f9710ee1dc4cebc4e4275830ec07`;
+- identidad de features:
+  `sha256:df7d79e259967d3d2096c38193287b1bc8e2190c83078b3c08c9f973118e1218`;
+- identidad de known-sites:
+  `sha256:d4427532f4ef84cb42040a086edd993361487bf06aac2939fc0dd865783793dc`.
+
+El centinela conserva diez filas elegibles agregadas en nueve episodios y la
+misma exclusión estructurada. Pasan 49 pruebas dirigidas, 327 de integración,
+siete de empaquetado y el smoke completo de 1.089 pruebas. La corrección está
+publicada en HA `0.2.276`; el worker local correspondiente es `1.0.25`.
 
 ## Objetivo
 

@@ -14,7 +14,7 @@ from rainmapper_core import mushroom_ml_tuning_catalog
 
 SCOPE_SCHEMA_VERSION = "1.0"
 SCOPE_KIND = "mushroom_operational_training_scope"
-ELIGIBILITY_REVISION = "area-episode-eligibility-2026-08-28.1"
+ELIGIBILITY_REVISION = "area-episode-eligibility-2026-08-28.2"
 PLAN_SCHEMA_VERSION = "1.0"
 PLAN_KIND = "mushroom_operational_training_plan"
 MIN_EPISODES_DEFAULT = 10
@@ -38,6 +38,28 @@ def _payload_rows(payload: object) -> list[dict[str, Any]]:
     if not isinstance(raw_rows, list):
         raise ValueError("Operational training features must contain a row list")
     return [dict(row) for row in raw_rows if isinstance(row, Mapping)]
+
+
+def _features_identity(rows: Sequence[Mapping[str, Any]]) -> str:
+    """Identify the ordered scientific rows, excluding volatile artifact metadata."""
+    return _identity({"rows": [dict(row) for row in rows]})
+
+
+def _without_volatile_timestamps(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _without_volatile_timestamps(item)
+            for key, item in value.items()
+            if key not in {"generated_at", "updated_at"}
+        }
+    if isinstance(value, list):
+        return [_without_volatile_timestamps(item) for item in value]
+    return value
+
+
+def _known_sites_identity(payload: Mapping[str, object]) -> str:
+    """Identify scientific known-sites content without reconciliation timestamps."""
+    return _identity(_without_volatile_timestamps(payload))
 
 
 def build_scope(
@@ -111,8 +133,8 @@ def build_scope(
                 }
             )
     source_identity = {
-        "features_sha256": _identity(features_payload),
-        "known_sites_sha256": _identity(known_sites_payload),
+        "features_sha256": _features_identity(rows),
+        "known_sites_sha256": _known_sites_identity(known_sites_payload),
     }
     identity_payload = {
         "eligibility_revision": ELIGIBILITY_REVISION,

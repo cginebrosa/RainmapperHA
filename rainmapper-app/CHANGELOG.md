@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.276
+
+- Derive `OperationalTrainingScope` input identities from scientific feature
+  rows and known-sites content instead of volatile generation timestamps and
+  artifact paths.
+- Preserve scope invalidation when any scientific feature or known-sites value
+  changes.
+
 ## 0.2.275
 
 - Accept byte-identical repeated V2--V6 result files as idempotent delivery

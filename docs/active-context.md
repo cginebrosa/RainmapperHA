@@ -6,6 +6,49 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 ## Estado exacto al cierre — 2026-08-28
 
+### Alcance científico estable y release HA 0.2.276 / worker 1.0.25
+
+- La cadena real con HA `0.2.275` y worker `1.0.24` terminó correctamente:
+  reconstrucción en 1 min 45 s, ML v0 en 33 s y entrenamiento V2–V6 en
+  10 min 15 s. Los tres trabajos promocionaron la generación y la carga de la
+  RPi4 volvió a su nivel habitual al terminar. La meteorología no cambió porque
+  el scheduled runner no llegó a activarse.
+- El Predictor real quedó operativo sobre la generación promocionada. Se
+  observaron un recommender frío de 29,0 s (23,9 s de cálculo), reutilización
+  al cambiar de día en 0,6 s (cálculo menor de 0,1 s), una fecha nueva en
+  12,0 s (9,4 s de cálculo) y una consulta multiversión fría en 29,0 s
+  (23,6 s de cálculo).
+- La comparación de los inputs actuales local/HA encontró 439 filas científicas
+  idénticas, pero inicialmente scopes distintos. La causa confirmada era que la
+  identidad incluía `generated_at`, `updated_at` y la envoltura/ruta del
+  artefacto, aunque las filas y el contenido científico de known-sites fueran
+  iguales.
+- `OperationalTrainingScope` revisión `.2` identifica ahora solo las filas
+  científicas ordenadas y el contenido científico de known-sites, eliminando
+  recursivamente esos timestamps volátiles. Cambiar una feature o una altitud
+  sigue invalidando el scope.
+- Con los inputs reales actuales, local y HA producen exactamente el scope
+  `sha256:47d934d7c4fadde8b533efc35964b833d4e0f9710ee1dc4cebc4e4275830ec07`;
+  comparten identidades de features
+  `sha256:df7d79e259967d3d2096c38193287b1bc8e2190c83078b3c08c9f973118e1218`
+  y known-sites
+  `sha256:d4427532f4ef84cb42040a086edd993361487bf06aac2939fc0dd865783793dc`.
+  El scope contiene ocho especies. El centinela Cantharellus conserva 15 filas,
+  diez elegibles, nueve episodios y exclusión `insufficient_area_episodes`.
+- Pasan 49 pruebas dirigidas de scope/ML/worker, 327 pruebas de integración
+  local/HA/worker/resultados/web, siete de empaquetado del worker y el smoke
+  completo de 1.089 pruebas.
+- HA `0.2.276` está publicada. `0.2.276` y `latest` comparten el índice OCI
+  `sha256:70013bb4d17dfca0ec46652398da39119c00e9e78790dd4941b71f5692635b36`
+  y manifests `linux/amd64` y `linux/arm64`.
+- El worker local `1.0.25` está `healthy` e `idle`, con la identidad conservada
+  `worker_1a9a232c20fe2ee2`, el volumen persistente y las cachés GIS/Predictor
+  válidas. No se publica en GHCR.
+- HA real aún no tiene confirmada la instalación de `0.2.276`. No atribuirle
+  validación real hasta que el usuario la confirme. No es necesario repetir una
+  reconstrucción para validar el cambio de identidad: la igualdad se comprobó
+  directamente con los mismos inputs actuales.
+
 ### Release preparada tras la tercera validación real: HA 0.2.275 y worker 1.0.24
 
 - La tercera cadena real con HA `0.2.274` y worker `1.0.23` completó

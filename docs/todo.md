@@ -52,13 +52,20 @@ Especificación vinculante:
   atómica.
 - [ ] Validar en laboratorio ambas rutas con los mismos datos, registro y
   catálogo; exigir igualdad de scope, plan, fits, métricas y artefactos, además
-  de un total desde pulsación hasta promoción de como máximo 10 minutos. Scope,
-  plan y preparación ya coinciden; faltan entrenamiento, artefactos y tiempo
-  integral.
+  de un total desde pulsación hasta promoción de como máximo 10 minutos. Scope
+  e identidades científicas ya coinciden exactamente con los inputs reales;
+  faltan comparar fits, métricas y artefactos de dos ejecuciones equivalentes y
+  medir el tiempo integral.
 - [x] Preparar con autorización HA `0.2.275` y worker local `1.0.24`; publicar
   HA en GHCR y conservar identidad, volumen y cachés del único worker.
-- [ ] Instalar HA `0.2.275` y ejecutar una única validación real después del
-  scheduled runner y la actualización meteorológica.
+- [x] Instalar HA `0.2.275` y ejecutar una validación real completa:
+  reconstrucción, ML v0, V2–V6, promoción y Predictor terminaron correctamente.
+  La meteorología no cambió porque el scheduled runner no llegó a activarse.
+- [x] Publicar la corrección final de identidad científica en HA `0.2.276` y
+  reconstruir el worker local `1.0.25`, conservando identidad, volumen y cachés.
+- [ ] Confirmar la instalación de HA `0.2.276`; no hace falta repetir una
+  reconstrucción para la identidad, ya validada directamente con los mismos
+  inputs actuales local/HA.
 
 ## P0 — Estabilizar Predictor multiversión y coherencia científica
 

@@ -123,6 +123,84 @@ class OperationalTrainingScopeTests(TestCase):
         self.assertEqual(local_plan, remote_plan)
         self.assertEqual(local_plan, operational.validate_plan(json.loads(json.dumps(local_plan))))
 
+    def test_scope_identity_ignores_volatile_features_artifact_metadata(self) -> None:
+        rows = [
+            _row("admitted", day, "ma-a", "favorable" if day == 1 else "unfavorable")
+            for day in range(1, 11)
+        ]
+        local_scope = operational.build_scope(
+            {
+                "generated_at": "2026-08-28T10:08:29+00:00",
+                "input_paths": {"weather": "/local/weather.json"},
+                "output_paths": {"json": "/local/features.json"},
+                "rows": rows,
+            },
+            self.known_sites,
+        )
+        remote_scope = operational.build_scope(
+            {
+                "generated_at": "2026-08-28T18:42:36+00:00",
+                "input_paths": {"weather": "/share/weather.json"},
+                "output_paths": {"json": "/share/features.json"},
+                "rows": json.loads(json.dumps(rows)),
+            },
+            self.known_sites,
+        )
+
+        self.assertEqual(local_scope, remote_scope)
+
+    def test_scope_identity_changes_when_a_scientific_feature_changes(self) -> None:
+        rows = [
+            _row("admitted", day, "ma-a", "favorable" if day == 1 else "unfavorable")
+            for day in range(1, 11)
+        ]
+        changed_rows = json.loads(json.dumps(rows))
+        changed_rows[0]["gis_altitude_m"] = 101.0
+
+        original_scope = operational.build_scope({"rows": rows}, self.known_sites)
+        changed_scope = operational.build_scope({"rows": changed_rows}, self.known_sites)
+
+        self.assertNotEqual(
+            original_scope["source_identity"]["features_sha256"],
+            changed_scope["source_identity"]["features_sha256"],
+        )
+        self.assertNotEqual(original_scope["scope_id"], changed_scope["scope_id"])
+
+    def test_scope_identity_ignores_known_sites_reconciliation_timestamps(self) -> None:
+        rows = [
+            _row("admitted", day, "ma-a", "favorable" if day == 1 else "unfavorable")
+            for day in range(1, 11)
+        ]
+        local_sites = {
+            **self.known_sites,
+            "metadata": {"updated_at": "2026-08-27", "source": "field"},
+            "areas": [
+                {
+                    "area_id": "area-a",
+                    "altitude_m": 100.0,
+                    "soilgrids": {"generated_at": "2026-08-27T22:44:11+00:00"},
+                }
+            ],
+        }
+        remote_sites = json.loads(json.dumps(local_sites))
+        remote_sites["metadata"]["updated_at"] = "2026-08-28"
+        remote_sites["areas"][0]["soilgrids"]["generated_at"] = (
+            "2026-08-28T02:44:00+00:00"
+        )
+
+        local_scope = operational.build_scope({"rows": rows}, local_sites)
+        remote_scope = operational.build_scope({"rows": rows}, remote_sites)
+        self.assertEqual(local_scope, remote_scope)
+
+        changed_sites = json.loads(json.dumps(remote_sites))
+        changed_sites["areas"][0]["altitude_m"] = 101.0
+        changed_scope = operational.build_scope({"rows": rows}, changed_sites)
+        self.assertNotEqual(
+            local_scope["source_identity"]["known_sites_sha256"],
+            changed_scope["source_identity"]["known_sites_sha256"],
+        )
+        self.assertNotEqual(local_scope["scope_id"], changed_scope["scope_id"])
+
     def test_missing_tuning_is_rejected_while_building_plan(self) -> None:
         rows = [
             _row("admitted", day, "ma-a", "favorable" if day == 1 else "unfavorable")
