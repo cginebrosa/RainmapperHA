@@ -39,24 +39,27 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 
 ## Estado general al cierre de 2026-08-28
 
-- Rama `inicial`. La unificación del scope operativo se entregó en HA `0.2.272`
-  y worker `1.0.22`; la release HA publicada es `0.2.275` y el único worker
-  local está en `1.0.24`. Revalidar `pwd`, rama,
-  HEAD, worktree y runtime al comenzar; preservar todos los cambios y ficheros
-  no rastreados.
-- HA 0.2.271 añadió reutilización persistente exacta del Predictor y tiempos en
-  UI. En HA real, una repetición idéntica informó 0,6 s de trabajo y menos de
-  0,1 s de cálculo; la percepción caliente sigue en 6–8 s y el camino frío en
-  35–40 s, pendientes de desglose y optimización basada en telemetría.
-- El `OperationalTrainingScope` y el plan serializable sellado ya son comunes a
-  local, HA y worker. El laboratorio HA `0.2.273` completó la cadena con ocho
-  especies y 636/636 fits, promocionó V2–V6 y ejecutó el Predictor sin errores.
-- HA `0.2.274` está instalada en HA real. Dos cadenas superaron scope y
-  preparación, pero V2–V6 falló al 90 %: primero por timeout y después por 409
-  al repetir un fichero que HA ya había recibido. HA `0.2.275` publicada acepta
-  reentregas idénticas; worker `1.0.24` desacopla telemetría del cálculo y reduce
-  su cadencia. Falta instalar HA y repetir la cadena tras actualizar la
-  meteorología; el estado exacto está en `docs/active-context.md`.
+- Rama `inicial`; cierre de código publicado en `8085e46`. Revalidar `pwd`,
+  rama, HEAD, worktree y runtime al comenzar, y preservar todos los cambios y
+  ficheros no rastreados.
+- HA real confirmada: `0.2.275`. HA `0.2.276` está publicada multiarch, pero su
+  instalación real no está confirmada. El único worker es local al M1, no se
+  publica en GHCR y está reconstruido como `1.0.25` conservando identidad,
+  volumen y cachés.
+- `OperationalTrainingScope` y el plan serializable son comunes a local, HA y
+  worker. La revisión `.2` deriva identidades únicamente del contenido
+  científico y ya produce el mismo scope con los inputs reales actuales local y
+  HA; timestamps y rutas de artefacto no alteran la identidad.
+- La cadena real con HA `0.2.275` y worker `1.0.24` completó reconstrucción,
+  ML v0, V2–V6 y promoción. El Predictor posterior funcionó y una repetición
+  exacta tardó 0,6 s; los caminos fríos observados siguen alrededor de 29 s.
+- No hay entrenamientos programados: el usuario los inicia cuando añade
+  observaciones. No hace falta repetir uno para validar la corrección de scope.
+  La UI de jobs aún pierde preparación/transiciones y su porcentaje puede
+  retroceder; es deuda de observabilidad, no un fallo científico confirmado.
+- El último intento manual, después de que corriera un runner meteorológico,
+  falló en la reconstrucción al 55 % tras 2 min 9 s. No se dispone todavía del
+  error concreto y no debe atribuirse al runner sin comprobarlo.
 - La retención ML real continúa activa por decisión del usuario. No cambiarla,
   no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
   ni promoción atómica.

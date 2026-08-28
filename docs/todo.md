@@ -66,6 +66,10 @@ Especificación vinculante:
 - [ ] Confirmar la instalación de HA `0.2.276`; no hace falta repetir una
   reconstrucción para la identidad, ya validada directamente con los mismos
   inputs actuales local/HA.
+- [ ] Diagnosticar antes de otro reentrenamiento el último fallo real de
+  `Reconstrucción operativa completa`: terminó al 55 % en 2 min 9 s después de
+  que corriera un runner meteorológico. Obtener el error exacto y comprobar si
+  cambió el histórico; no asumir causalidad por coincidencia temporal.
 
 ## P0 — Estabilizar Predictor multiversión y coherencia científica
 
@@ -91,8 +95,10 @@ Especificación vinculante:
   las demás pestañas; confirmar que solo calculan la versión preferida, aplicar
   reutilización/caché donde proceda. Localmente los cambios de especie, zona,
   fecha y versión ya esperan a `Predecir`, la especie actualiza sus zonas sin
-  worker y el detalle semanal reutiliza su resultado terminado; falta validar
-  visualmente y medir el flujo completo.
+  worker y el detalle semanal reutiliza su resultado terminado. En HA real se
+  observaron 29,0 s para un recommender frío, 12,0 s para una fecha nueva y
+  0,6 s para un resultado exacto reutilizado; falta instrumentar por fases y
+  medir de forma controlada el resto de pestañas.
 - [x] Persistir y reutilizar en HA resultados Predictor exactos por worker,
   petición normalizada y fingerprint del runtime, verificando tamaño, SHA-256
   y petición embebida; mostrar tiempo total, cálculo y reutilización en la UI.

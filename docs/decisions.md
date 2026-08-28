@@ -1,6 +1,56 @@
 # Decisions
 
-## 2026-08-28 - [VIGENTE][RELEASE] HA 0.2.272 publicada y worker 1.0.22 instalado
+## 2026-08-28 - [VIGENTE][RELEASE] HA 0.2.276 publicada y worker local 1.0.25
+
+- HA `0.2.276` y `latest` comparten el índice OCI
+  `sha256:70013bb4d17dfca0ec46652398da39119c00e9e78790dd4941b71f5692635b36`
+  con manifests `linux/amd64` y `linux/arm64`.
+- Su instalación en HA real queda en manos del usuario y no está confirmada al
+  cierre. La última versión confirmada allí es `0.2.275`.
+- El único worker es privado y local al M1; no se publica en GHCR. Se reconstruyó
+  como `1.0.25` conservando identidad `worker_1a9a232c20fe2ee2`, volumen y
+  cachés, y quedó `healthy` e `idle`.
+- La release pasó, antes de los bumps mecánicos, 49 pruebas dirigidas, 327 de
+  integración, siete de empaquetado y el smoke completo de 1.089 pruebas.
+  Commit publicado: `8085e464fdca686cc57c2026163ac08d8cdb6374`.
+
+## 2026-08-28 - [VIGENTE][ML] La identidad del scope representa ciencia, no envolturas de artefacto
+
+- Features se identifican por las filas científicas ordenadas. Known-sites se
+  identifica por su contenido científico omitiendo recursivamente solo
+  `generated_at` y `updated_at`.
+- Rutas, timestamps de generación y timestamps de reconciliación no pueden
+  cambiar el scope si el contenido científico es idéntico. Una feature, altitud
+  u otro valor científico distinto sí debe invalidarlo.
+- Esta decisión corrige una divergencia comprobada: local y HA tenían las mismas
+  439 filas y contenido científico, pero producían scopes distintos por sus
+  metadatos volátiles.
+- Con los inputs reales actuales ambas rutas producen el scope
+  `sha256:47d934d7c4fadde8b533efc35964b833d4e0f9710ee1dc4cebc4e4275830ec07`.
+
+## 2026-08-28 - [VIGENTE][WORKER] Telemetría no bloqueante y entrega final recuperable
+
+- Control y progreso se desacoplan del callback científico mediante un único
+  intercambio en segundo plano, coalesciendo el último progreso y limitando la
+  cadencia normal. Un timeout de telemetría no aborta ni serializa el cálculo.
+- Una vez calculado un resultado, la entrega se reintenta hasta recuperar al
+  coordinador o recibir cancelación. HA acepta como idempotente una reentrega
+  byte a byte idéntica y rechaza con conflicto cualquier contenido distinto.
+- No se generaliza una espera infinita a todas las comunicaciones: claim,
+  descargas e inicio conservan sus límites para no introducir una cola
+  persistente ni una máquina de estados más compleja.
+
+## 2026-08-28 - [VIGENTE][UX] Tiempo y porcentaje inexactos permanecen como deuda de observabilidad
+
+- La UI actual pierde preparación y pausas entre jobs, y presenta porcentajes
+  internos de fase como si fueran progreso total; por eso el porcentaje puede
+  retroceder.
+- La corrección queda en TODO. No bloquea entrenamiento ni Predictor y no existe
+  evidencia de que el contador visual reduzca el rendimiento científico.
+- Hasta corregirla, medir una cadena con hora de pulsación y promoción final;
+  no usar la suma de duraciones mostradas ni el porcentaje como ETA integral.
+
+## 2026-08-28 - [REEMPLAZADA][RELEASE] HA 0.2.272 publicada y worker 1.0.22 instalado
 
 - HA `0.2.272` está publicada en GHCR. `0.2.272` y `latest` comparten el índice
   OCI `sha256:d54ec58efa88b01c650d9c1f6a23fc754419d491e0856365a58cd1fad52d433a`
@@ -67,7 +117,7 @@
   fallida ocultó 3 min 55 s antes del primer claim y 1 min 27 s entre ML v0 y
   V2–V6 al mostrar solo tiempos desde `started_at`.
 
-## 2026-08-28 - [VIGENTE][RELEASE] HA 0.2.271 instalada; worker 1.0.21 conservado
+## 2026-08-28 - [REEMPLAZADA][RELEASE] HA 0.2.271 instalada; worker 1.0.21 conservado
 
 - HA 0.2.271 está instalada en HA real según confirmación del usuario; el
   worker normal observado es 1.0.21 y conserva su identidad y volumen.

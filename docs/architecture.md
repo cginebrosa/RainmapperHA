@@ -269,18 +269,23 @@ Hay varios entry points segun entorno:
 > `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`.
 
 - Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
-  El estado confirmado al cierre de 2026-08-28 es HA `0.2.271` con worker M1
-  `1.0.21`. Comparten repositorio, contratos y primitivas, pero una ejecución
-  real demostró que las rutas de orquestación local y remota todavía derivan el
-  conjunto de especies en momentos distintos. La unificación pendiente está en
+  La reconstrucción calcula un único `OperationalTrainingScope` después de
+  agregar episodios y aplicar los gates científicos. Ese alcance se sella en un
+  plan serializable y local, HA y worker consumen la misma decisión sin volver
+  a descubrir especies. La especificación vinculante está en
   `docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`;
-  hasta completarla, un éxito local no demuestra equivalencia remota.
+  las versiones instaladas y publicadas se mantienen en
+  `docs/active-context.md` para no congelarlas en este mapa arquitectónico.
 - Coordinador: `web_server.py` conserva autoridad sobre pairing, registro,
   heartbeats, jobs/claims, snapshots, datasets, candidatos y promocion;
   `mushroom_workers_ui.py` renderiza la pagina humana `Workers y trabajos`.
 - Servicio remoto: `rainmapper-worker/` y
   `rainmapper_core/mushroom_worker_service.py`; inicia conexiones outbound y no
   necesita acceso directo a Docker ni a las rutas vivas de HA.
+- Comunicación del worker: control, cancelación y progreso usan telemetría
+  desacoplada y coalescida para que una petición lenta no bloquee el cálculo.
+  La entrega final conserva reintento recuperable e idempotencia ante cortes
+  transitorios de la conexión con el coordinador.
 - Estado: identidad/configuracion/token, cache GIS, inputs y resultados viven
   en el volumen `rainmapper-worker-data`; la imagen sigue siendo portable y no
   incorpora datos pesados ni secretos.
@@ -290,7 +295,10 @@ Hay varios entry points segun entorno:
   worker. Su registro canónico está en
   `docs/mushrooms/mushroom-ml-contract-versions-es.md`. La promoción valida no
   solo hashes sino también los identificadores de contrato altitude V2.
-- Biology V3/V4 se construye en módulos independientes y todavía no operativos.
+- Biology V3/V4 se construye en módulos independientes. V2, V3, V4 y las
+  familias por ventana V5w/V6w forman parte de la generación operativa
+  instalada cuando su plan las selecciona; V4 es la versión preferida actual,
+  sin limitar las consultas multiversión.
   `mushroom_weather_idw.py` materializa series diarias IDW por microárea para
   lluvia, Tmin/Tmax y RHmin/RHmax usando las cuatro fuentes; la temperatura se
   corrige a altitud DEM antes de ponderar. Las series largas se cachean y se
@@ -328,11 +336,11 @@ Hay varios entry points segun entorno:
   versiones instaladas seleccionadas V2/V3/V4/V5w/V6w son jobs enlazados. Cada
   ejecución deriva sus entradas del snapshot fresco; los snapshots bajo
   `docker-data/audits/` son evidencia de laboratorio, no dependencias runtime.
-  En la arquitectura vigente aún existe una divergencia: la ruta local cuenta
-  filas, ML v0 vuelve a aplicar el mínimo después de agregar episodios y la
-  preparación V2–V6 puede recorrer otra vez el snapshot. La arquitectura
-  objetivo calcula una sola vez un `OperationalTrainingScope`, lo sella dentro
-  de un plan serializable y obliga a todos los pasos a consumirlo.
+  Tras reconstruir las features, la agregación y los gates producen una sola
+  vez el `OperationalTrainingScope`; ML v0, preparación, tuning, hold-out,
+  fits, métricas, verificación y promoción consumen su plan sellado. Las rutas
+  pueden transportar los datos de forma distinta, pero no recalculan el
+  conjunto científico admitido.
 - Benchmark científico: `job_purpose=benchmark` conserva la preparación
   V2–V6, pero entrena únicamente los perfiles compatibles seleccionados en la
   acción manual. La selección queda en job, plan, manifiesto e informe. HA
@@ -368,7 +376,8 @@ Hay varios entry points segun entorno:
   enlazado puede reutilizarlos localmente; si identidad, alcance o integridad no
   coinciden, vuelve al transporte canónico desde HA. La cadena real del
   2026-08-28 mostró `Reusing sealed local inputs`, por lo que esta optimización
-  funcionó aunque el entrenamiento posterior fallara por divergencia de scope.
+  funcionó. Una ejecución posterior completó reconstrucción, ML v0,
+  entrenamiento V2–V6 y promoción con el mismo alcance sellado.
 - Publicación: el worker solo produce candidatos. Reconstrucción, ML v0 y V2
   son tres jobs enlazados e independientes para diagnóstico. La UI no ofrece y
   el backend no acepta la promoción completa hasta que los tres terminan. HA
@@ -379,10 +388,9 @@ Hay varios entry points segun entorno:
   promocionan ni mezclan candidatos parciales o benchmarks.
 - Ejecución HA local: `mushroom_local_full_update.py` usa los mismos contratos,
   verificadores y scripts científicos que el worker y encadena el cálculo
-  dentro del contenedor HA, sin crear un worker local. Sin embargo, actualmente
-  conserva una orquestación propia y decide especies antes de la agregación de
-  episodios; por ello debe pasar a ejecutar el mismo plan sellado que recibiría
-  el worker. El gate de entorno solo se declara en
+  dentro del contenedor HA, sin crear un worker local. Ejecuta el mismo scope y
+  plan sellados que recibiría el worker; solo cambia el transporte. El gate de
+  entorno solo se declara en
   `rainmapper-local/docker-compose.yml`; no existe fallback silencioso desde un
   worker desconectado.
 - Datos semiestaticos: HA/Rainmapper es la fuente autoritativa de GIS/DEM. El
