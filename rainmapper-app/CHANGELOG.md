@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.279
+
+- Show multiversion preparation as a durable worker job before Home Assistant
+  prepares its input bundle.
+- Reuse the tuning catalog persisted with a verified operational generation
+  instead of loading every installed model during the next chained run.
+- Allow bounded multiversion result bundles on the dedicated worker listener.
+
 ## 0.2.278
 
 - Derive chained operational snapshots from the verified reconstruction

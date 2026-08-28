@@ -146,6 +146,7 @@ MUSHROOM_WORKER_PROTOCOL_POST_PATHS = {
     "/api/mushrooms/workers/jobs/ml-result-file",
     "/api/mushrooms/workers/jobs/ml-result-complete",
     "/api/mushrooms/workers/jobs/multiversion-result-file",
+    "/api/mushrooms/workers/jobs/multiversion-result-bundle",
     "/api/mushrooms/workers/jobs/multiversion-result-complete",
 }
 HOME_ASSISTANT_INGRESS_PROXY_IP = "172.30.32.2"
@@ -13629,6 +13630,7 @@ def create_mushroom_ml_multiversion_job(
             "error": "The selected worker cannot produce persistent benchmark reports.",
         }
     job_id = f"worker_job_{secrets.token_urlsafe(12)}"
+    preparation_created = False
     try:
         with RUN_LOCK:
             queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
@@ -13741,6 +13743,17 @@ def create_mushroom_ml_multiversion_job(
             "job_purpose": purpose,
             "operational_candidate_trained": purpose == "operational",
         }
+        with RUN_LOCK:
+            mushroom_worker_jobs.create_ml_multiversion_preparation(
+                mushroom_worker_jobs_path(),
+                worker_id=worker_id,
+                worker_display_name=str(worker_payload.get("display_name", worker_id)),
+                job_id=job_id,
+                job_purpose=purpose,
+                profile_keys=resolved_profile_keys,
+                triggered_by_job_id=triggered_by_job_id,
+            )
+        preparation_created = True
 
         def prepare_bundle(extra_inputs: dict[str, Path]) -> dict[str, object]:
             source_snapshot_dir = None
@@ -13797,15 +13810,10 @@ def create_mushroom_ml_multiversion_job(
             }
         )
         with RUN_LOCK:
-            job = mushroom_worker_jobs.create_ml_multiversion_job(
+            job = mushroom_worker_jobs.finalize_ml_multiversion_preparation(
                 mushroom_worker_jobs_path(),
-                worker_id=worker_id,
-                worker_display_name=str(worker_payload.get("display_name", worker_id)),
                 input_bundle=input_bundle,
                 job_id=job_id,
-                job_purpose=purpose,
-                profile_keys=resolved_profile_keys,
-                triggered_by_job_id=triggered_by_job_id,
             )
     except (FileExistsError, FileNotFoundError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         try:
@@ -13814,6 +13822,14 @@ def create_mushroom_ml_multiversion_job(
             )
         except (FileNotFoundError, ValueError):
             pass
+        if preparation_created:
+            try:
+                with RUN_LOCK:
+                    mushroom_worker_jobs.fail_ml_multiversion_preparation(
+                        mushroom_worker_jobs_path(), job_id=job_id, error=str(exc)
+                    )
+            except (FileNotFoundError, ValueError):
+                pass
         return 400, {"ok": False, "error": str(exc)}
     return 201, {"ok": True, "job": job}
 

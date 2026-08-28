@@ -846,6 +846,149 @@ def create_ml_train_job(
     return dict(job)
 
 
+def _multiversion_bundle_digest(input_bundle: object, *, job_id: str) -> str:
+    if not isinstance(input_bundle, dict) or input_bundle.get("job_id") != job_id:
+        raise ValueError("Multiversion input bundle contract is invalid.")
+    bundle_digest = str(input_bundle.get("bundle_digest", ""))
+    files = input_bundle.get("files")
+    snapshot_bundle = (
+        re.fullmatch(r"sha256:[0-9a-f]{64}", str(input_bundle.get("snapshot_id", "")))
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", str(input_bundle.get("job_spec_id", "")))
+        and isinstance(input_bundle.get("input_file_count"), int)
+        and int(input_bundle.get("input_file_count", 0)) > 0
+        and isinstance(input_bundle.get("multiversion_spec"), dict)
+    )
+    legacy_bundle = isinstance(files, list) and bool(files)
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", bundle_digest) or not (
+        snapshot_bundle or legacy_bundle
+    ):
+        raise ValueError("Multiversion input bundle identity is invalid.")
+    return bundle_digest
+
+
+def create_ml_multiversion_preparation(
+    path: Path,
+    *,
+    worker_id: str,
+    worker_display_name: str,
+    job_id: str,
+    job_purpose: str,
+    profile_keys: list[str],
+    triggered_by_job_id: str = "",
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Expose coordinator work before the immutable V2--V6 bundle exists."""
+    target_worker_id = _validate_worker_id(worker_id)
+    purpose = str(job_purpose or "").strip()
+    selected_profiles = [str(value or "").strip() for value in profile_keys]
+    display_name = str(worker_display_name or "").strip()[:80]
+    if purpose not in ML_JOB_PURPOSES or not selected_profiles or any(
+        not value for value in selected_profiles
+    ):
+        raise ValueError("Multiversion preparation selection is invalid.")
+    if not display_name or not JOB_ID_PATTERN.fullmatch(str(job_id or "")):
+        raise ValueError("Multiversion worker assignment is invalid.")
+    queue = load_queue(path)
+    duplicate = next(
+        (
+            row
+            for row in queue["jobs"]
+            if row.get("status") in ACTIVE_STATUSES
+            and row.get("job_type") == JOB_TYPE_ML_MULTIVERSION
+            and row.get("job_purpose") == purpose
+        ),
+        None,
+    )
+    if duplicate is not None:
+        raise DuplicateActiveWorkError(
+            f"Multiversion training is already active: {duplicate.get('job_id', '')}."
+        )
+    timestamp = created_at or utc_now()
+    job = {
+        "job_id": job_id,
+        "job_type": JOB_TYPE_ML_MULTIVERSION,
+        "work_key": f"ml_multiversion:v1:{purpose}:preparing:{job_id}",
+        "target_worker_id": target_worker_id,
+        "target_display_name": display_name,
+        "status": "preparing",
+        "phase": "Preparing selected operational inputs",
+        "message": "Building the sealed plan and immutable worker snapshot on the coordinator.",
+        "scope": "selected operational ML versions" if purpose == "operational" else "V2--V6 scientific benchmark",
+        "job_purpose": purpose,
+        "profile_keys": selected_profiles,
+        "overall_percent": 1,
+        "created_at": timestamp,
+        "claimed_at": "",
+        "started_at": timestamp,
+        "finished_at": "",
+        "cancel_requested_at": "",
+        "cancel_mode": "",
+        "reassigned_at": "",
+        "lease_expires_at": "",
+        "claim_token": "",
+        "assignment_revision": 1,
+        "promotion_eligible": purpose == "operational",
+        "triggered_by_job_id": str(triggered_by_job_id or "")[:100],
+        "input_bundle": {},
+    }
+    queue["jobs"].append(job)
+    queue["jobs"] = queue["jobs"][-MAX_JOBS:]
+    _write_atomic(path, queue)
+    return dict(job)
+
+
+def finalize_ml_multiversion_preparation(
+    path: Path, *, job_id: str, input_bundle: dict[str, Any]
+) -> dict[str, Any]:
+    bundle_digest = _multiversion_bundle_digest(input_bundle, job_id=job_id)
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    if job.get("status") == "cancelled":
+        raise ValueError("Worker job was cancelled during coordinator preparation.")
+    if job.get("status") != "preparing":
+        raise ValueError("Worker job is not awaiting coordinator preparation.")
+    purpose = str(job.get("job_purpose") or "")
+    job.update(
+        {
+            "work_key": f"ml_multiversion:v1:{purpose}:{bundle_digest}",
+            "status": "queued",
+            "phase": "Waiting for worker",
+            "message": "Selected operational ML versions queued for refresh." if purpose == "operational" else "V2--V6 scientific benchmark queued.",
+            "overall_percent": 0,
+            "started_at": "",
+            "input_bundle": {**input_bundle, "endpoint": "/api/mushrooms/workers/jobs/input"},
+            "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
+            "result_bundle_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-bundle",
+            "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
+            "result_content_encodings": ["gzip"],
+        }
+    )
+    _write_atomic(path, queue)
+    return dict(job)
+
+
+def fail_ml_multiversion_preparation(
+    path: Path, *, job_id: str, error: str, finished_at: str | None = None
+) -> dict[str, Any]:
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    if job.get("status") == "cancelled":
+        return dict(job)
+    if job.get("status") != "preparing":
+        raise ValueError("Worker job is not awaiting coordinator preparation.")
+    job.update(
+        {
+            "status": "failed",
+            "phase": "Coordinator preparation failed",
+            "message": str(error or "Coordinator preparation failed.")[:500],
+            "error": str(error or "")[:2000],
+            "finished_at": finished_at or utc_now(),
+        }
+    )
+    _write_atomic(path, queue)
+    return dict(job)
+
+
 def create_ml_multiversion_job(
     path: Path,
     *,
@@ -868,28 +1011,13 @@ def create_ml_multiversion_job(
     display_name = str(worker_display_name or "").strip()[:80]
     if not display_name or not JOB_ID_PATTERN.fullmatch(str(job_id or "")):
         raise ValueError("Multiversion worker assignment is invalid.")
-    if not isinstance(input_bundle, dict) or input_bundle.get("job_id") != job_id:
-        raise ValueError("Multiversion input bundle contract is invalid.")
-    bundle_digest = str(input_bundle.get("bundle_digest", ""))
-    files = input_bundle.get("files")
-    snapshot_bundle = (
-        re.fullmatch(r"sha256:[0-9a-f]{64}", str(input_bundle.get("snapshot_id", "")))
-        and re.fullmatch(r"sha256:[0-9a-f]{64}", str(input_bundle.get("job_spec_id", "")))
-        and isinstance(input_bundle.get("input_file_count"), int)
-        and int(input_bundle.get("input_file_count", 0)) > 0
-        and isinstance(input_bundle.get("multiversion_spec"), dict)
-    )
-    legacy_bundle = isinstance(files, list) and bool(files)
-    if not re.fullmatch(r"sha256:[0-9a-f]{64}", bundle_digest) or not (
-        snapshot_bundle or legacy_bundle
-    ):
-        raise ValueError("Multiversion input bundle identity is invalid.")
+    bundle_digest = _multiversion_bundle_digest(input_bundle, job_id=job_id)
     queue = load_queue(path)
     duplicate = next(
         (
             row
             for row in queue["jobs"]
-            if row.get("status") in {"queued", "claimed", "running"}
+            if row.get("status") in ACTIVE_STATUSES
             and row.get("job_type") == JOB_TYPE_ML_MULTIVERSION
             and row.get("work_key") == f"ml_multiversion:v1:{purpose}:{bundle_digest}"
         ),

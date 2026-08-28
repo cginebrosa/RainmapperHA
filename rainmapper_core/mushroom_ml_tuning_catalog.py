@@ -263,12 +263,41 @@ def build_from_batch(
                 "source_artifact_sha256": artifact["sha256"],
             }
         )
-    decisions.sort(key=lambda row: row["key"])
+    return build_from_decisions(
+        registry,
+        source_batch_id=batch_id,
+        source_snapshot_id=checked_manifest["snapshot_id"],
+        decisions=decisions,
+        training_plan=training_plan,
+    )
+
+
+def build_from_decisions(
+    registry: Mapping[str, object],
+    *,
+    source_batch_id: str,
+    source_snapshot_id: str,
+    decisions: Sequence[Mapping[str, object]],
+    training_plan: Mapping[str, object] | None = None,
+) -> dict[str, Any]:
+    """Build a catalog from already fitted artifacts without reading them again."""
+    checked_decisions = [
+        {
+            "key": decision_key(row.get("scope") or {}),
+            "scope": decision_scope(row.get("scope") or {}),
+            "fit_config": _validated_fit_config(
+                decision_scope(row.get("scope") or {}), row.get("fit_config") or {}
+            ),
+            "source_artifact_sha256": str(row.get("source_artifact_sha256") or ""),
+        }
+        for row in decisions
+    ]
+    checked_decisions.sort(key=lambda row: row["key"])
     identity_payload = {
         "compatibility_fingerprint": compatibility_fingerprint(registry),
-        "source_batch_id": batch_id,
-        "source_snapshot_id": checked_manifest["snapshot_id"],
-        "decisions": decisions,
+        "source_batch_id": str(source_batch_id),
+        "source_snapshot_id": str(source_snapshot_id),
+        "decisions": checked_decisions,
     }
     payload = {
         "schema_version": SCHEMA_VERSION,

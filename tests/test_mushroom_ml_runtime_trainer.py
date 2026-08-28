@@ -257,6 +257,67 @@ class MushroomMLRuntimeTrainerTests(TestCase):
                     models_root=models_root,
                 )
 
+    def test_operational_batch_persists_its_own_tuning_catalog(self) -> None:
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        artifact_ref = catalog.ModelArtifactRef(
+            batch_id="batch-output-tuning",
+            generation_id="generation-v3",
+            version_id="biology_v3",
+            temporal_contract_id="fixed_gap_7d_biology_v3",
+            profile_id="core",
+            estimator_id="logistic_regression_reduced_v1",
+            species_id="boletus_edulis",
+        )
+        training_plan = {
+            "batch_id": "batch-output-tuning",
+            "snapshot_id": "sha256:" + "d" * 64,
+            "fits": [{"artifact_ref": artifact_ref.as_dict(), "supported_horizons": [7]}],
+        }
+        input_tuning = trainer.mushroom_ml_tuning_catalog.build_from_decisions(
+            registry,
+            source_batch_id="batch-source",
+            source_snapshot_id="sha256:" + "c" * 64,
+            decisions=[
+                {
+                    "scope": artifact_ref.as_dict(),
+                    "fit_config": {},
+                    "source_artifact_sha256": "b" * 64,
+                }
+            ],
+            training_plan=training_plan,
+        )
+        benchmark = {
+            "feature_set": {"predictive_feature_cols": ["test_feature"]},
+            "samples": [
+                {
+                    "sample_id": f"sample-{index}",
+                    "prediction_target": "favorable" if index % 2 else "unfavorable",
+                    "predictive_features": {"test_feature": float(index)},
+                    "quality": {"training_eligible": True},
+                    "metadata": {"species_id": "boletus_edulis"},
+                }
+                for index in range(20)
+            ],
+        }
+        key = trainer.benchmark_key("biology_v3", "fixed_gap_7d_biology_v3", "core")
+
+        with TemporaryDirectory() as temporary:
+            destination, manifest = trainer.write_batch(
+                registry,
+                training_plan,
+                {key: benchmark},
+                models_root=Path(temporary),
+                tuning_catalog=input_tuning,
+            )
+            persisted = json.loads((destination / "tuning-catalog.json").read_text())
+
+        self.assertEqual(persisted["source_batch_id"], "batch-output-tuning")
+        self.assertEqual(manifest["tuning_catalog"]["catalog_id"], persisted["catalog_id"])
+        self.assertEqual(
+            manifest["tuning_catalog"]["path"],
+            "batches/batch-output-tuning/tuning-catalog.json",
+        )
+
     def test_batch_reuses_one_matrix_across_estimators_of_the_same_scope(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
         base = {

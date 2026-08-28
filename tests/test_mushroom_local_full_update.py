@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sys
 import tempfile
@@ -103,6 +104,10 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
                 "installed_source_batch_id",
                 return_value="batch-source",
             ) as source_batch, mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_model_catalog,
+                "validate_batch_manifest",
+                return_value={"tuning_catalog": None},
+            ), mock.patch.object(
                 mushroom_local_full_update.mushroom_ml_tuning_catalog,
                 "build_from_batch",
                 return_value=catalog,
@@ -120,6 +125,59 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
             self.assertIs(result, catalog)
             source_batch.assert_called_once()
             self.assertEqual(source, build.call_args.kwargs["batch_root"])
+            save.assert_called_once_with(destination, catalog)
+
+    def test_operational_tuning_catalog_reuses_persisted_batch_catalog(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "models" / "batches" / "batch-source"
+            source.mkdir(parents=True)
+            (source / "manifest.json").write_text("{}", encoding="utf-8")
+            catalog = {
+                "catalog_id": "sha256:" + "a" * 64,
+                "source_batch_id": "batch-source",
+                "decisions": [{"key": "decision"}],
+            }
+            content = json.dumps(catalog).encode("utf-8")
+            (source / "tuning-catalog.json").write_bytes(content)
+            destination = root / "operation" / "tuning-catalog.json"
+
+            with mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "installed_source_batch_id",
+                return_value="batch-source",
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_model_catalog,
+                "validate_batch_manifest",
+                return_value={
+                    "tuning_catalog": {
+                        "catalog_id": catalog["catalog_id"],
+                        "source_batch_id": "batch-source",
+                        "decision_count": 1,
+                        "path": "batches/batch-source/tuning-catalog.json",
+                        "sha256": hashlib.sha256(content).hexdigest(),
+                    }
+                },
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "validate_catalog",
+                return_value=catalog,
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "build_from_batch",
+            ) as build, mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "save",
+            ) as save:
+                result = mushroom_local_full_update.materialize_operational_tuning_catalog(
+                    registry={"schema_version": "test"},
+                    version_ids=["biology_v5_windowed_raw_weather"],
+                    models_root=root / "models",
+                    destination=destination,
+                )
+
+            self.assertIs(result, catalog)
+            build.assert_not_called()
             save.assert_called_once_with(destination, catalog)
 
     def test_runtime_batch_rollback_removes_only_new_batch(self) -> None:

@@ -1,5 +1,28 @@
 # Decisions
 
+## 2026-08-29 - [VIGENTE][RELEASE] HA 0.2.279 publicada y worker local 1.0.29
+
+- HA `0.2.279` y `latest` comparten el índice OCI
+  `sha256:da7a0d034e22542a4f95c01fc02e68cdd0474212f624793f2b35390012941967`,
+  con manifests `linux/amd64` y `linux/arm64`.
+- El worker privado se reconstruyó como `1.0.29`, conservando la identidad
+  `worker_1a9a232c20fe2ee2`, el volumen `rainmapper-worker-data` y las cachés GIS
+  y Predictor válidas.
+- La preparación del job multiversión se persiste antes de materializar sus
+  inputs, de modo que el trabajo previo deja de ser un intervalo invisible en
+  la UI.
+- Cada generación operativa nueva persiste su catálogo de tuning y la siguiente
+  cadena lo valida por manifest y hash, evitando releer y deserializar todos los
+  modelos instalados. Las generaciones antiguas conservan el fallback completo.
+- El fallo real del último entrenamiento no ocurrió durante los fits: al acabar
+  el cálculo, HA rechazó el primer TAR con `404: Not found.` porque
+  `/api/mushrooms/workers/jobs/multiversion-result-bundle` no figuraba en la
+  allowlist del listener dedicado. `0.2.279` permite esa ruta y añade una prueba
+  centinela.
+- Validación definitiva: smoke completo con 1.099 pruebas y todos los
+  validadores, 295 pruebas dirigidas de protocolo/resultados, siete pruebas de
+  empaquetado y `git diff --check` correcto.
+
 ## 2026-08-29 - [VIGENTE][RELEASE] HA 0.2.278 publicada y worker local 1.0.28
 
 - HA `0.2.278` y `latest` comparten el índice OCI

@@ -6572,6 +6572,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.web_server.MUSHROOM_WORKER_PROTOCOL_POST_PATHS,
         )
         self.assertIn(
+            "/api/mushrooms/workers/jobs/multiversion-result-bundle",
+            self.web_server.MUSHROOM_WORKER_PROTOCOL_POST_PATHS,
+        )
+        self.assertIn(
             "/api/mushrooms/workers/jobs/multiversion-result-complete",
             self.web_server.MUSHROOM_WORKER_PROTOCOL_POST_PATHS,
         )

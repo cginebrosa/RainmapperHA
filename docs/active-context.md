@@ -8,15 +8,16 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 - Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
   El HEAD previo a esta release era
-  `6b69845329dd5db4c6fa0f9319bffa841b7b10e1`; revalidar HEAD y worktree al
+  `2e8a076c3db55ff2e9a3e93133c7f42463a7e0fe`; revalidar HEAD y worktree al
   continuar.
-- HA real `0.2.276` sigue siendo la última instalación confirmada por el
-  usuario. HA `0.2.278` está publicada y pendiente de instalación confirmada.
-- `0.2.278` y `latest` comparten el índice OCI
-  `sha256:f793d2f75bc1ead6924efe61a4aedac179ba4385294ee6a0f14f388b0b7f534c`
+- La versión exacta instalada en HA real no se ha revalidado después de la
+  última prueba del usuario. HA `0.2.279` está publicada y pendiente de
+  instalación confirmada.
+- `0.2.279` y `latest` comparten el índice OCI
+  `sha256:da7a0d034e22542a4f95c01fc02e68cdd0474212f624793f2b35390012941967`
   con manifests `linux/amd64` y `linux/arm64`.
 - El único worker es local al M1 y no se publica en GHCR. Está reconstruido como
-  `rainmapper-worker:1.0.28` e `idle`, con identidad
+  `rainmapper-worker:1.0.29` e `idle`, con identidad
   `worker_1a9a232c20fe2ee2`, volumen `rainmapper-worker-data` y cachés GIS y
   Predictor válidas. Revalidar runtime antes de reutilizar estos datos.
 - La retención ML real permanece activa por decisión del usuario. No cambiarla,
@@ -45,6 +46,18 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   petición, acepta gzip acotado y devuelve recibos por ruta; los reintentos
   omiten objetos ya verificados en HA. No atribuir mejora real hasta instalar
   HA y medir una nueva cadena iniciada por el usuario.
+- La cadena medida con esas optimizaciones siguió mostrando alrededor de un
+  minuto entre ML v0 y la aparición del job multiversión. La causa comprobada
+  en código es que HA materializaba el catálogo de tuning antes de persistir el
+  job. `0.2.279` crea primero un job visible en estado de preparación; el worker
+  `1.0.29` persiste el catálogo de la generación recién entrenada y HA lo
+  reutiliza por manifest/hash en la siguiente cadena. Un batch antiguo aún usa
+  el recorrido completo una vez.
+- El último entrenamiento llegó al final del cálculo multiversión y falló al
+  iniciar la entrega: el worker registró `HTTP Error 404: Not Found: Not found.`
+  El endpoint TAR estaba implementado y anunciado, pero faltaba en
+  `MUSHROOM_WORKER_PROTOCOL_POST_PATHS`, por lo que el listener dedicado lo
+  rechazaba antes de llegar al handler. HA `0.2.279` corrige la allowlist.
 
 ## Resultado principal de la sesión
 
@@ -106,11 +119,11 @@ objetivo de 10 s y no debe optimizarse sin telemetría por fase.
 
 ## Validación de código completada
 
-- smoke definitivo de HA `0.2.278` sobre 1.096 pruebas y todos los validadores;
+- smoke definitivo de HA `0.2.279` sobre 1.099 pruebas y todos los validadores;
 - siete pruebas de empaquetado tras los bumps mecánicos;
 - imagen HA multiarch publicada y verificada con el mismo digest en versión y
   `latest`;
-- worker `1.0.28` reconstruido conservando identidad, volumen y cachés; health
+- worker `1.0.29` reconstruido conservando identidad, volumen y cachés; health
   local confirma versión, `idle` y ambas cachés válidas;
 
 - 49 pruebas dirigidas de scope, ML y worker;
@@ -125,7 +138,7 @@ proporcional si cambia código, imagen, datos o configuración.
 
 ## Próximos pasos
 
-1. El usuario instalará HA `0.2.278`; comprobar versión y worker `1.0.28`
+1. El usuario instalará HA `0.2.279`; comprobar versión y worker `1.0.29`
    reconocido antes de iniciar cualquier job.
 2. El usuario, no Codex, lanzará la cadena real. Medirla por marcas monotónicas y contadores de
    peticiones/bytes; comparar en especial preparación, transferencia y
@@ -153,9 +166,9 @@ proporcional si cambia código, imagen, datos o configuración.
 - **UI de trabajos:** duración no incluye toda la preparación/pausas y el
   porcentaje puede retroceder al cambiar de escala de fase. No usar porcentaje
   ni suma de duraciones mostradas como ETA o tiempo integral.
-- **Optimización pendiente de validación real:** la suite valida gzip acotado,
-  TAR comprimido, recibos, reanudación y fallback, pero falta medir una cadena
-  real con HA `0.2.278`.
+- **Optimización pendiente de validación real:** la suite valida el job visible,
+  el catálogo persistido, gzip acotado, TAR comprimido, recibos, reanudación y
+  fallback, pero falta medir una cadena real con HA `0.2.279`.
 - **Equivalencia completa:** scope e identidades ya coinciden; todavía no se ha
   archivado una comparación exacta de fits, métricas y artefactos de local y
   remoto ejecutados sobre el mismo snapshot final.

@@ -1213,6 +1213,43 @@ class MushroomWorkerJobsTests(unittest.TestCase):
         self.assertEqual(job["profile_keys"], ["biology_v3/core"])
         self.assertFalse(job["promotion_eligible"])
 
+    def test_multiversion_preparation_is_visible_before_bundle_is_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "worker_jobs.json"
+            job_id = "worker_job_multiprepare"
+            preparing = mushroom_worker_jobs.create_ml_multiversion_preparation(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                job_id=job_id,
+                job_purpose="operational",
+                profile_keys=["biology_v3/core"],
+                triggered_by_job_id="worker_job_linkedtrain",
+            )
+
+            self.assertEqual(preparing["status"], "preparing")
+            self.assertEqual(preparing["overall_percent"], 1)
+            self.assertIsNone(
+                mushroom_worker_jobs.claim_next(path, worker_id="worker_aaaaaaaa")
+            )
+
+            queued = mushroom_worker_jobs.finalize_ml_multiversion_preparation(
+                path,
+                job_id=job_id,
+                input_bundle={
+                    "job_id": job_id,
+                    "bundle_digest": "sha256:" + "a" * 64,
+                    "snapshot_id": "sha256:" + "b" * 64,
+                    "job_spec_id": "sha256:" + "c" * 64,
+                    "input_file_count": 4,
+                    "multiversion_spec": {"kind": "mushroom_ml_multiversion_job"},
+                },
+            )
+
+        self.assertEqual(queued["status"], "queued")
+        self.assertEqual(queued["created_at"], preparing["created_at"])
+        self.assertEqual(queued["input_bundle"]["snapshot_id"], "sha256:" + "b" * 64)
+
     def test_operational_multiversion_result_identity_is_enforced(self) -> None:
         job = {
             "job_type": mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,

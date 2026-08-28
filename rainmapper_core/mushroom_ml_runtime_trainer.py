@@ -552,6 +552,7 @@ def write_batch(
     batches.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{batch_id}.", suffix=".tmp", dir=batches))
     artifacts: list[dict[str, Any]] = []
+    output_tuning_decisions: list[dict[str, Any]] = []
     failed_fits: list[dict[str, Any]] = []
     fit_results: list[dict[str, Any]] = []
     matrix_cache: dict[tuple[str, str], dict[str, Any]] = {}
@@ -634,14 +635,23 @@ def write_batch(
             target.parent.mkdir(parents=True, exist_ok=True)
             joblib.dump(bundle, target)
             duration_seconds = round(time.perf_counter() - fit_started, 6)
+            artifact_digest = sha256(target)
             artifacts.append(
                 {
                     "artifact_ref": artifact_ref.as_dict(),
                     "supported_horizons": list(fit["supported_horizons"]),
                     "path": final_relative.as_posix(),
-                    "sha256": sha256(target),
+                    "sha256": artifact_digest,
                 }
             )
+            if checked_tuning_catalog is not None:
+                output_tuning_decisions.append(
+                    {
+                        "scope": artifact_ref.as_dict(),
+                        "fit_config": bundle.get("fit_config") or {},
+                        "source_artifact_sha256": artifact_digest,
+                    }
+                )
             fit_results.append(
                 {
                     "artifact_ref": artifact_ref.as_dict(),
@@ -666,6 +676,25 @@ def write_batch(
                         "tuning_reused": tuning_decision is not None,
                     }
                 )
+        output_tuning_catalog = None
+        tuning_catalog_reference = None
+        if checked_tuning_catalog is not None:
+            output_tuning_catalog = mushroom_ml_tuning_catalog.build_from_decisions(
+                checked_registry,
+                source_batch_id=batch_id,
+                source_snapshot_id=snapshot_id,
+                decisions=output_tuning_decisions,
+                training_plan=training_plan,
+            )
+            tuning_catalog_path = staging / "tuning-catalog.json"
+            mushroom_ml_tuning_catalog.save(tuning_catalog_path, output_tuning_catalog)
+            tuning_catalog_reference = {
+                "catalog_id": output_tuning_catalog["catalog_id"],
+                "source_batch_id": batch_id,
+                "decision_count": len(output_tuning_catalog["decisions"]),
+                "path": Path("batches", batch_id, "tuning-catalog.json").as_posix(),
+                "sha256": sha256(tuning_catalog_path),
+            }
         manifest = catalog.validate_batch_manifest(
             checked_registry,
             {
@@ -689,15 +718,7 @@ def write_batch(
                 },
                 "failed_fits": failed_fits,
                 "fit_results": fit_results,
-                "tuning_catalog": (
-                    {
-                        "catalog_id": checked_tuning_catalog["catalog_id"],
-                        "source_batch_id": checked_tuning_catalog["source_batch_id"],
-                        "decision_count": len(checked_tuning_catalog["decisions"]),
-                    }
-                    if checked_tuning_catalog is not None
-                    else None
-                ),
+                "tuning_catalog": tuning_catalog_reference,
                 },
             )
         (staging / "manifest.json").write_text(
