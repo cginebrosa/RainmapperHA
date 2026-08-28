@@ -17,6 +17,18 @@ WORKER_NETWORK="rainmapper-local-compute"
 WORKER_DATA_DIR="/var/lib/rainmapper-worker"
 WORKER_HEALTH_URL="http://127.0.0.1:8110/health"
 LAB_COORDINATOR_URL="http://rainmapper-ha-ui:8100"
+LOCAL_WORKER_IMAGE_CLEANUP="${LOCAL_WORKER_IMAGE_CLEANUP:-1}"
+LOCAL_WORKER_BUILD_CACHE_CLEANUP="${LOCAL_WORKER_BUILD_CACHE_CLEANUP:-1}"
+LOCAL_WORKER_BUILD_CACHE_MAX_BYTES="${LOCAL_WORKER_BUILD_CACHE_MAX_BYTES:-8589934592}"
+
+if [[ ! "${LOCAL_WORKER_IMAGE_CLEANUP}" =~ ^[01]$ || ! "${LOCAL_WORKER_BUILD_CACHE_CLEANUP}" =~ ^[01]$ ]]; then
+    printf 'Error: local cleanup flags must be 0 or 1.\n' >&2
+    exit 2
+fi
+if [[ ! "${LOCAL_WORKER_BUILD_CACHE_MAX_BYTES}" =~ ^[1-9][0-9]*$ ]]; then
+    printf 'Error: LOCAL_WORKER_BUILD_CACHE_MAX_BYTES must be a positive integer.\n' >&2
+    exit 2
+fi
 
 DISPLAY_NAME=""
 RAINMAPPER_URL=""
@@ -47,6 +59,8 @@ usage() {
         '' \
         'Behaviour:' \
         '  * Builds and runs the independently versioned worker image.' \
+        '  * After a healthy start, removes old versioned worker images and caps' \
+        '    unused local BuildKit cache at 8 GiB by default; volumes are untouched.' \
         '  * Passed parameters override and persist the corresponding saved values.' \
         '  * Missing parameters are loaded from rainmapper-worker-data.' \
         '  * If Rainmapper requires authentication and no token is stored, generate' \
@@ -175,6 +189,29 @@ cd "${REPO_ROOT}"
 docker volume create "${WORKER_VOLUME}" >/dev/null
 docker network create "${WORKER_NETWORK}" >/dev/null 2>&1 || true
 docker compose -f "${COMPOSE_FILE}" build rainmapper-worker
+
+cleanup_local_worker_build_artifacts() {
+    local tag
+
+    if [[ "${LOCAL_WORKER_IMAGE_CLEANUP}" == "1" ]]; then
+        while IFS= read -r tag; do
+            if [[ "${tag}" == "${RAINMAPPER_WORKER_VERSION}" || ! "${tag}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                continue
+            fi
+            printf 'Removing obsolete local worker image rainmapper-worker:%s.\n' "${tag}"
+            if ! docker image rm "rainmapper-worker:${tag}" >/dev/null; then
+                printf 'Warning: could not remove rainmapper-worker:%s; it may still be in use.\n' "${tag}" >&2
+            fi
+        done < <(docker image ls rainmapper-worker --format '{{.Tag}}')
+    fi
+
+    if [[ "${LOCAL_WORKER_BUILD_CACHE_CLEANUP}" == "1" ]]; then
+        printf 'Bounding unused local BuildKit cache to %s bytes.\n' "${LOCAL_WORKER_BUILD_CACHE_MAX_BYTES}"
+        if ! docker buildx prune --force --max-used-space "${LOCAL_WORKER_BUILD_CACHE_MAX_BYTES}" >/dev/null; then
+            printf 'Warning: could not prune unused local BuildKit cache.\n' >&2
+        fi
+    fi
+}
 
 worker_config() {
     docker run --rm --interactive \
@@ -345,6 +382,7 @@ docker compose -f "${COMPOSE_FILE}" up --force-recreate -d rainmapper-worker
 
 for attempt in {1..30}; do
     if WORKER_STATUS_JSON="$(curl --fail --silent --show-error "${WORKER_HEALTH_URL}" 2>/dev/null)"; then
+        cleanup_local_worker_build_artifacts
         if [[ "${WORKER_STATUS_JSON}" == *'"status": "needs_dataset"'* ]]; then
             printf '\nRainmapper worker is running and needs its GIS dataset.\n'
             printf 'The first compatible job will download, verify and persist it automatically.\n'

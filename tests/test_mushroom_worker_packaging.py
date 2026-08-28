@@ -167,6 +167,15 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn("scutil --get ComputerName", start)
         self.assertIn("up --force-recreate -d rainmapper-worker", start)
         self.assertIn("WORKER_HEALTH_URL", start)
+        self.assertIn("LOCAL_WORKER_BUILD_CACHE_MAX_BYTES", start)
+        self.assertIn("docker image rm", start)
+        self.assertIn("docker buildx prune --force --max-used-space", start)
+        self.assertNotIn("docker system prune", start)
+        self.assertNotIn("docker volume prune", start)
+        self.assertGreater(
+            start.index("cleanup_local_worker_build_artifacts", start.index("for attempt")),
+            start.index("WORKER_STATUS_JSON", start.index("for attempt")),
+        )
         self.assertIn("needs_dataset", start)
         self.assertNotIn("WORKER_READY_URL", start)
         self.assertIn("stop rainmapper-worker", stop)
