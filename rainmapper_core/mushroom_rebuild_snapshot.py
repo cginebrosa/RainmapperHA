@@ -503,6 +503,117 @@ def create_snapshot(
         raise
 
 
+def derive_snapshot(
+    snapshot_dir: Path,
+    *,
+    source_snapshot_dir: Path,
+    extra_inputs: dict[str, Path] | None = None,
+) -> dict[str, Any]:
+    """Derive a snapshot from an immutable predecessor without rereading bulk inputs."""
+    source_root = source_snapshot_dir.resolve()
+    source_manifest = load_manifest(source_root)
+    target = snapshot_dir.resolve()
+    if target.exists():
+        raise FileExistsError(f"snapshot target already exists: {target}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    staging = target.parent / f".{target.name}.staging-{uuid.uuid4().hex}"
+    staging.mkdir()
+    try:
+        snapshot_files: list[dict[str, object]] = []
+        occupied_paths: set[str] = set()
+        for raw_record in source_manifest.get("files", []):
+            if not isinstance(raw_record, dict):
+                raise ValueError("source snapshot contains an invalid file record")
+            logical_path = _safe_relative_path(
+                raw_record.get("path"), label="source snapshot file"
+            ).as_posix()
+            if logical_path in occupied_paths:
+                raise ValueError(f"source snapshot repeats file path: {logical_path}")
+            occupied_paths.add(logical_path)
+            if raw_record.get("exists", True) is False:
+                snapshot_files.append(dict(raw_record))
+                continue
+            size_bytes = int(raw_record.get("size_bytes", -1))
+            digest = str(raw_record.get("sha256", ""))
+            if size_bytes < 0 or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise ValueError(f"source snapshot file identity is invalid: {logical_path}")
+            source = _resolve_beneath(
+                source_root, logical_path, label="source snapshot file"
+            )
+            snapshot_files.append(
+                _link_immutable_snapshot_file(
+                    source,
+                    staging / logical_path,
+                    logical_path=logical_path,
+                    role=str(raw_record.get("role", "")),
+                    size_bytes=size_bytes,
+                    sha256=digest,
+                )
+            )
+
+        for role, source in sorted((extra_inputs or {}).items()):
+            role_name = str(role or "").strip()
+            if not role_name:
+                raise ValueError("extra snapshot input role must not be empty")
+            logical_path = f"inputs/extra/{role_name}"
+            _safe_relative_path(logical_path, label="extra snapshot input")
+            if logical_path in occupied_paths:
+                raise ValueError(f"derived snapshot input already exists: {logical_path}")
+            occupied_paths.add(logical_path)
+            snapshot_files.append(
+                _copy_snapshot_file(
+                    Path(source).resolve(),
+                    staging / logical_path,
+                    logical_path=logical_path,
+                    role=f"extra:{role_name}",
+                    required=True,
+                )
+            )
+
+        datasets = json.loads(json.dumps(source_manifest.get("datasets", [])))
+        if not isinstance(datasets, list) or len(datasets) != 1:
+            raise ValueError("source snapshot dataset contract is invalid")
+        dataset = datasets[0]
+        if not isinstance(dataset, dict):
+            raise ValueError("source snapshot dataset contract is invalid")
+        dataset_id = str(dataset.get("dataset_id", ""))
+        dataset_fingerprint = str(dataset.get("fingerprint", ""))
+        if not dataset_id or not re.fullmatch(r"sha256:[0-9a-f]{64}", dataset_fingerprint):
+            raise ValueError("source snapshot dataset identity is invalid")
+        snapshot_fingerprint = _fingerprint(
+            [
+                *snapshot_files,
+                {
+                    "role": f"dataset:{dataset_id}",
+                    "path": dataset_fingerprint.removeprefix("sha256:"),
+                },
+            ]
+        )
+        manifest = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": "mushroom_rebuild_input_manifest",
+            "created_at": datetime.now(UTC).isoformat(),
+            "snapshot_id": f"sha256:{snapshot_fingerprint}",
+            "derived_from_snapshot_id": source_manifest.get("snapshot_id"),
+            "inputs": json.loads(json.dumps(source_manifest.get("inputs", {}))),
+            "files": snapshot_files,
+            "datasets": datasets,
+        }
+        if "weather_history" in source_manifest:
+            manifest["weather_history"] = json.loads(
+                json.dumps(source_manifest["weather_history"])
+            )
+        (staging / MANIFEST_NAME).write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        staging.replace(target)
+        return manifest
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+
 def load_manifest(snapshot_dir: Path) -> dict[str, Any]:
     manifest_path = snapshot_dir.resolve() / MANIFEST_NAME
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))

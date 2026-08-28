@@ -13743,6 +13743,15 @@ def create_mushroom_ml_multiversion_job(
         }
 
         def prepare_bundle(extra_inputs: dict[str, Path]) -> dict[str, object]:
+            source_snapshot_dir = None
+            if rebuild_job_id:
+                candidate_source = (
+                    mushroom_worker_input_bundles_path()
+                    / rebuild_job_id
+                    / mushroom_worker_transport.SNAPSHOT_PREFIX
+                )
+                if candidate_source.is_dir():
+                    source_snapshot_dir = candidate_source
             return mushroom_worker_transport.prepare_coordinator_bundle(
                 mushroom_worker_input_bundles_path(),
                 job_id=job_id,
@@ -13760,6 +13769,7 @@ def create_mushroom_ml_multiversion_job(
                     mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,
                 ),
                 extra_inputs=extra_inputs,
+                source_snapshot_dir=source_snapshot_dir,
             )
 
         input_bundle = prepare_multiversion_bundle_with_tuning(
@@ -13817,6 +13827,11 @@ def start_mushroom_ml_multiversion_job(
 ) -> tuple[int, dict[str, object]]:
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
         return 409, {"ok": False, "error": "Another external worker input bundle is already being prepared."}
+    set_mushroom_workers_flash(
+        "Preparing selected operational inputs on the coordinator."
+        if job_purpose == "operational"
+        else "Preparing scientific benchmark inputs on the coordinator.",
+    )
 
     sealed_scope_inputs = None
     if triggered_by_job_id:
@@ -20625,7 +20640,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             status, response = receive_mushroom_ml_multiversion_result_file(
                 job_id=(query.get("job_id") or [""])[0],
                 logical_path=(query.get("file") or [""])[0],
-                content=self.read_request_body(),
+                content=mushroom_ml_multiversion_transport.decode_result_content(
+                    self.read_request_body(),
+                    content_encoding=self.headers.get("Content-Encoding", ""),
+                    max_bytes=mushroom_ml_multiversion_transport.MAX_RESULT_FILE_BYTES,
+                ),
                 worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
                 claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
                 auth_token=worker_token,
@@ -20637,7 +20656,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             status, response = receive_mushroom_ml_multiversion_result_bundle(
                 job_id=(query.get("job_id") or [""])[0],
-                content=self.read_request_body(),
+                content=mushroom_ml_multiversion_transport.decode_result_content(
+                    self.read_request_body(),
+                    content_encoding=self.headers.get("Content-Encoding", ""),
+                    max_bytes=mushroom_ml_multiversion_transport.RESULT_BUNDLE_MAX_BYTES,
+                ),
                 worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
                 claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
                 auth_token=worker_token,

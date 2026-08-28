@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.278
+
+- Derive chained operational snapshots from the verified reconstruction
+  snapshot without rereading unchanged bulk inputs on Home Assistant.
+- Negotiate bounded gzip result delivery and report `Uploading` before the
+  first transfer starts.
+- Resume multiversion result retries from identity-bound upload receipts
+  instead of retransmitting files already verified by Home Assistant.
+
 ## 0.2.277
 
 - Receive multiversion results in bounded uncompressed TAR bundles and verify

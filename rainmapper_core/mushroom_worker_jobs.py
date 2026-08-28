@@ -937,6 +937,7 @@ def create_ml_multiversion_job(
         "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
         "result_bundle_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-bundle",
         "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
+        "result_content_encodings": ["gzip"],
     }
     queue["jobs"].append(job)
     queue["jobs"] = queue["jobs"][-MAX_JOBS:]

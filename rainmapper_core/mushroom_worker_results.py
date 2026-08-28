@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import io
 import json
@@ -1326,7 +1327,24 @@ def upload_ml_multiversion_result(
     )
     headers = mushroom_worker_transport.request_headers(worker_id, claim_token, token)
     headers["Content-Type"] = "application/octet-stream"
-    _post_bytes(
+    gzip_enabled = "gzip" in {
+        str(value).strip().lower()
+        for value in (job.get("result_content_encodings") or [])
+    }
+    upload_phase = (
+        "Uploading active operational models"
+        if job_purpose == "operational"
+        else "Uploading V2--V6 scientific benchmark"
+    )
+    if progress_callback is not None:
+        progress_callback(
+            {
+                "phase": upload_phase,
+                "message": "Preparing verified result transfer.",
+                "overall_percent": 90,
+            }
+        )
+    manifest_response = _post_bytes(
         ha_url.rstrip("/") + endpoint + "?" + urlencode(
             {"job_id": job_id, "file": mushroom_ml_multiversion_transport.RESULT_MANIFEST_NAME}
         ),
@@ -1334,12 +1352,21 @@ def upload_ml_multiversion_result(
         headers=headers,
         timeout=timeout,
     )
+    declared_paths = {str(record["path"]) for record in manifest["files"]}
+    received_paths = {
+        str(path)
+        for path in (manifest_response.get("received_paths") or [])
+        if str(path) in declared_paths
+    }
+    pending_records = [
+        record for record in manifest["files"] if str(record["path"]) not in received_paths
+    ]
     if bundle_endpoint == "/api/mushrooms/workers/jobs/multiversion-result-bundle":
         groups: list[list[dict[str, Any]]] = []
         legacy_records: list[dict[str, Any]] = []
         group: list[dict[str, Any]] = []
         estimated_size = 10 * 1024
-        for record in manifest["files"]:
+        for record in pending_records:
             member_size = 512 + ((int(record["size_bytes"]) + 511) // 512) * 512
             if member_size + 10 * 1024 > mushroom_ml_multiversion_transport.RESULT_BUNDLE_MAX_BYTES:
                 if group:
@@ -1356,10 +1383,15 @@ def upload_ml_multiversion_result(
             estimated_size += member_size
         if group:
             groups.append(group)
-        uploaded_files = 0
+        uploaded_files = len(received_paths)
         for bundle_index, records in enumerate(groups, start=1):
             stream = io.BytesIO()
-            with tarfile.open(fileobj=stream, mode="w") as archive:
+            archive_options = {"compresslevel": 6} if gzip_enabled else {}
+            with tarfile.open(
+                fileobj=stream,
+                mode="w:gz" if gzip_enabled else "w",
+                **archive_options,
+            ) as archive:
                 for record in records:
                     source = result_root / record["path"]
                     info = archive.gettarinfo(str(source), arcname=record["path"])
@@ -1381,11 +1413,7 @@ def upload_ml_multiversion_result(
             if progress_callback is not None:
                 progress_callback(
                     {
-                        "phase": (
-                            "Uploading active operational models"
-                            if job_purpose == "operational"
-                            else "Uploading V2--V6 scientific benchmark"
-                        ),
+                        "phase": upload_phase,
                         "message": (
                             f"Uploaded result bundle {bundle_index}/{len(groups)} "
                             f"({uploaded_files}/{len(manifest['files'])} files)."
@@ -1395,23 +1423,26 @@ def upload_ml_multiversion_result(
                 )
         for record in legacy_records:
             logical_path = record["path"]
+            payload = _read_bytes(result_root / logical_path)
+            upload_headers = headers
+            if gzip_enabled:
+                compressed = gzip.compress(payload, compresslevel=6, mtime=0)
+                if len(compressed) < len(payload):
+                    payload = compressed
+                    upload_headers = {**headers, "Content-Encoding": "gzip"}
             _post_bytes(
                 ha_url.rstrip("/") + endpoint + "?" + urlencode(
                     {"job_id": job_id, "file": logical_path}
                 ),
-                _read_bytes(result_root / logical_path),
-                headers=headers,
+                payload,
+                headers=upload_headers,
                 timeout=timeout,
             )
             uploaded_files += 1
             if progress_callback is not None:
                 progress_callback(
                     {
-                        "phase": (
-                            "Uploading active operational models"
-                            if job_purpose == "operational"
-                            else "Uploading V2--V6 scientific benchmark"
-                        ),
+                        "phase": upload_phase,
                         "message": (
                             f"Uploaded large result file {uploaded_files}/"
                             f"{len(manifest['files'])}."
@@ -1421,24 +1452,33 @@ def upload_ml_multiversion_result(
                     }
                 )
     else:
-        logical_paths = [row["path"] for row in manifest["files"]]
-        for index, logical_path in enumerate(logical_paths, start=1):
+        logical_paths = [row["path"] for row in pending_records]
+        uploaded_files = len(received_paths)
+        for logical_path in logical_paths:
+            payload = _read_bytes(result_root / logical_path)
+            upload_headers = headers
+            if gzip_enabled:
+                compressed = gzip.compress(payload, compresslevel=6, mtime=0)
+                if len(compressed) < len(payload):
+                    payload = compressed
+                    upload_headers = {**headers, "Content-Encoding": "gzip"}
             _post_bytes(
                 ha_url.rstrip("/") + endpoint + "?" + urlencode({"job_id": job_id, "file": logical_path}),
-                _read_bytes(result_root / logical_path),
-                headers=headers,
+                payload,
+                headers=upload_headers,
                 timeout=timeout,
             )
             if progress_callback is not None:
+                uploaded_files += 1
                 progress_callback(
                     {
-                        "phase": (
-                            "Uploading active operational models"
-                            if job_purpose == "operational"
-                            else "Uploading V2--V6 scientific benchmark"
+                        "phase": upload_phase,
+                        "message": (
+                            f"Uploaded result file {uploaded_files}/{len(manifest['files'])}."
                         ),
-                        "message": f"Uploaded result file {index}/{len(logical_paths)}.",
-                        "overall_percent": 90 + int(index / len(logical_paths) * 8),
+                        "overall_percent": (
+                            90 + int(uploaded_files / len(manifest["files"]) * 8)
+                        ),
                     }
                 )
     completed = _post_bytes(

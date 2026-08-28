@@ -8,8 +8,9 @@ import json
 import os
 import re
 import shutil
-import tempfile
 import tarfile
+import tempfile
+import zlib
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -95,6 +96,26 @@ def _write_upload_receipts(
         bytes_written=len(content),
         fsyncs=1,
     )
+
+
+def _received_result_paths(
+    job_root: Path,
+    manifest: Mapping[str, Any],
+) -> list[str]:
+    receipts = _load_upload_receipts(job_root)
+    received: list[str] = []
+    for declaration in manifest.get("files", []):
+        path = str(declaration.get("path", ""))
+        destination = job_root / path
+        if _matches_received_digest(
+            job_root,
+            destination,
+            str(declaration.get("sha256", "")),
+            size_bytes=int(declaration.get("size_bytes", -1)),
+            receipts=receipts,
+        ):
+            received.append(path)
+    return received
 
 
 def _matches_received_digest(
@@ -553,7 +574,10 @@ def receive_result_file(
             hash_bytes=existing_size + len(content),
         )
         if existing_size == len(content) and existing_sha256 == incoming_sha256:
-            return {"status": "reused", "path": path, "size_bytes": existing_size}
+            response = {"status": "reused", "path": path, "size_bytes": existing_size}
+            if path == RESULT_MANIFEST_NAME:
+                response["received_paths"] = _received_result_paths(job_root, manifest)
+            return response
         raise FileExistsError(
             f"Multiversion result file already exists with different content: {path}"
         )
@@ -572,7 +596,23 @@ def receive_result_file(
         bytes_written=len(content),
         fsyncs=1,
     )
-    return {"status": "staged", "path": path, "size_bytes": len(content)}
+    if path != RESULT_MANIFEST_NAME:
+        destination_stat = destination.stat()
+        receipts = _load_upload_receipts(job_root)
+        receipts[path] = {
+            "path": path,
+            "size_bytes": len(content),
+            "sha256": hashlib.sha256(content).hexdigest(),
+            "device": destination_stat.st_dev,
+            "inode": destination_stat.st_ino,
+            "mtime_ns": destination_stat.st_mtime_ns,
+            "ctime_ns": destination_stat.st_ctime_ns,
+        }
+        _write_upload_receipts(job_root, receipts)
+    response = {"status": "staged", "path": path, "size_bytes": len(content)}
+    if path == RESULT_MANIFEST_NAME:
+        response["received_paths"] = []
+    return response
 
 
 def receive_result_bundle(
@@ -581,7 +621,7 @@ def receive_result_bundle(
     job_id: str,
     content: bytes,
 ) -> dict[str, Any]:
-    """Stage many declared files from one bounded, uncompressed tar request."""
+    """Stage many declared files from one bounded tar request."""
     if not content or len(content) > RESULT_BUNDLE_MAX_BYTES:
         raise ValueError("Multiversion result bundle size is invalid")
     mushroom_worker_transport.validate_job_id(job_id)
@@ -595,7 +635,7 @@ def receive_result_bundle(
     staged: list[str] = []
     seen: set[str] = set()
     try:
-        archive = tarfile.open(fileobj=io.BytesIO(content), mode="r:")
+        archive = tarfile.open(fileobj=io.BytesIO(content), mode="r:*")
     except tarfile.TarError as exc:
         raise ValueError("Multiversion result bundle is not a valid tar archive") from exc
     with archive:
@@ -811,3 +851,28 @@ def remove_installed_batch(*, models_root: Path, batch_id: str) -> None:
 
 def discard_staged_result(result_root: Path, *, job_id: str) -> None:
     shutil.rmtree(Path(result_root) / job_id / "multiversion", ignore_errors=True)
+
+
+def decode_result_content(
+    content: bytes,
+    *,
+    content_encoding: str,
+    max_bytes: int,
+) -> bytes:
+    """Decode one negotiated result request with a strict expansion bound."""
+    encoding = str(content_encoding or "").strip().lower()
+    if encoding in {"", "identity"}:
+        return content
+    if encoding != "gzip":
+        raise ValueError("Multiversion result content encoding is unsupported")
+    decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    try:
+        decoded = decoder.decompress(content, max_bytes + 1)
+        if len(decoded) > max_bytes or decoder.unconsumed_tail:
+            raise ValueError("Multiversion result expanded size is invalid")
+        decoded += decoder.flush(max_bytes + 1 - len(decoded))
+    except zlib.error as exc:
+        raise ValueError("Multiversion gzip result is invalid") from exc
+    if len(decoded) > max_bytes or not decoder.eof or decoder.unused_data:
+        raise ValueError("Multiversion result expanded size is invalid")
+    return decoded

@@ -1,4 +1,5 @@
 import hashlib
+import gzip
 import io
 import json
 import shutil
@@ -29,6 +30,67 @@ REVISION_VECTOR = {
 
 
 class MushroomMLMultiversionTransportTests(TestCase):
+
+    def test_result_content_gzip_is_bounded_and_verified(self) -> None:
+        payload = b"holdout-evidence\n" * 100
+        compressed = gzip.compress(payload, mtime=0)
+
+        self.assertEqual(
+            payload,
+            transport.decode_result_content(
+                compressed, content_encoding="gzip", max_bytes=len(payload)
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "expanded size"):
+            transport.decode_result_content(
+                compressed, content_encoding="gzip", max_bytes=len(payload) - 1
+            )
+        with self.assertRaisesRegex(ValueError, "gzip result is invalid"):
+            transport.decode_result_content(
+                b"not-gzip", content_encoding="gzip", max_bytes=len(payload)
+            )
+        with self.assertRaisesRegex(ValueError, "encoding is unsupported"):
+            transport.decode_result_content(
+                payload, content_encoding="br", max_bytes=len(payload)
+            )
+
+    def test_manifest_retry_reports_verified_received_paths(self) -> None:
+        job_id = "worker_job_resumableupload"
+        payload = b"already received"
+        manifest = {
+            "files": [
+                {
+                    "path": "batch/already.bin",
+                    "size_bytes": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                }
+            ]
+        }
+        with TemporaryDirectory() as temporary, mock.patch.object(
+            transport, "validate_result_manifest", return_value=manifest
+        ):
+            root = Path(temporary)
+            initial = transport.receive_result_file(
+                root,
+                job_id=job_id,
+                logical_path=transport.RESULT_MANIFEST_NAME,
+                content=b"{}",
+            )
+            self.assertEqual([], initial["received_paths"])
+            transport.receive_result_file(
+                root,
+                job_id=job_id,
+                logical_path="batch/already.bin",
+                content=payload,
+            )
+            resumed = transport.receive_result_file(
+                root,
+                job_id=job_id,
+                logical_path=transport.RESULT_MANIFEST_NAME,
+                content=b"{}",
+            )
+
+        self.assertEqual(["batch/already.bin"], resumed["received_paths"])
 
     def test_operational_result_stays_staged_until_explicit_install(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)

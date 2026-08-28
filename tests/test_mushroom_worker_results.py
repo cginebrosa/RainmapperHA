@@ -1,4 +1,5 @@
 import hashlib
+import gzip
 import io
 import json
 import os
@@ -806,12 +807,14 @@ class MushroomWorkerMultiversionUploadTests(unittest.TestCase):
                 "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
                 "result_bundle_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-bundle",
                 "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
+                "result_content_encodings": ["gzip"],
             }
             responses = [
                 {},
                 {},
                 {"verification": {"status": "verified", "job_purpose": "operational"}},
             ]
+            progress = []
             with mock.patch(
                 "rainmapper_core.mushroom_ml_multiversion_transport.validate_result_manifest",
                 return_value={
@@ -832,12 +835,16 @@ class MushroomWorkerMultiversionUploadTests(unittest.TestCase):
                     worker_id="worker_12345678",
                     claim_token="claim-token",
                     token="api-token",
+                    progress_callback=progress.append,
                 )
 
             self.assertEqual(3, post.call_count)
             self.assertIn("multiversion-result-bundle", post.call_args_list[1].args[0])
+            self.assertEqual("Uploading active operational models", progress[0]["phase"])
+            self.assertEqual(90, progress[0]["overall_percent"])
+            self.assertTrue(post.call_args_list[1].args[1].startswith(b"\x1f\x8b"))
             with tarfile.open(
-                fileobj=io.BytesIO(post.call_args_list[1].args[1]), mode="r:"
+                fileobj=io.BytesIO(post.call_args_list[1].args[1]), mode="r:*"
             ) as archive:
                 self.assertEqual(["first.bin", "second.bin"], archive.getnames())
 
@@ -855,6 +862,7 @@ class MushroomWorkerMultiversionUploadTests(unittest.TestCase):
                 "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
                 "result_bundle_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-bundle",
                 "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
+                "result_content_encodings": ["gzip"],
             }
             responses = [
                 {},
@@ -890,6 +898,54 @@ class MushroomWorkerMultiversionUploadTests(unittest.TestCase):
             self.assertEqual(4, post.call_count)
             self.assertIn("multiversion-result-bundle", post.call_args_list[1].args[0])
             self.assertIn("file=large.bin", post.call_args_list[2].args[0])
+            self.assertEqual(
+                "gzip", post.call_args_list[2].kwargs["headers"]["Content-Encoding"]
+            )
+            self.assertEqual(b"x" * 20_000, gzip.decompress(post.call_args_list[2].args[1]))
+
+    def test_upload_retry_skips_paths_reported_as_received(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            worker_job_dir = Path(temporary)
+            result_root = worker_job_dir / "multiversion_result"
+            result_root.mkdir()
+            (result_root / "multiversion_result.json").write_text("{}", encoding="utf-8")
+            (result_root / "first.bin").write_bytes(b"first")
+            (result_root / "second.bin").write_bytes(b"second")
+            job = {
+                "job_id": "worker_job_multiversion123",
+                "job_purpose": "operational",
+                "result_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-file",
+                "result_bundle_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-bundle",
+                "result_complete_endpoint": "/api/mushrooms/workers/jobs/multiversion-result-complete",
+            }
+            responses = [
+                {"received_paths": ["first.bin"]},
+                {},
+                {"verification": {"status": "verified", "job_purpose": "operational"}},
+            ]
+            with mock.patch(
+                "rainmapper_core.mushroom_ml_multiversion_transport.validate_result_manifest",
+                return_value={
+                    "files": [
+                        {"path": "first.bin", "size_bytes": 5},
+                        {"path": "second.bin", "size_bytes": 6},
+                    ]
+                },
+            ), mock.patch.object(
+                mushroom_worker_results, "_post_bytes", side_effect=responses
+            ) as post:
+                mushroom_worker_results.upload_ml_multiversion_result(
+                    "http://ha.test",
+                    job,
+                    worker_job_dir,
+                    worker_id="worker_12345678",
+                    claim_token="claim-token",
+                    token="api-token",
+                )
+
+            self.assertEqual(3, post.call_count)
+            with tarfile.open(fileobj=io.BytesIO(post.call_args_list[1].args[1]), mode="r:") as archive:
+                self.assertEqual(["second.bin"], archive.getnames())
 
     def test_upload_accepts_purpose_specific_completion_contract(self) -> None:
         for purpose, expected_status in (

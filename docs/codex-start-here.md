@@ -37,14 +37,14 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-28
+## Estado general al cierre de 2026-08-29
 
-- Rama `inicial`; cierre de código publicado en `8085e46`. Revalidar `pwd`,
+- Rama `inicial`; el HEAD anterior a la release era `6b698453`. Revalidar `pwd`,
   rama, HEAD, worktree y runtime al comenzar, y preservar todos los cambios y
   ficheros no rastreados.
-- HA real confirmada: `0.2.276`; `0.2.277` está publicada y pendiente de
+- HA real confirmada: `0.2.276`; `0.2.278` está publicada y pendiente de
   instalación. El único worker es local al M1, no se publica en GHCR y está
-  reconstruido como `1.0.27`, `healthy`/`idle`, conservando identidad, volumen
+  reconstruido como `1.0.28` e `idle`, conservando identidad, volumen
   y cachés.
 - `OperationalTrainingScope` y el plan serializable son comunes a local, HA y
   worker. La revisión `.2` deriva identidades únicamente del contenido
@@ -67,10 +67,10 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   posterior completó reconstrucción (1 min 39 s), ML v0 (29 s) y multiversión
   (11 min 20 s); este último movió 638 objetos y 90.087.316 bytes, por lo que
   `Uploading` incluía trabajo distinto de la transferencia de red.
-- HA `0.2.277` y worker `1.0.27` incluyen TAR sin compresión de
-  hasta 16 MiB para agrupar ficheros, fallback de fichero grande, recibos de
-  verificación, hardlinks meteorológicos y ocho checkpoints de promoción. No
-  afirmar mejora real hasta que el usuario instale HA y lance una medición.
+- HA `0.2.278` y worker `1.0.28` derivan snapshots encadenados sin releer el
+  histórico inmutable y entregan resultados multiversión con gzip acotado,
+  recibos por ruta y reanudación que omite objetos ya verificados. No afirmar
+  mejora real hasta que el usuario instale HA y lance una medición.
 - La retención ML real continúa activa por decisión del usuario. No cambiarla,
   no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
   ni promoción atómica.

@@ -4,19 +4,19 @@ Ventana operativa para continuar RainmapperHA. Revalidar código, datos, runtime
 y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 `docs/decisions.md`; las prioridades completas, en `docs/todo.md`.
 
-## Estado operativo al cierre — 2026-08-28
+## Estado operativo al cierre — 2026-08-29
 
 - Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
   El HEAD previo a esta release era
-  `4f71ff53bfda14009969191f6d41549bceba7726`; revalidar HEAD y worktree al
+  `6b69845329dd5db4c6fa0f9319bffa841b7b10e1`; revalidar HEAD y worktree al
   continuar.
 - HA real `0.2.276` sigue siendo la última instalación confirmada por el
-  usuario. HA `0.2.277` está publicada y pendiente de instalación.
-- `0.2.277` y `latest` comparten el índice OCI
-  `sha256:a1a1b5da33bb4a2155b2d73c4bc0f0c82ed797b532637874e020fce9f85402b4`
+  usuario. HA `0.2.278` está publicada y pendiente de instalación confirmada.
+- `0.2.278` y `latest` comparten el índice OCI
+  `sha256:f793d2f75bc1ead6924efe61a4aedac179ba4385294ee6a0f14f388b0b7f534c`
   con manifests `linux/amd64` y `linux/arm64`.
 - El único worker es local al M1 y no se publica en GHCR. Está reconstruido como
-  `rainmapper-worker:1.0.27`, `healthy` e `idle`, con identidad
+  `rainmapper-worker:1.0.28` e `idle`, con identidad
   `worker_1a9a232c20fe2ee2`, volumen `rainmapper-worker-data` y cachés GIS y
   Predictor válidas. Revalidar runtime antes de reutilizar estos datos.
 - La retención ML real permanece activa por decisión del usuario. No cambiarla,
@@ -39,14 +39,12 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
   bytes en caché a las 20:47:36 UTC. Por tanto, la fase `Uploading` de la UI no
   representaba once minutos de transferencia de red: incluía trabajo previo y
   verificación posterior sin fases visibles suficientemente precisas.
-- La optimización está publicada en HA `0.2.277` y desplegada en el worker
-  `1.0.27`: snapshots
-  meteorológicos mediante hardlinks y verificación por identidad inmutable;
-  resultados multiversión en TAR sin compresión de hasta 16 MiB, con fallback
-  por fichero para artefactos mayores; recibos ligados a identidad de
-  filesystem para evitar rehashes posteriores; y progreso de promoción
-  reducido a ocho checkpoints. No atribuirle mejora real hasta instalar HA y
-  medir una nueva cadena iniciada por el usuario.
+- HA `0.2.278` y worker `1.0.28` derivan el snapshot encadenado mediante
+  hardlinks de los inputs inmutables y solo calculan hashes de los inputs
+  nuevos. La entrega multiversión anuncia `Uploading` antes de la primera
+  petición, acepta gzip acotado y devuelve recibos por ruta; los reintentos
+  omiten objetos ya verificados en HA. No atribuir mejora real hasta instalar
+  HA y medir una nueva cadena iniciada por el usuario.
 
 ## Resultado principal de la sesión
 
@@ -108,12 +106,12 @@ objetivo de 10 s y no debe optimizarse sin telemetría por fase.
 
 ## Validación de código completada
 
-- smoke definitivo de HA `0.2.277` sobre 1.092 pruebas y todos los validadores;
+- smoke definitivo de HA `0.2.278` sobre 1.096 pruebas y todos los validadores;
 - siete pruebas de empaquetado tras los bumps mecánicos;
 - imagen HA multiarch publicada y verificada con el mismo digest en versión y
   `latest`;
-- worker `1.0.27` reconstruido conservando identidad, volumen y cachés; health
-  local confirma `healthy`/`idle`;
+- worker `1.0.28` reconstruido conservando identidad, volumen y cachés; health
+  local confirma versión, `idle` y ambas cachés válidas;
 
 - 49 pruebas dirigidas de scope, ML y worker;
 - 327 pruebas de integración local/HA/worker/resultados/web;
@@ -127,7 +125,7 @@ proporcional si cambia código, imagen, datos o configuración.
 
 ## Próximos pasos
 
-1. El usuario instalará HA `0.2.277`; comprobar versión y worker `1.0.27`
+1. El usuario instalará HA `0.2.278`; comprobar versión y worker `1.0.28`
    reconocido antes de iniciar cualquier job.
 2. El usuario, no Codex, lanzará la cadena real. Medirla por marcas monotónicas y contadores de
    peticiones/bytes; comparar en especial preparación, transferencia y
@@ -155,9 +153,9 @@ proporcional si cambia código, imagen, datos o configuración.
 - **UI de trabajos:** duración no incluye toda la preparación/pausas y el
   porcentaje puede retroceder al cambiar de escala de fase. No usar porcentaje
   ni suma de duraciones mostradas como ETA o tiempo integral.
-- **Optimización pendiente de validación real:** los TAR son contenedores sin compresión. HA
-  recorre, valida y escribe sus miembros, pero no los descomprime. La suite local
-  valida contrato, límites, traversal, retry y fallback; falta la medición real.
+- **Optimización pendiente de validación real:** la suite valida gzip acotado,
+  TAR comprimido, recibos, reanudación y fallback, pero falta medir una cadena
+  real con HA `0.2.278`.
 - **Equivalencia completa:** scope e identidades ya coinciden; todavía no se ha
   archivado una comparación exacta de fits, métricas y artefactos de local y
   remoto ejecutados sobre el mismo snapshot final.

@@ -153,6 +153,35 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
         missing_weather = [row for row in manifest["files"] if row.get("exists") is False]
         self.assertEqual(len(missing_weather), 3)
 
+    def test_derived_snapshot_reuses_bulk_inputs_and_adds_only_new_extras(self) -> None:
+        source = self.create_snapshot()
+        extra = self.root / "operational-plan.json"
+        extra.write_text('{"plan": true}', encoding="utf-8")
+        derived = self.root / "derived"
+
+        manifest = mushroom_rebuild_snapshot.derive_snapshot(
+            derived,
+            source_snapshot_dir=source,
+            extra_inputs={"operational-plan.json": extra},
+        )
+
+        verification = mushroom_rebuild_snapshot.verify_snapshot(
+            derived, gis_root_override=self.gis, verify_gis_file_hashes=False
+        )
+        self.assertEqual(verification["status"], "valid")
+        self.assertEqual(
+            manifest["derived_from_snapshot_id"],
+            mushroom_rebuild_snapshot.load_manifest(source)["snapshot_id"],
+        )
+        self.assertEqual(
+            (derived / "inputs/extra/operational-plan.json").read_text(encoding="utf-8"),
+            '{"plan": true}',
+        )
+        self.assertEqual(
+            (source / "inputs/mushroom-data/mushroom_observations.json").stat().st_ino,
+            (derived / "inputs/mushroom-data/mushroom_observations.json").stat().st_ino,
+        )
+
     def test_snapshot_prefers_weather_parquet_and_live_verification_accepts_it(self) -> None:
         pd.DataFrame(
             [

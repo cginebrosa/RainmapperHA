@@ -112,6 +112,7 @@ def prepare_coordinator_bundle(
     prefer_weather_parquet: bool = True,
     allow_partitioned_weather_history: bool = True,
     extra_inputs: dict[str, Path] | None = None,
+    source_snapshot_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Create one immutable coordinator-side bundle without changing live inputs."""
     resolved_job_id = validate_job_id(job_id)
@@ -124,18 +125,25 @@ def prepare_coordinator_bundle(
     staging.mkdir()
     try:
         snapshot_dir = staging / SNAPSHOT_PREFIX
-        manifest = mushroom_rebuild_snapshot.create_snapshot(
-            snapshot_dir,
-            observations_path=observations_path,
-            reference_catalogs_path=reference_catalogs_path,
-            gis_mappings_path=gis_mappings_path,
-            weather_data_dir=weather_data_dir,
-            gis_root=gis_root,
-            gis_hash_cache_path=root / ".gis-hash-cache.json",
-            prefer_weather_parquet=prefer_weather_parquet,
-            allow_partitioned_weather_history=allow_partitioned_weather_history,
-            extra_inputs=extra_inputs,
-        )
+        if source_snapshot_dir is None:
+            manifest = mushroom_rebuild_snapshot.create_snapshot(
+                snapshot_dir,
+                observations_path=observations_path,
+                reference_catalogs_path=reference_catalogs_path,
+                gis_mappings_path=gis_mappings_path,
+                weather_data_dir=weather_data_dir,
+                gis_root=gis_root,
+                gis_hash_cache_path=root / ".gis-hash-cache.json",
+                prefer_weather_parquet=prefer_weather_parquet,
+                allow_partitioned_weather_history=allow_partitioned_weather_history,
+                extra_inputs=extra_inputs,
+            )
+        else:
+            manifest = mushroom_rebuild_snapshot.derive_snapshot(
+                snapshot_dir,
+                source_snapshot_dir=source_snapshot_dir,
+                extra_inputs=extra_inputs,
+            )
         job_spec = mushroom_rebuild_contracts.create_job_spec(
             snapshot_dir,
             reconstruction_scope=reconstruction_scope,
