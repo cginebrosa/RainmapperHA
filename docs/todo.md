@@ -122,16 +122,26 @@ Especificación vinculante:
   SQLite verificado, estado deseado latest-wins, ejecución manual, publicación
   coordinada, lookup en HA, fallback íntegro y trigger asíncrono del runner.
   Cuatro rutas con datos dieron equivalencia científica exacta en local.
-- [ ] Instalar HA `0.2.282` y ejecutar el E2E real con el worker privado
-  `1.0.30`: confirmar que Workers y Predictor muestran el estado sin cálculo
-  pesado, medir cálculo y transferencia, confirmar activación en
+- [x] Externalizar del claim las selecciones operativas que superaban 64 KiB,
+  servirlas por endpoint autenticado y ligado al claim, y reconstruir el worker
+  privado como `1.0.31` sin perder identidad ni volumen.
+- [x] Impedir que una revisión pendiente reconstruya repetidamente su plan en
+  cada heartbeat; conservar un solo intento por
+  `(worker_id, revision, artifact_id)` y mantener en cola el job creado.
+- [x] Publicar HA `0.2.284` con margen de presencia de 15 s para heartbeat cada
+  5 s y materialización pendiente fuera de la petición heartbeat. Smoke
+  definitivo: 1.180 pruebas; digest multiarch verificado en continuidad.
+- [ ] Instalar HA `0.2.284` y ejecutar el E2E real con el worker privado
+  `1.0.31`: confirmar presencia estable y consumo en reposo, que Workers y
+  Predictor muestran estado barato, medir cálculo y transferencia, y confirmar activación en
   `/media/rainmapper/predictor_precompute`, hits servidos por HA, fallback con
   selección explícita de ejecutor y ausencia del SQLite en el backup.
 - [x] Auditar en solo lectura el backup real de `/share/rainmapper`: ocupa
   1.125 GiB y no contiene batches ML antiguos; el único batch está activo y
   protegido.
 - [ ] Corregir, con autorización separada, el ciclo de vida de seis input
-  bundles ya completados (176 MiB) y retirar el TAR legacy del runtime (138 MiB)
+  bundles ya completados (179,6 MiB medidos en el montaje real) y retirar el
+  TAR legacy del runtime (138 MiB)
   únicamente después de verificar su sustituto en `/media`. No borrar ni
   cambiar retención antes.
 - [ ] Perfilar `Building weekly matrix` por especie después del E2E real.

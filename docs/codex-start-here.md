@@ -37,39 +37,32 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-30
+## Estado general al cierre de 2026-08-31
 
-- Rama `inicial`; el HEAD previo al commit de esta entrega era
-  `32ee344d8f150d6400fe3e522bbf345bab5d4c9e`. Revalidar `pwd`, rama, HEAD,
+- Rama `inicial`; el HEAD verificado antes del cierre documental era
+  `28982edb5da3215398597bd550cf930d2ac3447f`. Revalidar `pwd`, rama, HEAD,
   worktree y runtime al comenzar.
-- El código declara HA `0.2.281` y worker `1.0.30`. HA `0.2.281` y
-  `latest` están publicados con el índice multiarch
-  `sha256:892fa5accda4b2588c7e6abc65a91b6058155a9d43893fe032a00cb1dc415fd0`.
-  La instalación en HA real no está confirmada.
-- El worker privado no se publica. Fue reconstruido localmente como `1.0.30`,
-  conservando identidad y volumen; el health observado tras la reconstrucción
-  era `idle` e incluía `predictor_precompute_v1`.
-- `OperationalTrainingScope` y el plan serializable son comunes a local, HA y
-  worker. La revisión `.2` deriva identidades únicamente del contenido
-  científico. Su implementación y validación están cerradas; conservar sus
-  contratos, hashes y promoción atómica.
-- La última evidencia aportada por el usuario mostró una cadena real completa:
-  reconstrucción 1 min 40 s, ML v0 26 s y V2–V6 7 min 5 s. El Predictor frío
-  observado sigue alrededor de 29 s y la UI de jobs todavía no expresa duración
-  integral ni progreso global fiables.
-- No hay entrenamientos programados: el usuario los inicia cuando añade
-  observaciones. Codex no inicia entrenamientos reales.
+- El código declara HA `0.2.284` y worker `1.0.31`. HA `0.2.284` y `latest`
+  están publicados con el índice multiarch
+  `sha256:b00ec790287648c9fde654ee8430fabb708036ee9b7f8af2ab7a63c9eaf8708c`.
+  La última instalación real confirmada es `0.2.283`; Rainmapper quedó parado
+  a la espera de que el usuario instale `0.2.284`.
+- El worker privado no se publica. La última observación local confirmó
+  `1.0.31`, healthy/idle, identidad y volumen conservados, y capacidad
+  `predictor_precompute_v1`.
 - El precálculo semanal SQLite está implementado y validado localmente: lookup
   en HA, cobertura multiversión, fallback íntegro, estado latest-wins,
-  publicación atómica, almacenamiento en `/media/rainmapper`, job manual,
-  trigger asíncrono del runner y estado visible en el Predictor. Cuatro rutas
-  con datos fueron científicamente equivalentes al cálculo vivo.
-- La retención ML real continúa activa por decisión del usuario. No cambiarla,
-  no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
-  ni promoción atómica.
-- La siguiente prueba es instalar HA `0.2.281` y validar el E2E real con el
-  worker `1.0.30`. Codex no instala ni inicia esa prueba real. No hacer nuevos
-  bumps, builds, publicaciones o cambios de retención sin autorización.
+  publicación atómica en `/media/rainmapper`, job manual, solicitud asíncrona
+  del runner y estado visible en Predictor y Workers.
+- `0.2.284` evita el falso parpadeo del worker: heartbeat cada 5 s, presencia
+  válida durante 15 s y planificación pendiente fuera de la petición
+  heartbeat, una sola vez por worker/revisión/artefacto.
+- La siguiente prueba es instalar `0.2.284`, confirmar presencia estable y
+  consumo en reposo, y completar el primer E2E real del precálculo con el
+  worker `1.0.31`.
+- No hay entrenamientos programados. La retención ML continúa activa; no borrar
+  datos, cambiar retención, lanzar entrenamientos ni hacer otro bump/build/
+  publicación sin autorización explícita.
 
 El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.

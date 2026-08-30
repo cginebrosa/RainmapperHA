@@ -6,185 +6,121 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 ## Estado al cierre — 2026-08-31
 
-- Workspace verificado: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama
-  `inicial`. El HEAD previo al commit de esta entrega era
-  `17884070cdcde7e8d203bda2183c6f53b2158191`; revalidar HEAD al continuar.
+- Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
+  El HEAD verificado antes del cierre documental es
+  `28982edb5da3215398597bd550cf930d2ac3447f`; revalidarlo al comenzar.
 - El código declara HA `0.2.284` y worker `1.0.31`.
-- HA `0.2.284` y `latest` están publicados con el mismo índice OCI
+- HA `0.2.284` y `latest` están publicados en GHCR con el mismo índice OCI
   `sha256:b00ec790287648c9fde654ee8430fabb708036ee9b7f8af2ab7a63c9eaf8708c`
-  y manifests `linux/amd64` y `linux/arm64`. HA real tenía `0.2.283` instalada;
-  Rainmapper quedó parado voluntariamente mientras se publicaba `0.2.284` y
-  falta que el usuario instale y pruebe esta última.
-- El worker no se publica. Se reconstruyó localmente como `1.0.31`, conservando
-  identidad `worker_1a9a232c20fe2ee2` y volumen `rainmapper-worker-data`. Su
-  health local confirmó `idle`, versión `1.0.31` y capacidad
-  `predictor_precompute_v1`; revalidar antes de afirmar estado futuro.
-- La retención ML real permanece activa por decisión del usuario. No cambiarla,
-  no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
-  ni promoción atómica.
-- No existen entrenamientos programados. El usuario inicia manualmente los
-  entrenamientos reales.
+  y manifests `linux/amd64` y `linux/arm64`.
+- La última versión confirmada en HA real es `0.2.283`. Rainmapper real quedó
+  parado voluntariamente; el usuario debe instalar y probar `0.2.284`.
+- El worker privado no se publica. El contenedor local observado era `1.0.31`,
+  conservaba identidad `worker_1a9a232c20fe2ee2`, volumen
+  `rainmapper-worker-data`, estado healthy/idle y capacidad
+  `predictor_precompute_v1`. Revalidar antes de afirmarlo en otra sesión.
+- No hay entrenamientos programados. No tocar retención, datos reales, HA real
+  ni lanzar entrenamientos, bumps, builds o publicaciones sin autorización.
 
-## Resultado principal
+## Resultado operativo entregado
 
-El precálculo semanal del Predictor quedó implementado y validado localmente:
+El precálculo semanal del Predictor está implementado y validado localmente:
 
-- SQLite regenerable con identidad científica separada del SHA-256 del fichero,
-  validación de esquema, cobertura, integridad y sustitución atómica;
-- cobertura de todas las especies y áreas, siete días y todas las versiones
-  operativas instaladas; las respuestas multiversión se componen desde los
-  bloques precalculados sin enumerar combinaciones;
-- lookup primero en HA, hits sin job y fallback íntegro al Predictor vivo ante
-  miss, invalidez o cobertura insuficiente;
-- estado deseado latest-wins, job manual desde el panel, ejecución local de
-  laboratorio y capacidad equivalente en el worker privado;
-- publicación verificada, transferencia y activación coordinadas; almacenamiento
-  HA en `/media/rainmapper/predictor_precompute`, fuera del backup del add-on;
-- estado visible tanto en Workers como en la esquina superior derecha del
-  Predictor (`usado`, `en curso`, `no disponible`, etc.);
-- el runner meteorológico solicita el precálculo de forma asíncrona al terminar
-  sus tareas, sin esperar su cálculo.
+- SQLite regenerable con identidad científica separada del SHA-256 físico,
+  validación de esquema, integridad y cobertura, y sustitución atómica;
+- todas las especies y áreas, siete días y todas las versiones operativas;
+  las respuestas multiversión se componen desde bloques por versión sin
+  enumerar combinaciones;
+- lookup primero en HA; un hit no crea job ni usa el worker; ausencia,
+  corrupción, identidad distinta o cobertura insuficiente hacen fallback
+  íntegro con selección explícita de ejecutor;
+- artefacto HA bajo `/media/rainmapper/predictor_precompute`, fuera del backup;
+- estado latest-wins, lanzamiento manual y solicitud asíncrona al terminar el
+  runner meteorológico;
+- estado visible en Workers y en la esquina superior derecha del Predictor.
 
-El artefacto local validado tras actualizar la meteorología tenía:
+El artefacto local de equivalencia ocupó `462974976` bytes, con 623 respuestas
+y 143 payloads. Recommender, semana, multiversión de un área y
+fecha/todas-las-áreas produjeron resultados científicamente idénticos al cálculo
+vivo. Los lookups midieron 0,03–0,11 s frente a 0,15–31,34 s en cálculo vivo.
 
-- `artifact_id`:
-  `sha256:2cefebb587df908064786dc9980e9447c1b9349152c70460b090ddaef8ddbbea`;
-- SHA-256 del fichero:
-  `sha256:3138636eaa498c1af7767121d4998008d1b4cd0d532fd10a6fe01234f893f0d6`;
-- tamaño `462974976` bytes, 623 respuestas y 143 payloads;
-- `quick_check`, cobertura, contadores y SHA correctos.
+## Corrección final de presencia del worker
 
-La comparación automática local cubrió cuatro rutas con datos: recommender,
-semana, multiversión de un área y consulta de fecha/todas las áreas. Las cuatro
-fueron científicamente idénticas entre SQLite y cálculo vivo, ignorando solo la
-telemetría de ejecución; los hashes comparados coincidieron. Los lookups tardaron
-0,03–0,11 s y los cálculos vivos 0,15–31,34 s. El usuario también validó la
-navegación local y confirmó su mejora.
+- En HA `0.2.283`, el worker enviaba heartbeat cada 5 s y HA lo declaraba
+  desconectado exactamente a los 5 s. El jitter normal causaba ciclos de
+  `En espera` durante 8–13 s, `Desconectado` aproximadamente 1 s y vuelta a
+  `En espera`.
+- `0.2.284` mantiene heartbeat cada 5 s y amplía el umbral de presencia a 15 s.
+- La materialización de una solicitud pendiente ya no planifica ciencia dentro
+  del request heartbeat. Se agenda fuera de la petición y solo una vez por
+  `(worker_id, revision, artifact_id)`; el heartbeat responde sin esperar.
+- El montaje real mostró `desired.json` del runner en revisión 1, asignado al
+  M1, pero ningún job `predictor_precompute` materializado todavía. Esta es la
+  primera situación que debe observarse tras instalar `0.2.284`.
 
 ## Validación y release
 
-- Smoke completo definitivo para `0.2.284`: 1.180 pruebas y todos los
-  validadores correctos.
-- Pruebas dirigidas de empaquetado detectaron y corrigieron la ausencia inicial
-  de los dos módulos de precálculo en la imagen privada del worker; 322 pruebas
-  dirigidas pasaron después.
-- `git diff --check` correcto antes de preparar el commit.
-- Worker privado `1.0.31` reconstruido y health verificado.
-- Imagen HA `0.2.284` publicada y verificada en GHCR para amd64/arm64; versión y
-  `latest` comparten digest
-  `sha256:b00ec790287648c9fde654ee8430fabb708036ee9b7f8af2ab7a63c9eaf8708c`.
-- `0.2.282` evita que las pantallas de Workers y Predictor planifiquen, lean o
-  rehasheen los inputs completos solo para mostrar el estado del precálculo.
-  El estado barato usa metadatos persistidos y distingue `desactualizado` sin
-  abrir el SQLite ni recorrer cientos de MiB. El arranque informa también la
-  ruta de precálculo configurada.
-- No repetir el smoke por cambios exclusivamente documentales o por el commit.
+- Suite dirigida del servidor: 293 pruebas correctas.
+- Smoke definitivo: 1.180 pruebas y todos los validadores correctos.
+- `git diff --check` correcto.
+- Release HA `0.2.284` publicada y verificada en GHCR; commit de release
+  `28982edb5da3215398597bd550cf930d2ac3447f` publicado en `origin/inicial`.
+- Worker `1.0.31` no cambió: la corrección pertenece al coordinador HA.
 
-## Correcciones incluidas en 0.2.283 / worker 1.0.31
+## Próximos pasos inmediatos
 
-- Telemetría persistente del precálculo remoto para
-  separar preparación del runtime, cálculo, transferencia estimada,
-  verificación/activación en HA y activación de la copia del worker. El panel de
-  Workers muestra el desglose terminado dentro de la duración del job.
-- El coordinador conserva hitos de cálculo y publicación aunque el worker no
-  llegue a confirmar `finish`; los tiempos de alta resolución proceden de
-  relojes monotónicos de worker y HA y no forman parte de la identidad
-  científica del artefacto.
-- La primera reclamación real de precálculo reveló que el `claim` aún incluía
-  `operational_selections` y superaba el límite de 64 KiB. El contenedor worker
-  permanecía sano, pero registraba alternativamente `heartbeat_restored` y
-  `Worker claim response is too large`, que la UI mostraba como cambios entre
-  `En espera` y `Desconectado`.
-- El coordinador conserva las selecciones en el
-  job, pero el contrato de control solo envía una referencia persistida
-  (endpoint autenticado, tamaño y SHA-256). El worker nuevo admite tanto el
-  payload inline antiguo como la descarga separada, que queda ligada al
-  `job_id`, worker y `claim_token`. La huella se calcula una sola vez al crear
-  el job y se verifica una sola vez al descargar; no se repite con cada
-  progreso.
-- El worker compatible con inline+referencia se reconstruyó antes de publicar HA.
-- Tras cancelar el primer trabajo, una revisión deseada sin trabajo activo hacía
-  que cada heartbeat de dos segundos reconstruyera el plan científico. En la
-  RPi4 esto saturó recursos y obligó al usuario a reiniciarla. `0.2.283` registra
-  un único intento de materialización por revisión: los heartbeats posteriores
-  son baratos, el trabajo creado permanece en cola y una nueva solicitud avanza
-  la revisión para permitir un intento nuevo.
-- Validación final: 355 pruebas dirigidas y smoke completo de 1.179 pruebas,
-  compilación, validadores y `git diff --check` correctos.
+1. El usuario instala HA `0.2.284` y arranca Rainmapper.
+2. Confirmar versión instalada y observar al menos varios minutos que el worker
+   permanece `En espera` sin alternar con `Desconectado`; medir CPU y RAM en
+   reposo. No afirmar mejora de memoria solo por la corrección: Python puede
+   conservar memoria reservada.
+3. Confirmar que la revisión 1 pendiente se materializa una sola vez y queda en
+   cola o en ejecución sin bloquear heartbeats. Revisar logs si no aparece job.
+4. Ejecutar el primer precálculo real en el worker: medir planificación,
+   cálculo, transferencia y activación; verificar SQLite en
+   `/media/rainmapper/predictor_precompute` y ausencia en el backup.
+5. Probar hits con datos en las cuatro rutas equivalentes y un miss controlado
+   que solicite ejecutor para el fallback.
+6. Solo después, perfilar `Building weekly matrix` por especie y optimizar el
+   coste dominante medido. Objetivo orientativo: menos de diez minutos.
 
-## Corrección incluida en 0.2.284
+## Riesgos y dudas activos
 
-- El worker `1.0.31` emite heartbeat cada cinco segundos, mientras HA
-  `0.2.283` lo declaraba desconectado exactamente a los cinco segundos. La UI
-  alternaba `En espera` y `Desconectado` durante aproximadamente un segundo por
-  el jitter normal. `0.2.284` conserva el intervalo de cinco segundos y amplía
-  el umbral de presencia a quince segundos.
-- La reconciliación de una solicitud pendiente de precálculo ya no ejecuta la
-  planificación científica dentro de la petición heartbeat. Se agenda una sola
-  vez por identidad/revisión en un hilo separado, por lo que el heartbeat puede
-  responder inmediatamente y no pierde presencia mientras HA prepara el job.
-- El montaje real confirmó una solicitud del runner, revisión 1 y worker
-  `worker_1a9a232c20fe2ee2`, pero todavía ningún job de precálculo materializado.
-- Validación final: 293 pruebas del servidor y smoke completo de 1.180 pruebas,
-  compilación, validadores y `git diff --check` correctos.
-
-## Próxima prueba real
-
-1. El usuario instala HA `0.2.284` y vuelve a arrancar Rainmapper.
-2. Confirmar en la UI la versión instalada y que HA reconoce el worker `1.0.31`
-   con `predictor_precompute_v1`.
-3. Lanzar manualmente un precálculo real. Verificar que calcula en el worker
-   preferido, publica el SQLite en `/media/rainmapper/predictor_precompute` y HA
-   lo activa sin incluirlo en el backup.
-4. Comparar consultas con datos en las cuatro rutas ya verificadas localmente;
-   deben indicar `Precálculo: usado` y responder desde HA sin usar el worker.
-5. Forzar o esperar un miss controlado y comprobar que la UI pregunta dónde
-   ejecutar el fallback; HA real no debe asumir el cálculo pesado local.
-6. Medir duración, tamaño y transferencia reales. La optimización de
-   `Building weekly matrix` queda para después de este E2E.
-
-## Riesgos y deuda activos
-
-- HA `0.2.283` es la última versión instalada confirmada. Corrigió el claim y
-  la repetición de planificación, pero mostró un segundo problema: el umbral de
-  desconexión coincidía exactamente con el intervalo del worker y la primera
-  planificación pendiente aún bloqueaba su heartbeat. Ambas correcciones están
-  publicadas en `0.2.284`, pero falta probarlas instaladas en HA real.
-- El SQLite local ocupa unos 442 MiB; la transferencia real y el comportamiento
-  de `/media` en la RPi4 deben medirse, no estimarse.
-- La construcción local observada rondó catorce minutos y concentra tiempo en
-  `Building weekly matrix` por especie. Falta perfilado antes de optimizar.
-- La UI de trabajos aún hereda limitaciones históricas de duración integral y
-  ETA; no inferir costes de red solo por el nombre de una fase.
-- El fallback en HA real debe conservar la selección explícita de ejecutor; es
-  especialmente importante cuando el SQLite no cubre una consulta.
-- El backup real auditado en solo lectura contiene `1.125 GiB` bajo Rainmapper:
-  `mushroom-data` 788 MiB, `Data` 147 MiB, `PublicData` 107 MiB, `Plots` 56 MiB
-  y `Tomap` 48 MiB. No hay batches ML antiguos: el único batch de 176 MiB está
-  referenciado por V2, V3, V4, V5w y V6w y protegido por reconciliación.
-- El montaje real actualizado contiene 317,6 MiB revisables sin tocar modelos
-  activos: 179,6 MiB en seis input bundles de trabajos completados/limpiados en
-  worker que el reconciliador aún
-  conserva, y un TAR legacy de runtime de 138 MiB en `/share`. Este último solo
-  puede retirarse después de crear y verificar su sustituto en `/media`; en el
-  snapshot todavía había cero archives allí. No borrar ni cambiar retención sin
-  autorización explícita.
+- `0.2.284` está publicada pero no instalada ni probada en HA real.
+- El circuito real completo worker → transferencia → activación HA aún no se
+  ha completado. El tamaño SQLite local fue ~442 MiB; transferencia, escritura
+  en `/media` y consumo de la RPi4 deben medirse.
+- La planificación se ejecuta una vez fuera del heartbeat, pero puede consumir
+  CPU/RAM mientras prepara el job. Debe medirse separadamente del reposo.
+- El fallback en HA real debe conservar siempre la selección explícita de
+  ejecutor; nunca asumir cálculo pesado local en la RPi4.
+- La UI de jobs todavía no ofrece duración integral ni ETA global fiables.
+- El montaje real de `/share/rainmapper` ocupaba aproximadamente 1,12 GiB. Hay
+  317,6 MiB revisables: 179,6 MiB en seis bundles de jobs completados/limpiados
+  y un TAR legacy de runtime de 138 MiB. No borrar ni cambiar retención.
+  El TAR solo podrá retirarse después de crear y verificar su sustituto bajo
+  `/media/rainmapper/runtime-cache/predictor-runtime-archives`; al cierre no
+  existía allí ningún TAR.
+- El único batch ML de ~176 MiB está referenciado por V2/V3/V4/V5w/V6w y está
+  protegido; no es residuo.
 
 ## Archivos relevantes
 
 - Especificación: `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`.
 - Artefacto/control: `rainmapper_core/mushroom_predictor_precompute.py` y
   `rainmapper_core/mushroom_predictor_precompute_control.py`.
-- Predictor: `rainmapper_core/mushroom_predictor_service.py`,
-  `rainmapper_core/mushroom_ml_multiversion_comparison.py` y
-  `rainmapper-app/app/mushroom_predictor_ui.py`.
-- Worker/coordinador: `rainmapper_core/mushroom_worker_jobs.py`,
-  `rainmapper_core/mushroom_worker_service.py`,
-  `rainmapper_core/mushroom_worker_registry.py` y
-  `rainmapper-app/app/web_server.py`.
-- Pruebas: `tests/test_mushroom_predictor_precompute.py`,
-  `tests/test_mushroom_predictor_service.py`,
-  `tests/test_mushroom_worker_jobs.py` y `tests/test_web_server_auth.py`.
+- Lookup/composición: `rainmapper_core/mushroom_predictor_service.py` y
+  `rainmapper_core/mushroom_ml_multiversion_comparison.py`.
+- Coordinador/UI: `rainmapper-app/app/web_server.py`,
+  `rainmapper-app/app/mushroom_predictor_ui.py` y
+  `rainmapper-app/app/mushroom_workers_ui.py`.
+- Worker/jobs: `rainmapper_core/mushroom_worker_service.py`,
+  `rainmapper_core/mushroom_worker_jobs.py` y
+  `rainmapper_core/mushroom_worker_registry.py`.
+- Rutas: `rainmapper_core/mushroom_paths.py`.
+- Pruebas principales: `tests/test_mushroom_predictor_precompute.py`,
+  `tests/test_mushroom_predictor_service.py`, `tests/test_mushroom_worker_jobs.py`
+  y `tests/test_web_server_auth.py`.
 - Release: `docs/release-flow.md`.
 
 ## Reglas para continuar
@@ -193,8 +129,8 @@ navegación local y confirmó su mejora.
   solo para prioridades completas.
 - Cumplir `AGENTS.md` y usar Codebase Memory MCP antes de descubrir o cambiar
   código.
-- Preservar todos los cambios locales y ficheros no rastreados.
-- No usar Tailscale, no tocar HA real, no cambiar retención y no borrar datos.
+- Preservar cambios locales y ficheros no rastreados.
+- No usar Tailscale; no tocar HA real, cambiar retención ni borrar datos.
 - No lanzar entrenamientos ni hacer otro bump, build, publicación, instalación
   o release sin autorización explícita nueva.
-- Aplicar validación proporcional y terminar siempre con `git diff --check`.
+- Aplicar validación proporcional y terminar con `git diff --check`.

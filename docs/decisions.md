@@ -1,6 +1,47 @@
 # Decisions
 
-## 2026-08-30 - [VIGENTE][RELEASE] Precálculo Predictor en HA 0.2.281 y worker privado 1.0.30
+## 2026-08-31 - [VIGENTE][RELEASE] HA 0.2.284 estabiliza presencia y reconciliación del worker
+
+- HA `0.2.284` y `latest` comparten el índice OCI
+  `sha256:b00ec790287648c9fde654ee8430fabb708036ee9b7f8af2ab7a63c9eaf8708c`
+  con manifests `linux/amd64` y `linux/arm64`. El worker permanece en `1.0.31`
+  porque la corrección pertenece al coordinador.
+- El intervalo real del worker es 5 s. HA ya no usa ese mismo valor como
+  frontera exacta de desconexión: mantiene presencia durante 15 s para absorber
+  jitter ordinario sin ocultar una caída real.
+- Un heartbeat nunca debe ejecutar planificación científica síncrona. Una
+  solicitud de precálculo pendiente se agenda fuera del request y como máximo
+  una vez por `(worker_id, revision, artifact_id)`. El job ya creado conserva
+  su cola/retry normal; una nueva solicitud avanza la revisión.
+- La decisión corrige dos evidencias reales distintas: alternancia de
+  `En espera`/`Desconectado` por el umbral de 5 s y timeouts mientras la primera
+  planificación pendiente se ejecutaba dentro del heartbeat.
+- Validación: 293 pruebas del servidor y smoke completo de 1.180 pruebas. La
+  instalación y medición en HA real siguen pendientes.
+
+## 2026-08-31 - [REEMPLAZADA][RELEASE] HA 0.2.283 y worker privado 1.0.31
+
+- Las selecciones operativas que desbordaban el claim se externalizaron a un
+  endpoint autenticado y ligado a job, worker y token; el worker admite tanto
+  el contrato antiguo inline como la referencia nueva.
+- HA registró un único intento de materialización por revisión para impedir que
+  cada heartbeat reconstruyera el plan tras una cancelación. `0.2.284`
+  reemplaza esta release porque además separa la primera planificación del
+  request heartbeat y añade margen real al control de presencia.
+
+## 2026-08-31 - [DUDA][ALMACENAMIENTO] 317,6 MiB en share requieren gates distintos
+
+- El montaje real midió 179,6 MiB en seis bundles coordinador de trabajos
+  completados y limpiados en el worker, más un TAR legacy de runtime de 138 MiB.
+- Los bundles parecen reclamables, pero el reconciliador conserva hoy jobs
+  completos de rebuild/ML si no constan como promovidos. Corregir el ciclo de
+  vida requiere autorización y pruebas; no borrar manualmente.
+- El TAR legacy no se retirará hasta que exista y se verifique su sustituto en
+  `/media/rainmapper/runtime-cache/predictor-runtime-archives`. Al cierre había
+  cero TAR en esa ruta. El batch ML activo de ~176 MiB está referenciado por las
+  versiones instaladas y no es residuo.
+
+## 2026-08-30 - [REEMPLAZADA][RELEASE] Precálculo Predictor en HA 0.2.281 y worker privado 1.0.30
 
 - HA `0.2.281` y `latest` comparten el índice OCI
   `sha256:892fa5accda4b2588c7e6abc65a91b6058155a9d43893fe032a00cb1dc415fd0`
@@ -51,7 +92,7 @@
 - La especificación vinculante y sus criterios de aceptación están en
   `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`.
 
-## 2026-08-29 - [VIGENTE][RELEASE] HA 0.2.280 publicada y worker local 1.0.29
+## 2026-08-29 - [REEMPLAZADA][RELEASE] HA 0.2.280 publicada y worker local 1.0.29
 
 - HA `0.2.280` y `latest` comparten el índice OCI
   `sha256:91dba9bf08c2d428a0541814d348c4eaaf3b367746a2d14f4a6b07fb3a3789c6`,
@@ -87,7 +128,7 @@
   validadores, 295 pruebas dirigidas de protocolo/resultados, siete pruebas de
   empaquetado y `git diff --check` correcto.
 
-## 2026-08-29 - [VIGENTE][RELEASE] HA 0.2.278 publicada y worker local 1.0.28
+## 2026-08-29 - [REEMPLAZADA][RELEASE] HA 0.2.278 publicada y worker local 1.0.28
 
 - HA `0.2.278` y `latest` comparten el índice OCI
   `sha256:f793d2f75bc1ead6924efe61a4aedac179ba4385294ee6a0f14f388b0b7f534c`

@@ -21,7 +21,11 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - Librerias de validacion: pendiente de confirmar; no se ha detectado framework dedicado.
 - Librerias HTTP/API: `requests`, `rainmapper_core.sources.sodapy_local`, `googlemaps`.
 - Librerias de testing: `unittest` de la libreria estandar en `tests/`; no se ha detectado `pytest`.
-- Base de datos: no hay base de datos detectada; persistencia por CSV.
+- Persistencia: CSV/JSON y objetos direccionados por contenido son las fuentes
+  autoritativas. SQLite se usa únicamente como artefacto regenerable del
+  precálculo semanal del Predictor, activado bajo
+  `/media/rainmapper/predictor_precompute` para excluirlo del backup de
+  `/share`.
 - Despliegue: GitHub como repositorio de app HA y GHCR como registry de imagenes preconstruidas; Home Assistant descarga `ghcr.io/cginebrosa/rainmapperha:<version>` cuando existe la imagen publicada.
 
 ## Estructura de carpetas
@@ -286,6 +290,12 @@ Hay varios entry points segun entorno:
   desacoplada y coalescida para que una petición lenta no bloquee el cálculo.
   La entrega final conserva reintento recuperable e idempotencia ante cortes
   transitorios de la conexión con el coordinador.
+- Presencia y reconciliación: el worker emite heartbeat cada 5 s y HA aplica un
+  margen de 15 s antes de declararlo desconectado. El handler del heartbeat
+  registra presencia, estado y limpieza, pero no construye planes científicos.
+  Un precálculo pendiente se materializa fuera de esa petición mediante una
+  única tarea por `(worker_id, revision, artifact_id)`; los heartbeats
+  posteriores solo observan su resultado.
 - Estado: identidad/configuracion/token, cache GIS, inputs y resultados viven
   en el volumen `rainmapper-worker-data`; la imagen sigue siendo portable y no
   incorpora datos pesados ni secretos.
@@ -411,7 +421,8 @@ Hay varios entry points segun entorno:
 - Compatibilidad: HA y worker tienen secuencias de version independientes. La
   compatibilidad operativa se negocia por capacidades del heartbeat, actualmente
   `rebuild_v0`, `weather_parquet_v1`, `terminal_job_cleanup_v1` y
-  `predictor_v1`, no comparando versiones.
+  `predictor_v1`, `predictor_multiversion_v2` y `predictor_precompute_v1`, no
+  comparando versiones.
 - Seguridad operacional: pairing de un uso, Bearer por worker, lease/token por
   claim, bloqueo de trabajos solapados, cancelacion cooperativa/forzada y
   rechazo de resultados stale. El ejecutor HA local es una capacidad de
@@ -443,6 +454,20 @@ Hay varios entry points segun entorno:
   será automática y worker-only: si no hay capacidad disponible no habrá
   fallback silencioso a HA/RPi4. Antes de exponerla a varios usuarios deberán
   existir límites de concurrencia, rate limiting y caché compartida.
+
+- Precálculo semanal del Predictor: el contrato, escritor, lector y validación
+  viven en `rainmapper_core/mushroom_predictor_precompute.py`; coordinación y
+  publicación se reparten entre `mushroom_predictor_precompute_control.py`,
+  el coordinador HA y `mushroom_worker_service.py`. El worker calcula bloques
+  reutilizables por versión para
+  siete días; no materializa el producto cartesiano de selecciones
+  multiversión. HA verifica identidad, cobertura, integridad y tamaño antes de
+  sustituir atómicamente el SQLite activo en `/media`.
+  Las consultas cubiertas se componen localmente desde SQLite y no necesitan
+  worker; un miss conserva el selector explícito de ejecutor y nunca cae
+  silenciosamente sobre la RPi4. La navegación no solicita reconstrucciones:
+  por ahora el precálculo se lanza manualmente o de forma asíncrona al acabar el
+  runner meteorológico.
 
 ### Flujo de setas v0
 - Rutas principales:
