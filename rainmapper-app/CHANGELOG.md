@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.284
+
+- Keep workers reachable across normal heartbeat scheduling jitter instead of
+  briefly reporting them as disconnected every five seconds.
+- Reconcile pending Predictor precompute requests outside the heartbeat request
+  so scientific planning cannot delay worker presence updates.
+
 ## 0.2.283
 
 - Keep worker claim and control responses bounded by serving Predictor

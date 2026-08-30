@@ -1845,6 +1845,54 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.assertEqual(third["job_id"], fourth["job_id"])
             self.assertEqual(2, plan.call_count)
 
+    def test_pending_precompute_reconcile_is_scheduled_once_off_heartbeat(self) -> None:
+        heartbeat = {
+            "worker_id": "worker_aaaaaaaa",
+            "capabilities": [
+                self.web_server.mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+            ],
+        }
+        desired = {
+            "revision": 7,
+            "artifact_id": "sha256:" + "a" * 64,
+            "worker_id": "worker_aaaaaaaa",
+        }
+        thread = mock.Mock()
+        with (
+            mock.patch.object(
+                self.web_server.mushroom_worker_registry,
+                "load_registry",
+                return_value={"default_executor": "worker:worker_aaaaaaaa"},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_precompute_control,
+                "load_desired_state",
+                return_value=desired,
+            ),
+            mock.patch.object(
+                self.web_server,
+                "MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS",
+                set(),
+            ),
+            mock.patch.object(
+                self.web_server,
+                "MUSHROOM_PRECOMPUTE_RECONCILE_SCHEDULED",
+                set(),
+            ),
+            mock.patch.object(self.web_server.threading, "Thread", return_value=thread) as factory,
+        ):
+            first = self.web_server.schedule_mushroom_predictor_precompute_reconcile(
+                heartbeat
+            )
+            second = self.web_server.schedule_mushroom_predictor_precompute_reconcile(
+                heartbeat
+            )
+
+        self.assertTrue(first)
+        self.assertFalse(second)
+        factory.assert_called_once()
+        thread.start.assert_called_once_with()
+
     def test_predictor_modal_controller_handles_internal_navigation(self) -> None:
         script = self.web_server.predictor_launch_script()
 
@@ -7152,7 +7200,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(response["worker_id"], "worker_12345678")
-        self.assertEqual(response["heartbeat_interval_seconds"], 2)
+        self.assertEqual(response["heartbeat_interval_seconds"], 5)
         self.assertEqual(len(workers), 1)
         self.assertTrue(workers[0]["reachable"])
         self.assertEqual(workers[0]["payload"]["display_name"], "M1 personal")
@@ -7452,14 +7500,14 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 {**base, "worker_id": "worker_aaaaaaaa", "display_name": "Worker A", "host_name": "Mac-A"},
                 now=110,
             )
-            workers = self.web_server.registered_mushroom_worker_statuses(now=114)
+            workers = self.web_server.registered_mushroom_worker_statuses(now=116)
 
         self.assertEqual([worker["payload"]["display_name"] for worker in workers], ["Worker A", "Worker B"])
         self.assertTrue(workers[0]["reachable"])
         self.assertFalse(workers[1]["reachable"])
         self.assertEqual(workers[1]["payload"]["status"], "disconnected")
 
-    def test_worker_is_marked_disconnected_after_five_seconds_without_heartbeat(self) -> None:
+    def test_worker_has_heartbeat_jitter_margin_before_disconnection(self) -> None:
         registry_path = Path(self.temp_dir.name) / "mushroom_workers.json"
         payload = {
             "schema_version": "0.1",
@@ -7479,8 +7527,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.web_server, "mushroom_worker_registry_path", return_value=registry_path
         ):
             self.web_server.register_mushroom_worker_heartbeat(payload, now=100)
-            before_timeout = self.web_server.registered_mushroom_worker_statuses(now=104.9)
-            after_timeout = self.web_server.registered_mushroom_worker_statuses(now=105.1)
+            before_timeout = self.web_server.registered_mushroom_worker_statuses(now=114.9)
+            after_timeout = self.web_server.registered_mushroom_worker_statuses(now=115.1)
 
         self.assertTrue(before_timeout[0]["reachable"])
         self.assertFalse(after_timeout[0]["reachable"])
@@ -7579,7 +7627,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ):
             payload = self.web_server.mushroom_workers_status_refresh_payload()
 
-        self.assertEqual(payload["stale_after_seconds"], 5)
+        self.assertEqual(payload["stale_after_seconds"], 15)
         self.assertIn("Disconnected", payload["worker_cards_html"])
         self.assertNotIn("Test assignment", payload["worker_cards_html"])
         self.assertEqual(payload["worker_last_checks"], {"worker_12345678": "2026-07-19 21:04:31"})

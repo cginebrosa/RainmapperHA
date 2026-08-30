@@ -9,12 +9,12 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - Workspace verificado: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama
   `inicial`. El HEAD previo al commit de esta entrega era
   `17884070cdcde7e8d203bda2183c6f53b2158191`; revalidar HEAD al continuar.
-- El código declara HA `0.2.283` y worker `1.0.31`.
-- HA `0.2.283` y `latest` están publicados con el mismo índice OCI
-  `sha256:28484e1c541f06860df3110bd3835fd46f428b442bd1f80e184414f4005c8b3e`
-  y manifests `linux/amd64` y `linux/arm64`. La instalación de `0.2.283` en HA
-  real no está confirmada; corresponde al usuario. Rainmapper real quedó parado
-  voluntariamente antes de instalar la corrección.
+- El código declara HA `0.2.284` y worker `1.0.31`.
+- HA `0.2.284` y `latest` están publicados con el mismo índice OCI
+  `sha256:b00ec790287648c9fde654ee8430fabb708036ee9b7f8af2ab7a63c9eaf8708c`
+  y manifests `linux/amd64` y `linux/arm64`. HA real tenía `0.2.283` instalada;
+  Rainmapper quedó parado voluntariamente mientras se publicaba `0.2.284` y
+  falta que el usuario instale y pruebe esta última.
 - El worker no se publica. Se reconstruyó localmente como `1.0.31`, conservando
   identidad `worker_1a9a232c20fe2ee2` y volumen `rainmapper-worker-data`. Su
   health local confirmó `idle`, versión `1.0.31` y capacidad
@@ -63,15 +63,16 @@ navegación local y confirmó su mejora.
 
 ## Validación y release
 
-- Smoke completo definitivo para `0.2.283`: 1.179 pruebas y todos los
+- Smoke completo definitivo para `0.2.284`: 1.180 pruebas y todos los
   validadores correctos.
 - Pruebas dirigidas de empaquetado detectaron y corrigieron la ausencia inicial
   de los dos módulos de precálculo en la imagen privada del worker; 322 pruebas
   dirigidas pasaron después.
 - `git diff --check` correcto antes de preparar el commit.
 - Worker privado `1.0.31` reconstruido y health verificado.
-- Imagen HA `0.2.283` publicada y verificada en GHCR para amd64/arm64; versión y
-  `latest` comparten digest.
+- Imagen HA `0.2.284` publicada y verificada en GHCR para amd64/arm64; versión y
+  `latest` comparten digest
+  `sha256:b00ec790287648c9fde654ee8430fabb708036ee9b7f8af2ab7a63c9eaf8708c`.
 - `0.2.282` evita que las pantallas de Workers y Predictor planifiquen, lean o
   rehasheen los inputs completos solo para mostrar el estado del precálculo.
   El estado barato usa metadatos persistidos y distingue `desactualizado` sin
@@ -111,9 +112,25 @@ navegación local y confirmó su mejora.
 - Validación final: 355 pruebas dirigidas y smoke completo de 1.179 pruebas,
   compilación, validadores y `git diff --check` correctos.
 
+## Corrección incluida en 0.2.284
+
+- El worker `1.0.31` emite heartbeat cada cinco segundos, mientras HA
+  `0.2.283` lo declaraba desconectado exactamente a los cinco segundos. La UI
+  alternaba `En espera` y `Desconectado` durante aproximadamente un segundo por
+  el jitter normal. `0.2.284` conserva el intervalo de cinco segundos y amplía
+  el umbral de presencia a quince segundos.
+- La reconciliación de una solicitud pendiente de precálculo ya no ejecuta la
+  planificación científica dentro de la petición heartbeat. Se agenda una sola
+  vez por identidad/revisión en un hilo separado, por lo que el heartbeat puede
+  responder inmediatamente y no pierde presencia mientras HA prepara el job.
+- El montaje real confirmó una solicitud del runner, revisión 1 y worker
+  `worker_1a9a232c20fe2ee2`, pero todavía ningún job de precálculo materializado.
+- Validación final: 293 pruebas del servidor y smoke completo de 1.180 pruebas,
+  compilación, validadores y `git diff --check` correctos.
+
 ## Próxima prueba real
 
-1. El usuario instala HA `0.2.283` y vuelve a arrancar Rainmapper.
+1. El usuario instala HA `0.2.284` y vuelve a arrancar Rainmapper.
 2. Confirmar en la UI la versión instalada y que HA reconoce el worker `1.0.31`
    con `predictor_precompute_v1`.
 3. Lanzar manualmente un precálculo real. Verificar que calcula en el worker
@@ -128,11 +145,11 @@ navegación local y confirmó su mejora.
 
 ## Riesgos y deuda activos
 
-- HA `0.2.282` fue la última versión instalada confirmada antes de parar
-  Rainmapper real. Su primer circuito worker→HA no llegó a calcular porque el
-  claim excedía 64 KiB y, tras cancelar, la reconciliación por heartbeat saturó
-  la RPi4. Ambas correcciones están publicadas en `0.2.283`, pero falta probarlas
-  instaladas en HA real.
+- HA `0.2.283` es la última versión instalada confirmada. Corrigió el claim y
+  la repetición de planificación, pero mostró un segundo problema: el umbral de
+  desconexión coincidía exactamente con el intervalo del worker y la primera
+  planificación pendiente aún bloqueaba su heartbeat. Ambas correcciones están
+  publicadas en `0.2.284`, pero falta probarlas instaladas en HA real.
 - El SQLite local ocupa unos 442 MiB; la transferencia real y el comportamiento
   de `/media` en la RPi4 deben medirse, no estimarse.
 - La construcción local observada rondó catorce minutos y concentra tiempo en
@@ -145,8 +162,9 @@ navegación local y confirmó su mejora.
   `mushroom-data` 788 MiB, `Data` 147 MiB, `PublicData` 107 MiB, `Plots` 56 MiB
   y `Tomap` 48 MiB. No hay batches ML antiguos: el único batch de 176 MiB está
   referenciado por V2, V3, V4, V5w y V6w y protegido por reconciliación.
-- Hay unos 314 MiB revisables sin tocar modelos activos: 176 MiB en seis input
-  bundles de trabajos completados/limpiados en worker que el reconciliador aún
+- El montaje real actualizado contiene 317,6 MiB revisables sin tocar modelos
+  activos: 179,6 MiB en seis input bundles de trabajos completados/limpiados en
+  worker que el reconciliador aún
   conserva, y un TAR legacy de runtime de 138 MiB en `/share`. Este último solo
   puede retirarse después de crear y verificar su sustituto en `/media`; en el
   snapshot todavía había cero archives allí. No borrar ni cambiar retención sin

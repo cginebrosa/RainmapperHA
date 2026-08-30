@@ -197,6 +197,7 @@ MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK = threading.Lock()
 MUSHROOM_OBSERVATION_MUTATION_LOCK = threading.RLock()
 MUSHROOM_WORKER_PROMOTION_THREADS: dict[str, threading.Thread] = {}
 MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS: set[tuple[str, int, str]] = set()
+MUSHROOM_PRECOMPUTE_RECONCILE_SCHEDULED: set[tuple[str, int, str]] = set()
 SHUTDOWN_EVENT = threading.Event()
 CURRENT_PROCESS_LOCK = threading.Lock()
 CURRENT_PROCESS: subprocess.Popen | None = None
@@ -225,7 +226,8 @@ MUSHROOM_REBUILD_JOBS: dict[str, dict[str, object]] = {}
 MUSHROOM_REBUILD_JOB_TTL_SECONDS = 3600
 MUSHROOM_WORKER_HEARTBEATS: dict[str, dict[str, object]] = {}
 MUSHROOM_PREDICTOR_MONITORS: dict[str, runtime_diagnostics.OperationMonitor] = {}
-MUSHROOM_WORKER_STALE_SECONDS = 5
+MUSHROOM_WORKER_HEARTBEAT_INTERVAL_SECONDS = 5
+MUSHROOM_WORKER_STALE_SECONDS = 15
 MUSHROOM_WORKER_PAIRINGS: dict[str, dict[str, object]] = {}
 MUSHROOM_WORKER_PAIRING_TTL_SECONDS = 600
 
@@ -12021,18 +12023,11 @@ def register_mushroom_worker_heartbeat(
             "last_seen_ts": seen_ts,
             "last_seen_at": seen_at,
         }
-    try:
-        reconcile_mushroom_predictor_precompute_desire(heartbeat)
-    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
-        print(
-            "WARNING: pending Predictor precompute could not be reconciled: "
-            f"{type(exc).__name__}: {exc}",
-            flush=True,
-        )
+    schedule_mushroom_predictor_precompute_reconcile(heartbeat)
     return 200, {
         "ok": True,
         "worker_id": worker_id,
-        "heartbeat_interval_seconds": 2,
+        "heartbeat_interval_seconds": MUSHROOM_WORKER_HEARTBEAT_INTERVAL_SECONDS,
         "discard_job_ids": mushroom_worker_jobs.pending_candidate_discards(
             mushroom_worker_jobs_path(),
             worker_id=worker_id,
@@ -13524,6 +13519,70 @@ def reconcile_mushroom_predictor_precompute_desire(
             trigger_origin=str(desired.get("trigger_origin", "manual")),
             force=bool(desired.get("force")),
         )
+
+
+def schedule_mushroom_predictor_precompute_reconcile(
+    heartbeat: dict[str, object],
+) -> bool:
+    """Reconcile a pending precompute desire without delaying the heartbeat."""
+    worker_id = str(heartbeat.get("worker_id", ""))
+    if (
+        mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+        not in set(heartbeat.get("capabilities") or [])
+    ):
+        return False
+    try:
+        registry = mushroom_worker_registry.load_registry(mushroom_worker_registry_path())
+        if registry.get("default_executor") != f"worker:{worker_id}":
+            return False
+        desired = mushroom_predictor_precompute_control.load_desired_state(
+            mushroom_paths.mushroom_predictor_precompute_desired_path()
+        )
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+        print(
+            "WARNING: pending Predictor precompute could not be inspected: "
+            f"{type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        return False
+    if desired is None or str(desired.get("worker_id", "")) not in {"", worker_id}:
+        return False
+    attempt_key = (
+        worker_id,
+        int(desired["revision"]),
+        str(desired["artifact_id"]),
+    )
+    with RUN_LOCK:
+        if (
+            attempt_key in MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS
+            or attempt_key in MUSHROOM_PRECOMPUTE_RECONCILE_SCHEDULED
+        ):
+            return False
+        MUSHROOM_PRECOMPUTE_RECONCILE_SCHEDULED.add(attempt_key)
+
+    def reconcile() -> None:
+        completed = False
+        try:
+            reconcile_mushroom_predictor_precompute_desire(heartbeat)
+            completed = True
+        except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+            print(
+                "WARNING: pending Predictor precompute could not be reconciled: "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+        finally:
+            with RUN_LOCK:
+                MUSHROOM_PRECOMPUTE_RECONCILE_SCHEDULED.discard(attempt_key)
+                if completed:
+                    MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS.add(attempt_key)
+
+    threading.Thread(
+        target=reconcile,
+        name="mushroom-predictor-precompute-reconcile",
+        daemon=True,
+    ).start()
+    return True
 
 
 def schedule_mushroom_predictor_precompute_request() -> None:
