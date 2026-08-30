@@ -899,7 +899,8 @@ class PredictorService:
             areas = timed(
                 "prediction_data", predictor.areas_with_species_observations
             )
-            days = [date.today() + timedelta(days=offset) for offset in range(7)]
+            week_start = date.fromisoformat(normalized["issue_date"])
+            days = [week_start + timedelta(days=offset) for offset in range(7)]
             predictions: dict[str, dict[str, Any]] = {}
             comparisons: dict[str, dict[str, Any]] = {}
             total = max(1, len(areas) * len(days))

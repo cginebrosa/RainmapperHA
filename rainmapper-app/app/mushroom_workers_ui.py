@@ -492,11 +492,14 @@ def render_recent_jobs(
             else f'{_text(job.get("overall_percent", 0))}%'
         )
         destination = str(job.get("worker_display_name", "") or "-")
+        opens_progress_modal = bool(job.get("opens_rebuild_modal")) or (
+            job_type == "worker_predictor_precompute_v1"
+        )
         local_job = bool(job.get("opens_rebuild_modal")) or job.get("executor") == "home_assistant"
         job_display_name = _label("ui.worker_local_job") if local_job else job_id[:12]
         job_reference = (
             f'<a href="?rebuild_job={_text(job_id)}" title="{_text(job_id)}"><strong>{_text(job_display_name)}</strong></a>'
-            if job.get("opens_rebuild_modal")
+            if opens_progress_modal
             else f'<code title="{_text(job_id)}">{_text(job_display_name)}</code>'
         )
         actions = "-"

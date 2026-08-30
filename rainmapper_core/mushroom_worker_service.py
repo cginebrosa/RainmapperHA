@@ -1159,6 +1159,15 @@ def serve(
                     )
                     return
                 if job_type == "worker_predictor_precompute_v1":
+                    precompute_job_telemetry = _CoalescedJobTelemetry(
+                        telemetry_update,
+                        base_payload={
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                        },
+                        cancel_message="Predictor precompute was cancelled or superseded.",
+                    )
                     operational_selections = with_transport_retry(
                         lambda: download_predictor_precompute_operational_selections(
                             ha_url,
@@ -1203,27 +1212,18 @@ def serve(
                     }
 
                     def precompute_control() -> None:
-                        control = job_update(
-                            "control",
-                            {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
-                            },
-                        )
-                        if control.get("cancel_requested"):
-                            raise InterruptedError("Predictor precompute was cancelled or superseded.")
+                        precompute_job_telemetry.poll_control()
 
-                    def precompute_progress(done: int, total: int, label: str) -> None:
-                        precompute_control()
-                        job_update(
-                            "progress",
+                    def precompute_progress(done: float, total: int, label: str) -> None:
+                        display_done = (
+                            str(int(done))
+                            if float(done).is_integer()
+                            else f"{done:.2f}"
+                        )
+                        precompute_job_telemetry.publish(
                             {
-                                "job_id": job_id,
-                                "worker_id": identity["worker_id"],
-                                "claim_token": claim_token,
                                 "phase": "Calculating weekly Predictor artifact",
-                                "message": f"{done}/{total}: {label}",
+                                "message": f"{display_done}/{total}: {label}",
                                 "overall_percent": 10 + int(65 * done / max(1, total)),
                             },
                         )
@@ -1249,6 +1249,7 @@ def serve(
                         progress=precompute_progress,
                         cancel_check=precompute_control,
                     )
+                    precompute_job_telemetry.flush()
                     precompute_telemetry["calculation_seconds"] = round(
                         time.perf_counter() - calculation_started, 6
                     )

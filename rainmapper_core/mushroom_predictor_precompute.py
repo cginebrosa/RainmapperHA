@@ -1269,7 +1269,8 @@ class _AsyncBatchArtifactWriter:
         key = (species_id, area_id, target_date)
         if key not in self.all_cell_keys:
             raise PrecomputeContractError(
-                "Base prediction is outside planned coverage."
+                "Base prediction is outside planned coverage: "
+                f"{species_id}/{area_id}/{target_date}."
             )
         prediction = deserialize_prediction(dict(payload))
         if (
@@ -1977,7 +1978,7 @@ def build_weekly_artifact(
         Sequence[Mapping[str, object]]
         | Mapping[str, Sequence[Mapping[str, object]]]
     ),
-    progress: Callable[[int, int, str], None] | None = None,
+    progress: Callable[[float, int, str], None] | None = None,
     cancel_check: Callable[[], None] | None = None,
 ) -> BatchBuildResult:
     """Materialize every covered UI request through one PredictorService.
@@ -2127,7 +2128,12 @@ def build_weekly_artifact(
                     scope = f"{request['view']}:{request['species_id']}"
                     if request.get("area_id"):
                         scope += f":{request['area_id']}"
-                    progress(completed, total, f"{scope} · {phase}: {message}")
+                    fraction = max(0, min(99, int(_percent))) / 100
+                    progress(
+                        completed + fraction,
+                        total,
+                        f"{scope} · {phase}: {message}",
+                    )
 
             response = validate_response(
                 predictor_service.execute(

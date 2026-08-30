@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.285
+
+- Anchor weekly Predictor calculations to the request `issue_date` so HA and
+  UTC workers cannot produce different seven-day coverage across midnight.
+- Coalesce remote precompute progress and cancellation exchanges so WAN latency
+  cannot block every species or area calculation.
+- Open persistent remote precompute jobs in the progress modal and expose their
+  current phase, message, elapsed time, ETA, and terminal error.
+
 ## 0.2.284
 
 - Keep workers reachable across normal heartbeat scheduling jitter instead of

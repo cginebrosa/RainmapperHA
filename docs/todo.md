@@ -131,9 +131,17 @@ Especificación vinculante:
 - [x] Publicar HA `0.2.284` con margen de presencia de 15 s para heartbeat cada
   5 s y materialización pendiente fuera de la petición heartbeat. Smoke
   definitivo: 1.180 pruebas; digest multiarch verificado en continuidad.
-- [ ] Instalar HA `0.2.284` y ejecutar el E2E real con el worker privado
-  `1.0.31`: confirmar presencia estable y consumo en reposo, que Workers y
-  Predictor muestran estado barato, medir cálculo y transferencia, y confirmar activación en
+- [x] Instalar HA `0.2.284` y comenzar el E2E real con el worker privado
+  `1.0.31`: presencia estable y apertura barata de Workers confirmadas. El
+  primer job falló tras 6 min 11 s porque el worker UTC construía desde
+  `date.today()` y no desde el `issue_date` sellado; la telemetría síncrona
+  además bloqueaba callbacks durante timeouts de red.
+- [x] Publicar HA `0.2.285` y reconstruir el worker privado como `1.0.32` con
+  fecha anclada al contrato, progreso fraccional, detalle remoto y telemetría
+  coalescida en segundo plano. Smoke: 1.181 pruebas; índice multiarch
+  `sha256:aa4a1d39bffd501288b0ffb630d85bb8907818cdce3fc25bef3759c87c0c2333`.
+- [ ] Instalar HA `0.2.285` y completar el E2E real con worker `1.0.32`: medir
+  preparación/cálculo/telemetría/transferencia/activación, confirmar SQLite en
   `/media/rainmapper/predictor_precompute`, hits servidos por HA, fallback con
   selección explícita de ejecutor y ausencia del SQLite en el backup.
 - [x] Auditar en solo lectura el backup real de `/share/rainmapper`: ocupa

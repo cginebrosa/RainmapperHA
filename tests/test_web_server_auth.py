@@ -9417,6 +9417,41 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Calculation 600.0s", rendered)
         self.assertIn("Transfer 20.0s", rendered)
         self.assertIn("HA verification/activation 3.0s", rendered)
+        self.assertIn(
+            "?rebuild_job=worker_job_precompute_timing",
+            rendered,
+        )
+
+    def test_remote_precompute_job_exposes_progress_modal_payload(self) -> None:
+        job = {
+            "job_id": "worker_job_precompute_detail",
+            "job_type": "worker_predictor_precompute_v1",
+            "target_display_name": "M1 Personal",
+            "status": "failed",
+            "phase": "Failed",
+            "message": "Failed.",
+            "error": "Base prediction is outside planned coverage.",
+            "overall_percent": 10,
+            "created_at": "2026-08-30T23:07:27+00:00",
+            "started_at": "2026-08-30T23:07:31+00:00",
+            "finished_at": "2026-08-30T23:13:42+00:00",
+        }
+        with mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "get_job",
+            return_value=job,
+        ):
+            payload = self.web_server.get_mushroom_rebuild_job_status(
+                "worker_job_precompute_detail"
+            )
+
+        self.assertIsNotNone(payload)
+        self.assertEqual(payload["title"], "Weekly Predictor precompute")
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["phase_index"], 1)
+        self.assertEqual(payload["phase_count"], 3)
+        self.assertEqual(payload["overall_percent"], 10)
+        self.assertIn("outside planned coverage", payload["error"])
 
     def test_workers_recent_jobs_show_local_date_time_and_duration(self) -> None:
         jobs_path = Path(self.temp_dir.name) / "worker-jobs.json"

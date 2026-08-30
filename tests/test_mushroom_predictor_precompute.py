@@ -1179,6 +1179,7 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
         self.assertEqual(result.operational_member_count, 7)
         self.assertEqual(len(set(service.context_ids)), 1)
         self.assertEqual(len(set(service.prepared_weather_ids)), 1)
+        self.assertTrue(any(0 < completed < 1 for completed, _total in progress))
         self.assertEqual(progress[-1], (16, 16))
         self.assertTrue(stored.hit)
         self.assertEqual(

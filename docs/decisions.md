@@ -5747,3 +5747,26 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
 - Hasta implementar y validar estas reglas, la columna de porcentaje no sirve
   para estimar avance o ETA y la duración de cada fila solo describe el intervalo
   que su ancla actual cubre, no el tiempo total desde la acción del usuario.
+
+## 2026-08-31 - [REEMPLAZADA][RELEASE] HA 0.2.284 estabilizó coordinación, pero no completó el E2E
+
+- HA `0.2.284` separó la materialización pesada del heartbeat y amplió a 15 s
+  la presencia para un heartbeat de 5 s. La UI Workers volvió a responder con
+  rapidez y el worker dejó de alternar normalmente entre espera y desconectado.
+- El primer precálculo real reveló una incompatibilidad de fecha entre HA en
+  Europe/Madrid y el worker UTC, además de control/progreso síncronos en el
+  callback científico. La release queda reemplazada por `0.2.285`.
+
+## 2026-08-31 - [VIGENTE][RELEASE] La semana usa issue_date y la telemetría remota no bloquea cálculo
+
+- La cobertura semanal se deriva exclusivamente del `issue_date` normalizado y
+  sellado en la petición; nunca del calendario local del proceso que ejecuta.
+- Control y progreso del precálculo remoto se coalescen en un intercambio de
+  fondo con cadencia normal de 10 s. Se conserva cancelación y el último estado,
+  pero la latencia del coordinador no bloquea cada callback científico.
+- El progreso admite fracciones dentro de cada uno de los 143 grupos y los jobs
+  remotos abren el mismo detalle persistido que los locales.
+- HA `0.2.285` y `latest` comparten el índice OCI
+  `sha256:aa4a1d39bffd501288b0ffb630d85bb8907818cdce3fc25bef3759c87c0c2333`
+  con manifests `linux/amd64` y `linux/arm64`. El worker privado se reconstruyó
+  como `1.0.32`, conservando identidad, volumen y cachés.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -385,11 +385,26 @@ class PredictorServiceTests(TestCase):
             )
             service.v2_reference_compare = v2_compare
 
-            response = service.execute(self.request(view="week", area_id=""))
+            response = service.execute(
+                self.request(
+                    view="week",
+                    area_id="",
+                    target_date="2026-09-02",
+                    issue_date="2026-09-02",
+                )
+            )
 
         validate_response(response)
         predictor.predict_many.assert_called_once()
         self.assertEqual(len(predictor.predict_many.call_args.args[0]), 14)
+        requested_dates = {
+            target_date
+            for _area_id, target_date in predictor.predict_many.call_args.args[0]
+        }
+        self.assertEqual(
+            requested_dates,
+            {date(2026, 9, 2) + timedelta(days=offset) for offset in range(7)},
+        )
         self.assertEqual(v2_compare.call_count, 14)
 
     def test_recommender_skips_species_outside_configured_season(self) -> None:

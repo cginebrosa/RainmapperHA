@@ -39,27 +39,27 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 
 ## Estado general al cierre de 2026-08-31
 
-- Rama `inicial`; el HEAD verificado antes del cierre documental era
-  `28982edb5da3215398597bd550cf930d2ac3447f`. Revalidar `pwd`, rama, HEAD,
+- Rama `inicial`; el HEAD anterior a esta release era
+  `c02b4b8b6ca39f72deedcb0caf6f1d8e5d2d8eef`. Revalidar `pwd`, rama, HEAD,
   worktree y runtime al comenzar.
-- El código declara HA `0.2.284` y worker `1.0.31`. HA `0.2.284` y `latest`
+- El código declara HA `0.2.285` y worker `1.0.32`. HA `0.2.285` y `latest`
   están publicados con el índice multiarch
-  `sha256:b00ec790287648c9fde654ee8430fabb708036ee9b7f8af2ab7a63c9eaf8708c`.
-  La última instalación real confirmada es `0.2.283`; Rainmapper quedó parado
-  a la espera de que el usuario instale `0.2.284`.
+  `sha256:aa4a1d39bffd501288b0ffb630d85bb8907818cdce3fc25bef3759c87c0c2333`.
+  La última instalación real confirmada es `0.2.284`; falta instalar y probar
+  `0.2.285`.
 - El worker privado no se publica. La última observación local confirmó
-  `1.0.31`, healthy/idle, identidad y volumen conservados, y capacidad
+  `1.0.32`, healthy/idle, identidad y volumen conservados, y capacidad
   `predictor_precompute_v1`.
 - El precálculo semanal SQLite está implementado y validado localmente: lookup
   en HA, cobertura multiversión, fallback íntegro, estado latest-wins,
   publicación atómica en `/media/rainmapper`, job manual, solicitud asíncrona
   del runner y estado visible en Predictor y Workers.
-- `0.2.284` evita el falso parpadeo del worker: heartbeat cada 5 s, presencia
-  válida durante 15 s y planificación pendiente fuera de la petición
-  heartbeat, una sola vez por worker/revisión/artefacto.
-- La siguiente prueba es instalar `0.2.284`, confirmar presencia estable y
-  consumo en reposo, y completar el primer E2E real del precálculo con el
-  worker `1.0.31`.
+- El primer E2E real de `0.2.284` falló porque el worker UTC calculaba la semana
+  desde `date.today()` en vez del `issue_date` planificado. `0.2.285`/`1.0.32`
+  corrigen el anclaje, muestran progreso fraccional y detalle remoto, y sacan
+  la telemetría síncrona del callback científico.
+- La siguiente prueba es instalar `0.2.285` y completar un E2E real con el
+  worker `1.0.32`, midiendo cada tramo y confirmando activación bajo `/media`.
 - No hay entrenamientos programados. La retención ML continúa activa; no borrar
   datos, cambiar retención, lanzar entrenamientos ni hacer otro bump/build/
   publicación sin autorización explícita.

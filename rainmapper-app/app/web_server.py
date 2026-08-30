@@ -13235,9 +13235,10 @@ def start_local_mushroom_predictor_precompute(
         if cancel_event.is_set():
             raise InterruptedError("Local Predictor precompute was cancelled.")
 
-    def progress(done: int, total: int, label: str) -> None:
+    def progress(done: float, total: int, label: str) -> None:
         cancelled()
         percent = int(85 * done / max(1, total))
+        display_done = str(int(done)) if float(done).is_integer() else f"{done:.2f}"
         set_mushroom_rebuild_progress(
             job_id,
             phase="Calculating weekly Predictor artifact",
@@ -13245,7 +13246,7 @@ def start_local_mushroom_predictor_precompute(
             phase_count=2,
             phase_percent=percent,
             overall_percent=percent,
-            message=f"{done}/{total}: {label}",
+            message=f"{display_done}/{total}: {label}",
             reset_phase_timer=False,
         )
 
@@ -16247,9 +16248,60 @@ def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
     cleanup_mushroom_rebuild_jobs()
     with RUN_LOCK:
         job = MUSHROOM_REBUILD_JOBS.get(job_id)
-        if not job:
+        if job:
+            return mushroom_rebuild_job_payload(dict(job))
+        try:
+            external = mushroom_worker_jobs.get_job(
+                mushroom_worker_jobs_path(), job_id=job_id
+            )
+        except (FileNotFoundError, ValueError):
             return None
-        return mushroom_rebuild_job_payload(dict(job))
+    if external.get("job_type") != mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE:
+        return None
+    overall_percent = max(0, min(100, int(external.get("overall_percent", 0) or 0)))
+    phase = str(external.get("phase", "") or "")
+    if overall_percent >= 100 or external.get("status") == "complete":
+        phase_index, phase_percent = 3, 100
+    elif phase == "Activating verified worker copy":
+        phase_index, phase_percent = 3, 0
+    elif phase == "Uploading verified SQLite":
+        phase_index, phase_percent = 2, 0
+    else:
+        phase_index = 1
+        phase_percent = max(0, min(100, int((overall_percent - 10) * 100 / 65)))
+    elapsed_seconds = worker_job_elapsed_seconds(external)
+    eta_seconds = (
+        max(0.0, elapsed_seconds / overall_percent * (100 - overall_percent))
+        if 0 < overall_percent < 100
+        else None
+    )
+    return {
+        "job_id": external.get("job_id", ""),
+        "job_type": external.get("job_type", ""),
+        "title": mushroom_profiles_ui.ui_label("ui.worker_predictor_precompute_job_type"),
+        "executor": "worker",
+        "worker_display_name": external.get("target_display_name", ""),
+        "status": external.get("status", "unknown"),
+        "phase": phase,
+        "phase_index": phase_index,
+        "phase_count": 3,
+        "phase_percent": phase_percent,
+        "overall_percent": overall_percent,
+        "message": external.get("message", ""),
+        "error": external.get("error", ""),
+        "result": external.get("result", {}),
+        "scope": external.get("scope", ""),
+        "pipeline": "worker_predictor_precompute",
+        "cancel_requested": external.get("status") == "cancel_requested",
+        "can_cancel": False,
+        "elapsed": worker_job_elapsed(external),
+        "elapsed_seconds": elapsed_seconds,
+        "phase_elapsed": worker_job_elapsed(external),
+        "eta": compact_duration(eta_seconds) if eta_seconds is not None else "",
+        "phase_eta": "",
+        "started_at": external.get("started_at", ""),
+        "finished_at": external.get("finished_at", ""),
+    }
 
 
 def request_mushroom_rebuild_cancel(job_id: str) -> tuple[int, dict[str, object]]:
@@ -16365,6 +16417,7 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
       const refreshLink = document.getElementById("mushroom-rebuild-progress-refresh");
       let terminalStatus = "";
       const fields = {{
+        title: document.getElementById("mushroom-rebuild-progress-title"),
         status: document.getElementById("mushroom-rebuild-progress-status"),
         message: document.getElementById("mushroom-rebuild-progress-message"),
         total: document.getElementById("mushroom-rebuild-progress-total"),
@@ -16393,6 +16446,7 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
           const payload = await response.json();
           if (!payload.ok) throw new Error(payload.error || "Cannot read rebuild status.");
           const job = payload.job || {{}};
+          if (job.title) setText(fields.title, job.title);
           if (cancelButton) {{
             cancelButton.hidden = !job.can_cancel;
             cancelButton.disabled = Boolean(job.cancel_requested);
