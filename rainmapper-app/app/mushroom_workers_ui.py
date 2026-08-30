@@ -827,6 +827,7 @@ def render_page(
             "queued": "ui.worker_precompute_queued_state",
             "running": "ui.worker_precompute_calculating_state",
             "publishing": "ui.worker_precompute_publishing_state",
+            "outdated": "ui.worker_precompute_outdated",
             "invalid": "ui.worker_precompute_invalid",
         }.get(precompute_status, "ui.worker_precompute_missing")
     )

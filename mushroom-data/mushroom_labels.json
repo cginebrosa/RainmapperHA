@@ -4204,6 +4204,11 @@
     "es": "Sin precálculo válido",
     "ca": "Sense precàlcul vàlid"
   },
+  "ui.worker_precompute_outdated": {
+    "en": "Outdated · pending precompute",
+    "es": "Desactualizado · precálculo pendiente",
+    "ca": "Desactualitzat · precàlcul pendent"
+  },
   "ui.worker_precompute_invalid": {
     "en": "No valid precompute",
     "es": "Sin precálculo válido",
@@ -4228,6 +4233,11 @@
     "en": "in progress, query calculated online",
     "es": "en curso, consulta calculada en línea",
     "ca": "en curs, consulta calculada en línia"
+  },
+  "ui.predictor_precompute_outdated": {
+    "en": "outdated · pending precompute; query calculated online",
+    "es": "desactualizado · precálculo pendiente; consulta calculada en línea",
+    "ca": "desactualitzat · precàlcul pendent; consulta calculada en línia"
   },
   "ui.predictor_precompute_unavailable": {
     "en": "unavailable, query calculated online",

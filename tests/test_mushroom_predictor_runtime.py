@@ -15,6 +15,7 @@ from rainmapper_core.mushroom_predictor_runtime import (
     invalidate_published_manifest,
     load_or_publish_manifest,
     load_published_manifest,
+    load_published_manifest_metadata,
     publish_manifest,
     service_paths,
     synchronize_runtime,
@@ -79,6 +80,29 @@ class PredictorRuntimeTests(TestCase):
                 "models/mushroom_ml_experiment_fixed_gap_7d_v1_boletus.joblib",
                 sources,
             )
+
+    def test_published_metadata_load_does_not_inspect_runtime_sources(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            publication = root / "cache/published-runtime.json"
+            manifest, _sources = publish_manifest(
+                publication,
+                weather_data_dir=weather,
+                models_dir=models,
+                features_artifact_path=features,
+                known_sites_path=sites,
+                profiles_path=profiles,
+            )
+            for source in (weather, models, features, sites, profiles):
+                if source.is_dir():
+                    for child in source.iterdir():
+                        child.unlink()
+                    source.rmdir()
+                else:
+                    source.unlink()
+
+            self.assertEqual(manifest, load_published_manifest_metadata(publication))
 
     def test_reused_runtime_receipt_does_not_rehash_installed_files(self) -> None:
         with TemporaryDirectory() as temporary:

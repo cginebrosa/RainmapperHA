@@ -122,10 +122,14 @@ Especificación vinculante:
   SQLite verificado, estado deseado latest-wins, ejecución manual, publicación
   coordinada, lookup en HA, fallback íntegro y trigger asíncrono del runner.
   Cuatro rutas con datos dieron equivalencia científica exacta en local.
-- [ ] Instalar HA `0.2.281` y ejecutar el E2E real con el worker privado
-  `1.0.30`: medir cálculo y transferencia, confirmar activación en
+- [ ] Instalar HA `0.2.282` y ejecutar el E2E real con el worker privado
+  `1.0.30`: confirmar que Workers y Predictor muestran el estado sin cálculo
+  pesado, medir cálculo y transferencia, confirmar activación en
   `/media/rainmapper/predictor_precompute`, hits servidos por HA, fallback con
   selección explícita de ejecutor y ausencia del SQLite en el backup.
+- [ ] Auditar el backup real de `/share/rainmapper` y confirmar si los batches
+  ML no referenciados explican sus aproximadamente 1,2 GiB. No borrar ni cambiar
+  retención sin autorización explícita.
 - [ ] Perfilar `Building weekly matrix` por especie después del E2E real.
   Optimizar solo el coste dominante medido; objetivo operativo de referencia,
   no gate demostrado, inferior a diez minutos.

@@ -1765,8 +1765,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 ) as build_request,
                 mock.patch.object(
                     self.web_server.mushroom_predictor_runtime,
-                    "load_or_publish_manifest",
-                    return_value=({"fingerprint": "sha256:runtime"}, {}, "reused"),
+                    "load_published_manifest_metadata",
+                    return_value={"fingerprint": "sha256:runtime"},
                 ),
                 mock.patch.object(
                     self.web_server.mushroom_predictor_precompute,
@@ -1896,8 +1896,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 ) as build_request,
                 mock.patch.object(
                     self.web_server.mushroom_predictor_runtime,
-                    "load_or_publish_manifest",
-                    return_value=({"fingerprint": "sha256:runtime"}, {}, "reused"),
+                    "load_published_manifest_metadata",
+                    return_value={"fingerprint": "sha256:runtime"},
                 ),
                 mock.patch.object(
                     self.web_server.mushroom_predictor_precompute,
@@ -2597,6 +2597,28 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Precálculo", rendered)
         self.assertIn("en curso", rendered)
         self.assertIn("pred-precompute-in_progress", rendered)
+
+    def test_precompute_status_badge_shows_outdated_as_pending(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        labels = {
+            "ui.predictor_precompute_status": "Precálculo",
+            "ui.predictor_precompute_outdated": (
+                "desactualizado · precálculo pendiente; consulta calculada en línea"
+            ),
+        }
+        token = predictor_ui._prediction_timing.set(
+            {"precompute_status": "outdated"}
+        )
+        try:
+            with mock.patch.object(
+                predictor_ui, "_lbl", side_effect=lambda key: labels[key]
+            ):
+                rendered = predictor_ui._precompute_status_badge()
+        finally:
+            predictor_ui._prediction_timing.reset(token)
+
+        self.assertIn("desactualizado · precálculo pendiente", rendered)
+        self.assertIn("pred-precompute-outdated", rendered)
 
     def test_installed_manifests_loads_only_requested_version_once_per_request(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
@@ -7716,6 +7738,25 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('type="submit" disabled', panel)
         self.assertIn("No valid precompute", panel)
 
+    def test_precompute_panel_reports_outdated_artifact_as_pending(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            eligible_observation_count=0,
+            jobs=[],
+            pipeline="shared",
+            precompute_summary={
+                "status": "outdated",
+                "preferred_worker_name": "Home Assistant local",
+                "preferred_worker_reachable": True,
+                "preferred_worker_compatible": True,
+                "local_executor": True,
+                "artifact_id": "artifact-old",
+            },
+        )
+
+        self.assertIn("Outdated · pending precompute", page)
+        self.assertIn("artifact-old", page)
+
     def test_precompute_summary_does_not_report_stale_desire_as_queued(self) -> None:
         installed_versions = [
             self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
@@ -7763,7 +7804,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 mock.patch.object(
                     self.web_server,
                     "predictor_precompute_plan",
-                    return_value=(current_identity, {}, {"fingerprint": current_identity.runtime_fingerprint}),
+                    side_effect=AssertionError("summary must not plan"),
+                ) as plan,
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_runtime,
+                    "load_published_manifest_metadata",
+                    return_value={"fingerprint": current_identity.runtime_fingerprint},
                 ),
                 mock.patch.object(
                     self.web_server.mushroom_worker_registry,
@@ -7800,8 +7846,107 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 summary = self.web_server.predictor_precompute_summary()
 
         self.assertEqual("missing", summary["status"])
-        self.assertEqual(0, summary["desired_revision"])
-        self.assertNotIn("desired_artifact_id", summary)
+        self.assertEqual(1, summary["desired_revision"])
+        self.assertEqual(stale_identity.artifact_id, summary["desired_artifact_id"])
+        plan.assert_not_called()
+
+    def test_precompute_summary_reports_stale_persisted_artifact_as_outdated(self) -> None:
+        identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+            runtime_fingerprint="sha256:" + "b" * 64,
+            issue_date="2026-08-30",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={
+                "species": 1,
+                "areas": 1,
+                "days": 7,
+                "versions": 1,
+                "members": 7,
+            },
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            desired_path = root / "desired.json"
+            desired = self.web_server.mushroom_predictor_precompute_control.advance_desired_state(
+                desired_path,
+                identity=identity,
+                worker_id="",
+                trigger_origin="manual",
+            )
+            artifact_path = root / "active.sqlite3"
+            artifact_path.write_bytes(b"old artifact")
+            manifest = self.web_server.mushroom_predictor_precompute.ArtifactManifest(
+                identity.artifact_id,
+                "sha256:" + "c" * 64,
+                artifact_path.stat().st_size,
+                {},
+            )
+            receipt = self.web_server.mushroom_predictor_precompute_control._receipt(
+                manifest, int(desired["revision"])
+            )
+            receipt_path = root / "active-receipt.json"
+            receipt_path.write_text(
+                json.dumps(receipt.as_dict()), encoding="utf-8"
+            )
+            with (
+                mock.patch.object(
+                    self.web_server,
+                    "predictor_precompute_plan",
+                    side_effect=AssertionError("summary must not plan"),
+                ) as plan,
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_runtime,
+                    "load_published_manifest_metadata",
+                    return_value={"fingerprint": "sha256:" + "a" * 64},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_worker_registry,
+                    "load_registry",
+                    return_value={"default_executor": "home_assistant", "workers": []},
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "registered_mushroom_worker_statuses",
+                    return_value=[],
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "mushroom_local_ha_compute_enabled",
+                    return_value=True,
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "mushroom_worker_jobs_path",
+                    return_value=root / "jobs.json",
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_desired_path",
+                    return_value=desired_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_artifact_path",
+                    return_value=artifact_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_receipt_path",
+                    return_value=receipt_path,
+                ),
+                mock.patch.object(self.web_server, "MUSHROOM_REBUILD_JOBS", {}),
+            ):
+                summary = self.web_server.predictor_precompute_summary()
+
+        self.assertEqual("outdated", summary["status"])
+        self.assertEqual(identity.artifact_id, summary["artifact_id"])
+        plan.assert_not_called()
 
     def test_workers_page_uses_operational_default_worker_for_complete_update(self) -> None:
         worker = {

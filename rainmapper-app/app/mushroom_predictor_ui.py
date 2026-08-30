@@ -870,6 +870,7 @@ def _precompute_status_badge() -> str:
         "used": "ui.predictor_precompute_used",
         "available_not_used": "ui.predictor_precompute_available_not_used",
         "in_progress": "ui.predictor_precompute_in_progress",
+        "outdated": "ui.predictor_precompute_outdated",
         "unavailable": "ui.predictor_precompute_unavailable",
     }.get(status)
     if label_key is None:

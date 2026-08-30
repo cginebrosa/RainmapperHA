@@ -410,6 +410,21 @@ def load_published_manifest(
     return manifest, sources
 
 
+def load_published_manifest_metadata(publication_path: Path) -> dict[str, Any]:
+    """Load only the persisted manifest, without statting or hashing runtime files."""
+    source = Path(publication_path)
+    if _dirty_publication_path(source).exists():
+        raise ValueError("Predictor runtime publication is dirty.")
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    if (
+        not isinstance(payload, dict)
+        or payload.get("schema_version") != PUBLICATION_SCHEMA_VERSION
+        or payload.get("kind") != PUBLICATION_KIND
+    ):
+        raise ValueError("Predictor runtime publication is invalid.")
+    return validate_manifest(payload.get("manifest"))
+
+
 def load_or_publish_manifest(
     publication_path: Path | None = None,
     **build_options: Path | None,

@@ -12868,7 +12868,7 @@ def predictor_precompute_plan() -> tuple[
 
 
 def predictor_precompute_summary() -> dict[str, object]:
-    """Return bounded panel state; corrupt state is visible but never fatal."""
+    """Return cheap persisted panel state; never plan or inspect SQLite here."""
     summary: dict[str, object] = {
         "status": "missing",
         "artifact_id": "",
@@ -12877,15 +12877,6 @@ def predictor_precompute_summary() -> dict[str, object]:
         "desired_revision": 0,
     }
     try:
-        identity, _selections, _runtime_manifest = predictor_precompute_plan()
-        summary.update(
-            {
-                "planned_artifact_id": identity.artifact_id,
-                "runtime_fingerprint": identity.runtime_fingerprint,
-                "coverage_start": identity.coverage_start,
-                "coverage_end": identity.coverage_end,
-            }
-        )
         registry = mushroom_worker_registry.load_registry(
             mushroom_worker_registry_path()
         )
@@ -12936,23 +12927,60 @@ def predictor_precompute_summary() -> dict[str, object]:
                 "local_executor": local_precompute_executor,
             }
         )
+        desired = mushroom_predictor_precompute_control.load_desired_state(
+            mushroom_paths.mushroom_predictor_precompute_desired_path()
+        )
+        desired_identity = None
+        desired_is_current = False
+        if desired is not None:
+            desired_identity = mushroom_predictor_precompute.ArtifactIdentity.from_dict(
+                desired.get("identity")
+            )
+            try:
+                published_manifest = (
+                    mushroom_predictor_runtime.load_published_manifest_metadata(
+                        mushroom_predictor_runtime.default_publication_path()
+                    )
+                )
+            except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
+                published_manifest = None
+            desired_is_current = bool(
+                published_manifest is not None
+                and desired_identity.runtime_fingerprint
+                == published_manifest.get("fingerprint")
+                and desired_identity.coverage_start
+                == datetime.now(get_timezone()).date().isoformat()
+            )
+            summary.update(
+                {
+                    "planned_artifact_id": desired_identity.artifact_id,
+                    "runtime_fingerprint": desired_identity.runtime_fingerprint,
+                    "coverage_start": desired_identity.coverage_start,
+                    "coverage_end": desired_identity.coverage_end,
+                    "desired_artifact_id": desired_identity.artifact_id,
+                    "desired_revision": int(desired.get("revision", 0) or 0),
+                }
+            )
         with RUN_LOCK:
             queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
             local_jobs = list(MUSHROOM_REBUILD_JOBS.values())
-        active_job = next(
-            (
-                row
-                for row in reversed(local_jobs + queue["jobs"])
-                if row.get("job_type")
-                in {
-                    "local_predictor_precompute",
-                    mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
-                }
-                and row.get("artifact_id") == identity.artifact_id
-                and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
-            ),
-            None,
-        )
+        active_job = None
+        if desired is not None:
+            active_job = next(
+                (
+                    row
+                    for row in reversed(local_jobs + queue["jobs"])
+                    if row.get("job_type")
+                    in {
+                        "local_predictor_precompute",
+                        mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+                    }
+                    and row.get("artifact_id")
+                    == desired.get("artifact_id")
+                    and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+                ),
+                None,
+            )
         if active_job is not None:
             active_status = str(active_job.get("status", ""))
             active_phase = str(active_job.get("phase", ""))
@@ -12974,38 +13002,29 @@ def predictor_precompute_summary() -> dict[str, object]:
                     "active_job_phase": active_phase,
                 }
             )
-        desired = mushroom_predictor_precompute_control.load_desired_state(
-            mushroom_paths.mushroom_predictor_precompute_desired_path()
-        )
-        if desired is not None and desired.get("artifact_id") == identity.artifact_id:
-            summary.update(
-                {
-                    "desired_artifact_id": str(desired.get("artifact_id", "")),
-                    "desired_revision": int(desired.get("revision", 0) or 0),
-                }
-            )
-            if active_job is None:
-                summary["status"] = "queued"
-        manifest = mushroom_predictor_precompute.validate_artifact(
-            mushroom_paths.mushroom_predictor_precompute_artifact_path(),
-            expected_identity=identity,
-            full=False,
-        )
-        summary.update(
-            {
-                "artifact_id": manifest.artifact_id,
-                "file_sha256": manifest.file_sha256,
-                "size_bytes": manifest.size_bytes,
-            }
-        )
-        if active_job is None:
-            summary["status"] = "active"
-    except FileNotFoundError:
-        if summary.get("status") not in {"queued", "running", "publishing"}:
-            summary["status"] = "missing"
-    except mushroom_predictor_precompute.PrecomputeIdentityMismatch:
-        if summary.get("status") not in {"queued", "running", "publishing"}:
-            summary["status"] = "missing"
+        if desired is not None and active_job is None:
+            summary["status"] = "queued" if desired_is_current else "missing"
+            receipt_path = mushroom_paths.mushroom_predictor_precompute_receipt_path()
+            artifact_path = mushroom_paths.mushroom_predictor_precompute_artifact_path()
+            if receipt_path.is_file() and artifact_path.is_file():
+                receipt = (
+                    mushroom_predictor_precompute_control.PublicationReceipt.from_dict(
+                        json.loads(receipt_path.read_text(encoding="utf-8"))
+                    )
+                )
+                if (
+                    receipt.desired_revision == desired.get("revision")
+                    and receipt.artifact_id == desired.get("artifact_id")
+                    and artifact_path.stat().st_size == receipt.size_bytes
+                ):
+                    summary.update(
+                        {
+                            "status": "active" if desired_is_current else "outdated",
+                            "artifact_id": receipt.artifact_id,
+                            "file_sha256": receipt.file_sha256,
+                            "size_bytes": receipt.size_bytes,
+                        }
+                    )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         summary.update({"status": "invalid", "error": str(exc)})
     return summary
@@ -13051,9 +13070,27 @@ def predictor_precompute_control_panel_summary() -> dict[str, object]:
         )
         if desired is None:
             return summary
+        desired_identity = mushroom_predictor_precompute.ArtifactIdentity.from_dict(
+            desired.get("identity")
+        )
+        try:
+            published_manifest = (
+                mushroom_predictor_runtime.load_published_manifest_metadata(
+                    mushroom_predictor_runtime.default_publication_path()
+                )
+            )
+        except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
+            published_manifest = None
+        desired_is_current = bool(
+            published_manifest is not None
+            and desired_identity.runtime_fingerprint
+            == published_manifest.get("fingerprint")
+            and desired_identity.coverage_start
+            == datetime.now(get_timezone()).date().isoformat()
+        )
         summary.update(
             {
-                "status": "pending",
+                "status": "pending" if desired_is_current else "outdated",
                 "artifact_id": str(desired.get("artifact_id", "")),
                 "coverage_start": str(desired.get("coverage_start", "")),
                 "coverage_end": str(desired.get("coverage_end", "")),
@@ -13090,7 +13127,7 @@ def predictor_precompute_control_panel_summary() -> dict[str, object]:
                 receipt.desired_revision == desired.get("revision")
                 and receipt.artifact_id == desired.get("artifact_id")
             ):
-                summary["status"] = "active"
+                summary["status"] = "active" if desired_is_current else "outdated"
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         summary.update({"status": "invalid", "error": str(exc)})
     return summary
@@ -19888,16 +19925,26 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         coordinator_lookup_started = time.perf_counter()
         try:
             predictor_request = build_predictor_request(query)
-            runtime_manifest, _sources, _publication_status = (
-                mushroom_predictor_runtime.load_or_publish_manifest()
-            )
-            coordinator_precompute_lookup = (
-                mushroom_predictor_precompute.lookup_active_artifact(
-                    mushroom_paths.mushroom_predictor_precompute_artifact_path(),
-                    runtime_fingerprint=str(runtime_manifest["fingerprint"]),
-                    request=predictor_request,
+            try:
+                runtime_manifest = (
+                    mushroom_predictor_runtime.load_published_manifest_metadata(
+                        mushroom_predictor_runtime.default_publication_path()
+                    )
                 )
-            )
+            except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
+                coordinator_precompute_lookup = (
+                    mushroom_predictor_precompute.LookupResult(
+                        False, None, "artifact_missing"
+                    )
+                )
+            else:
+                coordinator_precompute_lookup = (
+                    mushroom_predictor_precompute.lookup_active_artifact(
+                        mushroom_paths.mushroom_predictor_precompute_artifact_path(),
+                        runtime_fingerprint=str(runtime_manifest["fingerprint"]),
+                        request=predictor_request,
+                    )
+                )
             if coordinator_precompute_lookup.hit and not job_id:
                 prepared_response = coordinator_precompute_lookup.response
                 precompute_response_used = True
@@ -20270,6 +20317,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 predictor_precompute_status = "used"
                             elif active_precompute_status:
                                 predictor_precompute_status = "in_progress"
+                            elif (
+                                coordinator_precompute_lookup is not None
+                                and coordinator_precompute_lookup.reason
+                                == "identity_mismatch"
+                            ):
+                                predictor_precompute_status = "outdated"
                             elif (
                                 coordinator_precompute_lookup is not None
                                 and coordinator_precompute_lookup.reason
@@ -23705,6 +23758,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "pending": "en espera",
             "running": "en ejecución",
             "active": "activo",
+            "outdated": "desactualizado · precálculo pendiente",
             "invalid": "estado inválido",
         }.get(str(precompute.get("status", "")), str(precompute.get("status", "")))
         precompute_detail = " · ".join(

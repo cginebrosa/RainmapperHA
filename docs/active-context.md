@@ -8,12 +8,12 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 - Workspace verificado: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama
   `inicial`. El HEAD previo al commit de esta entrega era
-  `32ee344d8f150d6400fe3e522bbf345bab5d4c9e`; revalidar HEAD al continuar.
-- El código declara HA `0.2.281` y worker `1.0.30`.
-- HA `0.2.281` y `latest` están publicados con el mismo índice OCI
-  `sha256:892fa5accda4b2588c7e6abc65a91b6058155a9d43893fe032a00cb1dc415fd0`
-  y manifests `linux/amd64` y `linux/arm64`. La instalación en HA real no
-  está confirmada; corresponde al usuario.
+  `90b2694970a27103dd325bc4242527b4e663035d`; revalidar HEAD al continuar.
+- El código declara HA `0.2.282` y worker `1.0.30`.
+- HA `0.2.282` y `latest` están publicados con el mismo índice OCI
+  `sha256:fbfd8f20fd7ebd0a50e5342c63175e1aa16048ab07420e286c3960d286f6c083`
+  y manifests `linux/amd64` y `linux/arm64`. La instalación de `0.2.282` en HA
+  real no está confirmada; corresponde al usuario.
 - El worker no se publica. Se reconstruyó localmente como `1.0.30`, conservando
   identidad `worker_1a9a232c20fe2ee2` y volumen `rainmapper-worker-data`. Su
   health local confirmó `idle`, versión `1.0.30` y capacidad
@@ -62,19 +62,25 @@ navegación local y confirmó su mejora.
 
 ## Validación y release
 
-- Smoke completo definitivo: 1.164 pruebas y todos los validadores correctos.
+- Smoke completo definitivo para `0.2.282`: 1.168 pruebas y todos los
+  validadores correctos.
 - Pruebas dirigidas de empaquetado detectaron y corrigieron la ausencia inicial
   de los dos módulos de precálculo en la imagen privada del worker; 322 pruebas
   dirigidas pasaron después.
 - `git diff --check` correcto antes de preparar el commit.
 - Worker privado `1.0.30` reconstruido y health verificado.
-- Imagen HA `0.2.281` publicada y verificada en GHCR para amd64/arm64; versión y
+- Imagen HA `0.2.282` publicada y verificada en GHCR para amd64/arm64; versión y
   `latest` comparten digest.
+- `0.2.282` evita que las pantallas de Workers y Predictor planifiquen, lean o
+  rehasheen los inputs completos solo para mostrar el estado del precálculo.
+  El estado barato usa metadatos persistidos y distingue `desactualizado` sin
+  abrir el SQLite ni recorrer cientos de MiB. El arranque informa también la
+  ruta de precálculo configurada.
 - No repetir el smoke por cambios exclusivamente documentales o por el commit.
 
 ## Próxima prueba real
 
-1. El usuario instala HA `0.2.281`.
+1. El usuario instala HA `0.2.282`.
 2. Confirmar en la UI la versión instalada y que HA reconoce el worker `1.0.30`
    con `predictor_precompute_v1`.
 3. Lanzar manualmente un precálculo real. Verificar que calcula en el worker
@@ -89,7 +95,7 @@ navegación local y confirmó su mejora.
 
 ## Riesgos y deuda activos
 
-- La instalación de HA `0.2.281` y el circuito worker→HA no se han validado aún
+- La instalación de HA `0.2.282` y el circuito worker→HA no se han validado aún
   en el entorno real.
 - El SQLite local ocupa unos 442 MiB; la transferencia real y el comportamiento
   de `/media` en la RPi4 deben medirse, no estimarse.
@@ -99,6 +105,11 @@ navegación local y confirmó su mejora.
   ETA; no inferir costes de red solo por el nombre de una fase.
 - El fallback en HA real debe conservar la selección explícita de ejecutor; es
   especialmente importante cuando el SQLite no cubre una consulta.
+- `/share/rainmapper` ocupa aproximadamente 1,2 GiB en HA real según la
+  observación del usuario y entra en el backup. En el entorno local, el principal
+  sospechoso son ocho batches ML antiguos no referenciados por el registro; hay
+  que confirmar el contenido exacto en el backup real antes de proponer cambios.
+  No borrar ni cambiar retención sin autorización explícita.
 
 ## Archivos relevantes
 

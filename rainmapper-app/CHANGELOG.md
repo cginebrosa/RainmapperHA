@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.282
+
+- Read persisted Predictor precompute state without planning or hashing bulk
+  runtime and SQLite inputs when opening Workers or Predictor pages.
+- Report stale runtime fingerprints as an outdated precompute pending refresh
+  while preserving active job and publication states.
+- Print the Predictor precompute media path in the startup diagnostics.
+
 ## 0.2.281
 
 - Build and atomically publish a verified weekly Predictor SQLite artifact for
