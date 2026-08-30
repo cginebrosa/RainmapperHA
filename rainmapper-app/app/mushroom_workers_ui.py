@@ -433,6 +433,12 @@ def render_recent_jobs(
                 else _label("ui.worker_scientific_benchmark_job")
             ),
             "worker_predictor_v1": _label("ui.worker_predictor_job_type"),
+            "worker_predictor_precompute_v1": _label(
+                "ui.worker_predictor_precompute_job_type"
+            ),
+            "local_predictor_precompute": _label(
+                "ui.worker_predictor_precompute_job_type"
+            ),
             "local_full_update": _label("ui.worker_local_full_update_job"),
             "local_ml_benchmark": _label("ui.worker_scientific_benchmark_job"),
         }.get(job_type, _label("ui.worker_rebuild_job"))
@@ -453,6 +459,7 @@ def render_recent_jobs(
             "cancelled": _label("ui.worker_status_cancelled"),
             "complete": _label("ui.worker_status_complete"),
             "failed": _label("ui.worker_status_failed"),
+            "superseded": _label("ui.worker_status_superseded"),
         }.get(status, status)
         promotion_status = str(job.get("promotion_status", "") or "")
         display_status = status
@@ -513,6 +520,7 @@ def render_recent_jobs(
             "worker_ml_train_v0",
             "worker_ml_multiversion_v1",
             "worker_predictor_v1",
+            "worker_predictor_precompute_v1",
         }:
             action_parts = []
             if benchmark_action:
@@ -593,6 +601,13 @@ def render_recent_jobs(
                         f'<button type="submit">{_text(_label("ui.worker_reassign_job"))}</button></form>'
                     )
             actions = "".join(action_parts) or "-"
+        elif job_type == "local_predictor_precompute" and status == "running":
+            actions = (
+                '<form class="worker-job-action danger" method="post" action="">'
+                '<input type="hidden" name="worker_action" value="cancel_local_precompute">'
+                f'<input type="hidden" name="job_id" value="{_text(job_id)}">'
+                f'<button type="submit">{_text(_label("ui.worker_cancel_job"))}</button></form>'
+            )
         elif job_type == "local_ml_benchmark" and status == "running":
             actions = (
                 '<form class="worker-job-action danger" method="post" action="">'
@@ -617,7 +632,7 @@ def render_recent_jobs(
                 scope_parts.append(f'{result_summary.get("holdout_prediction_count")} hold-out')
             scope_text = " · ".join(scope_parts) or scope_text
         job_rows.append(
-            f'<tr data-job-id="{_text(job_id)}" data-job-purpose="{_text(job.get("job_purpose", ""))}">'
+            f'<tr data-job-id="{_text(job_id)}" id="job-{_text(job_id)}" data-job-purpose="{_text(job.get("job_purpose", ""))}">'
             f'<td data-sort-value="{_text(job_display_name)}">{job_reference}</td>'
             f'<td data-sort-value="{_text(job.get("sort_timestamp", job.get("created_at", "")))}"><time datetime="{_text(job.get("created_at", ""))}">{_text(job.get("date_time", "-"))}</time></td>'
             f'<td data-sort-value="{_text(job_type_text)}" title="{_text(job_type_text)}">{_text(job_type_text)}</td>'
@@ -667,6 +682,7 @@ def render_page(
     benchmark_history: list[dict[str, object]] | None = None,
     selected_benchmark_report: dict[str, object] | None = None,
     benchmark_report_error: str = "",
+    precompute_summary: dict[str, object] | None = None,
 ) -> str:
     default_worker_status = next(
         (
@@ -792,6 +808,36 @@ def render_page(
         selected_benchmark_report,
         error=benchmark_report_error,
     )
+    precompute_summary = dict(precompute_summary or {})
+    precompute_worker_id = str(precompute_summary.get("preferred_worker_id", ""))
+    precompute_worker_compatible = bool(
+        precompute_summary.get("preferred_worker_compatible")
+    )
+    precompute_worker_name = str(
+        precompute_summary.get("preferred_worker_name", precompute_worker_id)
+        or precompute_worker_id
+    )
+    if precompute_worker_id and not precompute_summary.get("preferred_worker_reachable"):
+        precompute_worker_name += f' · {_label("ui.worker_disconnected")}'
+    precompute_status = str(precompute_summary.get("status", "missing"))
+    precompute_status_text = _label(
+        {
+            "active": "ui.worker_precompute_active",
+            "pending": "ui.worker_precompute_queued_state",
+            "queued": "ui.worker_precompute_queued_state",
+            "running": "ui.worker_precompute_calculating_state",
+            "publishing": "ui.worker_precompute_publishing_state",
+            "invalid": "ui.worker_precompute_invalid",
+        }.get(precompute_status, "ui.worker_precompute_missing")
+    )
+    precompute_window = ""
+    if precompute_summary.get("coverage_start") and precompute_summary.get("coverage_end"):
+        precompute_window = (
+            f'{precompute_summary.get("coverage_start")} → '
+            f'{precompute_summary.get("coverage_end")}'
+        )
+    precompute_force = precompute_status == "active"
+    precompute_job_id = str(precompute_summary.get("active_job_id", ""))
 
     recent_jobs = render_recent_jobs(
         jobs,
@@ -899,7 +945,7 @@ def render_page(
       .worker-jobs-history{{max-height:286px;overscroll-behavior:contain}}.worker-jobs-history thead th{{position:sticky;top:0;z-index:2;background:var(--card)}}
       .workers-table-wrap th:nth-child(1){{width:105px}}.workers-table-wrap th:nth-child(2){{width:150px}}.workers-table-wrap th:nth-child(3){{width:190px}}.workers-table-wrap th:nth-child(4){{width:105px}}.workers-table-wrap th:nth-child(5){{width:100px}}.workers-table-wrap th:nth-child(6){{width:190px}}.workers-table-wrap th:nth-child(7){{width:190px}}.workers-table-wrap th:nth-child(8){{width:75px}}.workers-table-wrap th:nth-child(9){{width:75px}}.workers-table-wrap th:nth-child(10){{width:145px}}
       .workers-table-wrap code{{font-size:10px}}.workers-table-wrap time{{font-variant-numeric:tabular-nums}}.worker-sort-button{{display:inline-flex;align-items:center;gap:3px;width:100%;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}}.worker-sort-button span{{margin-left:auto;font-size:9px}}
-      .job-status.complete,.job-status.claimed{{color:var(--ok)}}.job-status.queued,.job-status.running{{color:var(--accent)}}.job-status.failed,.job-status.cancelled,.job-status.cancel_requested{{color:var(--danger)}}
+      .job-status.complete,.job-status.claimed{{color:var(--ok)}}.job-status.queued,.job-status.running{{color:var(--accent)}}.job-status.failed,.job-status.cancelled,.job-status.cancel_requested{{color:var(--danger)}}.job-status.superseded{{color:var(--muted)}}
       .worker-job-actions{{white-space:normal!important;overflow:visible!important}}.worker-job-action{{display:inline-flex;gap:4px;align-items:center;margin:0 4px 2px 0}}.worker-job-action:last-child{{margin-right:0}}.worker-job-action select{{min-width:90px;max-width:120px;padding:4px;font-size:11px}}.worker-job-action button{{padding:4px 6px;font-size:11px;white-space:nowrap}}
       .worker-job-actions>button{{margin:0 4px 2px 0;padding:4px 6px;font-size:11px;white-space:nowrap}}
       .worker-promotion-progress{{display:flex;align-items:center;gap:5px;min-width:68px}}.worker-promotion-progress progress{{width:46px;height:8px;accent-color:var(--accent)}}.worker-promotion-progress span{{font-variant-numeric:tabular-nums}}
@@ -908,6 +954,7 @@ def render_page(
       .benchmark-form{{display:block!important;width:100%;margin:10px 0 0!important}}.benchmark-form-head{{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:9px}}.benchmark-executor{{display:grid;gap:4px;width:min(340px,100%);color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}}.benchmark-executor select{{width:100%;height:34px;min-height:34px;padding:5px 8px;font-size:11px;text-transform:none;letter-spacing:normal}}
       .benchmark-profile-fieldset{{min-width:0;margin:0;padding:0;border:0}}.benchmark-profile-fieldset legend{{margin:0 0 6px;padding:0;color:var(--fg);font-size:12px;font-weight:750}}.benchmark-profile-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0}}.benchmark-profile-choice{{display:block;position:relative;min-width:0;margin:0}}.benchmark-profile-choice input[type="checkbox"]{{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0;pointer-events:none}}.benchmark-profile-surface{{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:8px;min-height:54px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}}.benchmark-profile-mark{{display:grid;place-items:center;width:18px;height:18px;border:1px solid var(--line);border-radius:5px;color:transparent;font-size:12px;font-weight:900}}.benchmark-profile-copy{{display:flex;flex-direction:column;gap:1px;min-width:0}}.benchmark-profile-copy strong{{font-size:12px;line-height:1.2;white-space:normal}}.benchmark-profile-copy small{{color:var(--muted);font-size:10px;line-height:1.25;white-space:normal}}.benchmark-profile-choice input:checked + .benchmark-profile-surface{{border-color:var(--accent);background:#102a38;box-shadow:0 0 0 1px rgba(3,169,244,.16)}}.benchmark-profile-choice input:checked + .benchmark-profile-surface .benchmark-profile-mark{{border-color:var(--accent);background:var(--accent);color:#07151d}}.benchmark-profile-choice input:focus-visible + .benchmark-profile-surface{{outline:2px solid var(--accent);outline-offset:2px}}.benchmark-submit-row{{display:flex;align-items:center;justify-content:flex-end;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}}.benchmark-submit-row button{{min-width:190px;height:34px;min-height:34px;padding:6px 11px;font-size:11px;font-weight:750}}
       .benchmark-history{{display:grid;gap:7px}}.benchmark-history-scroll{{max-height:260px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}}.benchmark-history-item{{display:flex;align-items:stretch;gap:6px}}.benchmark-history-row{{flex:1;min-width:0;display:flex;justify-content:space-between;gap:12px;padding:9px;border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none}}.benchmark-history-row span:first-child{{display:grid;gap:2px}}.benchmark-history-row small{{color:var(--muted)}}.benchmark-history-delete{{flex:0 0 auto;align-self:center;margin:0}}.benchmark-history-delete button{{width:auto;padding:5px 9px;font-size:10px}}
+      .precompute-panel{{display:grid;gap:10px}}.precompute-summary{{display:flex;flex-wrap:wrap;gap:8px 16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}}.precompute-summary strong{{color:var(--fg)}}.precompute-actions{{display:flex;align-items:end;gap:8px;flex-wrap:wrap}}.precompute-actions label{{display:grid;gap:4px;min-width:260px;color:var(--muted);font-size:10px}}.precompute-actions select{{height:34px}}.precompute-actions form{{display:flex;align-items:end;gap:8px;margin:0}}
       .benchmark-report-summary{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}}.benchmark-report-summary div{{padding:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}}.benchmark-report-summary dt{{color:var(--muted);font-size:11px}}.benchmark-report-summary dd{{margin:4px 0 0;overflow-wrap:anywhere}}
       .benchmark-report-table table{{width:min(100%,1380px);min-width:1220px;table-layout:fixed}}.benchmark-report-table th:nth-child(1){{width:86px}}.benchmark-report-table th:nth-child(2){{width:58px}}.benchmark-report-table th:nth-child(3){{width:150px}}.benchmark-report-table th:nth-child(4){{width:78px}}.benchmark-report-table th:nth-child(5){{width:170px}}.benchmark-report-table th:nth-child(6){{width:62px}}.benchmark-report-table th:nth-child(7){{width:78px}}.benchmark-report-table th:nth-child(8){{width:62px}}.benchmark-report-table th:nth-child(9){{width:68px}}.benchmark-report-table th:nth-child(10){{width:54px}}.benchmark-report-table th:nth-child(11){{width:100px}}.benchmark-report-table th:nth-child(12){{width:80px}}.benchmark-report-table th:nth-child(13){{width:78px}}.benchmark-report-table th:nth-child(14){{width:82px}}.benchmark-report-table th,.benchmark-report-table td{{padding-left:4px;padding-right:4px}}.benchmark-failures{{margin-top:12px}}
       @media(max-width:1050px){{.worker-toolbar-spacer{{display:none}}.worker-toolbar-actions{{flex-basis:100%;justify-content:flex-start;margin-left:0}}.workers-grid,.worker-destination-grid,.operational-version-grid,.benchmark-profile-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
@@ -960,6 +1007,28 @@ def render_page(
         <div class="worker-form-section"><div class="worker-form-heading"><strong>3 · {_text(_label('ui.worker_operational_versions'))}</strong><small>{_text(_label('ui.worker_operational_versions_help'))}</small></div><div class="operational-version-grid">{operational_version_controls}</div></div>
         <div class="worker-submit-row"><button class="primary" type="submit"{" disabled" if not selected_executor else ""}>{_text(_label('ui.start_rebuild'))}</button></div>
       </form>
+    </section>
+    <section class="workers-panel precompute-panel">
+      <div class="worker-panel-head"><h2>{_text(_label('ui.worker_precompute_title'))}</h2></div>
+      <p class="meta">{_text(_label('ui.worker_precompute_help_local') if precompute_summary.get('local_executor') else _label('ui.worker_precompute_help'))}</p>
+      <div class="precompute-summary">
+        <span>{_text(_label('ui.status'))}: <strong>{_text(precompute_status_text)}</strong></span>
+        <span>{_text(_label('ui.worker_precompute_worker'))}: <strong>{_text(precompute_worker_name or '—')}</strong></span>
+        <span>{_text(_label('ui.worker_precompute_fingerprint'))}: <strong><code>{_text(precompute_summary.get('runtime_fingerprint', '—'))}</code></strong></span>
+        <span>{_text(_label('ui.worker_precompute_planned_artifact'))}: <strong><code>{_text(precompute_summary.get('planned_artifact_id', '—'))}</code></strong></span>
+        <span>{_text(_label('ui.worker_precompute_active_artifact'))}: <strong><code>{_text(precompute_summary.get('artifact_id', '—') or '—')}</code></strong></span>
+        {f'<span>{_text(_label("ui.worker_precompute_window"))}: <strong>{_text(precompute_window)}</strong></span>' if precompute_window else ''}
+        {f'<span>Revision: <strong>{_text(precompute_summary.get("desired_revision", 0))}</strong></span>' if precompute_summary.get("desired_revision") else ''}
+        {f'<span>Job: <strong><a href="#job-{_text(precompute_job_id)}"><code>{_text(precompute_job_id)}</code></a> · {_text(precompute_summary.get("active_job_status", ""))}</strong></span>' if precompute_job_id else ''}
+      </div>
+      <div class="precompute-actions">
+        <form method="post" action="">
+          <input type="hidden" name="worker_action" value="run_predictor_precompute">
+          <input type="hidden" name="worker_id" value="{_text(precompute_worker_id)}">
+          <button{' class="primary"' if precompute_worker_compatible else ''} type="submit"{' disabled' if not precompute_worker_compatible else ''}>{_text(_label('ui.worker_precompute_launch'))}</button>
+        </form>
+        {('<form method="post" action=""><input type="hidden" name="worker_action" value="run_predictor_precompute"><input type="hidden" name="force" value="1"><input type="hidden" name="worker_id" value="' + _text(precompute_worker_id) + '"><button type="submit">' + _text(_label('ui.worker_precompute_force')) + '</button></form>') if precompute_force and precompute_worker_compatible else ''}
+      </div>
     </section>
     <section class="workers-panel">
       <div class="worker-panel-head"><h2>{_text(_label('ui.worker_scientific_benchmark'))}</h2></div>

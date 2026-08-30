@@ -294,6 +294,25 @@ class PredictorService:
             batches[version_id] = batch
         return batches
 
+    def species_phenology(self, species_id: str) -> dict[str, Any]:
+        """Return the runtime-scoped phenology used by every interpretation."""
+        if self.profiles_path is None or not self.profiles_path.is_file():
+            return {}
+        try:
+            profiles = json.loads(self.profiles_path.read_text(encoding="utf-8"))
+            profile = next(
+                (
+                    row
+                    for row in profiles.get("species_profiles", [])
+                    if isinstance(row, dict) and row.get("species_id") == species_id
+                ),
+                {},
+            )
+            phenology = profile.get("phenology") if isinstance(profile, dict) else {}
+            return copy.deepcopy(dict(phenology or {}))
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            return {}
+
     def multiversion_compare(
         self,
         *,
@@ -386,22 +405,7 @@ class PredictorService:
                 version_runtime_metrics[version_id] = dict(
                     result.get("runtime_metrics") or {}
                 )
-            phenology: dict[str, Any] = {}
-            try:
-                if self.profiles_path is not None:
-                    profiles = json.loads(self.profiles_path.read_text(encoding="utf-8"))
-                    species_profile = next(
-                        (
-                            row
-                            for row in profiles.get("species_profiles", [])
-                            if isinstance(row, dict)
-                            and row.get("species_id") == species_id
-                        ),
-                        {},
-                    )
-                    phenology = dict(species_profile.get("phenology") or {})
-            except (OSError, TypeError, ValueError):
-                phenology = {}
+            phenology = self.species_phenology(species_id)
             operational = (
                 mushroom_ml_multiversion_comparison.build_selected_operational_comparison(
                     members,
@@ -435,6 +439,93 @@ class PredictorService:
                 "reason": "multiversion_runtime_error",
                 "message": str(exc),
             }
+
+    def prewarm_multiversion_week(
+        self,
+        *,
+        species_id: str,
+        area_id: str,
+        target_dates: Sequence[date],
+        selections: Sequence[Mapping[str, object]],
+        prepared_weather_cache: dict[tuple[object, ...], Any],
+        comparison_cache: dict[str, Any],
+    ) -> int:
+        """Batch weekly inference while retaining the normal response assembly."""
+        if self.version_registry_path is None or not self.version_registry_path.is_file():
+            return 0
+        try:
+            registry = comparison_cache.get("service_registry")
+            if not isinstance(registry, dict):
+                registry = mushroom_ml_version_registry.load_registry(
+                    self.version_registry_path
+                )
+                comparison_cache["service_registry"] = registry
+            dated = [
+                (
+                    current_date,
+                    mushroom_ml_multiversion_comparison.retarget_operational_selections(
+                        selections,
+                        target_date=current_date,
+                        issue_date=min(date.today(), current_date),
+                    ),
+                )
+                for current_date in target_dates
+            ]
+            version_ids = {
+                str(row.get("version_id") or "")
+                for _current_date, rows in dated
+                for row in rows
+            }
+            batches = self._installed_runtime_batches(
+                registry,
+                version_ids=version_ids,
+                comparison_cache=comparison_cache,
+            )
+            version_caches = comparison_cache.setdefault(
+                "service_multiversion_caches", {}
+            )
+            stations_file = self.stations_file_path
+            excluded_station_keys = (
+                mushroom_weather_idw.disabled_wunderground_station_keys(
+                    stations_file
+                )
+                if stations_file is not None and stations_file.is_file()
+                else frozenset()
+            )
+            predicted = 0
+            for version_id in sorted(version_ids):
+                batch = batches.get(version_id)
+                if batch is None:
+                    continue
+                selected_dates = [
+                    (
+                        current_date,
+                        [
+                            row
+                            for row in rows
+                            if row.get("version_id") == version_id
+                        ],
+                    )
+                    for current_date, rows in dated
+                ]
+                predicted += (
+                    mushroom_ml_multiversion_comparison.prewarm_selection_predictions(
+                        registry,
+                        batch,
+                        selected_dates,
+                        species_id=species_id,
+                        area_id=area_id,
+                        models_root=self.models_dir,
+                        known_sites_path=self.known_sites_path,
+                        weather_data_dir=self.weather_data_dir,
+                        excluded_station_keys=excluded_station_keys,
+                        prepared_weather_cache=prepared_weather_cache,
+                        comparison_cache=version_caches.setdefault(version_id, {}),
+                    )
+                )
+            return predicted
+        except (OSError, KeyError, TypeError, ValueError):
+            return 0
 
     def v2_reference_compare(
         self,
@@ -588,6 +679,7 @@ class PredictorService:
         request: object,
         *,
         progress: ProgressCallback | None = None,
+        shared_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         started = monotonic()
         phase_seconds: dict[str, float] = {}
@@ -651,13 +743,20 @@ class PredictorService:
             ),
         )
         cache_started = monotonic()
-        with self._lock:
-            cached = self._responses.get(cache_key)
-            if cached is not None:
-                self._responses.move_to_end(cache_key)
-                response = copy.deepcopy(cached)
-            else:
-                response = None
+        use_response_cache = not bool(
+            shared_context is not None
+            and shared_context.get("disable_response_cache") is True
+        )
+        if use_response_cache:
+            with self._lock:
+                cached = self._responses.get(cache_key)
+                if cached is not None:
+                    self._responses.move_to_end(cache_key)
+                    response = copy.deepcopy(cached)
+                else:
+                    response = None
+        else:
+            response = None
         phase_seconds["response_cache_lookup"] = monotonic() - cache_started
         phase_call_counts["response_cache_lookup"] = 1
         if response is not None:
@@ -684,8 +783,16 @@ class PredictorService:
         selected_species = normalized["species_id"]
         target = date.fromisoformat(normalized["target_date"])
         area_id = normalized["area_id"]
-        prepared_weather_cache: dict[tuple[object, ...], Any] = {}
-        comparison_cache: dict[str, Any] = {}
+        context = shared_context if shared_context is not None else {}
+        prepared_weather_cache = context.setdefault("prepared_weather_cache", {})
+        comparison_cache = context.setdefault("comparison_cache", {})
+        preferred_result_cache = context.setdefault("preferred_result_cache", {})
+        if (
+            not isinstance(prepared_weather_cache, dict)
+            or not isinstance(comparison_cache, dict)
+            or not isinstance(preferred_result_cache, dict)
+        ):
+            raise PredictorContractError("Predictor shared context is invalid.")
         data: dict[str, Any] = {
             "species": {},
             "model_catalog": timed(
@@ -702,18 +809,29 @@ class PredictorService:
             current_area: str,
             current_date: date,
         ) -> dict[str, Any]:
+            issue_date = min(date.today(), current_date)
+            result_key = (
+                species_id,
+                current_area,
+                current_date.isoformat(),
+                issue_date.isoformat(),
+            )
+            cached_result = preferred_result_cache.get(result_key)
+            if isinstance(cached_result, dict):
+                return copy.deepcopy(cached_result)
             result = timed(
                 "preferred_model_comparison",
                 lambda: self.v2_reference_compare(
                     species_id=species_id,
                     area_id=current_area,
                     target_date=current_date,
-                    issue_date=min(date.today(), current_date),
+                    issue_date=issue_date,
                     prepared_weather_cache=prepared_weather_cache,
                     comparison_cache=comparison_cache,
                 ),
             )
             collect_runtime_metrics("preferred", result)
+            preferred_result_cache[result_key] = copy.deepcopy(result)
             return result
 
         def multiversion_comparison_for(
@@ -868,6 +986,50 @@ class PredictorService:
                         lambda: predictor.predict(area_id, target),
                     )
                     species_data["predictions"][area_id][target.isoformat()] = serialize_prediction(row)
+                comparison_dates = list(
+                    dict.fromkeys(
+                        [row.target_date for row in week]
+                        + (
+                            [target]
+                            if target not in {row.target_date for row in week}
+                            else []
+                        )
+                    )
+                )
+                stations_file = self.stations_file_path
+                excluded_station_keys = (
+                    mushroom_weather_idw.disabled_wunderground_station_keys(
+                        stations_file
+                    )
+                    if stations_file is not None and stations_file.is_file()
+                    else frozenset()
+                )
+                if (
+                    self.version_registry_path is not None
+                    and self.version_registry_path.is_file()
+                ):
+                    timed(
+                        "preferred_weather_prewarm",
+                        lambda: [
+                            mushroom_ml_multiversion_comparison.prewarm_v2_week_weather(
+                                area_ids=[area_id],
+                                target_issue_dates=[
+                                    (current_date, min(date.today(), current_date))
+                                    for current_date in comparison_dates
+                                ],
+                                known_sites_path=self.known_sites_path,
+                                weather_data_dir=self.weather_data_dir,
+                                excluded_station_keys=excluded_station_keys,
+                                prepared_weather_cache=prepared_weather_cache,
+                                lookback_days=lookback_days,
+                                include_physical_state=include_physical_state,
+                            )
+                            for lookback_days, include_physical_state in (
+                                (90, False),
+                                (365, True),
+                            )
+                        ],
+                    )
                 report(88, "Comparing models", f"Evaluating operational models for {area_id}.")
                 species_data["model_comparisons"] = {
                     area_id: {
@@ -882,11 +1044,16 @@ class PredictorService:
                         comparison_for(selected_species, area_id, target)
                     )
                 if normalized["compare_models"] and normalized["multiversion_selection"]:
-                    comparison_dates = list(
-                        dict.fromkeys(
-                            [row.target_date for row in week]
-                            + ([target] if target not in {row.target_date for row in week} else [])
-                        )
+                    timed(
+                        "multiversion_inference_prewarm",
+                        lambda: self.prewarm_multiversion_week(
+                            species_id=selected_species,
+                            area_id=area_id,
+                            target_dates=comparison_dates,
+                            selections=normalized["multiversion_selection"],
+                            prepared_weather_cache=prepared_weather_cache,
+                            comparison_cache=comparison_cache,
+                        ),
                     )
                     multiversion_comparisons = {
                         current_date.isoformat(): multiversion_comparison_for(
@@ -909,6 +1076,26 @@ class PredictorService:
                     species_data["multiversion_comparison"] = (
                         multiversion_comparisons[target.isoformat()]
                     )
+                for weather_key in list(prepared_weather_cache):
+                    if len(weather_key) > 2 and weather_key[2] == area_id:
+                        del prepared_weather_cache[weather_key]
+                version_caches = comparison_cache.get(
+                    "service_multiversion_caches", {}
+                )
+                if isinstance(version_caches, Mapping):
+                    for version_cache in version_caches.values():
+                        if not isinstance(version_cache, dict):
+                            continue
+                        for cache_name in (
+                            "prediction_result_cache",
+                            "runtime_sample_cache",
+                        ):
+                            area_cache = version_cache.get(cache_name)
+                            if not isinstance(area_cache, dict):
+                                continue
+                            for cache_key in list(area_cache):
+                                if cache_key and cache_key[0] == area_id:
+                                    del area_cache[cache_key]
             else:
                 report(20, "Ranking areas", f"Evaluating {selected_species}.")
                 ranking_rows = timed(
@@ -961,11 +1148,12 @@ class PredictorService:
                 },
             }
         )
-        with self._lock:
-            self._responses[cache_key] = copy.deepcopy(response)
-            self._responses.move_to_end(cache_key)
-            while len(self._responses) > _RESPONSE_CACHE_MAX_ENTRIES:
-                self._responses.popitem(last=False)
+        if use_response_cache:
+            with self._lock:
+                self._responses[cache_key] = copy.deepcopy(response)
+                self._responses.move_to_end(cache_key)
+                while len(self._responses) > _RESPONSE_CACHE_MAX_ENTRIES:
+                    self._responses.popitem(last=False)
         return response
 
 

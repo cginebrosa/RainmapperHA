@@ -19,6 +19,7 @@ WEATHER_PARQUET_CAPABILITY = "weather_parquet_v1"
 PARTITIONED_WEATHER_HISTORY_CAPABILITY = "partitioned_weather_history_v1"
 TERMINAL_JOB_CLEANUP_CAPABILITY = "terminal_job_cleanup_v1"
 PREDICTOR_CAPABILITY = "predictor_v1"
+PREDICTOR_PRECOMPUTE_CAPABILITY = "predictor_precompute_v1"
 PREDICTOR_MULTIVERSION_CAPABILITY = "predictor_multiversion_v2"
 ML_MULTIVERSION_TRAINING_CAPABILITY = "ml_multiversion_training_v2"
 ML_JOB_PURPOSE_CAPABILITY = "ml_job_purpose_v1"
@@ -65,6 +66,9 @@ def normalize_heartbeat(payload: object) -> dict[str, Any]:
     predictor_cache = payload.get("predictor_cache", {})
     if not isinstance(predictor_cache, dict):
         raise ValueError("Worker predictor cache summary is invalid.")
+    lanes = payload.get("lanes", {})
+    if not isinstance(lanes, dict):
+        raise ValueError("Worker lane status is invalid.")
     discarded_job_ids = payload.get("discarded_job_ids", [])
     if (
         not isinstance(discarded_job_ids, list)
@@ -93,6 +97,11 @@ def normalize_heartbeat(payload: object) -> dict[str, Any]:
         "capabilities": [str(value).strip() for value in capabilities],
         "dataset_cache": dict(dataset_cache),
         "predictor_cache": dict(predictor_cache),
+        "lanes": {
+            lane: dict(lanes.get(lane, {}))
+            for lane in ("foreground", "background")
+            if isinstance(lanes.get(lane, {}), dict)
+        },
         "discarded_job_ids": list(dict.fromkeys(discarded_job_ids)),
         "cleaned_job_ids": list(dict.fromkeys(cleaned_job_ids)),
     }

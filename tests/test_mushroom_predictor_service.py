@@ -508,3 +508,44 @@ class PredictorServiceTests(TestCase):
             prepared_weather_cache=ANY,
             comparison_cache=ANY,
         )
+
+    def test_shared_context_reuses_preferred_comparison_across_views(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.season_phase.return_value = "in_season"
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            predictor.observed_episodes.return_value = [
+                {"area_id": "area_one", "observed_at": "2026-08-09"}
+            ]
+            service.predictor = Mock(return_value=predictor)
+            preferred = {"interpretation": {"verdict": "favorable"}}
+            service.v2_reference_compare = Mock(return_value=preferred)
+            shared_context: dict[str, object] = {}
+
+            recommender = service.execute(
+                self.request(
+                    view="recommender",
+                    area_id="",
+                    target_date="2026-08-09",
+                ),
+                shared_context=shared_context,
+            )
+            history = service.execute(
+                self.request(view="history", area_id=""),
+                shared_context=shared_context,
+            )
+
+        self.assertEqual(service.v2_reference_compare.call_count, 1)
+        self.assertEqual(
+            recommender["data"]["species"]["boletus"]["model_comparisons"]
+            ["area_one"]["2026-08-09"],
+            history["data"]["species"]["boletus"]["model_comparisons"]
+            ["area_one"]["2026-08-09"],
+        )

@@ -20,6 +20,7 @@ class MushroomPathsTests(unittest.TestCase):
                 "RAINMAPPER_MUSHROOM_OBSERVATIONS_PATH",
                 "RAINMAPPER_WEATHER_DATA_DIR",
                 "RAINMAPPER_MEDIA_ROOT",
+                "RAINMAPPER_PREDICTOR_PRECOMPUTE_DIR",
                 "RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_DIR",
                 "RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_FALLBACK_DIR",
             )
@@ -65,6 +66,28 @@ class MushroomPathsTests(unittest.TestCase):
 
         self.assertEqual(mushroom_paths.mushroom_data_dir(), data_dir)
         self.assertEqual(mushroom_paths.weather_data_dir(), weather_dir)
+
+    def test_predictor_precompute_prefers_media_outside_share(self) -> None:
+        share_root = self.root / "share"
+        media_root = self.root / "media" / "rainmapper"
+        os.environ["RAINMAPPER_SHARE_ROOT"] = str(share_root)
+        os.environ["RAINMAPPER_MEDIA_ROOT"] = str(media_root)
+
+        self.assertEqual(
+            mushroom_paths.mushroom_predictor_precompute_dir(),
+            media_root / "predictor_precompute",
+        )
+        self.assertEqual(
+            mushroom_paths.mushroom_predictor_precompute_artifact_path(),
+            media_root / "predictor_precompute" / "active.sqlite3",
+        )
+
+    def test_predictor_precompute_specific_override_wins(self) -> None:
+        override = self.root / "custom-precompute"
+        os.environ["RAINMAPPER_MEDIA_ROOT"] = str(self.root / "media" / "rainmapper")
+        os.environ["RAINMAPPER_PREDICTOR_PRECOMPUTE_DIR"] = str(override)
+
+        self.assertEqual(mushroom_paths.mushroom_predictor_precompute_dir(), override)
 
     def test_observations_path_prefers_live_copy_then_defaults(self) -> None:
         share_root = self.root / "share"

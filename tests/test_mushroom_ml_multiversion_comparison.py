@@ -1298,8 +1298,8 @@ class MushroomMLMultiversionComparisonTests(TestCase):
             return_value=bundle,
         ), mock.patch.object(
             comparison.mushroom_ml_runtime_inference,
-            "predict_bundle",
-            return_value=prediction,
+            "predict_bundle_many",
+            return_value=[prediction],
         ):
             result = comparison.compare_prepared(
                 registry,

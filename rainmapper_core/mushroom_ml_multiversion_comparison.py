@@ -177,8 +177,19 @@ def compare_prepared(
         if comparison_cache is not None:
             comparison_cache["artifact_index"] = artifact_index
     record_phase("artifact_index", phase_started)
-    results: list[dict[str, Any]] = []
-    for raw_ref in model_refs:
+    results: list[dict[str, Any] | None] = [None] * len(model_refs)
+    pending_by_artifact: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    prediction_result_cache = (
+        comparison_cache.setdefault("prediction_result_cache", {})
+        if comparison_cache is not None
+        else {}
+    )
+    runtime_sample_cache = (
+        comparison_cache.setdefault("runtime_sample_cache", {})
+        if comparison_cache is not None
+        else {}
+    )
+    for result_index, raw_ref in enumerate(model_refs):
         model_ref = (
             raw_ref
             if isinstance(raw_ref, catalog.ModelRef)
@@ -187,36 +198,36 @@ def compare_prepared(
         base = {"model_ref": model_ref.as_dict(), "model_ref_key": model_ref.key}
         area_series = area_series_by_horizon.get(model_ref.horizon_days)
         if area_series is None:
-            results.append(
-                {
+            results[result_index] = {
                     **base,
                     "available": False,
                     "reason": "prepared_weather_horizon_missing",
                 }
-            )
             continue
         try:
             phase_started = monotonic()
-            sample = mushroom_ml_runtime_features.build_runtime_features(
-                model_ref,
-                target_date=target_date,
-                area_id=area_id,
-                area_context=area_context,
-                area_series=area_series,
-                stations=stations,
-            )
+            sample_cache_key = (area_id, target_date.isoformat(), model_ref.key)
+            sample = runtime_sample_cache.get(sample_cache_key)
+            if not isinstance(sample, Mapping):
+                sample = mushroom_ml_runtime_features.build_runtime_features(
+                    model_ref,
+                    target_date=target_date,
+                    area_id=area_id,
+                    area_context=area_context,
+                    area_series=area_series,
+                    stations=stations,
+                )
+                runtime_sample_cache[sample_cache_key] = sample
             record_phase("runtime_features", phase_started)
             quality = dict(sample.get("quality") or {})
             if quality.get("inference_eligible") is False:
-                results.append(
-                    {
+                results[result_index] = {
                         **base,
                         "available": False,
                         "reason": "runtime_feature_gates_failed",
                         "quality": quality,
                         "metadata": dict(sample.get("metadata") or {}),
                     }
-                )
                 continue
             artifact_key = (
                 model_ref.version_id,
@@ -234,64 +245,128 @@ def compare_prepared(
                 raise FileNotFoundError(
                     f"Model is not present in runtime batch: {model_ref.key}"
                 )
-            phase_started = monotonic()
-            bundle = mushroom_ml_runtime_inference.load_exact_artifact(
-                registry,
-                checked,
-                model_ref,
-                root=models_root,
-                checked_manifest=checked,
-                artifact_row=artifact_row,
-                validated_model_ref=model_ref,
+            artifact_identity = (
+                str(artifact_row["path"]),
+                str(artifact_row["sha256"]),
             )
-            record_phase("artifact_load", phase_started)
-            phase_started = monotonic()
-            prediction = mushroom_ml_runtime_inference.predict_bundle(
-                bundle,
-                dict(sample.get("predictive_features") or {}),
-                species_id=model_ref.species_id,
+            prediction_cache_key = (
+                area_id,
+                target_date.isoformat(),
+                model_ref.key,
             )
-            record_phase("model_inference", phase_started)
-            phase_started = monotonic()
-            evaluation = mushroom_ml_quality_catalog.lookup(
-                quality_catalog, model_ref.as_dict()
-            )
-            record_phase("quality_lookup", phase_started)
-            results.append(
-                {
+            cached_prediction = prediction_result_cache.get(prediction_cache_key)
+            if isinstance(cached_prediction, Mapping):
+                phase_started = monotonic()
+                evaluation = mushroom_ml_quality_catalog.lookup(
+                    quality_catalog, model_ref.as_dict()
+                )
+                record_phase("quality_lookup", phase_started)
+                results[result_index] = {
                     **base,
                     "available": True,
-                    "prediction": prediction,
+                    "prediction": dict(cached_prediction),
                     "quality": quality,
                     "metadata": dict(sample.get("metadata") or {}),
                     "evaluation": evaluation,
                     "features_used": _interpretation_features(sample),
                 }
+                continue
+            pending_by_artifact.setdefault(artifact_identity, []).append(
+                {
+                    "result_index": result_index,
+                    "base": base,
+                    "model_ref": model_ref,
+                    "artifact_row": artifact_row,
+                    "features": dict(sample.get("predictive_features") or {}),
+                    "quality": quality,
+                    "metadata": dict(sample.get("metadata") or {}),
+                    "features_used": _interpretation_features(sample),
+                }
             )
         except FileNotFoundError as exc:
-            results.append(
-                {
+            results[result_index] = {
                     **base,
                     "available": False,
                     "reason": "model_not_installed",
                     "message": str(exc),
                 }
-            )
         except (KeyError, TypeError, ValueError) as exc:
-            results.append(
-                {
+            results[result_index] = {
                     **base,
                     "available": False,
                     "reason": "runtime_model_incompatible",
                     "message": str(exc),
                 }
+
+    for pending in pending_by_artifact.values():
+        first = pending[0]
+        try:
+            phase_started = monotonic()
+            bundle = mushroom_ml_runtime_inference.load_exact_artifact(
+                registry,
+                checked,
+                first["model_ref"],
+                root=models_root,
+                checked_manifest=checked,
+                artifact_row=first["artifact_row"],
+                validated_model_ref=first["model_ref"],
             )
+            record_phase("artifact_load", phase_started)
+            phase_started = monotonic()
+            predictions = mushroom_ml_runtime_inference.predict_bundle_many(
+                bundle,
+                [row["features"] for row in pending],
+                species_ids=[row["model_ref"].species_id for row in pending],
+            )
+            record_phase("model_inference", phase_started)
+            for row, prediction in zip(pending, predictions, strict=True):
+                phase_started = monotonic()
+                evaluation = mushroom_ml_quality_catalog.lookup(
+                    quality_catalog, row["model_ref"].as_dict()
+                )
+                record_phase("quality_lookup", phase_started)
+                results[row["result_index"]] = {
+                    **row["base"],
+                    "available": True,
+                    "prediction": prediction,
+                    "quality": row["quality"],
+                    "metadata": row["metadata"],
+                    "evaluation": evaluation,
+                    "features_used": row["features_used"],
+                }
+                prediction_result_cache[
+                    (
+                        area_id,
+                        target_date.isoformat(),
+                        row["model_ref"].key,
+                    )
+                ] = dict(prediction)
+        except FileNotFoundError as exc:
+            for row in pending:
+                results[row["result_index"]] = {
+                    **row["base"],
+                    "available": False,
+                    "reason": "model_not_installed",
+                    "message": str(exc),
+                }
+        except (KeyError, TypeError, ValueError) as exc:
+            for row in pending:
+                results[row["result_index"]] = {
+                    **row["base"],
+                    "available": False,
+                    "reason": "runtime_model_incompatible",
+                    "message": str(exc),
+                }
+
+    completed_results = [row for row in results if row is not None]
+    if len(completed_results) != len(model_refs):
+        raise RuntimeError("Multiversion comparison did not resolve every member")
     return {
         "batch_id": checked["batch_id"],
         "snapshot_id": checked["snapshot_id"],
         "area_id": area_id,
         "target_date": target_date.isoformat(),
-        "members": results,
+        "members": completed_results,
         "quality_before_consensus": True,
         "consensus_computed": False,
         "ensemble_computed": False,
@@ -1293,9 +1368,10 @@ def prewarm_v2_week_weather(
     prepared_weather_cache: MutableMapping[
         tuple[object, ...], tuple[Any, dict[int, dict[str, object]], dict[tuple[str, str], Any]]
     ],
+    lookback_days: int = biology_v3.EVENT_LOOKBACK_DAYS,
+    include_physical_state: bool = False,
 ) -> None:
-    """Prepare one extended IDW series per area for the complete V2 week grid."""
-    lookback_days = biology_v3.EVENT_LOOKBACK_DAYS
+    """Prepare one extended IDW series per area for a complete weekly grid."""
     requests: list[tuple[date, tuple[int, ...], dict[int, date]]] = []
     for target_date, issue_date in target_issue_dates:
         lag_horizon = (target_date - (issue_date - timedelta(days=1))).days
@@ -1321,7 +1397,7 @@ def prewarm_v2_week_weather(
             target_date=maximum_cutoff,
             horizons=(0,),
             lookback_days=base_days,
-            include_physical_state=False,
+            include_physical_state=include_physical_state,
             excluded_station_keys=excluded_station_keys,
         )
         base = base_by_horizon[0]
@@ -1347,10 +1423,160 @@ def prewarm_v2_week_weather(
                 target_date=target_date,
                 horizons=horizons,
                 lookback_days=lookback_days,
-                include_physical_state=False,
+                include_physical_state=include_physical_state,
                 excluded_station_keys=excluded_station_keys,
             )
             prepared_weather_cache[cache_key] = (area_context, prepared, stations)
+
+
+def prewarm_selection_predictions(
+    registry: Mapping[str, object],
+    manifest: Mapping[str, object],
+    dated_selections: Sequence[tuple[date, Sequence[Mapping[str, object]]]],
+    *,
+    species_id: str,
+    area_id: str,
+    models_root: Path,
+    known_sites_path: Path,
+    weather_data_dir: Path,
+    excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]],
+    prepared_weather_cache: MutableMapping[
+        tuple[object, ...],
+        tuple[Any, dict[int, dict[str, object]], dict[tuple[str, str], Any]],
+    ],
+    comparison_cache: MutableMapping[str, Any],
+) -> int:
+    """Batch exact model inference for several dates into one call per artifact."""
+    checked = comparison_cache.get("checked_manifest")
+    if not isinstance(checked, Mapping):
+        checked = catalog.validate_batch_manifest(registry, manifest)
+        comparison_cache["checked_manifest"] = checked
+    catalog_profiles = comparison_cache.get("catalog_profiles")
+    if not isinstance(catalog_profiles, list):
+        catalog_profiles = catalog.catalog_entries(registry)
+        comparison_cache["catalog_profiles"] = catalog_profiles
+    artifact_index = comparison_cache.get("artifact_index")
+    if not isinstance(artifact_index, dict):
+        artifact_index = {
+            (
+                row["artifact_ref"]["version_id"],
+                row["artifact_ref"]["temporal_contract_id"],
+                row["artifact_ref"]["profile_id"],
+                row["artifact_ref"]["estimator_id"],
+                row["artifact_ref"]["species_id"],
+                horizon,
+            ): row
+            for row in checked["artifacts"]
+            for horizon in row["supported_horizons"]
+        }
+        comparison_cache["artifact_index"] = artifact_index
+    prediction_cache = comparison_cache.setdefault("prediction_result_cache", {})
+    runtime_sample_cache = comparison_cache.setdefault("runtime_sample_cache", {})
+    pending_by_artifact: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for target_date, selections in dated_selections:
+        refs = [
+            resolve_selection(
+                registry,
+                checked,
+                selection,
+                species_id=species_id,
+                checked_manifest=checked,
+                catalog_profiles=catalog_profiles,
+            )
+            for selection in selections
+        ]
+        if not refs:
+            continue
+        horizons = tuple(sorted({model_ref.horizon_days for model_ref in refs}))
+        lookback_days, include_physical_state = _weather_requirements(
+            refs, catalog_profiles=catalog_profiles
+        )
+        weather_key = _prepared_weather_key(
+            known_sites_path=known_sites_path,
+            weather_data_dir=weather_data_dir,
+            area_id=area_id,
+            target_date=target_date,
+            horizons=horizons,
+            lookback_days=lookback_days,
+            include_physical_state=include_physical_state,
+            excluded_station_keys=excluded_station_keys,
+        )
+        prepared_tuple = prepared_weather_cache.get(weather_key)
+        if prepared_tuple is None:
+            prepared_tuple = prepare_area_weather(
+                known_sites_path=known_sites_path,
+                weather_data_dir=weather_data_dir,
+                area_id=area_id,
+                target_date=target_date,
+                horizons=horizons,
+                lookback_days=lookback_days,
+                include_physical_state=include_physical_state,
+                excluded_station_keys=excluded_station_keys,
+            )
+            prepared_weather_cache[weather_key] = prepared_tuple
+        area_context, prepared, stations = prepared_tuple
+        for model_ref in refs:
+            cache_key = (area_id, target_date.isoformat(), model_ref.key)
+            if cache_key in prediction_cache:
+                continue
+            area_series = prepared.get(model_ref.horizon_days)
+            if area_series is None:
+                continue
+            sample = mushroom_ml_runtime_features.build_runtime_features(
+                model_ref,
+                target_date=target_date,
+                area_id=area_id,
+                area_context=area_context,
+                area_series=area_series,
+                stations=stations,
+            )
+            runtime_sample_cache[cache_key] = sample
+            quality = dict(sample.get("quality") or {})
+            if quality.get("inference_eligible") is False:
+                continue
+            artifact_key = (
+                model_ref.version_id,
+                model_ref.temporal_contract_id,
+                model_ref.profile_id,
+                model_ref.estimator_id,
+                model_ref.species_id,
+                model_ref.horizon_days,
+            )
+            artifact_row = artifact_index.get(artifact_key) or artifact_index.get(
+                (*artifact_key[:4], "all_species", artifact_key[5])
+            )
+            if artifact_row is None:
+                continue
+            identity = (str(artifact_row["path"]), str(artifact_row["sha256"]))
+            pending_by_artifact.setdefault(identity, []).append(
+                {
+                    "cache_key": cache_key,
+                    "model_ref": model_ref,
+                    "artifact_row": artifact_row,
+                    "features": dict(sample.get("predictive_features") or {}),
+                }
+            )
+    predicted = 0
+    for pending in pending_by_artifact.values():
+        first = pending[0]
+        bundle = mushroom_ml_runtime_inference.load_exact_artifact(
+            registry,
+            checked,
+            first["model_ref"],
+            root=models_root,
+            checked_manifest=checked,
+            artifact_row=first["artifact_row"],
+            validated_model_ref=first["model_ref"],
+        )
+        predictions = mushroom_ml_runtime_inference.predict_bundle_many(
+            bundle,
+            [row["features"] for row in pending],
+            species_ids=[row["model_ref"].species_id for row in pending],
+        )
+        for row, prediction in zip(pending, predictions, strict=True):
+            prediction_cache[row["cache_key"]] = dict(prediction)
+            predicted += 1
+    return predicted
 
 
 def compare_selection(

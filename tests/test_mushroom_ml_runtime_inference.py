@@ -50,6 +50,43 @@ class MushroomMLRuntimeInferenceTests(TestCase):
         self.assertFalse(result["ensemble_used"])
         self.assertEqual(result["estimator_id"], "logistic_regression_reduced_v1")
 
+    def test_batch_prediction_matches_individual_results_with_one_model_call(self) -> None:
+        model = LogisticRegression().fit(
+            np.asarray([[0.0], [1.0], [2.0], [3.0]]),
+            np.asarray([0, 0, 1, 1]),
+        )
+        bundle = {
+            "artifact_ref": catalog.ModelArtifactRef(
+                batch_id="batch-a",
+                generation_id="generation-a",
+                version_id="biology_v3",
+                temporal_contract_id="fixed_gap_7d_biology_v3",
+                profile_id="core",
+                estimator_id="logistic_regression_reduced_v1",
+                species_id="boletus_edulis",
+            ).as_dict(),
+            "feature_cols": ["rain"],
+            "model": model,
+            "preprocessor": None,
+        }
+        rows = [{"rain": 0.5}, {"rain": 2.5}, {"rain": 3.0}]
+        expected = [
+            inference.predict_bundle(bundle, row, species_id="boletus_edulis")
+            for row in rows
+        ]
+
+        with mock.patch.object(
+            model, "predict_proba", wraps=model.predict_proba
+        ) as predict_proba:
+            actual = inference.predict_bundle_many(
+                bundle,
+                rows,
+                species_ids=["boletus_edulis"] * len(rows),
+            )
+
+        self.assertEqual(actual, expected)
+        self.assertEqual(predict_proba.call_count, 1)
+
     def test_missing_features_are_reported_not_silently_zeroed(self) -> None:
         class MissingAwareModel:
             def predict_proba(self, values):

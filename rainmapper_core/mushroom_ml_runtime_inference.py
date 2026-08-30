@@ -7,7 +7,7 @@ import math
 from collections import OrderedDict
 from pathlib import Path
 from threading import RLock
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 
@@ -132,6 +132,24 @@ def predict_bundle(
     species_id: str,
 ) -> dict[str, Any]:
     """Predict with one member only; never average estimators or versions."""
+    return predict_bundle_many(
+        bundle,
+        [features],
+        species_ids=[species_id],
+    )[0]
+
+
+def predict_bundle_many(
+    bundle: Mapping[str, Any],
+    feature_rows: Sequence[Mapping[str, object]],
+    *,
+    species_ids: Sequence[str],
+) -> list[dict[str, Any]]:
+    """Predict multiple independent members in one estimator invocation."""
+    if not feature_rows:
+        return []
+    if len(feature_rows) != len(species_ids):
+        raise ValueError("Runtime feature rows and species ids must have equal length")
     columns = [str(value) for value in bundle.get("feature_cols", [])]
     if not columns:
         raise ValueError("Runtime model bundle has no feature columns")
@@ -143,6 +161,7 @@ def predict_bundle(
                 else np.nan
                 for column in columns
             ]
+            for features in feature_rows
         ],
         dtype=float,
     )
@@ -160,7 +179,7 @@ def predict_bundle(
             config = bundle.get("fit_config") or {}
             design = smooth.pooled_design(
                 design,
-                [species_id],
+                [str(value) for value in species_ids],
                 species_order=species_order,
                 deviation_scale=config.get("deviation_scale"),
             )
@@ -173,7 +192,33 @@ def predict_bundle(
     model = bundle.get("model")
     if model is None or not hasattr(model, "predict_proba"):
         raise ValueError("Runtime model bundle has no probabilistic estimator")
-    probability = float(model.predict_proba(design)[0][1])
+    probabilities = np.asarray(model.predict_proba(design))
+    if probabilities.ndim != 2 or probabilities.shape != (len(feature_rows), 2):
+        raise ValueError("Runtime model returned an invalid probability matrix")
+    return [
+        _prediction_payload(
+            bundle,
+            artifact_ref=artifact_ref,
+            columns=columns,
+            features=features,
+            species_id=str(species_id),
+            probability=float(probabilities[index][1]),
+        )
+        for index, (features, species_id) in enumerate(
+            zip(feature_rows, species_ids, strict=True)
+        )
+    ]
+
+
+def _prediction_payload(
+    bundle: Mapping[str, Any],
+    *,
+    artifact_ref: catalog.ModelArtifactRef,
+    columns: Sequence[str],
+    features: Mapping[str, object],
+    species_id: str,
+    probability: float,
+) -> dict[str, Any]:
     if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
         raise ValueError("Runtime model returned an invalid probability")
     missing = [column for column in columns if features.get(column) is None]

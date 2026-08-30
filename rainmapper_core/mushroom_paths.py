@@ -314,3 +314,30 @@ def mushroom_ml_version_archive_dir() -> Path:
     if configured:
         return Path(configured)
     return mushroom_data_dir() / "ml_version_archive"
+
+
+def mushroom_predictor_precompute_dir() -> Path:
+    configured = os.environ.get("RAINMAPPER_PREDICTOR_PRECOMPUTE_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    configured_media_root = os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip()
+    media_root = (
+        Path(configured_media_root)
+        if configured_media_root
+        else Path("/media/rainmapper")
+    )
+    if configured_media_root or media_root.parent.exists():
+        return media_root / "predictor_precompute"
+    return mushroom_data_dir() / "predictor_precompute"
+
+
+def mushroom_predictor_precompute_artifact_path() -> Path:
+    return mushroom_predictor_precompute_dir() / "active.sqlite3"
+
+
+def mushroom_predictor_precompute_receipt_path() -> Path:
+    return mushroom_predictor_precompute_dir() / "active-receipt.json"
+
+
+def mushroom_predictor_precompute_desired_path() -> Path:
+    return mushroom_predictor_precompute_dir() / "desired.json"

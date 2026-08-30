@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.281
+
+- Build and atomically publish a verified weekly Predictor SQLite artifact for
+  all trained species, operational versions, areas, and seven covered days.
+- Serve covered Predictor views directly from Home Assistant and fall back to
+  the existing executor flow when the artifact is absent, stale, or invalid.
+- Coordinate manual and post-runner precompute requests with persistent
+  latest-wins identity, worker transfer, receipts, and visible job progress.
+- Store the Home Assistant artifact under `/media/rainmapper` and expose clear
+  ready, queued, calculating, publishing, and per-query usage states.
+- Preserve multiversion scientific results and improve dated and all-area
+  Predictor summaries while keeping execution telemetry out of equivalence.
+
 ## 0.2.280
 
 - Rebuild a missing operational tuning catalog from its installed batch models

@@ -59,6 +59,8 @@ from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_worker_results
 from rainmapper_core import mushroom_storage_reconciler
 from rainmapper_core import mushroom_predictor_runtime
+from rainmapper_core import mushroom_predictor_precompute
+from rainmapper_core import mushroom_predictor_precompute_control
 from rainmapper_core import mushroom_predictor_stats
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_benchmark_reports
@@ -126,6 +128,9 @@ MUSHROOM_PREDICTOR_RESULT_MAX_BYTES = (
     mushroom_worker_jobs.PREDICTOR_RESULT_MAX_BYTES + 64 * 1024
 )
 MUSHROOM_PREDICTOR_CANCEL_MAX_BYTES = 16 * 1024
+# The measured eight-species artifact is about 442 MiB.  Keep more than 2x
+# headroom for model/data growth while rejecting unbounded worker uploads.
+MUSHROOM_PREDICTOR_PRECOMPUTE_MAX_BYTES = 1024 * 1024 * 1024
 PREDICTOR_CLIENT_TIMING_MAX_BYTES = 16 * 1024
 MUSHROOM_WORKER_PROTOCOL_GET_PATHS = {
     "/api/mushrooms/workers/ping",
@@ -148,6 +153,7 @@ MUSHROOM_WORKER_PROTOCOL_POST_PATHS = {
     "/api/mushrooms/workers/jobs/multiversion-result-file",
     "/api/mushrooms/workers/jobs/multiversion-result-bundle",
     "/api/mushrooms/workers/jobs/multiversion-result-complete",
+    "/api/mushrooms/workers/jobs/precompute-artifact",
 }
 HOME_ASSISTANT_INGRESS_PROXY_IP = "172.30.32.2"
 MUSHROOM_OBSERVATION_VIDEO_MAX_SECONDS = 30
@@ -10432,6 +10438,7 @@ def _run_action_thread_impl(
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     exit_code = 0
     final_exit_code = 0
+    request_precompute_after_runner = False
     started = datetime.now(get_timezone())
     action_label = f"{action} ({only_source} only)" if only_source else action
     action_monitor = runtime_diagnostics.OperationMonitor(
@@ -10649,6 +10656,7 @@ def _run_action_thread_impl(
                         ),
                     },
                 )
+                request_precompute_after_runner = True
             except (FileNotFoundError, OSError, ValueError) as exc:
                 final_exit_code = 2 if final_exit_code == 0 else final_exit_code
                 log_file.write(
@@ -10706,6 +10714,8 @@ def _run_action_thread_impl(
             }
         )
     STATUS_PATH.write_text(message + "\n", encoding="utf-8")
+    if request_precompute_after_runner:
+        schedule_mushroom_predictor_precompute_request()
 
 
 def next_schedule_text() -> str:
@@ -12009,6 +12019,14 @@ def register_mushroom_worker_heartbeat(
             "last_seen_ts": seen_ts,
             "last_seen_at": seen_at,
         }
+    try:
+        reconcile_mushroom_predictor_precompute_desire(heartbeat)
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+        print(
+            "WARNING: pending Predictor precompute could not be reconciled: "
+            f"{type(exc).__name__}: {exc}",
+            flush=True,
+        )
     return 200, {
         "ok": True,
         "worker_id": worker_id,
@@ -12720,9 +12738,10 @@ def build_predictor_request(query: dict[str, list[str]]) -> dict[str, object]:
         "area_id": (query.get("area") or [""])[0],
         "target_date": target_date.isoformat(),
         "filter_mode": (query.get("filter") or [""])[0],
-        # Keep both executors aligned with the Predictor UI: model comparison
-        # is enabled unless the caller explicitly disables it.
-        "compare_models": (query.get("compare") or [None])[0] != "0",
+        # Only the explicit dated query exposes model comparison. Recommender,
+        # week and history use their already selected operational result.
+        "compare_models": view == "query"
+        and (query.get("compare") or [None])[0] != "0",
         "multiversion_selection": multiversion_selection,
         "issue_date": issue_date.isoformat(),
         "trained_species_ids": trained,
@@ -12790,6 +12809,692 @@ def create_remote_predictor_job(
         raise
 
 
+def predictor_precompute_plan() -> tuple[
+    mushroom_predictor_precompute.ArtifactIdentity,
+    dict[str, list[dict[str, object]]],
+    dict[str, object],
+]:
+    """Plan one weekly generation in HA without executing any prediction."""
+    runtime_manifest, _sources, _publication_status = (
+        mushroom_predictor_runtime.load_or_publish_manifest()
+    )
+    registry = mushroom_ml_version_registry.load_registry(
+        mushroom_paths.mushroom_ml_version_registry_path()
+    )
+    installed_versions: list[
+        mushroom_predictor_precompute.RuntimeVersionIdentity
+    ] = []
+    installed_version_ids: list[str] = []
+    for version in registry["versions"]:
+        version_id = str(version.get("version_id", ""))
+        generation = mushroom_ml_version_registry.installed_generation(
+            registry, version_id
+        )
+        if generation is None:
+            continue
+        installed_version_ids.append(version_id)
+        installed_versions.append(
+            mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                version_id=version_id,
+                generation_id=generation.get("generation_id"),
+                profile_ids=generation.get("profile_ids", []),
+            )
+        )
+    trained_species = mushroom_predictor_ui.trained_species_ids()
+    if not trained_species:
+        raise ValueError("Predictor precompute requires at least one trained species.")
+    area_ids_by_species = {
+        species_id: mushroom_predictor_ui.predictor_area_ids(species_id)
+        for species_id in trained_species
+    }
+    selections_by_species: dict[str, list[dict[str, object]]] = {}
+    for species_id in trained_species:
+        selections_by_species[species_id] = [
+            mushroom_ml_model_catalog.parse_selection_token(token)
+            for token in mushroom_predictor_ui.multiversion_tokens_for_versions(
+                species_id, installed_version_ids
+            )
+        ]
+    issue_date = datetime.now(get_timezone()).date()
+    identity = mushroom_predictor_precompute.plan_artifact_identity(
+        runtime_fingerprint=str(runtime_manifest["fingerprint"]),
+        issue_date=issue_date,
+        trained_species_ids=trained_species,
+        installed_versions=installed_versions,
+        area_ids_by_species=area_ids_by_species,
+        operational_selections_by_species=selections_by_species,
+    )
+    return identity, selections_by_species, runtime_manifest
+
+
+def predictor_precompute_summary() -> dict[str, object]:
+    """Return bounded panel state; corrupt state is visible but never fatal."""
+    summary: dict[str, object] = {
+        "status": "missing",
+        "artifact_id": "",
+        "coverage_start": "",
+        "coverage_end": "",
+        "desired_revision": 0,
+    }
+    try:
+        identity, _selections, _runtime_manifest = predictor_precompute_plan()
+        summary.update(
+            {
+                "planned_artifact_id": identity.artifact_id,
+                "runtime_fingerprint": identity.runtime_fingerprint,
+                "coverage_start": identity.coverage_start,
+                "coverage_end": identity.coverage_end,
+            }
+        )
+        registry = mushroom_worker_registry.load_registry(
+            mushroom_worker_registry_path()
+        )
+        preferred_executor = str(registry.get("default_executor", "home_assistant"))
+        preferred_worker_id = (
+            preferred_executor.removeprefix("worker:")
+            if preferred_executor.startswith("worker:")
+            else ""
+        )
+        preferred = next(
+            (
+                row
+                for row in registered_mushroom_worker_statuses()
+                if isinstance(row.get("payload"), dict)
+                and str(row["payload"].get("worker_id", "")) == preferred_worker_id
+            ),
+            None,
+        )
+        preferred_payload = (
+            preferred.get("payload") if isinstance(preferred, dict) else {}
+        )
+        preferred_payload = preferred_payload if isinstance(preferred_payload, dict) else {}
+        preferred_compatible = bool(
+            preferred_worker_id
+            and preferred_payload.get("paired")
+            and mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+            in set(preferred_payload.get("capabilities") or [])
+        )
+        local_precompute_executor = bool(
+            not preferred_worker_id and mushroom_local_ha_compute_enabled()
+        )
+        summary.update(
+            {
+                "preferred_worker_id": preferred_worker_id,
+                "preferred_worker_name": str(
+                    "Home Assistant local"
+                    if local_precompute_executor
+                    else preferred_payload.get("display_name", preferred_worker_id)
+                    or preferred_worker_id
+                ),
+                "preferred_worker_reachable": bool(
+                    local_precompute_executor
+                    or (isinstance(preferred, dict) and preferred.get("reachable"))
+                ),
+                "preferred_worker_compatible": (
+                    local_precompute_executor or preferred_compatible
+                ),
+                "local_executor": local_precompute_executor,
+            }
+        )
+        with RUN_LOCK:
+            queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+            local_jobs = list(MUSHROOM_REBUILD_JOBS.values())
+        active_job = next(
+            (
+                row
+                for row in reversed(local_jobs + queue["jobs"])
+                if row.get("job_type")
+                in {
+                    "local_predictor_precompute",
+                    mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+                }
+                and row.get("artifact_id") == identity.artifact_id
+                and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+            ),
+            None,
+        )
+        if active_job is not None:
+            active_status = str(active_job.get("status", ""))
+            active_phase = str(active_job.get("phase", ""))
+            display_status = "queued"
+            if active_status == "running":
+                display_status = (
+                    "publishing"
+                    if any(
+                        token in active_phase.lower()
+                        for token in ("upload", "publish", "validat")
+                    )
+                    else "running"
+                )
+            summary.update(
+                {
+                    "status": display_status,
+                    "active_job_id": str(active_job.get("job_id", "")),
+                    "active_job_status": active_status,
+                    "active_job_phase": active_phase,
+                }
+            )
+        desired = mushroom_predictor_precompute_control.load_desired_state(
+            mushroom_paths.mushroom_predictor_precompute_desired_path()
+        )
+        if desired is not None and desired.get("artifact_id") == identity.artifact_id:
+            summary.update(
+                {
+                    "desired_artifact_id": str(desired.get("artifact_id", "")),
+                    "desired_revision": int(desired.get("revision", 0) or 0),
+                }
+            )
+            if active_job is None:
+                summary["status"] = "queued"
+        manifest = mushroom_predictor_precompute.validate_artifact(
+            mushroom_paths.mushroom_predictor_precompute_artifact_path(),
+            expected_identity=identity,
+            full=False,
+        )
+        summary.update(
+            {
+                "artifact_id": manifest.artifact_id,
+                "file_sha256": manifest.file_sha256,
+                "size_bytes": manifest.size_bytes,
+            }
+        )
+        if active_job is None:
+            summary["status"] = "active"
+    except FileNotFoundError:
+        if summary.get("status") not in {"queued", "running", "publishing"}:
+            summary["status"] = "missing"
+    except mushroom_predictor_precompute.PrecomputeIdentityMismatch:
+        if summary.get("status") not in {"queued", "running", "publishing"}:
+            summary["status"] = "missing"
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        summary.update({"status": "invalid", "error": str(exc)})
+    return summary
+
+
+def predictor_precompute_control_panel_summary() -> dict[str, object]:
+    """Return cheap persisted state suitable for the five-second main-panel poll."""
+    summary: dict[str, object] = {
+        "status": "not_requested",
+        "worker": "",
+        "artifact_id": "",
+        "coverage_start": "",
+        "coverage_end": "",
+        "job_id": "",
+        "job_status": "",
+    }
+    try:
+        registry = mushroom_worker_registry.load_registry(
+            mushroom_worker_registry_path()
+        )
+        default_executor = str(registry.get("default_executor", "home_assistant"))
+        if default_executor == "home_assistant":
+            summary["worker"] = (
+                "Home Assistant local"
+                if mushroom_local_ha_compute_enabled()
+                else "Worker predeterminado pendiente"
+            )
+        else:
+            worker_id = default_executor.removeprefix("worker:")
+            worker = next(
+                (
+                    row
+                    for row in registry.get("workers", [])
+                    if isinstance(row, dict) and row.get("worker_id") == worker_id
+                ),
+                {},
+            )
+            summary["worker"] = str(
+                worker.get("display_name", worker_id) if isinstance(worker, dict) else worker_id
+            )
+        desired = mushroom_predictor_precompute_control.load_desired_state(
+            mushroom_paths.mushroom_predictor_precompute_desired_path()
+        )
+        if desired is None:
+            return summary
+        summary.update(
+            {
+                "status": "pending",
+                "artifact_id": str(desired.get("artifact_id", "")),
+                "coverage_start": str(desired.get("coverage_start", "")),
+                "coverage_end": str(desired.get("coverage_end", "")),
+            }
+        )
+        with RUN_LOCK:
+            local_jobs = list(MUSHROOM_REBUILD_JOBS.values())
+            external_jobs = mushroom_worker_jobs.load_queue(
+                mushroom_worker_jobs_path()
+            )["jobs"]
+        active = next(
+            (
+                row
+                for row in reversed(local_jobs + external_jobs)
+                if row.get("artifact_id") == desired.get("artifact_id")
+                and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+            ),
+            None,
+        )
+        if active is not None:
+            summary.update(
+                {
+                    "status": "running",
+                    "job_id": str(active.get("job_id", "")),
+                    "job_status": str(active.get("status", "")),
+                }
+            )
+        receipt_path = mushroom_paths.mushroom_predictor_precompute_receipt_path()
+        if receipt_path.is_file():
+            receipt = mushroom_predictor_precompute_control.PublicationReceipt.from_dict(
+                json.loads(receipt_path.read_text(encoding="utf-8"))
+            )
+            if (
+                receipt.desired_revision == desired.get("revision")
+                and receipt.artifact_id == desired.get("artifact_id")
+            ):
+                summary["status"] = "active"
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        summary.update({"status": "invalid", "error": str(exc)})
+    return summary
+
+
+def predictor_precompute_activity_status() -> str:
+    """Return one cheap user-facing state for an active precompute job."""
+    with RUN_LOCK:
+        queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+        jobs = list(MUSHROOM_REBUILD_JOBS.values()) + queue["jobs"]
+    active = next(
+        (
+            row
+            for row in reversed(jobs)
+            if row.get("job_type")
+            in {
+                "local_predictor_precompute",
+                mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+            }
+            and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+        ),
+        None,
+    )
+    if active is None:
+        return ""
+    if str(active.get("status", "")) != "running":
+        return "queued"
+    phase = str(active.get("phase", "")).lower()
+    if any(token in phase for token in ("upload", "publish", "validat")):
+        return "publishing"
+    return "running"
+
+
+def preferred_mushroom_precompute_worker() -> tuple[str, dict[str, object], bool]:
+    """Resolve the configured default worker; HA is never an implicit fallback."""
+    registry = mushroom_worker_registry.load_registry(mushroom_worker_registry_path())
+    preferred_executor = str(registry.get("default_executor", "home_assistant"))
+    preferred_worker_id = (
+        preferred_executor.removeprefix("worker:")
+        if preferred_executor.startswith("worker:")
+        else ""
+    )
+    worker_status = next(
+        (
+            row
+            for row in registered_mushroom_worker_statuses()
+            if isinstance(row.get("payload"), dict)
+            and str(row["payload"].get("worker_id", "")) == preferred_worker_id
+        ),
+        None,
+    )
+    payload = worker_status.get("payload") if isinstance(worker_status, dict) else {}
+    payload = dict(payload) if isinstance(payload, dict) else {}
+    compatible = bool(
+        preferred_worker_id
+        and payload.get("paired")
+        and mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+        in set(payload.get("capabilities") or [])
+    )
+    return preferred_worker_id, payload, compatible
+
+
+def start_local_mushroom_predictor_precompute(
+    *,
+    identity: mushroom_predictor_precompute.ArtifactIdentity,
+    operational_selections: dict[str, list[dict[str, object]]],
+    desired_revision: int,
+    trigger_origin: str,
+    force: bool,
+) -> dict[str, object]:
+    """Run the worker contract inside the explicitly enabled local HA lab."""
+    operation_id = secrets.token_urlsafe(12)
+    job_id = f"local_precompute_{operation_id}"
+    now = time.time()
+    cancel_event = threading.Event()
+    with RUN_LOCK:
+        MUSHROOM_REBUILD_JOBS[job_id] = {
+            "job_id": job_id,
+            "job_type": "local_predictor_precompute",
+            "worker_display_name": "Home Assistant local",
+            "status": "running",
+            "phase": "Preparing weekly Predictor artifact",
+            "phase_index": 1,
+            "phase_count": 2,
+            "phase_percent": 0,
+            "overall_percent": 0,
+            "message": "Weekly Predictor precompute started in the local lab.",
+            "error": "",
+            "result": {},
+            "started_at_ts": now,
+            "phase_started_at_ts": now,
+            "finished_at_ts": None,
+            "started_at": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+            "finished_at": "",
+            "return_url": "./workers",
+            "scope": f"{identity.coverage_start} to {identity.coverage_end}",
+            "pipeline": "local_predictor_precompute",
+            "artifact_id": identity.artifact_id,
+            "desired_revision": desired_revision,
+            "trigger_origin": trigger_origin,
+            "force_recompute": force,
+            "cancel_requested": False,
+            "_promotion_started": False,
+            "_cancel_event": cancel_event,
+        }
+
+    def cancelled() -> None:
+        if cancel_event.is_set():
+            raise InterruptedError("Local Predictor precompute was cancelled.")
+
+    def progress(done: int, total: int, label: str) -> None:
+        cancelled()
+        percent = int(85 * done / max(1, total))
+        set_mushroom_rebuild_progress(
+            job_id,
+            phase="Calculating weekly Predictor artifact",
+            phase_index=1,
+            phase_count=2,
+            phase_percent=percent,
+            overall_percent=percent,
+            message=f"{done}/{total}: {label}",
+            reset_phase_timer=False,
+        )
+
+    def run() -> None:
+        staging_dir = (
+            mushroom_paths.mushroom_data_dir() / "predictor_precompute" / "staging"
+        )
+        staged_artifact = staging_dir / f"{job_id}.sqlite3"
+        try:
+            staging_dir.mkdir(parents=True, exist_ok=True)
+            build = mushroom_predictor_precompute.build_weekly_artifact(
+                staged_artifact,
+                identity=identity,
+                predictor_service=mushroom_predictor_ui.predictor_service(),
+                operational_selections=operational_selections,
+                progress=progress,
+                cancel_check=cancelled,
+            )
+            cancelled()
+            set_mushroom_rebuild_progress(
+                job_id,
+                phase="Publishing verified SQLite",
+                phase_index=2,
+                phase_count=2,
+                phase_percent=0,
+                overall_percent=90,
+                message="Validating and atomically publishing the local artifact.",
+                reset_phase_timer=True,
+            )
+            with staged_artifact.open("rb") as source:
+                receipt = mushroom_predictor_precompute_control.publish_received_artifact(
+                    source,
+                    content_length=build.manifest.size_bytes,
+                    expected_sha256=build.manifest.file_sha256,
+                    identity=identity,
+                    desired_state_path=mushroom_paths.mushroom_predictor_precompute_desired_path(),
+                    destination_path=mushroom_paths.mushroom_predictor_precompute_artifact_path(),
+                    receipt_path=mushroom_paths.mushroom_predictor_precompute_receipt_path(),
+                    desired_revision=desired_revision,
+                    max_bytes=MUSHROOM_PREDICTOR_PRECOMPUTE_MAX_BYTES,
+                )
+            message = "Weekly Predictor precompute published in the local lab."
+            set_mushroom_workers_flash(message)
+            set_mushroom_rebuild_progress(
+                job_id,
+                status="complete",
+                phase="Verified artifact active",
+                phase_index=2,
+                phase_count=2,
+                phase_percent=100,
+                overall_percent=100,
+                message=message,
+                result=receipt.as_dict(),
+            )
+        except InterruptedError:
+            set_mushroom_rebuild_progress(
+                job_id,
+                status="cancelled",
+                phase="Local precompute cancelled",
+                message="Local Predictor precompute cancelled; the previous artifact is unchanged.",
+            )
+        except Exception as exc:
+            error = f"Local Predictor precompute failed: {exc}"
+            set_mushroom_workers_flash(error, error=True)
+            set_mushroom_rebuild_progress(
+                job_id,
+                status="failed",
+                error=error,
+                message=error,
+            )
+        finally:
+            staged_artifact.unlink(missing_ok=True)
+
+    threading.Thread(
+        target=run,
+        name=f"mushroom-local-precompute-{operation_id}",
+        daemon=True,
+    ).start()
+    with RUN_LOCK:
+        return dict(MUSHROOM_REBUILD_JOBS[job_id])
+
+
+def request_mushroom_predictor_precompute(
+    *,
+    trigger_origin: str,
+    force: bool = False,
+    expected_worker_id: str = "",
+) -> tuple[int, dict[str, object]]:
+    """Persist the newest desire and queue it only when its preferred worker is compatible."""
+    try:
+        target_worker_id, payload, compatible = preferred_mushroom_precompute_worker()
+        local_executor = bool(
+            not target_worker_id and mushroom_local_ha_compute_enabled()
+        )
+        supplied_worker_id = str(expected_worker_id or "").strip()
+        if supplied_worker_id and supplied_worker_id != target_worker_id:
+            raise ValueError("The selected worker is no longer the configured default.")
+        identity, selections_by_species, runtime_manifest = predictor_precompute_plan()
+        with RUN_LOCK:
+            queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+            local_active = next(
+                (
+                    row
+                    for row in reversed(list(MUSHROOM_REBUILD_JOBS.values()))
+                    if row.get("job_type") == "local_predictor_precompute"
+                    and row.get("artifact_id") == identity.artifact_id
+                    and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+                ),
+                None,
+            )
+            active = next(
+                (
+                    row
+                    for row in reversed(queue["jobs"])
+                    if row.get("job_type")
+                    == mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE
+                    and row.get("artifact_id") == identity.artifact_id
+                    and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+                ),
+                None,
+            )
+            active = local_active or active
+            if active is not None and not force:
+                return 200, {"ok": True, "reused": True, "job": dict(active)}
+            if trigger_origin == "manual" and not force:
+                try:
+                    mushroom_predictor_precompute.validate_artifact(
+                        mushroom_paths.mushroom_predictor_precompute_artifact_path(),
+                        expected_identity=identity,
+                        full=False,
+                    )
+                except (FileNotFoundError, OSError, ValueError):
+                    pass
+                else:
+                    return 200, {
+                        "ok": True,
+                        "reused": True,
+                        "artifact_id": identity.artifact_id,
+                    }
+            for local_job in MUSHROOM_REBUILD_JOBS.values():
+                if (
+                    local_job.get("job_type") == "local_predictor_precompute"
+                    and local_job.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+                ):
+                    cancel_event = local_job.get("_cancel_event")
+                    if isinstance(cancel_event, threading.Event):
+                        cancel_event.set()
+                    local_job.update(
+                        {
+                            "status": "cancel_requested",
+                            "cancel_requested": True,
+                            "message": "A newer desired precompute superseded this local run.",
+                        }
+                    )
+            desired = mushroom_predictor_precompute_control.advance_desired_state(
+                mushroom_paths.mushroom_predictor_precompute_desired_path(),
+                identity=identity,
+                worker_id=target_worker_id,
+                trigger_origin=trigger_origin,
+                force=force,
+            )
+            if not local_executor and not compatible:
+                return 202, {
+                    "ok": True,
+                    "pending_worker": True,
+                    "desired": desired,
+                }
+            if not local_executor:
+                job = mushroom_worker_jobs.create_predictor_precompute_job(
+                    mushroom_worker_jobs_path(),
+                    worker_id=target_worker_id,
+                    worker_display_name=str(
+                        payload.get("display_name", target_worker_id) or target_worker_id
+                    ),
+                    identity=identity.as_dict(),
+                    runtime_manifest=runtime_manifest,
+                    operational_selections=selections_by_species,
+                    desired_revision=int(desired["revision"]),
+                    trigger_origin=trigger_origin,
+                    force=force,
+                )
+        if local_executor:
+            job = start_local_mushroom_predictor_precompute(
+                identity=identity,
+                operational_selections=selections_by_species,
+                desired_revision=int(desired["revision"]),
+                trigger_origin=trigger_origin,
+                force=force,
+            )
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 202, {"ok": True, "job": job, "desired": desired}
+
+
+def start_mushroom_predictor_precompute(
+    worker_id: str = "",
+    *,
+    force: bool = False,
+) -> tuple[int, dict[str, object]]:
+    return request_mushroom_predictor_precompute(
+        trigger_origin="manual",
+        force=force,
+        expected_worker_id=worker_id,
+    )
+
+
+def reconcile_mushroom_predictor_precompute_desire(
+    heartbeat: dict[str, object],
+) -> dict[str, object] | None:
+    """Materialize one pending desire when its configured worker becomes capable."""
+    worker_id = str(heartbeat.get("worker_id", ""))
+    if (
+        mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+        not in set(heartbeat.get("capabilities") or [])
+    ):
+        return None
+    registry = mushroom_worker_registry.load_registry(mushroom_worker_registry_path())
+    if registry.get("default_executor") != f"worker:{worker_id}":
+        return None
+    desired_path = mushroom_paths.mushroom_predictor_precompute_desired_path()
+    desired = mushroom_predictor_precompute_control.load_desired_state(desired_path)
+    if desired is None or str(desired.get("worker_id", "")) not in {"", worker_id}:
+        return None
+    with RUN_LOCK:
+        queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+        existing = next(
+            (
+                row
+                for row in reversed(queue["jobs"])
+                if row.get("job_type")
+                == mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE
+                and row.get("desired_revision") == desired.get("revision")
+                and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+            ),
+            None,
+        )
+    if existing is not None:
+        return dict(existing)
+    identity, selections_by_species, runtime_manifest = predictor_precompute_plan()
+    if identity.artifact_id != desired.get("artifact_id"):
+        return None
+    with RUN_LOCK:
+        desired = mushroom_predictor_precompute_control.assign_desired_worker(
+            desired_path,
+            desired_revision=int(desired["revision"]),
+            worker_id=worker_id,
+        )
+        return mushroom_worker_jobs.create_predictor_precompute_job(
+            mushroom_worker_jobs_path(),
+            worker_id=worker_id,
+            worker_display_name=str(
+                heartbeat.get("display_name", worker_id) or worker_id
+            ),
+            identity=identity.as_dict(),
+            runtime_manifest=runtime_manifest,
+            operational_selections=selections_by_species,
+            desired_revision=int(desired["revision"]),
+            trigger_origin=str(desired.get("trigger_origin", "manual")),
+            force=bool(desired.get("force")),
+        )
+
+
+def schedule_mushroom_predictor_precompute_request() -> None:
+    """Request post-runner precompute without waiting for planning or execution."""
+
+    def request() -> None:
+        status, response = request_mushroom_predictor_precompute(
+            trigger_origin="runner"
+        )
+        if status not in {200, 202}:
+            print(
+                "WARNING: post-runner Predictor precompute request failed: "
+                + str(response.get("error", "unknown error")),
+                flush=True,
+            )
+
+    threading.Thread(
+        target=request,
+        name="mushroom-predictor-precompute-request",
+        daemon=True,
+    ).start()
+
+
 def resolve_mushroom_predictor_runtime_download(
     *,
     job_id: str,
@@ -12807,7 +13512,10 @@ def resolve_mushroom_predictor_runtime_download(
             job = mushroom_worker_jobs.authorize_input_download(
                 mushroom_worker_jobs_path(), job_id=job_id, worker_id=worker_id, claim_token=claim_token
             )
-        if job.get("job_type") != mushroom_worker_jobs.JOB_TYPE_PREDICTOR:
+        if job.get("job_type") not in {
+            mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+            mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+        }:
             raise ValueError("Worker job is not a predictor request.")
         assigned = mushroom_predictor_runtime.validate_manifest(job.get("runtime_manifest"))
         current, sources, _publication_status = (
@@ -13940,7 +14648,10 @@ def mushroom_worker_job_wire_payload(job: object) -> object:
         return job
     payload = dict(job)
     manifest = payload.pop("runtime_manifest", None)
-    if payload.get("job_type") == mushroom_worker_jobs.JOB_TYPE_PREDICTOR and isinstance(manifest, dict):
+    if payload.get("job_type") in {
+        mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+        mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+    } and isinstance(manifest, dict):
         files = manifest.get("files")
         payload["runtime_manifest_ref"] = {
             "schema_version": manifest.get("schema_version"),
@@ -13958,6 +14669,7 @@ def claim_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple
     if not isinstance(payload, dict):
         return 400, {"ok": False, "error": "Worker claim payload must be an object."}
     worker_id = str(payload.get("worker_id", ""))
+    lane = str(payload.get("lane", "foreground") or "foreground")
     if not authenticate_mushroom_worker(worker_id, auth_token):
         return 401, {"ok": False, "error": "Worker authentication failed."}
     try:
@@ -13965,6 +14677,7 @@ def claim_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple
             job = mushroom_worker_jobs.claim_next(
                 mushroom_worker_jobs_path(),
                 worker_id=worker_id,
+                lane=lane,
             )
     except ValueError as exc:
         return 400, {"ok": False, "error": str(exc)}
@@ -14267,6 +14980,46 @@ def receive_mushroom_worker_result_file(
     except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {"ok": True, "result": result}
+
+
+def receive_mushroom_predictor_precompute_artifact(
+    *,
+    job_id: str,
+    content: bytes,
+    expected_sha256: str,
+    worker_id: str,
+    claim_token: str,
+    auth_token: str,
+) -> tuple[int, dict[str, object]]:
+    if not mushroom_worker_api_enabled():
+        return 404, {"ok": False, "error": "Worker API is not enabled."}
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.authorize_precompute_upload(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+            identity = mushroom_predictor_precompute.ArtifactIdentity.from_dict(
+                job.get("artifact_identity")
+            )
+            receipt = mushroom_predictor_precompute_control.publish_received_artifact(
+                io.BytesIO(content),
+                content_length=len(content),
+                expected_sha256=expected_sha256,
+                identity=identity,
+                desired_state_path=mushroom_paths.mushroom_predictor_precompute_desired_path(),
+                destination_path=mushroom_paths.mushroom_predictor_precompute_artifact_path(),
+                receipt_path=mushroom_paths.mushroom_predictor_precompute_receipt_path(),
+                desired_revision=int(job.get("desired_revision", 0) or 0),
+                max_bytes=MUSHROOM_PREDICTOR_PRECOMPUTE_MAX_BYTES,
+            )
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    return 200, {"ok": True, "publication_receipt": receipt.as_dict()}
 
 
 def complete_mushroom_worker_candidate_result(
@@ -15021,11 +15774,23 @@ def mushroom_workers_recent_jobs(
     )[: limit + len(rebuild_jobs)]
 
 
-def mushroom_worker_activity_active(jobs: list[dict[str, object]]) -> bool:
+def mushroom_worker_activity_active(
+    jobs: list[dict[str, object]],
+    *,
+    include_precompute: bool = True,
+) -> bool:
     if MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.locked():
         return True
     return any(
-        str(job.get("status", "")) in mushroom_worker_jobs.ACTIVE_STATUSES
+        (
+            include_precompute
+            or str(job.get("job_type", ""))
+            not in {
+                mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+                "local_predictor_precompute",
+            }
+        )
+        and str(job.get("status", "")) in mushroom_worker_jobs.ACTIVE_STATUSES
         or (
             str(job.get("promotion_status", "")) == "promoting"
             and bool(job.get("promotion_active", True))
@@ -15295,7 +16060,11 @@ def request_mushroom_rebuild_cancel(job_id: str) -> tuple[int, dict[str, object]
         job = MUSHROOM_REBUILD_JOBS.get(job_id)
         if not job:
             return 404, {"ok": False, "error": "Rebuild job was not found."}
-        if job.get("pipeline") not in {"shared", "local_benchmark"}:
+        if job.get("pipeline") not in {
+            "shared",
+            "local_benchmark",
+            "local_predictor_precompute",
+        }:
             return 409, {"ok": False, "error": "Legacy rebuild jobs cannot be cancelled safely."}
         if job.get("status") != "running":
             return 409, {"ok": False, "error": "Rebuild job is no longer running."}
@@ -15757,7 +16526,7 @@ def start_mushroom_local_full_update(
             "error": "Local Home Assistant compute is not enabled for this installation.",
         }
     jobs = mushroom_workers_recent_jobs()
-    if mushroom_worker_activity_active(jobs):
+    if mushroom_worker_activity_active(jobs, include_precompute=False):
         return 409, {
             "ok": False,
             "error": "Another mushroom rebuild or worker operation is already active.",
@@ -15943,7 +16712,9 @@ def start_mushroom_local_benchmark(
             "ok": False,
             "error": "Local Home Assistant compute is not enabled for this installation.",
         }
-    if mushroom_worker_activity_active(mushroom_workers_recent_jobs()):
+    if mushroom_worker_activity_active(
+        mushroom_workers_recent_jobs(), include_precompute=False
+    ):
         return 409, {
             "ok": False,
             "error": "Another mushroom rebuild or worker operation is already active.",
@@ -18796,6 +19567,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return mushroom_ml_multiversion_transport.MAX_RESULT_FILE_BYTES
         if path == "/api/mushrooms/workers/jobs/multiversion-result-bundle":
             return mushroom_ml_multiversion_transport.RESULT_BUNDLE_MAX_BYTES
+        if path == "/api/mushrooms/workers/jobs/precompute-artifact":
+            return MUSHROOM_PREDICTOR_PRECOMPUTE_MAX_BYTES
         if path == "/api/mushrooms/workers/jobs/finish":
             return MUSHROOM_PREDICTOR_RESULT_MAX_BYTES
         if path == "/mushrooms/predictor/jobs/cancel":
@@ -19107,13 +19880,48 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         # worker-only policy when it is implemented.
         execution_policy = CURRENT_PREDICTOR_EXECUTION_POLICY
 
-        if not job_id and not execution_policy.allow_manual_selection:
+        prepared_response = None
+        coordinator_precompute_lookup = None
+        coordinator_lookup_seconds = 0.0
+        predictor_request = None
+        precompute_response_used = False
+        coordinator_lookup_started = time.perf_counter()
+        try:
+            predictor_request = build_predictor_request(query)
+            runtime_manifest, _sources, _publication_status = (
+                mushroom_predictor_runtime.load_or_publish_manifest()
+            )
+            coordinator_precompute_lookup = (
+                mushroom_predictor_precompute.lookup_active_artifact(
+                    mushroom_paths.mushroom_predictor_precompute_artifact_path(),
+                    runtime_fingerprint=str(runtime_manifest["fingerprint"]),
+                    request=predictor_request,
+                )
+            )
+            if coordinator_precompute_lookup.hit and not job_id:
+                prepared_response = coordinator_precompute_lookup.response
+                precompute_response_used = True
+        except Exception as exc:
+            body = f'<h1>{html.escape(page_title)}</h1><div class="catalog-alert error">{html.escape(str(exc))}</div>'
+            self.send_bytes(409, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
+            return
+        coordinator_lookup_seconds = round(
+            time.perf_counter() - coordinator_lookup_started, 3
+        )
+
+        if (
+            prepared_response is None
+            and not job_id
+            and not execution_policy.allow_manual_selection
+        ):
             # A caller without the selection capability cannot pin
             # infrastructure, including through a hand-crafted query string.
             # Whether Auto may consider HA is controlled independently below.
             executor = "auto"
             query["executor"] = [executor]
         elif (
+            prepared_response is None
+            and
             not job_id
             and executor == mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR
             and not execution_policy.allow_home_assistant
@@ -19121,7 +19929,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             executor = ""
             query.pop("executor", None)
 
-        if not executor and not job_id:
+        if prepared_response is None and not executor and not job_id:
             body = f"""
             <div class="pred-page">
               <p><a class="button-link" href="../">← {html.escape(mushroom_profiles_ui.ui_label('ui.back_to_panel'))}</a></p>
@@ -19132,7 +19940,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             """
             self.send_bytes(200, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
             return
-        if executor == "auto":
+        if prepared_response is None and executor == "auto":
             available = available_predictor_executors(
                 allow_home_assistant=execution_policy.allow_home_assistant
             )
@@ -19162,22 +19970,22 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 return
             query["executor"] = [executor]
         if executor.startswith("worker:") and not job_id:
-            coordinator_lookup_started = time.perf_counter()
+            job = {}
             try:
-                job = create_remote_predictor_job(
-                    executor.removeprefix("worker:"),
-                    query,
-                    reuse_completed=True,
-                )
+                if prepared_response is None:
+                    job = create_remote_predictor_job(
+                        executor.removeprefix("worker:"),
+                        query,
+                        reuse_completed=True,
+                    )
             except Exception as exc:
                 body = f'<h1>{html.escape(page_title)}</h1><div class="catalog-alert error">{html.escape(str(exc))}</div>'
                 self.send_bytes(409, html_page(page_title, body, auto_refresh=False), "text/html; charset=utf-8")
                 return
             coordinator_result_reused = bool(job.get("coordinator_result_reused"))
-            coordinator_lookup_seconds = round(
-                time.perf_counter() - coordinator_lookup_started, 3
-            )
-            if coordinator_result_reused:
+            if prepared_response is not None:
+                pass
+            elif coordinator_result_reused:
                 job_id = str(job["job_id"])
                 query["job_id"] = [job_id]
             else:
@@ -19194,10 +20002,30 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 return
         else:
             coordinator_result_reused = False
-            coordinator_lookup_seconds = 0.0
-        prepared_response = None
-        prediction_timing: dict[str, object] | None = None
+        prediction_timing: dict[str, object] | None = (
+            {
+                "total_seconds": coordinator_lookup_seconds,
+                "backend_seconds": 0.0,
+                "response_cache_status": "hit",
+            }
+            if prepared_response is not None
+            and coordinator_precompute_lookup is not None
+            and coordinator_precompute_lookup.hit
+            else None
+        )
         remote_diagnostic_details: dict[str, object] = {}
+        if coordinator_precompute_lookup is not None:
+            remote_diagnostic_details.update(
+                {
+                    "precompute_cache_status": (
+                        "hit" if coordinator_precompute_lookup.hit else "miss"
+                    ),
+                    "precompute_fallback_reason": coordinator_precompute_lookup.reason,
+                    "precompute_artifact_id": coordinator_precompute_lookup.artifact_id,
+                    "precompute_rows_read": coordinator_precompute_lookup.rows_read,
+                    "precompute_lookup_seconds": coordinator_lookup_seconds,
+                }
+            )
         if job_id:
             try:
                 if not coordinator_result_reused:
@@ -19414,7 +20242,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 == mushroom_worker_registry.HOME_ASSISTANT_EXECUTOR
                                 and prepared_response is None
                             ):
-                                predictor_request = build_predictor_request(query)
+                                predictor_request = (
+                                    predictor_request
+                                    or build_predictor_request(query)
+                                )
                                 if predictor_request["trained_species_ids"]:
                                     prepared_response = (
                                         mushroom_predictor_ui.execute_predictor_request(
@@ -19434,6 +20265,28 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                                 "response_cache_status"
                                             ),
                                         }
+                            active_precompute_status = predictor_precompute_activity_status()
+                            if precompute_response_used:
+                                predictor_precompute_status = "used"
+                            elif active_precompute_status:
+                                predictor_precompute_status = "in_progress"
+                            elif (
+                                coordinator_precompute_lookup is not None
+                                and coordinator_precompute_lookup.reason
+                                not in {
+                                    "artifact_missing",
+                                    "artifact_corrupt",
+                                    "identity_mismatch",
+                                    "schema_unknown",
+                                }
+                            ):
+                                predictor_precompute_status = "available_not_used"
+                            else:
+                                predictor_precompute_status = "unavailable"
+                            prediction_timing = dict(prediction_timing or {})
+                            prediction_timing["precompute_status"] = (
+                                predictor_precompute_status
+                            )
                             body = mushroom_predictor_ui.render_page(
                                 query,
                                 profiles_payload
@@ -19626,6 +20479,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 benchmark_history=benchmark_history,
                 selected_benchmark_report=selected_benchmark_report,
                 benchmark_report_error=benchmark_report_error,
+                precompute_summary=predictor_precompute_summary(),
             )
             rebuild_job_id = (query.get("rebuild_job") or [""])[0]
             body += render_mushroom_rebuild_progress_modal(rebuild_job_id, "./workers")
@@ -20621,6 +21475,19 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             )
             self.send_json(status, response)
             return
+        if path == "/api/mushrooms/workers/jobs/precompute-artifact":
+            worker_token, _device_id = self.auth_credentials()
+            query = parse_qs(parsed.query)
+            status, response = receive_mushroom_predictor_precompute_artifact(
+                job_id=(query.get("job_id") or [""])[0],
+                content=self.read_request_body(),
+                expected_sha256=self.headers.get("X-Rainmapper-SHA256", "").strip(),
+                worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
+                claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
+                auth_token=worker_token,
+            )
+            self.send_json(status, response)
+            return
         if path == "/api/mushrooms/workers/jobs/result-complete":
             worker_token, _device_id = self.auth_credentials()
             status, response = complete_mushroom_worker_candidate_result(
@@ -20929,6 +21796,29 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.redirect_to(redirect_location)
             return
 
+        precompute_action = self.form_value(form, "precompute_action")
+        if precompute_action == "launch":
+            with RUN_LOCK:
+                runner_active = bool(RUN_STATE["running"])
+            if runner_active:
+                message = "El precálculo se solicitará automáticamente cuando termine el runner."
+            else:
+                status, response = start_mushroom_predictor_precompute()
+                if status == 202 and response.get("pending_worker"):
+                    message = "Precálculo solicitado; queda pendiente del worker predeterminado."
+                elif status == 202:
+                    message = "Precálculo lanzado al ejecutor predeterminado."
+                elif status == 200:
+                    message = "Ya existe el artefacto exacto o un precálculo activo."
+                else:
+                    message = "No se pudo solicitar el precálculo: " + str(
+                        response.get("error", "error desconocido")
+                    )
+            with RUN_LOCK:
+                RUN_STATE["last_message"] = message
+            self.redirect_home()
+            return
+
         action = self.form_value(form, "run_action")
         if action:
             run_action(action, "web")
@@ -21090,6 +21980,21 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     error=True,
                 )
             return "./workers"
+        if action == "cancel_local_precompute":
+            status, response = request_mushroom_rebuild_cancel(
+                self.form_value(form, "job_id")
+            )
+            if status == 202:
+                set_mushroom_workers_flash(
+                    "Cancelación solicitada para el precálculo local.",
+                    clear_when_idle=True,
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "No se puede cancelar el precálculo local.")),
+                    error=True,
+                )
+            return "./workers"
         if action == "force_cancel_worker_job":
             status, response = cancel_mushroom_worker_job(self.form_value(form, "job_id"), force=True)
             if status == 200:
@@ -21194,6 +22099,28 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     clear_when_idle=True,
                 )
             return "./workers"
+        if action == "run_predictor_precompute":
+            status, response = start_mushroom_predictor_precompute(
+                self.form_value(form, "worker_id"),
+                force=self.form_value(form, "force") == "1",
+            )
+            job = response.get("job")
+            job_id = str(job.get("job_id", "")) if isinstance(job, dict) else ""
+            if status == 202:
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_precompute_queued"),
+                    clear_when_idle=True,
+                )
+            elif status == 200:
+                set_mushroom_workers_flash(
+                    mushroom_profiles_ui.ui_label("ui.worker_precompute_reused")
+                )
+            else:
+                set_mushroom_workers_flash(
+                    str(response.get("error", "Cannot queue Predictor precompute.")),
+                    error=True,
+                )
+            return "./workers" + (f"#job-{job_id}" if job_id else "")
         if action == "run_ml_benchmark":
             executor = self.form_value(form, "executor")
             profile_keys = [
@@ -22772,11 +23699,32 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if predictor_policy.allow_manual_selection
             else "data-predictor-direct-run"
         )
+        precompute = predictor_precompute_control_panel_summary()
+        precompute_status = {
+            "not_requested": "sin solicitar",
+            "pending": "en espera",
+            "running": "en ejecución",
+            "active": "activo",
+            "invalid": "estado inválido",
+        }.get(str(precompute.get("status", "")), str(precompute.get("status", "")))
+        precompute_detail = " · ".join(
+            value
+            for value in (
+                str(precompute.get("worker", "")),
+                (
+                    f'{precompute.get("coverage_start")} → {precompute.get("coverage_end")}'
+                    if precompute.get("coverage_start") and precompute.get("coverage_end")
+                    else ""
+                ),
+            )
+            if value
+        )
         controls = f"""
         <div class="quick-actions">
           <form method="post" action=""><input type="hidden" name="run_action" value="all"><button class="primary" {disabled}>Run all</button></form>
           <form method="post" action=""><input type="hidden" name="run_action" value="update"><button {disabled}>Run update</button></form>
           <form method="post" action=""><input type="hidden" name="run_action" value="maps"><button {disabled}>Generate maps</button></form>
+          <form method="post" action=""><input type="hidden" name="precompute_action" value="launch"><button {disabled}>Lanzar precálculo</button></form>
           <a class="button-link" href="./settings">App settings</a>
           <a class="button-link" href="./users">Users</a>
           <a class="button-link" href="./mushrooms/catalogs">Mushroom catalogs</a>
@@ -22785,6 +23733,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <a class="button-link" href="./mushrooms/known-sites">{html.escape(mushroom_profiles_ui.ui_label('ui.known_sites'))}</a>
           <a class="button-link" href="./mushrooms/workers">{html.escape(mushroom_profiles_ui.ui_label('ui.workers_jobs'))}</a>
           <a class="button-link" href="{predictor_href}" {predictor_action}>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor'))}</a>
+          <span class="meta">Precálculo: {html.escape(precompute_status)}{(' · ' + html.escape(precompute_detail)) if precompute_detail else ''}</span>
         </div>
         """
         head_controls = f"""

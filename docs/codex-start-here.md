@@ -37,47 +37,39 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-29
+## Estado general al cierre de 2026-08-30
 
-- Rama `inicial`; el HEAD anterior a la release era `2e8a076`. Revalidar `pwd`,
-  rama, HEAD, worktree y runtime al comenzar, y preservar todos los cambios y
-  ficheros no rastreados.
-- La versión instalada en HA real no se ha revalidado tras la última prueba;
-  `0.2.280` está publicada y pendiente de instalación. El único worker es local
-  al M1, no se publica en GHCR y está reconstruido como `1.0.29` e `idle`,
-  conservando identidad, volumen
-  y cachés.
+- Rama `inicial`; el HEAD previo al commit de esta entrega era
+  `32ee344d8f150d6400fe3e522bbf345bab5d4c9e`. Revalidar `pwd`, rama, HEAD,
+  worktree y runtime al comenzar.
+- El código declara HA `0.2.281` y worker `1.0.30`. HA `0.2.281` y
+  `latest` están publicados con el índice multiarch
+  `sha256:892fa5accda4b2588c7e6abc65a91b6058155a9d43893fe032a00cb1dc415fd0`.
+  La instalación en HA real no está confirmada.
+- El worker privado no se publica. Fue reconstruido localmente como `1.0.30`,
+  conservando identidad y volumen; el health observado tras la reconstrucción
+  era `idle` e incluía `predictor_precompute_v1`.
 - `OperationalTrainingScope` y el plan serializable son comunes a local, HA y
   worker. La revisión `.2` deriva identidades únicamente del contenido
-  científico y ya produce el mismo scope con los inputs reales actuales local y
-  HA; timestamps y rutas de artefacto no alteran la identidad.
-- La cadena real con HA `0.2.275` y worker `1.0.24` completó reconstrucción,
-  ML v0, V2–V6 y promoción. El Predictor posterior funcionó y una repetición
-  exacta tardó 0,6 s; los caminos fríos observados siguen alrededor de 29 s.
+  científico. Su implementación y validación están cerradas; conservar sus
+  contratos, hashes y promoción atómica.
+- La última evidencia aportada por el usuario mostró una cadena real completa:
+  reconstrucción 1 min 40 s, ML v0 26 s y V2–V6 7 min 5 s. El Predictor frío
+  observado sigue alrededor de 29 s y la UI de jobs todavía no expresa duración
+  integral ni progreso global fiables.
 - No hay entrenamientos programados: el usuario los inicia cuando añade
-  observaciones. No hace falta repetir uno para validar la corrección de scope.
-  La UI de jobs aún pierde preparación/transiciones y su porcentaje puede
-  retroceder; es deuda de observabilidad, no un fallo científico confirmado.
-- El último intento manual, después de que corriera un runner meteorológico,
-  falló en la subida de la reconstrucción tras 2 min 9 s. El worker mostró
-  `name 'HTTPError' is not defined`: faltaba el import que debía conservar el
-  rechazo HTTP de HA, por lo que el código y detalle originales son
-  irrecuperables. El runner sí creó una generación meteorológica nueva con seis
-  filas adicionales, pero terminó unos 33 minutos antes y no existe evidencia
-  de causalidad. Worker `1.0.26` corrige y prueba esa captura. Una repetición
-  posterior completó reconstrucción (1 min 39 s), ML v0 (29 s) y multiversión
-  (11 min 20 s); este último movió 638 objetos y 90.087.316 bytes, por lo que
-  `Uploading` incluía trabajo distinto de la transferencia de red.
-- HA `0.2.280` muestra el job antes de preparar sus inputs, permite los paquetes
-  TAR en el listener dedicado y reutiliza por hash el catálogo de tuning que el
-  worker `1.0.29` persiste con cada generación nueva. Si un batch instalado
-  declara el catálogo pero el fichero falta, lo reconstruye desde sus modelos.
-  No afirmar mejora real hasta que el usuario instale HA y lance una medición.
+  observaciones. Codex no inicia entrenamientos reales.
+- El precálculo semanal SQLite está implementado y validado localmente: lookup
+  en HA, cobertura multiversión, fallback íntegro, estado latest-wins,
+  publicación atómica, almacenamiento en `/media/rainmapper`, job manual,
+  trigger asíncrono del runner y estado visible en el Predictor. Cuatro rutas
+  con datos fueron científicamente equivalentes al cálculo vivo.
 - La retención ML real continúa activa por decisión del usuario. No cambiarla,
   no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
   ni promoción atómica.
-- Codex no instala ni inicia la cadena real. No hacer nuevos bumps, builds,
-  publicaciones o cambios de retención sin autorización explícita.
+- La siguiente prueba es instalar HA `0.2.281` y validar el E2E real con el
+  worker `1.0.30`. Codex no instala ni inicia esa prueba real. No hacer nuevos
+  bumps, builds, publicaciones o cambios de retención sin autorización.
 
 El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.
@@ -94,6 +86,9 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Optimización acordada del camino frío del Predictor, caché semántica,
   workspace meteorológico común e inferencia por lotes:
   `docs/mushrooms/mushroom-predictor-cold-path-optimization-spec-es.md`
+- Precálculo semanal distribuido de todas las especies, áreas y versiones,
+  persistido en SQLite en HA y worker con fallback al Predictor vigente:
+  `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`
 - Entrega local sellada entre trabajos encadenados del worker:
   `docs/mushrooms/mushroom-worker-chained-job-local-handoff-spec-es.md`
 - Alcance y plan operativo únicos para local, HA y worker:

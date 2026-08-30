@@ -239,8 +239,8 @@ def predictor_cache_info(species_id: str = "") -> dict[str, int | bool]:
     }
 
 
-def execute_predictor_request(request: object) -> dict[str, Any]:
-    """Execute one HA request through the same service used by workers."""
+def predictor_service() -> PredictorService:
+    """Return the shared local service without executing a prediction."""
     global _predictor_service  # noqa: PLW0603
     with _predictor_cache_lock:
         if _predictor_service is None:
@@ -257,8 +257,12 @@ def execute_predictor_request(request: object) -> dict[str, Any]:
                 stations_file_path=Path("/app/stations.txt"),
                 runtime_fingerprint=str(manifest["fingerprint"]),
             )
-        service = _predictor_service
-    return service.execute(request)
+        return _predictor_service
+
+
+def execute_predictor_request(request: object) -> dict[str, Any]:
+    """Execute one HA request through the same service used by workers."""
+    return predictor_service().execute(request)
 
 
 def _rel_badge(ep_n: int, acc: float | None = None) -> str:
@@ -329,6 +333,11 @@ def trained_species_ids() -> list[str]:
         if isinstance(row, dict) and row.get("species_id") and not row.get("skipped")
     }
     return sorted(model_species & report_species)
+
+
+def predictor_area_ids(species_id: str) -> list[str]:
+    """Return the stable precompute area scope without running predictions."""
+    return sorted(set(_get_predictor(species_id).areas_with_species_observations()))
 
 
 def _species_name(species_id: str, profiles_payload: dict[str, Any]) -> str:
@@ -849,6 +858,27 @@ def _prediction_timing_badge() -> str:
         '<div class="pred-timing-badge">'
         + " · ".join(html.escape(part) for part in parts)
         + "</div>"
+    )
+
+
+def _precompute_status_badge() -> str:
+    timing = _prediction_timing.get()
+    if not isinstance(timing, dict):
+        return ""
+    status = str(timing.get("precompute_status") or "")
+    label_key = {
+        "used": "ui.predictor_precompute_used",
+        "available_not_used": "ui.predictor_precompute_available_not_used",
+        "in_progress": "ui.predictor_precompute_in_progress",
+        "unavailable": "ui.predictor_precompute_unavailable",
+    }.get(status)
+    if label_key is None:
+        return ""
+    return (
+        f'<div class="pred-precompute-status pred-precompute-{html.escape(status, quote=True)}">'
+        f'{html.escape(_lbl("ui.predictor_precompute_status"))}: '
+        f'<strong>{html.escape(_lbl(label_key))}</strong>'
+        "</div>"
     )
 
 
@@ -1396,6 +1426,22 @@ def _probability_range(value: object) -> str:
 
 def _compact_interpretation_range(interpretation: dict[str, Any]) -> str:
     return _reference_range(interpretation)
+
+
+def _compact_comparison_range(comparison: dict[str, Any] | None) -> str:
+    if isinstance(comparison, dict):
+        probabilities = [
+            float(probability)
+            for winner in comparison.get("selected_winners") or []
+            if isinstance(winner, dict)
+            and not isinstance((probability := winner.get("probability")), bool)
+            and isinstance(probability, (int, float))
+        ]
+        if probabilities:
+            return _probability_range(
+                {"min": min(probabilities), "max": max(probabilities)}
+            )
+    return _compact_interpretation_range(_interpretation(comparison))
 
 
 def _selected_model_source(comparison: dict[str, Any] | None) -> str:
@@ -2471,7 +2517,7 @@ def _render_query_result(
 <a class="{cls} {_status_cls(status)}" href="{html.escape(href)}">
   <small>{day_name} {current_date.day}/{current_date.month}</small>
   <span>{_status_dot(status)}</span>
-  <small>{html.escape(_compact_interpretation_range(current_interpretation))}</small>
+  <small>{html.escape(_compact_comparison_range(current_comparison))}</small>
   <small class="pred-result-source">{html.escape(current_source or current_abstention)}</small>
 </a>
 """
@@ -3036,11 +3082,14 @@ def _render_query_all_areas(
         area_acc = area_bt.get("backtest_accuracy") if area_bt else None
         rel_badge = _rel_badge(ep_n)
         status = _interpretation_status(interpretation)
+        outcome_class = (
+            " pred-rank-abstention" if abstention and not model_source else ""
+        )
         rows_html += f"""
 <a class="pred-rank-row {_status_cls(status)}" href="{html.escape(href)}" data-predictor-direct-run>
   <span class="pred-rank-dot">{_status_dot(status)}</span>
   <span class="pred-rank-area">{html.escape(area_n)}</span>
-  <span class="pred-rank-prob">{html.escape(_compact_interpretation_range(interpretation))}<small class="pred-result-source">{html.escape(model_source or abstention)}</small></span>
+  <span class="pred-rank-prob pred-rank-outcome{outcome_class}">{html.escape(_compact_interpretation_range(interpretation))}<small class="pred-result-source">{html.escape(model_source or abstention)}</small></span>
   {rel_badge}
 </a>
 """
@@ -3434,6 +3483,7 @@ def _render_page_inner(
     tabs = _render_tabs(view, species, target_date)
     preferred_badge = _preferred_version_badge()
     prediction_timing_badge = _prediction_timing_badge()
+    precompute_status_badge = _precompute_status_badge()
 
     try:
         if view == "week":
@@ -3477,7 +3527,7 @@ def _render_page_inner(
   <h1>🍄 {html.escape(_lbl("ui.predictor_title"))}</h1>
   {freshness_warning}
   {soilgrids_warning}
-  <div class="pred-status-row">{preferred_badge}{prediction_timing_badge}</div>
+  <div class="pred-status-row">{preferred_badge}<div class="pred-runtime-status">{prediction_timing_badge}{precompute_status_badge}</div></div>
   {tabs}
   {content}
 </div>
@@ -3501,9 +3551,13 @@ _CSS = """
 }
 .pred-training-warning span { color: #d6c7a0; }
 .pred-status-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin: 0 0 0.8rem; flex-wrap: wrap; }
+.pred-runtime-status { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
 .pred-preferred-badge { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.35rem 0.65rem; border: 1px solid #526570; border-radius: 999px; background: #182127; color: #aebbc4; }
 .pred-preferred-badge strong { color: #e8eef2; }
-.pred-timing-badge { margin-left: auto; color: #9aa8b2; font-size: 0.9rem; text-align: right; }
+.pred-timing-badge { color: #9aa8b2; font-size: 0.9rem; text-align: right; }
+.pred-precompute-status { color: #9aa8b2; font-size: 0.85rem; text-align: right; }
+.pred-precompute-used strong { color: #51cf66; }
+.pred-precompute-in_progress strong { color: #ffd43b; }
 
 /* Tabs */
 .pred-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
@@ -3609,8 +3663,18 @@ _CSS = """
 .pred-rank-area { color: #9aa8b2; }
 .pred-rank-prob { text-align: right; font-weight: 600; white-space: nowrap; }
 .pred-rank-compact .pred-rank-row {
-  grid-template-columns: 1.5rem 1fr 4rem 6rem;
+  grid-template-columns: 1.5rem minmax(10rem, 1fr) minmax(18rem, 2fr) 7.5rem;
 }
+.pred-rank-compact .pred-rank-outcome {
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.2;
+}
+.pred-rank-compact .pred-rank-outcome .pred-result-source {
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.pred-rank-compact .pred-rank-abstention { text-align: left; }
 
 /* Reliability strip and per-area badge */
 .pred-reliability-strip {
@@ -3979,5 +4043,19 @@ a.pred-stat-card:hover { background: #243040; }
     grid-template-columns: 1.25rem minmax(0, 1fr) minmax(0, 1fr) 7.5rem;
   }
   .pred-rank-header { font-size: 0.78rem; }
+  .pred-rank-compact .pred-rank-row {
+    grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+    grid-template-areas:
+      "dot area reliability"
+      ". outcome outcome";
+  }
+  .pred-rank-compact .pred-rank-dot { grid-area: dot; }
+  .pred-rank-compact .pred-rank-area { grid-area: area; }
+  .pred-rank-compact .pred-rank-outcome {
+    grid-area: outcome;
+    margin-top: 0.15rem;
+    text-align: left;
+  }
+  .pred-rank-compact .pred-rel-badge { grid-area: reliability; }
 }
 """

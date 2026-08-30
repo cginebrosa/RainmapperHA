@@ -5,9 +5,101 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from rainmapper_core import mushroom_worker_jobs
+from rainmapper_core.mushroom_predictor_precompute import ArtifactIdentity, RuntimeVersionIdentity
 
 
 class MushroomWorkerJobsTests(unittest.TestCase):
+    def precompute_identity(self, runtime: str = "sha256:" + "a" * 64) -> ArtifactIdentity:
+        return ArtifactIdentity.create(
+            runtime_fingerprint=runtime,
+            issue_date="2026-08-30",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={"species": 1, "areas": 1, "days": 7, "versions": 1, "members": 7},
+        )
+
+    def predictor_manifest(self, runtime: str = "sha256:" + "a" * 64) -> dict[str, object]:
+        return {
+            "schema_version": "1.0",
+            "kind": "rainmapper_mushroom_predictor_runtime",
+            "fingerprint": runtime,
+            "files": [
+                {"path": "models/model.joblib", "sha256": "sha256:" + "b" * 64, "size_bytes": 0}
+            ],
+        }
+
+    def test_precompute_latest_wins_and_lanes_are_independent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            old_identity = self.precompute_identity()
+            old = mushroom_worker_jobs.create_predictor_precompute_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                identity=old_identity.as_dict(),
+                runtime_manifest=self.predictor_manifest(),
+                operational_selections=[],
+                desired_revision=1,
+                job_id="worker_job_precompute_old",
+            )
+            foreground = mushroom_worker_jobs.create_predictor_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                request=self.predictor_request(),
+                runtime_manifest=self.predictor_manifest(),
+                job_id="worker_job_foreground",
+            )
+            self.assertEqual("background", old["lane"])
+            foreground_claim = mushroom_worker_jobs.claim_next(
+                path, worker_id="worker_aaaaaaaa", lane="foreground", claim_token="foreground-token"
+            )
+            background_claim = mushroom_worker_jobs.claim_next(
+                path, worker_id="worker_aaaaaaaa", lane="background", claim_token="background-token"
+            )
+            self.assertEqual(foreground["job_id"], foreground_claim["job_id"])
+            self.assertEqual(old["job_id"], background_claim["job_id"])
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=old["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="background-token",
+            )
+            newer_runtime = "sha256:" + "c" * 64
+            newer = mushroom_worker_jobs.create_predictor_precompute_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                identity=self.precompute_identity(newer_runtime).as_dict(),
+                runtime_manifest=self.predictor_manifest(newer_runtime),
+                operational_selections=[],
+                desired_revision=2,
+                job_id="worker_job_precompute_new",
+            )
+            jobs = {row["job_id"]: row for row in mushroom_worker_jobs.load_queue(path)["jobs"]}
+            self.assertEqual("cancel_requested", jobs[old["job_id"]]["status"])
+            self.assertEqual("queued", jobs[newer["job_id"]]["status"])
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=foreground["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="foreground-token",
+            )
+            finished = mushroom_worker_jobs.finish_job(
+                path,
+                job_id=foreground["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="foreground-token",
+                status="complete",
+                result={"response": self.predictor_response(), "cold": False},
+            )
+            self.assertEqual("complete", finished["status"])
     def predictor_request(self) -> dict[str, object]:
         return {
             "schema_version": "1.0",

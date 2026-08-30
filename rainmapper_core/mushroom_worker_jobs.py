@@ -27,10 +27,11 @@ JOB_TYPE_CANDIDATE_REBUILD = "worker_candidate_rebuild"
 JOB_TYPE_ML_TRAIN = "worker_ml_train_v0"
 JOB_TYPE_ML_MULTIVERSION = "worker_ml_multiversion_v1"
 JOB_TYPE_PREDICTOR = "worker_predictor_v1"
+JOB_TYPE_PREDICTOR_PRECOMPUTE = "worker_predictor_precompute_v1"
 ML_JOB_PURPOSES = frozenset({"operational", "benchmark"})
 MAX_JOBS = 50
 DEFAULT_LEASE_SECONDS = 10
-TERMINAL_STATUSES = {"complete", "cancelled", "failed"}
+TERMINAL_STATUSES = {"complete", "cancelled", "failed", "superseded"}
 ACTIVE_STATUSES = {"preparing", "queued", "claimed", "running", "cancel_requested"}
 WORK_KEY_CLAIM_PROBE = "worker_claim_probe:v0"
 PREDICTOR_RESULT_MAX_BYTES = 64 * 1024 * 1024
@@ -1133,6 +1134,120 @@ def create_predictor_job(
     return dict(job)
 
 
+def create_predictor_precompute_job(
+    path: Path,
+    *,
+    worker_id: str,
+    worker_display_name: str,
+    identity: dict[str, Any],
+    runtime_manifest: dict[str, Any],
+    operational_selections: (
+        list[dict[str, Any]] | dict[str, list[dict[str, Any]]]
+    ),
+    desired_revision: int,
+    job_id: str | None = None,
+    trigger_origin: str = "runtime",
+    force: bool = False,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Queue the newest weekly artifact and supersede obsolete generations."""
+    from rainmapper_core.mushroom_predictor_precompute import ArtifactIdentity  # noqa: PLC0415
+    from rainmapper_core.mushroom_predictor_runtime import validate_manifest  # noqa: PLC0415
+
+    target_worker_id = _validate_worker_id(worker_id)
+    display_name = str(worker_display_name or "").strip()[:80]
+    if not display_name:
+        raise ValueError("Worker display name is required.")
+    resolved_job_id = job_id or f"worker_job_{secrets.token_urlsafe(9)}"
+    if not JOB_ID_PATTERN.fullmatch(resolved_job_id):
+        raise ValueError("Worker job ID is invalid.")
+    checked_identity = ArtifactIdentity.from_dict(identity)
+    checked_manifest = validate_manifest(runtime_manifest)
+    if checked_manifest.get("fingerprint") != checked_identity.runtime_fingerprint:
+        raise ValueError("Precompute runtime manifest does not match artifact identity.")
+    if not isinstance(desired_revision, int) or isinstance(desired_revision, bool) or desired_revision < 1:
+        raise ValueError("Precompute desired revision is invalid.")
+    if not isinstance(operational_selections, (list, dict)):
+        raise ValueError("Precompute operational selections are invalid.")
+    if isinstance(operational_selections, dict):
+        checked_selections: object = {
+            str(species_id): [dict(row) for row in rows if isinstance(row, dict)]
+            for species_id, rows in operational_selections.items()
+            if isinstance(rows, list)
+        }
+        if set(checked_selections) != set(operational_selections):
+            raise ValueError("Precompute operational selections are invalid.")
+    else:
+        checked_selections = [
+            dict(row) for row in operational_selections if isinstance(row, dict)
+        ]
+        if len(checked_selections) != len(operational_selections):
+            raise ValueError("Precompute operational selections are invalid.")
+    timestamp = created_at or utc_now()
+    queue = load_queue(path)
+    for row in queue["jobs"]:
+        if row.get("job_type") != JOB_TYPE_PREDICTOR_PRECOMPUTE:
+            continue
+        if int(row.get("desired_revision", 0) or 0) >= desired_revision and row.get("status") in ACTIVE_STATUSES:
+            raise DuplicateActiveWorkError("A same or newer Predictor precompute is already active.")
+        if row.get("status") in {"queued", "claimed"} and not row.get("started_at"):
+            row.update(
+                {
+                    "status": "superseded",
+                    "phase": "Superseded",
+                    "message": "A newer desired artifact replaced this job before execution.",
+                    "finished_at": timestamp,
+                    "lease_expires_at": "",
+                    "claim_token": "",
+                }
+            )
+        elif row.get("status") == "running":
+            row.update(
+                {
+                    "status": "cancel_requested",
+                    "phase": "Superseded; cancelling",
+                    "message": "A newer desired artifact is queued; stop at the next checkpoint.",
+                    "cancel_requested_at": timestamp,
+                    "cancel_mode": "superseded",
+                }
+            )
+    job = {
+        "job_id": resolved_job_id,
+        "job_type": JOB_TYPE_PREDICTOR_PRECOMPUTE,
+        "lane": "background",
+        "work_key": f"predictor_precompute:v1:{checked_identity.artifact_id}",
+        "target_worker_id": target_worker_id,
+        "target_display_name": display_name,
+        "status": "queued",
+        "phase": "Waiting for preferred worker",
+        "message": "Weekly Predictor precompute queued.",
+        "scope": f"{checked_identity.coverage_start}..{checked_identity.coverage_end}",
+        "overall_percent": 0,
+        "created_at": timestamp,
+        "claimed_at": "",
+        "started_at": "",
+        "finished_at": "",
+        "cancel_requested_at": "",
+        "cancel_mode": "",
+        "lease_expires_at": "",
+        "claim_token": "",
+        "assignment_revision": 1,
+        "desired_revision": desired_revision,
+        "artifact_identity": checked_identity.as_dict(),
+        "artifact_id": checked_identity.artifact_id,
+        "runtime_manifest": checked_manifest,
+        "operational_selections": checked_selections,
+        "trigger_origin": str(trigger_origin or "runtime")[:40],
+        "force": bool(force),
+        "runtime_endpoint": "/api/mushrooms/workers/jobs/predictor-runtime",
+        "artifact_endpoint": "/api/mushrooms/workers/jobs/precompute-artifact",
+    }
+    queue["jobs"].append(job)
+    queue["jobs"] = queue["jobs"][-MAX_JOBS:]
+    _write_atomic(path, queue)
+    return dict(job)
+
+
 def begin_candidate_promotion(path: Path, *, job_id: str) -> dict[str, Any]:
     queue = load_queue(path)
     job = _find_job(queue, job_id)
@@ -1376,6 +1491,7 @@ def pending_worker_job_cleanups(path: Path, *, worker_id: str) -> list[str]:
         JOB_TYPE_ML_TRAIN,
         JOB_TYPE_ML_MULTIVERSION,
         JOB_TYPE_PREDICTOR,
+        JOB_TYPE_PREDICTOR_PRECOMPUTE,
     }
     return [
         str(job.get("job_id", ""))
@@ -1506,8 +1622,20 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
         JOB_TYPE_ML_TRAIN,
         JOB_TYPE_ML_MULTIVERSION,
         JOB_TYPE_PREDICTOR,
+        JOB_TYPE_PREDICTOR_PRECOMPUTE,
     }:
         return {}
+    if job_type == JOB_TYPE_PREDICTOR_PRECOMPUTE:
+        receipt = result.get("publication_receipt")
+        if not isinstance(receipt, dict):
+            raise ValueError("Worker precompute publication receipt is invalid.")
+        artifact_id = str(receipt.get("artifact_id", ""))
+        if artifact_id != str(job.get("artifact_id", "")):
+            raise ValueError("Worker precompute receipt belongs to another artifact.")
+        return {
+            "publication_receipt": dict(receipt),
+            "worker_activation": str(result.get("worker_activation", ""))[:40],
+        }
     if job_type == JOB_TYPE_PREDICTOR:
         from rainmapper_core.mushroom_predictor_service import validate_response  # noqa: PLC0415
 
@@ -1523,6 +1651,9 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
             "runtime_transferred_size_bytes": max(
                 0, int(result.get("runtime_transferred_size_bytes", 0) or 0)
             ),
+            "precompute_fallback_reason": str(
+                result.get("precompute_fallback_reason", "") or ""
+            )[:80],
         }
         verification_status = str(
             result.get("runtime_verification_status", "") or ""
@@ -1691,10 +1822,13 @@ def claim_next(
     path: Path,
     *,
     worker_id: str,
+    lane: str = "foreground",
     claimed_at: str | None = None,
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
     claim_token: str | None = None,
 ) -> dict[str, Any] | None:
+    if lane not in {"foreground", "background"}:
+        raise ValueError("Worker lane is invalid.")
     target_worker_id = _validate_worker_id(worker_id)
     queue = load_queue(path)
     timestamp = claimed_at or utc_now()
@@ -1724,7 +1858,11 @@ def claim_next(
         (
             row
             for row in queue["jobs"]
-            if row.get("status") == "queued" and row.get("target_worker_id") == target_worker_id
+            if row.get("status") == "queued"
+            and row.get("target_worker_id") == target_worker_id
+            and (
+                (row.get("job_type") == JOB_TYPE_PREDICTOR_PRECOMPUTE) == (lane == "background")
+            )
         ),
         None,
     )
@@ -1754,6 +1892,7 @@ def claim_next(
             "claimed_at": timestamp,
             "lease_expires_at": _lease_expires(timestamp, lease_seconds),
             "claim_token": resolved_claim_token,
+            "lane": lane,
         }
     )
     _write_atomic(path, queue)
@@ -1774,6 +1913,17 @@ def start_job(
     _validate_claim(job, worker_id=worker_id, claim_token=claim_token)
     if job.get("status") != "claimed" or job.get("started_at"):
         raise ValueError("Worker job cannot be started from its current state.")
+    if job.get("job_type") == JOB_TYPE_PREDICTOR_PRECOMPUTE:
+        newest_revision = max(
+            (
+                int(row.get("desired_revision", 0) or 0)
+                for row in queue["jobs"]
+                if row.get("job_type") == JOB_TYPE_PREDICTOR_PRECOMPUTE
+            ),
+            default=0,
+        )
+        if int(job.get("desired_revision", 0) or 0) != newest_revision:
+            raise ValueError("Superseded Predictor precompute cannot be started.")
     timestamp = started_at or utc_now()
     lease_expires_at = str(job.get("lease_expires_at", "") or "")
     if lease_expires_at and _parse_timestamp(lease_expires_at) < _parse_timestamp(timestamp):
@@ -1788,7 +1938,9 @@ def start_job(
                     "Preparing input transport"
                     if job.get("job_type") == JOB_TYPE_SNAPSHOT_TRANSPORT
                     else (
-                        "Predictor working"
+                        "Predictor precompute working"
+                        if job.get("job_type") == JOB_TYPE_PREDICTOR_PRECOMPUTE
+                        else "Predictor working"
                         if job.get("job_type") == JOB_TYPE_PREDICTOR
                         else "Running assignment test"
                     )
@@ -1801,7 +1953,9 @@ def start_job(
                     "The worker started downloading the immutable input bundle."
                     if job.get("job_type") == JOB_TYPE_SNAPSHOT_TRANSPORT
                     else (
-                        "The prediction was launched. Please wait for the result."
+                        "The weekly Predictor artifact build was started."
+                        if job.get("job_type") == JOB_TYPE_PREDICTOR_PRECOMPUTE
+                        else "The prediction was launched. Please wait for the result."
                         if job.get("job_type") == JOB_TYPE_PREDICTOR
                         else "The worker started the non-destructive assignment test."
                     )
@@ -1905,7 +2059,7 @@ def finish_job(
     error: str = "",
     result: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    if status not in TERMINAL_STATUSES:
+    if status not in {"complete", "cancelled", "failed"}:
         raise ValueError("Worker job final status is invalid.")
     queue = load_queue(path)
     job = _find_job(queue, job_id)
@@ -1977,6 +2131,7 @@ def authorize_input_download(
         JOB_TYPE_ML_TRAIN,
         JOB_TYPE_ML_MULTIVERSION,
         JOB_TYPE_PREDICTOR,
+        JOB_TYPE_PREDICTOR_PRECOMPUTE,
     }:
         raise ValueError("Worker job does not have an input bundle.")
     if job.get("status") not in {"claimed", "running", "cancel_requested"}:
@@ -1998,6 +2153,23 @@ def authorize_result_upload(
         raise ValueError("Worker job cannot upload candidate results.")
     if job.get("status") != "running":
         raise ValueError("Worker candidate result is not accepted in the current job state.")
+    return dict(job)
+
+
+def authorize_precompute_upload(
+    path: Path,
+    *,
+    job_id: str,
+    worker_id: str,
+    claim_token: str,
+) -> dict[str, Any]:
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    _validate_claim(job, worker_id=worker_id, claim_token=claim_token)
+    if job.get("job_type") != JOB_TYPE_PREDICTOR_PRECOMPUTE:
+        raise ValueError("Worker job cannot upload Predictor precompute artifacts.")
+    if job.get("status") != "running":
+        raise ValueError("Worker precompute artifact is not accepted in the current job state.")
     return dict(job)
 
 

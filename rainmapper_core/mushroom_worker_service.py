@@ -30,6 +30,8 @@ from rainmapper_core import mushroom_worker_results
 from rainmapper_core import mushroom_worker_jobs
 from rainmapper_core import mushroom_worker_registry
 from rainmapper_core import mushroom_predictor_runtime
+from rainmapper_core import mushroom_predictor_precompute
+from rainmapper_core import mushroom_predictor_precompute_control
 from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core.mushroom_predictor_service import PredictorService
 
@@ -305,6 +307,7 @@ def worker_status(
             mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,
             mushroom_worker_registry.TERMINAL_JOB_CLEANUP_CAPABILITY,
             mushroom_worker_registry.PREDICTOR_CAPABILITY,
+            mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY,
             mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY,
             mushroom_worker_registry.ML_MULTIVERSION_TRAINING_CAPABILITY,
             mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY,
@@ -530,14 +533,18 @@ def claim_job(
     *,
     token: str = "",
     timeout: float = 3.0,
+    lane: str | None = None,
 ) -> dict[str, Any] | None:
     endpoint = ha_url.rstrip("/") + "/api/mushrooms/workers/jobs/claim"
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
+    claim_payload = {"worker_id": worker_id}
+    if lane is not None:
+        claim_payload["lane"] = lane
     request = Request(
         endpoint,
-        data=json.dumps({"worker_id": worker_id}, ensure_ascii=False).encode("utf-8"),
+        data=json.dumps(claim_payload, ensure_ascii=False).encode("utf-8"),
         headers=headers,
         method="POST",
     )
@@ -554,6 +561,54 @@ def claim_job(
     if not isinstance(job, dict):
         raise ValueError("HA returned an invalid worker job.")
     return dict(job)
+
+
+def upload_predictor_precompute_artifact(
+    ha_url: str,
+    path: Path,
+    *,
+    job_id: str,
+    worker_id: str,
+    claim_token: str,
+    token: str,
+    file_sha256: str,
+    timeout: float = 300.0,
+) -> mushroom_predictor_precompute_control.PublicationReceipt:
+    endpoint = "/api/mushrooms/workers/jobs/precompute-artifact?" + urlencode({"job_id": job_id})
+    parsed = urlsplit(ha_url)
+    connection_class = (
+        http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+    )
+    connection = connection_class(parsed.hostname, parsed.port, timeout=timeout)
+    headers = mushroom_worker_transport.request_headers(worker_id, claim_token, token)
+    headers.update(
+        {
+            "Content-Type": "application/vnd.sqlite3",
+            "Content-Length": str(path.stat().st_size),
+            "X-Rainmapper-SHA256": file_sha256,
+        }
+    )
+    try:
+        connection.putrequest("POST", (parsed.path.rstrip("/") + endpoint) or endpoint)
+        for name, value in headers.items():
+            connection.putheader(name, value)
+        connection.endheaders()
+        with path.open("rb") as source:
+            while chunk := source.read(1024 * 1024):
+                connection.send(chunk)
+        response = connection.getresponse()
+        raw = response.read(65537)
+        if response.status != 200:
+            raise ValueError(f"HA rejected Predictor precompute artifact with HTTP {response.status}.")
+        if len(raw) > 65536:
+            raise ValueError("HA precompute publication receipt is too large.")
+        payload = json.loads(raw.decode("utf-8"))
+        receipt = payload.get("publication_receipt") if isinstance(payload, dict) else None
+        if not isinstance(receipt, dict):
+            raise ValueError("HA returned an invalid precompute publication receipt.")
+        return mushroom_predictor_precompute_control.PublicationReceipt.from_dict(receipt)
+    finally:
+        connection.close()
 
 
 def update_job(
@@ -605,7 +660,7 @@ def _handler_class(
     worker_data_dir: Path,
     worker_version: str,
     identity: dict[str, str],
-    runtime_state: dict[str, str],
+    runtime_state: dict[str, Any],
     runtime_lock: threading.Lock,
 ) -> type[BaseHTTPRequestHandler]:
     class WorkerStatusHandler(BaseHTTPRequestHandler):
@@ -617,13 +672,18 @@ def _handler_class(
                 self._write_json(404, {"status": "not_found"})
                 return
             with runtime_lock:
-                runtime_status = str(runtime_state.get("status", "idle"))
+                lanes = {
+                    lane: dict(runtime_state.get(lane, {}))
+                    for lane in ("foreground", "background")
+                }
+                runtime_status = str(lanes["foreground"].get("status", "idle"))
             payload = worker_status(
                 worker_data_dir,
                 worker_version=worker_version,
                 identity=identity,
                 runtime_status=runtime_status,
             )
+            payload["lanes"] = lanes
             if request_path == "/ready" and payload["dataset_cache"].get("status") != "valid":
                 self._write_json(503, payload)
                 return
@@ -765,7 +825,10 @@ def serve(
         host_name=host_name,
     )
     runtime_lock = threading.Lock()
-    runtime_state = {"status": "idle", "active_job_id": ""}
+    runtime_state: dict[str, Any] = {
+        "foreground": {"status": "idle", "active_job_id": ""},
+        "background": {"status": "idle", "active_job_id": ""},
+    }
     discarded_job_ids_pending: set[str] = set()
     cleaned_job_ids_pending: set[str] = set()
     predictor_services: dict[str, PredictorService] = {}
@@ -793,7 +856,10 @@ def serve(
 
     stop_event = threading.Event()
     heartbeat_thread: threading.Thread | None = None
-    active_job_thread: threading.Thread | None = None
+    active_job_threads: dict[str, threading.Thread | None] = {
+        "foreground": None,
+        "background": None,
+    }
     probe_duration = max(2.0, float(os.environ.get("RAINMAPPER_WORKER_CLAIM_PROBE_SECONDS", "12")))
     job_retry_seconds = max(
         0.0,
@@ -801,12 +867,11 @@ def serve(
     )
 
     if ha_url:
-        def set_runtime(status: str, job_id: str = "") -> None:
+        def set_runtime(lane: str, status: str, job_id: str = "") -> None:
             with runtime_lock:
-                runtime_state["status"] = status
-                runtime_state["active_job_id"] = job_id
+                runtime_state[lane] = {"status": status, "active_job_id": job_id}
 
-        def run_claimed_job(job: dict[str, Any]) -> None:
+        def run_claimed_job(job: dict[str, Any], lane: str) -> None:
             job_id = str(job.get("job_id", ""))
             claim_token = str(job.get("claim_token", ""))
             started = False
@@ -868,6 +933,7 @@ def serve(
                     "worker_ml_train_v0",
                     "worker_ml_multiversion_v1",
                     "worker_predictor_v1",
+                    "worker_predictor_precompute_v1",
                 }:
                     raise ValueError("Worker received an unsupported job type.")
                 job_update(
@@ -875,8 +941,38 @@ def serve(
                     {"job_id": job_id, "worker_id": identity["worker_id"], "claim_token": claim_token},
                 )
                 started = True
-                set_runtime("busy", job_id)
+                set_runtime(lane, "busy", job_id)
                 if job_type == "worker_predictor_v1":
+                    runtime_reference = job.get("runtime_manifest_ref")
+                    lookup_fingerprint = str(
+                        runtime_reference.get("fingerprint", "")
+                        if isinstance(runtime_reference, dict)
+                        else job.get("runtime_manifest", {}).get("fingerprint", "")
+                        if isinstance(job.get("runtime_manifest"), dict)
+                        else ""
+                    )
+                    precomputed = mushroom_predictor_precompute.lookup_active_artifact(
+                        worker_data_dir.resolve() / "predictor_precompute" / "active.sqlite3",
+                        runtime_fingerprint=lookup_fingerprint,
+                        request=job.get("predictor_request"),
+                    )
+                    if precomputed.hit and precomputed.response is not None:
+                        job_update(
+                            "finish",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                                "status": "complete",
+                                "result": {
+                                    "response": precomputed.response,
+                                    "cold": False,
+                                    "runtime_cache_status": "precompute_hit",
+                                    "runtime_transferred_size_bytes": 0,
+                                },
+                            },
+                        )
+                        return
                     runtime_root, runtime_sync = with_transport_retry(
                         lambda: download_predictor_runtime(
                             ha_url,
@@ -895,7 +991,6 @@ def serve(
                         cold = fingerprint not in predictor_services
                         if cold:
                             paths = mushroom_predictor_runtime.service_paths(runtime_root)
-                            predictor_services.clear()
                             predictor_services[fingerprint] = PredictorService(
                                 **paths,
                                 runtime_fingerprint=fingerprint,
@@ -972,6 +1067,7 @@ def serve(
                                 "runtime_sync_seconds": runtime_sync.get(
                                     "elapsed_seconds", 0.0
                                 ),
+                                "precompute_fallback_reason": precomputed.reason or "",
                             },
                         },
                     )
@@ -987,6 +1083,114 @@ def serve(
                             ensure_ascii=False,
                         ),
                         flush=True,
+                    )
+                    return
+                if job_type == "worker_predictor_precompute_v1":
+                    runtime_root, _runtime_sync = with_transport_retry(
+                        lambda: download_predictor_runtime(
+                            ha_url,
+                            job,
+                            worker_data_dir.resolve(),
+                            worker_id=identity["worker_id"],
+                            claim_token=claim_token,
+                            token=token,
+                        )
+                    )
+                    artifact_identity = mushroom_predictor_precompute.ArtifactIdentity.from_dict(
+                        job.get("artifact_identity")
+                    )
+                    manifest = mushroom_predictor_runtime.validate_manifest(job.get("runtime_manifest"))
+                    fingerprint = str(manifest["fingerprint"])
+                    if fingerprint != artifact_identity.runtime_fingerprint:
+                        raise ValueError("Precompute runtime does not match artifact identity.")
+                    with predictor_services_lock:
+                        if fingerprint not in predictor_services:
+                            predictor_services[fingerprint] = PredictorService(
+                                **mushroom_predictor_runtime.service_paths(runtime_root),
+                                runtime_fingerprint=fingerprint,
+                            )
+                        predictor_service = predictor_services[fingerprint]
+                    staging_dir = worker_data_dir.resolve() / "predictor_precompute" / "staging"
+                    staging_dir.mkdir(parents=True, exist_ok=True)
+                    staged_artifact = staging_dir / f"{job_id}.sqlite3"
+
+                    def precompute_control() -> None:
+                        control = job_update(
+                            "control",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                            },
+                        )
+                        if control.get("cancel_requested"):
+                            raise InterruptedError("Predictor precompute was cancelled or superseded.")
+
+                    def precompute_progress(done: int, total: int, label: str) -> None:
+                        precompute_control()
+                        job_update(
+                            "progress",
+                            {
+                                "job_id": job_id,
+                                "worker_id": identity["worker_id"],
+                                "claim_token": claim_token,
+                                "phase": "Calculating weekly Predictor artifact",
+                                "message": f"{done}/{total}: {label}",
+                                "overall_percent": 10 + int(65 * done / max(1, total)),
+                            },
+                        )
+
+                    build = mushroom_predictor_precompute.build_weekly_artifact(
+                        staged_artifact,
+                        identity=artifact_identity,
+                        predictor_service=predictor_service,
+                        operational_selections=job.get("operational_selections", []),
+                        progress=precompute_progress,
+                        cancel_check=precompute_control,
+                    )
+                    job_update(
+                        "progress",
+                        {
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                            "phase": "Uploading verified SQLite",
+                            "message": "Transferring the artifact once to HA.",
+                            "overall_percent": 85,
+                        },
+                    )
+                    receipt = upload_predictor_precompute_artifact(
+                        ha_url,
+                        staged_artifact,
+                        job_id=job_id,
+                        worker_id=identity["worker_id"],
+                        claim_token=claim_token,
+                        token=token,
+                        file_sha256=build.manifest.file_sha256,
+                    )
+                    if receipt.desired_revision != int(job.get("desired_revision", 0) or 0):
+                        raise ValueError("HA publication receipt has another desired revision.")
+                    mushroom_predictor_precompute_control.activate_worker_copy(
+                        staged_artifact,
+                        destination_path=(
+                            worker_data_dir.resolve() / "predictor_precompute" / "active.sqlite3"
+                        ),
+                        receipt=receipt,
+                        identity=artifact_identity,
+                    )
+                    staged_artifact.unlink(missing_ok=True)
+                    job_update(
+                        "finish",
+                        {
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                            "status": "complete",
+                            "result": {
+                                "publication_receipt": receipt.as_dict(),
+                                "worker_activation": "active",
+                            },
+                        },
                     )
                     return
                 if job_type == "worker_snapshot_transport_probe":
@@ -1853,24 +2057,30 @@ def serve(
                             ),
                             flush=True,
                         )
-                set_runtime("idle")
+                set_runtime(lane, "idle")
 
         def heartbeat_loop() -> None:
-            nonlocal active_job_thread
             last_error = ""
             while not stop_event.is_set():
                 try:
                     with runtime_lock:
-                        runtime_status = str(runtime_state.get("status", "idle"))
+                        lanes = {
+                            lane: dict(runtime_state.get(lane, {}))
+                            for lane in ("foreground", "background")
+                        }
+                        runtime_status = str(lanes["foreground"].get("status", "idle"))
                     status = worker_status(
                         worker_data_dir.resolve(),
                         worker_version=resolved_version,
                         identity=identity,
                         runtime_status=runtime_status,
                     )
-                    with runtime_lock:
-                        worker_has_job = bool(runtime_state.get("active_job_id"))
-                        active_job_id = str(runtime_state.get("active_job_id", "") or "")
+                    status["lanes"] = lanes
+                    active_job_ids = {
+                        str(value.get("active_job_id", "") or "")
+                        for value in lanes.values()
+                        if value.get("active_job_id")
+                    }
                     with runtime_lock:
                         sent_discarded_ids = sorted(discarded_job_ids_pending)
                         sent_cleaned_ids = sorted(cleaned_job_ids_pending)
@@ -1893,7 +2103,7 @@ def serve(
                         resolved_discard_job_id = mushroom_worker_transport.validate_job_id(
                             discard_job_id
                         )
-                        if worker_has_job and resolved_discard_job_id == active_job_id:
+                        if resolved_discard_job_id in active_job_ids:
                             continue
                         mushroom_worker_transport.discard_worker_job(
                             worker_data_dir.resolve(),
@@ -1909,7 +2119,7 @@ def serve(
                         resolved_cleanup_job_id = mushroom_worker_transport.validate_job_id(
                             cleanup_job_id
                         )
-                        if worker_has_job and resolved_cleanup_job_id == active_job_id:
+                        if resolved_cleanup_job_id in active_job_ids:
                             continue
                         mushroom_worker_transport.discard_worker_job(
                             worker_data_dir.resolve(),
@@ -1917,12 +2127,16 @@ def serve(
                         )
                         with runtime_lock:
                             cleaned_job_ids_pending.add(resolved_cleanup_job_id)
-                    if not worker_has_job and (active_job_thread is None or not active_job_thread.is_alive()):
-                        claimed_job = claim_job(ha_url, identity["worker_id"], token=token)
-                    else:
-                        claimed_job = None
-                    if claimed_job is not None and not stop_event.is_set():
-                        set_runtime("busy", str(claimed_job.get("job_id", "")))
+                    for lane in ("foreground", "background"):
+                        active_thread = active_job_threads[lane]
+                        if active_thread is not None and active_thread.is_alive():
+                            continue
+                        claimed_job = claim_job(
+                            ha_url, identity["worker_id"], token=token, lane=lane
+                        )
+                        if claimed_job is None or stop_event.is_set():
+                            continue
+                        set_runtime(lane, "busy", str(claimed_job.get("job_id", "")))
                         print(
                             json.dumps(
                                 {
@@ -1930,18 +2144,19 @@ def serve(
                                     "service": "rainmapper-worker",
                                     "job_id": claimed_job.get("job_id", ""),
                                     "job_type": claimed_job.get("job_type", ""),
+                                    "lane": lane,
                                 },
                                 ensure_ascii=False,
                             ),
                             flush=True,
                         )
-                        active_job_thread = threading.Thread(
+                        active_job_threads[lane] = threading.Thread(
                             target=run_claimed_job,
-                            args=(claimed_job,),
+                            args=(claimed_job, lane),
                             daemon=True,
-                            name="rainmapper-worker-job",
+                            name=f"rainmapper-worker-{lane}-job",
                         )
-                        active_job_thread.start()
+                        active_job_threads[lane].start()
                     if last_error:
                         print(json.dumps({"status": "heartbeat_restored", "service": "rainmapper-worker"}), flush=True)
                     last_error = ""
@@ -1986,5 +2201,6 @@ def serve(
         server.server_close()
         if heartbeat_thread is not None:
             heartbeat_thread.join(timeout=2)
-        if active_job_thread is not None:
-            active_job_thread.join(timeout=2)
+        for active_job_thread in active_job_threads.values():
+            if active_job_thread is not None:
+                active_job_thread.join(timeout=2)

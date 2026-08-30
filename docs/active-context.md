@@ -4,218 +4,127 @@ Ventana operativa para continuar RainmapperHA. Revalidar código, datos, runtime
 y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 `docs/decisions.md`; las prioridades completas, en `docs/todo.md`.
 
-## Estado operativo al cierre — 2026-08-29
+## Estado al cierre — 2026-08-30
 
-- Workspace `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
-  El HEAD previo a esta release era
-  `877c71dee0245f38e6e440e59467af9fb217893f`; revalidar HEAD y worktree al
-  continuar.
-- La versión exacta instalada en HA real no se ha revalidado después de la
-  última prueba del usuario. HA `0.2.280` está publicada y pendiente de
-  instalación confirmada.
-- `0.2.280` y `latest` comparten el índice OCI
-  `sha256:91dba9bf08c2d428a0541814d348c4eaaf3b367746a2d14f4a6b07fb3a3789c6`
-  con manifests `linux/amd64` y `linux/arm64`.
-- El único worker es local al M1 y no se publica en GHCR. Está reconstruido como
-  `rainmapper-worker:1.0.29` e `idle`, con identidad
-  `worker_1a9a232c20fe2ee2`, volumen `rainmapper-worker-data` y cachés GIS y
-  Predictor válidas. Revalidar runtime antes de reutilizar estos datos.
+- Workspace verificado: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama
+  `inicial`. El HEAD previo al commit de esta entrega era
+  `32ee344d8f150d6400fe3e522bbf345bab5d4c9e`; revalidar HEAD al continuar.
+- El código declara HA `0.2.281` y worker `1.0.30`.
+- HA `0.2.281` y `latest` están publicados con el mismo índice OCI
+  `sha256:892fa5accda4b2588c7e6abc65a91b6058155a9d43893fe032a00cb1dc415fd0`
+  y manifests `linux/amd64` y `linux/arm64`. La instalación en HA real no
+  está confirmada; corresponde al usuario.
+- El worker no se publica. Se reconstruyó localmente como `1.0.30`, conservando
+  identidad `worker_1a9a232c20fe2ee2` y volumen `rainmapper-worker-data`. Su
+  health local confirmó `idle`, versión `1.0.30` y capacidad
+  `predictor_precompute_v1`; revalidar antes de afirmar estado futuro.
 - La retención ML real permanece activa por decisión del usuario. No cambiarla,
   no borrar datos manualmente y no relajar hashes, cancelación, retry, rollback
   ni promoción atómica.
-- No existen entrenamientos programados. El usuario inicia manualmente una
-  reconstrucción/reentrenamiento cuando añade observaciones.
-- La última tentativa manual falló al subir el resultado de
-  `Reconstrucción operativa completa` tras 2 min 9 s. El worker registró
-  `name 'HTTPError' is not defined`: `_post_bytes` intentaba capturar un rechazo
-  HTTP de HA sin importar la excepción y destruyó su código y detalle. La
-  reconstrucción ya había terminado y superado su verificación local. El runner
-  anterior creó la generación `20260828T192626159381Z-4c6df0e9daed`, con seis
-  filas más que `20260828T090352707610Z-6ae4e0b0dba3`, y terminó unos 33 minutos
-  antes del claim; no hay evidencia de que causara el rechazo. Worker `1.0.26`
-  corrige el import y conserva el detalle si vuelve a ocurrir.
-- La repetición posterior sí completó los tres jobs: reconstrucción en 1 min
-  39 s, ML v0 en 29 s y multiversión en 11 min 20 s. En el tercero, el worker
-  reclamó el job a las 20:36:18 UTC y HA confirmó 638 objetos y 90.087.316
-  bytes en caché a las 20:47:36 UTC. Por tanto, la fase `Uploading` de la UI no
-  representaba once minutos de transferencia de red: incluía trabajo previo y
-  verificación posterior sin fases visibles suficientemente precisas.
-- HA `0.2.278` y worker `1.0.28` derivan el snapshot encadenado mediante
-  hardlinks de los inputs inmutables y solo calculan hashes de los inputs
-  nuevos. La entrega multiversión anuncia `Uploading` antes de la primera
-  petición, acepta gzip acotado y devuelve recibos por ruta; los reintentos
-  omiten objetos ya verificados en HA. No atribuir mejora real hasta instalar
-  HA y medir una nueva cadena iniciada por el usuario.
-- La cadena medida con esas optimizaciones siguió mostrando alrededor de un
-  minuto entre ML v0 y la aparición del job multiversión. La causa comprobada
-  en código es que HA materializaba el catálogo de tuning antes de persistir el
-  job. `0.2.279` crea primero un job visible en estado de preparación; el worker
-  `1.0.29` persiste el catálogo de la generación recién entrenada y HA lo
-  reutiliza por manifest/hash en la siguiente cadena. Un batch antiguo aún usa
-  el recorrido completo una vez.
-- El último entrenamiento llegó al final del cálculo multiversión y falló al
-  iniciar la entrega: el worker registró `HTTP Error 404: Not Found: Not found.`
-  El endpoint TAR estaba implementado y anunciado, pero faltaba en
-  `MUSHROOM_WORKER_PROTOCOL_POST_PATHS`, por lo que el listener dedicado lo
-  rechazaba antes de llegar al handler. HA `0.2.279` corrige la allowlist.
-- Tras instalar esa corrección, reconstrucción (1 min 37 s) y ML v0 (26 s)
-  completaron, pero el coordinador abortó el tercer job al 1 % en 1 s. El error
-  exacto era la ausencia de
-  `batches/operational_20260828T203505Z/tuning-catalog.json`: el manifest del
-  batch lo declaraba, pero el fichero no existía. HA `0.2.280` reconstruye el
-  catálogo desde los modelos del mismo batch cuando falta; si existe, mantiene
-  intactas las validaciones de hash e identidad.
+- No existen entrenamientos programados. El usuario inicia manualmente los
+  entrenamientos reales.
 
-## Resultado principal de la sesión
+## Resultado principal
 
-La unificación de `OperationalTrainingScope` está implementada y validada:
+El precálculo semanal del Predictor quedó implementado y validado localmente:
 
-- el alcance se calcula después de agregar filas en episodios área/fecha y de
-  aplicar los gates científicos;
-- el plan serializable sella scope, catálogo, versiones, perfiles, fits y
-  tuning; local, HA y worker consumen esas identidades sin redescubrir especies;
-- diez filas elegibles de Cantharellus forman nueve episodios y producen la
-  exclusión reproducible `insufficient_area_episodes`;
-- cobertura de tuning, retry, cancelación, rollback y promoción atómica tienen
-  pruebas centinela.
+- SQLite regenerable con identidad científica separada del SHA-256 del fichero,
+  validación de esquema, cobertura, integridad y sustitución atómica;
+- cobertura de todas las especies y áreas, siete días y todas las versiones
+  operativas instaladas; las respuestas multiversión se componen desde los
+  bloques precalculados sin enumerar combinaciones;
+- lookup primero en HA, hits sin job y fallback íntegro al Predictor vivo ante
+  miss, invalidez o cobertura insuficiente;
+- estado deseado latest-wins, job manual desde el panel, ejecución local de
+  laboratorio y capacidad equivalente en el worker privado;
+- publicación verificada, transferencia y activación coordinadas; almacenamiento
+  HA en `/media/rainmapper/predictor_precompute`, fuera del backup del add-on;
+- estado visible tanto en Workers como en la esquina superior derecha del
+  Predictor (`usado`, `en curso`, `no disponible`, etc.);
+- el runner meteorológico solicita el precálculo de forma asíncrona al terminar
+  sus tareas, sin esperar su cálculo.
 
-La comparación de los inputs actuales local/HA encontró 439 filas científicas
-idénticas, pero inicialmente scopes distintos. La causa confirmada era que la
-identidad incluía metadatos volátiles de los artefactos. La revisión `.2` ahora:
+El artefacto local validado tras actualizar la meteorología tenía:
 
-- identifica features exclusivamente por sus filas científicas ordenadas;
-- identifica known-sites por su contenido científico, omitiendo recursivamente
-  solo `generated_at` y `updated_at`;
-- sigue invalidando el scope si cambia una feature, altitud u otro valor
-  científico.
+- `artifact_id`:
+  `sha256:2cefebb587df908064786dc9980e9447c1b9349152c70460b090ddaef8ddbbea`;
+- SHA-256 del fichero:
+  `sha256:3138636eaa498c1af7767121d4998008d1b4cd0d532fd10a6fe01234f893f0d6`;
+- tamaño `462974976` bytes, 623 respuestas y 143 payloads;
+- `quick_check`, cobertura, contadores y SHA correctos.
 
-Con los inputs reales actuales ambas rutas producen:
+La comparación automática local cubrió cuatro rutas con datos: recommender,
+semana, multiversión de un área y consulta de fecha/todas las áreas. Las cuatro
+fueron científicamente idénticas entre SQLite y cálculo vivo, ignorando solo la
+telemetría de ejecución; los hashes comparados coincidieron. Los lookups tardaron
+0,03–0,11 s y los cálculos vivos 0,15–31,34 s. El usuario también validó la
+navegación local y confirmó su mejora.
 
-- scope:
-  `sha256:47d934d7c4fadde8b533efc35964b833d4e0f9710ee1dc4cebc4e4275830ec07`;
-- features:
-  `sha256:df7d79e259967d3d2096c38193287b1bc8e2190c83078b3c08c9f973118e1218`;
-- known-sites:
-  `sha256:d4427532f4ef84cb42040a086edd993361487bf06aac2939fc0dd865783793dc`;
-- ocho especies admitidas; Cantharellus conserva 15 filas, diez elegibles y
-  nueve episodios.
+## Validación y release
 
-## Validación real y rendimiento observado
+- Smoke completo definitivo: 1.164 pruebas y todos los validadores correctos.
+- Pruebas dirigidas de empaquetado detectaron y corrigieron la ausencia inicial
+  de los dos módulos de precálculo en la imagen privada del worker; 322 pruebas
+  dirigidas pasaron después.
+- `git diff --check` correcto antes de preparar el commit.
+- Worker privado `1.0.30` reconstruido y health verificado.
+- Imagen HA `0.2.281` publicada y verificada en GHCR para amd64/arm64; versión y
+  `latest` comparten digest.
+- No repetir el smoke por cambios exclusivamente documentales o por el commit.
 
-La cadena real con HA `0.2.275` y worker `1.0.24` completó reconstrucción, ML v0,
-V2–V6 y promoción. La meteorología no cambió porque el scheduled runner no se
-activó. Duraciones declaradas por job:
+## Próxima prueba real
 
-- reconstrucción: 1 min 45 s;
-- ML v0: 33 s;
-- entrenamiento V2–V6: 10 min 15 s.
+1. El usuario instala HA `0.2.281`.
+2. Confirmar en la UI la versión instalada y que HA reconoce el worker `1.0.30`
+   con `predictor_precompute_v1`.
+3. Lanzar manualmente un precálculo real. Verificar que calcula en el worker
+   preferido, publica el SQLite en `/media/rainmapper/predictor_precompute` y HA
+   lo activa sin incluirlo en el backup.
+4. Comparar consultas con datos en las cuatro rutas ya verificadas localmente;
+   deben indicar `Precálculo: usado` y responder desde HA sin usar el worker.
+5. Forzar o esperar un miss controlado y comprobar que la UI pregunta dónde
+   ejecutar el fallback; HA real no debe asumir el cálculo pesado local.
+6. Medir duración, tamaño y transferencia reales. La optimización de
+   `Building weekly matrix` queda para después de este E2E.
 
-La CPU de la RPi4 volvió a su nivel habitual al terminar. Estas duraciones no
-son el total integral desde la pulsación: la UI todavía pierde preparación y
-transiciones entre jobs.
+## Riesgos y deuda activos
 
-Predictor real sobre la generación promocionada:
-
-- recommender frío: 29,0 s de trabajo, 23,9 s de cálculo;
-- cambio de día reutilizado: 0,6 s, cálculo menor de 0,1 s;
-- fecha nueva: 12,0 s, 9,4 s de cálculo;
-- consulta multiversión fría: 29,0 s, 23,6 s de cálculo.
-
-El usuario percibió una mejora clara. El camino frío sigue por encima del
-objetivo de 10 s y no debe optimizarse sin telemetría por fase.
-
-## Validación de código completada
-
-- smoke definitivo de HA `0.2.280` sobre 1.100 pruebas y todos los validadores;
-- siete pruebas de empaquetado tras los bumps mecánicos;
-- imagen HA multiarch publicada y verificada con el mismo digest en versión y
-  `latest`;
-- worker `1.0.29` reconstruido conservando identidad, volumen y cachés; health
-  local confirma versión, `idle` y ambas cachés válidas;
-
-- 49 pruebas dirigidas de scope, ML y worker;
-- 327 pruebas de integración local/HA/worker/resultados/web;
-- siete pruebas de empaquetado del worker;
-- smoke completo: 1.089 pruebas y todos los validadores correctos;
-- igualdad del scope comprobada directamente con los mismos inputs actuales;
-- `git diff --check` correcto antes del commit `8085e46`.
-
-No repetir el smoke por cambios exclusivamente documentales. Revalidar de forma
-proporcional si cambia código, imagen, datos o configuración.
-
-## Próximos pasos
-
-1. El usuario instalará HA `0.2.280`; comprobar versión y worker `1.0.29`
-   reconocido antes de iniciar cualquier job.
-2. El usuario, no Codex, lanzará la cadena real. Medirla por marcas monotónicas y contadores de
-   peticiones/bytes; comparar en especial preparación, transferencia y
-   verificación/promoción. No usar el texto `Uploading` como cronómetro de red.
-3. No hace falta reentrenar para validar la corrección de identidad: ya se
-   comparó directamente con los mismos inputs local/HA.
-4. Cuando el usuario añada observaciones podrá lanzar voluntariamente una cadena
-   real. Si se mide, anotar hora de pulsación y promoción porque la UI aún no
-   ofrece tiempo integral fiable.
-5. Mantener en TODO la corrección de tiempo/progreso. Es un problema de
-   observabilidad: no se ha demostrado que afecte al rendimiento científico.
-6. Antes de cerrar la equivalencia total, comparar en dos ejecuciones con
-   inputs idénticos scope, plan, fits, métricas y artefactos.
-7. El siguiente bloque de optimización recomendado es instrumentar el Predictor
-   frío por fases; actuar solo sobre la fase dominante medida.
-
-## Riesgos y dudas activos
-
-- **Rechazo HTTP original irrecuperable:** el `NameError` del worker ocultó el
-  código y detalle enviados por HA. `1.0.26` evita volver a perderlos, pero no
-  demuestra si el rechazo fue transitorio o reproducible.
-- **Runner anterior:** el histórico cambió y la generación nueva fue el input de
-  la reconstrucción, pero el runner terminó unos 33 minutos antes. La relación
-  causal con el rechazo HTTP no está demostrada.
-- **UI de trabajos:** duración no incluye toda la preparación/pausas y el
-  porcentaje puede retroceder al cambiar de escala de fase. No usar porcentaje
-  ni suma de duraciones mostradas como ETA o tiempo integral.
-- **Optimización pendiente de validación real:** la suite valida el job visible,
-  el catálogo persistido, gzip acotado, TAR comprimido, recibos, reanudación y
-  fallback, pero falta medir una cadena real con HA `0.2.280`.
-- **Equivalencia completa:** scope e identidades ya coinciden; todavía no se ha
-  archivado una comparación exacta de fits, métricas y artefactos de local y
-  remoto ejecutados sobre el mismo snapshot final.
-- **Especie nueva sin tuning:** el runtime falla cerrado en preflight y conserva
-  el modelo vivo. Sigue abierta la política científica para admitirla mediante
-  benchmark previo o configuración base explícita.
-- **WAN:** telemetría/progreso ya no bloquea el cálculo y la entrega final es
-  reintentable e idempotente, pero faltan métricas de peticiones, bytes y espera
-  de red por fase.
-- **Predictor frío:** 29 s observados siguen lejos del objetivo; no atribuir el
-  coste a red, cálculo o render sin instrumentación.
+- La instalación de HA `0.2.281` y el circuito worker→HA no se han validado aún
+  en el entorno real.
+- El SQLite local ocupa unos 442 MiB; la transferencia real y el comportamiento
+  de `/media` en la RPi4 deben medirse, no estimarse.
+- La construcción local observada rondó catorce minutos y concentra tiempo en
+  `Building weekly matrix` por especie. Falta perfilado antes de optimizar.
+- La UI de trabajos aún hereda limitaciones históricas de duración integral y
+  ETA; no inferir costes de red solo por el nombre de una fase.
+- El fallback en HA real debe conservar la selección explícita de ejecutor; es
+  especialmente importante cuando el SQLite no cubre una consulta.
 
 ## Archivos relevantes
 
-- Scope canónico: `rainmapper_core/mushroom_operational_training_scope.py`.
-- Plan/transporte: `rainmapper_core/mushroom_ml_multiversion_plan.py`,
-  `rainmapper_core/mushroom_ml_multiversion_transport.py`.
-- Orquestación HA/local: `rainmapper-app/app/web_server.py`,
-  `rainmapper_core/mushroom_local_full_update.py`.
-- Worker/entrega: `rainmapper_core/mushroom_worker_service.py`,
-  `rainmapper_core/mushroom_worker_transport.py`,
-  `rainmapper_core/mushroom_worker_results.py`.
-- Pruebas del scope: `tests/test_mushroom_operational_training_scope.py`.
-- Especificación vinculante:
-  `docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`.
+- Especificación: `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`.
+- Artefacto/control: `rainmapper_core/mushroom_predictor_precompute.py` y
+  `rainmapper_core/mushroom_predictor_precompute_control.py`.
 - Predictor: `rainmapper_core/mushroom_predictor_service.py`,
+  `rainmapper_core/mushroom_ml_multiversion_comparison.py` y
   `rainmapper-app/app/mushroom_predictor_ui.py`.
-- Optimización Predictor:
-  `docs/mushrooms/mushroom-predictor-cold-path-optimization-spec-es.md`.
-- Releases: `docs/release-flow.md`.
+- Worker/coordinador: `rainmapper_core/mushroom_worker_jobs.py`,
+  `rainmapper_core/mushroom_worker_service.py`,
+  `rainmapper_core/mushroom_worker_registry.py` y
+  `rainmapper-app/app/web_server.py`.
+- Pruebas: `tests/test_mushroom_predictor_precompute.py`,
+  `tests/test_mushroom_predictor_service.py`,
+  `tests/test_mushroom_worker_jobs.py` y `tests/test_web_server_auth.py`.
+- Release: `docs/release-flow.md`.
 
 ## Reglas para continuar
 
 - Leer `docs/codex-start-here.md` y este documento; consultar `docs/todo.md`
   solo para prioridades completas.
-- Cumplir `AGENTS.md`: usar Codebase Memory MCP antes de descubrir o cambiar
-  código y reindexar únicamente si el grafo conserva símbolos retirados.
-- Comprobar `pwd`, rama y `git status`; preservar absolutamente todos los
-  cambios locales y ficheros no rastreados.
+- Cumplir `AGENTS.md` y usar Codebase Memory MCP antes de descubrir o cambiar
+  código.
+- Preservar todos los cambios locales y ficheros no rastreados.
 - No usar Tailscale, no tocar HA real, no cambiar retención y no borrar datos.
-- No ejecutar una cadena real ni hacer bump, build, publicación, instalación o
-  release sin autorización explícita nueva.
+- No lanzar entrenamientos ni hacer otro bump, build, publicación, instalación
+  o release sin autorización explícita nueva.
 - Aplicar validación proporcional y terminar siempre con `git diff --check`.

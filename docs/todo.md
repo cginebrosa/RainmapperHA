@@ -116,6 +116,26 @@ Especificación vinculante:
   común o inferencia por lotes únicamente según la fase dominante medida.
   Objetivos: Recommender frío <=10 s y detalle ya calculado <=1 s, con
   equivalencia contractual y científica completa.
+- [x] Implementar y validar localmente el precálculo semanal distribuido definido en
+  `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`: todas las
+  especies, áreas, siete días, V0 y todas las versiones operativas instaladas;
+  SQLite verificado, estado deseado latest-wins, ejecución manual, publicación
+  coordinada, lookup en HA, fallback íntegro y trigger asíncrono del runner.
+  Cuatro rutas con datos dieron equivalencia científica exacta en local.
+- [ ] Instalar HA `0.2.281` y ejecutar el E2E real con el worker privado
+  `1.0.30`: medir cálculo y transferencia, confirmar activación en
+  `/media/rainmapper/predictor_precompute`, hits servidos por HA, fallback con
+  selección explícita de ejecutor y ausencia del SQLite en el backup.
+- [ ] Perfilar `Building weekly matrix` por especie después del E2E real.
+  Optimizar solo el coste dominante medido; objetivo operativo de referencia,
+  no gate demostrado, inferior a diez minutos.
+- [x] Redactar, revisar contra la arquitectura actual y enlazar en continuidad
+  la especificación del precálculo semanal. Quedaron explícitos lookup
+  coordinator-first, `artifact_id` frente a SHA-256, leases del runtime,
+  recuperación tras reinicio y activación HA→worker.
+- [x] Ajustar la vista por especie/todas las áreas para que las abstenciones
+  operativas largas envuelvan sin solapar el badge de fiabilidad, incluido el
+  layout responsive. Prueba dirigida correcta al cierre de 2026-08-29.
 - [x] Unificar la selección por defecto entre el job remoto y el render para
   que el primer clic desde el recommender no muestre un resultado vacío ni
   obligue a repetir `Predecir`.

@@ -1,5 +1,56 @@
 # Decisions
 
+## 2026-08-30 - [VIGENTE][RELEASE] Precálculo Predictor en HA 0.2.281 y worker privado 1.0.30
+
+- HA `0.2.281` y `latest` comparten el índice OCI
+  `sha256:892fa5accda4b2588c7e6abc65a91b6058155a9d43893fe032a00cb1dc415fd0`
+  con manifests `linux/amd64` y `linux/arm64`.
+- El worker no se publica. Se reconstruyó localmente como `1.0.30`,
+  conservando identidad y volumen; su health confirmó
+  `predictor_precompute_v1`.
+- El artefacto vive en `/media/rainmapper/predictor_precompute` en HA, fuera
+  del backup del add-on. HA consulta primero su copia y un hit no crea un job ni
+  necesita al worker.
+- Un miss hace fallback íntegro al Predictor vivo y conserva la selección
+  explícita del ejecutor. El precálculo no se lanza al navegar: lo solicita el
+  usuario o, asíncronamente, el runner meteorológico al terminar sus tareas.
+- La matriz SQLite contiene los bloques por versión necesarios para recomponer
+  las selecciones multiversión, no todas sus combinaciones. Cobertura parcial,
+  corrupción o identidad distinta invalidan el hit completo.
+- La validación local comparó recommender, semana, multiversión de un área y
+  fecha/todas las áreas con datos: 4/4 resultados científicamente equivalentes
+  al cálculo vivo. El artefacto medido ocupó `462974976` bytes.
+- La entrega pasó 1.164 pruebas y todos los validadores. La instalación y el E2E
+  en HA real quedan a cargo del usuario y no se consideran todavía confirmados.
+
+## 2026-08-29 - [VIGENTE] Precálculo semanal opcional y distribuido del Predictor
+
+- Se implementará como caché SQLite regenerable para todas las especies, áreas,
+  hoy + seis días, V0 y todas las versiones operativas instaladas. No sustituye
+  al Predictor: ausencia, invalidez o cobertura parcial hacen fallback completo
+  al flujo vigente.
+- El cálculo automático se ejecutará únicamente en el worker operativo
+  preferido. El coordinador conservará una copia verificada y la consultará
+  primero para cualquier petición UI, aunque la sesión tenga seleccionado el
+  worker; así un hit no crea un job ni paga polling. El worker conservará la
+  misma construcción para lookup local tras un miss y para equivalencia.
+- Se separan `artifact_id`, derivado de la identidad científica canónica, y
+  `file_sha256`, integridad de los bytes concretos. Un recálculo forzado conserva
+  `artifact_id`; solo las copias de una misma construcción deben compartir SHA.
+- El estado deseado será persistente y latest-wins. El worker tendrá un carril
+  foreground y otro `background_precompute`, con prioridad inferior, leases,
+  heartbeat y cancelación independientes. El job fija un runtime inmutable para
+  no mezclar generaciones durante un runner o promoción simultáneos.
+- La publicación entre máquinas usa dos fases: HA valida y activa primero; el
+  worker activa localmente solo después del recibo sellado. Un resultado
+  sustituido o una confirmación perdida se reconcilian por identidad y SHA.
+- El panel principal ofrecerá `Lanzar precálculo` y `Recalcular igualmente`,
+  siempre hacia el worker preferido y nunca con fallback de cálculo a HA. El
+  trigger del scheduled runner se conectará únicamente tras validar equivalencia,
+  sustitución, concurrencia, transporte, publicación y fallback.
+- La especificación vinculante y sus criterios de aceptación están en
+  `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`.
+
 ## 2026-08-29 - [VIGENTE][RELEASE] HA 0.2.280 publicada y worker local 1.0.29
 
 - HA `0.2.280` y `latest` comparten el índice OCI

@@ -4119,6 +4119,136 @@
     "es": "Predicción interactiva",
     "ca": "Predicció interactiva"
   },
+  "ui.worker_predictor_precompute_job_type": {
+    "en": "Weekly Predictor precompute",
+    "es": "Precálculo semanal del Predictor",
+    "ca": "Precalcul setmanal del Predictor"
+  },
+  "ui.worker_precompute_title": {
+    "en": "Weekly Predictor precompute",
+    "es": "Precálculo semanal del Predictor",
+    "ca": "Precalcul setmanal del Predictor"
+  },
+  "ui.worker_precompute_help": {
+    "en": "Build the next seven days on a compatible worker. Home Assistant only coordinates and publishes the verified artifact.",
+    "es": "Calcula los próximos siete días en un worker compatible. Home Assistant solo coordina y publica el artefacto verificado.",
+    "ca": "Calcula els pròxims set dies en un worker compatible. Home Assistant només coordina i publica l'artefacte verificat."
+  },
+  "ui.worker_precompute_help_local": {
+    "en": "Build the next seven days with the local Home Assistant compute executor, without a separate worker container.",
+    "es": "Calcula los próximos siete días con el ejecutor de cálculo del Home Assistant local, sin un contenedor de worker separado.",
+    "ca": "Calcula els pròxims set dies amb l'executor de càlcul del Home Assistant local, sense un contenidor de worker separat."
+  },
+  "ui.worker_precompute_launch": {
+    "en": "Prepare week",
+    "es": "Preparar semana",
+    "ca": "Preparar setmana"
+  },
+  "ui.worker_precompute_force": {
+    "en": "Recalculate anyway",
+    "es": "Recalcular igualmente",
+    "ca": "Recalcular igualment"
+  },
+  "ui.worker_precompute_window": {
+    "en": "Coverage",
+    "es": "Cobertura",
+    "ca": "Cobertura"
+  },
+  "ui.worker_precompute_worker": {
+    "en": "Preferred worker",
+    "es": "Worker preferido",
+    "ca": "Worker preferit"
+  },
+  "ui.worker_precompute_fingerprint": {
+    "en": "Fingerprint",
+    "es": "Huella",
+    "ca": "Empremta"
+  },
+  "ui.worker_precompute_planned_artifact": {
+    "en": "Planned artifact",
+    "es": "Artefacto planificado",
+    "ca": "Artefacte planificat"
+  },
+  "ui.worker_precompute_active_artifact": {
+    "en": "Active artifact",
+    "es": "Artefacto activo",
+    "ca": "Artefacte actiu"
+  },
+  "ui.worker_precompute_active": {
+    "en": "Ready",
+    "es": "Listo",
+    "ca": "Llest"
+  },
+  "ui.worker_precompute_pending": {
+    "en": "Queued",
+    "es": "En cola",
+    "ca": "A la cua"
+  },
+  "ui.worker_precompute_queued_state": {
+    "en": "Queued",
+    "es": "En cola",
+    "ca": "A la cua"
+  },
+  "ui.worker_precompute_calculating_state": {
+    "en": "Calculating",
+    "es": "Calculando",
+    "ca": "Calculant"
+  },
+  "ui.worker_precompute_publishing_state": {
+    "en": "Publishing",
+    "es": "Publicando",
+    "ca": "Publicant"
+  },
+  "ui.worker_precompute_missing": {
+    "en": "No valid precompute",
+    "es": "Sin precálculo válido",
+    "ca": "Sense precàlcul vàlid"
+  },
+  "ui.worker_precompute_invalid": {
+    "en": "No valid precompute",
+    "es": "Sin precálculo válido",
+    "ca": "Sense precàlcul vàlid"
+  },
+  "ui.predictor_precompute_status": {
+    "en": "Precompute",
+    "es": "Precálculo",
+    "ca": "Precàlcul"
+  },
+  "ui.predictor_precompute_used": {
+    "en": "used",
+    "es": "usado",
+    "ca": "utilitzat"
+  },
+  "ui.predictor_precompute_available_not_used": {
+    "en": "available, query calculated online",
+    "es": "disponible, consulta calculada en línea",
+    "ca": "disponible, consulta calculada en línia"
+  },
+  "ui.predictor_precompute_in_progress": {
+    "en": "in progress, query calculated online",
+    "es": "en curso, consulta calculada en línea",
+    "ca": "en curs, consulta calculada en línia"
+  },
+  "ui.predictor_precompute_unavailable": {
+    "en": "unavailable, query calculated online",
+    "es": "no disponible, consulta calculada en línea",
+    "ca": "no disponible, consulta calculada en línia"
+  },
+  "ui.worker_precompute_queued": {
+    "en": "Weekly Predictor precompute queued.",
+    "es": "Precálculo semanal del Predictor puesto en cola.",
+    "ca": "Precalcul setmanal del Predictor posat en cua."
+  },
+  "ui.worker_precompute_reused": {
+    "en": "The exact artifact or its active job is already available.",
+    "es": "El artefacto exacto o su trabajo activo ya están disponibles.",
+    "ca": "L'artefacte exacte o el seu treball actiu ja estan disponibles."
+  },
+  "ui.worker_status_superseded": {
+    "en": "Superseded",
+    "es": "Sustituido",
+    "ca": "Substituït"
+  },
   "ui.worker_abandon_job": {
     "en": "Abandon job",
     "es": "Abandonar trabajo",
