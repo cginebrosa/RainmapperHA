@@ -127,9 +127,13 @@ Especificación vinculante:
   pesado, medir cálculo y transferencia, confirmar activación en
   `/media/rainmapper/predictor_precompute`, hits servidos por HA, fallback con
   selección explícita de ejecutor y ausencia del SQLite en el backup.
-- [ ] Auditar el backup real de `/share/rainmapper` y confirmar si los batches
-  ML no referenciados explican sus aproximadamente 1,2 GiB. No borrar ni cambiar
-  retención sin autorización explícita.
+- [x] Auditar en solo lectura el backup real de `/share/rainmapper`: ocupa
+  1.125 GiB y no contiene batches ML antiguos; el único batch está activo y
+  protegido.
+- [ ] Corregir, con autorización separada, el ciclo de vida de seis input
+  bundles ya completados (176 MiB) y retirar el TAR legacy del runtime (138 MiB)
+  únicamente después de verificar su sustituto en `/media`. No borrar ni
+  cambiar retención antes.
 - [ ] Perfilar `Building weekly matrix` por especie después del E2E real.
   Optimizar solo el coste dominante medido; objetivo operativo de referencia,
   no gate demostrado, inferior a diez minutos.

@@ -13,6 +13,138 @@ from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_precompute_selections_are_downloaded_and_verified_outside_claim(self) -> None:
+        selections = {"boletus_edulis": [{"profile_key": "biology_v4:model"}]}
+        reference = (
+            mushroom_worker_service.mushroom_worker_jobs.predictor_precompute_operational_selections_ref(
+                selections
+            )
+        )
+        job = {
+            "job_id": "worker_job_precompute123",
+            "operational_selections_ref": reference,
+        }
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = json.dumps(
+            {
+                "ok": True,
+                "operational_selections": selections,
+                "operational_selections_ref": reference,
+            }
+        ).encode()
+        with mock.patch.object(
+            mushroom_worker_service,
+            "urlopen",
+            return_value=response,
+        ) as urlopen:
+            downloaded = (
+                mushroom_worker_service.download_predictor_precompute_operational_selections(
+                    "http://rainmapper-ha-ui:8099",
+                    job,
+                    worker_id="worker_12345678",
+                    claim_token="claim-secret",
+                    token="coordinator-secret",
+                )
+            )
+
+        self.assertEqual(selections, downloaded)
+        self.assertEqual(selections, job["operational_selections"])
+        request = urlopen.call_args.args[0]
+        self.assertIn(reference["endpoint"], request.full_url)
+        self.assertIn("job_id=worker_job_precompute123", request.full_url)
+
+    def test_precompute_selections_reject_digest_mismatch(self) -> None:
+        selections = {"boletus_edulis": [{"profile_key": "biology_v4:model"}]}
+        reference = (
+            mushroom_worker_service.mushroom_worker_jobs.predictor_precompute_operational_selections_ref(
+                selections
+            )
+        )
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = json.dumps(
+            {
+                "ok": True,
+                "operational_selections": {
+                    "boletus_edulis": [{"profile_key": "biology_v4:other"}]
+                },
+            }
+        ).encode()
+        with mock.patch.object(
+            mushroom_worker_service,
+            "urlopen",
+            return_value=response,
+        ):
+            with self.assertRaisesRegex(ValueError, "do not match"):
+                mushroom_worker_service.download_predictor_precompute_operational_selections(
+                    "http://rainmapper-ha-ui:8099",
+                    {
+                        "job_id": "worker_job_precompute123",
+                        "operational_selections_ref": reference,
+                    },
+                    worker_id="worker_12345678",
+                    claim_token="claim-secret",
+                    token="coordinator-secret",
+                )
+
+    def test_precompute_upload_returns_verified_ha_publication_timings(self) -> None:
+        receipt_body = {
+            "schema_version": "1.0",
+            "desired_revision": 1,
+            "artifact_id": "sha256:" + "a" * 64,
+            "file_sha256": "sha256:" + "b" * 64,
+            "size_bytes": 6,
+        }
+        receipt = {
+            **receipt_body,
+            "receipt_id": "sha256:"
+            + hashlib.sha256(
+                json.dumps(receipt_body, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
+        }
+        response = mock.Mock(
+            status=200,
+            read=mock.Mock(
+                return_value=json.dumps(
+                    {
+                        "publication_receipt": receipt,
+                        "publication_telemetry": {
+                            "upload_received_at": "2026-08-30T20:10:25+00:00",
+                            "ha_activation_finished_at": "2026-08-30T20:10:28+00:00",
+                            "ha_publish_seconds": 3.0,
+                            "artifact_size_bytes": 6,
+                        },
+                    }
+                ).encode()
+            ),
+        )
+        connection = mock.Mock(getresponse=mock.Mock(return_value=response))
+        with tempfile.TemporaryDirectory() as temporary:
+            artifact = Path(temporary) / "artifact.sqlite3"
+            artifact.write_bytes(b"sqlite")
+            with mock.patch.object(
+                mushroom_worker_service.http.client,
+                "HTTPConnection",
+                return_value=connection,
+            ):
+                returned_receipt, telemetry = (
+                    mushroom_worker_service.upload_predictor_precompute_artifact(
+                        "http://ha:8100",
+                        artifact,
+                        job_id="worker_job_precompute_upload",
+                        worker_id="worker_aaaaaaaa",
+                        claim_token="claim-token",
+                        token="token",
+                        file_sha256=receipt_body["file_sha256"],
+                    )
+                )
+
+        self.assertEqual(receipt_body["artifact_id"], returned_receipt.artifact_id)
+        self.assertEqual(3.0, telemetry["ha_publish_seconds"])
+        self.assertEqual(6, telemetry["artifact_size_bytes"])
+        connection.send.assert_called_once_with(b"sqlite")
+
     def test_operational_retry_requires_same_scope_and_plan(self) -> None:
         verified = {
             "operational_scope_id": "sha256:" + "a" * 64,

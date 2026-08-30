@@ -1500,6 +1500,7 @@ class ArtifactReader:
                 return LookupResult(
                     False, None, "artifact_corrupt", self.identity.artifact_id, rows_read
                 )
+            artifact_issue_date = date.fromisoformat(self.identity.issue_date)
             composed: dict[str, dict[str, object]] = {}
             for target_text in comparisons:
                 target = date.fromisoformat(str(target_text))
@@ -1542,7 +1543,7 @@ class ArtifactReader:
                     mushroom_ml_multiversion_comparison.retarget_operational_selections(
                         normalized["multiversion_selection"],
                         target_date=target,
-                        issue_date=min(date.today(), target),
+                        issue_date=min(artifact_issue_date, target),
                     )
                 )
                 if not selections:

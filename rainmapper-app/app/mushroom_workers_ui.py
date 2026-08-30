@@ -28,6 +28,12 @@ def _metric(value: object, digits: int = 4) -> str:
     return "—"
 
 
+def _seconds(value: object) -> str:
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+        return f"{float(value):.1f}s"
+    return "—"
+
+
 def render_benchmark_report(
     report: dict[str, object] | None,
     *,
@@ -496,6 +502,30 @@ def render_recent_jobs(
         actions = "-"
         result = job.get("result")
         result = result if isinstance(result, dict) else {}
+        precompute_telemetry = job.get("precompute_telemetry")
+        precompute_telemetry = (
+            precompute_telemetry if isinstance(precompute_telemetry, dict) else {}
+        )
+        precompute_timing_parts = []
+        if job_type == "worker_predictor_precompute_v1":
+            for label_key, telemetry_key in (
+                ("ui.worker_precompute_runtime_sync", "runtime_sync_seconds"),
+                ("ui.worker_precompute_calculation", "calculation_seconds"),
+                ("ui.worker_precompute_transfer", "estimated_transfer_seconds"),
+                ("ui.worker_precompute_ha_activation", "ha_publish_seconds"),
+                ("ui.worker_precompute_worker_activation", "worker_activation_seconds"),
+            ):
+                if telemetry_key in precompute_telemetry:
+                    precompute_timing_parts.append(
+                        f"{_label(label_key)} {_seconds(precompute_telemetry.get(telemetry_key))}"
+                    )
+        precompute_timing_text = " · ".join(precompute_timing_parts)
+        duration_html = _text(job.get("elapsed", "-"))
+        if precompute_timing_text:
+            duration_html += (
+                f'<small class="meta" title="{_text(precompute_timing_text)}">'
+                f'{_text(precompute_timing_text)}</small>'
+            )
         benchmark_batch_id = str(result.get("batch_id", "") or "")
         profile_keys = job.get("profile_keys")
         profile_count = len(profile_keys) if isinstance(profile_keys, list) else 0
@@ -641,7 +671,7 @@ def render_recent_jobs(
             f'<td data-sort-value="{_text(scope_text)}" title="{_text(scope_text)}">{_text(scope_text)}</td>'
             f'<td data-sort-value="{_text(job.get("phase", "-"))}" title="{_text(job.get("phase", "-"))}">{_text(job.get("phase", "-"))}</td>'
             f'<td data-sort-value="{promotion_percent if promotion_status == "promoting" else _text(job.get("overall_percent", 0))}">{progress_html}</td>'
-            f'<td data-sort-value="{_text(job.get("elapsed_seconds", 0))}">{_text(job.get("elapsed", "-"))}</td>'
+            f'<td data-sort-value="{_text(job.get("elapsed_seconds", 0))}">{duration_html}</td>'
             f'<td class="worker-job-actions" data-sort-value="{1 if actions != "-" else 0}">{actions}</td>'
             "</tr>"
         )

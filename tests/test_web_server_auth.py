@@ -1587,6 +1587,86 @@ class AuthDeviceLimitTests(unittest.TestCase):
             )
             self.assertEqual("", desired["worker_id"])
 
+    def test_received_precompute_persists_ha_publication_timing(self) -> None:
+        identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+            runtime_fingerprint="sha256:" + "a" * 64,
+            issue_date="2026-08-30",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={
+                "species": 1,
+                "areas": 1,
+                "days": 7,
+                "versions": 1,
+                "members": 7,
+            },
+        )
+        receipt = mock.Mock(as_dict=mock.Mock(return_value={"artifact_id": identity.artifact_id}))
+        with (
+            mock.patch.object(self.web_server, "mushroom_worker_api_enabled", return_value=True),
+            mock.patch.object(self.web_server, "authenticate_mushroom_worker", return_value=True),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "authorize_precompute_upload",
+                return_value={
+                    "artifact_identity": identity.as_dict(),
+                    "desired_revision": 1,
+                },
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_precompute_control,
+                "publish_received_artifact",
+                return_value=receipt,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "record_precompute_publication",
+            ) as record,
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "update_progress",
+            ) as update_progress,
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "utc_now",
+                side_effect=[
+                    "2026-08-30T20:10:25+00:00",
+                    "2026-08-30T20:10:28+00:00",
+                ],
+            ),
+            mock.patch.object(
+                self.web_server.time,
+                "perf_counter",
+                side_effect=[100.0, 102.25],
+            ),
+        ):
+            status, response = self.web_server.receive_mushroom_predictor_precompute_artifact(
+                job_id="worker_job_precompute_timing",
+                content=b"sqlite",
+                expected_sha256="sha256:" + "b" * 64,
+                worker_id="worker_aaaaaaaa",
+                claim_token="claim-token",
+                auth_token="token",
+            )
+
+        self.assertEqual(200, status)
+        self.assertEqual(2.25, response["publication_telemetry"]["ha_publish_seconds"])
+        self.assertEqual(6, response["publication_telemetry"]["artifact_size_bytes"])
+        self.assertEqual(
+            response["publication_telemetry"],
+            record.call_args.kwargs["telemetry"],
+        )
+        self.assertEqual(
+            "Verifying and activating SQLite in HA",
+            update_progress.call_args.kwargs["phase"],
+        )
+
     def test_precompute_without_compatible_default_worker_persists_desire(self) -> None:
         identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
             runtime_fingerprint="sha256:" + "c" * 64,
@@ -1644,6 +1724,127 @@ class AuthDeviceLimitTests(unittest.TestCase):
             )
             self.assertEqual("worker_aaaaaaaa", desired["worker_id"])
 
+    def test_repeated_heartbeats_do_not_replan_same_pending_precompute(self) -> None:
+        installed_versions = [
+            self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                version_id="biology_v4",
+                generation_id="generation-v4",
+                profile_ids=["extended_weather"],
+            )
+        ]
+        desired_identity = (
+            self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+                runtime_fingerprint="sha256:" + "a" * 64,
+                issue_date="2026-08-30",
+                trained_species_ids=["boletus"],
+                installed_versions=installed_versions,
+                expected_counts={
+                    "species": 1,
+                    "areas": 1,
+                    "days": 7,
+                    "versions": 1,
+                    "members": 7,
+                },
+            )
+        )
+        stale_plan_identity = (
+            self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+                runtime_fingerprint="sha256:" + "b" * 64,
+                issue_date="2026-08-30",
+                trained_species_ids=["boletus"],
+                installed_versions=installed_versions,
+                expected_counts={
+                    "species": 1,
+                    "areas": 1,
+                    "days": 7,
+                    "versions": 1,
+                    "members": 7,
+                },
+            )
+        )
+        heartbeat = {
+            "worker_id": "worker_aaaaaaaa",
+            "display_name": "Worker A",
+            "capabilities": [
+                self.web_server.mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            desired_path = root / "desired.json"
+            self.web_server.mushroom_predictor_precompute_control.advance_desired_state(
+                desired_path,
+                identity=desired_identity,
+                worker_id="worker_aaaaaaaa",
+                trigger_origin="manual",
+            )
+            with (
+                mock.patch.object(
+                    self.web_server.mushroom_worker_registry,
+                    "load_registry",
+                    return_value={"default_executor": "worker:worker_aaaaaaaa"},
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "mushroom_worker_jobs_path",
+                    return_value=root / "jobs.json",
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_desired_path",
+                    return_value=desired_path,
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS",
+                    set(),
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "predictor_precompute_plan",
+                    return_value=(
+                        stale_plan_identity,
+                        {"boletus": []},
+                        {
+                            "schema_version": "1.0",
+                            "kind": "rainmapper_mushroom_predictor_runtime",
+                            "fingerprint": stale_plan_identity.runtime_fingerprint,
+                            "files": [
+                                {
+                                    "path": "models/model.joblib",
+                                    "sha256": "sha256:" + "c" * 64,
+                                    "size_bytes": 0,
+                                }
+                            ],
+                        },
+                    ),
+                ) as plan,
+            ):
+                first = self.web_server.reconcile_mushroom_predictor_precompute_desire(
+                    heartbeat
+                )
+                second = self.web_server.reconcile_mushroom_predictor_precompute_desire(
+                    heartbeat
+                )
+                self.web_server.mushroom_predictor_precompute_control.advance_desired_state(
+                    desired_path,
+                    identity=stale_plan_identity,
+                    worker_id="worker_aaaaaaaa",
+                    trigger_origin="manual",
+                )
+                third = self.web_server.reconcile_mushroom_predictor_precompute_desire(
+                    heartbeat
+                )
+                fourth = self.web_server.reconcile_mushroom_predictor_precompute_desire(
+                    heartbeat
+                )
+
+            self.assertIsNone(first)
+            self.assertIsNone(second)
+            self.assertEqual("queued", third["status"])
+            self.assertEqual(third["job_id"], fourth["job_id"])
+            self.assertEqual(2, plan.call_count)
+
     def test_predictor_modal_controller_handles_internal_navigation(self) -> None:
         script = self.web_server.predictor_launch_script()
 
@@ -1694,6 +1895,101 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("runtime_manifest", wire)
         self.assertEqual(wire["runtime_manifest_ref"]["file_count"], 1000)
         self.assertLess(len(json.dumps({"ok": True, "job": wire}).encode()), 65536)
+
+    def test_precompute_worker_wire_job_externalizes_operational_selections(self) -> None:
+        selections = {
+            "boletus_edulis": [
+                {"profile_key": f"biology_v4:model_{index}", "detail": "x" * 1000}
+                for index in range(100)
+            ]
+        }
+        wire = self.web_server.mushroom_worker_job_wire_payload(
+            {
+                "job_id": "worker_job_precompute123",
+                "job_type": (
+                    self.web_server.mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE
+                ),
+                "operational_selections": selections,
+            }
+        )
+
+        self.assertNotIn("operational_selections", wire)
+        reference = wire["operational_selections_ref"]
+        self.assertEqual(
+            self.web_server.mushroom_worker_jobs.PREDICTOR_PRECOMPUTE_SELECTIONS_ENDPOINT,
+            reference["endpoint"],
+        )
+        self.assertGreater(reference["size_bytes"], 65536)
+        self.assertLess(len(json.dumps({"ok": True, "job": wire}).encode()), 65536)
+
+    def test_precompute_worker_wire_reuses_persisted_selections_reference(self) -> None:
+        reference = {
+            "endpoint": (
+                self.web_server.mushroom_worker_jobs.PREDICTOR_PRECOMPUTE_SELECTIONS_ENDPOINT
+            ),
+            "sha256": "sha256:" + "a" * 64,
+            "size_bytes": 123456,
+        }
+        with mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "predictor_precompute_operational_selections_ref",
+        ) as calculate_reference:
+            wire = self.web_server.mushroom_worker_job_wire_payload(
+                {
+                    "job_id": "worker_job_precompute123",
+                    "job_type": (
+                        self.web_server.mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE
+                    ),
+                    "operational_selections": {"boletus_edulis": []},
+                    "operational_selections_ref": reference,
+                }
+            )
+
+        self.assertEqual(reference, wire["operational_selections_ref"])
+        calculate_reference.assert_not_called()
+
+    def test_precompute_selections_download_is_claim_bound(self) -> None:
+        selections = {"boletus_edulis": [{"profile_key": "biology_v4:model"}]}
+        with (
+            mock.patch.object(
+                self.web_server,
+                "authenticate_mushroom_worker",
+                return_value=True,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "authorize_input_download",
+                return_value={
+                    "job_type": (
+                        self.web_server.mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE
+                    ),
+                    "operational_selections": selections,
+                },
+            ) as authorize,
+        ):
+            status, response = (
+                self.web_server.resolve_mushroom_predictor_precompute_selections_download(
+                    job_id="worker_job_precompute123",
+                    worker_id="worker_12345678",
+                    claim_token="claim-secret",
+                    auth_token="coordinator-secret",
+                )
+            )
+
+        self.assertEqual(200, status)
+        self.assertEqual(selections, response["operational_selections"])
+        self.assertEqual(
+            self.web_server.mushroom_worker_jobs.predictor_precompute_operational_selections_ref(
+                selections
+            ),
+            response["operational_selections_ref"],
+        )
+        authorize.assert_called_once_with(
+            self.web_server.mushroom_worker_jobs_path(),
+            job_id="worker_job_precompute123",
+            worker_id="worker_12345678",
+            claim_token="claim-secret",
+        )
 
     def test_remote_predictor_cancel_rejects_non_predictor_job(self) -> None:
         with mock.patch.object(
@@ -9047,6 +9343,32 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("Interactive prediction", rendered)
         self.assertNotIn("Model reconstruction", rendered)
+
+    def test_workers_page_shows_persisted_precompute_timing_breakdown(self) -> None:
+        rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(
+            [
+                {
+                    "job_id": "worker_job_precompute_timing",
+                    "job_type": "worker_predictor_precompute_v1",
+                    "worker_display_name": "M1 Personal",
+                    "status": "complete",
+                    "elapsed": "10m 30s",
+                    "elapsed_seconds": 630,
+                    "precompute_telemetry": {
+                        "runtime_sync_seconds": 4.5,
+                        "calculation_seconds": 600.0,
+                        "estimated_transfer_seconds": 20.0,
+                        "ha_publish_seconds": 3.0,
+                        "worker_activation_seconds": 2.0,
+                    },
+                }
+            ]
+        )
+
+        self.assertIn("10m 30s", rendered)
+        self.assertIn("Calculation 600.0s", rendered)
+        self.assertIn("Transfer 20.0s", rendered)
+        self.assertIn("HA verification/activation 3.0s", rendered)
 
     def test_workers_recent_jobs_show_local_date_time_and_duration(self) -> None:
         jobs_path = Path(self.temp_dir.name) / "worker-jobs.json"

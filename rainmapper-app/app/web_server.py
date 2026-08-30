@@ -137,6 +137,7 @@ MUSHROOM_WORKER_PROTOCOL_GET_PATHS = {
     "/api/mushrooms/workers/jobs/input",
     "/api/mushrooms/workers/jobs/dataset",
     "/api/mushrooms/workers/jobs/predictor-runtime",
+    mushroom_worker_jobs.PREDICTOR_PRECOMPUTE_SELECTIONS_ENDPOINT,
 }
 MUSHROOM_WORKER_PROTOCOL_POST_PATHS = {
     "/api/mushrooms/workers/pair",
@@ -195,6 +196,7 @@ MUSHROOM_WORKER_PROMOTION_LOCK = threading.Lock()
 MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK = threading.Lock()
 MUSHROOM_OBSERVATION_MUTATION_LOCK = threading.RLock()
 MUSHROOM_WORKER_PROMOTION_THREADS: dict[str, threading.Thread] = {}
+MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS: set[tuple[str, int, str]] = set()
 SHUTDOWN_EVENT = threading.Event()
 CURRENT_PROCESS_LOCK = threading.Lock()
 CURRENT_PROCESS: subprocess.Popen | None = None
@@ -13472,6 +13474,11 @@ def reconcile_mushroom_predictor_precompute_desire(
     desired = mushroom_predictor_precompute_control.load_desired_state(desired_path)
     if desired is None or str(desired.get("worker_id", "")) not in {"", worker_id}:
         return None
+    attempt_key = (
+        worker_id,
+        int(desired["revision"]),
+        str(desired["artifact_id"]),
+    )
     with RUN_LOCK:
         queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
         existing = next(
@@ -13487,6 +13494,14 @@ def reconcile_mushroom_predictor_precompute_desire(
         )
     if existing is not None:
         return dict(existing)
+    # A cancelled or stale desire remains persisted for UI traceability.  Do not
+    # rebuild its comparatively expensive scientific plan on every two-second
+    # worker heartbeat.  A new manual/runner request advances the revision and
+    # therefore receives exactly one fresh materialisation attempt.
+    with RUN_LOCK:
+        if attempt_key in MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS:
+            return None
+        MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS.add(attempt_key)
     identity, selections_by_species, runtime_manifest = predictor_precompute_plan()
     if identity.artifact_id != desired.get("artifact_id"):
         return None
@@ -13578,6 +13593,50 @@ def resolve_mushroom_predictor_runtime_download(
             )
         return 200, mushroom_predictor_runtime.resolve_source(assigned, sources, logical_path)
     except (FileNotFoundError, OSError, ValueError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+
+
+def resolve_mushroom_predictor_precompute_selections_download(
+    *,
+    job_id: str,
+    worker_id: str,
+    claim_token: str,
+    auth_token: str,
+) -> tuple[int, dict[str, object]]:
+    """Return the claim-bound selections outside the bounded control response."""
+    if not authenticate_mushroom_worker(worker_id, auth_token):
+        return 401, {"ok": False, "error": "Worker authentication failed."}
+    try:
+        with RUN_LOCK:
+            job = mushroom_worker_jobs.authorize_input_download(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+            )
+        if (
+            job.get("job_type")
+            != mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE
+        ):
+            raise ValueError("Worker job is not a Predictor precompute request.")
+        selections = (
+            mushroom_worker_jobs.normalize_predictor_precompute_operational_selections(
+                job.get("operational_selections")
+            )
+        )
+        reference = job.get("operational_selections_ref")
+        if not isinstance(reference, dict):
+            reference = (
+                mushroom_worker_jobs.predictor_precompute_operational_selections_ref(
+                    selections
+                )
+            )
+        return 200, {
+            "ok": True,
+            "operational_selections": selections,
+            "operational_selections_ref": reference,
+        }
+    except (OSError, ValueError) as exc:
         return 409, {"ok": False, "error": str(exc)}
 
 
@@ -14680,7 +14739,7 @@ def start_mushroom_worker_candidate_rebuild(
 
 
 def mushroom_worker_job_wire_payload(job: object) -> object:
-    """Keep worker control responses bounded; large runtime manifests use their GET endpoint."""
+    """Keep worker control responses bounded; large inputs use authenticated GETs."""
     if not isinstance(job, dict):
         return job
     payload = dict(job)
@@ -14697,6 +14756,18 @@ def mushroom_worker_job_wire_payload(job: object) -> object:
             "size_bytes": manifest.get("size_bytes", 0),
             "file_count": len(files) if isinstance(files, list) else 0,
         }
+    selections = payload.pop("operational_selections", None)
+    if (
+        payload.get("job_type")
+        == mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE
+        and isinstance(selections, (list, dict))
+        and not isinstance(payload.get("operational_selections_ref"), dict)
+    ):
+        payload["operational_selections_ref"] = (
+            mushroom_worker_jobs.predictor_precompute_operational_selections_ref(
+                selections
+            )
+        )
     return payload
 
 
@@ -14788,6 +14859,7 @@ def progress_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tu
                 phase=str(payload.get("phase", "")),
                 message=str(payload.get("message", "")),
                 overall_percent=int(payload.get("overall_percent", 0)),
+                precompute_milestone=str(payload.get("precompute_milestone", "")),
             )
     except (TypeError, ValueError) as exc:
         return 409, {"ok": False, "error": str(exc)}
@@ -15032,6 +15104,7 @@ def receive_mushroom_predictor_precompute_artifact(
         return 404, {"ok": False, "error": "Worker API is not enabled."}
     if not authenticate_mushroom_worker(worker_id, auth_token):
         return 401, {"ok": False, "error": "Worker authentication failed."}
+    upload_received_at = mushroom_worker_jobs.utc_now()
     try:
         with RUN_LOCK:
             job = mushroom_worker_jobs.authorize_precompute_upload(
@@ -15043,6 +15116,17 @@ def receive_mushroom_predictor_precompute_artifact(
             identity = mushroom_predictor_precompute.ArtifactIdentity.from_dict(
                 job.get("artifact_identity")
             )
+            mushroom_worker_jobs.update_progress(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+                phase="Verifying and activating SQLite in HA",
+                message="The transfer finished; HA is verifying and publishing the artifact.",
+                overall_percent=95,
+                checked_at=upload_received_at,
+            )
+            publish_started = time.perf_counter()
             receipt = mushroom_predictor_precompute_control.publish_received_artifact(
                 io.BytesIO(content),
                 content_length=len(content),
@@ -15054,9 +15138,26 @@ def receive_mushroom_predictor_precompute_artifact(
                 desired_revision=int(job.get("desired_revision", 0) or 0),
                 max_bytes=MUSHROOM_PREDICTOR_PRECOMPUTE_MAX_BYTES,
             )
+            publication_telemetry = {
+                "upload_received_at": upload_received_at,
+                "ha_activation_finished_at": mushroom_worker_jobs.utc_now(),
+                "ha_publish_seconds": round(time.perf_counter() - publish_started, 6),
+                "artifact_size_bytes": len(content),
+            }
+            mushroom_worker_jobs.record_precompute_publication(
+                mushroom_worker_jobs_path(),
+                job_id=job_id,
+                worker_id=worker_id,
+                claim_token=claim_token,
+                telemetry=publication_telemetry,
+            )
     except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
-    return 200, {"ok": True, "publication_receipt": receipt.as_dict()}
+    return 200, {
+        "ok": True,
+        "publication_receipt": receipt.as_dict(),
+        "publication_telemetry": publication_telemetry,
+    }
 
 
 def complete_mushroom_worker_candidate_result(
@@ -21219,6 +21320,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.send_file_path(200, response)
             except (BrokenPipeError, ConnectionResetError):
                 pass
+            return
+
+        if path == mushroom_worker_jobs.PREDICTOR_PRECOMPUTE_SELECTIONS_ENDPOINT:
+            worker_token, _device_id = self.auth_credentials()
+            query = parse_qs(parsed.query)
+            status, response = (
+                resolve_mushroom_predictor_precompute_selections_download(
+                    job_id=(query.get("job_id") or [""])[0],
+                    worker_id=self.headers.get(
+                        "X-Rainmapper-Worker", ""
+                    ).strip(),
+                    claim_token=self.headers.get(
+                        "X-Rainmapper-Claim", ""
+                    ).strip(),
+                    auth_token=worker_token,
+                )
+            )
+            self.send_json(status, response)
             return
 
         if path == "/api/control-panel-fragment":

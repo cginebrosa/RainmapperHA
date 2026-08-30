@@ -3839,6 +3839,31 @@
     "es": "Duracion",
     "ca": "Durada"
   },
+  "ui.worker_precompute_runtime_sync": {
+    "en": "Preparation",
+    "es": "Preparacion",
+    "ca": "Preparacio"
+  },
+  "ui.worker_precompute_calculation": {
+    "en": "Calculation",
+    "es": "Calculo",
+    "ca": "Calcul"
+  },
+  "ui.worker_precompute_transfer": {
+    "en": "Transfer",
+    "es": "Transferencia",
+    "ca": "Transferencia"
+  },
+  "ui.worker_precompute_ha_activation": {
+    "en": "HA verification/activation",
+    "es": "Verificacion/activacion HA",
+    "ca": "Verificacio/activacio HA"
+  },
+  "ui.worker_precompute_worker_activation": {
+    "en": "Worker activation",
+    "es": "Activacion worker",
+    "ca": "Activacio worker"
+  },
   "ui.worker_species": {
     "en": "Species",
     "es": "Especie",

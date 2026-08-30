@@ -38,6 +38,72 @@ PREDICTOR_RESULT_MAX_BYTES = 64 * 1024 * 1024
 PREDICTOR_RESULTS_DIRNAME = ".worker-predictor-results"
 PREDICTOR_RESULT_KEEP_RECENT = 10
 PREDICTOR_RESULT_MAX_AGE_HOURS = 24
+PREDICTOR_PRECOMPUTE_SELECTIONS_ENDPOINT = (
+    "/api/mushrooms/workers/jobs/precompute-selections"
+)
+PRECOMPUTE_TELEMETRY_TIMESTAMP_KEYS = frozenset(
+    {
+        "calculation_started_at",
+        "calculation_finished_at",
+        "upload_started_at",
+        "upload_received_at",
+        "ha_activation_finished_at",
+        "worker_activation_finished_at",
+    }
+)
+PRECOMPUTE_TELEMETRY_SECONDS_KEYS = frozenset(
+    {
+        "runtime_sync_seconds",
+        "calculation_seconds",
+        "upload_round_trip_seconds",
+        "ha_publish_seconds",
+        "estimated_transfer_seconds",
+        "worker_activation_seconds",
+    }
+)
+PRECOMPUTE_TELEMETRY_INTEGER_KEYS = frozenset({"artifact_size_bytes"})
+PRECOMPUTE_MILESTONES = frozenset(
+    {"calculation_started", "calculation_finished"}
+)
+
+
+def normalize_predictor_precompute_operational_selections(
+    selections: object,
+) -> list[dict[str, Any]] | dict[str, list[dict[str, Any]]]:
+    """Copy and validate the operational selections used by a weekly artifact."""
+    if not isinstance(selections, (list, dict)):
+        raise ValueError("Precompute operational selections are invalid.")
+    if isinstance(selections, dict):
+        checked = {
+            str(species_id): [dict(row) for row in rows if isinstance(row, dict)]
+            for species_id, rows in selections.items()
+            if isinstance(rows, list)
+        }
+        if set(checked) != set(selections):
+            raise ValueError("Precompute operational selections are invalid.")
+        return checked
+    checked_list = [dict(row) for row in selections if isinstance(row, dict)]
+    if len(checked_list) != len(selections):
+        raise ValueError("Precompute operational selections are invalid.")
+    return checked_list
+
+
+def predictor_precompute_operational_selections_ref(
+    selections: object,
+) -> dict[str, object]:
+    """Describe selections without embedding them in the bounded claim response."""
+    checked = normalize_predictor_precompute_operational_selections(selections)
+    encoded = json.dumps(
+        checked,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return {
+        "endpoint": PREDICTOR_PRECOMPUTE_SELECTIONS_ENDPOINT,
+        "sha256": "sha256:" + hashlib.sha256(encoded).hexdigest(),
+        "size_bytes": len(encoded),
+    }
 
 
 def validate_predictor_result_size(response: object) -> int:
@@ -69,6 +135,43 @@ def _parse_timestamp(value: str) -> datetime:
 
 def _lease_expires(timestamp: str, lease_seconds: int) -> str:
     return (_parse_timestamp(timestamp) + timedelta(seconds=max(1, lease_seconds))).isoformat(timespec="seconds")
+
+
+def normalize_precompute_telemetry(value: object) -> dict[str, Any]:
+    """Validate the small, durable timing contract for one weekly artifact job."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("Predictor precompute telemetry is invalid.")
+    allowed = (
+        PRECOMPUTE_TELEMETRY_TIMESTAMP_KEYS
+        | PRECOMPUTE_TELEMETRY_SECONDS_KEYS
+        | PRECOMPUTE_TELEMETRY_INTEGER_KEYS
+    )
+    if set(value) - allowed:
+        raise ValueError("Predictor precompute telemetry contains unknown fields.")
+    normalized: dict[str, Any] = {}
+    for key in PRECOMPUTE_TELEMETRY_TIMESTAMP_KEYS:
+        if key not in value:
+            continue
+        timestamp = str(value.get(key, "") or "")
+        _parse_timestamp(timestamp)
+        normalized[key] = timestamp
+    for key in PRECOMPUTE_TELEMETRY_SECONDS_KEYS:
+        if key not in value:
+            continue
+        seconds = value.get(key)
+        if not isinstance(seconds, (int, float)) or isinstance(seconds, bool) or seconds < 0:
+            raise ValueError(f"Predictor precompute telemetry {key} is invalid.")
+        normalized[key] = round(float(seconds), 6)
+    for key in PRECOMPUTE_TELEMETRY_INTEGER_KEYS:
+        if key not in value:
+            continue
+        count = value.get(key)
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            raise ValueError(f"Predictor precompute telemetry {key} is invalid.")
+        normalized[key] = count
+    return normalized
 
 
 def empty_queue() -> dict[str, Any]:
@@ -1167,22 +1270,12 @@ def create_predictor_precompute_job(
         raise ValueError("Precompute runtime manifest does not match artifact identity.")
     if not isinstance(desired_revision, int) or isinstance(desired_revision, bool) or desired_revision < 1:
         raise ValueError("Precompute desired revision is invalid.")
-    if not isinstance(operational_selections, (list, dict)):
-        raise ValueError("Precompute operational selections are invalid.")
-    if isinstance(operational_selections, dict):
-        checked_selections: object = {
-            str(species_id): [dict(row) for row in rows if isinstance(row, dict)]
-            for species_id, rows in operational_selections.items()
-            if isinstance(rows, list)
-        }
-        if set(checked_selections) != set(operational_selections):
-            raise ValueError("Precompute operational selections are invalid.")
-    else:
-        checked_selections = [
-            dict(row) for row in operational_selections if isinstance(row, dict)
-        ]
-        if len(checked_selections) != len(operational_selections):
-            raise ValueError("Precompute operational selections are invalid.")
+    checked_selections = normalize_predictor_precompute_operational_selections(
+        operational_selections
+    )
+    checked_selections_ref = predictor_precompute_operational_selections_ref(
+        checked_selections
+    )
     timestamp = created_at or utc_now()
     queue = load_queue(path)
     for row in queue["jobs"]:
@@ -1237,8 +1330,10 @@ def create_predictor_precompute_job(
         "artifact_id": checked_identity.artifact_id,
         "runtime_manifest": checked_manifest,
         "operational_selections": checked_selections,
+        "operational_selections_ref": checked_selections_ref,
         "trigger_origin": str(trigger_origin or "runtime")[:40],
         "force": bool(force),
+        "precompute_telemetry": {},
         "runtime_endpoint": "/api/mushrooms/workers/jobs/predictor-runtime",
         "artifact_endpoint": "/api/mushrooms/workers/jobs/precompute-artifact",
     }
@@ -1981,6 +2076,7 @@ def update_progress(
     overall_percent: int,
     checked_at: str | None = None,
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
+    precompute_milestone: str = "",
 ) -> dict[str, Any]:
     queue = load_queue(path)
     job = _find_job(queue, job_id)
@@ -1988,12 +2084,28 @@ def update_progress(
     if job.get("status") != "running":
         raise ValueError("Worker job is not running.")
     percent = max(10, min(99, int(overall_percent)))
+    timestamp = checked_at or utc_now()
+    milestone = str(precompute_milestone or "")
+    if milestone:
+        if job.get("job_type") != JOB_TYPE_PREDICTOR_PRECOMPUTE:
+            raise ValueError("Only Predictor precompute jobs accept timing milestones.")
+        if milestone not in PRECOMPUTE_MILESTONES:
+            raise ValueError("Predictor precompute timing milestone is invalid.")
+        telemetry = normalize_precompute_telemetry(job.get("precompute_telemetry"))
+        if milestone == "calculation_started":
+            telemetry.setdefault("calculation_started_at", timestamp)
+        else:
+            if not telemetry.get("calculation_started_at"):
+                raise ValueError("Predictor precompute calculation was not started.")
+            telemetry.setdefault("calculation_finished_at", timestamp)
+            telemetry.setdefault("upload_started_at", timestamp)
+        job["precompute_telemetry"] = telemetry
     job.update(
         {
             "phase": str(phase or "Running")[:160],
             "message": str(message or "")[:500],
             "overall_percent": percent,
-            "lease_expires_at": _lease_expires(checked_at or utc_now(), lease_seconds),
+            "lease_expires_at": _lease_expires(timestamp, lease_seconds),
         }
     )
     _write_atomic(path, queue)
@@ -2073,6 +2185,17 @@ def finish_job(
     if job.get("status") == "cancel_requested" and status != "cancelled":
         raise ValueError("A cancelled worker job cannot publish a successful result.")
     timestamp = finished_at or utc_now()
+    normalized_result = _normalized_result(job, result)
+    if job.get("job_type") == JOB_TYPE_PREDICTOR_PRECOMPUTE:
+        incoming_telemetry = (
+            result.get("precompute_telemetry") if isinstance(result, dict) else None
+        )
+        job["precompute_telemetry"] = normalize_precompute_telemetry(
+            {
+                **normalize_precompute_telemetry(job.get("precompute_telemetry")),
+                **normalize_precompute_telemetry(incoming_telemetry),
+            }
+        )
     complete_phase = (
         "Candidate result verified"
         if job.get("job_type") == JOB_TYPE_CANDIDATE_REBUILD
@@ -2092,7 +2215,11 @@ def finish_job(
                         else "Scientific benchmark completed"
                     )
                     if job.get("job_type") == JOB_TYPE_ML_MULTIVERSION
-                    else "Assignment test completed"
+                    else (
+                        "Predictor precompute completed"
+                        if job.get("job_type") == JOB_TYPE_PREDICTOR_PRECOMPUTE
+                        else "Assignment test completed"
+                    )
                 )
             )
             )
@@ -2108,7 +2235,7 @@ def finish_job(
             "finished_at": timestamp,
             "lease_expires_at": "",
             "error": str(error or "")[:1000],
-            "result": _normalized_result(job, result),
+            "result": normalized_result,
         }
     )
     _write_atomic(path, queue)
@@ -2170,6 +2297,31 @@ def authorize_precompute_upload(
         raise ValueError("Worker job cannot upload Predictor precompute artifacts.")
     if job.get("status") != "running":
         raise ValueError("Worker precompute artifact is not accepted in the current job state.")
+    return dict(job)
+
+
+def record_precompute_publication(
+    path: Path,
+    *,
+    job_id: str,
+    worker_id: str,
+    claim_token: str,
+    telemetry: dict[str, Any],
+) -> dict[str, Any]:
+    """Persist HA-side publication timings before the worker acknowledges finish."""
+    queue = load_queue(path)
+    job = _find_job(queue, job_id)
+    _validate_claim(job, worker_id=worker_id, claim_token=claim_token)
+    if job.get("job_type") != JOB_TYPE_PREDICTOR_PRECOMPUTE:
+        raise ValueError("Worker job cannot record Predictor precompute publication.")
+    if job.get("status") != "running":
+        raise ValueError("Worker precompute publication is not active.")
+    current = normalize_precompute_telemetry(job.get("precompute_telemetry"))
+    checked = normalize_precompute_telemetry(telemetry)
+    job["precompute_telemetry"] = normalize_precompute_telemetry(
+        {**current, **checked}
+    )
+    _write_atomic(path, queue)
     return dict(job)
 
 

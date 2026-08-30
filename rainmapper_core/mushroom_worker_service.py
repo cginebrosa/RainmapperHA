@@ -7,6 +7,7 @@ import hashlib
 import http.client
 import os
 import platform
+import re
 import secrets
 import shutil
 import signal
@@ -41,6 +42,7 @@ IDENTITY_SCHEMA_VERSION = "0.1"
 IDENTITY_RELATIVE_PATH = Path("identity/worker.json")
 JOB_TELEMETRY_INTERVAL_SECONDS = 10.0
 PREDICTOR_RUNTIME_MANIFEST_MAX_BYTES = 8 * 1024 * 1024
+PREDICTOR_PRECOMPUTE_SELECTIONS_MAX_BYTES = 16 * 1024 * 1024
 PREDICTOR_FINISH_TIMEOUT_SECONDS = 60.0
 _T = TypeVar("_T")
 
@@ -420,6 +422,68 @@ def download_predictor_runtime(
     )
 
 
+def download_predictor_precompute_operational_selections(
+    ha_url: str,
+    job: dict[str, Any],
+    *,
+    worker_id: str,
+    claim_token: str,
+    token: str,
+) -> list[dict[str, Any]] | dict[str, list[dict[str, Any]]]:
+    """Load large precompute selections through their claim-bound endpoint."""
+    inline = job.get("operational_selections")
+    if isinstance(inline, (list, dict)):
+        return mushroom_worker_jobs.normalize_predictor_precompute_operational_selections(
+            inline
+        )
+    reference = job.get("operational_selections_ref")
+    if not isinstance(reference, dict):
+        raise ValueError("Worker precompute selections reference is missing.")
+    endpoint = str(reference.get("endpoint", ""))
+    if endpoint != mushroom_worker_jobs.PREDICTOR_PRECOMPUTE_SELECTIONS_ENDPOINT:
+        raise ValueError("Worker precompute selections endpoint is invalid.")
+    try:
+        expected_size = int(reference.get("size_bytes", -1))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Worker precompute selections size is invalid.") from exc
+    if expected_size < 0 or expected_size > PREDICTOR_PRECOMPUTE_SELECTIONS_MAX_BYTES:
+        raise ValueError("Worker precompute selections are too large.")
+    expected_sha256 = str(reference.get("sha256", ""))
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", expected_sha256):
+        raise ValueError("Worker precompute selections digest is invalid.")
+    query = urlencode({"job_id": job.get("job_id", "")})
+    request = Request(
+        ha_url.rstrip("/") + endpoint + "?" + query,
+        headers=mushroom_worker_transport.request_headers(
+            worker_id, claim_token, token
+        ),
+        method="GET",
+    )
+    response_limit = expected_size + 64 * 1024
+    with urlopen(request, timeout=120) as response:
+        raw = response.read(response_limit + 1)
+    if len(raw) > response_limit:
+        raise ValueError("HA precompute selections response is too large.")
+    payload = json.loads(raw.decode("utf-8"))
+    if not isinstance(payload, dict) or not payload.get("ok"):
+        raise ValueError("HA returned invalid precompute selections.")
+    selections = (
+        mushroom_worker_jobs.normalize_predictor_precompute_operational_selections(
+            payload.get("operational_selections")
+        )
+    )
+    actual = mushroom_worker_jobs.predictor_precompute_operational_selections_ref(
+        selections
+    )
+    if (
+        actual.get("sha256") != expected_sha256
+        or actual.get("size_bytes") != expected_size
+    ):
+        raise ValueError("HA precompute selections do not match their claim reference.")
+    job["operational_selections"] = selections
+    return selections
+
+
 def cache_ml_train_predictor_objects(worker_data_dir: Path, candidate_dir: Path) -> dict[str, int]:
     """Preserve locally trained v0/shadow models before terminal job cleanup."""
     root = Path(candidate_dir)
@@ -573,7 +637,10 @@ def upload_predictor_precompute_artifact(
     token: str,
     file_sha256: str,
     timeout: float = 300.0,
-) -> mushroom_predictor_precompute_control.PublicationReceipt:
+) -> tuple[
+    mushroom_predictor_precompute_control.PublicationReceipt,
+    dict[str, Any],
+]:
     endpoint = "/api/mushrooms/workers/jobs/precompute-artifact?" + urlencode({"job_id": job_id})
     parsed = urlsplit(ha_url)
     connection_class = (
@@ -606,7 +673,13 @@ def upload_predictor_precompute_artifact(
         receipt = payload.get("publication_receipt") if isinstance(payload, dict) else None
         if not isinstance(receipt, dict):
             raise ValueError("HA returned an invalid precompute publication receipt.")
-        return mushroom_predictor_precompute_control.PublicationReceipt.from_dict(receipt)
+        publication_telemetry = (
+            payload.get("publication_telemetry") if isinstance(payload, dict) else None
+        )
+        return (
+            mushroom_predictor_precompute_control.PublicationReceipt.from_dict(receipt),
+            mushroom_worker_jobs.normalize_precompute_telemetry(publication_telemetry),
+        )
     finally:
         connection.close()
 
@@ -1086,6 +1159,16 @@ def serve(
                     )
                     return
                 if job_type == "worker_predictor_precompute_v1":
+                    operational_selections = with_transport_retry(
+                        lambda: download_predictor_precompute_operational_selections(
+                            ha_url,
+                            job,
+                            worker_id=identity["worker_id"],
+                            claim_token=claim_token,
+                            token=token,
+                        )
+                    )
+                    runtime_sync_started = time.perf_counter()
                     runtime_root, _runtime_sync = with_transport_retry(
                         lambda: download_predictor_runtime(
                             ha_url,
@@ -1113,6 +1196,11 @@ def serve(
                     staging_dir = worker_data_dir.resolve() / "predictor_precompute" / "staging"
                     staging_dir.mkdir(parents=True, exist_ok=True)
                     staged_artifact = staging_dir / f"{job_id}.sqlite3"
+                    precompute_telemetry: dict[str, Any] = {
+                        "runtime_sync_seconds": round(
+                            time.perf_counter() - runtime_sync_started, 6
+                        )
+                    }
 
                     def precompute_control() -> None:
                         control = job_update(
@@ -1140,13 +1228,29 @@ def serve(
                             },
                         )
 
+                    job_update(
+                        "progress",
+                        {
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                            "phase": "Calculating weekly Predictor artifact",
+                            "message": "Starting the weekly Predictor calculation.",
+                            "overall_percent": 10,
+                            "precompute_milestone": "calculation_started",
+                        },
+                    )
+                    calculation_started = time.perf_counter()
                     build = mushroom_predictor_precompute.build_weekly_artifact(
                         staged_artifact,
                         identity=artifact_identity,
                         predictor_service=predictor_service,
-                        operational_selections=job.get("operational_selections", []),
+                        operational_selections=operational_selections,
                         progress=precompute_progress,
                         cancel_check=precompute_control,
+                    )
+                    precompute_telemetry["calculation_seconds"] = round(
+                        time.perf_counter() - calculation_started, 6
                     )
                     job_update(
                         "progress",
@@ -1157,9 +1261,11 @@ def serve(
                             "phase": "Uploading verified SQLite",
                             "message": "Transferring the artifact once to HA.",
                             "overall_percent": 85,
+                            "precompute_milestone": "calculation_finished",
                         },
                     )
-                    receipt = upload_predictor_precompute_artifact(
+                    upload_started = time.perf_counter()
+                    receipt, publication_telemetry = upload_predictor_precompute_artifact(
                         ha_url,
                         staged_artifact,
                         job_id=job_id,
@@ -1168,8 +1274,37 @@ def serve(
                         token=token,
                         file_sha256=build.manifest.file_sha256,
                     )
+                    upload_round_trip_seconds = round(
+                        time.perf_counter() - upload_started, 6
+                    )
+                    ha_publish_seconds = float(
+                        publication_telemetry.get("ha_publish_seconds", 0.0) or 0.0
+                    )
+                    precompute_telemetry.update(publication_telemetry)
+                    precompute_telemetry.update(
+                        {
+                            "upload_round_trip_seconds": upload_round_trip_seconds,
+                            "estimated_transfer_seconds": round(
+                                max(0.0, upload_round_trip_seconds - ha_publish_seconds),
+                                6,
+                            ),
+                            "artifact_size_bytes": build.manifest.size_bytes,
+                        }
+                    )
                     if receipt.desired_revision != int(job.get("desired_revision", 0) or 0):
                         raise ValueError("HA publication receipt has another desired revision.")
+                    job_update(
+                        "progress",
+                        {
+                            "job_id": job_id,
+                            "worker_id": identity["worker_id"],
+                            "claim_token": claim_token,
+                            "phase": "Activating verified worker copy",
+                            "message": "HA is active; activating the worker's local copy.",
+                            "overall_percent": 98,
+                        },
+                    )
+                    worker_activation_started = time.perf_counter()
                     mushroom_predictor_precompute_control.activate_worker_copy(
                         staged_artifact,
                         destination_path=(
@@ -1177,6 +1312,14 @@ def serve(
                         ),
                         receipt=receipt,
                         identity=artifact_identity,
+                    )
+                    precompute_telemetry.update(
+                        {
+                            "worker_activation_seconds": round(
+                                time.perf_counter() - worker_activation_started, 6
+                            ),
+                            "worker_activation_finished_at": mushroom_worker_jobs.utc_now(),
+                        }
                     )
                     staged_artifact.unlink(missing_ok=True)
                     job_update(
@@ -1189,6 +1332,7 @@ def serve(
                             "result": {
                                 "publication_receipt": receipt.as_dict(),
                                 "worker_activation": "active",
+                                "precompute_telemetry": precompute_telemetry,
                             },
                         },
                     )

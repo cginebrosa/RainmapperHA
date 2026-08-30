@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.283
+
+- Keep worker claim and control responses bounded by serving Predictor
+  precompute selections through a claim-bound authenticated endpoint.
+- Persist detailed remote precompute timings for calculation, transfer and
+  activation in Home Assistant and the worker.
+- Compose precomputed multiversion subsets against the artifact issue date so
+  navigation remains stable across midnight.
+- Materialize each pending precompute revision only once instead of rebuilding
+  its scientific plan on every worker heartbeat after cancellation or staleness.
+
 ## 0.2.282
 
 - Read persisted Predictor precompute state without planning or hashing bulk

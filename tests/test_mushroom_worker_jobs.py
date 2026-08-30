@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import json
+import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -57,6 +58,10 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 job_id="worker_job_foreground",
             )
             self.assertEqual("background", old["lane"])
+            self.assertEqual(
+                mushroom_worker_jobs.predictor_precompute_operational_selections_ref([]),
+                old["operational_selections_ref"],
+            )
             foreground_claim = mushroom_worker_jobs.claim_next(
                 path, worker_id="worker_aaaaaaaa", lane="foreground", claim_token="foreground-token"
             )
@@ -100,6 +105,118 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 result={"response": self.predictor_response(), "cold": False},
             )
             self.assertEqual("complete", finished["status"])
+
+    def test_precompute_timings_are_persisted_across_worker_and_ha_milestones(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            identity = self.precompute_identity()
+            job = mushroom_worker_jobs.create_predictor_precompute_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                identity=identity.as_dict(),
+                runtime_manifest=self.predictor_manifest(),
+                operational_selections=[],
+                desired_revision=1,
+                job_id="worker_job_precompute_timing",
+            )
+            mushroom_worker_jobs.claim_next(
+                path,
+                worker_id="worker_aaaaaaaa",
+                lane="background",
+                claim_token="timing-token",
+            )
+            mushroom_worker_jobs.start_job(
+                path,
+                job_id=job["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="timing-token",
+                started_at="2026-08-30T20:00:00+00:00",
+            )
+            mushroom_worker_jobs.update_progress(
+                path,
+                job_id=job["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="timing-token",
+                phase="Calculating",
+                message="Started",
+                overall_percent=10,
+                checked_at="2026-08-30T20:00:05+00:00",
+                precompute_milestone="calculation_started",
+            )
+            mushroom_worker_jobs.update_progress(
+                path,
+                job_id=job["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="timing-token",
+                phase="Uploading",
+                message="Started",
+                overall_percent=85,
+                checked_at="2026-08-30T20:10:05+00:00",
+                precompute_milestone="calculation_finished",
+            )
+            mushroom_worker_jobs.record_precompute_publication(
+                path,
+                job_id=job["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="timing-token",
+                telemetry={
+                    "upload_received_at": "2026-08-30T20:10:25+00:00",
+                    "ha_activation_finished_at": "2026-08-30T20:10:28+00:00",
+                    "ha_publish_seconds": 3.0,
+                    "artifact_size_bytes": 462_000_000,
+                },
+            )
+            receipt_body = {
+                "schema_version": "1.0",
+                "desired_revision": 1,
+                "artifact_id": identity.artifact_id,
+                "file_sha256": "sha256:" + "f" * 64,
+                "size_bytes": 462_000_000,
+            }
+            receipt = {
+                **receipt_body,
+                "receipt_id": "sha256:"
+                + hashlib.sha256(
+                    json.dumps(receipt_body, sort_keys=True, separators=(",", ":")).encode()
+                ).hexdigest(),
+            }
+            finished = mushroom_worker_jobs.finish_job(
+                path,
+                job_id=job["job_id"],
+                worker_id="worker_aaaaaaaa",
+                claim_token="timing-token",
+                status="complete",
+                finished_at="2026-08-30T20:10:30+00:00",
+                result={
+                    "publication_receipt": receipt,
+                    "worker_activation": "active",
+                    "precompute_telemetry": {
+                        "runtime_sync_seconds": 4.5,
+                        "calculation_seconds": 600.0,
+                        "upload_round_trip_seconds": 23.0,
+                        "estimated_transfer_seconds": 20.0,
+                        "worker_activation_seconds": 2.0,
+                        "worker_activation_finished_at": "2026-08-30T20:10:30+00:00",
+                    },
+                },
+            )
+
+            telemetry = finished["precompute_telemetry"]
+            self.assertEqual("2026-08-30T20:00:05+00:00", telemetry["calculation_started_at"])
+            self.assertEqual(600.0, telemetry["calculation_seconds"])
+            self.assertEqual(20.0, telemetry["estimated_transfer_seconds"])
+            self.assertEqual(3.0, telemetry["ha_publish_seconds"])
+            self.assertEqual(2.0, telemetry["worker_activation_seconds"])
+            self.assertEqual("Predictor precompute completed", finished["phase"])
+
+    def test_precompute_telemetry_rejects_unknown_or_negative_values(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unknown fields"):
+            mushroom_worker_jobs.normalize_precompute_telemetry({"surprise": 1})
+        with self.assertRaisesRegex(ValueError, "calculation_seconds"):
+            mushroom_worker_jobs.normalize_precompute_telemetry(
+                {"calculation_seconds": -1}
+            )
     def predictor_request(self) -> dict[str, object]:
         return {
             "schema_version": "1.0",
