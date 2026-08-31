@@ -163,8 +163,15 @@ Especificación vinculante:
   ejecución, almacenamiento derivado en `/media`, reconciliación encadenada
   acotada e instrumentación local. Smoke: 1.199 pruebas; índice multiarch
   `sha256:e72606a9fe95667252f45c864a921989bfa2e95c14d1adff5a1e26fb2d79569c`.
-- [ ] Instalar HA `0.2.287` y validar con worker `1.0.34` una cadena real y un
-  precálculo instrumentado; no confundir tiempo anterior al claim con cálculo.
+- [x] Instalar HA `0.2.287` y conectar worker `1.0.34`. El precálculo real
+  instrumentado reveló una regresión previa al cálculo: la actualización de
+  progreso agotó el timeout al analizar y reescribir una cola JSON de 26 MiB.
+- [x] Publicar HA `0.2.288` y reconstruir worker `1.0.35` con cola v2 ligera en
+  `/share`, payload reconstruible por job en `/media`, limpieza conjunta al
+  acotar la cola y progreso de precálculo tolerante a timeouts. Índice
+  multiarch:
+  `sha256:effb48be97d94cde782766dfc79f5322f2f2b50c6b905ce63dbb4a8776121246`.
+  Falta instalar HA y medir en real.
 - [ ] Completar ese E2E: medir preparación/cálculo/telemetría/transferencia y
   activación, confirmar SQLite en `/media/rainmapper/predictor_precompute`, hits
   servidos por HA, fallback con selección explícita de ejecutor y ausencia del

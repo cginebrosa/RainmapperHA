@@ -1680,6 +1680,94 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 },
             )
 
+    def test_precompute_heavy_payload_is_externalized_and_hydrated_on_demand(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "share" / "worker_jobs.json"
+            derived = root / "media" / "worker"
+            selections = {
+                "boletus": [{"profile": "extended_weather", "padding": "x" * 200_000}]
+            }
+            with mock.patch.dict(
+                os.environ,
+                {"RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR": str(derived)},
+            ):
+                created = mushroom_worker_jobs.create_predictor_precompute_job(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    worker_display_name="Worker A",
+                    identity=self.precompute_identity().as_dict(),
+                    runtime_manifest=self.predictor_manifest(),
+                    operational_selections=selections,
+                    desired_revision=1,
+                    job_id="worker_job_payload_test",
+                )
+                stored = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    mushroom_worker_jobs.QUEUE_STORAGE_VERSION,
+                    stored["storage_version"],
+                )
+                self.assertNotIn("runtime_manifest", stored["jobs"][0])
+                self.assertNotIn("operational_selections", stored["jobs"][0])
+                self.assertLess(path.stat().st_size, 20_000)
+                payload_path = derived / "job-payloads" / f"{created['job_id']}.json"
+                self.assertTrue(payload_path.is_file())
+
+                claimed = mushroom_worker_jobs.claim_next(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    lane="background",
+                    claim_token="payload-token",
+                )
+                hydrated = mushroom_worker_jobs.authorize_input_download(
+                    path,
+                    job_id=created["job_id"],
+                    worker_id="worker_aaaaaaaa",
+                    claim_token=str(claimed["claim_token"]),
+                )
+                self.assertEqual(self.predictor_manifest(), hydrated["runtime_manifest"])
+                self.assertEqual(selections, hydrated["operational_selections"])
+
+    def test_legacy_migration_discards_history_without_parsing_large_payloads(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "share" / "worker_jobs.json"
+            derived = root / "media" / "worker"
+            path.parent.mkdir(parents=True)
+            manifest = self.predictor_manifest()
+            legacy = {
+                "schema_version": mushroom_worker_jobs.SCHEMA_VERSION,
+                "jobs": [
+                    {
+                        "job_id": "worker_job_terminal_old",
+                        "job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+                        "status": "complete",
+                        "runtime_manifest": manifest,
+                    },
+                    {
+                        "job_id": "worker_job_active_new",
+                        "job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+                        "status": "running",
+                        "runtime_manifest": manifest,
+                    },
+                ],
+            }
+            path.write_text(json.dumps(legacy), encoding="utf-8")
+            with mock.patch.dict(
+                os.environ,
+                {"RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR": str(derived)},
+            ):
+                with mock.patch.object(json, "loads", wraps=json.loads) as loads:
+                    migrated = mushroom_worker_jobs.load_queue(path)
+                self.assertEqual([], migrated["jobs"])
+                loads.assert_not_called()
+                stored = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    mushroom_worker_jobs.QUEUE_STORAGE_VERSION,
+                    stored["storage_version"],
+                )
+                self.assertFalse((derived / "job-payloads").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

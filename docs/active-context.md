@@ -8,17 +8,18 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
   HEAD revalidado antes de los cambios locales:
-  `6a4defcd45226731ef2dd5a92f0526f2f62a8d19`.
-- El código declara HA `0.2.287` y worker `1.0.34`.
-- HA `0.2.287` y `latest` están publicados en GHCR con el mismo índice OCI
-  `sha256:e72606a9fe95667252f45c864a921989bfa2e95c14d1adff5a1e26fb2d79569c`
+  `bd8c1fecf9309e5b40e19cf560484ecef85ce2fb`.
+- El código declara HA `0.2.288` y worker `1.0.35`.
+- HA `0.2.288` y `latest` están publicados en GHCR con el mismo índice OCI
+  `sha256:effb48be97d94cde782766dfc79f5322f2f2b50c6b905ce63dbb4a8776121246`
   y manifests `linux/amd64` y `linux/arm64`.
 - HA real no se modificó durante esta entrega. Su última versión confirmada por
-  el usuario es `0.2.286`; el usuario confirmó que ahora no hay precálculos.
-- El worker privado no se publica. Está reconstruido localmente como `1.0.34`,
+  el usuario es `0.2.287`; falta instalar y validar `0.2.288`.
+- El worker privado no se publica. Está reconstruido localmente como `1.0.35`,
   healthy/idle, con identidad `worker_1a9a232c20fe2ee2`, volumen
-  `rainmapper-worker-data`, cachés válidas y capacidad
-  `predictor_precompute_v1`.
+  `rainmapper-worker-data`, cachés GIS y Predictor válidas y ambas lanes idle.
+  El primer heartbeat observado tras arrancar agotó el timeout; falta confirmar
+  su conexión al coordinador tras actualizar HA.
 - No hay entrenamientos programados. No tocar retención, datos reales, HA real
   ni lanzar entrenamientos, bumps, builds o publicaciones sin autorización.
 
@@ -93,22 +94,26 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
 
 ## Validación y release
 
-- Smoke local actual: 1.199 pruebas correctas, además de compilación, JSON,
-  transición con datos legacy y arranque con `/media` vacío. Las 370 pruebas
-  dirigidas de jobs, worker y servidor web también pasan tras la nueva
-  telemetría.
+- La suite final completa pasó: 1.201 pruebas, además de compilación, JSON,
+  shell, fixtures y comprobaciones de diff. Las 385 pruebas dirigidas de jobs,
+  worker, servidor web, almacenamiento y empaquetado también pasan tras la
+  nueva persistencia.
 - `git diff --check` correcto tras código y pruebas; repetir al cierre.
 - Worker `1.0.34` construido y verificado healthy/idle, con identidad, volumen,
   cachés y capacidades conservados. Ambas lanes estaban idle en la comprobación.
-- HA `0.2.287` publicada y verificada en GHCR. El primer push agotó el plazo
+- HA `0.2.287` publicada, verificada en GHCR e instalada en HA real con worker
+  `1.0.34` conectado. El primer push agotó el plazo
   después de subir capas y no creó el tag; un reintento completó ambos tags con
-  el índice multiarch indicado arriba. Falta instalarla y validar en HA real.
+  el índice multiarch indicado arriba.
+- HA `0.2.288` publicada y verificada en GHCR con el índice multiarch indicado
+  arriba. Worker `1.0.35` reconstruido y verificado healthy/idle conservando
+  identidad, volumen y cachés. HA real todavía no se ha actualizado.
 
 ## Próximos pasos inmediatos
 
-1. Instalar HA `0.2.287` sólo con autorización explícita y comprobar la UI, el
-   almacenamiento derivado y la compatibilidad con worker `1.0.34`.
-2. Tras instalar esa versión, medir una cadena real completa para confirmar la
+1. Instalar HA `0.2.288` y confirmar que worker `1.0.35` conecta y reclama sin
+   la espera observada con la cola v1.
+2. Tras instalarla, medir una cadena real completa para confirmar la
    reducción de las esperas de 1--2 minutos. Las pruebas demuestran que se han
    eliminado llamadas repetidas, pero no sustituyen esa medición real.
 3. Verificar rutas y Predictor sobre `/media`; sólo entonces autorizar, si se
@@ -138,6 +143,27 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
   runtime, preparación del servicio, cálculo, subida/publicación, activación y
   total. No modifica filtros de avisos ni la inferencia: localizar el estimador
   exacto del aviso sigue pendiente de una reproducción que lo dispare.
+
+## Regresión real de cola en 0.2.287/1.0.34 y corrección 0.2.288/1.0.35
+
+- El precálculo real `worker_job_JkpxgP8ZE0LB` fue reclamado, sincronizó
+  selecciones y runtime, pero falló antes del cálculo científico con `timed
+  out`. Rainmapper quedó sin responder durante el atasco; HA siguió operativo.
+- La cola monolítica real tenía 50 jobs y unos 26 MiB. `runtime_manifest`
+  aportaba 11.085.080 bytes compactos y `operational_selections` 9.479.877;
+  cada progreso analizaba y reescribía el documento completo bajo `RUN_LOCK`.
+- La corrección publicada introduce cola v2: `/share` conserva sólo el índice y
+  estado ligero; manifiesto y selecciones reconstruibles viven por job en
+  `/media/rainmapper/mushroom-derived/worker/job-payloads`. Al salir un job de
+  la cola se elimina también su payload. El histórico v1 se descarta en la
+  primera apertura sin analizar el JSON grande; por ello el despliegue debe
+  hacerse sin trabajos activos.
+- Una simulación con los 50 jobs reales dejó el índice en 472.783 bytes y una
+  escritura estable en 0,009 s sobre disco local. La migración descartable de
+  una copia del JSON v1 tardó 0,001 s y produjo una cola vacía de 72 bytes.
+- Los hitos de progreso del precálculo usan ahora la telemetría coalescida y
+  tolerante a fallos de transporte. Un timeout de UI no aborta el cálculo; la
+  entrega final continúa siendo estricta.
 
 ## Riesgos y dudas activos
 

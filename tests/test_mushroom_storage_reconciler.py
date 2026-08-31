@@ -29,6 +29,7 @@ class MushroomStorageReconcilerTests(unittest.TestCase):
             self.queue_path,
             {
                 "schema_version": "0.1",
+                "storage_version": "2.0",
                 "jobs": [
                     {
                         "job_id": bundle_job_id,
@@ -158,7 +159,10 @@ class MushroomStorageReconcilerTests(unittest.TestCase):
         target.mkdir()
         symlink = self.bundle_root / "worker_job_symlink1234"
         symlink.symlink_to(target, target_is_directory=True)
-        self._write_json(self.queue_path, {"schema_version": "0.1", "jobs": []})
+        self._write_json(
+            self.queue_path,
+            {"schema_version": "0.1", "storage_version": "2.0", "jobs": []},
+        )
 
         report = reconcile_worker_storage(
             queue_path=self.queue_path,
@@ -181,6 +185,7 @@ class MushroomStorageReconcilerTests(unittest.TestCase):
             self.queue_path,
             {
                 "schema_version": "0.1",
+                "storage_version": "2.0",
                 "jobs": [
                     {
                         "job_id": old_job_id,

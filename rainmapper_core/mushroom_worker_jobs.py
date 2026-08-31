@@ -21,6 +21,7 @@ from rainmapper_core.mushroom_worker_registry import WORKER_ID_PATTERN
 
 
 SCHEMA_VERSION = "0.1"
+QUEUE_STORAGE_VERSION = "2.0"
 JOB_ID_PATTERN = re.compile(r"^worker_job_[a-zA-Z0-9_-]{8,80}$")
 JOB_TYPE_CLAIM_PROBE = "worker_claim_probe"
 JOB_TYPE_SNAPSHOT_TRANSPORT = "worker_snapshot_transport_probe"
@@ -37,6 +38,8 @@ ACTIVE_STATUSES = {"preparing", "queued", "claimed", "running", "cancel_requeste
 WORK_KEY_CLAIM_PROBE = "worker_claim_probe:v0"
 PREDICTOR_RESULT_MAX_BYTES = 64 * 1024 * 1024
 PREDICTOR_RESULTS_DIRNAME = ".worker-predictor-results"
+JOB_PAYLOADS_DIRNAME = ".worker-job-payloads"
+JOB_PAYLOAD_FIELDS = frozenset({"runtime_manifest", "operational_selections"})
 PREDICTOR_RESULT_KEEP_RECENT = 10
 PREDICTOR_RESULT_MAX_AGE_HOURS = 24
 PREDICTOR_PRECOMPUTE_SELECTIONS_ENDPOINT = (
@@ -176,22 +179,146 @@ def normalize_precompute_telemetry(value: object) -> dict[str, Any]:
 
 
 def empty_queue() -> dict[str, Any]:
-    return {"schema_version": SCHEMA_VERSION, "jobs": []}
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "storage_version": QUEUE_STORAGE_VERSION,
+        "jobs": [],
+    }
 
 
 def load_queue(path: Path) -> dict[str, Any]:
     if not path.exists():
         return empty_queue()
     try:
+        with path.open("r", encoding="utf-8") as handle:
+            header = handle.read(4096)
+    except OSError as exc:
+        raise ValueError(f"Cannot load worker job queue: {exc}") from exc
+    if '"storage_version"' not in header:
+        # The v1 history is intentionally disposable.  Avoid parsing its large
+        # embedded manifests during the one-way upgrade, which was precisely
+        # what made Rainmapper unresponsive.
+        queue = empty_queue()
+        _write_atomic(path, queue)
+        return queue
+    try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot load worker job queue: {exc}") from exc
     if not isinstance(payload, dict) or payload.get("schema_version") != SCHEMA_VERSION:
         raise ValueError("Worker job queue schema is invalid.")
+    if payload.get("storage_version") != QUEUE_STORAGE_VERSION:
+        raise ValueError("Worker job queue storage version is invalid.")
     jobs = payload.get("jobs")
     if not isinstance(jobs, list):
         raise ValueError("Worker job queue list is invalid.")
-    return {"schema_version": SCHEMA_VERSION, "jobs": [dict(row) for row in jobs if isinstance(row, dict)]}
+    queue = {
+        "schema_version": SCHEMA_VERSION,
+        "storage_version": str(payload.get("storage_version", "") or ""),
+        "jobs": [dict(row) for row in jobs if isinstance(row, dict)],
+    }
+    return queue
+
+
+def _job_payload_dir(queue_path: Path) -> Path:
+    if mushroom_paths.derived_storage_enabled() or os.environ.get(
+        "RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR", ""
+    ).strip():
+        return mushroom_paths.mushroom_worker_job_payloads_dir()
+    return queue_path.parent / JOB_PAYLOADS_DIRNAME
+
+
+def _job_payload_path(queue_path: Path, job_id: str) -> Path:
+    if not JOB_ID_PATTERN.fullmatch(str(job_id)):
+        raise ValueError("Worker job ID is invalid.")
+    return _job_payload_dir(queue_path) / f"{job_id}.json"
+
+
+def _job_payload_reference(payload: dict[str, Any]) -> dict[str, Any]:
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    reference: dict[str, Any] = {
+        "schema_version": "1.0",
+        "fields": sorted(payload),
+        "size_bytes": len(encoded),
+        "sha256": "sha256:" + hashlib.sha256(encoded).hexdigest(),
+    }
+    manifest = payload.get("runtime_manifest")
+    if isinstance(manifest, dict):
+        files = manifest.get("files")
+        reference["runtime_manifest"] = {
+            "schema_version": manifest.get("schema_version"),
+            "kind": manifest.get("kind"),
+            "fingerprint": manifest.get("fingerprint"),
+            "size_bytes": manifest.get("size_bytes", 0),
+            "file_count": len(files) if isinstance(files, list) else 0,
+        }
+    return reference
+
+
+def _externalize_job_payloads(queue_path: Path, payload: dict[str, Any]) -> None:
+    jobs = payload.get("jobs")
+    if not isinstance(jobs, list):
+        return
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        extracted = {
+            field: job.pop(field)
+            for field in JOB_PAYLOAD_FIELDS
+            if field in job
+        }
+        if not extracted:
+            continue
+        reference = _job_payload_reference(extracted)
+        _write_atomic(
+            _job_payload_path(queue_path, str(job.get("job_id", ""))),
+            {
+                "schema_version": "1.0",
+                "kind": "rainmapper_worker_job_payload",
+                "job_id": str(job.get("job_id", "")),
+                "payload": extracted,
+                "payload_ref": reference,
+            },
+        )
+        job["job_payload_ref"] = reference
+        runtime_reference = reference.get("runtime_manifest")
+        if isinstance(runtime_reference, dict):
+            job["runtime_manifest_ref"] = runtime_reference
+
+
+def _hydrate_job_payload(queue_path: Path, job: dict[str, Any]) -> dict[str, Any]:
+    hydrated = dict(job)
+    reference = hydrated.get("job_payload_ref")
+    if not isinstance(reference, dict):
+        return hydrated
+    payload_path = _job_payload_path(queue_path, str(hydrated.get("job_id", "")))
+    try:
+        stored = json.loads(payload_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot load worker job payload: {exc}") from exc
+    detail = stored.get("payload") if isinstance(stored, dict) else None
+    if not isinstance(detail, dict) or stored.get("job_id") != hydrated.get("job_id"):
+        raise ValueError("Worker job payload file is invalid.")
+    if _job_payload_reference(detail) != reference:
+        raise ValueError("Worker job payload file integrity check failed.")
+    hydrated.update(detail)
+    return hydrated
+
+
+def _cleanup_job_payload_files(queue_path: Path, payload: dict[str, Any]) -> None:
+    payload_dir = _job_payload_dir(queue_path)
+    if not payload_dir.is_dir():
+        return
+    retained = {
+        f"{job.get('job_id')}.json"
+        for job in payload.get("jobs", [])
+        if isinstance(job, dict) and isinstance(job.get("job_payload_ref"), dict)
+    }
+    for candidate in payload_dir.glob("worker_job_*.json"):
+        if candidate.name not in retained:
+            candidate.unlink(missing_ok=True)
 
 
 def _predictor_result_dir(queue_path: Path, *, legacy: bool = False) -> Path:
@@ -269,6 +396,10 @@ def _write_atomic(path: Path, payload: dict[str, Any]) -> None:
         payload.get("jobs"), list
     )
     if is_queue:
+        jobs = payload.pop("jobs")
+        payload["storage_version"] = QUEUE_STORAGE_VERSION
+        payload["jobs"] = jobs
+        _externalize_job_payloads(path, payload)
         _externalize_predictor_results(path, payload)
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
@@ -283,6 +414,7 @@ def _write_atomic(path: Path, payload: dict[str, Any]) -> None:
     finally:
         temporary_path.unlink(missing_ok=True)
     if is_queue:
+        _cleanup_job_payload_files(path, payload)
         _cleanup_predictor_result_files(path, payload)
 
 
@@ -1480,8 +1612,16 @@ def find_reusable_predictor_job(
             or not isinstance(job.get("predictor_result_ref"), dict)
         ):
             continue
+        manifest_reference = job.get("runtime_manifest_ref")
         manifest = job.get("runtime_manifest")
-        if not isinstance(manifest, dict) or manifest.get("fingerprint") != fingerprint:
+        stored_fingerprint = (
+            manifest_reference.get("fingerprint")
+            if isinstance(manifest_reference, dict)
+            else manifest.get("fingerprint")
+            if isinstance(manifest, dict)
+            else ""
+        )
+        if stored_fingerprint != fingerprint:
             continue
         try:
             hydrated = _hydrate_predictor_result(queue_path, job)
@@ -2284,7 +2424,7 @@ def authorize_input_download(
         raise ValueError("Worker job does not have an input bundle.")
     if job.get("status") not in {"claimed", "running", "cancel_requested"}:
         raise ValueError("Worker input bundle is not available in the current job state.")
-    return dict(job)
+    return _hydrate_job_payload(path, job)
 
 
 def authorize_result_upload(

@@ -121,6 +121,15 @@ def mushroom_worker_predictor_results_dir() -> Path:
     return mushroom_worker_storage_dir() / "predictor-results"
 
 
+def mushroom_worker_job_payloads_dir() -> Path:
+    """Return non-backed-up storage for reconstructible per-job payloads."""
+    if not derived_storage_enabled() and not os.environ.get(
+        "RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR", ""
+    ).strip():
+        return mushroom_data_dir() / ".worker-job-payloads"
+    return mushroom_worker_storage_dir() / "job-payloads"
+
+
 def mushroom_data_file(file_name: str) -> Path:
     return mushroom_data_dir() / file_name
 

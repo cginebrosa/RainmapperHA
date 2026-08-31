@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.288
+
+- Replace the monolithic worker-job history with a compact v2 queue in
+  `/share` and reconstructible per-job payloads in `/media`.
+- Remove per-job payloads when their bounded queue entries expire, without
+  changing normal v2 retention.
+- Discard the obsolete v1 job history directly during upgrade so it cannot
+  block Rainmapper startup or worker claims.
+- Keep weekly Predictor calculation running when non-critical progress updates
+  time out, while preserving strict final-result delivery.
+
 ## 0.2.287
 
 - Clarify weekly precompute progress with separate global, stage and scientific

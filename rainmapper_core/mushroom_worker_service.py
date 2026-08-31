@@ -1267,20 +1267,18 @@ def serve(
                                 "phase": "Calculating weekly Predictor artifact",
                                 "message": f"{display_done}/{total}: {label}",
                                 "overall_percent": 10 + int(65 * done / max(1, total)),
+                                "precompute_milestone": "calculation_started",
                             },
                         )
 
-                    job_update(
-                        "progress",
+                    precompute_job_telemetry.publish(
                         {
-                            "job_id": job_id,
-                            "worker_id": identity["worker_id"],
-                            "claim_token": claim_token,
                             "phase": "Calculating weekly Predictor artifact",
                             "message": "Starting the weekly Predictor calculation.",
                             "overall_percent": 10,
                             "precompute_milestone": "calculation_started",
                         },
+                        force=True,
                     )
                     print(
                         json.dumps(
@@ -1305,7 +1303,6 @@ def serve(
                         progress=precompute_progress,
                         cancel_check=precompute_control,
                     )
-                    precompute_job_telemetry.flush()
                     precompute_telemetry["calculation_seconds"] = round(
                         time.perf_counter() - calculation_started, 6
                     )
@@ -1324,18 +1321,16 @@ def serve(
                         ),
                         flush=True,
                     )
-                    job_update(
-                        "progress",
+                    precompute_job_telemetry.publish(
                         {
-                            "job_id": job_id,
-                            "worker_id": identity["worker_id"],
-                            "claim_token": claim_token,
                             "phase": "Uploading verified SQLite",
                             "message": "Transferring the artifact once to HA.",
                             "overall_percent": 85,
                             "precompute_milestone": "calculation_finished",
                         },
+                        force=True,
                     )
+                    precompute_job_telemetry.flush()
                     upload_started = time.perf_counter()
                     receipt, publication_telemetry = upload_predictor_precompute_artifact(
                         ha_url,
@@ -1365,12 +1360,8 @@ def serve(
                     )
                     if receipt.desired_revision != int(job.get("desired_revision", 0) or 0):
                         raise ValueError("HA publication receipt has another desired revision.")
-                    job_update(
-                        "progress",
+                    precompute_job_telemetry.publish(
                         {
-                            "job_id": job_id,
-                            "worker_id": identity["worker_id"],
-                            "claim_token": claim_token,
                             "phase": "Activating verified worker copy",
                             "message": "HA is active; activating the worker's local copy.",
                             "overall_percent": 98,
@@ -1412,6 +1403,7 @@ def serve(
                         flush=True,
                     )
                     staged_artifact.unlink(missing_ok=True)
+                    precompute_job_telemetry.flush()
                     job_update(
                         "finish",
                         {
