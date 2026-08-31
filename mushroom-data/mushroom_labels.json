@@ -2629,6 +2629,111 @@
     "es": "calculando",
     "ca": "calculant"
   },
+  "ui.precompute_progress_global": {
+    "en": "Overall progress",
+    "es": "Avance global",
+    "ca": "Progrés global"
+  },
+  "ui.precompute_progress_stage": {
+    "en": "Current stage",
+    "es": "Etapa actual",
+    "ca": "Etapa actual"
+  },
+  "ui.precompute_progress_stage_count": {
+    "en": "Stage {index} of {count}",
+    "es": "Etapa {index} de {count}",
+    "ca": "Etapa {index} de {count}"
+  },
+  "ui.precompute_progress_stage_calculation": {
+    "en": "Scientific calculation and verification",
+    "es": "Cálculo científico y verificación",
+    "ca": "Càlcul científic i verificació"
+  },
+  "ui.precompute_progress_stage_ha": {
+    "en": "Transfer and activation in Home Assistant",
+    "es": "Transferencia y activación en Home Assistant",
+    "ca": "Transferència i activació a Home Assistant"
+  },
+  "ui.precompute_progress_stage_worker": {
+    "en": "Worker copy activation",
+    "es": "Activación de la copia del worker",
+    "ca": "Activació de la còpia del worker"
+  },
+  "ui.precompute_progress_stage_calculation_help": {
+    "en": "Calculating all weekly prediction combinations.",
+    "es": "Calculando todas las combinaciones de predicción semanal.",
+    "ca": "Calculant totes les combinacions de predicció setmanal."
+  },
+  "ui.precompute_progress_stage_ha_help": {
+    "en": "Transferring and verifying the SQLite artifact in Home Assistant.",
+    "es": "Transfiriendo y verificando el artefacto SQLite en Home Assistant.",
+    "ca": "Transferint i verificant l'artefacte SQLite a Home Assistant."
+  },
+  "ui.precompute_progress_stage_worker_help": {
+    "en": "Home Assistant is active; activating the verified worker copy.",
+    "es": "Home Assistant ya está activo; activando la copia verificada del worker.",
+    "ca": "Home Assistant ja està actiu; activant la còpia verificada del worker."
+  },
+  "ui.precompute_progress_stage_local": {
+    "en": "Verification and local activation",
+    "es": "Verificación y activación local",
+    "ca": "Verificació i activació local"
+  },
+  "ui.precompute_progress_stage_local_help": {
+    "en": "Verifying and atomically activating the local SQLite artifact.",
+    "es": "Verificando y activando atómicamente el artefacto SQLite local.",
+    "ca": "Verificant i activant atòmicament l'artefacte SQLite local."
+  },
+  "ui.precompute_progress_complete": {
+    "en": "The verified weekly artifact is active.",
+    "es": "El artefacto semanal verificado está activo.",
+    "ca": "L'artefacte setmanal verificat està actiu."
+  },
+  "ui.precompute_progress_scientific": {
+    "en": "Scientific substep",
+    "es": "Subpaso científico",
+    "ca": "Subpas científic"
+  },
+  "ui.precompute_progress_units": {
+    "en": "{done} of {total} work units",
+    "es": "{done} de {total} unidades de trabajo",
+    "ca": "{done} de {total} unitats de treball"
+  },
+  "ui.precompute_progress_substep_matrix": {
+    "en": "Building the weekly prediction matrix",
+    "es": "Construyendo la matriz semanal de predicciones",
+    "ca": "Construint la matriu setmanal de prediccions"
+  },
+  "ui.precompute_progress_substep_finalizing": {
+    "en": "Final verification of the SQLite artifact",
+    "es": "Verificación final del artefacto SQLite",
+    "ca": "Verificació final de l'artefacte SQLite"
+  },
+  "ui.precompute_progress_substep_scientific": {
+    "en": "Calculating the current prediction group",
+    "es": "Calculando el grupo de predicciones actual",
+    "ca": "Calculant el grup de prediccions actual"
+  },
+  "ui.precompute_progress_traceability": {
+    "en": "Traceability",
+    "es": "Trazabilidad",
+    "ca": "Traçabilitat"
+  },
+  "ui.precompute_progress_view": {
+    "en": "View",
+    "es": "Vista",
+    "ca": "Vista"
+  },
+  "ui.precompute_progress_technical": {
+    "en": "Technical detail",
+    "es": "Detalle técnico",
+    "ca": "Detall tècnic"
+  },
+  "ui.precompute_progress_in_progress": {
+    "en": "In progress",
+    "es": "En curso",
+    "ca": "En curs"
+  },
   "ui.rebuild_progress_current_step": {
     "en": "Current step",
     "es": "Paso actual",
@@ -4143,6 +4248,26 @@
     "en": "Interactive prediction",
     "es": "Predicción interactiva",
     "ca": "Predicció interactiva"
+  },
+  "ui.worker_launch_preparing_title": {
+    "en": "Preparing the job…",
+    "es": "Preparando el trabajo…",
+    "ca": "Preparant el treball…"
+  },
+  "ui.worker_launch_preparing_help": {
+    "en": "The request has been received. The progress view will open as soon as the job is registered.",
+    "es": "La solicitud se ha recibido. El progreso se abrirá en cuanto el trabajo quede registrado.",
+    "ca": "La sol·licitud s'ha rebut. El progrés s'obrirà tan bon punt el treball quedi registrat."
+  },
+  "ui.worker_before_execution": {
+    "en": "Before execution",
+    "es": "Antes de ejecutar",
+    "ca": "Abans d'executar"
+  },
+  "ui.worker_execution_time": {
+    "en": "Execution",
+    "es": "Ejecución",
+    "ca": "Execució"
   },
   "ui.worker_predictor_precompute_job_type": {
     "en": "Weekly Predictor precompute",

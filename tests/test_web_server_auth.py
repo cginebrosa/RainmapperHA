@@ -729,6 +729,42 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(contents["features.json"], features_content)
         self.assertEqual(contents["known_sites.json"], known_sites_content)
 
+    def test_linked_ml_v0_does_not_repeat_storage_reconciliation(self) -> None:
+        missing_features = Path(self.temp_dir.name) / "missing-features.json"
+        worker = {
+            "reachable": True,
+            "payload": {
+                "worker_id": "worker_aaaaaaaa",
+                "display_name": "M1 Personal",
+            },
+        }
+        store = mock.Mock()
+        with (
+            mock.patch.dict(
+                os.environ,
+                {
+                    "RAINMAPPER_WORKER_API_ENABLED": "true",
+                    "RAINMAPPER_WORKER_AUTH_REQUIRED": "false",
+                },
+            ),
+            mock.patch.object(
+                self.web_server,
+                "registered_mushroom_worker_statuses",
+                return_value=[worker],
+            ),
+            mock.patch.object(self.web_server, "default_store", return_value=store),
+        ):
+            self.web_server.reconcile_mushroom_worker_storage_for_launch.reset_mock()
+            status, response = self.web_server.create_mushroom_ml_train_job(
+                "worker_aaaaaaaa",
+                features_path=missing_features,
+                triggered_by_job_id="worker_job_rebuild123",
+            )
+
+        self.assertEqual(409, status)
+        self.assertIn("Features artifact not found", response["error"])
+        self.web_server.reconcile_mushroom_worker_storage_for_launch.assert_not_called()
+
     def test_linked_multiversion_start_captures_scope_inputs_before_async_cleanup(self) -> None:
         job_id = "worker_job_training123"
         sealed_inputs = {
@@ -2654,6 +2690,45 @@ class AuthDeviceLimitTests(unittest.TestCase):
             ],
         )
 
+    def test_ha_predictor_service_refreshes_a_stale_planned_runtime(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        stale_service = mock.MagicMock()
+        stale_service.runtime_fingerprint = "sha256:old"
+        predictor_ui._predictor_service = stale_service
+        predictor_ui._predictor_cache["amanita"] = mock.MagicMock()
+        self.addCleanup(setattr, predictor_ui, "_predictor_service", None)
+        self.addCleanup(predictor_ui._predictor_cache.clear)
+        fresh_service = mock.MagicMock()
+        fresh_service.runtime_fingerprint = "sha256:new"
+
+        with (
+            mock.patch.object(
+                predictor_ui.mushroom_predictor_runtime,
+                "load_or_publish_manifest",
+                return_value=({"fingerprint": "sha256:new"}, {}, "published"),
+            ) as load_manifest,
+            mock.patch.object(
+                predictor_ui,
+                "PredictorService",
+                return_value=fresh_service,
+            ) as service_class,
+            mock.patch.object(
+                predictor_ui,
+                "invalidate_weather_stations_cache",
+            ) as invalidate_weather,
+        ):
+            service = predictor_ui.predictor_service(
+                expected_runtime_fingerprint="sha256:new"
+            )
+
+        self.assertIs(service, fresh_service)
+        self.assertEqual(predictor_ui._predictor_cache, {})
+        invalidate_weather.assert_called_once_with()
+        load_manifest.assert_called_once_with()
+        self.assertEqual(
+            service_class.call_args.kwargs["runtime_fingerprint"], "sha256:new"
+        )
+
     def test_predictor_model_diagnostics_show_weather_contract_features(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
         result = {
@@ -3382,6 +3457,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         preferred_comparison.assert_not_called()
         self.assertEqual(selected_comparison.call_count, 7)
         self.assertIn("pred-week-strip", rendered)
+        self.assertEqual(rendered.count("data-predictor-direct-run"), 7)
         self.assertIn("RF–V3", rendered)
         self.assertIn("mvv=biology_v3", rendered)
         preferred_detail.assert_not_called()
@@ -7869,6 +7945,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Rebuild and retrain operational models", page)
         self.assertIn('value="run_ml_benchmark"', page)
         self.assertIn("Run scientific benchmark", page)
+        self.assertIn('id="worker-launch-backdrop"', page)
+        self.assertIn("Preparing the job…", page)
+        self.assertIn("['start_rebuild','run_worker_ml_multiversion','run_predictor_precompute','run_ml_benchmark']", page)
 
     def test_workers_page_renders_benchmark_selection_history_and_report(self) -> None:
         report = {
@@ -8397,6 +8476,178 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(1, summary["desired_revision"])
         self.assertEqual(stale_identity.artifact_id, summary["desired_artifact_id"])
         plan.assert_not_called()
+
+    def test_local_precompute_desire_without_a_job_is_not_reported_as_queued(self) -> None:
+        identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+            runtime_fingerprint="sha256:" + "a" * 64,
+            issue_date="2026-08-31",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={
+                "species": 1,
+                "areas": 1,
+                "days": 7,
+                "versions": 1,
+                "members": 7,
+            },
+        )
+        desired = {
+            "revision": 14,
+            "artifact_id": identity.artifact_id,
+            "identity": identity.as_dict(),
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with (
+                mock.patch.object(
+                    self.web_server.mushroom_worker_registry,
+                    "load_registry",
+                    return_value={"default_executor": "home_assistant", "workers": []},
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "mushroom_local_ha_compute_enabled",
+                    return_value=True,
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "registered_mushroom_worker_statuses",
+                    return_value=[],
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_precompute_control,
+                    "load_desired_state",
+                    return_value=desired,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_runtime,
+                    "load_published_manifest_metadata",
+                    return_value={"fingerprint": identity.runtime_fingerprint},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_worker_jobs,
+                    "load_queue",
+                    return_value={"schema_version": "1.0", "jobs": []},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_receipt_path",
+                    return_value=root / "missing-receipt.json",
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_artifact_path",
+                    return_value=root / "missing.sqlite3",
+                ),
+                mock.patch.object(self.web_server, "MUSHROOM_REBUILD_JOBS", {}),
+            ):
+                workers_summary = self.web_server.predictor_precompute_summary()
+                panel_summary = (
+                    self.web_server.predictor_precompute_control_panel_summary()
+                )
+
+        self.assertEqual("missing", workers_summary["status"])
+        self.assertEqual("missing", panel_summary["status"])
+
+    def test_completed_precompute_job_with_receipt_is_reported_as_active(self) -> None:
+        identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+            runtime_fingerprint="sha256:" + "a" * 64,
+            issue_date="2026-08-31",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={
+                "species": 1,
+                "areas": 1,
+                "days": 7,
+                "versions": 1,
+                "members": 7,
+            },
+        )
+        desired = {
+            "revision": 7,
+            "artifact_id": identity.artifact_id,
+            "identity": identity.as_dict(),
+        }
+        complete_job = {
+            "job_id": "worker_job_complete123",
+            "job_type": "worker_predictor_precompute_v1",
+            "artifact_id": identity.artifact_id,
+            "desired_revision": 7,
+            "status": "complete",
+            "phase": "Predictor precompute completed",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            artifact_path = root / "active.sqlite3"
+            artifact_path.write_bytes(b"verified artifact")
+            manifest = self.web_server.mushroom_predictor_precompute.ArtifactManifest(
+                identity.artifact_id,
+                "sha256:" + "c" * 64,
+                artifact_path.stat().st_size,
+                {},
+            )
+            receipt = self.web_server.mushroom_predictor_precompute_control._receipt(
+                manifest, 7
+            )
+            receipt_path = root / "active-receipt.json"
+            receipt_path.write_text(json.dumps(receipt.as_dict()), encoding="utf-8")
+            with (
+                mock.patch.object(
+                    self.web_server.mushroom_worker_registry,
+                    "load_registry",
+                    return_value={"default_executor": "worker:worker_aaaaaaaa"},
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "registered_mushroom_worker_statuses",
+                    return_value=[],
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_precompute_control,
+                    "load_desired_state",
+                    return_value=desired,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_runtime,
+                    "load_published_manifest_metadata",
+                    return_value={"fingerprint": identity.runtime_fingerprint},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_worker_jobs,
+                    "load_queue",
+                    return_value={"schema_version": "1.0", "jobs": [complete_job]},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_receipt_path",
+                    return_value=receipt_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_artifact_path",
+                    return_value=artifact_path,
+                ),
+                mock.patch.object(self.web_server, "MUSHROOM_REBUILD_JOBS", {}),
+            ):
+                summary = self.web_server.predictor_precompute_summary()
+                panel_summary = self.web_server.predictor_precompute_control_panel_summary()
+
+        self.assertEqual("active", summary["status"])
+        self.assertEqual(identity.artifact_id, summary["artifact_id"])
+        self.assertEqual("complete", summary["active_job_status"])
+        self.assertEqual("active", panel_summary["status"])
 
     def test_precompute_summary_reports_stale_persisted_artifact_as_outdated(self) -> None:
         identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
@@ -9155,6 +9406,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 {"job_id": job_id, "worker_id": "worker_12345678", "claim_token": claim_token},
                 auth_token="",
             )
+            self.web_server.reconcile_mushroom_worker_storage_for_launch.reset_mock()
             finish_status, finished = self.web_server.finish_mushroom_worker_job(
                 {
                     "job_id": job_id,
@@ -9182,6 +9434,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             profile_keys=["altitude_v2/common_idw"],
             triggered_by_job_id=job_id,
         )
+        self.web_server.reconcile_mushroom_worker_storage_for_launch.assert_not_called()
 
     def test_soilgrids_rebuild_reconciliation_promotes_only_unchanged_known_sites(self) -> None:
         jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
@@ -9234,6 +9487,82 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(
             write_report.call_args.args[0],
             data_dir / "diagnostics" / "soilgrids-reconciliation-latest.json",
+        )
+
+    def test_soilgrids_rebuild_coalesces_queue_io_for_current_microareas(self) -> None:
+        jobs_path = Path(self.temp_dir.name) / "mushroom_worker_jobs.json"
+        data_dir = Path(self.temp_dir.name) / "mushroom-data"
+        job_id = "worker_job_soilfast123"
+        source = {"schema_version": "1.0", "areas": [], "micro_areas": []}
+        report = {
+            "duration_ms": 1,
+            "total_micro_areas": 63,
+            "processed_micro_areas": 63,
+            "repaired_micro_areas": 0,
+            "warnings": [],
+        }
+
+        def reconcile(
+            payload: object,
+            cache_root: Path,
+            *,
+            cancel_check: object,
+            progress_callback: object,
+        ) -> tuple[dict[str, object], dict[str, object]]:
+            del cache_root
+            for processed in range(1, 64):
+                self.assertFalse(cancel_check())
+                progress_callback(
+                    {
+                        **report,
+                        "processed_micro_areas": processed,
+                    }
+                )
+            return dict(payload), report
+
+        with (
+            mock.patch.object(
+                self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_known_sites,
+                "load_payload",
+                return_value=source,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_soilgrids,
+                "default_cache_root",
+                return_value=Path(self.temp_dir.name) / "soilgrids",
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_soilgrids_reconciler,
+                "reconcile_payload",
+                side_effect=reconcile,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "candidate_preparation_cancelled",
+                return_value=False,
+            ) as cancel_check,
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
+                "update_candidate_preparation",
+            ) as update_preparation,
+            mock.patch.object(
+                self.web_server.mushroom_paths,
+                "mushroom_data_dir",
+                return_value=data_dir,
+            ),
+            mock.patch.object(self.web_server, "write_json_atomic"),
+        ):
+            result = self.web_server.reconcile_mushroom_soilgrids_for_rebuild(job_id)
+
+        self.assertEqual(63, result["processed_micro_areas"])
+        cancel_check.assert_called_once_with(jobs_path, job_id=job_id)
+        update_preparation.assert_called_once()
+        self.assertEqual(
+            63,
+            update_preparation.call_args.kwargs["telemetry"]["processed_micro_areas"],
         )
 
     def test_soilgrids_reconciliation_preserves_concurrent_known_sites_change(self) -> None:
@@ -9657,6 +9986,114 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(payload["overall_percent"], 10)
         self.assertIn("outside planned coverage", payload["error"])
 
+    def test_remote_training_job_exposes_progress_modal_payload_and_link(self) -> None:
+        job = {
+            "job_id": "worker_job_training_detail",
+            "job_type": "worker_candidate_rebuild",
+            "target_display_name": "M1 Personal",
+            "status": "preparing",
+            "phase": "Reconciling GIS and SoilGrids",
+            "message": "Preparing immutable training inputs.",
+            "overall_percent": 2,
+            "created_at": "2026-08-31T09:30:25+00:00",
+            "started_at": "2026-08-31T09:30:30+00:00",
+        }
+        with mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "get_job",
+            return_value=job,
+        ):
+            payload = self.web_server.get_mushroom_rebuild_job_status(
+                "worker_job_training_detail"
+            )
+
+        self.assertIsNotNone(payload)
+        self.assertEqual("worker_candidate_rebuild", payload["job_type"])
+        self.assertEqual("preparing", payload["status"])
+        self.assertEqual(2, payload["overall_percent"])
+        rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(
+            [{**job, "worker_display_name": "M1 Personal", "elapsed": "43s"}]
+        )
+        self.assertIn("?rebuild_job=worker_job_training_detail", rendered)
+
+    def test_remote_precompute_progress_has_clear_hierarchy(self) -> None:
+        job = {
+            "job_id": "worker_job_precompute_progress",
+            "job_type": "worker_predictor_precompute_v1",
+            "target_display_name": "M1 Personal",
+            "status": "running",
+            "phase": "Calculating weekly Predictor artifact",
+            "message": (
+                "20.88/143: query:amanita_caesarea:breda · "
+                "Building weekly matrix: Computing models"
+            ),
+            "overall_percent": 19,
+            "created_at": "2026-08-31T00:25:10+00:00",
+            "started_at": "2026-08-31T00:25:16+00:00",
+        }
+        with mock.patch.object(
+            self.web_server.mushroom_worker_jobs,
+            "get_job",
+            return_value=job,
+        ):
+            payload = self.web_server.get_mushroom_rebuild_job_status(
+                "worker_job_precompute_progress"
+            )
+
+        self.assertIsNotNone(payload)
+        self.assertEqual(payload["progress_kind"], "predictor_precompute")
+        self.assertEqual(payload["overall_percent"], 19)
+        self.assertEqual(payload["phase_index"], 1)
+        self.assertEqual(payload["stage_percent"], 14.6)
+        self.assertEqual(payload["scientific_done"], "20.88")
+        self.assertEqual(payload["scientific_total"], 143)
+        self.assertEqual(payload["scientific_percent"], 14.6)
+        self.assertEqual(payload["trace_view"], "Query date")
+        self.assertEqual(payload["trace_species"], "Amanita caesarea")
+        self.assertEqual(payload["trace_area"], "Breda")
+        self.assertNotIn("query:", payload["message"])
+        self.assertIn("query:amanita_caesarea:breda", payload["technical_message"])
+
+        modal = self.web_server.render_mushroom_rebuild_progress_modal(
+            "worker_job_precompute_progress", "./workers"
+        )
+        self.assertIn("mushroom-precompute-progress-detail", modal)
+        self.assertIn("data-precompute-global-label", modal)
+        self.assertIn("job.stage_indeterminate ? null : job.stage_percent", modal)
+        self.assertIn("fields.phaseElapsedMetric.hidden = true", modal)
+        self.assertIn("fields.phaseEtaMetric.hidden = true", modal)
+
+    def test_local_precompute_progress_uses_the_same_clear_hierarchy(self) -> None:
+        job = {
+            "job_id": "local_precompute_progress",
+            "job_type": "local_predictor_precompute",
+            "worker_display_name": "Home Assistant local",
+            "status": "running",
+            "phase": "Calculating weekly Predictor artifact",
+            "phase_index": 1,
+            "phase_count": 2,
+            "phase_percent": 12,
+            "overall_percent": 12,
+            "message": (
+                "20.88/143: query:amanita_caesarea:breda · "
+                "Building weekly matrix: Computing models"
+            ),
+            "started_at_ts": 100.0,
+            "phase_started_at_ts": 100.0,
+        }
+        with mock.patch.object(self.web_server.time, "time", return_value=110.0):
+            payload = self.web_server.mushroom_rebuild_job_payload(job)
+
+        self.assertEqual(payload["title"], "Weekly Predictor precompute")
+        self.assertEqual(payload["progress_kind"], "predictor_precompute")
+        self.assertEqual(payload["phase_count"], 2)
+        self.assertEqual(payload["stage_percent"], 14.6)
+        self.assertEqual(payload["scientific_done"], "20.88")
+        self.assertEqual(payload["scientific_total"], 143)
+        self.assertEqual(payload["trace_view"], "Query date")
+        self.assertNotIn("query:", payload["message"])
+        self.assertIn("query:amanita_caesarea:breda", payload["technical_message"])
+
     def test_workers_recent_jobs_show_local_date_time_and_duration(self) -> None:
         jobs_path = Path(self.temp_dir.name) / "worker-jobs.json"
         with mock.patch.object(self.web_server, "mushroom_worker_jobs_path", return_value=jobs_path):
@@ -9696,13 +10133,17 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 jobs = self.web_server.mushroom_workers_recent_jobs()
 
         self.assertEqual(jobs[0]["date_time"], "20/07/2026 00:20:57")
-        self.assertEqual(jobs[0]["elapsed"], "47s")
-        self.assertEqual(jobs[0]["elapsed_seconds"], 47)
+        self.assertEqual(jobs[0]["elapsed"], "48s")
+        self.assertEqual(jobs[0]["elapsed_seconds"], 48)
+        self.assertEqual(jobs[0]["preparation_seconds"], 1)
+        self.assertEqual(jobs[0]["execution_elapsed_seconds"], 47)
         self.assertGreater(jobs[0]["sort_timestamp"], 0)
         rendered = self.web_server.mushroom_workers_ui.render_recent_jobs(jobs)
         self.assertIn("Date and time", rendered)
         self.assertIn("20/07/2026 00:20:57", rendered)
-        self.assertIn("47s", rendered)
+        self.assertIn("48s", rendered)
+        self.assertIn("Before execution 1s", rendered)
+        self.assertIn("Execution 47s", rendered)
         self.assertIn('data-sortable-worker-jobs', rendered)
         self.assertEqual(rendered.count('data-worker-sort-column='), 10)
         self.assertIn('data-worker-sort-column="1" data-worker-sort-type="time"', rendered)
@@ -10141,6 +10582,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ) as start_multiversion, mock.patch.object(
             self.web_server, "discard_mushroom_worker_input_bundle"
         ):
+            self.web_server.reconcile_mushroom_worker_storage_for_launch.reset_mock()
             status, response = self.web_server.finish_mushroom_worker_job(
                 {
                     "job_id": job_id,
@@ -10164,6 +10606,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             profile_keys=["altitude_v2/common_idw"],
             triggered_by_job_id=job_id,
         )
+        self.web_server.reconcile_mushroom_worker_storage_for_launch.assert_not_called()
 
     def test_full_update_backend_rejects_promotion_before_linked_v2_v6_completes(self) -> None:
         training = {

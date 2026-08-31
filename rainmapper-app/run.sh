@@ -93,6 +93,7 @@ PY
   print_blue "Maps path: ${SHARE_ROOT}/Plots"
   print_blue "Mobile data path: ${SHARE_ROOT}/PublicData"
   print_blue "Predictor precompute path: ${RAINMAPPER_PREDICTOR_PRECOMPUTE_DIR:-${RAINMAPPER_MEDIA_ROOT:-/media/rainmapper}/predictor_precompute}"
+  print_blue "Reconstructible mushroom data path: ${RAINMAPPER_MUSHROOM_DERIVED_DATA_DIR:-${RAINMAPPER_MEDIA_ROOT:-/media/rainmapper}/mushroom-derived}"
   print_blue ""
   print_blue "-------------------------------------------------------------------------------"
   print_green "Please share the above information when looking for help or support,"

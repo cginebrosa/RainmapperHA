@@ -945,6 +945,7 @@ def serve(
                 runtime_state[lane] = {"status": status, "active_job_id": job_id}
 
         def run_claimed_job(job: dict[str, Any], lane: str) -> None:
+            job_thread_started = time.perf_counter()
             job_id = str(job.get("job_id", ""))
             claim_token = str(job.get("claim_token", ""))
             started = False
@@ -1159,6 +1160,7 @@ def serve(
                     )
                     return
                 if job_type == "worker_predictor_precompute_v1":
+                    precompute_started = time.perf_counter()
                     precompute_job_telemetry = _CoalescedJobTelemetry(
                         telemetry_update,
                         base_payload={
@@ -1168,6 +1170,19 @@ def serve(
                         },
                         cancel_message="Predictor precompute was cancelled or superseded.",
                     )
+                    print(
+                        json.dumps(
+                            {
+                                "status": "predictor_precompute_phase",
+                                "service": "rainmapper-worker",
+                                "job_id": job_id,
+                                "phase": "selection_sync",
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
+                    )
+                    selection_sync_started = time.perf_counter()
                     operational_selections = with_transport_retry(
                         lambda: download_predictor_precompute_operational_selections(
                             ha_url,
@@ -1176,6 +1191,22 @@ def serve(
                             claim_token=claim_token,
                             token=token,
                         )
+                    )
+                    selection_sync_seconds = round(
+                        time.perf_counter() - selection_sync_started, 6
+                    )
+                    print(
+                        json.dumps(
+                            {
+                                "status": "predictor_precompute_phase",
+                                "service": "rainmapper-worker",
+                                "job_id": job_id,
+                                "phase": "runtime_sync",
+                                "selection_sync_seconds": selection_sync_seconds,
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
                     )
                     runtime_sync_started = time.perf_counter()
                     runtime_root, _runtime_sync = with_transport_retry(
@@ -1188,6 +1219,9 @@ def serve(
                             token=token,
                         )
                     )
+                    runtime_sync_seconds = round(
+                        time.perf_counter() - runtime_sync_started, 6
+                    )
                     artifact_identity = mushroom_predictor_precompute.ArtifactIdentity.from_dict(
                         job.get("artifact_identity")
                     )
@@ -1195,6 +1229,7 @@ def serve(
                     fingerprint = str(manifest["fingerprint"])
                     if fingerprint != artifact_identity.runtime_fingerprint:
                         raise ValueError("Precompute runtime does not match artifact identity.")
+                    service_setup_started = time.perf_counter()
                     with predictor_services_lock:
                         if fingerprint not in predictor_services:
                             predictor_services[fingerprint] = PredictorService(
@@ -1202,15 +1237,22 @@ def serve(
                                 runtime_fingerprint=fingerprint,
                             )
                         predictor_service = predictor_services[fingerprint]
+                    service_setup_seconds = round(
+                        time.perf_counter() - service_setup_started, 6
+                    )
                     staging_dir = worker_data_dir.resolve() / "predictor_precompute" / "staging"
                     staging_dir.mkdir(parents=True, exist_ok=True)
                     staged_artifact = staging_dir / f"{job_id}.sqlite3"
-                    precompute_telemetry: dict[str, Any] = {
-                        "runtime_sync_seconds": round(
-                            time.perf_counter() - runtime_sync_started, 6
-                        )
+                    worker_phase_timings: dict[str, float] = {
+                        "selection_sync_seconds": selection_sync_seconds,
+                        "service_setup_seconds": service_setup_seconds,
+                        "preparation_seconds": round(
+                            time.perf_counter() - precompute_started, 6
+                        ),
                     }
-
+                    precompute_telemetry: dict[str, Any] = {
+                        "runtime_sync_seconds": runtime_sync_seconds,
+                    }
                     def precompute_control() -> None:
                         precompute_job_telemetry.poll_control()
 
@@ -1240,6 +1282,20 @@ def serve(
                             "precompute_milestone": "calculation_started",
                         },
                     )
+                    print(
+                        json.dumps(
+                            {
+                                "status": "predictor_precompute_phase",
+                                "service": "rainmapper-worker",
+                                "job_id": job_id,
+                                "phase": "calculation",
+                                **worker_phase_timings,
+                                **precompute_telemetry,
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
+                    )
                     calculation_started = time.perf_counter()
                     build = mushroom_predictor_precompute.build_weekly_artifact(
                         staged_artifact,
@@ -1252,6 +1308,21 @@ def serve(
                     precompute_job_telemetry.flush()
                     precompute_telemetry["calculation_seconds"] = round(
                         time.perf_counter() - calculation_started, 6
+                    )
+                    print(
+                        json.dumps(
+                            {
+                                "status": "predictor_precompute_phase",
+                                "service": "rainmapper-worker",
+                                "job_id": job_id,
+                                "phase": "upload",
+                                "calculation_seconds": precompute_telemetry[
+                                    "calculation_seconds"
+                                ],
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
                     )
                     job_update(
                         "progress",
@@ -1321,6 +1392,24 @@ def serve(
                             ),
                             "worker_activation_finished_at": mushroom_worker_jobs.utc_now(),
                         }
+                    )
+                    worker_phase_timings["worker_total_seconds"] = round(
+                        time.perf_counter() - precompute_started, 6
+                    )
+                    print(
+                        json.dumps(
+                            {
+                                "status": "predictor_precompute_complete",
+                                "service": "rainmapper-worker",
+                                "job_id": job_id,
+                                "precompute_telemetry": {
+                                    **worker_phase_timings,
+                                    **precompute_telemetry,
+                                },
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
                     )
                     staged_artifact.unlink(missing_ok=True)
                     job_update(
@@ -2202,10 +2291,31 @@ def serve(
                             ),
                             flush=True,
                         )
+                print(
+                    json.dumps(
+                        {
+                            "status": "job_thread_released",
+                            "service": "rainmapper-worker",
+                            "job_id": job_id,
+                            "lane": lane,
+                            "finish_acknowledged": finish_acknowledged,
+                            "thread_elapsed_seconds": round(
+                                time.perf_counter() - job_thread_started, 6
+                            ),
+                        },
+                        ensure_ascii=False,
+                    ),
+                    flush=True,
+                )
                 set_runtime(lane, "idle")
 
         def heartbeat_loop() -> None:
             last_error = ""
+            empty_claim_polls = {"foreground": 0, "background": 0}
+            previous_claim_at = {
+                "foreground": time.perf_counter(),
+                "background": time.perf_counter(),
+            }
             while not stop_event.is_set():
                 try:
                     with runtime_lock:
@@ -2280,7 +2390,10 @@ def serve(
                             ha_url, identity["worker_id"], token=token, lane=lane
                         )
                         if claimed_job is None or stop_event.is_set():
+                            if claimed_job is None:
+                                empty_claim_polls[lane] += 1
                             continue
+                        claimed_at = time.perf_counter()
                         set_runtime(lane, "busy", str(claimed_job.get("job_id", "")))
                         print(
                             json.dumps(
@@ -2290,11 +2403,17 @@ def serve(
                                     "job_id": claimed_job.get("job_id", ""),
                                     "job_type": claimed_job.get("job_type", ""),
                                     "lane": lane,
+                                    "empty_claim_polls_before_claim": empty_claim_polls[lane],
+                                    "seconds_since_previous_claim": round(
+                                        claimed_at - previous_claim_at[lane], 6
+                                    ),
                                 },
                                 ensure_ascii=False,
                             ),
                             flush=True,
                         )
+                        empty_claim_polls[lane] = 0
+                        previous_claim_at[lane] = claimed_at
                         active_job_threads[lane] = threading.Thread(
                             target=run_claimed_job,
                             args=(claimed_job, lane),

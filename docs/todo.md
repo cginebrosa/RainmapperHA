@@ -35,8 +35,14 @@ Especificación vinculante:
   mostrar duración integral desde la pulsación/preparación en HA hasta promoción,
   espera/claim, duración del job remoto y duración de fase como magnitudes
   separadas; persistir el desglose de SoilGrids, GIS, bundle, worker,
-  verificación y transición entre jobs. La duración actual pierde la preparación
-  al crear/reclamar el job remoto y no suma las pausas entre jobs.
+  verificación y transición entre jobs. Ya están separados `Antes de ejecutar`
+  y `Ejecución`, y el precálculo tiene desglose de selección, runtime, servicio,
+  cálculo, transferencia y activaciones. Siguen pendientes SoilGrids/GIS/bundle
+  y las pausas entre jobs de la cadena completa.
+- [x] Evitar el coste repetido entre trabajos encadenados: coalescer el acceso
+  a la cola durante SoilGrids y no ejecutar una reconciliación completa entre
+  reconstrucción, ML v0 y V2--V6 cuando el sucesor ya quedó preparado. La
+  mejora temporal real en HA queda pendiente de medir tras desplegar.
 - [ ] Sustituir el porcentaje por fase presentado como total por un progreso
   global monótono. Caso real: V2–V6 pasó de `81 %` en reutilización de inputs a
   `20 %` al construir V3 y luego a `37 %` al construir V5; mientras no se
@@ -152,11 +158,18 @@ Especificación vinculante:
 - [x] Instalar HA `0.2.286` y lanzar el E2E real con worker `1.0.33`. La
   ejecución alcanzó `20.88/143` y 19 % sin repetir el rechazo de fecha que antes
   aparecía al 11 %.
+- [x] Publicar HA `0.2.287` y reconstruir el worker privado como `1.0.34` con
+  jerarquía clara de progreso, feedback/enlaces de jobs, tiempos de cola y
+  ejecución, almacenamiento derivado en `/media`, reconciliación encadenada
+  acotada e instrumentación local. Smoke: 1.199 pruebas; índice multiarch
+  `sha256:e72606a9fe95667252f45c864a921989bfa2e95c14d1adff5a1e26fb2d79569c`.
+- [ ] Instalar HA `0.2.287` y validar con worker `1.0.34` una cadena real y un
+  precálculo instrumentado; no confundir tiempo anterior al claim con cálculo.
 - [ ] Completar ese E2E: medir preparación/cálculo/telemetría/transferencia y
   activación, confirmar SQLite en `/media/rainmapper/predictor_precompute`, hits
   servidos por HA, fallback con selección explícita de ejecutor y ausencia del
   SQLite en el backup.
-- [ ] Rediseñar el modal del precálculo para distinguir con lenguaje claro el
+- [x] Rediseñar el modal del precálculo para distinguir con lenguaje claro el
   avance global, la etapa 1/3–3/3 y el subpaso científico. El modal actual
   mezcla fracción decimal sobre 143, dos porcentajes, especie/área, fase y dos
   ETA sin explicar su relación; conservar trazabilidad sin exponer jerga como
@@ -209,6 +222,12 @@ Especificación vinculante:
   `/media/rainmapper/runtime-cache/predictor-runtime-archives`, con permisos
   privados, configuración explícita, fallback local seguro y sin retorno
   silencioso a `/share`.
+- [x] Implementado localmente: separar fuentes y datos propios en `/share` de
+  artefactos reconstruibles en `/media/rainmapper/mushroom-derived`. Incluye
+  modelos, reconstrucción, bundles, resultados privados y cuerpos pesados de
+  Predictor; transición verificada sin borrado y arranque recuperable con
+  `/media` vacío. La retirada de copias legacy de `/share` sigue requiriendo
+  autorización posterior.
 - [x] Implementado localmente: auditor/reconciliador idempotente con modo `dry-run` y modo
   `apply` separado para bundles, resultados privados, staging, huérfanos y
   trabajos terminales; conservar resumen y motivo de cada decisión.

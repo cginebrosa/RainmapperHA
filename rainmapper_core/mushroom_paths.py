@@ -55,6 +55,72 @@ def mushroom_data_dir() -> Path:
     return share_root() / "mushroom-data"
 
 
+def media_root() -> Path:
+    configured = os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip()
+    if configured:
+        return Path(configured)
+    return Path("/media/rainmapper")
+
+
+def derived_storage_enabled() -> bool:
+    """Return whether HA media storage is explicitly configured or mounted."""
+    return bool(os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip()) or Path(
+        "/media"
+    ).exists()
+
+
+def mushroom_derived_data_dir() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_DERIVED_DATA_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    if derived_storage_enabled():
+        return media_root() / "mushroom-derived"
+    # Preserve repository tooling outside HA, where /media is not mounted.
+    return mushroom_data_dir()
+
+
+def mushroom_rebuild_artifacts_dir() -> Path:
+    configured = os.environ.get(
+        "RAINMAPPER_MUSHROOM_REBUILD_ARTIFACTS_DIR", ""
+    ).strip()
+    if configured:
+        return Path(configured)
+    if not derived_storage_enabled():
+        return mushroom_data_dir()
+    return mushroom_derived_data_dir() / "mushroom-artifacts"
+
+
+def mushroom_worker_storage_dir() -> Path:
+    configured = os.environ.get("RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR", "").strip()
+    if configured:
+        return Path(configured)
+    return mushroom_derived_data_dir() / "worker"
+
+
+def mushroom_worker_input_bundles_dir() -> Path:
+    if not derived_storage_enabled() and not os.environ.get(
+        "RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR", ""
+    ).strip():
+        return mushroom_data_dir() / ".worker-input-bundles"
+    return mushroom_worker_storage_dir() / "input-bundles"
+
+
+def mushroom_worker_candidate_results_dir() -> Path:
+    if not derived_storage_enabled() and not os.environ.get(
+        "RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR", ""
+    ).strip():
+        return mushroom_data_dir() / ".worker-candidate-results"
+    return mushroom_worker_storage_dir() / "candidate-results"
+
+
+def mushroom_worker_predictor_results_dir() -> Path:
+    if not derived_storage_enabled() and not os.environ.get(
+        "RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR", ""
+    ).strip():
+        return mushroom_data_dir() / ".worker-predictor-results"
+    return mushroom_worker_storage_dir() / "predictor-results"
+
+
 def mushroom_data_file(file_name: str) -> Path:
     return mushroom_data_dir() / file_name
 
@@ -127,63 +193,63 @@ def mushroom_gis_reconstruction_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_GIS_RECONSTRUCTION_PATH", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_file("mushroom_gis_observation_reconstruction.json")
+    return mushroom_rebuild_artifacts_dir() / "mushroom_gis_observation_reconstruction.json"
 
 
 def mushroom_weather_features_json_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_WEATHER_FEATURES_PATH", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_file("mushroom_observations_weather_features.json")
+    return mushroom_rebuild_artifacts_dir() / "mushroom_observations_weather_features.json"
 
 
 def mushroom_weather_features_csv_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_WEATHER_FEATURES_CSV_PATH", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_file("mushroom_observations_weather_features.csv")
+    return mushroom_rebuild_artifacts_dir() / "mushroom_observations_weather_features.csv"
 
 
 def mushroom_weather_report_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_WEATHER_REPORT_PATH", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_report_file("mushroom_observations_weather_features.md")
+    return mushroom_rebuild_artifacts_dir() / "reports" / "mushroom_observations_weather_features.md"
 
 
 def mushroom_observation_features_json_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATION_FEATURES_PATH", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_file("mushroom_observation_features_v0.json")
+    return mushroom_rebuild_artifacts_dir() / "mushroom_observation_features_v0.json"
 
 
 def mushroom_observation_features_csv_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATION_FEATURES_CSV_PATH", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_file("mushroom_observation_features_v0.csv")
+    return mushroom_rebuild_artifacts_dir() / "mushroom_observation_features_v0.csv"
 
 
 def mushroom_observation_features_report_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_OBSERVATION_FEATURES_REPORT_PATH", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_report_file("mushroom_observation_features_v0.md")
+    return mushroom_rebuild_artifacts_dir() / "reports" / "mushroom_observation_features_v0.md"
 
 
 def mushroom_learned_model_json_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_LEARNED_MODEL_PATH", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_file("mushroom_model_v0.json")
+    return mushroom_rebuild_artifacts_dir() / "mushroom_model_v0.json"
 
 
 def mushroom_learned_model_report_path() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_LEARNED_MODEL_REPORT_PATH", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_report_file("mushroom_model_v0.md")
+    return mushroom_rebuild_artifacts_dir() / "reports" / "mushroom_model_v0.md"
 
 
 def mushroom_known_sites_path() -> Path:
@@ -207,7 +273,7 @@ def mushroom_ml_models_dir() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_MODELS_DIR", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_dir() / "ml_models"
+    return mushroom_derived_data_dir() / "ml_models"
 
 
 def predictor_runtime_archive_preferred_dir() -> Path:
@@ -313,7 +379,7 @@ def mushroom_ml_version_archive_dir() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_VERSION_ARCHIVE_DIR", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_data_dir() / "ml_version_archive"
+    return mushroom_derived_data_dir() / "ml_version_archive"
 
 
 def mushroom_predictor_precompute_dir() -> Path:
@@ -321,13 +387,9 @@ def mushroom_predictor_precompute_dir() -> Path:
     if configured:
         return Path(configured)
     configured_media_root = os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip()
-    media_root = (
-        Path(configured_media_root)
-        if configured_media_root
-        else Path("/media/rainmapper")
-    )
-    if configured_media_root or media_root.parent.exists():
-        return media_root / "predictor_precompute"
+    resolved_media_root = media_root()
+    if configured_media_root or resolved_media_root.parent.exists():
+        return resolved_media_root / "predictor_precompute"
     return mushroom_data_dir() / "predictor_precompute"
 
 

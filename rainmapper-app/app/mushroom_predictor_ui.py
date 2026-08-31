@@ -239,14 +239,31 @@ def predictor_cache_info(species_id: str = "") -> dict[str, int | bool]:
     }
 
 
-def predictor_service() -> PredictorService:
-    """Return the shared local service without executing a prediction."""
+def predictor_service(*, expected_runtime_fingerprint: str = "") -> PredictorService:
+    """Return the shared local service for the requested immutable runtime."""
     global _predictor_service  # noqa: PLW0603
     with _predictor_cache_lock:
+        if (
+            _predictor_service is not None
+            and expected_runtime_fingerprint
+            and _predictor_service.runtime_fingerprint
+            != expected_runtime_fingerprint
+        ):
+            _predictor_cache.clear()
+            _predictor_service = None
+            invalidate_weather_stations_cache()
         if _predictor_service is None:
             manifest, _sources, _publication_status = (
                 mushroom_predictor_runtime.load_or_publish_manifest()
             )
+            runtime_fingerprint = str(manifest["fingerprint"])
+            if (
+                expected_runtime_fingerprint
+                and runtime_fingerprint != expected_runtime_fingerprint
+            ):
+                raise ValueError(
+                    "Live Predictor runtime does not match the planned artifact identity."
+                )
             _predictor_service = PredictorService(
                 models_dir=mushroom_paths.mushroom_ml_models_dir(),
                 weather_data_dir=mushroom_paths.weather_data_dir(),
@@ -255,7 +272,7 @@ def predictor_service() -> PredictorService:
                 profiles_path=mushroom_paths.mushroom_profiles_path(),
                 version_registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
                 stations_file_path=Path("/app/stations.txt"),
-                runtime_fingerprint=str(manifest["fingerprint"]),
+                runtime_fingerprint=runtime_fingerprint,
             )
         return _predictor_service
 
@@ -2516,7 +2533,7 @@ def _render_query_result(
             )
             cls = "pred-week-cell pred-week-active" if is_active else "pred-week-cell"
             week_cells += f"""
-<a class="{cls} {_status_cls(status)}" href="{html.escape(href)}">
+<a class="{cls} {_status_cls(status)}" href="{html.escape(href)}" data-predictor-direct-run>
   <small>{day_name} {current_date.day}/{current_date.month}</small>
   <span>{_status_dot(status)}</span>
   <small>{html.escape(_compact_comparison_range(current_comparison))}</small>

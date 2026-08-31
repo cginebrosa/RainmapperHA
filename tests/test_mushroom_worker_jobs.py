@@ -2,8 +2,10 @@ import tempfile
 import unittest
 import json
 import hashlib
+import os
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest import mock
 
 from rainmapper_core import mushroom_worker_jobs
 from rainmapper_core.mushroom_predictor_precompute import ArtifactIdentity, RuntimeVersionIdentity
@@ -344,6 +346,108 @@ class MushroomWorkerJobsTests(unittest.TestCase):
         self.assertNotIn("response", stored["result"])
         self.assertIn("predictor_result_ref", stored)
         self.assertEqual(len(hydrated["result"]["response"]["data"]["padding"]), 2 * 1024 * 1024)
+
+    def test_predictor_result_body_uses_media_while_queue_stays_in_share(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "share/mushroom-data/jobs.json"
+            media = root / "media"
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "RAINMAPPER_SHARE_ROOT": str(root / "share"),
+                    "RAINMAPPER_MEDIA_ROOT": str(media),
+                },
+            ):
+                mushroom_worker_jobs.create_predictor_job(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    worker_display_name="Worker A",
+                    request=self.predictor_request(),
+                    runtime_manifest=self.predictor_manifest(),
+                    job_id="worker_job_mediaresult",
+                )
+                mushroom_worker_jobs.claim_next(
+                    path, worker_id="worker_aaaaaaaa", claim_token="claim-secret"
+                )
+                mushroom_worker_jobs.start_job(
+                    path,
+                    job_id="worker_job_mediaresult",
+                    worker_id="worker_aaaaaaaa",
+                    claim_token="claim-secret",
+                )
+                mushroom_worker_jobs.finish_job(
+                    path,
+                    job_id="worker_job_mediaresult",
+                    worker_id="worker_aaaaaaaa",
+                    claim_token="claim-secret",
+                    status="complete",
+                    result={"response": self.predictor_response(), "cold": False},
+                )
+                hydrated = mushroom_worker_jobs.get_job(
+                    path, job_id="worker_job_mediaresult"
+                )
+
+            self.assertTrue(path.is_file())
+            self.assertTrue(
+                (
+                    media
+                    / "mushroom-derived/worker/predictor-results"
+                    / "worker_job_mediaresult.json"
+                ).is_file()
+            )
+            self.assertFalse(
+                (path.parent / ".worker-predictor-results/worker_job_mediaresult.json").exists()
+            )
+            self.assertIn("response", hydrated["result"])
+
+    def test_media_layout_can_hydrate_a_legacy_share_predictor_result(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "share/mushroom-data/jobs.json"
+            with mock.patch.dict(
+                os.environ,
+                {"RAINMAPPER_SHARE_ROOT": str(root / "share")},
+            ):
+                os.environ.pop("RAINMAPPER_MEDIA_ROOT", None)
+                mushroom_worker_jobs.create_predictor_job(
+                    path,
+                    worker_id="worker_aaaaaaaa",
+                    worker_display_name="Worker A",
+                    request=self.predictor_request(),
+                    runtime_manifest=self.predictor_manifest(),
+                    job_id="worker_job_legacyresult",
+                )
+                mushroom_worker_jobs.claim_next(
+                    path, worker_id="worker_aaaaaaaa", claim_token="claim-secret"
+                )
+                mushroom_worker_jobs.start_job(
+                    path,
+                    job_id="worker_job_legacyresult",
+                    worker_id="worker_aaaaaaaa",
+                    claim_token="claim-secret",
+                )
+                mushroom_worker_jobs.finish_job(
+                    path,
+                    job_id="worker_job_legacyresult",
+                    worker_id="worker_aaaaaaaa",
+                    claim_token="claim-secret",
+                    status="complete",
+                    result={"response": self.predictor_response(), "cold": False},
+                )
+
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "RAINMAPPER_SHARE_ROOT": str(root / "share"),
+                    "RAINMAPPER_MEDIA_ROOT": str(root / "media"),
+                },
+            ):
+                hydrated = mushroom_worker_jobs.get_job(
+                    path, job_id="worker_job_legacyresult"
+                )
+
+            self.assertIn("response", hydrated["result"])
 
     def test_exact_predictor_result_can_be_reused_only_for_same_worker_request_and_runtime(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

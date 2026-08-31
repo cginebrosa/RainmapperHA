@@ -47,6 +47,7 @@ from rainmapper_core import mushroom_observation_context
 from rainmapper_core import mushroom_observation_features
 from rainmapper_core import mushroom_observations
 from rainmapper_core import mushroom_paths
+from rainmapper_core import mushroom_derived_storage
 from rainmapper_core import mushroom_soilgrids
 from rainmapper_core import mushroom_soilgrids_reconciler
 from rainmapper_core import mushroom_rebuild_pipeline
@@ -228,6 +229,7 @@ MUSHROOM_WORKER_HEARTBEATS: dict[str, dict[str, object]] = {}
 MUSHROOM_PREDICTOR_MONITORS: dict[str, runtime_diagnostics.OperationMonitor] = {}
 MUSHROOM_WORKER_HEARTBEAT_INTERVAL_SECONDS = 5
 MUSHROOM_WORKER_STALE_SECONDS = 15
+MUSHROOM_WORKER_PREPARATION_IO_INTERVAL_SECONDS = 10.0
 MUSHROOM_WORKER_PAIRINGS: dict[str, dict[str, object]] = {}
 MUSHROOM_WORKER_PAIRING_TTL_SECONDS = 600
 
@@ -4123,6 +4125,51 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     .mushroom-progress-metrics em {{
       color: var(--muted);
       font-style: normal;
+    }}
+    .mushroom-precompute-progress-detail {{
+      background: rgba(23, 33, 43, .72);
+      border: 1px solid rgba(86, 111, 135, .42);
+      border-radius: 8px;
+      margin-top: 14px;
+      padding: 12px;
+    }}
+    .mushroom-precompute-progress-detail[hidden] {{
+      display: none;
+    }}
+    .mushroom-precompute-scientific-head {{
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      margin-bottom: 7px;
+    }}
+    .mushroom-precompute-progress-detail > progress {{
+      width: 100%;
+    }}
+    .mushroom-precompute-progress-detail > strong {{
+      display: block;
+      margin-top: 5px;
+    }}
+    .mushroom-precompute-trace {{
+      border-top: 1px solid rgba(86, 111, 135, .32);
+      margin-top: 11px;
+      padding-top: 10px;
+    }}
+    .mushroom-precompute-trace > div {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      margin-top: 5px;
+    }}
+    .mushroom-precompute-trace em {{
+      color: var(--muted);
+      font-style: normal;
+    }}
+    .mushroom-precompute-technical {{
+      color: var(--muted);
+      margin-top: 10px;
+    }}
+    .mushroom-precompute-technical p {{
+      overflow-wrap: anywhere;
     }}
     .mushroom-progress-actions {{
       display: flex;
@@ -11750,11 +11797,11 @@ def mushroom_worker_credentials_path() -> Path:
 
 
 def mushroom_worker_input_bundles_path() -> Path:
-    return mushroom_paths.mushroom_data_dir() / ".worker-input-bundles"
+    return mushroom_paths.mushroom_worker_input_bundles_dir()
 
 
 def mushroom_worker_candidate_results_path() -> Path:
-    return mushroom_paths.mushroom_data_dir() / ".worker-candidate-results"
+    return mushroom_paths.mushroom_worker_candidate_results_dir()
 
 
 def storage_reconciliation_report_path() -> Path:
@@ -12981,7 +13028,7 @@ def predictor_precompute_summary() -> dict[str, object]:
         if matching_job is not None:
             active_status = str(matching_job.get("status", ""))
             active_phase = str(matching_job.get("phase", ""))
-            display_status = "queued"
+            display_status = "missing" if active_status == "complete" else "queued"
             if active_status == "running":
                 display_status = (
                     "publishing"
@@ -13002,8 +13049,13 @@ def predictor_precompute_summary() -> dict[str, object]:
                     "active_job_error": str(matching_job.get("error", "")),
                 }
             )
-        if desired is not None and matching_job is None:
-            summary["status"] = "queued" if desired_is_current else "missing"
+        if desired is not None:
+            if matching_job is None:
+                summary["status"] = (
+                    "queued"
+                    if desired_is_current and not local_precompute_executor
+                    else "missing"
+                )
             receipt_path = mushroom_paths.mushroom_predictor_precompute_receipt_path()
             artifact_path = mushroom_paths.mushroom_predictor_precompute_artifact_path()
             if receipt_path.is_file() and artifact_path.is_file():
@@ -13046,10 +13098,14 @@ def predictor_precompute_control_panel_summary() -> dict[str, object]:
             mushroom_worker_registry_path()
         )
         default_executor = str(registry.get("default_executor", "home_assistant"))
+        local_precompute_executor = bool(
+            default_executor == "home_assistant"
+            and mushroom_local_ha_compute_enabled()
+        )
         if default_executor == "home_assistant":
             summary["worker"] = (
                 "Home Assistant local"
-                if mushroom_local_ha_compute_enabled()
+                if local_precompute_executor
                 else "Worker predeterminado pendiente"
             )
         else:
@@ -13090,7 +13146,13 @@ def predictor_precompute_control_panel_summary() -> dict[str, object]:
         )
         summary.update(
             {
-                "status": "pending" if desired_is_current else "outdated",
+                "status": (
+                    "pending"
+                    if desired_is_current and not local_precompute_executor
+                    else "missing"
+                    if desired_is_current
+                    else "outdated"
+                ),
                 "artifact_id": str(desired.get("artifact_id", "")),
                 "coverage_start": str(desired.get("coverage_start", "")),
                 "coverage_end": str(desired.get("coverage_end", "")),
@@ -13119,6 +13181,8 @@ def predictor_precompute_control_panel_summary() -> dict[str, object]:
                         if job_status == "failed"
                         else "cancelled"
                         if job_status == "cancelled"
+                        else "missing"
+                        if job_status == "complete"
                         else "running"
                     ),
                     "job_id": str(matching_job.get("job_id", "")),
@@ -13284,7 +13348,9 @@ def start_local_mushroom_predictor_precompute(
             build = mushroom_predictor_precompute.build_weekly_artifact(
                 staged_artifact,
                 identity=identity,
-                predictor_service=mushroom_predictor_ui.predictor_service(),
+                predictor_service=mushroom_predictor_ui.predictor_service(
+                    expected_runtime_fingerprint=identity.runtime_fingerprint
+                ),
                 operational_selections=operational_selections,
                 progress=progress,
                 cancel_check=cancelled,
@@ -13970,13 +14036,27 @@ def reconcile_mushroom_soilgrids(
 def reconcile_mushroom_soilgrids_for_rebuild(job_id: str) -> dict[str, object]:
     """Best-effort repair before an external-worker snapshot becomes immutable."""
     queue_path = mushroom_worker_jobs_path()
-    last_update = 0.0
+    last_update = time.monotonic()
     last_processed = -1
+    last_cancel_check = 0.0
+    cancel_requested = False
 
     def cancelled() -> bool:
-        return mushroom_worker_jobs.candidate_preparation_cancelled(
+        nonlocal last_cancel_check, cancel_requested
+        now = time.monotonic()
+        if (
+            last_cancel_check
+            and now - last_cancel_check
+            < MUSHROOM_WORKER_PREPARATION_IO_INTERVAL_SECONDS
+        ):
+            return cancel_requested
+        cancel_requested = mushroom_worker_jobs.candidate_preparation_cancelled(
             queue_path, job_id=job_id
         )
+        # Measure from the end of the persisted read. Slow /share storage must
+        # not make every micro-area trigger another immediate queue read.
+        last_cancel_check = time.monotonic()
+        return cancel_requested
 
     def progress(telemetry: dict[str, object]) -> None:
         nonlocal last_update, last_processed
@@ -13984,14 +14064,15 @@ def reconcile_mushroom_soilgrids_for_rebuild(job_id: str) -> dict[str, object]:
         processed = int(telemetry.get("processed_micro_areas", 0) or 0)
         total = max(1, int(telemetry.get("total_micro_areas", 0) or 0))
         if (
-            processed < total
-            and last_processed >= 0
-            and processed - last_processed < 5
-            and now - last_update < 2.0
+            processed == last_processed
+            and now - last_update < MUSHROOM_WORKER_PREPARATION_IO_INTERVAL_SECONDS
         ):
             return
-        last_update = now
-        last_processed = processed
+        if (
+            processed < total
+            and now - last_update < MUSHROOM_WORKER_PREPARATION_IO_INTERVAL_SECONDS
+        ):
+            return
         percent = 1 + min(7, int(processed / total * 7))
         mushroom_worker_jobs.update_candidate_preparation(
             queue_path,
@@ -14005,6 +14086,10 @@ def reconcile_mushroom_soilgrids_for_rebuild(job_id: str) -> dict[str, object]:
             overall_percent=percent,
             telemetry=telemetry,
         )
+        # Persisted queue writes can themselves be slow on /share. Start the
+        # throttle after the write so its latency does not defeat coalescing.
+        last_update = time.monotonic()
+        last_processed = processed
 
     return reconcile_mushroom_soilgrids(
         cancel_check=cancelled,
@@ -14198,7 +14283,11 @@ def create_mushroom_ml_train_job(
     display_name = str(payload.get("display_name", worker_id))
     job_id = f"worker_job_{secrets.token_urlsafe(12)}"
     try:
-        maintenance = reconcile_mushroom_worker_storage_for_launch(worker_id)
+        maintenance = (
+            {"removed": 0, "pending_worker": 0, "errors": [], "reconciliation": {}}
+            if triggered_by_job_id
+            else reconcile_mushroom_worker_storage_for_launch(worker_id)
+        )
         store = default_store()
         store.ensure_seeded()
         features_path = (
@@ -14298,6 +14387,7 @@ def start_mushroom_ml_train_job(
     )
 
     def prepare() -> None:
+        prepared = False
         try:
             status, response = create_mushroom_ml_train_job(
                 worker_id,
@@ -14306,6 +14396,7 @@ def start_mushroom_ml_train_job(
                 triggered_by_job_id=triggered_by_job_id,
             )
             if status == 201:
+                prepared = True
                 job = response.get("job")
                 target = str(job.get("target_display_name", "")) if isinstance(job, dict) else worker_id
                 set_mushroom_workers_flash(
@@ -14323,6 +14414,8 @@ def start_mushroom_ml_train_job(
             set_mushroom_workers_flash(f"Cannot prepare ML training inputs: {exc}", error=True)
         finally:
             MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+            if triggered_by_job_id and not prepared:
+                reconcile_mushroom_worker_storage_for_launch(worker_id)
 
     threading.Thread(
         target=prepare,
@@ -14757,6 +14850,7 @@ def start_mushroom_ml_multiversion_job(
             return 409, {"ok": False, "error": str(exc)}
 
     def prepare() -> None:
+        prepared = False
         try:
             status, response = create_mushroom_ml_multiversion_job(
                 worker_id,
@@ -14765,12 +14859,15 @@ def start_mushroom_ml_multiversion_job(
                 triggered_by_job_id=triggered_by_job_id,
                 sealed_scope_inputs=sealed_scope_inputs,
             )
+            prepared = status == 201
             if status != 201:
                 set_mushroom_workers_flash(str(response.get("error", "Cannot queue V2--V6 training.")), error=True)
         except BaseException as exc:
             set_mushroom_workers_flash(f"Cannot prepare V2--V6 inputs: {exc}", error=True)
         finally:
             MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+            if triggered_by_job_id and not prepared:
+                reconcile_mushroom_worker_storage_for_launch(worker_id)
 
     threading.Thread(target=prepare, daemon=True, name="rainmapper-worker-v2-v6-preparation").start()
     return 202, {"ok": True, "preparing": True}
@@ -14958,6 +15055,7 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
     worker_id = str(payload.get("worker_id", ""))
     if not authenticate_mushroom_worker(worker_id, auth_token):
         return 401, {"ok": False, "error": "Worker authentication failed."}
+    successor_scheduled = False
     try:
         with RUN_LOCK:
             queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
@@ -15075,6 +15173,7 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                 triggered_by_job_id=rebuild_job_id,
                 **training_kwargs,
             )
+            successor_scheduled = training_status == 202
             if training_status != 202:
                 set_mushroom_workers_flash(
                     "Full reconstruction completed, but its chained training could not be queued: "
@@ -15096,6 +15195,7 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                 triggered_by_job_id=str(job.get("job_id", "")),
                 **operational_kwargs,
             )
+            successor_scheduled = comparison_status == 202
             if comparison_status != 202:
                 set_mushroom_workers_flash(
                     "ML v0 completed, but active operational generation training could not be queued: "
@@ -15133,7 +15233,8 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     },
                 )
         discard_mushroom_worker_input_bundle(job)
-        reconcile_mushroom_worker_storage_for_launch(worker_id)
+        if not successor_scheduled:
+            reconcile_mushroom_worker_storage_for_launch(worker_id)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     response_job = dict(job)
@@ -15269,7 +15370,7 @@ def complete_mushroom_worker_candidate_result(
         verification = mushroom_worker_results.finalize_candidate_result(
             mushroom_worker_candidate_results_path(),
             mushroom_worker_input_bundles_path(),
-            mushroom_paths.mushroom_data_dir(),
+            mushroom_paths.mushroom_rebuild_artifacts_dir(),
             job_id=job_id,
         )
     except (FileExistsError, FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as exc:
@@ -15510,7 +15611,7 @@ def _run_mushroom_full_update_promotion(
             rebuild_promotion = mushroom_worker_results.promote_verified_candidate(
                 mushroom_worker_candidate_results_path(),
                 mushroom_worker_input_bundles_path(),
-                mushroom_paths.mushroom_data_dir(),
+                mushroom_paths.mushroom_rebuild_artifacts_dir(),
                 job_id=rebuild_job_id,
                 observations_path=mushroom_paths.mushroom_observations_path(),
                 reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
@@ -15532,7 +15633,7 @@ def _run_mushroom_full_update_promotion(
             except BaseException:
                 mushroom_worker_results.rollback_promoted_candidate(
                     mushroom_worker_candidate_results_path(),
-                    mushroom_paths.mushroom_data_dir(),
+                    mushroom_paths.mushroom_rebuild_artifacts_dir(),
                     job_id=rebuild_job_id,
                 )
                 raise
@@ -15834,7 +15935,7 @@ def discard_mushroom_worker_candidate(job_id: str) -> tuple[int, dict[str, objec
             )
             mushroom_worker_results.discard_candidate(
                 mushroom_worker_candidate_results_path(),
-                mushroom_paths.mushroom_data_dir(),
+                mushroom_paths.mushroom_rebuild_artifacts_dir(),
                 job_id=job_id,
             )
             mushroom_worker_transport.discard_coordinator_bundle(
@@ -15935,6 +16036,21 @@ def worker_job_elapsed_seconds(
     *,
     now: datetime | None = None,
 ) -> float:
+    started = parse_worker_job_datetime(job.get("created_at") or job.get("started_at"))
+    if started is None:
+        return 0
+    finished = parse_worker_job_datetime(job.get("finished_at"))
+    current = finished or now or datetime.now(UTC)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=UTC)
+    return max(0, (current.astimezone(UTC) - started.astimezone(UTC)).total_seconds())
+
+
+def worker_job_execution_elapsed_seconds(
+    job: dict[str, object],
+    *,
+    now: datetime | None = None,
+) -> float:
     started = parse_worker_job_datetime(job.get("started_at") or job.get("created_at"))
     if started is None:
         return 0
@@ -15943,6 +16059,14 @@ def worker_job_elapsed_seconds(
     if current.tzinfo is None:
         current = current.replace(tzinfo=UTC)
     return max(0, (current.astimezone(UTC) - started.astimezone(UTC)).total_seconds())
+
+
+def worker_job_preparation_seconds(job: dict[str, object]) -> float:
+    created = parse_worker_job_datetime(job.get("created_at"))
+    started = parse_worker_job_datetime(job.get("started_at"))
+    if created is None or started is None:
+        return 0
+    return max(0, (started.astimezone(UTC) - created.astimezone(UTC)).total_seconds())
 
 
 def mushroom_workers_recent_jobs(
@@ -15974,6 +16098,12 @@ def mushroom_workers_recent_jobs(
         public_job = {key: value for key, value in job.items() if key != "claim_token"}
         created_at = job.get("created_at", "")
         created = parse_worker_job_datetime(created_at)
+        opens_rebuild_modal = job.get("job_type") in {
+            mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD,
+            mushroom_worker_jobs.JOB_TYPE_ML_TRAIN,
+            mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,
+            mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+        }
         jobs.append(
             {
                 **public_job,
@@ -15982,8 +16112,10 @@ def mushroom_workers_recent_jobs(
                 "date_time": format_worker_job_datetime(created_at),
                 "elapsed": worker_job_elapsed(job),
                 "elapsed_seconds": worker_job_elapsed_seconds(job),
+                "execution_elapsed_seconds": worker_job_execution_elapsed_seconds(job),
+                "preparation_seconds": worker_job_preparation_seconds(job),
                 "sort_timestamp": created.timestamp() if created is not None else 0,
-                "opens_rebuild_modal": False,
+                "opens_rebuild_modal": opens_rebuild_modal,
                 "promotion_active": bool(
                     promotion_active_by_job.get(str(job.get("job_id", "")), False)
                 ),
@@ -16189,7 +16321,7 @@ def mushroom_rebuild_job_payload(job: dict[str, object]) -> dict[str, object]:
     if 0 < phase_percent < 100:
         phase_eta = max(0, (phase_elapsed / phase_percent) * (100 - phase_percent))
 
-    return {
+    payload: dict[str, object] = {
         "job_id": job.get("job_id", ""),
         "job_type": job.get("job_type", "rebuild_v0"),
         "job_purpose": job.get("job_purpose", ""),
@@ -16222,6 +16354,23 @@ def mushroom_rebuild_job_payload(job: dict[str, object]) -> dict[str, object]:
         "started_at": job.get("started_at", ""),
         "finished_at": job.get("finished_at", ""),
     }
+    if job.get("job_type") == "local_predictor_precompute":
+        progress_detail = predictor_precompute_progress_detail(
+            job,
+            phase_index=int(job.get("phase_index") or 0),
+            phase_percent=phase_percent,
+            phase_count=int(job.get("phase_count") or 2),
+        )
+        payload.update(
+            {
+                "title": mushroom_profiles_ui.ui_label(
+                    "ui.worker_predictor_precompute_job_type"
+                ),
+                "message": progress_detail["stage_message"],
+                **progress_detail,
+            }
+        )
+    return payload
 
 
 def set_mushroom_rebuild_progress(
@@ -16268,6 +16417,102 @@ def set_mushroom_rebuild_progress(
             job["finished_at"] = datetime.now(get_timezone()).isoformat(timespec="seconds")
 
 
+_PRECOMPUTE_PROGRESS_RE = re.compile(
+    r"^(?P<done>\d+(?:\.\d+)?)/(?P<total>\d+):\s*(?P<detail>.*)$"
+)
+
+
+def predictor_precompute_progress_detail(
+    external: dict[str, object],
+    *,
+    phase_index: int,
+    phase_percent: int,
+    phase_count: int = 3,
+) -> dict[str, object]:
+    """Project worker telemetry into a stable, user-facing progress hierarchy."""
+    label = mushroom_profiles_ui.ui_label
+    status = str(external.get("status", "") or "")
+    raw_phase = str(external.get("phase", "") or "")
+    raw_message = str(external.get("message", "") or "")
+    stage_labels = {
+        1: label("ui.precompute_progress_stage_calculation"),
+        2: label("ui.precompute_progress_stage_ha"),
+        3: label("ui.precompute_progress_stage_worker"),
+    }
+    stage_messages = {
+        1: label("ui.precompute_progress_stage_calculation_help"),
+        2: label("ui.precompute_progress_stage_ha_help"),
+        3: label("ui.precompute_progress_stage_worker_help"),
+    }
+    if phase_count == 2:
+        stage_labels[2] = label("ui.precompute_progress_stage_local")
+        stage_messages[2] = label("ui.precompute_progress_stage_local_help")
+    if status == "complete":
+        stage_message = label("ui.precompute_progress_complete")
+    elif status in {"failed", "cancelled"}:
+        stage_message = raw_message
+    else:
+        stage_message = stage_messages.get(phase_index, raw_message)
+
+    detail: dict[str, object] = {
+        "progress_kind": "predictor_precompute",
+        "stage_name": stage_labels.get(phase_index, raw_phase),
+        "stage_message": stage_message,
+        "stage_percent": phase_percent,
+        "stage_indeterminate": (
+            status not in mushroom_worker_jobs.TERMINAL_STATUSES
+            and phase_index in set(range(2, phase_count + 1))
+        ),
+        "technical_phase": raw_phase,
+        "technical_message": raw_message,
+        "scientific_done": "",
+        "scientific_total": 0,
+        "scientific_percent": None,
+        "scientific_substep": "",
+        "trace_view": "",
+        "trace_species": "",
+        "trace_area": "",
+    }
+    match = _PRECOMPUTE_PROGRESS_RE.match(raw_message)
+    if phase_index != 1 or match is None:
+        return detail
+
+    done_text = match.group("done")
+    total = int(match.group("total"))
+    raw_detail = match.group("detail").strip()
+    scope, separator, technical_step = raw_detail.partition(" · ")
+    scope_parts = scope.split(":")
+    view = scope_parts[0] if scope_parts else ""
+    species = scope_parts[1] if len(scope_parts) > 1 else ""
+    area = scope_parts[2] if len(scope_parts) > 2 else ""
+    phase_text = technical_step.partition(":")[0].strip() if separator else ""
+    if raw_detail == "Finalizing and validating SQLite artifact":
+        substep = label("ui.precompute_progress_substep_finalizing")
+    elif phase_text == "Building weekly matrix":
+        substep = label("ui.precompute_progress_substep_matrix")
+    else:
+        substep = label("ui.precompute_progress_substep_scientific")
+    view_labels = {
+        "recommender": label("ui.predictor_tab_recommender"),
+        "week": label("ui.predictor_tab_week"),
+        "query": label("ui.predictor_tab_query"),
+    }
+    done = float(done_text)
+    detail.update(
+        {
+            "scientific_done": done_text,
+            "scientific_total": total,
+            "scientific_percent": round(done * 100 / max(1, total), 1),
+            "stage_percent": round(done * 100 / max(1, total), 1),
+            "scientific_substep": substep,
+            "trace_view": view_labels.get(view, view),
+            "trace_species": species.replace("_", " ").capitalize(),
+            "trace_area": area.replace("_", " ").capitalize(),
+        }
+    )
+    return detail
+
+
 def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
     cleanup_mushroom_rebuild_jobs()
     with RUN_LOCK:
@@ -16280,10 +16525,56 @@ def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
             )
         except (FileNotFoundError, ValueError):
             return None
-    if external.get("job_type") != mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE:
-        return None
+    job_type = str(external.get("job_type", "") or "")
     overall_percent = max(0, min(100, int(external.get("overall_percent", 0) or 0)))
     phase = str(external.get("phase", "") or "")
+    elapsed_seconds = worker_job_elapsed_seconds(external)
+    eta_seconds = (
+        max(0.0, elapsed_seconds / overall_percent * (100 - overall_percent))
+        if 0 < overall_percent < 100
+        else None
+    )
+    if job_type != mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE:
+        title_key = {
+            mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD: (
+                "ui.worker_candidate_rebuild"
+            ),
+            mushroom_worker_jobs.JOB_TYPE_ML_TRAIN: "ui.worker_ml_train_job_type",
+            mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION: (
+                "ui.worker_operational_training_job"
+                if external.get("job_purpose") == "operational"
+                else "ui.worker_scientific_benchmark_job"
+            ),
+        }.get(job_type)
+        if title_key is None:
+            return None
+        return {
+            "job_id": external.get("job_id", ""),
+            "job_type": job_type,
+            "title": mushroom_profiles_ui.ui_label(title_key),
+            "executor": "worker",
+            "worker_display_name": external.get("target_display_name", ""),
+            "status": external.get("status", "unknown"),
+            "phase": phase,
+            "phase_index": 1,
+            "phase_count": 1,
+            "phase_percent": overall_percent,
+            "overall_percent": overall_percent,
+            "message": external.get("message", ""),
+            "error": external.get("error", ""),
+            "result": external.get("result", {}),
+            "scope": external.get("scope", ""),
+            "pipeline": "worker_job",
+            "cancel_requested": external.get("status") == "cancel_requested",
+            "can_cancel": False,
+            "elapsed": worker_job_elapsed(external),
+            "elapsed_seconds": elapsed_seconds,
+            "phase_elapsed": worker_job_elapsed(external),
+            "eta": compact_duration(eta_seconds) if eta_seconds is not None else "",
+            "phase_eta": compact_duration(eta_seconds) if eta_seconds is not None else "",
+            "started_at": external.get("started_at") or external.get("created_at", ""),
+            "finished_at": external.get("finished_at", ""),
+        }
     if overall_percent >= 100 or external.get("status") == "complete":
         phase_index, phase_percent = 3, 100
     elif phase == "Activating verified worker copy":
@@ -16293,11 +16584,10 @@ def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
     else:
         phase_index = 1
         phase_percent = max(0, min(100, int((overall_percent - 10) * 100 / 65)))
-    elapsed_seconds = worker_job_elapsed_seconds(external)
-    eta_seconds = (
-        max(0.0, elapsed_seconds / overall_percent * (100 - overall_percent))
-        if 0 < overall_percent < 100
-        else None
+    progress_detail = predictor_precompute_progress_detail(
+        external,
+        phase_index=phase_index,
+        phase_percent=phase_percent,
     )
     return {
         "job_id": external.get("job_id", ""),
@@ -16311,7 +16601,7 @@ def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
         "phase_count": 3,
         "phase_percent": phase_percent,
         "overall_percent": overall_percent,
-        "message": external.get("message", ""),
+        "message": progress_detail["stage_message"],
         "error": external.get("error", ""),
         "result": external.get("result", {}),
         "scope": external.get("scope", ""),
@@ -16325,6 +16615,7 @@ def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
         "phase_eta": "",
         "started_at": external.get("started_at", ""),
         "finished_at": external.get("finished_at", ""),
+        **progress_detail,
     }
 
 
@@ -16390,11 +16681,27 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
     total_eta_label = html.escape(label("ui.rebuild_progress_total_eta"))
     step_eta_label = html.escape(label("ui.rebuild_progress_step_eta"))
     calculating = html.escape(label("ui.rebuild_progress_calculating"))
+    precompute_global_label = html.escape(label("ui.precompute_progress_global"), quote=True)
+    precompute_stage_label = html.escape(label("ui.precompute_progress_stage"), quote=True)
+    precompute_stage_count = html.escape(label("ui.precompute_progress_stage_count"), quote=True)
+    precompute_scientific_label = html.escape(label("ui.precompute_progress_scientific"), quote=True)
+    precompute_units_label = html.escape(label("ui.precompute_progress_units"), quote=True)
+    precompute_traceability_label = html.escape(label("ui.precompute_progress_traceability"), quote=True)
+    precompute_view_label = html.escape(label("ui.precompute_progress_view"), quote=True)
+    precompute_technical_label = html.escape(label("ui.precompute_progress_technical"), quote=True)
+    precompute_in_progress_label = html.escape(label("ui.precompute_progress_in_progress"), quote=True)
+    species_label = html.escape(label("ui.species"), quote=True)
+    area_label = html.escape(label("ui.known_site_area"), quote=True)
     refresh_screen = html.escape(label("ui.rebuild_progress_refresh_screen"))
     close_label = html.escape(label("ui.close"))
     cancel_label = html.escape(label("ui.cancel"))
     return f"""
-    <div id="mushroom-rebuild-progress-modal" class="mushroom-progress-backdrop" data-job-id="{safe_job_id}" data-refresh-url="{safe_refresh_url}">
+    <div id="mushroom-rebuild-progress-modal" class="mushroom-progress-backdrop" data-job-id="{safe_job_id}" data-refresh-url="{safe_refresh_url}"
+         data-precompute-global-label="{precompute_global_label}"
+         data-precompute-stage-label="{precompute_stage_label}"
+         data-precompute-stage-count="{precompute_stage_count}"
+         data-precompute-units-label="{precompute_units_label}"
+         data-precompute-in-progress-label="{precompute_in_progress_label}">
       <section class="mushroom-progress-dialog" role="dialog" aria-modal="true" aria-labelledby="mushroom-rebuild-progress-title">
         <header class="mushroom-progress-header">
           <div>
@@ -16405,23 +16712,43 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
         </header>
         <div class="mushroom-progress-grid">
           <div>
-            <span class="field-label">{total_label}</span>
+            <span id="mushroom-rebuild-progress-total-title" class="field-label">{total_label}</span>
             <progress id="mushroom-rebuild-progress-total" max="100" value="0"></progress>
             <strong id="mushroom-rebuild-progress-total-label">0%</strong>
           </div>
           <div>
-            <span class="field-label">{current_step_label}</span>
+            <span id="mushroom-rebuild-progress-phase-title" class="field-label">{current_step_label}</span>
             <progress id="mushroom-rebuild-progress-phase" max="100" value="0"></progress>
             <strong id="mushroom-rebuild-progress-phase-label">0%</strong>
           </div>
         </div>
         <div class="mushroom-progress-metrics">
-          <span><strong>{step_label}</strong><br><em id="mushroom-rebuild-progress-phase-name">-</em></span>
+          <span id="mushroom-rebuild-progress-stage-metric"><strong id="mushroom-rebuild-progress-stage-count">{step_label}</strong><br><em id="mushroom-rebuild-progress-phase-name">-</em></span>
           <span><strong>{total_elapsed_label}</strong><br><em id="mushroom-rebuild-progress-elapsed">0s</em></span>
-          <span><strong>{step_elapsed_label}</strong><br><em id="mushroom-rebuild-progress-phase-elapsed">0s</em></span>
+          <span id="mushroom-rebuild-progress-phase-elapsed-metric"><strong>{step_elapsed_label}</strong><br><em id="mushroom-rebuild-progress-phase-elapsed">0s</em></span>
           <span><strong>{total_eta_label}</strong><br><em id="mushroom-rebuild-progress-eta">{calculating}</em></span>
-          <span><strong>{step_eta_label}</strong><br><em id="mushroom-rebuild-progress-phase-eta">{calculating}</em></span>
+          <span id="mushroom-rebuild-progress-phase-eta-metric"><strong>{step_eta_label}</strong><br><em id="mushroom-rebuild-progress-phase-eta">{calculating}</em></span>
         </div>
+        <section id="mushroom-precompute-progress-detail" class="mushroom-precompute-progress-detail" hidden>
+          <div class="mushroom-precompute-scientific-head">
+            <span class="field-label">{precompute_scientific_label}</span>
+            <strong id="mushroom-precompute-progress-substep">-</strong>
+          </div>
+          <progress id="mushroom-precompute-progress-scientific" max="100" value="0"></progress>
+          <strong id="mushroom-precompute-progress-units">-</strong>
+          <div class="mushroom-precompute-trace">
+            <span class="field-label">{precompute_traceability_label}</span>
+            <div>
+              <span id="mushroom-precompute-progress-view-wrap"><strong>{precompute_view_label}:</strong> <em id="mushroom-precompute-progress-view">-</em></span>
+              <span id="mushroom-precompute-progress-species-wrap"><strong>{species_label}:</strong> <em id="mushroom-precompute-progress-species">-</em></span>
+              <span id="mushroom-precompute-progress-area-wrap"><strong>{area_label}:</strong> <em id="mushroom-precompute-progress-area">-</em></span>
+            </div>
+          </div>
+          <details class="mushroom-precompute-technical">
+            <summary>{precompute_technical_label}</summary>
+            <p id="mushroom-precompute-progress-technical" class="meta">-</p>
+          </details>
+        </section>
         <p id="mushroom-rebuild-progress-error" class="catalog-alert error" hidden></p>
         <footer class="mushroom-progress-actions">
           <button id="mushroom-rebuild-progress-cancel" class="button-link" type="button" hidden>{cancel_label}</button>
@@ -16444,22 +16771,47 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
         title: document.getElementById("mushroom-rebuild-progress-title"),
         status: document.getElementById("mushroom-rebuild-progress-status"),
         message: document.getElementById("mushroom-rebuild-progress-message"),
+        totalTitle: document.getElementById("mushroom-rebuild-progress-total-title"),
         total: document.getElementById("mushroom-rebuild-progress-total"),
         totalLabel: document.getElementById("mushroom-rebuild-progress-total-label"),
+        phaseTitle: document.getElementById("mushroom-rebuild-progress-phase-title"),
         phase: document.getElementById("mushroom-rebuild-progress-phase"),
         phaseLabel: document.getElementById("mushroom-rebuild-progress-phase-label"),
+        stageCount: document.getElementById("mushroom-rebuild-progress-stage-count"),
         phaseName: document.getElementById("mushroom-rebuild-progress-phase-name"),
         elapsed: document.getElementById("mushroom-rebuild-progress-elapsed"),
+        phaseElapsedMetric: document.getElementById("mushroom-rebuild-progress-phase-elapsed-metric"),
         phaseElapsed: document.getElementById("mushroom-rebuild-progress-phase-elapsed"),
         eta: document.getElementById("mushroom-rebuild-progress-eta"),
+        phaseEtaMetric: document.getElementById("mushroom-rebuild-progress-phase-eta-metric"),
         phaseEta: document.getElementById("mushroom-rebuild-progress-phase-eta"),
+        precomputeDetail: document.getElementById("mushroom-precompute-progress-detail"),
+        scientificSubstep: document.getElementById("mushroom-precompute-progress-substep"),
+        scientificProgress: document.getElementById("mushroom-precompute-progress-scientific"),
+        scientificUnits: document.getElementById("mushroom-precompute-progress-units"),
+        traceViewWrap: document.getElementById("mushroom-precompute-progress-view-wrap"),
+        traceView: document.getElementById("mushroom-precompute-progress-view"),
+        traceSpeciesWrap: document.getElementById("mushroom-precompute-progress-species-wrap"),
+        traceSpecies: document.getElementById("mushroom-precompute-progress-species"),
+        traceAreaWrap: document.getElementById("mushroom-precompute-progress-area-wrap"),
+        traceArea: document.getElementById("mushroom-precompute-progress-area"),
+        technical: document.getElementById("mushroom-precompute-progress-technical"),
         error: document.getElementById("mushroom-rebuild-progress-error"),
       }};
       const setText = (node, value) => {{ if (node) node.textContent = value || "-"; }};
       const setProgress = (node, label, value) => {{
+        if (value === null || value === undefined || value === "") {{
+          if (node) node.removeAttribute("value");
+          setText(label, modal.dataset.precomputeInProgressLabel);
+          return;
+        }}
         const pct = Math.max(0, Math.min(100, Number(value || 0)));
         if (node) node.value = pct;
         setText(label, `${{pct}}%`);
+      }};
+      const setOptionalTrace = (wrap, node, value) => {{
+        if (wrap) wrap.hidden = !value;
+        if (value) setText(node, value);
       }};
       const appBasePath = window.location.pathname.replace(new RegExp("/mushrooms/(profiles|workers)/?$"), "");
       const statusUrl = `${{appBasePath}}/api/mushrooms/rebuild-status`;
@@ -16478,10 +16830,54 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
           setText(fields.status, job.status || "running");
           setText(fields.message, job.message || "");
           setProgress(fields.total, fields.totalLabel, job.overall_percent);
-          setProgress(fields.phase, fields.phaseLabel, job.phase_percent);
           const phaseIndex = job.phase_index || 0;
           const phaseCount = job.phase_count || 0;
-          setText(fields.phaseName, `${{job.phase || "-"}} (${{phaseIndex}}/${{phaseCount}})`);
+          const isPrecompute = job.progress_kind === "predictor_precompute";
+          if (isPrecompute) {{
+            setText(fields.totalTitle, modal.dataset.precomputeGlobalLabel);
+            setText(fields.phaseTitle, modal.dataset.precomputeStageLabel);
+            setProgress(
+              fields.phase,
+              fields.phaseLabel,
+              job.stage_indeterminate ? null : job.stage_percent
+            );
+            const stageCount = modal.dataset.precomputeStageCount
+              .replace("{{index}}", phaseIndex)
+              .replace("{{count}}", phaseCount);
+            setText(fields.stageCount, stageCount);
+            setText(fields.phaseName, job.stage_name || job.phase || "-");
+            fields.phaseElapsedMetric.hidden = true;
+            fields.phaseEtaMetric.hidden = true;
+            const hasScientificProgress = Number(job.scientific_total || 0) > 0;
+            fields.precomputeDetail.hidden = !hasScientificProgress;
+            if (hasScientificProgress) {{
+              setText(fields.scientificSubstep, job.scientific_substep);
+              fields.scientificProgress.value = Math.max(
+                0,
+                Math.min(100, Number(job.scientific_percent || 0))
+              );
+              setText(
+                fields.scientificUnits,
+                modal.dataset.precomputeUnitsLabel
+                  .replace("{{done}}", job.scientific_done)
+                  .replace("{{total}}", job.scientific_total)
+              );
+              setOptionalTrace(fields.traceViewWrap, fields.traceView, job.trace_view);
+              setOptionalTrace(fields.traceSpeciesWrap, fields.traceSpecies, job.trace_species);
+              setOptionalTrace(fields.traceAreaWrap, fields.traceArea, job.trace_area);
+            }}
+            const technical = [job.technical_phase, job.technical_message]
+              .filter(Boolean)
+              .join(" · ");
+            setText(fields.technical, technical);
+          }} else {{
+            setProgress(fields.phase, fields.phaseLabel, job.phase_percent);
+            setText(fields.stageCount, "{step_label}");
+            setText(fields.phaseName, `${{job.phase || "-"}} (${{phaseIndex}}/${{phaseCount}})`);
+            fields.phaseElapsedMetric.hidden = false;
+            fields.phaseEtaMetric.hidden = false;
+            fields.precomputeDetail.hidden = true;
+          }}
           setText(fields.elapsed, job.elapsed || "0s");
           setText(fields.phaseElapsed, job.phase_elapsed || "0s");
           setText(fields.eta, job.eta || "{calculating}");
@@ -16729,6 +17125,8 @@ def safe_profiles_return_to(value: str) -> str:
 
 def mushroom_local_full_update_work_root() -> Path:
     """Return disposable local compute storage beside, never inside, live data."""
+    if mushroom_paths.derived_storage_enabled():
+        return mushroom_paths.mushroom_derived_data_dir() / "local-full-update"
     return mushroom_paths.share_root() / ".local-full-update"
 
 
@@ -16742,7 +17140,7 @@ def mushroom_local_training_paths() -> mushroom_local_full_update.LocalFullUpdat
         known_sites=mushroom_paths.mushroom_known_sites_path(),
         stations=STATIONS_PATH,
         registry=mushroom_paths.mushroom_ml_version_registry_path(),
-        mushroom_data_dir=mushroom_paths.mushroom_data_dir(),
+        mushroom_data_dir=mushroom_paths.mushroom_rebuild_artifacts_dir(),
         ml_models_dir=mushroom_paths.mushroom_ml_models_dir(),
         ml_report=mushroom_paths.mushroom_ml_report_json_path(),
         bundle_root=mushroom_worker_input_bundles_path(),
@@ -17177,7 +17575,7 @@ def start_mushroom_model_rebuild_job(
                     gis_root=mushroom_gis_lab.gis_root(),
                 )
                 final_outputs = mushroom_rebuild_pipeline.RebuildOutputPaths(
-                    root=mushroom_paths.mushroom_data_dir(),
+                    root=mushroom_paths.mushroom_rebuild_artifacts_dir(),
                     gis_reconstruction=mushroom_paths.mushroom_gis_reconstruction_path(),
                     qgis_points=mushroom_gis_lab.default_qgis_points_path(),
                     weather_json=mushroom_paths.mushroom_weather_features_json_path(),
@@ -24443,6 +24841,26 @@ def main() -> None:
         last_run_log_path=LOG_PATH,
     )
     preserve_public_maplibre_data_for_transition()
+    try:
+        derived_transition = (
+            mushroom_derived_storage.prepare_derived_storage_transition()
+        )
+        write_json_atomic(
+            mushroom_paths.mushroom_data_dir()
+            / "diagnostics"
+            / "derived-storage-transition.json",
+            derived_transition,
+        )
+        print(
+            "Mushroom derived storage "
+            f"enabled={derived_transition.get('enabled', False)} "
+            f"copied={len(derived_transition.get('copied_files', []))} "
+            f"conflicts={len(derived_transition.get('conflicts', []))} "
+            f"errors={len(derived_transition.get('errors', []))}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(f"WARNING: mushroom derived storage transition failed: {exc}", flush=True)
     try:
         startup_store = default_store()
         seeded = startup_store.ensure_seeded()

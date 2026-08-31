@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from rainmapper_core import mushroom_paths
 from rainmapper_core.mushroom_worker_registry import WORKER_ID_PATTERN
 
 
@@ -193,10 +194,28 @@ def load_queue(path: Path) -> dict[str, Any]:
     return {"schema_version": SCHEMA_VERSION, "jobs": [dict(row) for row in jobs if isinstance(row, dict)]}
 
 
-def _predictor_result_path(queue_path: Path, job_id: str) -> Path:
+def _predictor_result_dir(queue_path: Path, *, legacy: bool = False) -> Path:
+    return (
+        queue_path.parent / PREDICTOR_RESULTS_DIRNAME
+        if legacy or not mushroom_paths.derived_storage_enabled()
+        else mushroom_paths.mushroom_worker_predictor_results_dir()
+    )
+
+
+def _predictor_result_path(queue_path: Path, job_id: str, *, legacy: bool = False) -> Path:
     if not JOB_ID_PATTERN.fullmatch(str(job_id)):
         raise ValueError("Worker job ID is invalid.")
-    return queue_path.parent / PREDICTOR_RESULTS_DIRNAME / f"{job_id}.json"
+    return _predictor_result_dir(queue_path, legacy=legacy) / f"{job_id}.json"
+
+
+def _existing_predictor_result_path(queue_path: Path, job_id: str) -> Path:
+    preferred = _predictor_result_path(queue_path, job_id)
+    if preferred.is_file():
+        return preferred
+    legacy = _predictor_result_path(queue_path, job_id, legacy=True)
+    if legacy != preferred and legacy.is_file():
+        return legacy
+    return preferred
 
 
 def _externalize_predictor_results(
@@ -232,7 +251,7 @@ def _externalize_predictor_results(
 
 
 def _cleanup_predictor_result_files(queue_path: Path, payload: dict[str, Any]) -> None:
-    result_dir = queue_path.parent / PREDICTOR_RESULTS_DIRNAME
+    result_dir = _predictor_result_dir(queue_path)
     if not result_dir.is_dir():
         return
     retained = {
@@ -273,7 +292,9 @@ def _hydrate_predictor_result(path: Path, job: dict[str, Any]) -> dict[str, Any]
     reference = hydrated.get("predictor_result_ref")
     if not isinstance(result, dict) or not isinstance(reference, dict):
         return hydrated
-    result_path = _predictor_result_path(path, str(hydrated.get("job_id", "")))
+    result_path = _existing_predictor_result_path(
+        path, str(hydrated.get("job_id", ""))
+    )
     try:
         stored = json.loads(result_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -344,7 +365,7 @@ def plan_predictor_result_expiration(
             retained.append({"job_id": job_id, "reason": "within retention age"})
             continue
         try:
-            result_path = _predictor_result_path(queue_path, job_id)
+            result_path = _existing_predictor_result_path(queue_path, job_id)
             if result_path.is_symlink() or not result_path.is_file():
                 raise ValueError("Predictor result is missing or is not a regular file.")
             _hydrate_predictor_result(queue_path, job)

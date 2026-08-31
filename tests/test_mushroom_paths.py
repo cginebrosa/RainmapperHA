@@ -20,6 +20,10 @@ class MushroomPathsTests(unittest.TestCase):
                 "RAINMAPPER_MUSHROOM_OBSERVATIONS_PATH",
                 "RAINMAPPER_WEATHER_DATA_DIR",
                 "RAINMAPPER_MEDIA_ROOT",
+                "RAINMAPPER_MUSHROOM_DERIVED_DATA_DIR",
+                "RAINMAPPER_MUSHROOM_REBUILD_ARTIFACTS_DIR",
+                "RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR",
+                "RAINMAPPER_MUSHROOM_ML_MODELS_DIR",
                 "RAINMAPPER_PREDICTOR_PRECOMPUTE_DIR",
                 "RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_DIR",
                 "RAINMAPPER_PREDICTOR_RUNTIME_ARCHIVE_FALLBACK_DIR",
@@ -80,6 +84,35 @@ class MushroomPathsTests(unittest.TestCase):
         self.assertEqual(
             mushroom_paths.mushroom_predictor_precompute_artifact_path(),
             media_root / "predictor_precompute" / "active.sqlite3",
+        )
+
+    def test_reconstructible_mushroom_paths_prefer_media(self) -> None:
+        share_root = self.root / "share"
+        media_root = self.root / "media" / "rainmapper"
+        os.environ["RAINMAPPER_SHARE_ROOT"] = str(share_root)
+        os.environ["RAINMAPPER_MEDIA_ROOT"] = str(media_root)
+
+        derived = media_root / "mushroom-derived"
+        artifacts = derived / "mushroom-artifacts"
+        worker = derived / "worker"
+        self.assertEqual(mushroom_paths.mushroom_derived_data_dir(), derived)
+        self.assertEqual(mushroom_paths.mushroom_rebuild_artifacts_dir(), artifacts)
+        self.assertEqual(mushroom_paths.mushroom_ml_models_dir(), derived / "ml_models")
+        self.assertEqual(
+            mushroom_paths.mushroom_observation_features_json_path(),
+            artifacts / "mushroom_observation_features_v0.json",
+        )
+        self.assertEqual(
+            mushroom_paths.mushroom_worker_input_bundles_dir(),
+            worker / "input-bundles",
+        )
+        self.assertEqual(
+            mushroom_paths.mushroom_worker_candidate_results_dir(),
+            worker / "candidate-results",
+        )
+        self.assertEqual(
+            mushroom_paths.mushroom_worker_predictor_results_dir(),
+            worker / "predictor-results",
         )
 
     def test_predictor_precompute_specific_override_wins(self) -> None:

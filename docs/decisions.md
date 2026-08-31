@@ -5786,7 +5786,23 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   con manifests `linux/amd64` y `linux/arm64`. El worker privado se reconstruyó
   como `1.0.33`, healthy/idle y conservando identidad, volumen y cachés.
 
-## 2026-08-31 - [DUDA] El modal de precálculo necesita una jerarquía de progreso comprensible
+## 2026-08-31 - [VIGENTE][RELEASE] HA 0.2.287 y worker privado 1.0.34
+
+- HA `0.2.287` publica la jerarquía clara de progreso, feedback al lanzar jobs,
+  enlaces de entrenamiento, duración integral y separación entre espera y
+  ejecución. También elimina reconciliaciones repetidas entre trabajos
+  encadenados y conserva los estados reales del precálculo local/remoto.
+- `/share` conserva fuentes y datos propios; los derivados reconstruibles
+  nuevos se alojan en `/media`, con transición verificada, no destructiva y
+  recuperable si `/media` vuelve vacío.
+- El worker `1.0.34` añade trazas locales de espera hasta el claim y tiempos por
+  fase del precálculo sin añadir llamadas a HA ni escrituras por predicción. Se
+  reconstruyó conservando identidad, volumen y cachés y quedó healthy/idle.
+- `0.2.287` y `latest` comparten el índice OCI
+  `sha256:e72606a9fe95667252f45c864a921989bfa2e95c14d1adff5a1e26fb2d79569c`,
+  con manifests `linux/amd64` y `linux/arm64`. HA real no se instaló.
+
+## 2026-08-31 - [REEMPLAZADA] El modal de precálculo necesita una jerarquía de progreso comprensible
 
 - La ejecución real de HA `0.2.286` ya muestra progreso fino y trazabilidad,
   pero combina una fracción decimal sobre 143, progreso total, progreso del
@@ -5795,3 +5811,35 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   cálculo/publicación y subpaso científico; la especie y el área pueden quedar
   como trazabilidad secundaria. No se elimina telemetría antes de definir qué
   magnitud representa cada indicador.
+
+## 2026-08-31 - [VIGENTE] El progreso distingue total, etapa y subpaso científico
+
+- El porcentaje principal representa el avance global del trabajo completo.
+  La etapa describe cálculo, publicación/activación HA y activación de la copia
+  del worker; no se presenta su porcentaje como otro total equivalente.
+- La fracción sobre 143 se identifica como unidades científicas y muestra su
+  propio porcentaje sólo dentro del detalle de cálculo. Especie, área y vista
+  quedan como trazabilidad secundaria.
+- La fase y el mensaje internos permanecen disponibles como detalle técnico.
+  Las dos ETA de fase se ocultan en el precálculo porque no son comparables con
+  la ETA global y producían una jerarquía engañosa.
+
+## 2026-08-31 - [VIGENTE] `/share` conserva fuentes; `/media` aloja derivados reconstruibles
+
+- Meteorología, observaciones, fotos/vídeos, perfiles, catálogos, zonas,
+  mappings, credenciales, cola de trabajos y registro de versiones permanecen
+  en `/share/rainmapper` y forman parte del backup.
+- Artefactos de reconstrucción, modelos ML, bundles, resultados privados y
+  cuerpos pesados de Predictor viven bajo
+  `/media/rainmapper/mushroom-derived`. Precálculo, GIS/SoilGrids y caché TAR
+  continúan en sus rutas existentes de `/media`.
+- La primera transición copia únicamente ficheros ausentes, verifica tamaño y
+  SHA-256, rechaza symlinks y no sobrescribe un destino diferente. No elimina
+  la copia legacy. Un recibo versionado en `/media` hace los reinicios
+  posteriores constantes; al perder `/media` se pierde también el recibo y se
+  vuelve a evaluar la recuperación.
+- La aplicación debe arrancar con `/media` vacío. Conserva los datos maestros,
+  muestra que no hay modelos instalados y permite reconstruirlos después; un
+  backup de `/share` no depende de binarios derivados para poder restaurarse.
+- La retirada de copias legacy de `/share` es una acción separada, verificable
+  y explícitamente autorizada. Este cambio no modifica retención ni borra datos.

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.287
+
+- Clarify weekly precompute progress with separate global, stage and scientific
+  substep hierarchy, and open the same progress view from daily prediction cards.
+- Show launch feedback immediately, link training jobs to their progress modal,
+  and separate time before execution from worker execution time.
+- Keep source and user data in `/share` while migrating reconstructible models,
+  artifacts and large Predictor results safely to `/media`.
+- Avoid repeated reconciliation and progress round trips between chained rebuild
+  and training jobs.
+- Report ready, queued and running precompute state from actual work instead of
+  stale desired state, including safe local-runtime identity validation.
+
 ## 0.2.286
 
 - Anchor every Predictor query, comparison, weather prewarm and multiversion

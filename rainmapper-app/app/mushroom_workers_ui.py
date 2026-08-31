@@ -34,6 +34,19 @@ def _seconds(value: object) -> str:
     return "—"
 
 
+def _duration(value: object) -> str:
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
+        return "—"
+    total = int(value)
+    minutes, seconds = divmod(total, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m {seconds}s"
+    if minutes:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
+
+
 def render_benchmark_report(
     report: dict[str, object] | None,
     *,
@@ -492,9 +505,12 @@ def render_recent_jobs(
             else f'{_text(job.get("overall_percent", 0))}%'
         )
         destination = str(job.get("worker_display_name", "") or "-")
-        opens_progress_modal = bool(job.get("opens_rebuild_modal")) or (
-            job_type == "worker_predictor_precompute_v1"
-        )
+        opens_progress_modal = bool(job.get("opens_rebuild_modal")) or job_type in {
+            "worker_candidate_rebuild",
+            "worker_ml_train_v0",
+            "worker_ml_multiversion_v1",
+            "worker_predictor_precompute_v1",
+        }
         local_job = bool(job.get("opens_rebuild_modal")) or job.get("executor") == "home_assistant"
         job_display_name = _label("ui.worker_local_job") if local_job else job_id[:12]
         job_reference = (
@@ -524,6 +540,15 @@ def render_recent_jobs(
                     )
         precompute_timing_text = " · ".join(precompute_timing_parts)
         duration_html = _text(job.get("elapsed", "-"))
+        preparation_seconds = float(job.get("preparation_seconds", 0) or 0)
+        if preparation_seconds >= 1:
+            execution_seconds = float(job.get("execution_elapsed_seconds", 0) or 0)
+            wall_clock_parts = [
+                f'{_label("ui.worker_before_execution")} {_duration(preparation_seconds)}',
+                f'{_label("ui.worker_execution_time")} {_duration(execution_seconds)}',
+            ]
+            precompute_timing_parts = wall_clock_parts + precompute_timing_parts
+            precompute_timing_text = " · ".join(precompute_timing_parts)
         if precompute_timing_text:
             duration_html += (
                 f'<small class="meta" title="{_text(precompute_timing_text)}">'
@@ -991,6 +1016,7 @@ def render_page(
       .benchmark-profile-fieldset{{min-width:0;margin:0;padding:0;border:0}}.benchmark-profile-fieldset legend{{margin:0 0 6px;padding:0;color:var(--fg);font-size:12px;font-weight:750}}.benchmark-profile-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0}}.benchmark-profile-choice{{display:block;position:relative;min-width:0;margin:0}}.benchmark-profile-choice input[type="checkbox"]{{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0;pointer-events:none}}.benchmark-profile-surface{{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:8px;min-height:54px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}}.benchmark-profile-mark{{display:grid;place-items:center;width:18px;height:18px;border:1px solid var(--line);border-radius:5px;color:transparent;font-size:12px;font-weight:900}}.benchmark-profile-copy{{display:flex;flex-direction:column;gap:1px;min-width:0}}.benchmark-profile-copy strong{{font-size:12px;line-height:1.2;white-space:normal}}.benchmark-profile-copy small{{color:var(--muted);font-size:10px;line-height:1.25;white-space:normal}}.benchmark-profile-choice input:checked + .benchmark-profile-surface{{border-color:var(--accent);background:#102a38;box-shadow:0 0 0 1px rgba(3,169,244,.16)}}.benchmark-profile-choice input:checked + .benchmark-profile-surface .benchmark-profile-mark{{border-color:var(--accent);background:var(--accent);color:#07151d}}.benchmark-profile-choice input:focus-visible + .benchmark-profile-surface{{outline:2px solid var(--accent);outline-offset:2px}}.benchmark-submit-row{{display:flex;align-items:center;justify-content:flex-end;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}}.benchmark-submit-row button{{min-width:190px;height:34px;min-height:34px;padding:6px 11px;font-size:11px;font-weight:750}}
       .benchmark-history{{display:grid;gap:7px}}.benchmark-history-scroll{{max-height:260px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}}.benchmark-history-item{{display:flex;align-items:stretch;gap:6px}}.benchmark-history-row{{flex:1;min-width:0;display:flex;justify-content:space-between;gap:12px;padding:9px;border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none}}.benchmark-history-row span:first-child{{display:grid;gap:2px}}.benchmark-history-row small{{color:var(--muted)}}.benchmark-history-delete{{flex:0 0 auto;align-self:center;margin:0}}.benchmark-history-delete button{{width:auto;padding:5px 9px;font-size:10px}}
       .precompute-panel{{display:grid;gap:10px}}.precompute-summary{{display:flex;flex-wrap:wrap;gap:8px 16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}}.precompute-summary strong{{color:var(--fg)}}.precompute-actions{{display:flex;align-items:end;gap:8px;flex-wrap:wrap}}.precompute-actions label{{display:grid;gap:4px;min-width:260px;color:var(--muted);font-size:10px}}.precompute-actions select{{height:34px}}.precompute-actions form{{display:flex;align-items:end;gap:8px;margin:0}}
+      .worker-launch-backdrop[hidden]{{display:none}}.worker-launch-backdrop{{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;padding:20px;background:rgba(3,9,13,.72);backdrop-filter:blur(2px)}}.worker-launch-dialog{{display:grid;gap:12px;width:min(440px,calc(100vw - 40px));padding:22px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 18px 60px rgba(0,0,0,.45)}}.worker-launch-dialog h2,.worker-launch-dialog p{{margin:0}}.worker-launch-spinner{{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:worker-launch-spin .8s linear infinite}}@keyframes worker-launch-spin{{to{{transform:rotate(360deg)}}}}
       .benchmark-report-summary{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}}.benchmark-report-summary div{{padding:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}}.benchmark-report-summary dt{{color:var(--muted);font-size:11px}}.benchmark-report-summary dd{{margin:4px 0 0;overflow-wrap:anywhere}}
       .benchmark-report-table table{{width:min(100%,1380px);min-width:1220px;table-layout:fixed}}.benchmark-report-table th:nth-child(1){{width:86px}}.benchmark-report-table th:nth-child(2){{width:58px}}.benchmark-report-table th:nth-child(3){{width:150px}}.benchmark-report-table th:nth-child(4){{width:78px}}.benchmark-report-table th:nth-child(5){{width:170px}}.benchmark-report-table th:nth-child(6){{width:62px}}.benchmark-report-table th:nth-child(7){{width:78px}}.benchmark-report-table th:nth-child(8){{width:62px}}.benchmark-report-table th:nth-child(9){{width:68px}}.benchmark-report-table th:nth-child(10){{width:54px}}.benchmark-report-table th:nth-child(11){{width:100px}}.benchmark-report-table th:nth-child(12){{width:80px}}.benchmark-report-table th:nth-child(13){{width:78px}}.benchmark-report-table th:nth-child(14){{width:82px}}.benchmark-report-table th,.benchmark-report-table td{{padding-left:4px;padding-right:4px}}.benchmark-failures{{margin-top:12px}}
       @media(max-width:1050px){{.worker-toolbar-spacer{{display:none}}.worker-toolbar-actions{{flex-basis:100%;justify-content:flex-start;margin-left:0}}.workers-grid,.worker-destination-grid,.operational-version-grid,.benchmark-profile-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
@@ -1098,6 +1124,13 @@ def render_page(
         </div>
       </form>
     </dialog>
+    <div id="worker-launch-backdrop" class="worker-launch-backdrop" hidden>
+      <section class="worker-launch-dialog" role="dialog" aria-modal="true" aria-labelledby="worker-launch-title">
+        <div class="worker-launch-spinner" aria-hidden="true"></div>
+        <h2 id="worker-launch-title">{_text(_label('ui.worker_launch_preparing_title'))}</h2>
+        <p class="meta">{_text(_label('ui.worker_launch_preparing_help'))}</p>
+      </section>
+    </div>
     <script>
     (()=>{{const form=document.querySelector('.worker-rebuild-form');if(!form)return;const submit=form.querySelector('button[type="submit"]');const sync=()=>{{const executor=form.querySelector('input[name="executor"]:checked');submit.disabled=!executor||executor.disabled;}};form.addEventListener('change',sync);sync();}})();
     (()=>{{
@@ -1161,6 +1194,11 @@ def render_page(
         stopRefresh();
         const submitter=event.submitter;
         if(submitter){{submitter.disabled=true;submitter.setAttribute('aria-busy','true');}}
+        const action=event.target.querySelector('input[name="worker_action"]')?.value||'';
+        if(['start_rebuild','run_worker_ml_multiversion','run_predictor_precompute','run_ml_benchmark'].includes(action)){{
+          const launchBackdrop=document.getElementById('worker-launch-backdrop');
+          if(launchBackdrop){{launchBackdrop.hidden=false;document.body.setAttribute('aria-busy','true');}}
+        }}
       }},true);
       document.addEventListener('click',event=>{{
         const sortButton=event.target.closest('[data-worker-sort-column]');
