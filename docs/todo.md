@@ -149,10 +149,18 @@ Especificación vinculante:
   terminales de la revisión vigente se conservan sin replanificación. Smoke:
   1.185 pruebas; índice multiarch
   `sha256:57783c36e1a6f6f8fe577f6066676a1a3e2983a80f9df2ddc7639755edfdbc37`.
-- [ ] Instalar HA `0.2.286` y completar el E2E real con worker `1.0.33`: medir
-  preparación/cálculo/telemetría/transferencia/activación, confirmar SQLite en
-  `/media/rainmapper/predictor_precompute`, hits servidos por HA, fallback con
-  selección explícita de ejecutor y ausencia del SQLite en el backup.
+- [x] Instalar HA `0.2.286` y lanzar el E2E real con worker `1.0.33`. La
+  ejecución alcanzó `20.88/143` y 19 % sin repetir el rechazo de fecha que antes
+  aparecía al 11 %.
+- [ ] Completar ese E2E: medir preparación/cálculo/telemetría/transferencia y
+  activación, confirmar SQLite en `/media/rainmapper/predictor_precompute`, hits
+  servidos por HA, fallback con selección explícita de ejecutor y ausencia del
+  SQLite en el backup.
+- [ ] Rediseñar el modal del precálculo para distinguir con lenguaje claro el
+  avance global, la etapa 1/3–3/3 y el subpaso científico. El modal actual
+  mezcla fracción decimal sobre 143, dos porcentajes, especie/área, fase y dos
+  ETA sin explicar su relación; conservar trazabilidad sin exponer jerga como
+  `query:` o claves internas como mensaje principal.
 - [x] Auditar en solo lectura el backup real de `/share/rainmapper`: ocupa
   1.125 GiB y no contiene batches ML antiguos; el único batch está activo y
   protegido.

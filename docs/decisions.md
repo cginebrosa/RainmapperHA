@@ -5785,3 +5785,13 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   `sha256:57783c36e1a6f6f8fe577f6066676a1a3e2983a80f9df2ddc7639755edfdbc37`
   con manifests `linux/amd64` y `linux/arm64`. El worker privado se reconstruyó
   como `1.0.33`, healthy/idle y conservando identidad, volumen y cachés.
+
+## 2026-08-31 - [DUDA] El modal de precálculo necesita una jerarquía de progreso comprensible
+
+- La ejecución real de HA `0.2.286` ya muestra progreso fino y trazabilidad,
+  pero combina una fracción decimal sobre 143, progreso total, progreso del
+  paso, etapa 1/3 y dos ETA sin explicar cómo se relacionan.
+- Queda por decidir el contrato visual. Debe distinguir avance global, etapa de
+  cálculo/publicación y subpaso científico; la especie y el área pueden quedar
+  como trazabilidad secundaria. No se elimina telemetría antes de definir qué
+  magnitud representa cada indicador.

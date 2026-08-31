@@ -13,8 +13,9 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 - HA `0.2.286` y `latest` están publicados en GHCR con el mismo índice OCI
   `sha256:57783c36e1a6f6f8fe577f6066676a1a3e2983a80f9df2ddc7639755edfdbc37`
   y manifests `linux/amd64` y `linux/arm64`.
-- La última versión confirmada en HA real es `0.2.285`. El usuario todavía debe
-  instalar `0.2.286` y repetir el precálculo real.
+- HA real ejecuta `0.2.286` según confirmación del usuario. Hay un precálculo
+  real en curso sobre worker `1.0.33`; alcanzó `20.88/143` y 19 % total sin
+  repetir el rechazo de cobertura que antes aparecía al 11 %.
 - El worker privado no se publica. Está reconstruido localmente como `1.0.33`,
   healthy/idle, con identidad `worker_1a9a232c20fe2ee2`, volumen
   `rainmapper-worker-data`, cachés válidas y capacidad
@@ -73,26 +74,32 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
 
 ## Próximos pasos inmediatos
 
-1. Instalar HA `0.2.286` y confirmar la versión en runtime.
-2. Lanzar un único precálculo real sobre worker `1.0.33` y comprobar que el
-   modal muestra especie/área/paso y progreso desde el primer grupo.
-3. Medir por separado preparación, cálculo, telemetría, transferencia y
+1. Dejar terminar el precálculo real ya iniciado sobre worker `1.0.33` y
+   registrar resultado, duración, tamaño transferido y activación del SQLite.
+2. Confirmar que el SQLite queda activo en `/media`, que HA sirve hits en las
+   cuatro rutas y que un miss solicita ejecutor para fallback.
+3. Rediseñar el modal de progreso: hoy mezcla `20.88/143`, grupo, consulta,
+   especie/área, tres etapas, progreso total, progreso de paso y dos ETA sin una
+   jerarquía comprensible. Antes de tocarlo, definir nombres y unidades para
+   avance global, etapa de publicación y subpaso científico.
+4. Medir por separado preparación, cálculo, telemetría, transferencia y
    activación. Comparar el tramo inicial con los ~90 s locales; el E2E fallido
    tardó 6 min 11 s hasta el primer rechazo y registró timeouts de heartbeat.
-4. Verificar que el SQLite queda activo en `/media`, que HA sirve hits en las
-   cuatro rutas y que un miss solicita ejecutor para fallback.
 5. Solo después, perfilar `Building weekly matrix` por especie y optimizar el
    coste dominante medido. Objetivo orientativo: menos de diez minutos.
 
 ## Riesgos y dudas activos
 
-- `0.2.286` está publicada pero aún no instalada ni probada en HA real.
+- `0.2.286` está instalada y ha superado el punto del fallo anterior, pero el
+  E2E sigue en curso: no afirmar todavía que cálculo, transferencia, validación
+  y activación hayan terminado correctamente.
 - El circuito worker → transferencia → activación HA todavía no ha completado
   un E2E real. El SQLite local de referencia ocupó 462.974.976 bytes.
 - La coalescencia elimina espera de red del callback, pero su mejora temporal
   real debe medirse; no asumir que explica todo el diferencial local/remoto.
 - La UI de jobs aún no ofrece duración integral ni ETA global científicamente
-  fiables.
+  fiables. El modal actual funciona, pero su combinación de fracciones,
+  porcentajes, fases y ETA no resulta comprensible para el usuario.
 - El fallback en HA real debe conservar selección explícita de ejecutor; nunca
   asumir cálculo pesado local en la RPi4.
 - `/share/rainmapper` contenía 317,6 MiB revisables: seis bundles terminales
