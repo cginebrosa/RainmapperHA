@@ -862,6 +862,8 @@ def render_page(
             "publishing": "ui.worker_precompute_publishing_state",
             "outdated": "ui.worker_precompute_outdated",
             "invalid": "ui.worker_precompute_invalid",
+            "failed": "ui.worker_status_failed",
+            "cancelled": "ui.worker_status_cancelled",
         }.get(precompute_status, "ui.worker_precompute_missing")
     )
     precompute_window = ""

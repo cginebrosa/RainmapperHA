@@ -305,6 +305,48 @@ class PredictorServiceTests(TestCase):
             comparison_cache=ANY,
         )
 
+    def test_query_area_anchors_current_week_to_explicit_issue_date(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            predictor.week_window.side_effect = lambda area_id, week_start: [
+                prediction("boletus", area_id, week_start + timedelta(days=offset))
+                for offset in range(7)
+            ]
+            service.predictor = Mock(return_value=predictor)
+            service.v2_reference_compare = Mock(
+                return_value={"interpretation": {"verdict": "uncertain"}}
+            )
+
+            response = service.execute(
+                self.request(
+                    target_date="2026-08-31",
+                    issue_date="2026-08-31",
+                )
+            )
+
+        predictor.week_window.assert_called_once_with(
+            "area_one", date(2026, 8, 31)
+        )
+        predictions = response["data"]["species"]["boletus"]["predictions"][
+            "area_one"
+        ]
+        self.assertEqual(min(predictions), "2026-08-31")
+        self.assertNotIn("2026-08-30", predictions)
+        self.assertTrue(
+            all(
+                call.kwargs["issue_date"] == date(2026, 8, 31)
+                for call in service.v2_reference_compare.call_args_list
+            )
+        )
+
     def test_query_prepares_multiversion_comparison_for_every_rendered_day(self) -> None:
         with TemporaryDirectory() as temporary:
             service = PredictorService(

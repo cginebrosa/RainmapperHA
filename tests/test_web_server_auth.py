@@ -1893,6 +1893,110 @@ class AuthDeviceLimitTests(unittest.TestCase):
         factory.assert_called_once()
         thread.start.assert_called_once_with()
 
+    def test_failed_precompute_revision_is_not_requeued_after_restart(self) -> None:
+        identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+            runtime_fingerprint="sha256:" + "a" * 64,
+            issue_date="2026-08-31",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={
+                "species": 1,
+                "areas": 1,
+                "days": 7,
+                "versions": 1,
+                "members": 7,
+            },
+        )
+        runtime_manifest = {
+            "schema_version": "1.0",
+            "kind": "rainmapper_mushroom_predictor_runtime",
+            "fingerprint": identity.runtime_fingerprint,
+            "files": [
+                {
+                    "path": "models/model.joblib",
+                    "sha256": "sha256:" + "b" * 64,
+                    "size_bytes": 1,
+                }
+            ],
+        }
+        heartbeat = {
+            "worker_id": "worker_aaaaaaaa",
+            "display_name": "Worker A",
+            "capabilities": [
+                self.web_server.mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            desired_path = root / "desired.json"
+            jobs_path = root / "jobs.json"
+            desired = (
+                self.web_server.mushroom_predictor_precompute_control.advance_desired_state(
+                    desired_path,
+                    identity=identity,
+                    worker_id="worker_aaaaaaaa",
+                    trigger_origin="manual",
+                )
+            )
+            job = self.web_server.mushroom_worker_jobs.create_predictor_precompute_job(
+                jobs_path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                identity=identity.as_dict(),
+                runtime_manifest=runtime_manifest,
+                operational_selections={"boletus": []},
+                desired_revision=int(desired["revision"]),
+            )
+            queue = self.web_server.mushroom_worker_jobs.load_queue(jobs_path)
+            queue["jobs"][-1].update(
+                {
+                    "status": "failed",
+                    "phase": "Failed",
+                    "error": "outside planned coverage",
+                }
+            )
+            self.web_server.mushroom_worker_jobs._write_atomic(jobs_path, queue)
+            with (
+                mock.patch.object(
+                    self.web_server.mushroom_worker_registry,
+                    "load_registry",
+                    return_value={"default_executor": "worker:worker_aaaaaaaa"},
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "mushroom_worker_jobs_path",
+                    return_value=jobs_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_desired_path",
+                    return_value=desired_path,
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS",
+                    set(),
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "predictor_precompute_plan",
+                    side_effect=AssertionError("terminal revision must not be replanned"),
+                ) as plan,
+            ):
+                existing = self.web_server.reconcile_mushroom_predictor_precompute_desire(
+                    heartbeat
+                )
+
+        self.assertEqual(job["job_id"], existing["job_id"])
+        self.assertEqual("failed", existing["status"])
+        plan.assert_not_called()
+
     def test_predictor_modal_controller_handles_internal_navigation(self) -> None:
         script = self.web_server.predictor_launch_script()
 
@@ -8100,6 +8204,106 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("Outdated · pending precompute", page)
         self.assertIn("artifact-old", page)
+
+    def test_precompute_panel_reports_failed_current_revision(self) -> None:
+        page = self.web_server.mushroom_workers_ui.render_page(
+            worker_statuses=[],
+            eligible_observation_count=0,
+            jobs=[],
+            pipeline="shared",
+            precompute_summary={
+                "status": "failed",
+                "preferred_worker_name": "Worker A",
+                "preferred_worker_reachable": True,
+                "preferred_worker_compatible": True,
+                "planned_artifact_id": "artifact-failed",
+                "active_job_id": "worker_job_failed123",
+                "active_job_status": "failed",
+            },
+        )
+
+        self.assertIn("Failed", page)
+        self.assertIn('href="#job-worker_job_failed123"', page)
+
+    def test_precompute_summary_reports_failed_current_revision(self) -> None:
+        identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+            runtime_fingerprint="sha256:" + "a" * 64,
+            issue_date="2026-08-31",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={
+                "species": 1,
+                "areas": 1,
+                "days": 7,
+                "versions": 1,
+                "members": 7,
+            },
+        )
+        desired = {
+            "revision": 3,
+            "artifact_id": identity.artifact_id,
+            "identity": identity.as_dict(),
+        }
+        failed_job = {
+            "job_id": "worker_job_failed123",
+            "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+            "artifact_id": identity.artifact_id,
+            "desired_revision": 3,
+            "status": "failed",
+            "phase": "Failed",
+            "error": "outside planned coverage",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with (
+                mock.patch.object(
+                    self.web_server.mushroom_worker_registry,
+                    "load_registry",
+                    return_value={"default_executor": "worker:worker_aaaaaaaa"},
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "registered_mushroom_worker_statuses",
+                    return_value=[],
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_precompute_control,
+                    "load_desired_state",
+                    return_value=desired,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_runtime,
+                    "load_published_manifest_metadata",
+                    return_value={"fingerprint": identity.runtime_fingerprint},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_worker_jobs,
+                    "load_queue",
+                    return_value={"schema_version": "1.0", "jobs": [failed_job]},
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_receipt_path",
+                    return_value=root / "receipt.json",
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_artifact_path",
+                    return_value=root / "artifact.sqlite3",
+                ),
+                mock.patch.object(self.web_server, "MUSHROOM_REBUILD_JOBS", {}),
+            ):
+                summary = self.web_server.predictor_precompute_summary()
+
+        self.assertEqual("failed", summary["status"])
+        self.assertEqual("worker_job_failed123", summary["active_job_id"])
+        self.assertEqual("outside planned coverage", summary["active_job_error"])
 
     def test_precompute_summary_does_not_report_stale_desire_as_queued(self) -> None:
         installed_versions = [

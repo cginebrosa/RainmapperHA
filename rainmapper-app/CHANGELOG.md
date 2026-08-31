@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.286
+
+- Anchor every Predictor query, comparison, weather prewarm and multiversion
+  selection to the request `issue_date` instead of the worker's UTC date.
+- Preserve failed precompute revisions as terminal across Rainmapper restarts
+  instead of presenting or rematerializing them as queued work.
+- Report failed precompute state consistently in Workers, Control Panel and
+  Predictor views.
+
 ## 0.2.285
 
 - Anchor weekly Predictor calculations to the request `issue_date` so HA and

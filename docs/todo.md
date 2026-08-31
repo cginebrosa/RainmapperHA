@@ -140,7 +140,16 @@ Especificación vinculante:
   fecha anclada al contrato, progreso fraccional, detalle remoto y telemetría
   coalescida en segundo plano. Smoke: 1.181 pruebas; índice multiarch
   `sha256:aa4a1d39bffd501288b0ffb630d85bb8907818cdce3fc25bef3759c87c0c2333`.
-- [ ] Instalar HA `0.2.285` y completar el E2E real con worker `1.0.32`: medir
+- [x] Instalar HA `0.2.285` y repetir el E2E real con worker `1.0.32`. El job
+  llegó al 11 % y demostró que consulta-fecha/todas-las-áreas y ayudas internas
+  aún usaban el calendario UTC del worker; tras fallar, la revisión aparecía
+  incorrectamente `En cola` y podía reintentarse después de reiniciar HA.
+- [x] Publicar HA `0.2.286` y reconstruir el worker privado como `1.0.33`:
+  todas las rutas internas consumen el `issue_date` sellado y los estados
+  terminales de la revisión vigente se conservan sin replanificación. Smoke:
+  1.185 pruebas; índice multiarch
+  `sha256:57783c36e1a6f6f8fe577f6066676a1a3e2983a80f9df2ddc7639755edfdbc37`.
+- [ ] Instalar HA `0.2.286` y completar el E2E real con worker `1.0.33`: medir
   preparación/cálculo/telemetría/transferencia/activación, confirmar SQLite en
   `/media/rainmapper/predictor_precompute`, hits servidos por HA, fallback con
   selección explícita de ejecutor y ausencia del SQLite en el backup.

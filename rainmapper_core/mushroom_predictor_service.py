@@ -446,6 +446,7 @@ class PredictorService:
         species_id: str,
         area_id: str,
         target_dates: Sequence[date],
+        issue_date: date,
         selections: Sequence[Mapping[str, object]],
         prepared_weather_cache: dict[tuple[object, ...], Any],
         comparison_cache: dict[str, Any],
@@ -466,7 +467,7 @@ class PredictorService:
                     mushroom_ml_multiversion_comparison.retarget_operational_selections(
                         selections,
                         target_date=current_date,
-                        issue_date=min(date.today(), current_date),
+                        issue_date=min(issue_date, current_date),
                     ),
                 )
                 for current_date in target_dates
@@ -782,6 +783,7 @@ class PredictorService:
         species_ids = normalized["trained_species_ids"]
         selected_species = normalized["species_id"]
         target = date.fromisoformat(normalized["target_date"])
+        request_issue_date = date.fromisoformat(normalized["issue_date"])
         area_id = normalized["area_id"]
         context = shared_context if shared_context is not None else {}
         prepared_weather_cache = context.setdefault("prepared_weather_cache", {})
@@ -809,7 +811,7 @@ class PredictorService:
             current_area: str,
             current_date: date,
         ) -> dict[str, Any]:
-            issue_date = min(date.today(), current_date)
+            issue_date = min(request_issue_date, current_date)
             result_key = (
                 species_id,
                 current_area,
@@ -847,7 +849,7 @@ class PredictorService:
                     species_id=species_id,
                     area_id=current_area,
                     target_date=current_date,
-                    issue_date=min(date.today(), current_date),
+                    issue_date=min(request_issue_date, current_date),
                     selections=selections,
                     prepared_weather_cache=prepared_weather_cache,
                     comparison_cache=comparison_cache,
@@ -899,7 +901,7 @@ class PredictorService:
             areas = timed(
                 "prediction_data", predictor.areas_with_species_observations
             )
-            week_start = date.fromisoformat(normalized["issue_date"])
+            week_start = request_issue_date
             days = [week_start + timedelta(days=offset) for offset in range(7)]
             predictions: dict[str, dict[str, Any]] = {}
             comparisons: dict[str, dict[str, Any]] = {}
@@ -970,9 +972,10 @@ class PredictorService:
             )
             species_data: dict[str, Any] = {"areas": areas}
             if area_id:
-                today = date.today()
-                current_week = {today + timedelta(days=offset) for offset in range(7)}
-                week_start = today if target in current_week else target
+                current_week = {
+                    request_issue_date + timedelta(days=offset) for offset in range(7)
+                }
+                week_start = request_issue_date if target in current_week else target
                 report(20, "Evaluating area", f"Predicting {area_id}.")
                 week = timed(
                     "prediction_data",
@@ -1015,7 +1018,10 @@ class PredictorService:
                             mushroom_ml_multiversion_comparison.prewarm_v2_week_weather(
                                 area_ids=[area_id],
                                 target_issue_dates=[
-                                    (current_date, min(date.today(), current_date))
+                                    (
+                                        current_date,
+                                        min(request_issue_date, current_date),
+                                    )
                                     for current_date in comparison_dates
                                 ],
                                 known_sites_path=self.known_sites_path,
@@ -1051,6 +1057,7 @@ class PredictorService:
                             species_id=selected_species,
                             area_id=area_id,
                             target_dates=comparison_dates,
+                            issue_date=request_issue_date,
                             selections=normalized["multiversion_selection"],
                             prepared_weather_cache=prepared_weather_cache,
                             comparison_cache=comparison_cache,
@@ -1065,7 +1072,7 @@ class PredictorService:
                                 mushroom_ml_multiversion_comparison.retarget_operational_selections(
                                     normalized["multiversion_selection"],
                                     target_date=current_date,
-                                    issue_date=min(date.today(), current_date),
+                                    issue_date=min(request_issue_date, current_date),
                                 )
                             ),
                         )

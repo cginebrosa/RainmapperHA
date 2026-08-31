@@ -8,14 +8,14 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
   El HEAD anterior a esta release era
-  `c02b4b8b6ca39f72deedcb0caf6f1d8e5d2d8eef`; revalidar HEAD al comenzar.
-- El código declara HA `0.2.285` y worker `1.0.32`.
-- HA `0.2.285` y `latest` están publicados en GHCR con el mismo índice OCI
-  `sha256:aa4a1d39bffd501288b0ffb630d85bb8907818cdce3fc25bef3759c87c0c2333`
+  `fdce07efab314c1efb78f8bab27aa8da3a502013`; revalidar HEAD al comenzar.
+- El código declara HA `0.2.286` y worker `1.0.33`.
+- HA `0.2.286` y `latest` están publicados en GHCR con el mismo índice OCI
+  `sha256:57783c36e1a6f6f8fe577f6066676a1a3e2983a80f9df2ddc7639755edfdbc37`
   y manifests `linux/amd64` y `linux/arm64`.
-- La última versión confirmada en HA real es `0.2.284`. El usuario todavía debe
-  instalar `0.2.285` y repetir el precálculo real.
-- El worker privado no se publica. Está reconstruido localmente como `1.0.32`,
+- La última versión confirmada en HA real es `0.2.285`. El usuario todavía debe
+  instalar `0.2.286` y repetir el precálculo real.
+- El worker privado no se publica. Está reconstruido localmente como `1.0.33`,
   healthy/idle, con identidad `worker_1a9a232c20fe2ee2`, volumen
   `rainmapper-worker-data`, cachés válidas y capacidad
   `predictor_precompute_v1`.
@@ -33,18 +33,20 @@ y el trigger asíncrono posterior al runner usan el worker predeterminado.
 HA `0.2.284` estabilizó la presencia del worker y eliminó el cálculo pesado de
 la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
 
-## Primer E2E real y corrección 0.2.285/1.0.32
+## E2E real y corrección 0.2.286/1.0.33
 
 - El job real `worker_job_WLFWlFqhHJtU`, cobertura
   `2026-08-31` → `2026-09-06`, falló tras 6 min 11 s al 10 % visible con
   `Base prediction is outside planned coverage.`
-- No estaba realmente en 0/143: el porcentaje entero ocultaba el avance dentro
-  del primer grupo. El worker en UTC construía la semana desde `date.today()`
-  (`2026-08-30`) mientras HA había planificado desde su `issue_date`
-  (`2026-08-31`). El escritor rechazó correctamente la fila fuera de cobertura.
-- `PredictorService` usa ahora siempre el `issue_date` sellado. El error de
-  cobertura incluye especie, área y fecha, y el progreso admite fracciones para
-  mostrar avance desde el primer grupo.
+- HA `0.2.285` corrigió la vista semanal, pero el segundo E2E real reveló que la
+  ruta consulta-fecha/todas-las-áreas y varias ayudas internas aún comparaban
+  contra `date.today()` del worker UTC. El job de revisión 3 falló al 11 % con
+  `amanita_caesarea/breda/2026-08-30` fuera de la cobertura planificada
+  `2026-08-31` → `2026-09-06`.
+- `PredictorService` usa ahora el `issue_date` sellado en consulta por área,
+  comparaciones preferida/multiversión, semana, prewarm meteorológico y
+  retargeting. `date.today()` queda únicamente como valor por defecto al
+  normalizar una petición que no trae fecha.
 - El precálculo remoto ya no hace peticiones síncronas de control/progreso en
   cada callback científico. Una telemetría de fondo coalesce el último estado
   con cadencia de 10 s, conserva cancelación y vacía el progreso antes de subir
@@ -53,21 +55,26 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
 - Los jobs remotos `predictor_precompute_v1` enlazan al mismo modal de detalle
   que los locales; el servidor puede construir ese detalle desde el estado
   persistido del job externo.
+- Un job fallido o cancelado de la revisión vigente aparece como terminal en
+  Workers, panel y Predictor, conserva su error y no se reclasifica como `En
+  cola`. El reconciliador reconoce también jobs terminales de la misma revisión
+  para no relanzarlos tras reiniciar HA; una petición manual o del runner crea
+  una revisión nueva.
 
 ## Validación y release
 
-- 385 pruebas dirigidas correctas.
-- Smoke definitivo: 1.181 pruebas, compiladores, validadores y fixtures
+- 423 pruebas dirigidas correctas.
+- Smoke definitivo: 1.185 pruebas, compiladores, validadores y fixtures
   correctos.
 - `git diff --check` correcto antes de la release; repetir tras documentación.
-- Worker `1.0.32` construido y verificado healthy/idle, con identidad, volumen
+- Worker `1.0.33` construido y verificado healthy/idle, con identidad, volumen
   y capacidades conservados.
-- HA `0.2.285` publicada y verificada en GHCR; falta instalarla y validar el E2E.
+- HA `0.2.286` publicada y verificada en GHCR; falta instalarla y validar el E2E.
 
 ## Próximos pasos inmediatos
 
-1. Instalar HA `0.2.285` y confirmar la versión en runtime.
-2. Lanzar un único precálculo real sobre worker `1.0.32` y comprobar que el
+1. Instalar HA `0.2.286` y confirmar la versión en runtime.
+2. Lanzar un único precálculo real sobre worker `1.0.33` y comprobar que el
    modal muestra especie/área/paso y progreso desde el primer grupo.
 3. Medir por separado preparación, cálculo, telemetría, transferencia y
    activación. Comparar el tramo inicial con los ~90 s locales; el E2E fallido
@@ -79,7 +86,7 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
 
 ## Riesgos y dudas activos
 
-- `0.2.285` está publicada pero aún no instalada ni probada en HA real.
+- `0.2.286` está publicada pero aún no instalada ni probada en HA real.
 - El circuito worker → transferencia → activación HA todavía no ha completado
   un E2E real. El SQLite local de referencia ocupó 462.974.976 bytes.
 - La coalescencia elimina espera de red del callback, pero su mejora temporal

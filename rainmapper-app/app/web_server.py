@@ -12961,9 +12961,9 @@ def predictor_precompute_summary() -> dict[str, object]:
         with RUN_LOCK:
             queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
             local_jobs = list(MUSHROOM_REBUILD_JOBS.values())
-        active_job = None
+        matching_job = None
         if desired is not None:
-            active_job = next(
+            matching_job = next(
                 (
                     row
                     for row in reversed(local_jobs + queue["jobs"])
@@ -12974,13 +12974,13 @@ def predictor_precompute_summary() -> dict[str, object]:
                     }
                     and row.get("artifact_id")
                     == desired.get("artifact_id")
-                    and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+                    and row.get("desired_revision") == desired.get("revision")
                 ),
                 None,
             )
-        if active_job is not None:
-            active_status = str(active_job.get("status", ""))
-            active_phase = str(active_job.get("phase", ""))
+        if matching_job is not None:
+            active_status = str(matching_job.get("status", ""))
+            active_phase = str(matching_job.get("phase", ""))
             display_status = "queued"
             if active_status == "running":
                 display_status = (
@@ -12991,15 +12991,18 @@ def predictor_precompute_summary() -> dict[str, object]:
                     )
                     else "running"
                 )
+            elif active_status in {"failed", "cancelled"}:
+                display_status = active_status
             summary.update(
                 {
                     "status": display_status,
-                    "active_job_id": str(active_job.get("job_id", "")),
+                    "active_job_id": str(matching_job.get("job_id", "")),
                     "active_job_status": active_status,
                     "active_job_phase": active_phase,
+                    "active_job_error": str(matching_job.get("error", "")),
                 }
             )
-        if desired is not None and active_job is None:
+        if desired is not None and matching_job is None:
             summary["status"] = "queued" if desired_is_current else "missing"
             receipt_path = mushroom_paths.mushroom_predictor_precompute_receipt_path()
             artifact_path = mushroom_paths.mushroom_predictor_precompute_artifact_path()
@@ -13098,21 +13101,28 @@ def predictor_precompute_control_panel_summary() -> dict[str, object]:
             external_jobs = mushroom_worker_jobs.load_queue(
                 mushroom_worker_jobs_path()
             )["jobs"]
-        active = next(
+        matching_job = next(
             (
                 row
                 for row in reversed(local_jobs + external_jobs)
                 if row.get("artifact_id") == desired.get("artifact_id")
-                and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+                and row.get("desired_revision") == desired.get("revision")
             ),
             None,
         )
-        if active is not None:
+        if matching_job is not None:
+            job_status = str(matching_job.get("status", ""))
             summary.update(
                 {
-                    "status": "running",
-                    "job_id": str(active.get("job_id", "")),
-                    "job_status": str(active.get("status", "")),
+                    "status": (
+                        "failed"
+                        if job_status == "failed"
+                        else "cancelled"
+                        if job_status == "cancelled"
+                        else "running"
+                    ),
+                    "job_id": str(matching_job.get("job_id", "")),
+                    "job_status": job_status,
                 }
             )
         receipt_path = mushroom_paths.mushroom_predictor_precompute_receipt_path()
@@ -13131,11 +13141,19 @@ def predictor_precompute_control_panel_summary() -> dict[str, object]:
 
 
 def predictor_precompute_activity_status() -> str:
-    """Return one cheap user-facing state for an active precompute job."""
+    """Return one cheap user-facing state for the current desired precompute."""
+    try:
+        desired = mushroom_predictor_precompute_control.load_desired_state(
+            mushroom_paths.mushroom_predictor_precompute_desired_path()
+        )
+    except (OSError, ValueError, json.JSONDecodeError):
+        return ""
+    if desired is None:
+        return ""
     with RUN_LOCK:
         queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
         jobs = list(MUSHROOM_REBUILD_JOBS.values()) + queue["jobs"]
-    active = next(
+    current = next(
         (
             row
             for row in reversed(jobs)
@@ -13144,15 +13162,21 @@ def predictor_precompute_activity_status() -> str:
                 "local_predictor_precompute",
                 mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
             }
-            and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+            and row.get("artifact_id") == desired.get("artifact_id")
+            and row.get("desired_revision") == desired.get("revision")
         ),
         None,
     )
-    if active is None:
+    if current is None:
         return ""
-    if str(active.get("status", "")) != "running":
+    status = str(current.get("status", ""))
+    if status in {"failed", "cancelled"}:
+        return status
+    if status not in mushroom_worker_jobs.ACTIVE_STATUSES:
+        return ""
+    if status != "running":
         return "queued"
-    phase = str(active.get("phase", "")).lower()
+    phase = str(current.get("phase", "")).lower()
     if any(token in phase for token in ("upload", "publish", "validat")):
         return "publishing"
     return "running"
@@ -13484,7 +13508,7 @@ def reconcile_mushroom_predictor_precompute_desire(
                 if row.get("job_type")
                 == mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE
                 and row.get("desired_revision") == desired.get("revision")
-                and row.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES
+                and row.get("artifact_id") == desired.get("artifact_id")
             ),
             None,
         )
@@ -20529,8 +20553,14 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             active_precompute_status = predictor_precompute_activity_status()
                             if precompute_response_used:
                                 predictor_precompute_status = "used"
-                            elif active_precompute_status:
+                            elif active_precompute_status in {
+                                "queued",
+                                "running",
+                                "publishing",
+                            }:
                                 predictor_precompute_status = "in_progress"
+                            elif active_precompute_status == "failed":
+                                predictor_precompute_status = "failed"
                             elif (
                                 coordinator_precompute_lookup is not None
                                 and coordinator_precompute_lookup.reason
@@ -23991,6 +24021,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "running": "en ejecución",
             "active": "activo",
             "outdated": "desactualizado · precálculo pendiente",
+            "failed": "fallido",
+            "cancelled": "cancelado",
             "invalid": "estado inválido",
         }.get(str(precompute.get("status", "")), str(precompute.get("status", "")))
         precompute_detail = " · ".join(

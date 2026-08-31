@@ -5757,7 +5757,7 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   Europe/Madrid y el worker UTC, además de control/progreso síncronos en el
   callback científico. La release queda reemplazada por `0.2.285`.
 
-## 2026-08-31 - [VIGENTE][RELEASE] La semana usa issue_date y la telemetría remota no bloquea cálculo
+## 2026-08-31 - [REEMPLAZADA][RELEASE] La semana usa issue_date y la telemetría remota no bloquea cálculo
 
 - La cobertura semanal se deriva exclusivamente del `issue_date` normalizado y
   sellado en la petición; nunca del calendario local del proceso que ejecuta.
@@ -5770,3 +5770,18 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   `sha256:aa4a1d39bffd501288b0ffb630d85bb8907818cdce3fc25bef3759c87c0c2333`
   con manifests `linux/amd64` y `linux/arm64`. El worker privado se reconstruyó
   como `1.0.32`, conservando identidad, volumen y cachés.
+
+## 2026-08-31 - [VIGENTE][RELEASE] Todo cálculo sellado usa issue_date y un fallo de revisión es terminal
+
+- No basta con anclar la vista semanal: consulta por área, comparaciones,
+  prewarm y retargeting deben consumir el `issue_date` normalizado de la
+  petición. El calendario local del proceso solo puede proporcionar el valor
+  por defecto antes de sellar la petición.
+- Un job fallido o cancelado que coincide con `(revision, artifact_id)` es el
+  estado terminal de esa revisión. Se muestra con su error y el reconciliador
+  no lo vuelve a planificar después de un reinicio. Un nuevo intento explícito
+  crea una revisión nueva.
+- HA `0.2.286` y `latest` comparten el índice OCI
+  `sha256:57783c36e1a6f6f8fe577f6066676a1a3e2983a80f9df2ddc7639755edfdbc37`
+  con manifests `linux/amd64` y `linux/arm64`. El worker privado se reconstruyó
+  como `1.0.33`, healthy/idle y conservando identidad, volumen y cachés.
