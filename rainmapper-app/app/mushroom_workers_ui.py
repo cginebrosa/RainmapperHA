@@ -416,6 +416,55 @@ def render_worker_choices(
     return "".join(choices)
 
 
+def render_precompute_state(precompute_summary: dict[str, object]) -> str:
+    """Render the independently refreshable precompute summary and actions."""
+    summary = dict(precompute_summary or {})
+    worker_id = str(summary.get("preferred_worker_id", ""))
+    worker_compatible = bool(summary.get("preferred_worker_compatible"))
+    worker_name = str(summary.get("preferred_worker_name", worker_id) or worker_id)
+    if worker_id and not summary.get("preferred_worker_reachable"):
+        worker_name += f' · {_label("ui.worker_disconnected")}'
+    status = str(summary.get("status", "missing"))
+    status_text = _label(
+        {
+            "active": "ui.worker_precompute_active",
+            "pending": "ui.worker_precompute_queued_state",
+            "queued": "ui.worker_precompute_queued_state",
+            "running": "ui.worker_precompute_calculating_state",
+            "publishing": "ui.worker_precompute_publishing_state",
+            "outdated": "ui.worker_precompute_outdated",
+            "invalid": "ui.worker_precompute_invalid",
+            "failed": "ui.worker_status_failed",
+            "cancelled": "ui.worker_status_cancelled",
+        }.get(status, "ui.worker_precompute_missing")
+    )
+    window = ""
+    if summary.get("coverage_start") and summary.get("coverage_end"):
+        window = f'{summary.get("coverage_start")} → {summary.get("coverage_end")}'
+    force = status == "active"
+    job_id = str(summary.get("active_job_id", ""))
+    return f'''
+      <div class="precompute-summary">
+        <span>{_text(_label('ui.status'))}: <strong>{_text(status_text)}</strong></span>
+        <span>{_text(_label('ui.worker_precompute_worker'))}: <strong>{_text(worker_name or '—')}</strong></span>
+        <span>{_text(_label('ui.worker_precompute_fingerprint'))}: <strong><code>{_text(summary.get('runtime_fingerprint', '—'))}</code></strong></span>
+        <span>{_text(_label('ui.worker_precompute_planned_artifact'))}: <strong><code>{_text(summary.get('planned_artifact_id', '—'))}</code></strong></span>
+        <span>{_text(_label('ui.worker_precompute_active_artifact'))}: <strong><code>{_text(summary.get('artifact_id', '—') or '—')}</code></strong></span>
+        {f'<span>{_text(_label("ui.worker_precompute_window"))}: <strong>{_text(window)}</strong></span>' if window else ''}
+        {f'<span>Revision: <strong>{_text(summary.get("desired_revision", 0))}</strong></span>' if summary.get("desired_revision") else ''}
+        {f'<span>Job: <strong><a href="#job-{_text(job_id)}"><code>{_text(job_id)}</code></a> · {_text(summary.get("active_job_status", ""))}</strong></span>' if job_id else ''}
+      </div>
+      <div class="precompute-actions">
+        <form method="post" action="">
+          <input type="hidden" name="worker_action" value="run_predictor_precompute">
+          <input type="hidden" name="worker_id" value="{_text(worker_id)}">
+          <button{' class="primary"' if worker_compatible else ''} type="submit"{' disabled' if not worker_compatible else ''}>{_text(_label('ui.worker_precompute_launch'))}</button>
+        </form>
+        {('<form method="post" action=""><input type="hidden" name="worker_action" value="run_predictor_precompute"><input type="hidden" name="force" value="1"><input type="hidden" name="worker_id" value="' + _text(worker_id) + '"><button type="submit">' + _text(_label("ui.worker_precompute_force")) + '</button></form>') if force and worker_compatible else ''}
+      </div>
+    '''
+
+
 def render_recent_jobs(
     jobs: list[dict[str, object]],
     worker_statuses: list[dict[str, object]] | None = None,
@@ -867,38 +916,8 @@ def render_page(
         error=benchmark_report_error,
     )
     precompute_summary = dict(precompute_summary or {})
-    precompute_worker_id = str(precompute_summary.get("preferred_worker_id", ""))
-    precompute_worker_compatible = bool(
-        precompute_summary.get("preferred_worker_compatible")
-    )
-    precompute_worker_name = str(
-        precompute_summary.get("preferred_worker_name", precompute_worker_id)
-        or precompute_worker_id
-    )
-    if precompute_worker_id and not precompute_summary.get("preferred_worker_reachable"):
-        precompute_worker_name += f' · {_label("ui.worker_disconnected")}'
-    precompute_status = str(precompute_summary.get("status", "missing"))
-    precompute_status_text = _label(
-        {
-            "active": "ui.worker_precompute_active",
-            "pending": "ui.worker_precompute_queued_state",
-            "queued": "ui.worker_precompute_queued_state",
-            "running": "ui.worker_precompute_calculating_state",
-            "publishing": "ui.worker_precompute_publishing_state",
-            "outdated": "ui.worker_precompute_outdated",
-            "invalid": "ui.worker_precompute_invalid",
-            "failed": "ui.worker_status_failed",
-            "cancelled": "ui.worker_status_cancelled",
-        }.get(precompute_status, "ui.worker_precompute_missing")
-    )
-    precompute_window = ""
-    if precompute_summary.get("coverage_start") and precompute_summary.get("coverage_end"):
-        precompute_window = (
-            f'{precompute_summary.get("coverage_start")} → '
-            f'{precompute_summary.get("coverage_end")}'
-        )
-    precompute_force = precompute_status == "active"
-    precompute_job_id = str(precompute_summary.get("active_job_id", ""))
+    precompute_state = render_precompute_state(precompute_summary)
+    precompute_state_signature = refresh_signature(precompute_state)
 
     recent_jobs = render_recent_jobs(
         jobs,
@@ -1015,7 +1034,7 @@ def render_page(
       .benchmark-form{{display:block!important;width:100%;margin:10px 0 0!important}}.benchmark-form-head{{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:9px}}.benchmark-executor{{display:grid;gap:4px;width:min(340px,100%);color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}}.benchmark-executor select{{width:100%;height:34px;min-height:34px;padding:5px 8px;font-size:11px;text-transform:none;letter-spacing:normal}}
       .benchmark-profile-fieldset{{min-width:0;margin:0;padding:0;border:0}}.benchmark-profile-fieldset legend{{margin:0 0 6px;padding:0;color:var(--fg);font-size:12px;font-weight:750}}.benchmark-profile-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0}}.benchmark-profile-choice{{display:block;position:relative;min-width:0;margin:0}}.benchmark-profile-choice input[type="checkbox"]{{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0;pointer-events:none}}.benchmark-profile-surface{{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:8px;min-height:54px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}}.benchmark-profile-mark{{display:grid;place-items:center;width:18px;height:18px;border:1px solid var(--line);border-radius:5px;color:transparent;font-size:12px;font-weight:900}}.benchmark-profile-copy{{display:flex;flex-direction:column;gap:1px;min-width:0}}.benchmark-profile-copy strong{{font-size:12px;line-height:1.2;white-space:normal}}.benchmark-profile-copy small{{color:var(--muted);font-size:10px;line-height:1.25;white-space:normal}}.benchmark-profile-choice input:checked + .benchmark-profile-surface{{border-color:var(--accent);background:#102a38;box-shadow:0 0 0 1px rgba(3,169,244,.16)}}.benchmark-profile-choice input:checked + .benchmark-profile-surface .benchmark-profile-mark{{border-color:var(--accent);background:var(--accent);color:#07151d}}.benchmark-profile-choice input:focus-visible + .benchmark-profile-surface{{outline:2px solid var(--accent);outline-offset:2px}}.benchmark-submit-row{{display:flex;align-items:center;justify-content:flex-end;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}}.benchmark-submit-row button{{min-width:190px;height:34px;min-height:34px;padding:6px 11px;font-size:11px;font-weight:750}}
       .benchmark-history{{display:grid;gap:7px}}.benchmark-history-scroll{{max-height:260px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}}.benchmark-history-item{{display:flex;align-items:stretch;gap:6px}}.benchmark-history-row{{flex:1;min-width:0;display:flex;justify-content:space-between;gap:12px;padding:9px;border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none}}.benchmark-history-row span:first-child{{display:grid;gap:2px}}.benchmark-history-row small{{color:var(--muted)}}.benchmark-history-delete{{flex:0 0 auto;align-self:center;margin:0}}.benchmark-history-delete button{{width:auto;padding:5px 9px;font-size:10px}}
-      .precompute-panel{{display:grid;gap:10px}}.precompute-summary{{display:flex;flex-wrap:wrap;gap:8px 16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}}.precompute-summary strong{{color:var(--fg)}}.precompute-actions{{display:flex;align-items:end;gap:8px;flex-wrap:wrap}}.precompute-actions label{{display:grid;gap:4px;min-width:260px;color:var(--muted);font-size:10px}}.precompute-actions select{{height:34px}}.precompute-actions form{{display:flex;align-items:end;gap:8px;margin:0}}
+      .precompute-panel,.precompute-state{{display:grid;gap:10px}}.precompute-summary{{display:flex;flex-wrap:wrap;gap:8px 16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}}.precompute-summary strong{{color:var(--fg)}}.precompute-actions{{display:flex;align-items:end;gap:8px;flex-wrap:wrap}}.precompute-actions label{{display:grid;gap:4px;min-width:260px;color:var(--muted);font-size:10px}}.precompute-actions select{{height:34px}}.precompute-actions form{{display:flex;align-items:end;gap:8px;margin:0}}
       .worker-launch-backdrop[hidden]{{display:none}}.worker-launch-backdrop{{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;padding:20px;background:rgba(3,9,13,.72);backdrop-filter:blur(2px)}}.worker-launch-dialog{{display:grid;gap:12px;width:min(440px,calc(100vw - 40px));padding:22px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 18px 60px rgba(0,0,0,.45)}}.worker-launch-dialog h2,.worker-launch-dialog p{{margin:0}}.worker-launch-spinner{{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:worker-launch-spin .8s linear infinite}}@keyframes worker-launch-spin{{to{{transform:rotate(360deg)}}}}
       .benchmark-report-summary{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}}.benchmark-report-summary div{{padding:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}}.benchmark-report-summary dt{{color:var(--muted);font-size:11px}}.benchmark-report-summary dd{{margin:4px 0 0;overflow-wrap:anywhere}}
       .benchmark-report-table table{{width:min(100%,1380px);min-width:1220px;table-layout:fixed}}.benchmark-report-table th:nth-child(1){{width:86px}}.benchmark-report-table th:nth-child(2){{width:58px}}.benchmark-report-table th:nth-child(3){{width:150px}}.benchmark-report-table th:nth-child(4){{width:78px}}.benchmark-report-table th:nth-child(5){{width:170px}}.benchmark-report-table th:nth-child(6){{width:62px}}.benchmark-report-table th:nth-child(7){{width:78px}}.benchmark-report-table th:nth-child(8){{width:62px}}.benchmark-report-table th:nth-child(9){{width:68px}}.benchmark-report-table th:nth-child(10){{width:54px}}.benchmark-report-table th:nth-child(11){{width:100px}}.benchmark-report-table th:nth-child(12){{width:80px}}.benchmark-report-table th:nth-child(13){{width:78px}}.benchmark-report-table th:nth-child(14){{width:82px}}.benchmark-report-table th,.benchmark-report-table td{{padding-left:4px;padding-right:4px}}.benchmark-failures{{margin-top:12px}}
@@ -1073,24 +1092,7 @@ def render_page(
     <section class="workers-panel precompute-panel">
       <div class="worker-panel-head"><h2>{_text(_label('ui.worker_precompute_title'))}</h2></div>
       <p class="meta">{_text(_label('ui.worker_precompute_help_local') if precompute_summary.get('local_executor') else _label('ui.worker_precompute_help'))}</p>
-      <div class="precompute-summary">
-        <span>{_text(_label('ui.status'))}: <strong>{_text(precompute_status_text)}</strong></span>
-        <span>{_text(_label('ui.worker_precompute_worker'))}: <strong>{_text(precompute_worker_name or '—')}</strong></span>
-        <span>{_text(_label('ui.worker_precompute_fingerprint'))}: <strong><code>{_text(precompute_summary.get('runtime_fingerprint', '—'))}</code></strong></span>
-        <span>{_text(_label('ui.worker_precompute_planned_artifact'))}: <strong><code>{_text(precompute_summary.get('planned_artifact_id', '—'))}</code></strong></span>
-        <span>{_text(_label('ui.worker_precompute_active_artifact'))}: <strong><code>{_text(precompute_summary.get('artifact_id', '—') or '—')}</code></strong></span>
-        {f'<span>{_text(_label("ui.worker_precompute_window"))}: <strong>{_text(precompute_window)}</strong></span>' if precompute_window else ''}
-        {f'<span>Revision: <strong>{_text(precompute_summary.get("desired_revision", 0))}</strong></span>' if precompute_summary.get("desired_revision") else ''}
-        {f'<span>Job: <strong><a href="#job-{_text(precompute_job_id)}"><code>{_text(precompute_job_id)}</code></a> · {_text(precompute_summary.get("active_job_status", ""))}</strong></span>' if precompute_job_id else ''}
-      </div>
-      <div class="precompute-actions">
-        <form method="post" action="">
-          <input type="hidden" name="worker_action" value="run_predictor_precompute">
-          <input type="hidden" name="worker_id" value="{_text(precompute_worker_id)}">
-          <button{' class="primary"' if precompute_worker_compatible else ''} type="submit"{' disabled' if not precompute_worker_compatible else ''}>{_text(_label('ui.worker_precompute_launch'))}</button>
-        </form>
-        {('<form method="post" action=""><input type="hidden" name="worker_action" value="run_predictor_precompute"><input type="hidden" name="force" value="1"><input type="hidden" name="worker_id" value="' + _text(precompute_worker_id) + '"><button type="submit">' + _text(_label('ui.worker_precompute_force')) + '</button></form>') if precompute_force and precompute_worker_compatible else ''}
-      </div>
+      <div id="worker-precompute-state" class="precompute-state" data-refresh-signature="{precompute_state_signature}">{precompute_state}</div>
     </section>
     <section class="workers-panel">
       <div class="worker-panel-head"><h2>{_text(_label('ui.worker_scientific_benchmark'))}</h2></div>
@@ -1146,8 +1148,9 @@ def render_page(
       const cards=document.getElementById('worker-status-cards');
       const destinations=document.getElementById('worker-destination-choices');
       const jobs=document.getElementById('worker-recent-jobs');
+      const precomputeState=document.getElementById('worker-precompute-state');
       const flashRegion=document.getElementById('worker-flash-region');
-      if(!cards||!destinations||!jobs||!flashRegion)return;
+      if(!cards||!destinations||!jobs||!precomputeState||!flashRegion)return;
       const appBasePath=window.location.pathname.replace(/\\/mushrooms\\/workers\\/?$/,'');
       const statusUrl=`${{appBasePath}}/api/mushrooms/workers/status`;
       let timer=0,requestController=null,interactionUntil=0,leaving=false;
@@ -1239,6 +1242,7 @@ def render_page(
           replaceRegion(cards,payload.worker_cards_html,payload.worker_cards_signature);
           const destinationsChanged=replaceRegion(destinations,payload.worker_choices_html,payload.worker_choices_signature);
           const jobsChanged=replaceRegion(jobs,payload.recent_jobs_html,payload.recent_jobs_signature);
+          replaceRegion(precomputeState,payload.precompute_state_html,payload.precompute_state_signature);
           if(jobsChanged)applyJobSort();
           const restored=Array.from(document.querySelectorAll('input[name="executor"]')).find(item=>item.value===selected);
           if(restored&&!restored.disabled)restored.checked=true;

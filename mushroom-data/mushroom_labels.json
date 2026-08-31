@@ -4260,9 +4260,9 @@
     "ca": "La sol·licitud s'ha rebut. El progrés s'obrirà tan bon punt el treball quedi registrat."
   },
   "ui.worker_before_execution": {
-    "en": "Before execution",
-    "es": "Antes de ejecutar",
-    "ca": "Abans d'executar"
+    "en": "Wait",
+    "es": "Espera",
+    "ca": "Espera"
   },
   "ui.worker_execution_time": {
     "en": "Execution",

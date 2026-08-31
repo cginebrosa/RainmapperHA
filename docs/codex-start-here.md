@@ -42,13 +42,13 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 - Rama `inicial`; el HEAD anterior a esta release era
   `c02b4b8b6ca39f72deedcb0caf6f1d8e5d2d8eef`. Revalidar `pwd`, rama, HEAD,
   worktree y runtime al comenzar.
-- El código declara HA `0.2.285` y worker `1.0.32`. HA `0.2.285` y `latest`
+- El código declara HA `0.2.289` y worker `1.0.35`. HA `0.2.289` y `latest`
   están publicados con el índice multiarch
-  `sha256:aa4a1d39bffd501288b0ffb630d85bb8907818cdce3fc25bef3759c87c0c2333`.
-  La última instalación real confirmada es `0.2.284`; falta instalar y probar
-  `0.2.285`.
-- El worker privado no se publica. La última observación local confirmó
-  `1.0.32`, healthy/idle, identidad y volumen conservados, y capacidad
+  `sha256:67d6abd75624474bf8703fe4b75fae6b9c8d396756b22e8cc7f03cfdcee62769`.
+  La última instalación real confirmada es `0.2.288`; falta instalar y probar
+  `0.2.289`.
+- El worker privado no se publica. La última observación confirmó `1.0.35`,
+  healthy/idle, identidad y volumen conservados, y capacidad
   `predictor_precompute_v1`.
 - El precálculo semanal SQLite está implementado y validado localmente: lookup
   en HA, cobertura multiversión, fallback íntegro, estado latest-wins,
@@ -58,8 +58,8 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   desde `date.today()` en vez del `issue_date` planificado. `0.2.285`/`1.0.32`
   corrigen el anclaje, muestran progreso fraccional y detalle remoto, y sacan
   la telemetría síncrona del callback científico.
-- La siguiente prueba es instalar `0.2.285` y completar un E2E real con el
-  worker `1.0.32`, midiendo cada tramo y confirmando activación bajo `/media`.
+- La siguiente prueba es instalar `0.2.289` y dejar HA/worker estables varios
+  días, observando navegación, cancelación y refresco de estados.
 - No hay entrenamientos programados. La retención ML continúa activa; no borrar
   datos, cambiar retención, lanzar entrenamientos ni hacer otro bump/build/
   publicación sin autorización explícita.

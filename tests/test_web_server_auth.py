@@ -2033,6 +2033,117 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("failed", existing["status"])
         plan.assert_not_called()
 
+    def test_cancelled_precompute_desire_is_not_requeued_without_job_history(self) -> None:
+        identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+            runtime_fingerprint="sha256:" + "a" * 64,
+            issue_date="2026-08-31",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={
+                "species": 1,
+                "areas": 1,
+                "days": 7,
+                "versions": 1,
+                "members": 7,
+            },
+        )
+        heartbeat = {
+            "worker_id": "worker_aaaaaaaa",
+            "display_name": "Worker A",
+            "capabilities": [
+                self.web_server.mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            desired_path = root / "desired.json"
+            jobs_path = root / "jobs.json"
+            desired = (
+                self.web_server.mushroom_predictor_precompute_control.advance_desired_state(
+                    desired_path,
+                    identity=identity,
+                    worker_id="worker_aaaaaaaa",
+                    trigger_origin="manual",
+                )
+            )
+            cancelled_job = {
+                "job_id": "worker_job_aaaaaaaa",
+                "job_type": self.web_server.mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+                "target_worker_id": "worker_aaaaaaaa",
+                "desired_revision": desired["revision"],
+                "artifact_id": identity.artifact_id,
+                "cancel_requested_at": "2026-08-31T18:00:00+00:00",
+            }
+            with (
+                mock.patch.object(
+                    self.web_server,
+                    "mushroom_worker_jobs_path",
+                    return_value=jobs_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_desired_path",
+                    return_value=desired_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_worker_jobs,
+                    "request_cancel",
+                    return_value=cancelled_job,
+                ),
+                mock.patch.object(
+                    self.web_server, "discard_mushroom_worker_input_bundle"
+                ),
+                mock.patch.object(
+                    self.web_server, "reconcile_mushroom_worker_storage_for_launch"
+                ),
+            ):
+                status, _response = self.web_server.cancel_mushroom_worker_job(
+                    "worker_job_aaaaaaaa"
+                )
+
+            self.assertEqual(200, status)
+            persisted = (
+                self.web_server.mushroom_predictor_precompute_control.load_desired_state(
+                    desired_path
+                )
+            )
+            self.assertEqual("cancelled", persisted["terminal_status"])
+
+            with (
+                mock.patch.object(
+                    self.web_server.mushroom_worker_registry,
+                    "load_registry",
+                    return_value={"default_executor": "worker:worker_aaaaaaaa"},
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "mushroom_worker_jobs_path",
+                    return_value=jobs_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_desired_path",
+                    return_value=desired_path,
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "predictor_precompute_plan",
+                    side_effect=AssertionError("cancelled revision must not be replanned"),
+                ) as plan,
+            ):
+                existing = self.web_server.reconcile_mushroom_predictor_precompute_desire(
+                    heartbeat
+                )
+
+            self.assertIsNone(existing)
+            plan.assert_not_called()
+
     def test_predictor_modal_controller_handles_internal_navigation(self) -> None:
         script = self.web_server.predictor_launch_script()
 
@@ -7772,6 +7883,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("cards.innerHTML=payload.worker_cards_html", page)
         self.assertIn('id="worker-status-cards"', page)
         self.assertIn('id="worker-recent-jobs"', page)
+        self.assertIn('id="worker-precompute-state"', page)
+        self.assertIn(
+            "replaceRegion(precomputeState,payload.precompute_state_html,payload.precompute_state_signature)",
+            page,
+        )
         self.assertIn('value="create_worker_pairing"', page)
         self.assertIn("Generate pairing code", page)
         self.assertIn('class="worker-toolbar-actions"', page)
@@ -7804,6 +7920,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         }
         with mock.patch.object(self.web_server, "registered_mushroom_worker_statuses", return_value=[worker]), mock.patch.object(
             self.web_server, "mushroom_workers_recent_jobs", return_value=[]
+        ), mock.patch.object(
+            self.web_server,
+            "predictor_precompute_summary",
+            return_value={
+                "status": "running",
+                "preferred_worker_id": "worker_12345678",
+                "preferred_worker_name": "M1 personal",
+                "preferred_worker_reachable": True,
+                "preferred_worker_compatible": True,
+            },
         ):
             payload = self.web_server.mushroom_workers_status_refresh_payload()
 
@@ -7814,6 +7940,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(len(payload["worker_cards_signature"]), 64)
         self.assertEqual(len(payload["worker_choices_signature"]), 64)
         self.assertEqual(len(payload["recent_jobs_signature"]), 64)
+        self.assertIn("Calculating", payload["precompute_state_html"])
+        self.assertEqual(len(payload["precompute_state_signature"]), 64)
         self.assertFalse(payload["worker_activity_active"])
         self.assertFalse(payload["flash_update"])
 
@@ -10142,7 +10270,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Date and time", rendered)
         self.assertIn("20/07/2026 00:20:57", rendered)
         self.assertIn("48s", rendered)
-        self.assertIn("Before execution 1s", rendered)
+        self.assertIn("Wait 1s", rendered)
         self.assertIn("Execution 47s", rendered)
         self.assertIn('data-sortable-worker-jobs', rendered)
         self.assertEqual(rendered.count('data-worker-sort-column='), 10)

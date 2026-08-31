@@ -8,18 +8,17 @@ y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
   HEAD revalidado antes de los cambios locales:
-  `bd8c1fecf9309e5b40e19cf560484ecef85ce2fb`.
-- El código declara HA `0.2.288` y worker `1.0.35`.
-- HA `0.2.288` y `latest` están publicados en GHCR con el mismo índice OCI
-  `sha256:effb48be97d94cde782766dfc79f5322f2f2b50c6b905ce63dbb4a8776121246`
+  `736fecaae7436945ce62475f57474274c64b188e`.
+- El código declara HA `0.2.289` y worker `1.0.35`.
+- HA `0.2.289` y `latest` están publicados en GHCR con el mismo índice OCI
+  `sha256:67d6abd75624474bf8703fe4b75fae6b9c8d396756b22e8cc7f03cfdcee62769`
   y manifests `linux/amd64` y `linux/arm64`.
-- HA real no se modificó durante esta entrega. Su última versión confirmada por
-  el usuario es `0.2.287`; falta instalar y validar `0.2.288`.
+- La última versión confirmada por el usuario en HA real es `0.2.288`; falta
+  instalar y validar `0.2.289`.
 - El worker privado no se publica. Está reconstruido localmente como `1.0.35`,
   healthy/idle, con identidad `worker_1a9a232c20fe2ee2`, volumen
   `rainmapper-worker-data`, cachés GIS y Predictor válidas y ambas lanes idle.
-  El primer heartbeat observado tras arrancar agotó el timeout; falta confirmar
-  su conexión al coordinador tras actualizar HA.
+  El usuario confirmó su conexión al coordinador HA `0.2.288`.
 - No hay entrenamientos programados. No tocar retención, datos reales, HA real
   ni lanzar entrenamientos, bumps, builds o publicaciones sin autorización.
 
@@ -106,19 +105,45 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
   después de subir capas y no creó el tag; un reintento completó ambos tags con
   el índice multiarch indicado arriba.
 - HA `0.2.288` publicada y verificada en GHCR con el índice multiarch indicado
-  arriba. Worker `1.0.35` reconstruido y verificado healthy/idle conservando
-  identidad, volumen y cachés. HA real todavía no se ha actualizado.
+  en el histórico. Worker `1.0.35` reconstruido y verificado healthy/idle
+  conservando identidad, volumen y cachés. HA real se actualizó a `0.2.288`.
+
+## Correcciones publicadas en 0.2.289
+
+- La cancelación del precálculo queda sellada también en `desired.json`: una
+  revisión cancelada no se vuelve a materializar después de reiniciar
+  Rainmapper o Home Assistant, y una entrega tardía se rechaza.
+- El resumen del precálculo se refresca junto con la tabla de trabajos, de modo
+  que pasa de `Calculando` a `Listo` sin una recarga manual.
+- La tabla denomina `Espera` al tiempo previo a ejecutar para separarlo del
+  tiempo efectivo de cálculo.
+- El smoke final pasó 1.204 pruebas, sintaxis, fixtures y comprobación de diff.
+  `0.2.289` y `latest` comparten el índice OCI
+  `sha256:67d6abd75624474bf8703fe4b75fae6b9c8d396756b22e8cc7f03cfdcee62769`
+  con manifests `linux/amd64` y `linux/arm64`.
+- El worker no cambió y permanece en `1.0.35`.
+
+## Observación del Predictor tras el precálculo real
+
+- Una petición local de recomendador no cubierta por el SQLite tardó 197,718 s
+  dentro del render científico; otra petición concurrente esperó 70,352 s el
+  bloqueo global. No hubo OOM ni participación del worker.
+- Las peticiones anteriores y posteriores tardaron aproximadamente un segundo,
+  y el usuario reprodujo después el mismo flujo con respuesta rápida. La causa
+  interna exacta de esa única inicialización lenta no está demostrada; observar
+  antes de introducir otra optimización.
 
 ## Próximos pasos inmediatos
 
-1. Instalar HA `0.2.288` y confirmar que worker `1.0.35` conecta y reclama sin
-   la espera observada con la cola v1.
-2. Tras instalarla, medir una cadena real completa para confirmar la
+1. Instalar HA `0.2.289` y confirmar que el worker `1.0.35` continúa conectado.
+2. Mantener la versión estable varios días y observar navegación, cancelación,
+   refresco de estados y tiempos de Predictor antes de añadir optimizaciones.
+3. En una futura cadena real completa, confirmar la
    reducción de las esperas de 1--2 minutos. Las pruebas demuestran que se han
    eliminado llamadas repetidas, pero no sustituyen esa medición real.
-3. Verificar rutas y Predictor sobre `/media`; sólo entonces autorizar, si se
+4. Verificar rutas y Predictor sobre `/media`; sólo entonces autorizar, si se
    desea, la retirada de copias legacy de `/share` para reducir el backup.
-4. En la siguiente ejecución real, revisar la instrumentación ya instalada en
+5. En la siguiente ejecución real, revisar la instrumentación ya instalada en
    el worker. Registra cinco transiciones por precálculo, resumen de fases,
    número de polls vacíos antes del claim y tiempo real hasta liberar el hilo.
    No escribe por predicción ni añade llamadas a HA.

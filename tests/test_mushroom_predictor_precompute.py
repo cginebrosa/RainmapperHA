@@ -41,6 +41,8 @@ from rainmapper_core.mushroom_predictor_service import (
 from rainmapper_core.mushroom_predictor_precompute_control import (
     activate_worker_copy,
     advance_desired_state,
+    cancel_desired_state,
+    load_desired_state,
     publish_received_artifact,
 )
 
@@ -922,6 +924,77 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
                 ARTIFACT_SCHEMA_VERSION,
                 desired["identity"]["schema_version"],
             )
+
+    def test_cancelled_desire_is_durable_and_next_revision_clears_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "desired.json"
+            identity = self.identity()
+            desired = advance_desired_state(
+                path,
+                identity=identity,
+                worker_id="worker_aaaaaaaa",
+                trigger_origin="manual",
+            )
+
+            cancelled = cancel_desired_state(
+                path,
+                desired_revision=int(desired["revision"]),
+                artifact_id=identity.artifact_id,
+                cancelled_at="2026-08-31T18:00:00+00:00",
+            )
+
+            self.assertEqual("cancelled", cancelled["terminal_status"])
+            self.assertEqual(
+                "cancelled", load_desired_state(path)["terminal_status"]
+            )
+            replacement = advance_desired_state(
+                path,
+                identity=identity,
+                worker_id="worker_aaaaaaaa",
+                trigger_origin="manual",
+            )
+            self.assertEqual(2, replacement["revision"])
+            self.assertNotIn("terminal_status", replacement)
+
+    def test_cancelled_desire_rejects_late_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            identity, coverage, predictions, members, responses = self.fixture()
+            source = root / "built.sqlite3"
+            manifest = write_artifact(
+                source,
+                identity=identity,
+                coverage=coverage,
+                base_predictions=predictions,
+                operational_members=members,
+                responses=[responses],
+            )
+            desired_path = root / "desired.json"
+            desired = advance_desired_state(
+                desired_path,
+                identity=identity,
+                worker_id="worker_aaaaaaaa",
+                trigger_origin="manual",
+            )
+            cancel_desired_state(
+                desired_path,
+                desired_revision=int(desired["revision"]),
+                artifact_id=identity.artifact_id,
+                cancelled_at="2026-08-31T18:00:00+00:00",
+            )
+
+            with self.assertRaisesRegex(ValueError, "no longer desired"):
+                publish_received_artifact(
+                    io.BytesIO(source.read_bytes()),
+                    content_length=manifest.size_bytes,
+                    expected_sha256=manifest.file_sha256,
+                    identity=identity,
+                    desired_state_path=desired_path,
+                    destination_path=root / "ha-active.sqlite3",
+                    receipt_path=root / "ha-receipt.json",
+                    desired_revision=int(desired["revision"]),
+                    max_bytes=manifest.size_bytes,
+                )
 
     def test_superseded_upload_cannot_replace_active_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

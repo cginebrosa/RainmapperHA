@@ -13560,6 +13560,8 @@ def reconcile_mushroom_predictor_precompute_desire(
     desired = mushroom_predictor_precompute_control.load_desired_state(desired_path)
     if desired is None or str(desired.get("worker_id", "")) not in {"", worker_id}:
         return None
+    if desired.get("terminal_status") == "cancelled":
+        return None
     attempt_key = (
         worker_id,
         int(desired["revision"]),
@@ -15886,6 +15888,16 @@ def cancel_mushroom_worker_job(job_id: str, *, force: bool = False) -> tuple[int
                 job_id=job_id,
                 force=force,
             )
+            if (
+                job.get("job_type")
+                == mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE
+            ):
+                mushroom_predictor_precompute_control.cancel_desired_state(
+                    mushroom_paths.mushroom_predictor_precompute_desired_path(),
+                    desired_revision=int(job.get("desired_revision", 0) or 0),
+                    artifact_id=str(job.get("artifact_id", "")),
+                    cancelled_at=str(job.get("cancel_requested_at", "")),
+                )
         discard_mushroom_worker_input_bundle(job)
         reconcile_mushroom_worker_storage_for_launch(
             str(job.get("target_worker_id", ""))
@@ -16176,6 +16188,9 @@ def mushroom_workers_status_refresh_payload() -> dict[str, object]:
         worker_statuses,
         operational_enabled=operational_enabled,
     )
+    precompute_state_html = mushroom_workers_ui.render_precompute_state(
+        predictor_precompute_summary()
+    )
     activity_active = mushroom_worker_activity_active(jobs)
     flash, flash_error, flash_clear_when_idle = mushroom_workers_flash_details()
     if flash_clear_when_idle and not activity_active:
@@ -16204,6 +16219,10 @@ def mushroom_workers_status_refresh_payload() -> dict[str, object]:
         "worker_choices_signature": mushroom_workers_ui.refresh_signature(worker_choices_html),
         "recent_jobs_html": recent_jobs_html,
         "recent_jobs_signature": mushroom_workers_ui.refresh_signature(recent_jobs_html),
+        "precompute_state_html": precompute_state_html,
+        "precompute_state_signature": mushroom_workers_ui.refresh_signature(
+            precompute_state_html
+        ),
         "worker_last_checks": worker_last_checks,
         "worker_activity_active": activity_active,
         "flash_update": bool(flash),

@@ -20,6 +20,7 @@ from rainmapper_core.mushroom_predictor_precompute import (
 
 DESIRED_SCHEMA_VERSION = "1.0"
 RECEIPT_SCHEMA_VERSION = "1.0"
+DESIRED_TERMINAL_STATUSES = frozenset({"cancelled"})
 
 
 def _canonical_json(payload: object) -> str:
@@ -56,6 +57,9 @@ def load_desired_state(path: Path) -> dict[str, Any] | None:
     revision = payload.get("revision")
     if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
         raise ValueError("Predictor precompute desired revision is invalid.")
+    terminal_status = str(payload.get("terminal_status", "") or "")
+    if terminal_status and terminal_status not in DESIRED_TERMINAL_STATUSES:
+        raise ValueError("Predictor precompute desired terminal status is invalid.")
     return payload
 
 
@@ -128,6 +132,27 @@ def assign_desired_worker(
     if assigned == target:
         return current
     current["worker_id"] = target
+    _atomic_json(path, current)
+    return current
+
+
+def cancel_desired_state(
+    path: Path,
+    *,
+    desired_revision: int,
+    artifact_id: str,
+    cancelled_at: str,
+) -> dict[str, Any]:
+    """Persist cancellation so queue compaction or restart cannot replay it."""
+    current = load_desired_state(path)
+    if (
+        current is None
+        or current.get("revision") != desired_revision
+        or current.get("artifact_id") != artifact_id
+    ):
+        raise ValueError("Predictor precompute desired state changed before cancellation.")
+    current["terminal_status"] = "cancelled"
+    current["terminal_at"] = str(cancelled_at)
     _atomic_json(path, current)
     return current
 
@@ -215,6 +240,7 @@ def publish_received_artifact(
         desired is None
         or desired.get("revision") != desired_revision
         or desired.get("artifact_id") != identity.artifact_id
+        or desired.get("terminal_status")
     ):
         raise ValueError("Predictor precompute upload is no longer desired.")
     destination_path.parent.mkdir(parents=True, exist_ok=True)
@@ -250,6 +276,7 @@ def publish_received_artifact(
             desired is None
             or desired.get("revision") != desired_revision
             or desired.get("artifact_id") != identity.artifact_id
+            or desired.get("terminal_status")
         ):
             raise ValueError("Predictor precompute upload was superseded during validation.")
         os.replace(staged, destination_path)

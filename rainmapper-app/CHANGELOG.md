@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.289
+
+- Persist weekly precompute cancellation in desired state so a cancelled
+  revision cannot restart after Rainmapper or Home Assistant restarts.
+- Refresh the weekly precompute summary together with the jobs table when a
+  running calculation reaches a terminal state.
+- Label pre-execution job duration as wait time to distinguish it from worker
+  execution time.
+
 ## 0.2.288
 
 - Replace the monolithic worker-job history with a compact v2 queue in
