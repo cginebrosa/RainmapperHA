@@ -231,6 +231,137 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
             )
             save.assert_called_once_with(destination, catalog)
 
+    def test_operational_tuning_catalog_rebuilds_when_persisted_origin_is_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "models" / "batches" / "batch-current"
+            source.mkdir(parents=True)
+            source_manifest = {"batch_id": "batch-current"}
+            (source / "manifest.json").write_text(
+                json.dumps(source_manifest), encoding="utf-8"
+            )
+            stale_catalog = {
+                "catalog_id": "sha256:" + "a" * 64,
+                "source_batch_id": "batch-previous",
+                "decisions": [{"key": "decision"}],
+            }
+            stale_content = json.dumps(stale_catalog).encode("utf-8")
+            (source / "tuning-catalog.json").write_bytes(stale_content)
+            destination = root / "operation" / "tuning-catalog.json"
+            rebuilt_catalog = {
+                "catalog_id": "sha256:" + "b" * 64,
+                "source_batch_id": "batch-current",
+            }
+
+            with mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "installed_source_batch_id",
+                return_value="batch-current",
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_model_catalog,
+                "validate_batch_manifest",
+                return_value={
+                    "tuning_catalog": {
+                        "catalog_id": stale_catalog["catalog_id"],
+                        "source_batch_id": "batch-previous",
+                        "decision_count": 1,
+                        "path": "batches/batch-current/tuning-catalog.json",
+                        "sha256": hashlib.sha256(stale_content).hexdigest(),
+                    }
+                },
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "validate_catalog",
+            ) as validate, mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "build_from_batch",
+                return_value=rebuilt_catalog,
+            ) as build, mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "save",
+            ) as save:
+                result = mushroom_local_full_update.materialize_operational_tuning_catalog(
+                    registry={"schema_version": "test"},
+                    version_ids=["biology_v5_windowed_raw_weather"],
+                    models_root=root / "models",
+                    destination=destination,
+                )
+
+            self.assertIs(result, rebuilt_catalog)
+            self.assertFalse((source / "tuning-catalog.json").exists())
+            validate.assert_not_called()
+            build.assert_called_once_with(
+                {"schema_version": "test"},
+                source_manifest,
+                batch_root=source,
+            )
+            save.assert_called_once_with(destination, rebuilt_catalog)
+
+    def test_operational_tuning_catalog_rebuilds_when_file_origin_disagrees_with_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "models" / "batches" / "batch-current"
+            source.mkdir(parents=True)
+            source_manifest = {"batch_id": "batch-current"}
+            (source / "manifest.json").write_text(
+                json.dumps(source_manifest), encoding="utf-8"
+            )
+            stale_catalog = {
+                "catalog_id": "sha256:" + "a" * 64,
+                "source_batch_id": "batch-previous",
+                "decisions": [{"key": "decision"}],
+            }
+            stale_content = json.dumps(stale_catalog).encode("utf-8")
+            (source / "tuning-catalog.json").write_bytes(stale_content)
+            destination = root / "operation" / "tuning-catalog.json"
+            rebuilt_catalog = {
+                "catalog_id": "sha256:" + "b" * 64,
+                "source_batch_id": "batch-current",
+            }
+
+            with mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "installed_source_batch_id",
+                return_value="batch-current",
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_model_catalog,
+                "validate_batch_manifest",
+                return_value={
+                    "tuning_catalog": {
+                        "catalog_id": stale_catalog["catalog_id"],
+                        "source_batch_id": "batch-current",
+                        "decision_count": 1,
+                        "path": "batches/batch-current/tuning-catalog.json",
+                        "sha256": hashlib.sha256(stale_content).hexdigest(),
+                    }
+                },
+            ), mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "validate_catalog",
+            ) as validate, mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "build_from_batch",
+                return_value=rebuilt_catalog,
+            ) as build, mock.patch.object(
+                mushroom_local_full_update.mushroom_ml_tuning_catalog,
+                "save",
+            ):
+                result = mushroom_local_full_update.materialize_operational_tuning_catalog(
+                    registry={"schema_version": "test"},
+                    version_ids=["biology_v5_windowed_raw_weather"],
+                    models_root=root / "models",
+                    destination=destination,
+                )
+
+            self.assertIs(result, rebuilt_catalog)
+            self.assertFalse((source / "tuning-catalog.json").exists())
+            validate.assert_not_called()
+            build.assert_called_once_with(
+                {"schema_version": "test"},
+                source_manifest,
+                batch_root=source,
+            )
+
     def test_runtime_batch_rollback_removes_only_new_batch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             models_root = Path(temporary)

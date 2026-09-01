@@ -2944,6 +2944,16 @@
     "es": "Cancelación solicitada. El worker se detendrá en el siguiente punto seguro.",
     "ca": "Cancel·lació sol·licitada. El worker s'aturarà en el següent punt segur."
   },
+  "ui.predictor_executor_stop_waiting": {
+    "en": "Stop waiting",
+    "es": "Dejar de esperar",
+    "ca": "Deixar d'esperar"
+  },
+  "ui.predictor_executor_wait_stopped": {
+    "en": "You stopped waiting. A local calculation that had already started may still finish in the background.",
+    "es": "Has dejado de esperar. Un cálculo local que ya hubiera empezado puede terminar en segundo plano.",
+    "ca": "Has deixat d'esperar. Un càlcul local que ja hagués començat pot acabar en segon pla."
+  },
   "ui.predictor_executor_running": {
     "en": "Preparing Predictor",
     "es": "Preparando el Predictor",
@@ -3173,6 +3183,91 @@
     "en": "False alarms",
     "es": "Falsas alarmas",
     "ca": "Falses alarmes"
+  },
+  "ui.predictor_help_stat_episodes": {
+    "en": "Total historical observations for this species included in the query, whether or not they produced an evaluable classification.",
+    "es": "Total de observaciones históricas de esta especie incluidas en la consulta, hayan producido o no una clasificación evaluable.",
+    "ca": "Total d'observacions històriques d'aquesta espècie incloses en la consulta, hagin produït o no una classificació avaluable."
+  },
+  "ui.predictor_help_stat_accuracy": {
+    "en": "Retrospective percentage of evaluable favorable or unfavorable classifications that match the observed outcome. Uncertain or unavailable results are excluded; it does not mean these episodes were withheld from training.",
+    "es": "Porcentaje retrospectivo de clasificaciones evaluables, favorables o no favorables, que coinciden con lo observado. Los resultados inciertos o no disponibles se excluyen; no significa que estos episodios quedaran fuera del entrenamiento.",
+    "ca": "Percentatge retrospectiu de classificacions avaluables, favorables o no favorables, que coincideixen amb el resultat observat. Els resultats incerts o no disponibles s'exclouen; no significa que aquests episodis quedessin fora de l'entrenament."
+  },
+  "ui.predictor_help_stat_fn": {
+    "en": "Observed favorable episodes that Predictor did not classify as favorable, including uncertain or unavailable results.",
+    "es": "Episodios realmente favorables que Predictor no clasificó como favorables, incluidos los resultados inciertos o no disponibles.",
+    "ca": "Episodis realment favorables que Predictor no va classificar com a favorables, inclosos els resultats incerts o no disponibles."
+  },
+  "ui.predictor_help_stat_fp": {
+    "en": "Observed unfavorable episodes that Predictor classified as favorable.",
+    "es": "Episodios realmente no favorables que Predictor clasificó como favorables.",
+    "ca": "Episodis realment no favorables que Predictor va classificar com a favorables."
+  },
+  "ui.predictor_holdout_heading": {
+    "en": "Reliability on reserved test data",
+    "es": "Fiabilidad en datos reservados de prueba",
+    "ca": "Fiabilitat en dades reservades de prova"
+  },
+  "ui.predictor_holdout_note": {
+    "en": "These figures come from data excluded from training. The list below is a separate retrospective review of the observed episodes.",
+    "es": "Estas cifras proceden de datos excluidos del entrenamiento. El listado inferior es una revisión retrospectiva independiente de los episodios observados.",
+    "ca": "Aquestes xifres provenen de dades excloses de l'entrenament. El llistat inferior és una revisió retrospectiva independent dels episodis observats."
+  },
+  "ui.predictor_holdout_unavailable": {
+    "en": "No reserved-test metrics are available for the operational models used.",
+    "es": "No hay métricas de prueba reservada para los modelos operativos utilizados.",
+    "ca": "No hi ha mètriques de prova reservada per als models operatius utilitzats."
+  },
+  "ui.predictor_stat_tested": {
+    "en": "Cases tested",
+    "es": "Casos probados",
+    "ca": "Casos provats"
+  },
+  "ui.predictor_stat_favorable_correct": {
+    "en": "Favorable alerts correct",
+    "es": "Favorables acertados",
+    "ca": "Favorables encertats"
+  },
+  "ui.predictor_stat_favorable_found": {
+    "en": "Favorable cases found",
+    "es": "Favorables encontrados",
+    "ca": "Favorables trobats"
+  },
+  "ui.predictor_stat_unfavorable_correct": {
+    "en": "Unfavorable alerts correct",
+    "es": "Desfavorables acertados",
+    "ca": "Desfavorables encertats"
+  },
+  "ui.predictor_stat_unfavorable_found": {
+    "en": "Unfavorable cases found",
+    "es": "Desfavorables encontrados",
+    "ca": "Desfavorables trobats"
+  },
+  "ui.predictor_help_stat_tested": {
+    "en": "Number of reserved predictions made by the operational models used for this species. A historical episode may contribute to more than one temporal scenario.",
+    "es": "Número de predicciones reservadas realizadas por los modelos operativos usados para esta especie. Un episodio histórico puede aportar más de un escenario temporal.",
+    "ca": "Nombre de prediccions reservades fetes pels models operatius usats per a aquesta espècie. Un episodi històric pot aportar més d'un escenari temporal."
+  },
+  "ui.predictor_help_stat_favorable_correct": {
+    "en": "Of the reserved cases classified as favorable, the percentage and fraction that were actually favorable.",
+    "es": "De los casos reservados clasificados como favorables, porcentaje y fracción que realmente fueron favorables.",
+    "ca": "Dels casos reservats classificats com a favorables, percentatge i fracció que realment van ser favorables."
+  },
+  "ui.predictor_help_stat_favorable_found": {
+    "en": "Of all actually favorable reserved cases, the percentage and fraction detected as favorable. Uncertain results count as not found.",
+    "es": "De todos los casos reservados realmente favorables, porcentaje y fracción detectados como favorables. Los resultados inciertos cuentan como no encontrados.",
+    "ca": "De tots els casos reservats realment favorables, percentatge i fracció detectats com a favorables. Els resultats incerts compten com a no trobats."
+  },
+  "ui.predictor_help_stat_unfavorable_correct": {
+    "en": "Of the reserved cases classified as unfavorable, the percentage and fraction that were actually unfavorable.",
+    "es": "De los casos reservados clasificados como desfavorables, porcentaje y fracción que realmente fueron desfavorables.",
+    "ca": "Dels casos reservats classificats com a desfavorables, percentatge i fracció que realment van ser desfavorables."
+  },
+  "ui.predictor_help_stat_unfavorable_found": {
+    "en": "Of all actually unfavorable reserved cases, the percentage and fraction detected as unfavorable. Uncertain results count as not found.",
+    "es": "De todos los casos reservados realmente desfavorables, porcentaje y fracción detectados como desfavorables. Los resultados inciertos cuentan como no encontrados.",
+    "ca": "De tots els casos reservats realment desfavorables, percentatge i fracció detectats com a desfavorables. Els resultats incerts compten com a no trobats."
   },
   "ui.predictor_reliability": {
     "en": "Model reliability",
@@ -4374,6 +4469,11 @@
     "es": "usado",
     "ca": "utilitzat"
   },
+  "ui.predictor_precompute_outdated_used": {
+    "en": "outdated artifact from {datetime} used · update required",
+    "es": "usado el artefacto desactualizado de {datetime} · necesita actualizarse",
+    "ca": "utilitzat l'artefacte desactualitzat de {datetime} · cal actualitzar-lo"
+  },
   "ui.predictor_precompute_available_not_used": {
     "en": "available, query calculated online",
     "es": "disponible, consulta calculada en línea",
@@ -4393,6 +4493,21 @@
     "en": "unavailable, query calculated online",
     "es": "no disponible, consulta calculada en línea",
     "ca": "no disponible, consulta calculada en línia"
+  },
+  "ui.predictor_precompute_only": {
+    "en": "No online calculation is run in Home Assistant",
+    "es": "Home Assistant no ejecuta cálculos en línea",
+    "ca": "Home Assistant no executa càlculs en línia"
+  },
+  "ui.predictor_precompute_required": {
+    "en": "There is no precomputed result for this query. Update the weekly precompute to make it available.",
+    "es": "No hay un resultado precalculado para esta consulta. Actualiza el precálculo semanal para que esté disponible.",
+    "ca": "No hi ha cap resultat precalculat per a aquesta consulta. Actualitza el precàlcul setmanal perquè estigui disponible."
+  },
+  "ui.predictor_precompute_request_missing": {
+    "en": "The artifact from {datetime} does not contain this query. It needs to be updated.",
+    "es": "El artefacto de {datetime} no contiene esta consulta. Necesita actualizarse.",
+    "ca": "L'artefacte de {datetime} no conté aquesta consulta. Cal actualitzar-lo."
   },
   "ui.worker_precompute_queued": {
     "en": "Weekly Predictor precompute queued.",
@@ -4980,6 +5095,11 @@
     "en": "Use as preferred",
     "es": "Usar como preferida",
     "ca": "Usar com a preferida"
+  },
+  "ui.predictor_preferred_current": {
+    "en": "Currently saved: {version}",
+    "es": "Guardada actualmente: {version}",
+    "ca": "Desada actualment: {version}"
   },
   "ui.predictor_preferred_detail_title": {
     "en": "Operational detail for preferred version {version}",

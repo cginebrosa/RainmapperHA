@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -79,6 +80,135 @@ class PredictorRuntimeTests(TestCase):
             self.assertIn(
                 "models/mushroom_ml_experiment_fixed_gap_7d_v1_boletus.joblib",
                 sources,
+            )
+
+    def test_preferred_version_is_not_part_of_runtime_identity(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            (models / "batches/example").mkdir(parents=True)
+            (models / "batches/example/manifest.json").write_text(
+                "{}", encoding="utf-8"
+            )
+            registry_path = root / "mushroom_ml_version_registry.json"
+            registry_path.write_text("{}", encoding="utf-8")
+            common = {
+                "schema_version": "1.0",
+                "kind": "rainmapper_mushroom_ml_version_registry",
+                "versions": [],
+            }
+
+            with mock.patch(
+                "rainmapper_core.mushroom_ml_version_registry.load_registry",
+                side_effect=[
+                    {**common, "preferred_version_id": "biology_v4"},
+                    {**common, "preferred_version_id": "biology_v6_windowed"},
+                    {**common, "preferred_version_id": "biology_v4"},
+                ],
+            ):
+                first, first_sources = build_manifest(
+                    weather_data_dir=weather,
+                    models_dir=models,
+                    features_artifact_path=features,
+                    known_sites_path=sites,
+                    profiles_path=profiles,
+                    version_registry_path=registry_path,
+                )
+                second, _second_sources = build_manifest(
+                    weather_data_dir=weather,
+                    models_dir=models,
+                    features_artifact_path=features,
+                    known_sites_path=sites,
+                    profiles_path=profiles,
+                    version_registry_path=registry_path,
+                )
+                (models / "mushroom_ml_v0_boletus.joblib").write_bytes(
+                    b"changed-scientific-model"
+                )
+                third, _third_sources = build_manifest(
+                    weather_data_dir=weather,
+                    models_dir=models,
+                    features_artifact_path=features,
+                    known_sites_path=sites,
+                    profiles_path=profiles,
+                    version_registry_path=registry_path,
+                )
+
+            runtime_registry = first_sources[
+                "data/mushroom_ml_version_registry.json"
+            ]
+            self.assertIsNone(
+                json.loads(runtime_registry.read_text(encoding="utf-8"))[
+                    "preferred_version_id"
+                ]
+            )
+            self.assertEqual(first["fingerprint"], second["fingerprint"])
+            self.assertNotEqual(second["fingerprint"], third["fingerprint"])
+
+    def test_preference_file_change_reuses_canonical_publication(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            weather, models, features, sites, profiles = self._source_tree(root)
+            (models / "batches/example").mkdir(parents=True)
+            (models / "batches/example/manifest.json").write_text(
+                "{}", encoding="utf-8"
+            )
+            registry_path = root / "mushroom_ml_version_registry.json"
+            registry_path.write_text('{"preferred_version_id":"biology_v4"}')
+            publication = root / "cache/published-runtime.json"
+            registry = {
+                "schema_version": "1.0",
+                "kind": "rainmapper_mushroom_ml_version_registry",
+                "preferred_version_id": "biology_v4",
+                "versions": [],
+            }
+            with mock.patch(
+                "rainmapper_core.mushroom_ml_version_registry.load_registry",
+                return_value=registry,
+            ):
+                published, _sources = publish_manifest(
+                    publication,
+                    weather_data_dir=weather,
+                    models_dir=models,
+                    features_artifact_path=features,
+                    known_sites_path=sites,
+                    profiles_path=profiles,
+                    version_registry_path=registry_path,
+                )
+
+            registry_path.write_text(
+                '{"preferred_version_id":"biology_v6_windowed"}'
+            )
+            reused, _sources, status = load_or_publish_manifest(publication)
+
+            self.assertEqual("reused", status)
+            self.assertEqual(published["fingerprint"], reused["fingerprint"])
+
+    def test_runtime_registry_keeps_its_valid_default_when_ui_pointer_moves(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            registry_path = root / "mushroom_ml_version_registry.json"
+            versions = [
+                {"version_id": "biology_v4", "installed_generation_id": "g4"},
+                {"version_id": "biology_v6", "installed_generation_id": "g6"},
+            ]
+            first = mushroom_predictor_runtime._runtime_registry_snapshot(
+                {"preferred_version_id": "biology_v4", "versions": versions},
+                source_path=registry_path,
+                explicit_source=True,
+            )
+            second = mushroom_predictor_runtime._runtime_registry_snapshot(
+                {"preferred_version_id": "biology_v6", "versions": versions},
+                source_path=registry_path,
+                explicit_source=True,
+            )
+
+            self.assertEqual(first, second)
+            self.assertEqual(
+                "biology_v4",
+                json.loads(second.read_text(encoding="utf-8"))[
+                    "preferred_version_id"
+                ],
             )
 
     def test_published_metadata_load_does_not_inspect_runtime_sources(self) -> None:

@@ -858,6 +858,27 @@ class PredictorService:
             collect_runtime_metrics("multiversion", result)
             return result
 
+        def selected_comparison_for(
+            species_id: str,
+            current_area: str,
+            current_date: date,
+        ) -> dict[str, Any]:
+            selections = normalized["multiversion_selection"]
+            if not selections:
+                return comparison_for(species_id, current_area, current_date)
+            return multiversion_comparison_for(
+                species_id=species_id,
+                current_area=current_area,
+                current_date=current_date,
+                selections=(
+                    mushroom_ml_multiversion_comparison.retarget_operational_selections(
+                        selections,
+                        target_date=current_date,
+                        issue_date=min(request_issue_date, current_date),
+                    )
+                ),
+            )
+
         if view == "recommender":
             total = len(species_ids)
             for index, species_id in enumerate(species_ids):
@@ -873,12 +894,12 @@ class PredictorService:
                 observed_areas = timed(
                     "prediction_data", predictor.areas_with_species_observations
                 )
-                preferred_comparisons = (
+                selected_comparisons = (
                     {}
                     if season_phase == "out_of_season"
                     else {
                         current_area: {
-                            target.isoformat(): comparison_for(
+                            target.isoformat(): selected_comparison_for(
                                 species_id, current_area, target
                             )
                         }
@@ -892,7 +913,7 @@ class PredictorService:
                     # Recommender ranks preferred-version interpretations, not
                     # legacy base-model probabilities.
                     "rankings": {target.isoformat(): []},
-                    "model_comparisons": preferred_comparisons,
+                    "model_comparisons": selected_comparisons,
                 }
         elif view == "week":
             predictor = timed(
@@ -922,7 +943,9 @@ class PredictorService:
                     serialize_prediction(row)
                 )
                 comparisons.setdefault(current_area, {})[current_date.isoformat()] = (
-                    comparison_for(selected_species, current_area, current_date)
+                    selected_comparison_for(
+                        selected_species, current_area, current_date
+                    )
                 )
                 report(
                     10 + round(completed / total * 83),
@@ -949,7 +972,7 @@ class PredictorService:
                 if not history_area or not history_date:
                     continue
                 history_comparisons.setdefault(history_area, {})[history_date] = (
-                    comparison_for(
+                    selected_comparison_for(
                         selected_species,
                         history_area,
                         date.fromisoformat(history_date),
@@ -1118,7 +1141,7 @@ class PredictorService:
                 species_data["rankings"] = {target.isoformat(): ranking_rows}
                 species_data["model_comparisons"] = {
                     row["area_id"]: {
-                        target.isoformat(): comparison_for(
+                        target.isoformat(): selected_comparison_for(
                             selected_species, row["area_id"], target
                         )
                     }

@@ -28,6 +28,45 @@ presenta cada miembro individual y su calidad hold-out. Un ensemble futuro solo
 podrá añadirse como otro estimador si se ha comparado contra el mejor miembro
 individual por especie y contrato.
 
+### Extensión funcional acordada el 2026-09-01
+
+La selección multiversión no queda limitada a `Consultar fecha`. Las vistas
+`Esta semana` y `Por especie` ofrecen la misma selección simple de versiones
+operativas instaladas (V2, V3, V4, V5w y V6w) y aplicarán los mismos gates,
+ranking por escenario, abstenciones y explicaciones que `Consultar fecha`.
+
+La selección se conservará al cambiar de pestaña, día, especie, área y al abrir
+una ficha desde el recomendador. La primera apertura partirá de la versión
+operativa preferida; marcar otras versiones amplía la consulta actual, pero no
+cambia por sí solo la preferida persistente. Cada especie expandirá las
+versiones elegidas a sus miembros instalados realmente disponibles.
+
+`Esta semana` seguirá siendo un recomendador global: podrá elegir una especie
+distinta para cada día, pero todos sus candidatos se evaluarán con el mismo
+conjunto de versiones seleccionado. `Por especie` mantendrá una especie fija y
+comparará ese mismo conjunto en sus áreas y siete días. MapLibre consumirá la
+misma selección e identidad, sin definir una cuarta semántica distinta.
+
+Estado de la implementación local:
+
+- `Consultar fecha` ya dispone del selector y la comparación explícita;
+- `Esta semana` y `Por especie` reciben, muestran y conservan esa selección;
+- el servicio aplica el conjunto elegido a todos los candidatos de cada vista;
+- el lector del precálculo compone cualquier subconjunto representado desde los
+  miembros operativos del SQLite, sin ejecutar de nuevo los modelos;
+- el cambio persistente de versión preferida está implementado en el worktree
+  mediante la acción explícita `Usar como preferida`; no predice, no navega y
+  no se acopla a las versiones incluidas. Aún no está publicado ni validado
+  visualmente en HA real.
+
+La preferencia es estado de navegación y operación, no una entrada científica.
+El paquete runtime canoniza el registro con un default interno estable para las
+rutas que todavía lo requieren; ese valor no sigue al puntero de UI mientras
+siga instalado. Así, cambiar la preferida conserva la única huella del runtime
+y el precálculo que ya contiene V2, V3, V4, V5w y V6w. Los cambios reales de
+generaciones, modelos, perfiles o datos sí cambian la huella y mantienen los
+avisos de vigencia existentes.
+
 ## Vocabulario (versión, perfil, estimador, modelo, generación, batch)
 
 De mayor a menor nivel:
@@ -270,6 +309,27 @@ ordinario de las versiones ya instaladas.
 El modo normal conserva ranking, semana, consulta e histórico con una única
 versión preferida. Comparar añade selector de versión, temporal, perfil y
 estimador, muestra disponibilidad real y ejecuta referencias exactas.
+
+La extensión de 2026-09-01 aplica el modo Comparar a `Esta semana`, `Por
+especie` y `Consultar fecha`. `Historial` conserva su función retrospectiva y no
+queda incluido automáticamente en esa selección.
+
+El resumen superior de `Historial` no se calcula sobre ese listado
+retrospectivo. Usa exclusivamente las filas hold-out que quedaron fuera del
+entrenamiento de los modelos operativos seleccionados. Presenta el número de
+predicciones reservadas y cuatro razones con porcentaje y fracción:
+
+- `Favorables acertados`: favorable real entre todos los avisos favorables;
+- `Favorables encontrados`: avisos favorables entre todos los favorables reales;
+- `Desfavorables acertados`: desfavorable real entre todos los avisos desfavorables;
+- `Desfavorables encontrados`: avisos desfavorables entre todos los desfavorables reales.
+
+Los cortes son los mismos del Predictor (`>= 0,60` favorable y `<= 0,40`
+desfavorable). Un resultado intermedio no entra como aviso acertado y reduce la
+capacidad de encontrar la clase real. Las métricas se agregan una sola vez por
+referencia exacta de modelo operativo; un episodio reservado puede aportar más
+de un escenario temporal. El listado inferior continúa siendo una auditoría
+retrospectiva separada y no se presenta como validación fuera de muestra.
 
 Cada resultado conserva dos capas:
 

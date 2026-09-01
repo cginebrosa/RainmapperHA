@@ -374,6 +374,8 @@ class LookupResult:
     reason: str | None
     artifact_id: str | None = None
     rows_read: int = 0
+    stale: bool = False
+    artifact_mtime: float | None = None
 
 
 @dataclass(frozen=True)
@@ -1440,150 +1442,246 @@ class ArtifactReader:
         self, normalized: dict[str, Any]
     ) -> LookupResult | None:
         if not (
-            normalized["view"] == "query"
-            and normalized["area_id"]
+            normalized["view"] in {"query", "week", "recommender"}
             and normalized["filter_mode"] == ""
             and normalized["compare_models"]
             and normalized["multiversion_selection"]
         ):
             return None
-        template_row = self._multiversion_template_row(normalized)
-        if template_row is None:
-            return LookupResult(
-                False,
-                None,
-                "selection_not_precomputed",
-                self.identity.artifact_id,
-            )
-        rows_read = 1
+        rows_read = 0
         try:
-            template_request = normalize_request(
-                json.loads(template_row["request_json"])
-            )
-            response = validate_response(
-                json.loads(
-                    zlib.decompress(template_row["payload_json"]).decode("utf-8")
-                )
-            )
-            if normalize_request(response.get("request")) != template_request:
-                response = _retarget_weekly_response(response, template_request)
-            species_payload = (
-                response.get("data", {})
-                .get("species", {})
-                .get(normalized["species_id"], {})
-            )
-            if not isinstance(species_payload, dict):
-                return LookupResult(
-                    False, None, "response_invalid", self.identity.artifact_id, rows_read
-                )
-            comparisons = species_payload.get("multiversion_comparisons", {})
-            if not isinstance(comparisons, Mapping):
-                return LookupResult(
-                    False, None, "response_invalid", self.identity.artifact_id, rows_read
-                )
-            context_row = self.connection.execute(
-                "SELECT payload_json FROM species_context WHERE species_id=?",
-                (normalized["species_id"],),
-            ).fetchone()
-            rows_read += 1
-            if context_row is None:
-                return LookupResult(
-                    False,
-                    None,
-                    "composition_context_missing",
-                    self.identity.artifact_id,
-                    rows_read,
-                )
-            context = json.loads(context_row["payload_json"])
-            phenology = context.get("phenology", {})
-            phases = context.get("season_phase_by_date", {})
-            if not isinstance(phenology, dict) or not isinstance(phases, dict):
-                return LookupResult(
-                    False, None, "artifact_corrupt", self.identity.artifact_id, rows_read
-                )
-            artifact_issue_date = date.fromisoformat(self.identity.issue_date)
-            composed: dict[str, dict[str, object]] = {}
-            for target_text in comparisons:
-                target = date.fromisoformat(str(target_text))
-                coverage_row = self.connection.execute(
-                    """SELECT has_base_prediction, member_keys_json
-                         FROM coverage
-                        WHERE species_id=? AND area_id=? AND target_date=?""",
-                    (
-                        normalized["species_id"],
-                        normalized["area_id"],
-                        target.isoformat(),
-                    ),
-                ).fetchone()
-                rows_read += 1
-                if coverage_row is None or not bool(
-                    coverage_row["has_base_prediction"]
-                ):
-                    return LookupResult(
-                        False, None, "coverage_partial", self.identity.artifact_id, rows_read
-                    )
-                base_exists = self.connection.execute(
-                    """SELECT 1 FROM base_predictions
-                        WHERE species_id=? AND area_id=? AND target_date=?""",
-                    (
-                        normalized["species_id"],
-                        normalized["area_id"],
-                        target.isoformat(),
-                    ),
-                ).fetchone()
-                rows_read += 1
-                if base_exists is None:
-                    return LookupResult(
-                        False, None, "coverage_partial", self.identity.artifact_id, rows_read
-                    )
-                represented_members = {
-                    _member_key_from_dict(value)
-                    for value in json.loads(coverage_row["member_keys_json"])
-                }
-                selections = (
-                    mushroom_ml_multiversion_comparison.retarget_operational_selections(
-                        normalized["multiversion_selection"],
-                        target_date=target,
-                        issue_date=min(artifact_issue_date, target),
-                    )
-                )
-                if not selections:
+            if normalized["view"] == "query" and normalized["area_id"]:
+                template_row = self._multiversion_template_row(normalized)
+                if template_row is None:
                     return LookupResult(
                         False,
                         None,
                         "selection_not_precomputed",
                         self.identity.artifact_id,
+                    )
+                rows_read = 1
+                template_request = normalize_request(
+                    json.loads(template_row["request_json"])
+                )
+                response = validate_response(
+                    json.loads(
+                        zlib.decompress(template_row["payload_json"]).decode("utf-8")
+                    )
+                )
+                if normalize_request(response.get("request")) != template_request:
+                    response = _retarget_weekly_response(response, template_request)
+            else:
+                canonical = self.lookup(
+                    {
+                        **normalized,
+                        "compare_models": False,
+                        "multiversion_selection": [],
+                    }
+                )
+                rows_read = canonical.rows_read
+                if not canonical.hit or canonical.response is None:
+                    return canonical
+                response = copy.deepcopy(canonical.response)
+
+            species_rows = response.get("data", {}).get("species", {})
+            if not isinstance(species_rows, dict):
+                return LookupResult(
+                    False, None, "response_invalid", self.identity.artifact_id, rows_read
+                )
+            target_species = (
+                [normalized["species_id"]]
+                if normalized["view"] in {"query", "week"}
+                else list(species_rows)
+            )
+            artifact_issue_date = date.fromisoformat(self.identity.issue_date)
+            for species_id in target_species:
+                species_payload = species_rows.get(species_id)
+                if not isinstance(species_payload, dict):
+                    return LookupResult(
+                        False,
+                        None,
+                        "response_invalid",
+                        self.identity.artifact_id,
                         rows_read,
                     )
-                members: list[dict[str, object]] = []
-                for selection in selections:
-                    selection_key = _member_key_from_dict(selection)
-                    if selection_key not in represented_members:
-                        return LookupResult(
-                            False,
-                            None,
-                            "selection_not_precomputed",
-                            self.identity.artifact_id,
-                            rows_read,
+                source_key = (
+                    "multiversion_comparisons"
+                    if normalized["view"] == "query" and normalized["area_id"]
+                    else "model_comparisons"
+                )
+                source = species_payload.get(source_key, {})
+                if not isinstance(source, Mapping):
+                    return LookupResult(
+                        False,
+                        None,
+                        "response_invalid",
+                        self.identity.artifact_id,
+                        rows_read,
+                    )
+
+                context_row = self.connection.execute(
+                    "SELECT payload_json FROM species_context WHERE species_id=?",
+                    (species_id,),
+                ).fetchone()
+                rows_read += 1
+                if context_row is None:
+                    return LookupResult(
+                        False,
+                        None,
+                        "composition_context_missing",
+                        self.identity.artifact_id,
+                        rows_read,
+                    )
+                context = json.loads(context_row["payload_json"])
+                phenology = context.get("phenology", {})
+                phases = context.get("season_phase_by_date", {})
+                if not isinstance(phenology, dict) or not isinstance(phases, dict):
+                    return LookupResult(
+                        False,
+                        None,
+                        "artifact_corrupt",
+                        self.identity.artifact_id,
+                        rows_read,
+                    )
+
+                area_targets = (
+                    {normalized["area_id"]: list(source)}
+                    if normalized["view"] == "query" and normalized["area_id"]
+                    else {
+                        str(area_id): list(targets)
+                        for area_id, targets in source.items()
+                        if isinstance(targets, Mapping)
+                    }
+                )
+                composed_by_area: dict[str, dict[str, object]] = {}
+                for area_id, target_texts in area_targets.items():
+                    composed: dict[str, object] = {}
+                    for target_text in target_texts:
+                        target = date.fromisoformat(str(target_text))
+                        coverage_row = self.connection.execute(
+                            """SELECT has_base_prediction, member_keys_json
+                                 FROM coverage
+                                WHERE species_id=? AND area_id=? AND target_date=?""",
+                            (species_id, area_id, target.isoformat()),
+                        ).fetchone()
+                        rows_read += 1
+                        if coverage_row is None or not bool(
+                            coverage_row["has_base_prediction"]
+                        ):
+                            return LookupResult(
+                                False,
+                                None,
+                                "coverage_partial",
+                                self.identity.artifact_id,
+                                rows_read,
+                            )
+                        represented_members = {
+                            _member_key_from_dict(value)
+                            for value in json.loads(coverage_row["member_keys_json"])
+                        }
+                        selections = mushroom_ml_multiversion_comparison.retarget_operational_selections(
+                            normalized["multiversion_selection"],
+                            target_date=target,
+                            issue_date=min(artifact_issue_date, target),
                         )
-                    member_row = self.connection.execute(
-                        """SELECT payload_json FROM operational_members
-                             WHERE species_id=? AND area_id=? AND target_date=?
-                               AND version_id=? AND temporal_contract_id=?
-                               AND profile_id=? AND estimator_id=? AND horizon_days=?""",
-                        (
-                            normalized["species_id"],
-                            normalized["area_id"],
-                            target.isoformat(),
-                            selection["version_id"],
-                            selection["temporal_contract_id"],
-                            selection["profile_id"],
-                            selection["estimator_id"],
-                            selection["horizon_days"],
-                        ),
-                    ).fetchone()
-                    rows_read += 1
-                    if member_row is None:
+                        if not selections:
+                            return LookupResult(
+                                False,
+                                None,
+                                "selection_not_precomputed",
+                                self.identity.artifact_id,
+                                rows_read,
+                            )
+                        members: list[dict[str, object]] = []
+                        for selection in selections:
+                            selection_key = _member_key_from_dict(selection)
+                            if selection_key not in represented_members:
+                                return LookupResult(
+                                    False,
+                                    None,
+                                    "selection_not_precomputed",
+                                    self.identity.artifact_id,
+                                    rows_read,
+                                )
+                            member_row = self.connection.execute(
+                                """SELECT payload_json FROM operational_members
+                                     WHERE species_id=? AND area_id=? AND target_date=?
+                                       AND version_id=? AND temporal_contract_id=?
+                                       AND profile_id=? AND estimator_id=? AND horizon_days=?""",
+                                (
+                                    species_id,
+                                    area_id,
+                                    target.isoformat(),
+                                    selection["version_id"],
+                                    selection["temporal_contract_id"],
+                                    selection["profile_id"],
+                                    selection["estimator_id"],
+                                    selection["horizon_days"],
+                                ),
+                            ).fetchone()
+                            rows_read += 1
+                            if member_row is None:
+                                return LookupResult(
+                                    False,
+                                    None,
+                                    "coverage_partial",
+                                    self.identity.artifact_id,
+                                    rows_read,
+                                )
+                            member = json.loads(
+                                zlib.decompress(member_row["payload_json"]).decode(
+                                    "utf-8"
+                                )
+                            )
+                            if not isinstance(member, dict):
+                                return LookupResult(
+                                    False,
+                                    None,
+                                    "artifact_corrupt",
+                                    self.identity.artifact_id,
+                                    rows_read,
+                                )
+                            members.append(member)
+                        season_phase = str(phases.get(target.isoformat()) or "")
+                        if not season_phase:
+                            return LookupResult(
+                                False,
+                                None,
+                                "artifact_corrupt",
+                                self.identity.artifact_id,
+                                rows_read,
+                            )
+                        batch_ids = {
+                            str((member.get("model_ref") or {}).get("version_id") or ""):
+                            str(
+                                ((member.get("prediction") or {}).get("artifact_ref") or {}).get(
+                                    "batch_id"
+                                )
+                                or ""
+                            )
+                            for member in members
+                        }
+                        composed[target.isoformat()] = {
+                            "available": True,
+                            "batch_ids": batch_ids,
+                            "area_id": area_id,
+                            "target_date": target.isoformat(),
+                            "members": members,
+                            "operational_comparison": mushroom_ml_multiversion_comparison.build_selected_operational_comparison(
+                                members,
+                                season_phase=season_phase,
+                                phenology=phenology,
+                            ),
+                            "consensus_computed": True,
+                            "ensemble_computed": False,
+                            "runtime_metrics": {"versions": {}, "phase_seconds": {}},
+                        }
+                    composed_by_area[area_id] = composed
+
+                if normalized["view"] == "query" and normalized["area_id"]:
+                    composed = composed_by_area[normalized["area_id"]]
+                    target_payload = composed.get(normalized["target_date"])
+                    if target_payload is None:
                         return LookupResult(
                             False,
                             None,
@@ -1591,51 +1689,11 @@ class ArtifactReader:
                             self.identity.artifact_id,
                             rows_read,
                         )
-                    member = json.loads(
-                        zlib.decompress(member_row["payload_json"]).decode("utf-8")
-                    )
-                    if not isinstance(member, dict):
-                        return LookupResult(
-                            False, None, "artifact_corrupt", self.identity.artifact_id, rows_read
-                        )
-                    members.append(member)
-                season_phase = str(phases.get(target.isoformat()) or "")
-                if not season_phase:
-                    return LookupResult(
-                        False, None, "artifact_corrupt", self.identity.artifact_id, rows_read
-                    )
-                batch_ids = {
-                    str((member.get("model_ref") or {}).get("version_id") or ""):
-                    str(
-                        ((member.get("prediction") or {}).get("artifact_ref") or {}).get(
-                            "batch_id"
-                        )
-                        or ""
-                    )
-                    for member in members
-                }
-                composed[target.isoformat()] = {
-                    "available": True,
-                    "batch_ids": batch_ids,
-                    "area_id": normalized["area_id"],
-                    "target_date": target.isoformat(),
-                    "members": members,
-                    "operational_comparison": mushroom_ml_multiversion_comparison.build_selected_operational_comparison(
-                        members,
-                        season_phase=season_phase,
-                        phenology=phenology,
-                    ),
-                    "consensus_computed": True,
-                    "ensemble_computed": False,
-                    "runtime_metrics": {"versions": {}, "phase_seconds": {}},
-                }
-            target_payload = composed.get(normalized["target_date"])
-            if target_payload is None:
-                return LookupResult(
-                    False, None, "coverage_partial", self.identity.artifact_id, rows_read
-                )
-            species_payload["multiversion_comparisons"] = composed
-            species_payload["multiversion_comparison"] = target_payload
+                    species_payload["multiversion_comparisons"] = composed
+                    species_payload["multiversion_comparison"] = target_payload
+                else:
+                    species_payload["model_comparisons"] = composed_by_area
+
             response["request"] = copy.deepcopy(normalized)
             response = validate_response(response)
             return LookupResult(
@@ -1667,6 +1725,73 @@ class ArtifactReader:
             return LookupResult(False, None, "outside_coverage", self.identity.artifact_id)
         if tuple(normalized["trained_species_ids"]) != self.identity.trained_species_ids:
             return LookupResult(False, None, "identity_mismatch", self.identity.artifact_id)
+        if normalized["issue_date"] != self.identity.issue_date:
+            # A weekly artifact keeps the issue date that anchors its seven-day
+            # coverage even when it is rebuilt with fresher inputs or opened on
+            # a later day.  The UI request uses today's issue date, so resolve
+            # against the artifact anchor while preserving the truthful request
+            # that the caller made in the returned response.
+            canonical_request = {
+                **normalized,
+                "issue_date": self.identity.issue_date,
+            }
+            canonical = self.lookup(canonical_request)
+            if canonical.hit and canonical.response is not None:
+                response = copy.deepcopy(canonical.response)
+                response["request"] = copy.deepcopy(normalized)
+                try:
+                    response = validate_response(response)
+                except PredictorContractError:
+                    return LookupResult(
+                        False,
+                        None,
+                        "artifact_corrupt",
+                        self.identity.artifact_id,
+                        canonical.rows_read,
+                    )
+                return LookupResult(
+                    True,
+                    response,
+                    None,
+                    self.identity.artifact_id,
+                    canonical.rows_read,
+                )
+            return canonical
+        if (
+            normalized["view"] == "recommender"
+            and normalized["species_id"] != self.identity.trained_species_ids[0]
+        ):
+            # The recommender response covers every trained species, so its
+            # selected species is UI state rather than part of the scientific
+            # result.  Weekly artifacts store that global response once using
+            # the first species; canonicalize navigations arriving from a
+            # different species instead of falling back to a full live run.
+            canonical_request = {
+                **normalized,
+                "species_id": self.identity.trained_species_ids[0],
+            }
+            canonical = self.lookup(canonical_request)
+            if canonical.hit and canonical.response is not None:
+                response = copy.deepcopy(canonical.response)
+                response["request"] = copy.deepcopy(normalized)
+                try:
+                    response = validate_response(response)
+                except PredictorContractError:
+                    return LookupResult(
+                        False,
+                        None,
+                        "artifact_corrupt",
+                        self.identity.artifact_id,
+                        canonical.rows_read,
+                    )
+                return LookupResult(
+                    True,
+                    response,
+                    None,
+                    self.identity.artifact_id,
+                    canonical.rows_read,
+                )
+            return canonical
         row = self.connection.execute(
             """SELECT responses.request_json,
                       response_coverage.payload_json AS required_coverage_json,
@@ -1678,49 +1803,6 @@ class ArtifactReader:
             (_request_key(normalized),),
         ).fetchone()
         if row is None:
-            if (
-                normalized["view"] == "query"
-                and not normalized["area_id"]
-                and normalized["filter_mode"] == ""
-                and normalized["compare_models"]
-            ):
-                # The all-areas query ranks the preferred operational result;
-                # the live service does not execute the requested comparison
-                # selection until one concrete area is opened.  Reuse the
-                # canonical all-areas response while preserving the truthful
-                # echoed UI request.
-                canonical_request = {
-                    **normalized,
-                    "compare_models": False,
-                    "multiversion_selection": [],
-                }
-                canonical = self.lookup(canonical_request)
-                if canonical.hit and canonical.response is not None:
-                    response = copy.deepcopy(canonical.response)
-                    response["request"] = copy.deepcopy(normalized)
-                    try:
-                        response = validate_response(response)
-                    except PredictorContractError:
-                        return LookupResult(
-                            False,
-                            None,
-                            "artifact_corrupt",
-                            self.identity.artifact_id,
-                            canonical.rows_read,
-                        )
-                    return LookupResult(
-                        True,
-                        response,
-                        None,
-                        self.identity.artifact_id,
-                        canonical.rows_read,
-                    )
-                if canonical.reason in {
-                    "artifact_corrupt",
-                    "coverage_partial",
-                    "response_invalid",
-                }:
-                    return canonical
             composed = self._compose_multiversion_subset(normalized)
             if composed is not None:
                 return composed
@@ -1833,10 +1915,18 @@ def lookup_active_artifact(
             identity, _counts = _validated_metadata(connection, expected_identity=None)
         finally:
             connection.close()
-        if identity.runtime_fingerprint != runtime_fingerprint:
-            return LookupResult(False, None, "identity_mismatch", identity.artifact_id)
+        stale = identity.runtime_fingerprint != runtime_fingerprint
         with ArtifactReader(candidate, expected_identity=identity) as reader:
-            return reader.lookup(request)
+            result = reader.lookup(request)
+        return LookupResult(
+            result.hit,
+            result.response,
+            "identity_mismatch" if stale and result.hit else result.reason,
+            result.artifact_id,
+            result.rows_read,
+            stale=stale,
+            artifact_mtime=candidate.stat().st_mtime,
+        )
     except UnsupportedPrecomputeSchema:
         return LookupResult(False, None, "schema_unknown")
     except (PrecomputeArtifactError, PrecomputeContractError, sqlite3.DatabaseError, OSError):

@@ -404,6 +404,11 @@ def materialize_operational_tuning_catalog(
         registry, source_manifest
     )
     catalog_reference = checked_manifest.get("tuning_catalog")
+    reference_source_batch_id = (
+        str(catalog_reference.get("source_batch_id") or "").strip()
+        if isinstance(catalog_reference, dict)
+        else ""
+    )
     if isinstance(catalog_reference, dict) and catalog_reference.get("path"):
         relative = Path(str(catalog_reference["path"]))
         expected_prefix = Path("batches", source_batch_id)
@@ -412,22 +417,31 @@ def materialize_operational_tuning_catalog(
         except ValueError as exc:
             raise ValueError("Runtime tuning catalog is outside its batch") from exc
         source_catalog_path = source_root / within_batch
-        if source_catalog_path.is_file():
+        if reference_source_batch_id != source_batch_id:
+            source_catalog_path.unlink(missing_ok=True)
+        elif source_catalog_path.is_file():
             content = _read_bytes(source_catalog_path)
             actual_digest = hashlib.sha256(content).hexdigest()
             if actual_digest != str(catalog_reference.get("sha256") or ""):
-                raise ValueError("Runtime tuning catalog does not match its manifest")
-            catalog = mushroom_ml_tuning_catalog.validate_catalog(
-                registry, json.loads(content.decode("utf-8"))
-            )
-            if (
-                catalog["source_batch_id"] != source_batch_id
-                or catalog["catalog_id"] != catalog_reference.get("catalog_id")
-                or len(catalog["decisions"]) != catalog_reference.get("decision_count")
-            ):
-                raise ValueError("Runtime tuning catalog identity does not match its batch")
-            mushroom_ml_tuning_catalog.save(destination, catalog)
-            return catalog
+                source_catalog_path.unlink(missing_ok=True)
+            else:
+                loaded = json.loads(content.decode("utf-8"))
+                loaded_decisions = loaded.get("decisions") if isinstance(loaded, dict) else None
+                identity_matches = (
+                    isinstance(loaded, dict)
+                    and loaded.get("source_batch_id") == source_batch_id
+                    and loaded.get("catalog_id") == catalog_reference.get("catalog_id")
+                    and isinstance(loaded_decisions, list)
+                    and len(loaded_decisions) == catalog_reference.get("decision_count")
+                )
+                if not identity_matches:
+                    source_catalog_path.unlink(missing_ok=True)
+                else:
+                    catalog = mushroom_ml_tuning_catalog.validate_catalog(
+                        registry, loaded
+                    )
+                    mushroom_ml_tuning_catalog.save(destination, catalog)
+                    return catalog
     catalog = mushroom_ml_tuning_catalog.build_from_batch(
         registry,
         source_manifest,

@@ -218,8 +218,24 @@ class PredictorPrecomputeArtifactTests(unittest.TestCase):
         self.assertEqual(validated.table_counts["base_predictions"], 7)
         self.assertEqual(validated.table_counts["operational_members"], 7)
 
-    def test_all_areas_query_reuses_canonical_preferred_response(self) -> None:
+    def test_all_areas_query_composes_selected_versions(self) -> None:
         identity, coverage, predictions, members, stored = self.fixture()
+        members = [
+            OperationalMemberRow(
+                row.species_id,
+                row.area_id,
+                row.target_date,
+                row.key,
+                {
+                    **row.payload,
+                    "model_ref": row.key.as_dict(),
+                    "prediction": {
+                        "artifact_ref": {"batch_id": "generation-v4"}
+                    },
+                },
+            )
+            for row in members
+        ]
         canonical_request = self.request(area_id="")
         canonical_response = copy.deepcopy(stored.response)
         canonical_response["request"] = canonical_request
@@ -254,14 +270,151 @@ class PredictorPrecomputeArtifactTests(unittest.TestCase):
                         tuple(coverage),
                     )
                 ],
+                species_context={
+                    "boletus_edulis": {
+                        "phenology": {
+                            "fruiting_delay_after_rain_days": {
+                                "min": 5,
+                                "optimal_min": 7,
+                                "optimal_max": 14,
+                                "max": 21,
+                            }
+                        },
+                        "season_phase_by_date": {
+                            (self.issue_date + timedelta(days=offset)).isoformat(): "in_season"
+                            for offset in range(7)
+                        },
+                    }
+                },
             )
             lookup = lookup_artifact(target, identity=identity, request=requested)
 
         self.assertTrue(lookup.hit, lookup.reason)
         self.assertEqual(lookup.response["request"], requested)
+        comparison = lookup.response["data"]["species"]["boletus_edulis"][
+            "model_comparisons"
+        ]["montseny"][self.issue_date.isoformat()]
         self.assertEqual(
-            lookup.response["data"], canonical_response["data"]
+            comparison["operational_comparison"]["selected_version_ids"],
+            ["biology_v4"],
         )
+
+    def test_recommender_ignores_selected_species_for_precompute_lookup(self) -> None:
+        identity = ArtifactIdentity.create(
+            runtime_fingerprint=self.runtime_a,
+            issue_date=self.issue_date,
+            trained_species_ids=["amanita_caesarea", "boletus_edulis"],
+            installed_versions=list(self.identity().installed_versions),
+            expected_counts={
+                "species": 2,
+                "areas": 2,
+                "days": 7,
+                "versions": 1,
+                "members": 14,
+            },
+        )
+        identity, coverage, predictions, members, stored = self.fixture(identity)
+        amanita_coverage = [
+            CoverageCell.create(
+                species_id="amanita_caesarea",
+                area_id=row.area_id,
+                target_date=row.target_date,
+                has_base_prediction=row.has_base_prediction,
+                member_keys=row.member_keys,
+            )
+            for row in coverage
+        ]
+        amanita_predictions = [
+            BasePredictionRow(
+                "amanita_caesarea",
+                row.area_id,
+                row.target_date,
+                {**row.payload, "species_id": "amanita_caesarea"},
+            )
+            for row in predictions
+        ]
+        amanita_members = [
+            OperationalMemberRow(
+                "amanita_caesarea",
+                row.area_id,
+                row.target_date,
+                row.key,
+                row.payload,
+            )
+            for row in members
+        ]
+        coverage = [*coverage, *amanita_coverage]
+        predictions = [*predictions, *amanita_predictions]
+        members = [*members, *amanita_members]
+        canonical_request = self.request(
+            view="recommender",
+            species_id="amanita_caesarea",
+            area_id="",
+            compare_models=False,
+            trained_species_ids=["amanita_caesarea", "boletus_edulis"],
+        )
+        canonical_response = copy.deepcopy(stored.response)
+        canonical_response["request"] = canonical_request
+        canonical_response["data"]["species"]["amanita_caesarea"] = copy.deepcopy(
+            canonical_response["data"]["species"]["boletus_edulis"]
+        )
+        requested = {**canonical_request, "species_id": "boletus_edulis"}
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "predictor-weekly.sqlite"
+            write_artifact(
+                target,
+                identity=identity,
+                coverage=coverage,
+                base_predictions=predictions,
+                operational_members=members,
+                responses=[
+                    PrecomputedResponse(
+                        canonical_request,
+                        canonical_response,
+                        tuple(coverage),
+                    )
+                ],
+            )
+            lookup = lookup_artifact(target, identity=identity, request=requested)
+
+        self.assertTrue(lookup.hit, lookup.reason)
+        self.assertEqual(lookup.response["request"], requested)
+        self.assertEqual(lookup.response["data"], canonical_response["data"])
+
+    def test_lookup_uses_weekly_issue_date_anchor_on_later_day(self) -> None:
+        identity, coverage, predictions, members, stored = self.fixture()
+        canonical_request = self.request(
+            view="recommender",
+            area_id="",
+            target_date=(self.issue_date + timedelta(days=1)).isoformat(),
+        )
+        canonical_response = copy.deepcopy(stored.response)
+        canonical_response["request"] = canonical_request
+        requested = {
+            **canonical_request,
+            "issue_date": (self.issue_date + timedelta(days=1)).isoformat(),
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "predictor-weekly.sqlite"
+            write_artifact(
+                target,
+                identity=identity,
+                coverage=coverage,
+                base_predictions=predictions,
+                operational_members=members,
+                responses=[
+                    PrecomputedResponse(
+                        canonical_request,
+                        canonical_response,
+                        tuple(coverage),
+                    )
+                ],
+            )
+            lookup = lookup_artifact(target, identity=identity, request=requested)
+
+        self.assertTrue(lookup.hit, lookup.reason)
+        self.assertEqual(lookup.response["request"], requested)
+        self.assertEqual(lookup.response["data"], canonical_response["data"])
 
     def test_equivalence_ignores_only_execution_metrics(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -531,6 +684,54 @@ class PredictorPrecomputeArtifactTests(unittest.TestCase):
             **template_request,
             "multiversion_selection": [first_day_selections[0]],
         }
+        preferred_comparisons = {
+            target_text: {"interpretation": {"verdict": "favorable"}}
+            for target_text in comparisons
+        }
+        week_request = self.request(view="week", area_id="")
+        week_response = {
+            **copy.deepcopy(template_response),
+            "request": week_request,
+        }
+        week_species = week_response["data"]["species"]["boletus_edulis"]
+        week_species.pop("multiversion_comparisons")
+        week_species.pop("multiversion_comparison")
+        week_species["model_comparisons"] = {"montseny": preferred_comparisons}
+        recommender_request = self.request(view="recommender", area_id="")
+        recommender_response = {
+            "schema_version": SCHEMA_VERSION,
+            "kind": RESPONSE_KIND,
+            "runtime_fingerprint": identity.runtime_fingerprint,
+            "request": recommender_request,
+            "data": {
+                "species": {
+                    "boletus_edulis": {
+                        "season_phase": "in_season",
+                        "areas": ["montseny"],
+                        "rankings": {self.issue_date.isoformat(): []},
+                        "model_comparisons": {
+                            "montseny": {
+                                self.issue_date.isoformat(): {
+                                    "interpretation": {"verdict": "favorable"}
+                                }
+                            }
+                        },
+                    }
+                },
+                "model_catalog": {"preferred_version_id": "biology_v4"},
+            },
+            "metrics": {},
+        }
+        week_subset_request = {
+            **week_request,
+            "compare_models": True,
+            "multiversion_selection": [first_day_selections[0]],
+        }
+        recommender_subset_request = {
+            **recommender_request,
+            "compare_models": True,
+            "multiversion_selection": [first_day_selections[0]],
+        }
         with tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary) / "weekly.sqlite"
             write_artifact(
@@ -542,7 +743,15 @@ class PredictorPrecomputeArtifactTests(unittest.TestCase):
                 responses=[
                     PrecomputedResponse(
                         template_request, template_response, tuple(required)
-                    )
+                    ),
+                    PrecomputedResponse(
+                        week_request, week_response, tuple(required)
+                    ),
+                    PrecomputedResponse(
+                        recommender_request,
+                        recommender_response,
+                        (required[0],),
+                    ),
                 ],
                 species_context={
                     "boletus_edulis": {
@@ -564,6 +773,12 @@ class PredictorPrecomputeArtifactTests(unittest.TestCase):
             lookup = lookup_artifact(
                 target, identity=identity, request=subset_request
             )
+            week_lookup = lookup_artifact(
+                target, identity=identity, request=week_subset_request
+            )
+            recommender_lookup = lookup_artifact(
+                target, identity=identity, request=recommender_subset_request
+            )
             connection = sqlite3.connect(target)
             with connection:
                 connection.execute(
@@ -577,6 +792,8 @@ class PredictorPrecomputeArtifactTests(unittest.TestCase):
             )
 
         self.assertTrue(lookup.hit, lookup.reason)
+        self.assertTrue(week_lookup.hit, week_lookup.reason)
+        self.assertTrue(recommender_lookup.hit, recommender_lookup.reason)
         self.assertEqual(lookup.response["request"], subset_request)
         subset = lookup.response["data"]["species"]["boletus_edulis"]
         for comparison in subset["multiversion_comparisons"].values():
@@ -590,6 +807,24 @@ class PredictorPrecomputeArtifactTests(unittest.TestCase):
                     for member in comparison["members"]
                 )
             )
+        week_comparisons = week_lookup.response["data"]["species"][
+            "boletus_edulis"
+        ]["model_comparisons"]["montseny"]
+        self.assertEqual(len(week_comparisons), 7)
+        self.assertTrue(
+            all(
+                value["operational_comparison"]["selected_version_ids"]
+                == ["biology_v4"]
+                for value in week_comparisons.values()
+            )
+        )
+        recommender_comparison = recommender_lookup.response["data"]["species"][
+            "boletus_edulis"
+        ]["model_comparisons"]["montseny"][self.issue_date.isoformat()]
+        self.assertEqual(
+            recommender_comparison["operational_comparison"]["selected_version_ids"],
+            ["biology_v4"],
+        )
         self.assertFalse(partial.hit)
         self.assertEqual(partial.reason, "coverage_partial")
 
@@ -789,7 +1024,7 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
             dict(identity.expected_counts),
         )
 
-    def test_active_lookup_uses_runtime_identity_and_returns_explicit_miss(self) -> None:
+    def test_active_lookup_reuses_complete_stale_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "active.sqlite3"
             identity, stored, _manifest = self.write_fixture(path)
@@ -805,8 +1040,11 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
             )
             self.assertTrue(hit.hit)
             self.assertEqual(stored.response, hit.response)
-            self.assertFalse(mismatch.hit)
+            self.assertTrue(mismatch.hit)
+            self.assertEqual(stored.response, mismatch.response)
             self.assertEqual("identity_mismatch", mismatch.reason)
+            self.assertTrue(mismatch.stale)
+            self.assertIsNotNone(mismatch.artifact_mtime)
 
     def test_scientific_payload_ignores_nested_runtime_metrics_and_area_order(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

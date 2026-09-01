@@ -37,16 +37,17 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-08-31
+## Estado general al cierre de 2026-09-01
 
-- Rama `inicial`; el HEAD anterior a esta release era
-  `c02b4b8b6ca39f72deedcb0caf6f1d8e5d2d8eef`. Revalidar `pwd`, rama, HEAD,
+- Rama `inicial`; el HEAD revalidado antes de los cambios locales era
+  `5004b7261edab39c022f150fec3881e8c458c954`. Revalidar `pwd`, rama, HEAD,
   worktree y runtime al comenzar.
 - El código declara HA `0.2.289` y worker `1.0.35`. HA `0.2.289` y `latest`
   están publicados con el índice multiarch
   `sha256:67d6abd75624474bf8703fe4b75fae6b9c8d396756b22e8cc7f03cfdcee62769`.
-  La última instalación real confirmada es `0.2.288`; falta instalar y probar
-  `0.2.289`.
+  El usuario confirmó después que la aplicación funciona y que varios runners
+  programados completaron precálculos; revalidar versión instalada y worker
+  antes de afirmarlos en una sesión nueva.
 - El worker privado no se publica. La última observación confirmó `1.0.35`,
   healthy/idle, identidad y volumen conservados, y capacidad
   `predictor_precompute_v1`.
@@ -58,8 +59,25 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   desde `date.today()` en vez del `issue_date` planificado. `0.2.285`/`1.0.32`
   corrigen el anclaje, muestran progreso fraccional y detalle remoto, y sacan
   la telemetría síncrona del callback científico.
-- La siguiente prueba es instalar `0.2.289` y dejar HA/worker estables varios
-  días, observando navegación, cancelación y refresco de estados.
+- Con backup previo y autorización se retiraron de `/share` unos 405,6 MiB de
+  copias reconstruibles ya verificadas en `/media`; no se tocaron meteorología,
+  observaciones, catálogos, perfiles ni media de usuario.
+- El worktree contiene cambios pendientes de release: acción explícita para
+  guardar la versión operativa preferida y canonización de lectura del
+  precálculo. Esta última usa el `issue_date` que ancla la semana del artefacto
+  durante toda su cobertura y, para el recomendador global, ignora la especie
+  arrastrada desde `Consultar fecha`. Una prueba local fría sobre el SQLite real
+  dio hit en fecha (1,87 s) y al volver a `Esta semana` (0,33 s). Un cálculo
+  directo sin job permite ahora dejar de esperar sin afirmar que cancela el
+  trabajo del servidor.
+- La preferencia operativa ya no forma parte de la identidad científica del
+  runtime: `Usar como preferida` persiste el puntero y libera caché, pero no
+  republica ni invalida el precálculo multiversión. Cambios científicos reales
+  siguen marcando entrenamiento/precálculo como desactualizados. Está validado
+  por pruebas dirigidas y pendiente de build/release autorizados.
+- Todo cambio funcional o de almacenamiento debe quedar documentado en
+  `docs/active-context.md` y, cuando establezca una regla duradera, también en
+  `docs/decisions.md` y la especificación correspondiente antes del cierre.
 - No hay entrenamientos programados. La retención ML continúa activa; no borrar
   datos, cambiar retención, lanzar entrenamientos ni hacer otro bump/build/
   publicación sin autorización explícita.

@@ -25,8 +25,9 @@ WEATHER_CONTRACT = "weather_parquet_v1"
 PARTITIONED_WEATHER_CONTRACT = "partitioned_weather_history_v1"
 VERIFIED_RECEIPT_SCHEMA_VERSION = "1.0"
 VERIFIED_RECEIPT_KIND = "rainmapper_mushroom_predictor_runtime_verified"
-PUBLICATION_SCHEMA_VERSION = "1.1"
+PUBLICATION_SCHEMA_VERSION = "1.2"
 PUBLICATION_KIND = "rainmapper_mushroom_predictor_runtime_publication"
+RUNTIME_REGISTRY_SNAPSHOT_NAME = "mushroom_ml_version_registry.runtime.json"
 _DIGEST_CACHE: dict[tuple[str, int, int], str] = {}
 _ARCHIVE_LOCK = threading.Lock()
 _PUBLICATION_LOCK = threading.Lock()
@@ -110,6 +111,45 @@ def _atomic_write_json(path: Path, payload: object) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _runtime_registry_snapshot(
+    registry: dict[str, Any],
+    *,
+    source_path: Path,
+    explicit_source: bool,
+) -> Path:
+    """Materialize a scientific registry whose runtime default is stable."""
+    root = (
+        Path(source_path).parent
+        if explicit_source
+        else mushroom_paths.prepare_predictor_runtime_archive_dir().path
+    )
+    destination = root / RUNTIME_REGISTRY_SNAPSHOT_NAME
+    try:
+        current = json.loads(destination.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        current = None
+    installed = {
+        str(row.get("version_id"))
+        for row in registry.get("versions", [])
+        if isinstance(row, dict) and row.get("installed_generation_id") is not None
+    }
+    current_default = (
+        str(current.get("preferred_version_id") or "")
+        if isinstance(current, dict)
+        else ""
+    )
+    live_default = str(registry.get("preferred_version_id") or "")
+    runtime_default = (
+        current_default
+        if current_default in installed
+        else live_default if live_default in installed else None
+    )
+    payload = {**registry, "preferred_version_id": runtime_default}
+    if current != payload:
+        _atomic_write_json(destination, payload)
+    return destination
+
+
 def _verified_receipt_payload(manifest: dict[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": VERIFIED_RECEIPT_SCHEMA_VERSION,
@@ -155,6 +195,7 @@ def build_manifest(
     features = Path(features_artifact_path or mushroom_paths.mushroom_observation_features_json_path())
     known_sites = Path(known_sites_path or mushroom_paths.mushroom_known_sites_path())
     profiles = Path(profiles_path or mushroom_paths.mushroom_profiles_path())
+    explicit_version_registry = version_registry_path is not None
     version_registry = Path(
         version_registry_path or mushroom_paths.mushroom_ml_version_registry_path()
     )
@@ -204,7 +245,13 @@ def build_manifest(
         from rainmapper_core import mushroom_ml_version_registry
 
         registry = mushroom_ml_version_registry.load_registry(version_registry)
-        sources["data/mushroom_ml_version_registry.json"] = version_registry
+        sources["data/mushroom_ml_version_registry.json"] = (
+            _runtime_registry_snapshot(
+                registry,
+                source_path=version_registry,
+                explicit_source=explicit_version_registry,
+            )
+        )
         for version in registry["versions"]:
             version_id = str(version["version_id"])
             if version.get("installed_generation_id") is None:

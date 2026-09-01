@@ -10,8 +10,13 @@ from typing import Any, Iterable, Mapping
 import numpy as np
 from sklearn.metrics import brier_score_loss, roc_auc_score
 
+from rainmapper_core.mushroom_prediction_interpretation import (
+    FAVORABLE_THRESHOLD,
+    UNFAVORABLE_THRESHOLD,
+)
 
-SCHEMA_VERSION = "1.0"
+
+SCHEMA_VERSION = "1.1"
 KIND = "mushroom_ml_quality_catalog"
 
 VERSION_CAUTIONS = {
@@ -95,6 +100,31 @@ def _calibration(y: np.ndarray, probabilities: np.ndarray) -> tuple[float, list[
     return round(error, 6), bins
 
 
+def _operational_classification(
+    y: np.ndarray, probabilities: np.ndarray
+) -> dict[str, Any]:
+    """Summarize untouched hold-out rows with the Predictor's real cut-offs."""
+    predicted_favorable = probabilities >= FAVORABLE_THRESHOLD
+    predicted_unfavorable = probabilities <= UNFAVORABLE_THRESHOLD
+    actual_favorable = y == 1
+    actual_unfavorable = y == 0
+
+    true_favorable = int(np.sum(predicted_favorable & actual_favorable))
+    false_favorable = int(np.sum(predicted_favorable & actual_unfavorable))
+    true_unfavorable = int(np.sum(predicted_unfavorable & actual_unfavorable))
+    false_unfavorable = int(np.sum(predicted_unfavorable & actual_favorable))
+    uncertain = int(np.sum(~predicted_favorable & ~predicted_unfavorable))
+
+    return {
+        "evaluated_count": int(len(y)),
+        "true_favorable_count": true_favorable,
+        "false_favorable_count": false_favorable,
+        "true_unfavorable_count": true_unfavorable,
+        "false_unfavorable_count": false_unfavorable,
+        "uncertain_count": uncertain,
+    }
+
+
 def build_catalog(
     v2_v5_path: Path,
     v6_path: Path,
@@ -170,6 +200,7 @@ def build_catalog(
         calibration_error, calibration_bins = (
             _calibration(y, probabilities) if len(values) else (None, [])
         )
+        operational_classification = _operational_classification(y, probabilities)
         if len(values) < 8 or not both_classes or delta is None:
             evidence = "insufficient"
         elif delta > 0:
@@ -196,6 +227,7 @@ def build_catalog(
                 "roc_auc": round(float(roc_auc_score(y, probabilities)), 6) if both_classes else None,
                 "expected_calibration_error": calibration_error,
                 "calibration_bins": calibration_bins,
+                "operational_classification": operational_classification,
                 "evidence": evidence,
             }
         )

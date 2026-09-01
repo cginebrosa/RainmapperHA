@@ -1,5 +1,19 @@
 # TODO
 
+## Auditoría local de almacenamiento — 2026-09-01
+
+- [ ] Con autorización, aplicar el plan vigente del reconciliador: protege el
+  lote instalado y recupera `1,73 GiB` de lotes/resultados/bundles huérfanos.
+- [ ] Limpiar el temporal abandonado de
+  `docker-data/mushroom-data/predictor_precompute/staging` y corregir la
+  limpieza automática para que los temporales parciales no sobrevivan a una
+  cancelación o fallo. Mantener el staging reconstruible fuera del backup.
+- [ ] Decidir el destino de `docker-data/audits` (`6,52 GiB`): conservar,
+  archivar fuera del workspace o eliminar aceptando que se pierde la evidencia
+  enlazada desde los informes.
+- [ ] Revisar después `tmp` (`0,28 GiB`) y los backups JSON repetidos (`31 MiB`).
+  Inventario completo: `docs/storage-audit-local-2026-09-01.md`.
+
 Prioridades vigentes. El estado inmediato está en `docs/active-context.md`;
 este fichero distingue trabajo cerrado de próximas entregas.
 
@@ -91,6 +105,24 @@ Especificación vinculante:
   algoritmo-versión por escenario fixed/lag y conserve la auditoría completa
   (Brier, delta, ROC-AUC, soporte, evidencia y aplicabilidad), ayudas y franja
   semanal.
+- [x] Extender la misma selección multiversión a `Esta semana` y `Por especie`:
+  selector común, conservación al navegar por pestañas/días/especies/fichas,
+  mismos gates y ganadores por escenario, e identidad compartida con MapLibre.
+  El servicio aplica la selección en ambas vistas y el lector SQLite compone
+  cualquier subconjunto representado desde los miembros ya precalculados, sin
+  inferencia online. Implementado, cubierto por pruebas y presente en la imagen
+  HA local reconstruida; pendiente de validación visual y release.
+  La prueba visual posterior corrigió dos detalles: las opciones se obtienen
+  del registro instalado, no del catálogo descriptivo del precálculo, y una
+  vista sin `mvv` convierte la preferida vigente en selección explícita. El
+  control queda reducido a cinco casillas compactas.
+- [x] Implementar en el worktree una acción explícita `Usar como preferida` que
+  persiste una versión instalada y libera la caché sin confundirla con la
+  versión elegida para una consulta. La preferencia queda fuera de la identidad
+  científica: V4→V6→V4 conserva la huella y el precálculo; cambiar un modelo sí
+  la cambia. La acción no predice ni navega, y las versiones incluidas no
+  alteran su selector. Presente en la imagen HA local reconstruida; pendiente
+  de release y validación visual.
 - [x] Reproducir y cerrar la divergencia entre la ficha multiversión y la franja
   semanal: hoy la ficha usa los ganadores seleccionados, mientras la franja se
   calcula por una ruta auxiliar de la preferida. Trazar también qué muestran
@@ -128,6 +160,58 @@ Especificación vinculante:
   SQLite verificado, estado deseado latest-wins, ejecución manual, publicación
   coordinada, lookup en HA, fallback íntegro y trigger asíncrono del runner.
   Cuatro rutas con datos dieron equivalencia científica exacta en local.
+- [x] Mantener utilizable el último precálculo completo cuando cambien modelos
+  o meteorología, mostrando `Precálculo del <fecha/hora>` y `Necesita
+  actualizarse`. Prioridad de lectura en HA real: vigente, anterior completo y,
+  por último, indisponible. Prohibir en backend el cálculo científico local y
+  la creación automática de jobs remotos; una futura acción online deberá
+  elegir explícitamente un worker. MapLibre será solo de lectura. Implementado,
+  probado y publicado en HA `0.2.291`.
+- [ ] Sustituir la vista pesada de `Historial` por un comparador inmediato de
+  calidad calculada durante el entrenamiento. Para cada especie, mostrar por
+  versión, perfil, contrato temporal y modelo candidato sus cinco fichas:
+  casos probados, favorables acertados, favorables encontrados, desfavorables
+  acertados y desfavorables encontrados, siempre con numerador/denominador.
+  Permitir ordenar inicialmente por `Favorables acertados` sin ocultar cobertura
+  ni soporte, y conservar el detalle retrospectivo de observaciones solo como
+  opción secundaria si sigue aportando valor. La pantalla debe leer métricas
+  persistidas del entrenamiento y no recalcular predicciones al abrirse.
+  - Fuente primaria: el `quality-catalog.json` del batch instalado, referenciado
+    y verificado por SHA-256 en el manifiesto como
+    `batches/<batch_id>/quality-catalog.json`. No usar las filas que el Historial
+    recalcula al navegar ni el precálculo semanal.
+  - Productor existente: `scripts/run-mushroom-ml-multiversion-job.py` llama a
+    `rainmapper_core.mushroom_ml_quality_catalog.build_catalog` a partir de los
+    dos ficheros de predicciones hold-out (`v2_v5_heldout` y `v6_heldout`) y
+    escribe el catálogo durante entrenamiento/benchmark. El catálogo actual es
+    `kind=mushroom_ml_quality_catalog`, esquema `1.1`.
+  - Cada entrada ya está separada por `version_id`, `profile_id`,
+    `temporal_family`, `horizon_days`, `species_id` y `estimator_id`; además
+    incluye `n_test`, `n_test_total`, `abstention_count`,
+    `test_positive_count`, `test_negative_count`, Brier, ROC-AUC, calibración,
+    `evidence` y `operational_classification`.
+  - Campos de las cinco fichas: `evaluated_count`; favorables acertados =
+    `true_favorable_count / (true_favorable_count + false_favorable_count)`;
+    favorables encontrados = `true_favorable_count / test_positive_count`;
+    desfavorables acertados =
+    `true_unfavorable_count / (true_unfavorable_count + false_unfavorable_count)`;
+    desfavorables encontrados =
+    `true_unfavorable_count / test_negative_count`. Mostrar siempre porcentaje
+    y fracción; si el denominador es cero, mostrar `—`.
+  - Inventario: recorrer las versiones/generaciones instaladas del registro
+    `mushroom_ml_version_registry.json`, resolver el batch y su catálogo con los
+    validadores existentes de `mushroom_ml_model_catalog`, y cruzar sus entradas
+    con los perfiles/estimadores operativos del registro. No inventar nombres ni
+    agregar especies, escenarios o modelos entre sí.
+  - UI propuesta: selector de especie, grupos plegables por versión y una fila
+    compacta por perfil/escenario/modelo con las cinco fichas. Ordenación por
+    `Favorables acertados` solo dentro de resultados comparables y mostrando
+    soporte, cobertura/abstención y `evidence`; no proclamar un ganador mediante
+    una única métrica.
+  - Pruebas mínimas futuras: fórmulas y denominadores, cero seguro, separación
+    completa de identidad, lectura exclusiva del catálogo instalado, rechazo de
+    catálogo inválido o con SHA distinto, y prueba de que abrir la pantalla no
+    invoca Predictor, meteorología ni worker.
 - [x] Externalizar del claim las selecciones operativas que superaban 64 KiB,
   servirlas por endpoint autenticado y ligado al claim, y reconstruir el worker
   privado como `1.0.31` sin perder identidad ni volumen.
@@ -172,6 +256,13 @@ Especificación vinculante:
   multiarch:
   `sha256:effb48be97d94cde782766dfc79f5322f2f2b50c6b905ce63dbb4a8776121246`.
   Falta instalar HA y medir en real.
+- [x] Publicar HA `0.2.291` y reconstruir el worker privado como `1.0.37` con
+  Predictor multiversión en las tres vistas, preferencia desacoplada, historial
+  corregido y métricas hold-out legibles, y continuidad obligatoria mediante el
+  último precálculo completo sin cálculo online en HA real. Smoke: 1.229
+  pruebas; `0.2.291` y `latest` comparten el índice multiarch
+  `sha256:59264468522dfeb46e6e9530636b1904e51ec851449d12c7d75f7d6d86cdf45d`.
+  Worker `1.0.37` verificado healthy/idle con ambas cachés válidas.
 - [ ] Completar ese E2E: medir preparación/cálculo/telemetría/transferencia y
   activación, confirmar SQLite en `/media/rainmapper/predictor_precompute`, hits
   servidos por HA, fallback con selección explícita de ejecutor y ausencia del
@@ -184,11 +275,31 @@ Especificación vinculante:
 - [x] Auditar en solo lectura el backup real de `/share/rainmapper`: ocupa
   1.125 GiB y no contiene batches ML antiguos; el único batch está activo y
   protegido.
-- [ ] Corregir, con autorización separada, el ciclo de vida de seis input
-  bundles ya completados (179,6 MiB medidos en el montaje real) y retirar el
-  TAR legacy del runtime (138 MiB)
-  únicamente después de verificar su sustituto en `/media`. No borrar ni
-  cambiar retención antes.
+- [x] Limpiar con autorización explícita y backup previo unos 405,6 MiB
+  reconstruibles de `/share`: modelos legacy, resultados terminales, rollback
+  duplicado y seis artefactos raíz. Se verificaron antes las copias necesarias
+  en `/media`; se conservaron meteorología, datos propios, catálogos, perfiles y
+  media de usuario, sin cambiar retención.
+- [x] Corregir localmente el falso miss de `Esta semana`: el recomendador global
+  reutiliza el único resultado precalculado aunque la navegación arrastre otra
+  especie desde `Consultar fecha`, y un artefacto semanal vigente sigue
+  resolviendo después de cambiar el día civil aunque su `issue_date` permanezca
+  anclado al inicio de cobertura. Pruebas unitarias y flujo local frío sobre el
+  SQLite real correctos; publicado en HA `0.2.291`.
+- [x] Añadir localmente una acción explícita para guardar la versión operativa
+  preferida, diferenciada de la versión elegida sólo para una consulta.
+- [x] Sustituir para cálculos directos sin `job_id` el botón de cancelación
+  inutilizable por `Dejar de esperar`, con aviso de que un cálculo local ya
+  iniciado puede continuar en segundo plano.
+- [x] Mostrar en el panel principal el indicador de preparación al lanzar un
+  precálculo, igual que en `Workers y trabajos`, incluso tras refrescarse el
+  fragmento vivo del panel. El formulario ya no navega antes de pintar: usa
+  POST asíncrono, mantiene el modal hasta la confirmación y conserva fallback
+  clásico sin JavaScript. Validado por pruebas dirigidas y por inspección de la
+  imagen HA local reconstruida; publicado en HA `0.2.291`.
+- [x] Hacer que `Cerrar` retire inmediatamente el modal de un trabajo terminado
+  antes de recargar su pantalla de origen, para que la actualización lenta del
+  resumen no bloquee visualmente el diálogo.
 - [ ] Perfilar `Building weekly matrix` por especie después del E2E real.
   Optimizar solo el coste dominante medido; objetivo operativo de referencia,
   no gate demostrado, inferior a diez minutos.
@@ -233,8 +344,8 @@ Especificación vinculante:
   artefactos reconstruibles en `/media/rainmapper/mushroom-derived`. Incluye
   modelos, reconstrucción, bundles, resultados privados y cuerpos pesados de
   Predictor; transición verificada sin borrado y arranque recuperable con
-  `/media` vacío. La retirada de copias legacy de `/share` sigue requiriendo
-  autorización posterior.
+  `/media` vacío. La retirada posterior de copias legacy se completó el
+  2026-09-01 con autorización, backup previo y comprobación de destinos.
 - [x] Implementado localmente: auditor/reconciliador idempotente con modo `dry-run` y modo
   `apply` separado para bundles, resultados privados, staging, huérfanos y
   trabajos terminales; conservar resumen y motivo de cada decisión.

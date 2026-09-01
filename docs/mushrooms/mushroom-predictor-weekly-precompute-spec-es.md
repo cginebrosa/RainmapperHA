@@ -11,10 +11,11 @@ ejecutará exclusivamente en el worker operativo preferido. Home Assistant
 seguirá siendo coordinador y conservará una copia verificada para sus sesiones
 locales.
 
-El precálculo es una aceleración opcional. No sustituye al motor actual, no es
-fuente científica y no puede convertirse en requisito para abrir el Predictor.
-Si el artefacto falta, está incompleto, no es válido para la petición o no puede
-leerse, se ejecutará sin error el flujo vigente.
+El precálculo es el único origen de resultados ordinarios en HA real. No es una
+fuente científica —se regenera desde el runtime—, pero sí la frontera que evita
+inferencias interactivas en HA. Si falta, está incompleto, no cubre la petición
+o no puede leerse, HA muestra indisponibilidad y solicita actualizarlo; no
+ejecuta cálculo científico local ni crea automáticamente un trabajo remoto.
 
 ## Evidencia y dimensión actuales
 
@@ -65,9 +66,16 @@ pero no obligarán a ejecutar modelos que el motor actual omite.
 El artefacto podrá acelerar `Recommender`, `Esta semana`, `Por especie` y
 `Consultar fecha` cuando toda la petición esté dentro de su cobertura.
 `Historial`, fechas fuera de la ventana y cualquier modalidad futura no
-representada harán fallback. No se mezclarán silenciosamente filas precalculadas
-y filas calculadas en vivo dentro de una misma respuesta: una petición se sirve
-completa desde el artefacto o completa mediante el camino actual.
+representada quedan indisponibles en HA real hasta disponer de un contrato
+precalculado o de una futura acción manual explícita en worker. No se mezclarán
+silenciosamente filas precalculadas y filas calculadas en vivo dentro de una
+misma respuesta.
+
+La implementación no almacena una respuesta por cada combinación de versiones.
+Guarda una sola vez los miembros operativos de todas las versiones y el lector
+compone el subconjunto pedido. Esta composición se aplica por igual a la fecha
+concreta, la matriz de siete días de `Por especie` y todos los candidatos del
+recomendador global `Esta semana`.
 
 ## Formato del artefacto
 
@@ -128,19 +136,30 @@ demuestre serialización determinista. Las copias HA y worker procedentes de una
 misma construcción sí deberán tener exactamente el mismo `file_sha256`.
 
 El fingerprint del runtime seguirá siendo la autoridad para meteorología,
-modelos, registro de versiones, perfiles, features, áreas conocidas y catálogo
-de estaciones. No se introducirá una regla débil basada únicamente en la hora
-del runner o el `mtime` del SQLite.
+modelos, contenido científico del registro de versiones, perfiles, features,
+áreas conocidas y catálogo de estaciones. El registro canónico empaquetado
+mantiene un default interno estable, pero no sigue la preferencia de UI: el
+SQLite ya cubre todas las versiones operativas instaladas y cambiar el puntero
+preferido no altera su identidad.
+No se introducirá una regla débil basada únicamente en la hora del runner o el
+`mtime` del SQLite.
 
 Antes de usar un artefacto se comprobarán su identidad, esquema, cobertura y
 estado de publicación. El digest SHA-256 completo se verificará al cruzar la
 frontera worker→HA y al recuperar una instalación dudosa, no en cada consulta.
 Una sesión caliente leerá metadatos y filas indexadas sin rehashear el fichero.
 
-Cambiar meteorología, modelos instalados, versión preferida, perfiles, features
-o cualquier otra entrada del runtime invalida determinísticamente el artefacto.
-Aunque la meteorología no cambie, una fecha de emisión distinta produce otra
-ventana y otra identidad.
+Cambiar meteorología, modelos o generaciones instaladas, perfiles, features o
+cualquier otra entrada científica del runtime hace que el artefacto deje de
+ser el vigente. Cambiar sólo la versión preferida no. No obstante, una copia
+anterior podrá seguir sirviendo temporalmente respuestas completas como
+`desactualizadas` si conserva integridad, cobertura y todas las versiones
+solicitadas. Aunque la meteorología no cambie, una fecha de emisión distinta
+produce otra ventana y otra identidad.
+
+La UI mostrará la fecha/hora de activación local del fichero cuando reutilice
+un artefacto desactualizado. Ese `mtime` es información operativa de la copia
+activa, no parte de su identidad científica ni prueba de vigencia.
 
 ## Ubicación y autoridad
 
@@ -154,9 +173,8 @@ La misma identidad y el mismo SHA-256 deberán quedar activos en ambos lados:
 - el coordinador consultará primero su copia para cualquier petición de la UI,
   aunque la sesión tenga seleccionado el worker; un hit no crea ningún job y
   conserva ese ejecutor únicamente para un posible fallback;
-- si una petición llega realmente al worker tras un miss del coordinador, el
-  worker podrá resolverla desde su copia local y devolver solo la respuesta;
-- una petición enviada a otro worker sin el artefacto hará fallback;
+- la versión actual no envía automáticamente misses al worker; una posible
+  acción manual futura será explícita y separada del acceso ordinario;
 - HA nunca ejecutará el trabajo programado de precálculo.
 
 Esta prioridad de lectura respeta la comunicación saliente worker→HA actual y
@@ -201,8 +219,8 @@ Se solicitará después de:
 
 - completar correctamente un scheduled runner y publicar su runtime;
 - promover o revertir modelos;
-- cambiar la versión preferida o publicar otra entrada que cambie el
-  fingerprint del Predictor.
+- publicar cualquier otra entrada científica que cambie el fingerprint del
+  Predictor.
 
 Un runner fallido no publicará un deseo nuevo. El scheduled runner solicitará
 siempre el trabajo aunque la huella resultante coincida; si el artefacto exacto
@@ -319,9 +337,20 @@ abrirá su copia en modo de solo lectura, validará una vez los metadatos y
 consultará únicamente las filas necesarias mediante índices.
 
 Antes de crear un job interactivo, el coordinador intentará resolver la petición
-contra su copia verificada. Solo si hay miss conservará el ejecutor fijado para
-la sesión y seguirá el flujo vigente; el worker seleccionado podrá hacer un
-segundo lookup local antes del cálculo vivo. Un hit en cualquiera de los dos:
+contra su copia verificada. El orden será:
+
+1. artefacto vigente y exacto;
+2. artefacto anterior compatible, marcado como desactualizado;
+3. cálculo vivo únicamente en un worker elegido explícitamente;
+4. respuesta `sin precálculo disponible` si no existe artefacto utilizable ni
+   worker explícito.
+
+HA real no ejecutará bajo ningún concepto el cálculo científico local del
+Predictor. Esta prohibición se impondrá en el servidor, no solo ocultando una
+opción en la UI. MapLibre será exclusivamente de lectura: vigente, anterior
+compatible o pendiente de actualización; abrirlo no creará trabajos.
+
+Un hit vigente o desactualizado:
 
 - no crea un trabajo científico nuevo;
 - no sincroniza de nuevo el runtime;
@@ -334,18 +363,27 @@ recuperar un artefacto dudoso, no al entrar en cada página. El camino caliente
 solo comprobará el recibo activo, metadatos, esquema y cobertura necesarios
 para la petición.
 
-Harán fallback explícito y seguro:
+No podrán reutilizarse ni siquiera como desactualizados:
 
 - ausencia de fichero;
-- identidad o fecha incompatibles;
 - esquema desconocido;
-- cobertura parcial;
+- cobertura parcial o petición ausente;
 - fallo de `quick_check` o de lectura;
 - versión o selección no representada;
 - fecha o vista fuera de alcance.
 
-El fallback no marcará como fallida la consulta del usuario. Diagnostics
-registrará un motivo estable y el flujo seguirá exactamente por la ruta actual.
+Una diferencia de fingerprint, generaciones o meteorología será un motivo de
+obsolescencia, no por sí sola un miss, siempre que el artefacto anterior supere
+los demás gates. La respuesta mostrará, como mínimo:
+
+- `Precálculo del <fecha y hora>`;
+- `Necesita actualizarse`;
+- motivos conocidos: modelos reentrenados, meteorología actualizada o ambos;
+- si ya existe una actualización pendiente o en ejecución.
+
+Diagnostics registrará `fresh`, `stale` o `missing`, la identidad utilizada y
+el motivo. No se mezclarán filas de artefactos distintos ni filas vivas dentro
+de una respuesta.
 
 ## Transporte, seguridad y límites
 
@@ -435,6 +473,12 @@ aislada.
   ordenaciones mantienen equivalencia.
 - Una petición cubierta se sirve sin crear job, cargar modelos o leer Parquet,
   con objetivo de backend <= 1 s en el M1 y HA de referencia.
+- Tras reentrenar o actualizar meteorología, el artefacto anterior compatible
+  continúa sirviendo con fecha/hora y aviso `Necesita actualizarse` hasta la
+  activación atómica del sustituto.
+- En HA real, un miss no ejecuta cálculo científico local. Sin artefacto
+  utilizable ni worker explícito se muestra indisponibilidad; MapLibre nunca
+  provoca cálculo ni crea un job.
 - HA y worker aceptan exactamente el mismo SHA-256 para una construcción y
   producen respuestas equivalentes desde sus copias.
 - HA publica antes de que el worker active localmente; pérdida de confirmación,

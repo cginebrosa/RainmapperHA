@@ -31,6 +31,23 @@ class MushroomMLQualityCatalogTests(TestCase):
         evidence = {row["species_id"]: row["evidence"] for row in result["entries"]}
         self.assertEqual(evidence["species_a"], "better_than_prevalence")
         self.assertEqual(evidence["species_b"], "worse_than_prevalence")
+        classification = {
+            row["species_id"]: row["operational_classification"]
+            for row in result["entries"]
+        }
+        self.assertEqual(
+            classification["species_a"],
+            {
+                "evaluated_count": 8,
+                "true_favorable_count": 4,
+                "false_favorable_count": 0,
+                "true_unfavorable_count": 4,
+                "false_unfavorable_count": 0,
+                "uncertain_count": 0,
+            },
+        )
+        self.assertEqual(classification["species_b"]["false_favorable_count"], 4)
+        self.assertEqual(classification["species_b"]["false_unfavorable_count"], 4)
 
     def test_lookup_requires_exact_species_contract_horizon_and_estimator(self) -> None:
         catalog = {"entries": [{

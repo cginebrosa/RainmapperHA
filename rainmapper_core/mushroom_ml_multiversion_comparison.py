@@ -890,6 +890,9 @@ def build_selected_operational_comparison(
                 "test_samples": evaluation.get("n_test"),
                 "test_positive_count": evaluation.get("test_positive_count"),
                 "test_negative_count": evaluation.get("test_negative_count"),
+                "operational_classification": dict(
+                    evaluation.get("operational_classification") or {}
+                ),
                 "statistical_reliability": _winner_statistical_reliability(
                     evaluation, prediction
                 ),

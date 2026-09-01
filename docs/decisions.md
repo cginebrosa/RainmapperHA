@@ -1,5 +1,121 @@
 # Decisions
 
+## 2026-09-02 - [VIGENTE][RELEASE] HA 0.2.291 y worker privado 1.0.37
+
+- HA `0.2.291` y `latest` se publicaron con el mismo índice OCI
+  `sha256:59264468522dfeb46e6e9530636b1904e51ec851449d12c7d75f7d6d86cdf45d`
+  y manifests `linux/amd64` y `linux/arm64`.
+- El worker no se publica. Se reconstruyó localmente como `1.0.37` y quedó
+  healthy/idle, conservando identidad y volumen, con dataset GIS y caché del
+  Predictor válidos.
+- El gate final superó 1.229 pruebas y el smoke completo. La prueba servida
+  reutilizó un precálculo anterior desactualizado con fecha/hora visible y sin
+  cálculo nuevo. No se lanzó ni monitorizó otro precálculo durante la release.
+- El alcance incluye Predictor multiversión en las tres vistas operativas,
+  preferencia independiente, corrección del Historial y sus métricas hold-out,
+  y la prohibición de cálculo online automático en HA real.
+
+## 2026-09-01 - [VIGENTE][PREDICTOR] La preferida no forma parte de la identidad científica
+
+- La versión preferida es únicamente el valor operativo por defecto de la UI.
+  El precálculo ya contiene todas las versiones operativas instaladas, por lo
+  que mover la preferencia V4→V6→V4 no cambia modelos, meteorología ni
+  predicciones almacenadas.
+- `Usar como preferida` persiste el puntero y libera la caché de instancias del
+  Predictor, pero no republica el runtime, no cambia su fingerprint y no marca
+  el precálculo como desactualizado.
+- El runtime incluye una copia canónica del registro con un valor interno
+  estable para las rutas que aún requieren un default. Mover el puntero de UI
+  no cambia esa copia; sólo cambia si deja de ser una versión instalada. No se
+  crea una segunda identidad ni una capa de compatibilidad: sigue existiendo
+  una sola huella de runtime.
+- Los cambios científicos reales —modelos o generaciones instaladas,
+  meteorología, perfiles, features, áreas o estaciones— siguen cambiando esa
+  huella. Los avisos de entrenamiento o precálculo desactualizados se
+  conservan.
+- El esquema interno de publicación pasa a `1.2` para descartar una vez la
+  publicación local anterior. No cambia el contrato de manifiesto que consume
+  el worker.
+
+## 2026-09-01 - [VIGENTE][PREDICTOR] Continuidad con precálculo anterior y HA real sin cálculo local
+
+- Mientras se construye un sustituto, el último SQLite compatible seguirá
+  sirviendo respuestas completas aunque su fingerprint ya no sea el vigente.
+  La UI mostrará su fecha/hora, `Necesita actualizarse`, el motivo conocido y
+  si la actualización ya está pendiente o en ejecución.
+- La diferencia de modelos o meteorología convierte el resultado en
+  `desactualizado`; no autoriza a mezclar filas, omitir versiones solicitadas ni
+  aceptar un fichero corrupto, incompatible o fuera de cobertura.
+- En HA real el servidor no invocará cálculo científico local. Tras un miss solo
+  mostrará indisponibilidad y tampoco creará automáticamente un trabajo remoto.
+  Una posible acción manual futura deberá elegir explícitamente un worker.
+  MapLibre será de solo lectura y no creará trabajos.
+- Implementado en el worktree: `lookup_active_artifact` intenta leer el SQLite
+  íntegro aunque su fingerprint sea anterior; un hit se marca
+  `outdated_used`, muestra la fecha/hora operativa del fichero y evita toda
+  inferencia. Fuera del laboratorio local, cualquier miss termina antes de la
+  selección de ejecutor.
+
+## 2026-09-01 - [VIGENTE][PREDICTOR] Multiversión coherente en las tres vistas operativas
+
+- `Esta semana`, `Por especie` y `Consultar fecha` comparten selección de
+  versiones, gates, ranking por escenario y trazabilidad. La selección viajará
+  al cambiar de pestaña, día, especie, área o ficha.
+- El recomendador continúa siendo global y puede elegir especies diferentes por
+  día; la selección multiversión define con qué versiones se evalúan todos los
+  candidatos. MapLibre consumirá la misma identidad.
+- Elegir versiones para una consulta no cambia la preferida. La acción separada
+  `Usar como preferida` sí persiste el puntero operativo.
+- El SQLite semanal guarda los miembros de todas las versiones operativas. El
+  lector compone desde esos miembros cualquier subconjunto representado para
+  las tres vistas; no mantiene respuestas duplicadas para cada combinación ni
+  vuelve a inferir. Implementado y probado en el worktree, pendiente de build,
+  validación visual y release.
+
+## 2026-09-01 - [VIGENTE][PREDICTOR] El recomendador semanal tiene identidad global
+
+- `Esta semana` evalúa todas las especies entrenadas; la especie seleccionada
+  que llega desde otra pestaña es estado de navegación y no identidad
+  científica. `Por especie` sí conserva la especie en su identidad.
+- El artefacto almacena una sola respuesta global usando una especie canónica.
+  El lookup debe canonizar cualquier otra especie antes de buscar y restaurarla
+  únicamente en la petición reflejada por la UI.
+- La identidad del artefacto ancla una semana completa en su `issue_date`,
+  mientras la UI expresa el día desde el que se abre. Durante la cobertura
+  vigente, el lookup usa el ancla semanal para localizar cualquier respuesta y
+  conserva el `issue_date` solicitado en la respuesta reflejada. Sin esta
+  normalización, un artefacto válido dejaba de tener hits al día siguiente.
+- Diagnóstico real: un falso `request_not_precomputed` ejecutó 203,986 s en HA;
+  otra petición esperó 72,076 s el bloqueo global. El cliente agotó su espera,
+  pero el cálculo siguió hasta completar, tras lo cual repetir fue rápido por
+  caché.
+- Un request directo local no posee `job_id` y no puede prometer cancelación del
+  servidor. La UI permite `Dejar de esperar`; sólo los jobs remotos con id usan
+  la cancelación real.
+- La prueba fría con el SQLite local real, reiniciando HA entre consultas,
+  confirmó `Precálculo: usado`: 1,87 s para Aereus/Olvan por fecha y 0,33 s al
+  regresar al recomendador; el cálculo informado fue `<0,1 s` en ambas.
+
+## 2026-09-01 - [VIGENTE][PREDICTOR] Elegir para una consulta y guardar la preferida son acciones distintas
+
+- Las casillas `Versiones incluidas en la predicción` eligen qué versiones usa
+  la consulta. El selector `Preferida` solo elige el puntero que se guardará;
+  cambiar uno no modifica el otro.
+- Una acción POST explícita `Usar como preferida` valida y persiste el puntero,
+  y libera la caché de instancias. No lanza una predicción, no navega, no
+  republica el runtime ni invalida el precálculo; la pantalla actualiza por
+  separado el badge y qué versión está guardada.
+
+## 2026-09-01 - [VIGENTE][ALMACENAMIENTO] Copias reconstruibles verificadas salen de `/share`
+
+- Con backup previo confirmado y autorización explícita se retiraron unos
+  405,6 MiB de `/share`: 328,6 MiB de modelos, 39,3 MiB de resultados privados
+  terminales, 18,8 MiB de rollback duplicado y 18,8 MiB de seis artefactos raíz.
+- Los destinos necesarios se verificaron en `/media` antes del borrado; el
+  recibo de transición registraba 691 ficheros, 276.957.056 bytes y cero
+  conflictos. No se tocaron meteorología, observaciones, catálogos, perfiles,
+  imágenes/vídeos ni backups, y no cambió la retención.
+
 ## 2026-08-31 - [VIGENTE][RELEASE] HA 0.2.284 estabiliza presencia y reconciliación del worker
 
 - HA `0.2.284` y `latest` comparten el índice OCI
@@ -29,7 +145,7 @@
   reemplaza esta release porque además separa la primera planificación del
   request heartbeat y añade margen real al control de presencia.
 
-## 2026-08-31 - [DUDA][ALMACENAMIENTO] 317,6 MiB en share requieren gates distintos
+## 2026-08-31 - [REEMPLAZADA][ALMACENAMIENTO] 317,6 MiB en share requieren gates distintos
 
 - El montaje real midió 179,6 MiB en seis bundles coordinador de trabajos
   completados y limpiados en el worker, más un TAR legacy de runtime de 138 MiB.
@@ -40,6 +156,8 @@
   `/media/rainmapper/runtime-cache/predictor-runtime-archives`. Al cierre había
   cero TAR en esa ruta. El batch ML activo de ~176 MiB está referenciado por las
   versiones instaladas y no es residuo.
+- Reemplazada por la decisión del 2026-09-01 después de verificar los destinos,
+  recibir autorización explícita y ejecutar la limpieza acotada.
 
 ## 2026-08-30 - [REEMPLAZADA][RELEASE] Precálculo Predictor en HA 0.2.281 y worker privado 1.0.30
 
@@ -91,6 +209,18 @@
   sustitución, concurrencia, transporte, publicación y fallback.
 - La especificación vinculante y sus criterios de aceptación están en
   `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`.
+
+## 2026-09-01 - [VIGENTE][ML] No reutilizar catálogos de ajustes de otro lote
+
+- Si el manifest de un lote instalado referencia un catálogo cuyo
+  `source_batch_id` pertenece a otro lote, ese fichero es un residuo inválido:
+  se elimina y no se usa como entrada del entrenamiento.
+- La actualización local reconstruye el catálogo desde los artefactos
+  verificados del propio lote instalado. Los catálogos que declaran pertenecer
+  al lote actual conservan las comprobaciones estrictas de ruta, digest,
+  identidad y número de ajustes.
+- Esta recuperación no elige ganadores ni reutiliza métricas antiguas: recupera
+  los parámetros de ajuste necesarios para volver a entrenar los candidatos.
 
 ## 2026-08-29 - [REEMPLAZADA][RELEASE] HA 0.2.280 publicada y worker local 1.0.29
 
@@ -5843,3 +5973,56 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   backup de `/share` no depende de binarios derivados para poder restaurarse.
 - La retirada de copias legacy de `/share` es una acción separada, verificable
   y explícitamente autorizada. Este cambio no modifica retención ni borra datos.
+
+## 2026-09-01 - [VIGENTE] El selector multiversión usa el inventario vivo, no el catálogo del resultado
+
+- El catálogo embebido en una respuesta precalculada describe el resultado,
+  pero no es la fuente de verdad para saber qué versiones están instaladas.
+- `Esta semana`, `Por especie` y `Consultar fecha` dibujan sus opciones desde el
+  registro y los manifests locales vigentes. El SQLite sigue siendo la fuente
+  del resultado y no se ejecuta inferencia para construir el selector.
+- Si una vista operativa no recibe `mvv`, convierte la versión preferida vigente
+  en su selección explícita. Cambiar la preferida no recalcula ni invalida el
+  precálculo, pero la navegación posterior deja de heredar implícitamente la
+  preferida antigua que estuviera dentro de la respuesta almacenada.
+- El control visual son cinco casillas compactas con los nombres cortos; el
+  detalle largo permanece accesible sin ocupar espacio permanente.
+
+## 2026-09-01 - [VIGENTE] «Todas las áreas» respeta la selección multiversión
+
+- `Consultar fecha` aplica las versiones marcadas tanto a un área concreta como
+  al agregado de todas las áreas. El agregado se compone con los miembros
+  operativos ya presentes en el SQLite semanal; no ejecuta inferencia adicional.
+- Abrir una fila del agregado conserva `mvv`, por lo que el detalle no vuelve de
+  forma implícita a V4 ni a la versión preferida.
+- El historial continúa evaluando una sola versión, la operativa preferida,
+  pero la resuelve como una selección multiversión explícita y calcula cada
+  episodio con el mismo selector operativo que fecha, semana y especie. Se
+  elimina así la divergencia con el comparador heredado de preferida que podía
+  producir abstenciones distintas a las del Predictor vigente.
+- Si todas las filas del historial son abstenciones, el acierto se muestra como
+  no disponible (`—`): no existe un denominador evaluable y `0%` sería una
+  cifra falsa. Los casos favorables sin recomendación siguen contabilizados
+  como no detectados.
+- Las cuatro tarjetas resumen del historial conservan su función de filtro y
+  añaden una ayuda contextual compacta. La ayuda define el total de episodios,
+  el denominador evaluable del acierto y la diferencia entre no detectados y
+  falsas alarmas sin ampliar las tarjetas.
+
+## 2026-09-01 - [VIGENTE] Historial separa validación hold-out y auditoría retrospectiva
+
+- Las tarjetas anteriores de episodios, acierto, no detectados y falsas
+  alarmas quedan reemplazadas: resumían el listado retrospectivo y no podían
+  interpretarse como fiabilidad fuera de muestra.
+- El catálogo de calidad `1.1` guarda por referencia exacta de modelo los
+  aciertos y errores favorables/desfavorables calculados exclusivamente sobre
+  filas hold-out con los cortes operativos 0,60/0,40.
+- Historial agrega una sola vez cada modelo operativo usado para la especie y
+  muestra cinco tarjetas compactas: casos probados, favorables acertados,
+  favorables encontrados, desfavorables acertados y desfavorables encontrados.
+  Las cuatro razones incluyen porcentaje y fracción, y su ayuda explica el
+  denominador. Los resultados inciertos reducen `encontrados`, pero no se hacen
+  pasar por un aviso favorable o desfavorable.
+- El listado de episodios observado continúa debajo como revisión
+  retrospectiva separada y ya no queda enlazado ni filtrado por las tarjetas
+  hold-out.

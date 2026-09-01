@@ -4,23 +4,136 @@ Ventana operativa para continuar RainmapperHA. Revalidar código, datos, runtime
 y worktree antes de afirmar estado presente. Las decisiones duraderas están en
 `docs/decisions.md`; las prioridades completas, en `docs/todo.md`.
 
-## Estado al cierre — 2026-08-31
+## Estado al cierre — 2026-09-02
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
   HEAD revalidado antes de los cambios locales:
-  `736fecaae7436945ce62475f57474274c64b188e`.
-- El código declara HA `0.2.289` y worker `1.0.35`.
-- HA `0.2.289` y `latest` están publicados en GHCR con el mismo índice OCI
-  `sha256:67d6abd75624474bf8703fe4b75fae6b9c8d396756b22e8cc7f03cfdcee62769`
+  `5004b7261edab39c022f150fec3881e8c458c954`.
+- El código declara HA `0.2.291` y worker `1.0.37`.
+- HA `0.2.291` y `latest` están publicados en GHCR con el mismo índice OCI
+  `sha256:59264468522dfeb46e6e9530636b1904e51ec851449d12c7d75f7d6d86cdf45d`
   y manifests `linux/amd64` y `linux/arm64`.
-- La última versión confirmada por el usuario en HA real es `0.2.288`; falta
-  instalar y validar `0.2.289`.
-- El worker privado no se publica. Está reconstruido localmente como `1.0.35`,
+- Tras la última actualización, el usuario confirma el 2026-09-01 que la
+  aplicación funciona correctamente y que varios runners programados han
+  completado sus precálculos. Esta confirmación es observación del usuario; la
+  versión instalada y el estado del worker no se han consultado de nuevo desde
+  esta sesión.
+- El worker privado no se publica. Está reconstruido localmente como `1.0.37`,
   healthy/idle, con identidad `worker_1a9a232c20fe2ee2`, volumen
   `rainmapper-worker-data`, cachés GIS y Predictor válidas y ambas lanes idle.
-  El usuario confirmó su conexión al coordinador HA `0.2.288`.
+  El endpoint local confirmó `worker_version=1.0.37`, dataset y caché Predictor
+  válidos, y ambas lanes idle tras la reconstrucción.
 - No hay entrenamientos programados. No tocar retención, datos reales, HA real
   ni lanzar entrenamientos, bumps, builds o publicaciones sin autorización.
+
+## Release HA 0.2.291 / worker privado 1.0.37
+
+- La continuidad con un precálculo anterior desactualizado y la prohibición de
+  cálculo científico en línea en HA real están implementadas en el worktree.
+  Una diferencia de fingerprint ya no descarta por sí sola el SQLite: si la
+  consulta está completa se reutiliza y la UI muestra fecha/hora,
+  `desactualizado` y `necesita actualizarse`. Si no hay hit, HA real termina con
+  indisponibilidad antes de ejecutar localmente o crear un job remoto. El
+  laboratorio local conserva el cálculo explícitamente habilitado para pruebas.
+- La release quedó validada con 1.229 pruebas, smoke completo, comprobaciones de
+  sintaxis, versiones, cache-busters, fixtures y shell. El flujo real local
+  reutilizó el SQLite anterior y mostró su fecha/hora y `necesita actualizarse`
+  sin informar cálculo nuevo. La imagen multiarch y el worker se verificaron
+  después de construirlos; no se lanzó ni monitorizó ningún precálculo local.
+- Los trabajos locales de reconstrucción/entrenamiento y precálculo permanecen
+  solo en `MUSHROOM_REBUILD_JOBS`: desaparecen al reiniciar el contenedor o una
+  hora después de terminar. El usuario observó esta pérdida tras reconstruir
+  HA; queda pendiente persistir ese historial sin mezclarlo con esta corrección.
+- La selección multiversión ya está implementada en el worktree para las tres
+  vistas operativas. `Esta semana` aplica el conjunto elegido a todas las
+  especies candidatas; `Por especie`, a todas sus áreas y siete días; y la
+  selección se conserva al cambiar de pestaña, día, especie, área o ficha.
+  El lector SQLite compone estos resultados con los miembros operativos ya
+  precalculados, sin volver a ejecutar inferencia.
+- La primera prueba visual detectó que `Esta semana` y `Por especie` mostraban
+  el encabezado multiversión pero ninguna casilla: la UI estaba leyendo el
+  catálogo descriptivo embebido en el resultado precalculado, que no contiene
+  el inventario de artefactos instalados. El selector lee ahora exclusivamente
+  el registro local vigente, mientras el resultado sigue saliendo del SQLite.
+  La entrada directa y ambas vistas resuelven además la preferida vigente como
+  selección explícita cuando la URL no trae `mvv`; así un cambio V4→V3 no deja
+  que el resultado precalculado conserve implícitamente V4. Las cinco opciones
+  se presentan como casillas compactas V2/V3/V4/V5w/V6w; el nombre largo queda
+  en el detalle técnico y en el tooltip.
+- La actualización local completa fallaba antes de preparar V2--V6 cuando el
+  lote instalado contenía un `tuning-catalog.json` copiado de un lote anterior.
+  El coordinador descarta y elimina ese fichero incoherente, reconstruye los
+  ajustes desde los artefactos verificados del lote instalado y mantiene la
+  validación estricta para cualquier catálogo que sí declare pertenecer al lote
+  actual. El fichero incoherente del lote local
+  `local_operational_20260828T101432Z` se eliminó con autorización. La
+  reconstrucción contra esos modelos reales produjo 636 ajustes en 6,3 s, sin
+  lanzar entrenamiento.
+- El selector `Preferida` de `Consultar fecha` estaba integrado en el formulario
+  GET de la consulta. Cambiarlo y pulsar `Predecir` elegía esa versión para la
+  consulta, pero no ejecutaba el POST ya existente que persiste
+  `preferred_version_id`; por eso el badge superior seguía mostrando V4.
+- La UI local muestra ahora la preferida realmente guardada y añade la acción
+  explícita `Usar como preferida`. El selector de preferencia y las casillas de
+  versiones incluidas son estados independientes. Esa acción no predice ni
+  navega: persiste únicamente una versión instalada, actualiza el badge y
+  libera la caché del Predictor. Solo `Predecir` o una navegación que necesite
+  cargar resultados ejecutan una consulta.
+  Ya no republica el runtime: el registro empaquetado conserva un default
+  interno estable, separado del puntero de UI, porque el precálculo contiene
+  todas las versiones instaladas. V4→V6→V4
+  conserva la misma huella; cambiar un modelo sí la cambia. El esquema interno
+  de publicación `1.2` fuerza una única regeneración local del formato anterior
+  sin modificar el manifiesto consumido por el worker. La imagen HA local se
+  reconstruyó después de cerrar la validación y el cambio quedó publicado en
+  HA `0.2.291`.
+- `Lanzar precálculo` desde el panel principal muestra ahora el mismo indicador
+  de preparación que la acción equivalente de `Workers y trabajos`. El envío
+  se intercepta, espera dos frames para que el navegador pinte el modal y usa
+  un POST asíncrono; el modal permanece durante toda la espera y la página solo
+  se recarga cuando el servidor confirma la solicitud. Si falla, muestra el
+  error y permite cerrar y reintentar. El endpoint conserva el POST clásico
+  para clientes sin JavaScript y devuelve JSON al cliente asíncrono. La imagen
+  HA local se reconstruyó y el contenedor activo contiene el formulario, el
+  doble frame de pintado y la cabecera asíncrona; no se lanzó un precálculo para
+  comprobar una corrección puramente de interacción.
+- En el modal de avance, `Cerrar` retira inmediatamente el diálogo antes de
+  recargar el resumen de un trabajo completado. La recarga espera dos frames,
+  evitando que una respuesta lenta de HA haga parecer bloqueado el botón.
+- La validación servida encontró un último desacoplamiento: el lector SQLite
+  componía correctamente V3/V4 para `Esta semana` y `Por especie`, pero esas
+  vistas entregaban a los helpers visuales el sobre multiversión completo en
+  vez de su `operational_comparison`. El resultado era una tabla vacía o con
+  apariencia de V4 aunque las casillas fueran correctas. `PreparedPredictor`
+  conserva el contrato y la UI extrae ahora el resultado operativo anidado en
+  un único punto, igual que ya hacía `Consultar fecha`.
+- Validación final del cambio de UI, servicio y precálculo: 414 pruebas pasan.
+  Incluyen preferencia asíncrona sin predicción ni navegación, independencia
+  entre preferida y versiones incluidas, selección global del recomendador,
+  semana multiversión y composición de ambas vistas desde SQLite. También
+  pasan la compilación de los cuatro módulos modificados y `git diff --check`.
+  La imagen `rainmapperha:local-ha-ui` se reconstruyó y el contenedor quedó
+  activo. La respuesta servida de `Esta semana` con V3+V4 contiene cinco
+  casillas compactas, conserva ambas selecciones y muestra ganadores V3 y V4
+  desde el precálculo. `Por especie` usa el mismo resultado operativo y
+  `Consultar fecha` mantiene la acción separada de preferencia. El usuario
+  confirmó la validación visual y el cambio quedó incluido en HA `0.2.291`.
+
+## Auditoría de almacenamiento local — 2026-09-01
+
+- El workspace ocupa `19.184.004 KiB` (`18,30 GiB`). El desglose, las fuentes
+  y la propuesta conservadora están en
+  `docs/storage-audit-local-2026-09-01.md`; no se borró nada durante la
+  auditoría.
+- El reconciliador protege el lote instalado
+  `local_operational_20260901T123855Z` y declara `1.857.696.686 bytes`
+  recuperables en nueve lotes antiguos, ocho resultados y dos bundles
+  huérfanos.
+- Hay además unos `256 MiB` de staging de precálculo abandonado. El precálculo
+  activo de `442 MiB` permanece en `/media` y no se debe tocar.
+- `docker-data/audits` suma `6,52 GiB`. No participa en runtime, pero conserva
+  evidencia enlazada desde informes; requiere una decisión explícita de
+  conservar, archivar o eliminar.
 
 ## Resultado operativo entregado
 
@@ -59,9 +172,8 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
   siembra únicamente defaults editables en `/share` y muestra Predictor sin
   modelos instalados. En el laboratorio real de desarrollo se copiaron 6.670
   ficheros sin conflictos ni errores y el segundo arranque no repitió la copia.
-- HA real no se modificó. La reducción efectiva del backup requiere retirar
-  posteriormente las copias legacy de `/share`, sólo con autorización y tras
-  validar la versión instalada.
+- La retirada posterior de copias legacy se ejecutó con autorización explícita
+  el 2026-09-01 y queda documentada en la sección de almacenamiento.
 
 ## E2E real y corrección 0.2.286/1.0.33
 
@@ -125,24 +237,76 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
 
 ## Observación del Predictor tras el precálculo real
 
-- Una petición local de recomendador no cubierta por el SQLite tardó 197,718 s
-  dentro del render científico; otra petición concurrente esperó 70,352 s el
-  bloqueo global. No hubo OOM ni participación del worker.
-- Las peticiones anteriores y posteriores tardaron aproximadamente un segundo,
-  y el usuario reprodujo después el mismo flujo con respuesta rápida. La causa
-  interna exacta de esa única inicialización lenta no está demostrada; observar
-  antes de introducir otra optimización.
+- El fallo se reprodujo el 2026-09-01 al volver de `Consultar fecha` a
+  `Esta semana`. Los diagnósticos reales registran un miss
+  `request_not_precomputed` de 203,986 s y otra petición que esperó 72,076 s el
+  bloqueo global. El proceso siguió calculando después del timeout del cliente;
+  no hubo OOM ni participación del worker.
+- La causa está localizada: el recomendador es global para todas las especies,
+  pero el artefacto lo almacena una vez con la primera especie y el lookup
+  incluía en la clave la especie seleccionada que llegaba desde la consulta por
+  fecha. Había una segunda divergencia: el SQLite conserva como `issue_date` el
+  inicio de su semana, mientras la petición UI usa el día actual. Al cruzar la
+  medianoche, todas las lecturas frías de un artefacto aún vigente podían caer
+  al fallback aunque la cobertura siguiera siendo válida.
+- El cambio publicado en HA `0.2.291` canoniza el `issue_date` de lectura al
+  ancla del artefacto durante toda su cobertura y, sólo para `recommender`, la
+  especie global. `Por especie` conserva su identidad específica. La respuesta
+  mantiene fecha y especie solicitadas como estado de UI. Además, un cálculo
+  local sin `job_id` ofrece `Dejar de esperar` en vez de un botón de cancelación
+  inutilizable y avisa de que el servidor puede terminar lo ya iniciado.
+- Validación local fría sobre el SQLite real de 441 MiB, tras reiniciar HA para
+  vaciar la caché en memoria: `Consultar fecha` Aereus/Olvan respondió en 1,87 s
+  y el regreso a `Esta semana` en 0,33 s; ambas páginas declararon
+  `Precálculo: usado` y cálculo `<0,1 s`.
+
+## Validación real estable y limpieza de `/share` — 2026-09-01
+
+- El usuario confirmó funcionamiento correcto y varios precálculos completados
+  por runners programados tras la actualización.
+- Con backup previo confirmado por el usuario y autorización explícita, se
+  retiraron aproximadamente 405,6 MiB reconstruibles de `/share`: 328,6 MiB de
+  `ml_models`, 39,3 MiB de resultados privados terminales, 18,8 MiB del rollback
+  duplicado de promoción y 18,8 MiB de seis artefactos raíz reconstruibles.
+- Antes del borrado, los seis artefactos y el rollback se compararon byte a byte
+  con `/media`; la transición constaba completada con 691 ficheros,
+  276.957.056 bytes y cero conflictos. No se borraron meteorología,
+  observaciones, perfiles, catálogos, imágenes/vídeos ni backups.
+- Después de la limpieza, `/share/rainmapper/mushroom-data` ocupaba 191.044 KiB.
+  No se ha cambiado la política de retención.
+
+## Limpieza equivalente del laboratorio local — 2026-09-01
+
+- Con autorización explícita se retiraron únicamente copias reconstruibles del
+  montaje local `/share`: `ml_models`, el precálculo legacy, bundles/resultados
+  terminales y artefactos raíz ya trasladados. Se conservaron observaciones,
+  meteorología, perfiles, catálogos, credenciales, imágenes/vídeos y backups.
+- El montaje local `/share/rainmapper/mushroom-data` bajó de unos 2,34 GiB a
+  174.440 KiB (unos 170 MiB). Los derivados permanecen en el montaje local
+  `/media/rainmapper`; no se cambió retención ni se tocó HA real.
+- La copia canónica del registro usada por la publicación científica se guarda
+  en el caché de runtime de `/media`, no en `/share`; conserva un default
+  interno estable y no sigue los cambios del puntero de preferencia de la UI.
+
+## Validación local del cambio de identidad — 2026-09-01
+
+- Pasan 88 pruebas dirigidas de publicación/runtime, servicio, precálculo,
+  persistencia de preferencia y señal de artefacto desactualizado.
+- La prueba específica V4→V6→V4 conserva el fingerprint y reutiliza la
+  publicación canónica; al modificar un modelo, el fingerprint cambia.
+- Compilan los módulos y pruebas modificados. `git diff --check` queda limpio.
+  No se lanzó entrenamiento, precálculo, build, instalación ni release.
 
 ## Próximos pasos inmediatos
 
-1. Instalar HA `0.2.289` y confirmar que el worker `1.0.35` continúa conectado.
-2. Mantener la versión estable varios días y observar navegación, cancelación,
-   refresco de estados y tiempos de Predictor antes de añadir optimizaciones.
+1. Validar manualmente en navegador que V4→V6→V4 conserva el precálculo vigente
+   después de reconstruir HA local con autorización. No hacer bump, build ni
+   release sin autorización.
+2. Mantener la versión real estable y observar los runners programados.
 3. En una futura cadena real completa, confirmar la
    reducción de las esperas de 1--2 minutos. Las pruebas demuestran que se han
    eliminado llamadas repetidas, pero no sustituyen esa medición real.
-4. Verificar rutas y Predictor sobre `/media`; sólo entonces autorizar, si se
-   desea, la retirada de copias legacy de `/share` para reducir el backup.
+4. Medir el siguiente backup para cuantificar la reducción comprimida real.
 5. En la siguiente ejecución real, revisar la instrumentación ya instalada en
    el worker. Registra cinco transiciones por precálculo, resumen de fases,
    número de polls vacíos antes del claim y tiempo real hasta liberar el hilo.
@@ -192,6 +356,27 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
 
 ## Riesgos y dudas activos
 
+- Se comprobó en el laboratorio local que Edulis/La Masella V6w devolvía
+  `76,69–85,55%` para 2026-09-01 y `78,07–86,19%` para 2026-09-02 mediante el
+  selector multiversión, mientras el comparador heredado usado por Historial
+  se abstenía en esas mismas fechas. No era una diferencia de meteorología: las
+  dos ejecuciones se hicieron consecutivamente dentro del mismo contenedor y
+  sobre los mismos montajes. Historial se ha conectado al selector
+  multiversión canónico; sus predicciones y resúmenes anteriores no deben
+  considerarse una evaluación válida del Predictor actual.
+- El smoke posterior a la reconstrucción local confirmó para Historial de
+  Edulis con sólo V6w: 45 episodios, 28 veredictos evaluables, 26 correctos
+  (`93%`), 9 favorables no detectados y `Smooth Partial–V6w` como fuente en las
+  45 filas. Sustituye al resultado incorrecto anterior de 45 abstenciones,
+  `0%` y 29 no detectados.
+- Ese resumen retrospectivo se retira porque reutilizaba observaciones que
+  también podían haber intervenido en entrenamiento. El contrato nuevo del
+  catálogo de calidad `1.1` conserva, por modelo exacto, la matriz de
+  clasificación sobre filas hold-out con los cortes operativos 0,60/0,40.
+  Historial muestra casos probados, favorables acertados/encontrados y
+  desfavorables acertados/encontrados como porcentaje y fracción. El listado
+  de episodios permanece debajo como auditoría retrospectiva independiente.
+
 - La causa de los `33 min 50 s` anteriores al claim no está demostrada con los
   datos históricos disponibles. La siguiente ejecución instrumentada
   distinguirá entre polls de cola vacíos y un carril/hilo retenido.
@@ -205,9 +390,10 @@ la petición heartbeat. La UI Workers volvió a abrir rápidamente en la RPi4.
   real instrumentada.
 - El fallback en HA real debe conservar selección explícita de ejecutor; nunca
   asumir cálculo pesado local en la RPi4.
-- `/share/rainmapper` contenía 317,6 MiB revisables: seis bundles terminales
-  (179,6 MiB) y un TAR legacy (138 MiB). No borrar ni cambiar retención. El TAR
-  solo puede retirarse tras verificar su sustituto bajo `/media`.
+- La canonización del recomendador y `Dejar de esperar` están sólo en el
+  worktree: aún requieren validación local completa y una release autorizada.
+- La limpieza autorizada ya terminó. No hay autorización para retirar más datos
+  ni para cambiar retención.
 
 ## Archivos relevantes
 

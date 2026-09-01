@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.2.291
+
+- Reuse a complete previous weekly precompute when its runtime fingerprint is
+  stale, show its activation date and required update, and never fall back to
+  local or remote online prediction in real Home Assistant.
+- Replace the retrospective History summary with compact reserved hold-out
+  metrics for favorable and unfavorable precision/recall, including percentage,
+  fraction, and contextual help, while keeping the episode list clearly separate.
+- Apply the selected operational versions to dated queries for all areas,
+  compose those results from the existing multiversion precompute, and preserve
+  the selection when opening an individual area.
+- Show history accuracy as unavailable when every operational result abstains,
+  instead of presenting the absence of evaluable predictions as zero accuracy.
+- Evaluate history through the same explicit operational-version selector used
+  by live and precomputed predictions, removing the divergent legacy preferred
+  comparison path.
+- Explain episodes, accuracy, missed detections, and false alarms through
+  compact help tooltips on the clickable history summary cards.
+- Add compact multiversion selection to the weekly recommender, species view,
+  and dated query while composing every selection from the verified SQLite
+  precompute instead of running inference again.
+- Separate the saved preferred operational version from the versions included
+  in a prediction, without invalidating a precompute that already contains all
+  installed versions.
+- Render prepared weekly and species results from their nested operational
+  comparison so selected versions and displayed winners stay consistent.
+- Rebuild stale tuning catalogs from the installed batch during a local full
+  update and remove the mismatched catalog instead of blocking retraining.
+- Show immediate progress for Control Panel precompute launches and make
+  completed job dialogs close before refreshing their summary.
+- Validate packaged seed observations during release tests without treating
+  mutable laboratory observations as image content.
+
 ## 0.2.289
 
 - Persist weekly precompute cancellation in desired state so a cancelled

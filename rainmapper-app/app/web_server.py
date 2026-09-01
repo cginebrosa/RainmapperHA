@@ -12353,6 +12353,9 @@ def render_predictor_launch_modal(
          data-expected-label="{html.escape(label('ui.predictor_executor_expected'), quote=True)}"
          data-opening-label="{html.escape(label('ui.predictor_executor_opening'), quote=True)}"
          data-cancelled-label="{html.escape(label('ui.predictor_executor_cancelled'), quote=True)}"
+         data-cancel-label="{html.escape(label('ui.predictor_executor_cancel'), quote=True)}"
+         data-stop-waiting-label="{html.escape(label('ui.predictor_executor_stop_waiting'), quote=True)}"
+         data-wait-stopped-label="{html.escape(label('ui.predictor_executor_wait_stopped'), quote=True)}"
          data-error-label="{html.escape(label('ui.predictor_executor_error'), quote=True)}">
       <button class="predictor-launch-backdrop" type="button" data-predictor-modal-close tabindex="-1" aria-label="{html.escape(label('ui.predictor_executor_close'), quote=True)}"></button>
       <section class="predictor-launch-dialog" role="dialog" aria-modal="true" aria-labelledby="predictor-launch-title">
@@ -12532,7 +12535,10 @@ def predictor_launch_script() -> str:
         });
         const responseUrl = new URL(response.url, window.location.href);
         currentJobId = responseUrl.searchParams.get("job_id") || currentJobId;
-        cancelButton.disabled = !currentJobId;
+        cancelButton.disabled = false;
+        cancelButton.textContent = currentJobId
+          ? modal.dataset.cancelLabel
+          : modal.dataset.stopWaitingLabel;
         const markup = await response.text();
         const parsed = new DOMParser().parseFromString(markup, "text/html");
         if (!response.ok) throw new Error(errorText(parsed));
@@ -12551,8 +12557,21 @@ def predictor_launch_script() -> str:
       };
 
       const cancelRunningJob = async () => {
-        if (!running || !currentJobId || cancelled) return;
+        if (!running || cancelled) return;
         cancelButton.disabled = true;
+        if (!currentJobId) {
+          cancelled = true;
+          fetchController?.abort();
+          stopExpectation();
+          running = false;
+          setCloseEnabled(true);
+          progressStep.hidden = true;
+          errorBox.textContent = modal.dataset.waitStoppedLabel;
+          errorBox.classList.remove("error");
+          errorBox.hidden = false;
+          form.hidden = true;
+          return;
+        }
         try {
           const response = await fetch("./mushrooms/predictor/jobs/cancel", {
             method: "POST",
@@ -12596,6 +12615,8 @@ def predictor_launch_script() -> str:
         form.hidden = true;
         progressStep.hidden = false;
         executorName.textContent = selectedExecutorName(executor);
+        cancelButton.textContent = modal.dataset.stopWaitingLabel;
+        cancelButton.disabled = false;
         startExpectation(executor, timingKind);
         try {
           await fetchPredictor(target);
@@ -12614,34 +12635,46 @@ def predictor_launch_script() -> str:
       };
 
       const runPreferred = async (directForm, submitter) => {
-        reset();
         const target = new URL(
           submitter?.formAction || directForm.getAttribute("action") || window.location.href,
           window.location.href
         );
-        const executor = target.searchParams.get("executor") || "";
-        const body = new FormData(directForm);
-        if (submitter?.name) body.append(submitter.name, submitter.value);
-        modal.hidden = false;
-        document.body.classList.add("predictor-modal-open");
-        running = true;
-        setCloseEnabled(false);
-        form.hidden = true;
-        progressStep.hidden = false;
-        executorName.textContent = selectedExecutorName(executor);
-        startExpectation(executor, "warm");
+        const preferredSelect = directForm.querySelector("select[name='preferred_version_id']");
+        const preferredCurrent = directForm.querySelector("[data-predictor-preferred-current]");
+        const versionId = preferredSelect?.value || "";
+        const versionLabel = preferredSelect?.selectedOptions[0]?.textContent
+          ?.split("·")[0]?.trim() || versionId;
+        const body = new URLSearchParams({
+          predictor_action: "set_preferred_version",
+          preferred_version_id: versionId
+        });
+        submitter.disabled = true;
         try {
-          await fetchPredictor(target, { method: "POST", body });
+          const response = await fetch(target, {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+              "X-Rainmapper-Async": "1"
+            },
+            cache: "no-store",
+            credentials: "same-origin",
+            body
+          });
+          const payload = await response.json();
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || modal.dataset.errorLabel);
+          }
+          document.querySelectorAll("[data-predictor-preferred-badge]")
+            .forEach(node => { node.textContent = versionLabel; });
+          if (preferredCurrent) {
+            preferredCurrent.textContent = (preferredCurrent.dataset.currentTemplate || "{version}")
+              .replace("{version}", versionLabel);
+          }
         } catch (error) {
-          if (cancelled && error?.name === "AbortError") return;
-          stopExpectation();
-          running = false;
-          setCloseEnabled(true);
-          progressStep.hidden = true;
-          const maySelect = modal.dataset.allowManualSelection === "true";
-          form.hidden = !maySelect;
-          errorBox.textContent = error?.message || modal.dataset.errorLabel;
-          errorBox.hidden = false;
+          if (preferredCurrent) preferredCurrent.textContent = error?.message || modal.dataset.errorLabel;
+        } finally {
+          submitter.disabled = false;
         }
       };
 
@@ -12707,6 +12740,8 @@ def predictor_launch_script() -> str:
         errorBox.hidden = true;
         progressStep.hidden = false;
         executorName.textContent = selected.dataset.displayName || "";
+        cancelButton.textContent = modal.dataset.stopWaitingLabel;
+        cancelButton.disabled = false;
         startExpectation(selected.value, "cold");
         const url = new URL(predictorUrl, window.location.href);
         url.searchParams.set("executor", selected.value);
@@ -12752,14 +12787,15 @@ def build_predictor_request(query: dict[str, list[str]]) -> dict[str, object]:
     multiversion_tokens = list(query.get("mv", []))
     selected_versions = (
         mushroom_predictor_ui.resolved_query_versions(query)
-        if view == "query"
-        else list(query.get("mvv", []))
+        if view in {"recommender", "week", "query", "history"}
+        else []
     )
     if selected_versions:
         query["mvv"] = list(selected_versions)
     if selected_versions:
         multiversion_tokens = mushroom_predictor_ui.multiversion_tokens_for_versions(
-            species, selected_versions
+            "" if view == "recommender" else species,
+            selected_versions,
         )
     for token in multiversion_tokens:
         try:
@@ -12782,10 +12818,12 @@ def build_predictor_request(query: dict[str, list[str]]) -> dict[str, object]:
         "area_id": (query.get("area") or [""])[0],
         "target_date": target_date.isoformat(),
         "filter_mode": (query.get("filter") or [""])[0],
-        # Only the explicit dated query exposes model comparison. Recommender,
-        # week and history use their already selected operational result.
-        "compare_models": view == "query"
-        and (query.get("compare") or [None])[0] != "0",
+        "compare_models": (
+            view in {"recommender", "week"} and bool(multiversion_selection)
+        )
+        or (
+            view == "query" and (query.get("compare") or [None])[0] != "0"
+        ),
         "multiversion_selection": multiversion_selection,
         "issue_date": issue_date.isoformat(),
         "trained_species_ids": trained,
@@ -16920,12 +16958,15 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
         }}
         window.setTimeout(poll, 1000);
       }}
-      closeButton.addEventListener("click", () => {{
-        if (terminalStatus === "complete" && refreshUrl) {{
-          window.location.href = refreshUrl;
-          return;
-        }}
+      closeButton.addEventListener("click", async () => {{
+        const shouldRefresh = terminalStatus === "complete" && refreshUrl;
         modal.remove();
+        if (shouldRefresh) {{
+          await new Promise(resolve => window.requestAnimationFrame(
+            () => window.requestAnimationFrame(resolve)
+          ));
+          window.location.href = refreshUrl;
+        }}
       }});
       cancelButton.addEventListener("click", async () => {{
         cancelButton.disabled = true;
@@ -17200,11 +17241,9 @@ def set_mushroom_predictor_preferred_version(version_id: str) -> dict[str, objec
     )
     mushroom_ml_version_registry.save_registry(registry_path, updated)
     released = mushroom_predictor_ui.release_predictor_cache()
-    runtime_publication = refresh_mushroom_predictor_runtime_publication()
     return {
         "preferred_version_id": updated["preferred_version_id"],
         "released_predictor_instances": released,
-        "predictor_runtime_publication": runtime_publication,
     }
 
 
@@ -20611,6 +20650,41 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             time.perf_counter() - coordinator_lookup_started, 3
         )
 
+        if prepared_response is None and not mushroom_local_ha_compute_enabled():
+            artifact_time = ""
+            if (
+                coordinator_precompute_lookup is not None
+                and coordinator_precompute_lookup.artifact_mtime is not None
+            ):
+                artifact_time = format_datetime_from_timestamp(
+                    coordinator_precompute_lookup.artifact_mtime
+                )
+            detail_key = (
+                "ui.predictor_precompute_request_missing"
+                if coordinator_precompute_lookup is not None
+                and coordinator_precompute_lookup.artifact_id
+                else "ui.predictor_precompute_required"
+            )
+            detail = mushroom_profiles_ui.ui_label(detail_key)
+            if artifact_time:
+                detail = detail.replace("{datetime}", artifact_time)
+            body = f"""
+            <div class="pred-page">
+              <p><a class="button-link" href="../">← {html.escape(mushroom_profiles_ui.ui_label('ui.back_to_panel'))}</a></p>
+              <h1>🍄 {html.escape(page_title)}</h1>
+              <div class="catalog-alert warning">
+                <strong>{html.escape(mushroom_profiles_ui.ui_label('ui.predictor_precompute_only'))}</strong><br>
+                {html.escape(detail)}
+              </div>
+            </div>
+            """
+            self.send_bytes(
+                200,
+                html_page(page_title, body, auto_refresh=False),
+                "text/html; charset=utf-8",
+            )
+            return
+
         if (
             prepared_response is None
             and not job_id
@@ -20726,6 +20800,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     "precompute_artifact_id": coordinator_precompute_lookup.artifact_id,
                     "precompute_rows_read": coordinator_precompute_lookup.rows_read,
                     "precompute_lookup_seconds": coordinator_lookup_seconds,
+                    "precompute_stale": coordinator_precompute_lookup.stale,
                 }
             )
         if job_id:
@@ -20968,7 +21043,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                             ),
                                         }
                             active_precompute_status = predictor_precompute_activity_status()
-                            if precompute_response_used:
+                            if (
+                                precompute_response_used
+                                and coordinator_precompute_lookup is not None
+                                and coordinator_precompute_lookup.stale
+                            ):
+                                predictor_precompute_status = "outdated_used"
+                            elif precompute_response_used:
                                 predictor_precompute_status = "used"
                             elif active_precompute_status in {
                                 "queued",
@@ -21001,6 +21082,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             prediction_timing["precompute_status"] = (
                                 predictor_precompute_status
                             )
+                            if (
+                                coordinator_precompute_lookup is not None
+                                and coordinator_precompute_lookup.artifact_mtime is not None
+                            ):
+                                prediction_timing["precompute_generated_at"] = (
+                                    format_datetime_from_timestamp(
+                                        coordinator_precompute_lookup.artifact_mtime
+                                    )
+                                )
                             body = mushroom_predictor_ui.render_page(
                                 query,
                                 profiles_payload
@@ -22472,7 +22562,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 )
                 return
             try:
-                set_mushroom_predictor_preferred_version(
+                preferred_result = set_mushroom_predictor_preferred_version(
                     self.form_value(form, "preferred_version_id")
                 )
             except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -22480,6 +22570,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     400,
                     str(exc).encode("utf-8"),
                     "text/plain; charset=utf-8",
+                )
+                return
+            if self.headers.get("X-Rainmapper-Async", "").strip() == "1":
+                self.send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "preferred_version_id": preferred_result[
+                            "preferred_version_id"
+                        ],
+                    },
                 )
                 return
             query = ("?" + parsed.query) if parsed.query else ""
@@ -22530,12 +22631,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         precompute_action = self.form_value(form, "precompute_action")
         if precompute_action == "launch":
+            response_status = 202
+            request_ok = True
             with RUN_LOCK:
                 runner_active = bool(RUN_STATE["running"])
             if runner_active:
                 message = "El precálculo se solicitará automáticamente cuando termine el runner."
             else:
                 status, response = start_mushroom_predictor_precompute()
+                response_status = status
                 if status == 202 and response.get("pending_worker"):
                     message = "Precálculo solicitado; queda pendiente del worker predeterminado."
                 elif status == 202:
@@ -22543,12 +22647,19 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 elif status == 200:
                     message = "Ya existe el artefacto exacto o un precálculo activo."
                 else:
+                    request_ok = False
                     message = "No se pudo solicitar el precálculo: " + str(
                         response.get("error", "error desconocido")
                     )
             with RUN_LOCK:
                 RUN_STATE["last_message"] = message
-            self.redirect_home()
+            if self.headers.get("X-Rainmapper-Async", "").strip() == "1":
+                self.send_json(
+                    response_status,
+                    {"ok": request_ok, "message": message, "redirect": "./"},
+                )
+            else:
+                self.redirect_home()
             return
 
         action = self.form_value(form, "run_action")
@@ -24459,7 +24570,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
           <form method="post" action=""><input type="hidden" name="run_action" value="all"><button class="primary" {disabled}>Run all</button></form>
           <form method="post" action=""><input type="hidden" name="run_action" value="update"><button {disabled}>Run update</button></form>
           <form method="post" action=""><input type="hidden" name="run_action" value="maps"><button {disabled}>Generate maps</button></form>
-          <form method="post" action=""><input type="hidden" name="precompute_action" value="launch"><button {disabled}>Lanzar precálculo</button></form>
+          <form method="post" action="" data-precompute-launch-form><input type="hidden" name="precompute_action" value="launch"><button {disabled}>Lanzar precálculo</button></form>
           <a class="button-link" href="./settings">App settings</a>
           <a class="button-link" href="./users">Users</a>
           <a class="button-link" href="./mushrooms/catalogs">Mushroom catalogs</a>
@@ -24659,9 +24770,34 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             policy=CURRENT_PREDICTOR_EXECUTION_POLICY
         )
         predictor_script = predictor_launch_script()
+        precompute_launch_title = html.escape(
+            mushroom_profiles_ui.ui_label("ui.worker_launch_preparing_title")
+        )
+        precompute_launch_help = html.escape(
+            mushroom_profiles_ui.ui_label("ui.worker_launch_preparing_help")
+        )
+        precompute_launch_close = html.escape(
+            mushroom_profiles_ui.ui_label("ui.predictor_executor_close")
+        )
         body = f"""
         <div id="rainmapper-control-panel-live" data-control-signature="{control_signature}">{control_body}</div>
         {predictor_modal}
+        <style>
+          .worker-launch-backdrop[hidden]{{display:none}}
+          .worker-launch-backdrop{{position:fixed;z-index:2000;inset:0;display:grid;place-items:center;padding:20px;background:rgba(3,9,13,.72);backdrop-filter:blur(2px)}}
+          .worker-launch-dialog{{display:grid;gap:12px;width:min(440px,calc(100vw - 40px));padding:22px;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 18px 60px rgba(0,0,0,.45)}}
+          .worker-launch-dialog h2,.worker-launch-dialog p{{margin:0}}
+          .worker-launch-spinner{{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:worker-launch-spin .8s linear infinite}}
+          @keyframes worker-launch-spin{{to{{transform:rotate(360deg)}}}}
+        </style>
+        <div id="control-precompute-launch-backdrop" class="worker-launch-backdrop" hidden>
+          <section class="worker-launch-dialog" role="dialog" aria-modal="true" aria-labelledby="control-precompute-launch-title">
+            <div class="worker-launch-spinner" aria-hidden="true"></div>
+            <h2 id="control-precompute-launch-title">{precompute_launch_title}</h2>
+            <p class="meta" data-precompute-launch-message>{precompute_launch_help}</p>
+            <button type="button" data-precompute-launch-close hidden>{precompute_launch_close}</button>
+          </section>
+        </div>
         <script>
         (() => {{
           const livePanel=document.getElementById('rainmapper-control-panel-live');
@@ -24686,6 +24822,39 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             finally{{scheduleRefresh();}}
           }};
           document.addEventListener('visibilitychange',()=>{{if(!document.hidden){{window.clearTimeout(refreshTimer);refreshControlPanel();}}}});
+          const launchBackdrop=document.getElementById('control-precompute-launch-backdrop');
+          const launchTitle=document.getElementById('control-precompute-launch-title');
+          const launchMessage=launchBackdrop?.querySelector('[data-precompute-launch-message]');
+          const launchSpinner=launchBackdrop?.querySelector('.worker-launch-spinner');
+          const launchClose=launchBackdrop?.querySelector('[data-precompute-launch-close]');
+          launchClose?.addEventListener('click',()=>{{launchBackdrop.hidden=true;document.body.removeAttribute('aria-busy');}});
+          document.addEventListener('submit',async event=>{{
+            const form=event.target.closest('[data-precompute-launch-form]');
+            if(!form)return;
+            event.preventDefault();
+            const launchBackdrop=document.getElementById('control-precompute-launch-backdrop');
+            if(launchBackdrop){{launchBackdrop.hidden=false;document.body.setAttribute('aria-busy','true');}}
+            if(event.submitter){{event.submitter.disabled=true;event.submitter.setAttribute('aria-busy','true');}}
+            await new Promise(resolve=>window.requestAnimationFrame(()=>window.requestAnimationFrame(resolve)));
+            try{{
+              const response=await fetch(form.action||window.location.href,{{
+                method:'POST',
+                body:new URLSearchParams(new FormData(form)),
+                headers:{{Accept:'application/json','X-Rainmapper-Async':'1'}},
+                cache:'no-store'
+              }});
+              const payload=await response.json();
+              if(!response.ok||!payload.ok)throw new Error(payload.message||`HTTP ${{response.status}}`);
+              window.location.assign(payload.redirect||'./');
+            }}catch(error){{
+              if(launchSpinner)launchSpinner.hidden=true;
+              if(launchTitle)launchTitle.textContent='No se pudo solicitar el precálculo.';
+              if(launchMessage)launchMessage.textContent=error instanceof Error?error.message:String(error);
+              if(launchClose)launchClose.hidden=false;
+              document.body.removeAttribute('aria-busy');
+              if(event.submitter){{event.submitter.disabled=false;event.submitter.removeAttribute('aria-busy');}}
+            }}
+          }},true);
           scheduleRefresh();
         }})();
         </script>

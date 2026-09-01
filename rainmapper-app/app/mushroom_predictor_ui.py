@@ -511,7 +511,12 @@ def _installed_manifests(
 def _model_comparison(species_id: str, area_id: str, target_date: date) -> dict[str, Any] | None:
     predictor = _get_predictor(species_id)
     if isinstance(predictor, PreparedPredictor):
-        return predictor.model_comparison(area_id, target_date)
+        prepared = predictor.model_comparison(area_id, target_date)
+        if isinstance(prepared, dict) and isinstance(
+            prepared.get("operational_comparison"), dict
+        ):
+            return dict(prepared["operational_comparison"])
+        return prepared
     request_cache = _comparison_cache.get()
     registry = request_cache.get("registry") if request_cache is not None else None
     if not isinstance(registry, dict):
@@ -567,11 +572,6 @@ def _model_comparison(species_id: str, area_id: str, target_date: date) -> dict[
 
 
 def _multiversion_catalog_payload() -> dict[str, Any]:
-    prepared = _prepared_response.get()
-    if prepared is not None:
-        payload = prepared.get("data", {}).get("model_catalog")
-        if isinstance(payload, dict):
-            return dict(payload)
     try:
         registry = mushroom_ml_version_registry.load_registry(
             mushroom_paths.mushroom_ml_version_registry_path()
@@ -635,7 +635,10 @@ def multiversion_tokens_for_versions(species_id: str, version_ids: list[str]) ->
             and isinstance(row.get("artifact_ref"), dict)
             and row["artifact_ref"].get("version_id") == version_id
             and row["artifact_ref"].get("profile_id") == profile_id
-            and row["artifact_ref"].get("species_id") in {species_id, "all_species"}
+            and (
+                not species_id
+                or row["artifact_ref"].get("species_id") in {species_id, "all_species"}
+            )
         ]
         availability_by_profile[(version_id, profile_id)] = bool(matching)
         for artifact in matching:
@@ -663,7 +666,7 @@ def multiversion_tokens_for_versions(species_id: str, version_ids: list[str]) ->
                         ),
                     )
                 )
-                if not wanted or version_id in wanted:
+                if (not wanted or version_id in wanted) and token not in tokens:
                     tokens.append(token)
     return tokens
 
@@ -699,7 +702,10 @@ def _multiversion_controls(
             if isinstance(row, dict) and isinstance(row.get("artifact_ref"), dict)
             and row["artifact_ref"].get("version_id") == version_id
             and row["artifact_ref"].get("profile_id") == profile_id
-            and row["artifact_ref"].get("species_id") in {species_id, "all_species"}
+            and (
+                not species_id
+                or row["artifact_ref"].get("species_id") in {species_id, "all_species"}
+            )
         ]
         availability_by_profile[(version_id, profile_id)] = bool(matching)
         if version_id in seen_versions:
@@ -713,16 +719,19 @@ def _multiversion_controls(
         installed = any(
             isinstance(row, dict) and isinstance(row.get("artifact_ref"), dict)
             and row["artifact_ref"].get("version_id") == version_id
-            and row["artifact_ref"].get("species_id") in {species_id, "all_species"}
+            and (
+                not species_id
+                or row["artifact_ref"].get("species_id") in {species_id, "all_species"}
+            )
             for row in artifacts
         )
         if not installed:
             continue
         version_rows.append(
-            f'<label class="pred-version-choice"><input type="checkbox" name="mvv" '
+            f'<label class="pred-version-choice" title="{html.escape(compact_name, quote=True)}">'
+            f'<input type="checkbox" name="mvv" '
             f'value="{html.escape(version_id, quote=True)}"{checked}> '
-            f'<strong>{html.escape(short)}</strong> '
-            f'<span>{html.escape(compact_name)}</span></label>'
+            f'<strong>{html.escape(short)}</strong></label>'
         )
     catalog_rows = "".join(
         f'<li><code>{html.escape(str(entry.get("version_display_name") or entry.get("version_id")))}</code> · '
@@ -754,7 +763,8 @@ def _preferred_version_control(
     installed_ids = set((payload.get("runtime_batches") or {}).keys())
     entries = payload.get("entries") if isinstance(payload, dict) else []
     entries = entries if isinstance(entries, list) else []
-    selected_choice = selected_versions[0] if len(selected_versions) == 1 else preferred
+    preferred = _preferred_version_id() or preferred
+    selected_choice = preferred
     choices = []
     seen: set[str] = set()
     for entry in entries:
@@ -775,41 +785,46 @@ def _preferred_version_control(
         )
     if not choices:
         return ""
+    return_url = _url(
+        "query",
+        species_id,
+        area_id,
+        target_date,
+        compare="1" if compare_models else "0",
+        mvv=selected_versions,
+    )
+    preferred_name = _VERSION_SHORT_NAMES.get(preferred, preferred)
     return f"""
 <div class="pred-form-row pred-preferred-field">
   <label for="pred-preferred-version">{html.escape(_lbl("ui.predictor_preferred_short"))}</label>
-  <select id="pred-preferred-version" name="preferred_version_id"
-          title="{html.escape(_lbl("ui.predictor_preferred_help"), quote=True)}">{''.join(choices)}</select>
+  <div class="pred-preferred-actions">
+    <select id="pred-preferred-version" name="preferred_version_id"
+            title="{html.escape(_lbl("ui.predictor_preferred_help"), quote=True)}">{''.join(choices)}</select>
+    <button type="submit" class="secondary" name="predictor_action"
+            value="set_preferred_version" formmethod="post"
+            formaction="{html.escape(return_url, quote=True)}"
+            data-predictor-preferred-submit>{html.escape(_lbl("ui.predictor_preferred_save"))}</button>
+  </div>
+  <small class="pred-preferred-current"
+         data-predictor-preferred-current
+         data-current-template="{html.escape(_lbl('ui.predictor_preferred_current'), quote=True)}">{html.escape(_lbl("ui.predictor_preferred_current").format(version=preferred_name))}</small>
 </div>
 """
 
 
 def _preferred_version_id() -> str:
-    prepared = _prepared_response.get()
-    catalog = (
-        prepared.get("data", {}).get("model_catalog")
-        if isinstance(prepared, dict)
-        else None
-    )
-    preferred_id = str(
-        catalog.get("preferred_version_id") or ""
-        if isinstance(catalog, dict)
-        else ""
-    )
-    if not preferred_id:
-        request_cache = _comparison_cache.get()
-        registry = request_cache.get("registry") if request_cache is not None else None
-        if not isinstance(registry, dict):
-            try:
-                registry = mushroom_ml_version_registry.load_registry(
-                    mushroom_paths.mushroom_ml_version_registry_path()
-                )
-                if request_cache is not None:
-                    request_cache["registry"] = registry
-            except (OSError, ValueError):
-                registry = {}
-        preferred_id = str(registry.get("preferred_version_id") or "")
-    return preferred_id
+    request_cache = _comparison_cache.get()
+    registry = request_cache.get("registry") if request_cache is not None else None
+    if not isinstance(registry, dict):
+        try:
+            registry = mushroom_ml_version_registry.load_registry(
+                mushroom_paths.mushroom_ml_version_registry_path()
+            )
+            if request_cache is not None:
+                request_cache["registry"] = registry
+        except (OSError, ValueError):
+            registry = {}
+    return str(registry.get("preferred_version_id") or "")
 
 
 def resolved_query_versions(query: dict[str, list[str]]) -> list[str]:
@@ -832,7 +847,7 @@ def _preferred_version_badge() -> str:
     return (
         '<div class="pred-preferred-badge">'
         f'<span>{html.escape(_lbl("ui.predictor_preferred_badge"))}</span>'
-        f'<strong>{html.escape(preferred_name)}</strong>'
+        f'<strong data-predictor-preferred-badge>{html.escape(preferred_name)}</strong>'
         '</div>'
     )
 
@@ -885,6 +900,7 @@ def _precompute_status_badge() -> str:
     status = str(timing.get("precompute_status") or "")
     label_key = {
         "used": "ui.predictor_precompute_used",
+        "outdated_used": "ui.predictor_precompute_outdated_used",
         "available_not_used": "ui.predictor_precompute_available_not_used",
         "in_progress": "ui.predictor_precompute_in_progress",
         "outdated": "ui.predictor_precompute_outdated",
@@ -893,10 +909,14 @@ def _precompute_status_badge() -> str:
     }.get(status)
     if label_key is None:
         return ""
+    label = _lbl(label_key)
+    generated_at = str(timing.get("precompute_generated_at") or "").strip()
+    if status == "outdated_used" and generated_at:
+        label = label.replace("{datetime}", generated_at)
     return (
         f'<div class="pred-precompute-status pred-precompute-{html.escape(status, quote=True)}">'
         f'{html.escape(_lbl("ui.predictor_precompute_status"))}: '
-        f'<strong>{html.escape(_lbl(label_key))}</strong>'
+        f'<strong>{html.escape(label)}</strong>'
         "</div>"
     )
 
@@ -1979,10 +1999,13 @@ def _render_tabs(
     view: str,
     species: str,
     target_date: date,
+    selected_versions: list[str] | None = None,
 ) -> str:
+    selected_versions = list(selected_versions or [])
+
     def tab(key: str, v: str, extra_params: str = "") -> str:
         tab_date = date.today() if v in {"recommender", "week"} else target_date
-        href = _url(v, species, target_date=tab_date)
+        href = _url(v, species, target_date=tab_date, mvv=selected_versions)
         cls = "pred-tab pred-tab-active" if view == v else "pred-tab"
         return (
             f'<a class="{cls}" href="{html.escape(href)}" '
@@ -1996,6 +2019,31 @@ def _render_tabs(
   {tab("ui.predictor_tab_query", "query")}
   {tab("ui.predictor_tab_history", "history")}
 </nav>
+"""
+
+
+def _multiversion_view_form(
+    view: str,
+    species: str,
+    target_date: date,
+    selected_multiversion: list[str],
+    selected_versions: list[str],
+) -> str:
+    controls = _multiversion_controls(
+        species if view == "week" else "",
+        selected_multiversion,
+        selected_versions,
+    )
+    return f"""
+<form class="pred-form pred-multiversion-view-form" method="get" action=""
+      data-predictor-direct-form>
+  <input type="hidden" name="view" value="{html.escape(view, quote=True)}">
+  <input type="hidden" name="date" value="{target_date.isoformat()}">
+  {f'<input type="hidden" name="species" value="{html.escape(species, quote=True)}">' if species else ''}
+  {_executor_hidden_input()}
+  {controls}
+  <button type="submit" class="primary">{html.escape(_lbl("ui.search"))}</button>
+</form>
 """
 
 
@@ -2017,12 +2065,18 @@ def normalize_predictor_target_date(
 # Day strip (shared between recommender and week)
 # ---------------------------------------------------------------------------
 
-def _render_day_strip(target_date: date, view: str, species: str) -> str:
+def _render_day_strip(
+    target_date: date,
+    view: str,
+    species: str,
+    selected_versions: list[str] | None = None,
+) -> str:
+    selected_versions = list(selected_versions or [])
     today = date.today()
     days = [today + timedelta(days=i) for i in range(7)]
     cells = []
     for d in days:
-        href = _url(view, species, target_date=d)
+        href = _url(view, species, target_date=d, mvv=selected_versions)
         is_active = d == target_date
         cls = "pred-day pred-day-active" if is_active else "pred-day"
         day_name = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][d.weekday()]
@@ -2044,9 +2098,18 @@ def _render_recommender(
     trained: list[str],
     profiles_payload: dict[str, Any],
     known_sites_payload: dict[str, Any],
+    selected_multiversion: list[str] | None = None,
+    selected_versions: list[str] | None = None,
 ) -> str:
+    selected_multiversion = list(selected_multiversion or [])
+    selected_versions = list(selected_versions or [])
     today = date.today()
-    day_strip = _render_day_strip(target_date, "recommender", "")
+    day_strip = _render_day_strip(
+        target_date, "recommender", "", selected_versions
+    )
+    version_form = _multiversion_view_form(
+        "recommender", "", target_date, selected_multiversion, selected_versions
+    )
 
     all_results: list[tuple[dict[str, Any], str, str, str, str]] = []
     errors = []
@@ -2090,6 +2153,7 @@ def _render_recommender(
         return f"""
 <section class="pred-section">
   <h2>{html.escape(_lbl("ui.predictor_tab_recommender"))} — {html.escape(date_label)}</h2>
+  {version_form}
   {day_strip}
   {error_block}
   {no_data}
@@ -2129,7 +2193,7 @@ def _render_recommender(
     for interpretation, sp_id, area_id, model_source, abstention in ranked_results[:15]:
         sp_name = _species_name(sp_id, profiles_payload)
         area_n = _area_name(area_id, known_sites_payload)
-        href = _url("query", sp_id, area_id, target_date)
+        href = _url("query", sp_id, area_id, target_date, mvv=selected_versions)
         status = _interpretation_status(interpretation)
         rows_html += f"""
 <a class="pred-rank-row {_status_cls(status)}" href="{html.escape(href)}" data-predictor-direct-run>
@@ -2158,6 +2222,7 @@ def _render_recommender(
     return f"""
 <section class="pred-section" data-predictor-area-map="{area_map}">
   <h2>{html.escape(_lbl("ui.predictor_tab_recommender"))} — {html.escape(date_label)}</h2>
+  {version_form}
   {day_strip}
   {error_block}
   {best_card}
@@ -2195,15 +2260,22 @@ def _render_week(
     trained: list[str],
     profiles_payload: dict[str, Any],
     known_sites_payload: dict[str, Any],
+    selected_multiversion: list[str] | None = None,
+    selected_versions: list[str] | None = None,
 ) -> str:
+    selected_multiversion = list(selected_multiversion or [])
+    selected_versions = list(selected_versions or [])
     today = date.today()
     days = [today + timedelta(days=i) for i in range(7)]
+    version_form = _multiversion_view_form(
+        "week", species, target_date, selected_multiversion, selected_versions
+    )
 
     # Species chips
     chips = ""
     for sp_id in trained:
         sp_name = _species_name(sp_id, profiles_payload)
-        href = _url("week", sp_id, target_date=target_date)
+        href = _url("week", sp_id, target_date=target_date, mvv=selected_versions)
         cls = "pred-chip pred-chip-active" if sp_id == species else "pred-chip"
         chips += f'<a class="{cls}" href="{html.escape(href)}">{html.escape(sp_name)}</a>'
 
@@ -2279,7 +2351,9 @@ def _render_week(
                 model_source = _selected_model_source(comparison)
                 abstention = _compact_operational_abstention(comparison)
                 status = _interpretation_status(interpretation)
-                cell_href = _url("query", species, area_id, d)
+                cell_href = _url(
+                    "query", species, area_id, d, mvv=selected_versions
+                )
                 row_cells += (
                     f'<td class="pred-cell {_status_cls(status)}">'
                     f'<a href="{html.escape(cell_href)}" data-predictor-direct-run>'
@@ -2302,6 +2376,7 @@ def _render_week(
 <section class="pred-section">
   <div class="pred-chips">{chips}</div>
   <h2>{html.escape(sp_name)}</h2>
+  {version_form}
   {reliability_html}
   <div class="pred-table-scroll">
     <table class="pred-week-table">
@@ -2433,7 +2508,14 @@ def _render_query(
         )
     elif species:
         # Show all areas for the species
-        result_html = _render_query_all_areas(species, target_date, profiles_payload, known_sites_payload)
+        result_html = _render_query_all_areas(
+            species,
+            target_date,
+            profiles_payload,
+            known_sites_payload,
+            selected_multiversion=selected_multiversion,
+            selected_versions=selected_versions,
+        )
 
     return f"""
 <section class="pred-section">
@@ -3045,7 +3127,12 @@ def _render_query_all_areas(
     target_date: date,
     profiles_payload: dict[str, Any],
     known_sites_payload: dict[str, Any],
+    *,
+    selected_multiversion: list[str] | None = None,
+    selected_versions: list[str] | None = None,
 ) -> str:
+    selected_multiversion = list(selected_multiversion or [])
+    selected_versions = list(selected_versions or [])
     try:
         predictor = _get_predictor(species)
         area_ids = predictor.areas_with_species_observations()
@@ -3056,10 +3143,21 @@ def _render_query_all_areas(
 
     if not area_ids:
         return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_no_data"))}</div>'
-    comparisons = [
-        (area_id, _model_comparison(species, area_id, target_date))
-        for area_id in area_ids
-    ]
+    comparisons = []
+    for area_id in area_ids:
+        comparison = _model_comparison(species, area_id, target_date)
+        if selected_multiversion:
+            selected = _multiversion_result(
+                species, area_id, target_date, selected_multiversion
+            )
+            selected_comparison = (
+                selected.get("operational_comparison")
+                if isinstance(selected, dict)
+                else None
+            )
+            if isinstance(selected_comparison, dict):
+                comparison = selected_comparison
+        comparisons.append((area_id, comparison))
     interpreted = [
         (
             area_id,
@@ -3095,7 +3193,7 @@ def _render_query_all_areas(
     rows_html = ""
     for area_id, interpretation, model_source, abstention in interpreted:
         area_n = _area_name(area_id, known_sites_payload)
-        href = _url("query", species, area_id, target_date)
+        href = _url("query", species, area_id, target_date, mvv=selected_versions)
         area_bt = by_area_bt.get(area_id, {})
         ep_n = area_bt.get("episodes", 0) if area_bt else 0
         area_acc = area_bt.get("backtest_accuracy") if area_bt else None
@@ -3201,6 +3299,7 @@ def _render_history(
 
     sp_name = _species_name(species, profiles_payload)
     interpreted_records: list[dict[str, Any]] = []
+    holdout_models: dict[str, dict[str, Any]] = {}
     for record in records:
         area_id = str(record.get("area_id", ""))
         observed_at = str(record.get("observed_at", ""))
@@ -3212,6 +3311,24 @@ def _render_history(
             )
             interpretation = _interpretation(comparison)
             model_source = _selected_model_source(comparison)
+            for winner in comparison.get("selected_winners") or []:
+                if not isinstance(winner, dict):
+                    continue
+                model_ref = winner.get("model_ref") or {}
+                evidence = winner.get("operational_classification") or {}
+                if not isinstance(model_ref, dict) or not isinstance(evidence, dict):
+                    continue
+                if not evidence.get("evaluated_count"):
+                    continue
+                evidence = dict(evidence)
+                evidence["actual_favorable_count"] = int(
+                    winner.get("test_positive_count") or 0
+                )
+                evidence["actual_unfavorable_count"] = int(
+                    winner.get("test_negative_count") or 0
+                )
+                model_key = json.dumps(model_ref, sort_keys=True, ensure_ascii=True)
+                holdout_models[model_key] = evidence
         except Exception:
             interpretation = {}
             model_source = ""
@@ -3244,7 +3361,7 @@ def _render_history(
                 ),
             }
         )
-    stats_html = _render_backtest_stats(interpreted_records, species, filter_mode)
+    stats_html = _render_backtest_stats(list(holdout_models.values()))
     table_html = _render_backtest_table(interpreted_records, known_sites_payload, filter_mode)
 
     return f"""
@@ -3257,46 +3374,55 @@ def _render_history(
 """
 
 
-def _render_backtest_stats(records: list[dict[str, Any]], species: str, filter_mode: str) -> str:
-    if not records:
-        return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_no_history"))}</div>'
+def _render_backtest_stats(models: list[dict[str, Any]]) -> str:
+    if not models:
+        return f'<div class="pred-empty">{html.escape(_lbl("ui.predictor_holdout_unavailable"))}</div>'
 
-    total = len(records)
-    evaluated = [r for r in records if r.get("correct") is not None]
-    correct = sum(1 for r in evaluated if r.get("correct"))
-    fn = sum(1 for r in records if r.get("actual") == "favorable" and r.get("predicted_label") != "favorable")
-    fp = sum(1 for r in records if r.get("actual") == "unfavorable" and r.get("predicted_label") == "favorable")
-    acc = round(correct / len(evaluated) * 100) if evaluated else 0
+    totals = {
+        key: sum(int(model.get(key) or 0) for model in models)
+        for key in (
+            "evaluated_count",
+            "true_favorable_count",
+            "false_favorable_count",
+            "true_unfavorable_count",
+            "false_unfavorable_count",
+            "actual_favorable_count",
+            "actual_unfavorable_count",
+        )
+    }
 
-    def stat_url(flt: str) -> str:
-        # Toggle off if already active
-        if filter_mode == flt:
-            return html.escape(_url("history", species))
-        return html.escape(_url("history", species, **{"filter": flt}))
+    def ratio(numerator: int, denominator: int) -> str:
+        if denominator <= 0:
+            return "—"
+        return f"{round(numerator / denominator * 100)}% · {numerator}/{denominator}"
 
-    def stat_card(val: str, lbl_key: str, color_cls: str, flt: str) -> str:
-        active_cls = " pred-stat-active" if filter_mode == flt else ""
+    favorable_predictions = (
+        totals["true_favorable_count"] + totals["false_favorable_count"]
+    )
+    unfavorable_predictions = (
+        totals["true_unfavorable_count"] + totals["false_unfavorable_count"]
+    )
+    actual_favorable = totals["actual_favorable_count"]
+    actual_unfavorable = totals["actual_unfavorable_count"]
+
+    def stat_card(value: str, label_key: str, help_key: str, color_cls: str = "") -> str:
         return (
-            f'<a class="pred-stat-card {color_cls}{active_cls}" href="{stat_url(flt)}">'
-            f'<div class="pred-stat-val">{html.escape(val)}</div>'
-            f'<div class="pred-stat-label">{html.escape(_lbl(lbl_key))}</div>'
-            f'</a>'
+            f'<div class="pred-stat-card {color_cls}">'
+            f'<div class="pred-stat-val">{html.escape(value)}</div>'
+            f'<div class="pred-stat-label">{_tooltip_label_key(label_key, help_key, strong=False)}</div>'
+            f'</div>'
         )
 
-    all_card = (
-        f'<a class="pred-stat-card{"  pred-stat-active" if not filter_mode else ""}" href="{html.escape(_url("history", species))}">'
-        f'<div class="pred-stat-val">{total}</div>'
-        f'<div class="pred-stat-label">{html.escape(_lbl("ui.predictor_stat_episodes"))}</div>'
-        f'</a>'
-    )
-
     return f"""
+<div class="pred-holdout-heading">{html.escape(_lbl("ui.predictor_holdout_heading"))}</div>
 <div class="pred-stats-row">
-  {all_card}
-  {stat_card(f"{acc}%", "ui.predictor_stat_accuracy", "pred-green", "correct")}
-  {stat_card(str(fn), "ui.predictor_stat_fn", "pred-red", "fn")}
-  {stat_card(str(fp), "ui.predictor_stat_fp", "pred-yellow", "fp")}
+  {stat_card(str(totals["evaluated_count"]), "ui.predictor_stat_tested", "ui.predictor_help_stat_tested")}
+  {stat_card(ratio(totals["true_favorable_count"], favorable_predictions), "ui.predictor_stat_favorable_correct", "ui.predictor_help_stat_favorable_correct", "pred-green")}
+  {stat_card(ratio(totals["true_favorable_count"], actual_favorable), "ui.predictor_stat_favorable_found", "ui.predictor_help_stat_favorable_found", "pred-green")}
+  {stat_card(ratio(totals["true_unfavorable_count"], unfavorable_predictions), "ui.predictor_stat_unfavorable_correct", "ui.predictor_help_stat_unfavorable_correct", "pred-red")}
+  {stat_card(ratio(totals["true_unfavorable_count"], actual_unfavorable), "ui.predictor_stat_unfavorable_found", "ui.predictor_help_stat_unfavorable_found", "pred-red")}
 </div>
+<div class="pred-holdout-note">{html.escape(_lbl("ui.predictor_holdout_note"))}</div>
 """
 
 
@@ -3487,11 +3613,16 @@ def _render_page_inner(
     if not species or species not in trained:
         species = trained[0]
     selected_versions = (
-        resolved_query_versions(query) if view == "query" else list(query.get("mvv", []))
+        resolved_query_versions(query)
+        if view in {"recommender", "week", "query", "history"}
+        else []
     )
     selected_multiversion = list(query.get("mv", []))
     if selected_versions:
-        selected_multiversion = multiversion_tokens_for_versions(species, selected_versions)
+        token_species = "" if view == "recommender" else species
+        selected_multiversion = multiversion_tokens_for_versions(
+            token_species, selected_versions
+        )
 
     try:
         target_date = date.fromisoformat(date_str) if date_str else date.today()
@@ -3499,14 +3630,22 @@ def _render_page_inner(
         target_date = date.today()
     target_date = normalize_predictor_target_date(view, target_date)
 
-    tabs = _render_tabs(view, species, target_date)
+    tabs = _render_tabs(view, species, target_date, selected_versions)
     preferred_badge = _preferred_version_badge()
     prediction_timing_badge = _prediction_timing_badge()
     precompute_status_badge = _precompute_status_badge()
 
     try:
         if view == "week":
-            content = _render_week(species, target_date, trained, profiles_payload, known_sites_payload)
+            content = _render_week(
+                species,
+                target_date,
+                trained,
+                profiles_payload,
+                known_sites_payload,
+                selected_multiversion,
+                selected_versions,
+            )
         elif view == "query":
             content = _render_query(
                 species,
@@ -3522,7 +3661,14 @@ def _render_page_inner(
         elif view == "history":
             content = _render_history(species, area, trained, profiles_payload, known_sites_payload, filter_mode)
         else:
-            content = _render_recommender(target_date, trained, profiles_payload, known_sites_payload)
+            content = _render_recommender(
+                target_date,
+                trained,
+                profiles_payload,
+                known_sites_payload,
+                selected_multiversion,
+                selected_versions,
+            )
     except Exception as exc:
         content = f'<div class="pred-error"><strong>Error:</strong> {html.escape(_predictor_error_text(exc))}</div>'
 
@@ -3756,6 +3902,8 @@ _CSS = """
 .pred-form { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; }
 .pred-form-row { display: flex; flex-direction: column; gap: 0.3rem; align-self: flex-start; }
 .pred-form-row label { font-size: 0.92rem; color: #9aa8b2; text-transform: uppercase; letter-spacing: 0.05em; }
+.pred-preferred-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.pred-preferred-current { color: #9aa8b2; }
 .pred-form select, .pred-form input[type="date"] {
   background: #1b2229;
   border: 1px solid #33404a;
@@ -3776,54 +3924,36 @@ _CSS = """
 .pred-multiversion-controls details { color: #b8c4cc; }
 .pred-multiversion-result { margin-top: 1.25rem; padding: 1rem; border: 1px solid #34434d; border-radius: 8px; background: #182127; }
 .pred-version-choices {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   width: 100%;
 }
 .pred-version-choice {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 1.1rem minmax(0, 1fr);
-  grid-template-areas: "check title" "check subtitle";
-  column-gap: 0.55rem;
-  row-gap: 0.08rem;
+  display: inline-flex;
+  gap: 0.35rem;
   align-items: center;
-  padding: 0.65rem 0.75rem;
+  padding: 0.3rem 0.5rem;
   border: 1px solid #40515d;
-  border-radius: 7px;
+  border-radius: 6px;
   background: #202b33;
   cursor: pointer;
+  line-height: 1;
 }
 .pred-version-choice input[type="checkbox"] {
-  grid-area: check;
   appearance: auto;
   -webkit-appearance: checkbox;
   box-sizing: border-box;
-  width: 1.1rem !important;
-  height: 1.1rem !important;
-  min-width: 1.1rem;
+  width: 0.95rem !important;
+  height: 0.95rem !important;
+  min-width: 0.95rem;
   margin: 0;
   padding: 0;
   accent-color: #1685dd;
 }
-.pred-version-choice strong { grid-area: title; line-height: 1.15; }
-.pred-version-choice span {
-  grid-area: subtitle;
-  min-width: 0;
-  color: #aebbc4;
-  font-size: 0.82rem;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
+.pred-version-choice strong { font-size: 0.88rem; line-height: 1; }
 .pred-version-choice:has(input:checked) { border-color: #1685dd; background: #1d303d; }
 .pred-version-choice:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
-@media (max-width: 1050px) {
-  .pred-version-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (max-width: 680px) {
-  .pred-version-choices { grid-template-columns: 1fr; }
-}
 .pred-version-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.8rem; margin: 1rem 0; }
 .pred-confidence-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; margin: 0.7rem 0 1rem; }
 .pred-confidence-card { display: grid; grid-template-columns: auto 1fr; column-gap: 0.65rem; align-items: baseline; border: 1px solid #40515d; border-radius: 8px; padding: 0.75rem; background: #202b33; }
@@ -4001,17 +4131,20 @@ _CSS = """
 .pred-week-active { border-width: 2px; }
 
 /* Stats row */
-.pred-stats-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.pred-holdout-heading { color: #91a4b7; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; margin: 1rem 0 0.45rem; text-transform: uppercase; }
+.pred-stats-row { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.55rem; }
 .pred-stat-card {
-  flex: 1 1 100px;
+  flex: 0 1 190px;
+  min-width: 150px;
   background: #1b2229;
   border: 1px solid #33404a;
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
+  border-radius: 7px;
+  padding: 0.55rem 0.7rem;
   text-align: center;
 }
-.pred-stat-val { font-size: 1.8rem; font-weight: 900; color: #e8eef2; }
-.pred-stat-label { font-size: 0.92rem; color: #9aa8b2; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+.pred-stat-val { font-size: 1.15rem; font-weight: 900; color: #e8eef2; white-space: nowrap; }
+.pred-stat-label { font-size: 0.72rem; color: #9aa8b2; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.2rem; }
+.pred-holdout-note { color: #7f8d99; font-size: 0.76rem; margin: 0 0 1.25rem; }
 .pred-stat-card.pred-green .pred-stat-val { color: #51cf66; }
 .pred-stat-card.pred-red .pred-stat-val { color: #ff6b6b; }
 .pred-stat-card.pred-yellow .pred-stat-val { color: #ffd43b; }

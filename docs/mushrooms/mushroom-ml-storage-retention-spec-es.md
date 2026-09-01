@@ -1,7 +1,7 @@
 # Retención y compactación del almacenamiento ML y del worker
 
-Estado: **IMPLEMENTADA Y VALIDADA EN LABORATORIO LOCAL EL 2026-08-23; INSTALACIÓN,
-`dry-run` Y MIGRACIÓN EN HA REAL PENDIENTES**.
+Estado: **IMPLEMENTADA; TRANSICIÓN Y LIMPIEZA ACOTADA VALIDADAS EN HA REAL EL
+2026-09-01**.
 
 Esta especificación no autoriza por sí sola a borrar datos de HA, ejecutar una
 migración, reconstruir modelos, arrancar el runner, construir imágenes ni
@@ -9,6 +9,14 @@ publicar una release. La implementación se hará primero en el repositorio y en
 el laboratorio local. Cualquier limpieza de `/share/rainmapper` real requerirá
 una autorización explícita posterior y una previsualización exacta de los
 ficheros afectados.
+
+La limpieza real autorizada del 2026-09-01 retiró aproximadamente 405,6 MiB de
+copias reconstruibles después de que el usuario confirmara un backup. Antes se
+verificaron byte a byte los artefactos raíz y el rollback duplicado contra
+`/media`; el recibo de transición registraba 691 ficheros, 276.957.056 bytes y
+cero conflictos. Se conservaron el histórico meteorológico, observaciones,
+catálogos, perfiles, imágenes/vídeos y backups. Esta evidencia no amplía la
+autorización a futuras limpiezas ni modifica la retención.
 
 La implementación local ya existe, pero el interruptor
 `ml_storage_reconciliation_apply` permanece desactivado por defecto. En ese
@@ -423,9 +431,9 @@ Implementado:
   conserve más, con marcador histórico `expired`;
 - informe atómico en Diagnostics y opción HA
   `ml_storage_reconciliation_apply`, desactivada por defecto;
-- inventario visible de cualquier TAR legacy que aún permanezca en `/share`;
-  su retirada sigue siendo el paso manual posterior a verificar el TAR servido
-  desde `/media`, no una eliminación ciega de arranque;
+- inventario visible de cualquier TAR legacy que permanezca en `/share`; la
+  retirada real ya realizada fue una acción manual separada tras verificar los
+  destinos en `/media`, no una eliminación ciega de arranque;
 - hooks en arranque, preencolado, finalización, cancelación y promociones.
 
 Evidencia local observada el 2026-08-23:
@@ -437,10 +445,23 @@ Evidencia local observada el 2026-08-23:
   recuperables, cero errores y cero eliminaciones; conserva el batch instalado
   y el rollback de rebuild más reciente.
 
-No validado todavía:
+Limpiezas autorizadas el 2026-09-01:
 
-- instalación ni ejecución del `dry-run` en HA real;
-- modo `apply`, migración, predicción remota fría/caliente, reinicio o
-  reutilización del TAR en HA;
-- smoke completo y `git diff --check` finales;
-- bump, build, publicación o release.
+- en HA real, después de backup y verificación contra `/media`, se retiraron
+  unos 405,6 MiB reconstruibles de `/share` sin tocar datos propios ni fuentes;
+- en el laboratorio local se retiraron las mismas categorías reconstruibles,
+  incluido el precálculo legacy, y
+  `/share/rainmapper/mushroom-data` quedó en 174.440 KiB frente a unos 2,34 GiB
+  anteriores;
+- observaciones, meteorología, perfiles, catálogos, credenciales,
+  imágenes/vídeos y backups se conservaron; los derivados continúan en
+  `/media/rainmapper` y no cambió la retención.
+
+Validación posterior aún necesaria:
+
+- medir el tamaño comprimido del siguiente backup para cuantificar la reducción
+  real;
+- mantener observación de reinicios, predicción remota fría/caliente y poda
+  automática sin ampliar manualmente el alcance de limpieza;
+- cualquier bump, build, publicación o release continúa requiriendo su
+  autorización y validación propias.

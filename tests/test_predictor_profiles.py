@@ -1,6 +1,8 @@
 import importlib.util
 import json
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -59,8 +61,26 @@ class PredictorProfileDatasetTests(unittest.TestCase):
             EXPECTED_SPECIES_IDS,
         )
 
-    def test_current_mushroom_dataset_has_no_broken_catalog_references(self) -> None:
-        messages = VALIDATOR.validate_mushroom_data(DATA_DIR)
+    def test_packaged_mushroom_dataset_has_no_broken_catalog_references(self) -> None:
+        packaged_observations = (
+            REPO_ROOT / "rainmapper-app" / "defaults" / "mushroom_observations.json"
+        )
+        packaged_files = (
+            "mushroom_profiles.json",
+            "mushroom_reference_catalogs.json",
+            "mushroom_gis_mappings.json",
+            "mushroom_known_sites.json",
+            "mushroom_ml_version_registry.json",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            packaged_data = Path(temporary)
+            for filename in packaged_files:
+                shutil.copy2(DATA_DIR / filename, packaged_data / filename)
+            shutil.copy2(
+                packaged_observations,
+                packaged_data / "mushroom_observations.json",
+            )
+            messages = VALIDATOR.validate_mushroom_data(packaged_data)
         broken_reference_errors = [
             message.format()
             for message in messages

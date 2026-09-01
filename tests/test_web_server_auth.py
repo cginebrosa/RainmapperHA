@@ -38,6 +38,11 @@ def load_web_server_module():
 
 class AuthDeviceLimitTests(unittest.TestCase):
     def setUp(self) -> None:
+        local_compute = mock.patch.dict(
+            os.environ, {"RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED": "true"}
+        )
+        local_compute.start()
+        self.addCleanup(local_compute.stop)
         self.web_server = load_web_server_module()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
@@ -920,6 +925,122 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(tabs.call_args.args[2], expected_today)
         self.assertEqual(recommender.call_args.args[0], expected_today)
 
+    def test_recommender_multiversion_selection_covers_all_species(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        tokens = ["v3-a", "v3-b"]
+        with (
+            mock.patch.object(
+                predictor_ui,
+                "trained_species_ids",
+                return_value=["boletus_aereus", "boletus_edulis"],
+            ),
+            mock.patch.object(
+                predictor_ui,
+                "multiversion_tokens_for_versions",
+                return_value=tokens,
+            ) as token_builder,
+            mock.patch.object(predictor_ui, "_render_tabs", return_value="tabs"),
+            mock.patch.object(
+                predictor_ui, "_preferred_version_badge", return_value="badge"
+            ),
+            mock.patch.object(
+                predictor_ui, "_render_training_freshness_warning", return_value=""
+            ),
+            mock.patch.object(
+                predictor_ui, "_render_recommender", return_value="result"
+            ) as recommender,
+        ):
+            predictor_ui._render_page_inner(
+                {"view": ["recommender"], "mvv": ["biology_v3"]}, {}, {}
+            )
+
+        token_builder.assert_called_once_with("", ["biology_v3"])
+        self.assertEqual(recommender.call_args.args[-2], tokens)
+        self.assertEqual(recommender.call_args.args[-1], ["biology_v3"])
+
+    def test_week_multiversion_selection_is_passed_to_the_renderer(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        tokens = ["v6-token"]
+        with (
+            mock.patch.object(
+                predictor_ui,
+                "trained_species_ids",
+                return_value=["boletus_edulis"],
+            ),
+            mock.patch.object(
+                predictor_ui,
+                "multiversion_tokens_for_versions",
+                return_value=tokens,
+            ) as token_builder,
+            mock.patch.object(predictor_ui, "_render_tabs", return_value="tabs"),
+            mock.patch.object(
+                predictor_ui, "_preferred_version_badge", return_value="badge"
+            ),
+            mock.patch.object(
+                predictor_ui, "_render_training_freshness_warning", return_value=""
+            ),
+            mock.patch.object(predictor_ui, "_render_week", return_value="result") as week,
+        ):
+            predictor_ui._render_page_inner(
+                {
+                    "view": ["week"],
+                    "species": ["boletus_edulis"],
+                    "mvv": ["biology_v6_windowed"],
+                },
+                {},
+                {},
+            )
+
+        token_builder.assert_called_once_with(
+            "boletus_edulis", ["biology_v6_windowed"]
+        )
+        self.assertEqual(week.call_args.args[-2], tokens)
+        self.assertEqual(week.call_args.args[-1], ["biology_v6_windowed"])
+
+    def test_week_and_recommender_default_to_the_live_preferred_version(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        for view, renderer_name in (
+            ("recommender", "_render_recommender"),
+            ("week", "_render_week"),
+        ):
+            with self.subTest(view=view):
+                with (
+                    mock.patch.object(
+                        predictor_ui,
+                        "trained_species_ids",
+                        return_value=["boletus_edulis"],
+                    ),
+                    mock.patch.object(
+                        predictor_ui,
+                        "_preferred_version_id",
+                        return_value="biology_v3",
+                    ),
+                    mock.patch.object(
+                        predictor_ui,
+                        "multiversion_tokens_for_versions",
+                        return_value=["v3-token"],
+                    ) as token_builder,
+                    mock.patch.object(predictor_ui, "_render_tabs", return_value="tabs"),
+                    mock.patch.object(
+                        predictor_ui, "_preferred_version_badge", return_value="badge"
+                    ),
+                    mock.patch.object(
+                        predictor_ui,
+                        "_render_training_freshness_warning",
+                        return_value="",
+                    ),
+                    mock.patch.object(
+                        predictor_ui, renderer_name, return_value="result"
+                    ) as renderer,
+                ):
+                    predictor_ui._render_page_inner({"view": [view]}, {}, {})
+
+                token_builder.assert_called_once_with(
+                    "" if view == "recommender" else "boletus_edulis",
+                    ["biology_v3"],
+                )
+                self.assertEqual(renderer.call_args.args[-1], ["biology_v3"])
+
     def test_predictor_query_defaults_to_the_preferred_version_multiversion_path(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
         tokens = ["biology_v3|core|fixed_gap_7d_biology_v3|lr|7"]
@@ -1090,8 +1211,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
             ),
             mock.patch.object(
                 self.web_server.mushroom_predictor_runtime,
-                "build_manifest",
-                return_value=({"fingerprint": "sha256:test"}, {}),
+                "load_or_publish_manifest",
+                return_value=(
+                    {"fingerprint": "sha256:test"},
+                    {},
+                    {"status": "reused"},
+                ),
             ),
             mock.patch.object(
                 self.web_server,
@@ -1145,24 +1270,55 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 ["altitude_v2", "biology_v4"],
             )
 
-    def test_recommender_request_matches_precompute_without_model_comparison(self) -> None:
-        with (
-            mock.patch.object(
-                self.web_server.mushroom_predictor_ui,
-                "trained_species_ids",
-                return_value=["boletus_edulis"],
-            ),
-            mock.patch.object(
-                self.web_server.mushroom_ml_multiversion_comparison,
-                "operational_selections",
-                return_value=[],
-            ),
-        ):
-            request = self.web_server.build_predictor_request(
-                {"view": ["recommender"], "compare": ["1"]}
-            )
+    def test_summary_and_history_requests_use_the_live_preferred_version(self) -> None:
+        selection = {
+            "version_id": "biology_v3",
+            "temporal_contract_id": "fixed_gap_7d_biology_v3",
+            "profile_id": "core",
+            "estimator_id": "logistic_regression",
+            "horizon_days": 7,
+        }
+        for view in ("recommender", "week", "history"):
+            query = {"view": [view]}
+            with self.subTest(view=view):
+                with (
+                    mock.patch.object(
+                        self.web_server.mushroom_predictor_ui,
+                        "trained_species_ids",
+                        return_value=["boletus_edulis"],
+                    ),
+                    mock.patch.object(
+                        self.web_server.mushroom_predictor_ui,
+                        "resolved_query_versions",
+                        return_value=["biology_v3"],
+                    ),
+                    mock.patch.object(
+                        self.web_server.mushroom_predictor_ui,
+                        "multiversion_tokens_for_versions",
+                        return_value=["v3-token"],
+                    ) as token_builder,
+                    mock.patch.object(
+                        self.web_server.mushroom_ml_model_catalog,
+                        "parse_selection_token",
+                        return_value={**selection, "token": "v3-token"},
+                    ),
+                    mock.patch.object(
+                        self.web_server.mushroom_ml_multiversion_comparison,
+                        "operational_selections",
+                        return_value=[selection],
+                    ),
+                ):
+                    request = self.web_server.build_predictor_request(query)
 
-        self.assertFalse(request["compare_models"])
+                token_builder.assert_called_once_with(
+                    "" if view == "recommender" else "boletus_edulis",
+                    ["biology_v3"],
+                )
+                self.assertEqual(query["mvv"], ["biology_v3"])
+                self.assertEqual(
+                    request["compare_models"], view in {"recommender", "week"}
+                )
+                self.assertEqual(request["multiversion_selection"], [selection])
 
     def test_remote_query_queues_the_same_default_version_that_ui_renders(self) -> None:
         capability = (
@@ -1214,8 +1370,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
             ),
             mock.patch.object(
                 self.web_server.mushroom_predictor_runtime,
-                "build_manifest",
-                return_value=({"fingerprint": "sha256:test"}, {}),
+                "load_or_publish_manifest",
+                return_value=(
+                    {"fingerprint": "sha256:test"},
+                    {},
+                    {"status": "reused"},
+                ),
             ),
             mock.patch.object(
                 self.web_server,
@@ -1277,8 +1437,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
             ),
             mock.patch.object(
                 self.web_server.mushroom_predictor_runtime,
-                "build_manifest",
-                return_value=({"fingerprint": "sha256:test"}, {}),
+                "load_or_publish_manifest",
+                return_value=(
+                    {"fingerprint": "sha256:test"},
+                    {},
+                    {"status": "reused"},
+                ),
             ),
             mock.patch.object(
                 self.web_server,
@@ -2161,9 +2325,21 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('direct.closest(".pred-page") ? "warm" : "cold"', script)
         self.assertIn("This is deliberately an ETA animation", script)
         self.assertIn("cancelRunningJob", script)
+        self.assertIn("modal.dataset.stopWaitingLabel", script)
+        self.assertIn("if (!currentJobId)", script)
+        self.assertIn("fetchController?.abort()", script)
         self.assertIn("./mushrooms/predictor/jobs/cancel", script)
         self.assertNotIn('fetch("./predictor/jobs/cancel"', script)
         self.assertNotIn("state.dataset.predictorProgress", script)
+        preferred_start = script.index("const runPreferred")
+        preferred_end = script.index('document.addEventListener("click"', preferred_start)
+        preferred_script = script[preferred_start:preferred_end]
+        self.assertIn('predictor_action: "set_preferred_version"', preferred_script)
+        self.assertIn('"X-Rainmapper-Async": "1"', preferred_script)
+        self.assertNotIn("fetchPredictor", preferred_script)
+        self.assertNotIn("runDirect", preferred_script)
+        self.assertNotIn("window.location.assign", preferred_script)
+        self.assertNotIn("window.location.href =", preferred_script)
 
         page = self.web_server.html_page("Predictor", "", auto_refresh=False).decode()
         self.assertIn(".predictor-launch-dialog form[hidden]", page)
@@ -2548,6 +2724,136 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(timing["response_cache_status"], "hit")
         self.assertEqual(timing["precompute_status"], "used")
         self.assertGreaterEqual(timing["total_seconds"], 0.0)
+
+    def test_local_predictor_uses_stale_precompute_without_live_execution(self) -> None:
+        self.addCleanup(self.reset_run_state)
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        captured: dict[str, object] = {}
+        handler.send_bytes = lambda status, content, content_type: captured.update(
+            status=status, content=content, content_type=content_type
+        )
+        store = mock.MagicMock()
+        store.load.return_value = {"species_profiles": []}
+        predictor_request = {
+            "view": "recommender",
+            "trained_species_ids": ["boletus_edulis"],
+        }
+        precomputed_response = {"metrics": {}}
+        lookup = self.web_server.mushroom_predictor_precompute.LookupResult(
+            True,
+            precomputed_response,
+            "identity_mismatch",
+            "sha256:old-artifact",
+            8,
+            stale=True,
+            artifact_mtime=1788298200.0,
+        )
+
+        with (
+            mock.patch.object(
+                self.web_server, "build_predictor_request", return_value=predictor_request
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "load_published_manifest_metadata",
+                return_value={"fingerprint": "sha256:new-runtime"},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_precompute,
+                "lookup_active_artifact",
+                return_value=lookup,
+            ),
+            mock.patch.object(
+                self.web_server, "predictor_precompute_activity_status", return_value=""
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui, "execute_predictor_request"
+            ) as live_execute,
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "predictor_cache_info",
+                return_value={"cold_request": False},
+            ),
+            mock.patch.object(self.web_server, "default_store", return_value=store),
+            mock.patch.object(
+                self.web_server.mushroom_known_sites,
+                "load_payload",
+                return_value={"known_sites": []},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_ml_training_freshness,
+                "assess",
+                return_value={"status": "current"},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "render_page",
+                return_value="<div>stale precomputed predictor</div>",
+            ) as render_page,
+        ):
+            handler.render_mushroom_predictor({})
+
+        self.assertEqual(captured["status"], 200)
+        live_execute.assert_not_called()
+        self.assertIs(
+            render_page.call_args.kwargs["prepared_response"], precomputed_response
+        )
+        timing = render_page.call_args.kwargs["prediction_timing"]
+        self.assertEqual(timing["precompute_status"], "outdated_used")
+        self.assertIn("precompute_generated_at", timing)
+
+    def test_real_ha_never_falls_back_to_online_predictor(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        captured: dict[str, object] = {}
+        handler.send_bytes = lambda status, content, content_type: captured.update(
+            status=status, content=content, content_type=content_type
+        )
+        lookup = self.web_server.mushroom_predictor_precompute.LookupResult(
+            False,
+            None,
+            "request_not_precomputed",
+            "sha256:old-artifact",
+            1,
+            stale=True,
+            artifact_mtime=1788298200.0,
+        )
+
+        with (
+            mock.patch.dict(
+                os.environ, {"RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED": "false"}
+            ),
+            mock.patch.object(
+                self.web_server,
+                "build_predictor_request",
+                return_value={"view": "recommender"},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "load_published_manifest_metadata",
+                return_value={"fingerprint": "sha256:new-runtime"},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_precompute,
+                "lookup_active_artifact",
+                return_value=lookup,
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui, "execute_predictor_request"
+            ) as live_execute,
+            mock.patch.object(self.web_server, "create_remote_predictor_job") as remote_job,
+        ):
+            handler.render_mushroom_predictor({})
+
+        self.assertEqual(captured["status"], 200)
+        live_execute.assert_not_called()
+        remote_job.assert_not_called()
+        content = captured["content"].decode("utf-8")
+        self.assertIn("No online calculation is run in Home Assistant", content)
+        self.assertIn("needs to be updated", content)
 
     def test_remote_predictor_diagnostics_preserve_worker_cold_state(self) -> None:
         self.addCleanup(self.reset_run_state)
@@ -3167,20 +3473,73 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('value="biology_v5"', rendered)
         self.assertIn("Biology V5 legacy", rendered)
 
-    def test_preferred_version_badge_identifies_operational_model(self) -> None:
+    def test_multiversion_catalog_uses_live_registry_not_precomputed_copy(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
-        token = predictor_ui._prepared_response.set(
-            {"data": {"model_catalog": {"preferred_version_id": "biology_v3"}}}
+        registry = {"preferred_version_id": "biology_v3", "versions": []}
+        entries = [
+            {
+                "version_id": "biology_v3",
+                "profile_id": "core",
+                "catalog_visible": True,
+            }
+        ]
+        prepared_token = predictor_ui._prepared_response.set(
+            {"data": {"model_catalog": {"entries": [], "installed_artifacts": []}}}
         )
         try:
-            with mock.patch.object(
+            with (
+                mock.patch.object(
+                    predictor_ui.mushroom_ml_version_registry,
+                    "load_registry",
+                    return_value=registry,
+                ),
+                mock.patch.object(
+                    predictor_ui.mushroom_ml_model_catalog,
+                    "catalog_entries",
+                    return_value=entries,
+                ),
+                mock.patch.object(
+                    predictor_ui, "_installed_manifests", return_value={}
+                ),
+            ):
+                catalog = predictor_ui._multiversion_catalog_payload()
+        finally:
+            predictor_ui._prepared_response.reset(prepared_token)
+
+        self.assertEqual(catalog["preferred_version_id"], "biology_v3")
+        self.assertEqual(catalog["entries"], entries)
+
+    def test_prepared_week_and_recommender_use_nested_multiversion_comparison(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        operational = {
+            "interpretation": {"verdict": "favorable"},
+            "selected_winners": [],
+        }
+        prepared = mock.Mock(spec=predictor_ui.PreparedPredictor)
+        prepared.model_comparison.return_value = {
+            "available": True,
+            "operational_comparison": operational,
+        }
+        with mock.patch.object(predictor_ui, "_get_predictor", return_value=prepared):
+            result = predictor_ui._model_comparison(
+                "boletus_edulis", "olvan", date(2026, 9, 1)
+            )
+
+        self.assertEqual(result, operational)
+
+    def test_preferred_version_badge_identifies_operational_model(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        with (
+            mock.patch.object(
+                predictor_ui, "_preferred_version_id", return_value="biology_v3"
+            ),
+            mock.patch.object(
                 predictor_ui,
                 "_lbl",
                 return_value="Versión operativa preferida",
-            ):
-                rendered = predictor_ui._preferred_version_badge()
-        finally:
-            predictor_ui._prepared_response.reset(token)
+            ),
+        ):
+            rendered = predictor_ui._preferred_version_badge()
 
         self.assertIn("Versión operativa preferida", rendered)
         self.assertIn("V3", rendered)
@@ -3253,6 +3612,33 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("desactualizado · precálculo pendiente", rendered)
         self.assertIn("pred-precompute-outdated", rendered)
+
+    def test_precompute_status_badge_shows_stale_artifact_date_when_used(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        labels = {
+            "ui.predictor_precompute_status": "Precálculo",
+            "ui.predictor_precompute_outdated_used": (
+                "usado el artefacto desactualizado de {datetime} · necesita actualizarse"
+            ),
+        }
+        token = predictor_ui._prediction_timing.set(
+            {
+                "precompute_status": "outdated_used",
+                "precompute_generated_at": "2026-09-01T12:30:00+02:00",
+            }
+        )
+        try:
+            with mock.patch.object(
+                predictor_ui, "_lbl", side_effect=lambda key: labels[key]
+            ):
+                rendered = predictor_ui._precompute_status_badge()
+        finally:
+            predictor_ui._prediction_timing.reset(token)
+
+        self.assertIn("artefacto desactualizado", rendered)
+        self.assertIn("2026-09-01T12:30:00+02:00", rendered)
+        self.assertIn("necesita actualizarse", rendered)
+        self.assertIn("pred-precompute-outdated_used", rendered)
 
     def test_installed_manifests_loads_only_requested_version_once_per_request(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
@@ -3393,6 +3779,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
             mock.patch.object(
                 predictor_ui, "_multiversion_catalog_payload", return_value=catalog
             ),
+            mock.patch.object(
+                predictor_ui, "_preferred_version_id", return_value="biology_v3"
+            ),
             mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key),
         ):
             rendered = predictor_ui._preferred_version_control(
@@ -3400,16 +3789,20 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "salteguet",
                 date(2026, 8, 22),
                 compare_models=True,
-                selected_versions=["altitude_v2", "biology_v3"],
+                selected_versions=["altitude_v2"],
             )
 
         self.assertIn('<select id="pred-preferred-version"', rendered)
         self.assertIn('<option value="altitude_v2">', rendered)
         self.assertIn('<option value="biology_v3" selected>', rendered)
         self.assertNotIn("requestSubmit", rendered)
-        self.assertNotIn("data-predictor-preferred-submit", rendered)
-        self.assertNotIn("pred-preferred-control", rendered)
-        self.assertNotIn("mvv=", rendered)
+        self.assertIn('name="predictor_action"', rendered)
+        self.assertIn('value="set_preferred_version"', rendered)
+        self.assertIn('formmethod="post"', rendered)
+        self.assertIn("data-predictor-preferred-submit", rendered)
+        self.assertIn("ui.predictor_preferred_current", rendered)
+        self.assertIn("mvv=altitude_v2", rendered)
+        self.assertNotIn("mvv=biology_v3", rendered)
 
     def test_predictor_query_controls_wait_for_explicit_submit(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
@@ -3476,6 +3869,49 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("pred-rank-outcome pred-rank-abstention", rendered)
         self.assertIn("Brier no mejora la prevalencia", rendered)
 
+    def test_predictor_all_areas_uses_and_preserves_selected_versions(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        predictor = mock.Mock()
+        predictor.areas_with_species_observations.return_value = ["breda"]
+        selected_comparison = {
+            "interpretation": {"verdict": "favorable", "reference_range": [0.7, 0.8]},
+            "selected_winners": [
+                {
+                    "model_ref": {
+                        "version_id": "biology_v6_windowed",
+                        "estimator_id": "logistic_regression",
+                    }
+                }
+            ],
+        }
+
+        with (
+            mock.patch.object(predictor_ui, "_get_predictor", return_value=predictor),
+            mock.patch.object(predictor_ui, "_model_comparison", return_value={}) as preferred,
+            mock.patch.object(
+                predictor_ui,
+                "_multiversion_result",
+                return_value={"operational_comparison": selected_comparison},
+            ) as multiversion,
+            mock.patch.object(predictor_ui, "_get_species_backtest_stats", return_value=None),
+            mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key),
+        ):
+            rendered = predictor_ui._render_query_all_areas(
+                "boletus_edulis",
+                date(2026, 9, 1),
+                {},
+                {"areas": [{"area_id": "breda", "name": "Breda"}]},
+                selected_multiversion=["v6-token"],
+                selected_versions=["biology_v6_windowed"],
+            )
+
+        preferred.assert_called_once()
+        multiversion.assert_called_once_with(
+            "boletus_edulis", "breda", date(2026, 9, 1), ["v6-token"]
+        )
+        self.assertIn("biology_v6_windowed", rendered)
+        self.assertIn("mvv=biology_v6_windowed", rendered)
+
     def test_predictor_history_species_waits_for_explicit_search(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
         predictor = mock.Mock()
@@ -3496,6 +3932,37 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("requestSubmit", rendered)
         self.assertIn('name="species"', rendered)
         self.assertIn('type="submit"', rendered)
+
+    def test_predictor_history_renders_reserved_test_metrics_as_percent_and_fraction(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        models = [
+            {
+                "evaluated_count": 20,
+                "true_favorable_count": 6,
+                "false_favorable_count": 2,
+                "true_unfavorable_count": 7,
+                "false_unfavorable_count": 1,
+                "actual_favorable_count": 10,
+                "actual_unfavorable_count": 10,
+            }
+        ]
+
+        with mock.patch.object(
+            predictor_ui, "_lbl", side_effect=lambda key: key
+        ):
+            rendered = predictor_ui._render_backtest_stats(models)
+
+        self.assertIn('<div class="pred-stat-val">20</div>', rendered)
+        self.assertIn('<div class="pred-stat-val">75% · 6/8</div>', rendered)
+        self.assertIn('<div class="pred-stat-val">60% · 6/10</div>', rendered)
+        self.assertIn('<div class="pred-stat-val">88% · 7/8</div>', rendered)
+        self.assertIn('<div class="pred-stat-val">70% · 7/10</div>', rendered)
+        self.assertIn('title="ui.predictor_help_stat_tested"', rendered)
+        self.assertIn('title="ui.predictor_help_stat_favorable_correct"', rendered)
+        self.assertIn('title="ui.predictor_help_stat_favorable_found"', rendered)
+        self.assertIn('title="ui.predictor_help_stat_unfavorable_correct"', rendered)
+        self.assertIn('title="ui.predictor_help_stat_unfavorable_found"', rendered)
+        self.assertEqual(rendered.count("pred-tooltip-icon"), 5)
 
     def test_query_week_links_reuse_the_completed_worker_result(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
@@ -3956,7 +4423,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 self.web_server,
                 "refresh_mushroom_predictor_runtime_publication",
                 return_value={"status": "published"},
-            ),
+            ) as refresh_runtime,
         ):
             result = self.web_server.set_mushroom_predictor_preferred_version(
                 "biology_v3"
@@ -3964,8 +4431,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         set_preferred.assert_called_once_with(current, "biology_v3")
         save_registry.assert_called_once_with(registry_path, updated)
+        refresh_runtime.assert_not_called()
         self.assertEqual(result["preferred_version_id"], "biology_v3")
         self.assertEqual(result["released_predictor_instances"], 3)
+        self.assertNotIn("predictor_runtime_publication", result)
 
     def seed_empty_mushroom_observations(self, data_dir: Path) -> None:
         self.web_server.default_store().ensure_seeded()
@@ -4286,6 +4755,13 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("data-predictor-executor-form", page)
         self.assertIn("data-predictor-progress-step", page)
         self.assertIn("fetchPredictor(response.url)", page)
+        self.assertIn("data-precompute-launch-form", page)
+        self.assertIn('id="control-precompute-launch-backdrop"', page)
+        self.assertIn("event.target.closest('[data-precompute-launch-form]')", page)
+        self.assertIn("event.preventDefault()", page)
+        self.assertIn("'X-Rainmapper-Async':'1'", page)
+        self.assertIn("new URLSearchParams(new FormData(form))", page)
+        self.assertIn("Preparing the job…", page)
 
     def test_control_panel_fragment_endpoint_returns_live_region(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
@@ -7463,6 +7939,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('id="mushroom-rebuild-progress-cancel"', html)
         self.assertIn("/api/mushrooms/rebuild-cancel", html)
         self.assertIn("window.location.href = refreshUrl", html)
+        self.assertIn("modal.remove();", html)
+        self.assertIn("window.requestAnimationFrame", html)
+        self.assertLess(html.index("modal.remove();"), html.index("window.location.href = refreshUrl"))
         self.assertIn('window.location.pathname.replace(new RegExp("/mushrooms/(profiles|workers)/?$"), "")', html)
         self.assertIn('${statusUrl}?job_id=${encodeURIComponent(jobId)}', html)
         self.assertNotIn('fetch(`/api/mushrooms/rebuild-status', html)
@@ -8608,7 +9087,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_local_precompute_desire_without_a_job_is_not_reported_as_queued(self) -> None:
         identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
             runtime_fingerprint="sha256:" + "a" * 64,
-            issue_date="2026-08-31",
+            issue_date=date.today().isoformat(),
             trained_species_ids=["boletus"],
             installed_versions=[
                 self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
@@ -8686,7 +9165,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_completed_precompute_job_with_receipt_is_reported_as_active(self) -> None:
         identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
             runtime_fingerprint="sha256:" + "a" * 64,
-            issue_date="2026-08-31",
+            issue_date=date.today().isoformat(),
             trained_species_ids=["boletus"],
             installed_versions=[
                 self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
@@ -8971,9 +9450,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
     def test_workers_post_rejects_home_assistant_for_full_update(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
-        redirect = handler.handle_mushroom_workers_post(
-            {"worker_action": ["start_rebuild"], "executor": ["home_assistant"], "scope": ["all"]}
-        )
+        with mock.patch.dict(
+            os.environ, {"RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED": "false"}
+        ):
+            redirect = handler.handle_mushroom_workers_post(
+                {"worker_action": ["start_rebuild"], "executor": ["home_assistant"], "scope": ["all"]}
+            )
 
         self.assertEqual(redirect, "./workers")
         message, is_error = self.web_server.mushroom_workers_flash()
@@ -10950,7 +11432,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
     def test_workers_post_rejects_home_assistant_for_complete_update(self) -> None:
         for scope in ("pending", "species"):
-            with self.subTest(scope=scope):
+            with self.subTest(scope=scope), mock.patch.dict(
+                os.environ, {"RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED": "false"}
+            ):
                 handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
                 redirect = handler.handle_mushroom_workers_post(
                     {
@@ -11200,6 +11684,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.addCleanup(restore_env)
         os.environ["RAINMAPPER_MUSHROOM_DEFAULTS_DIR"] = str(ROOT_DIR / "mushroom-data")
         os.environ["RAINMAPPER_MUSHROOM_DATA_DIR"] = str(data_dir / "mushroom-data")
+        self.seed_empty_mushroom_observations(data_dir)
 
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
         archive_redirect = handler.handle_mushroom_profiles_post(
@@ -13005,6 +13490,81 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(captured["status"], 200)
         self.assertEqual(captured["payload"], {"ok": True, "redirect": "?section=observations#saved"})
+
+    def test_async_control_panel_precompute_launch_returns_json(self) -> None:
+        body = b"precompute_action=launch"
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        handler.path = "/"
+        handler.headers = {
+            "Content-Length": str(len(body)),
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Rainmapper-Async": "1",
+        }
+        handler.rfile = io.BytesIO(body)
+        captured: dict[str, object] = {}
+        handler.send_json = lambda status, payload: captured.update(
+            status=status, payload=payload
+        )
+
+        with mock.patch.object(
+            self.web_server,
+            "start_mushroom_predictor_precompute",
+            return_value=(202, {"pending_worker": False}),
+        ):
+            handler.do_POST()
+
+        self.assertEqual(captured["status"], 202)
+        self.assertEqual(
+            captured["payload"],
+            {
+                "ok": True,
+                "message": "Precálculo lanzado al ejecutor predeterminado.",
+                "redirect": "./",
+            },
+        )
+
+    def test_async_preferred_version_update_does_not_render_a_prediction(self) -> None:
+        body = b"predictor_action=set_preferred_version&preferred_version_id=biology_v3"
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        handler.path = "/mushrooms/predictor?view=query"
+        handler.headers = {
+            "Content-Length": str(len(body)),
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Rainmapper-Async": "1",
+        }
+        handler.rfile = io.BytesIO(body)
+        captured: dict[str, object] = {}
+        handler.send_json = lambda status, payload: captured.update(
+            status=status, payload=payload
+        )
+
+        with (
+            mock.patch.object(
+                handler, "require_trusted_worker_control", return_value=True
+            ),
+            mock.patch.object(
+                self.web_server,
+                "set_mushroom_predictor_preferred_version",
+                return_value={"preferred_version_id": "biology_v3"},
+            ) as set_preferred,
+            mock.patch.object(
+                handler,
+                "redirect_to",
+                side_effect=AssertionError("async preference update must not navigate"),
+            ),
+        ):
+            handler.do_POST()
+
+        set_preferred.assert_called_once_with("biology_v3")
+        self.assertEqual(captured["status"], 200)
+        self.assertEqual(
+            captured["payload"],
+            {"ok": True, "preferred_version_id": "biology_v3"},
+        )
 
 
 if __name__ == "__main__":
