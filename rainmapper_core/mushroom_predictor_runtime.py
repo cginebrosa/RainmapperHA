@@ -117,7 +117,7 @@ def _runtime_registry_snapshot(
     source_path: Path,
     explicit_source: bool,
 ) -> Path:
-    """Materialize a scientific registry whose runtime default is stable."""
+    """Materialize the registry used by the single Predictor installation."""
     root = (
         Path(source_path).parent
         if explicit_source
@@ -128,23 +128,8 @@ def _runtime_registry_snapshot(
         current = json.loads(destination.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         current = None
-    installed = {
-        str(row.get("version_id"))
-        for row in registry.get("versions", [])
-        if isinstance(row, dict) and row.get("installed_generation_id") is not None
-    }
-    current_default = (
-        str(current.get("preferred_version_id") or "")
-        if isinstance(current, dict)
-        else ""
-    )
-    live_default = str(registry.get("preferred_version_id") or "")
-    runtime_default = (
-        current_default
-        if current_default in installed
-        else live_default if live_default in installed else None
-    )
-    payload = {**registry, "preferred_version_id": runtime_default}
+    payload = dict(registry)
+    payload.pop("preferred_version_id", None)
     if current != payload:
         _atomic_write_json(destination, payload)
     return destination
@@ -270,6 +255,7 @@ def build_manifest(
             sources[f"models/{manifest_relative.as_posix()}"] = manifest_path
             for reference_name in (
                 "quality_catalog",
+                "quality_audit_catalog",
                 "training_input_manifest",
                 "benchmark_report",
                 "holdout_predictions",

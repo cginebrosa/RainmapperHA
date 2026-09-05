@@ -137,10 +137,9 @@ class PredictorRuntimeTests(TestCase):
             runtime_registry = first_sources[
                 "data/mushroom_ml_version_registry.json"
             ]
-            self.assertIsNone(
-                json.loads(runtime_registry.read_text(encoding="utf-8"))[
-                    "preferred_version_id"
-                ]
+            self.assertNotIn(
+                "preferred_version_id",
+                json.loads(runtime_registry.read_text(encoding="utf-8")),
             )
             self.assertEqual(first["fingerprint"], second["fingerprint"])
             self.assertNotEqual(second["fingerprint"], third["fingerprint"])
@@ -184,7 +183,7 @@ class PredictorRuntimeTests(TestCase):
             self.assertEqual("reused", status)
             self.assertEqual(published["fingerprint"], reused["fingerprint"])
 
-    def test_runtime_registry_keeps_its_valid_default_when_ui_pointer_moves(self) -> None:
+    def test_runtime_registry_snapshot_tracks_the_complete_registry(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             registry_path = root / "mushroom_ml_version_registry.json"
@@ -205,10 +204,8 @@ class PredictorRuntimeTests(TestCase):
 
             self.assertEqual(first, second)
             self.assertEqual(
-                "biology_v4",
-                json.loads(second.read_text(encoding="utf-8"))[
-                    "preferred_version_id"
-                ],
+                {"versions": versions},
+                json.loads(second.read_text(encoding="utf-8")),
             )
 
     def test_published_metadata_load_does_not_inspect_runtime_sources(self) -> None:
@@ -660,6 +657,10 @@ class PredictorRuntimeTests(TestCase):
 
             batch_path = models / "batches/batch-a/manifest.json"
             batch_path.parent.mkdir(parents=True, exist_ok=True)
+            quality_path = batch_path.parent / "quality-catalog.json"
+            quality_audit_path = batch_path.parent / "quality-audit-catalog.json"
+            quality_path.write_text("{}", encoding="utf-8")
+            quality_audit_path.write_text("{}", encoding="utf-8")
             batch_path.write_text(
                 json.dumps(
                     {
@@ -675,6 +676,21 @@ class PredictorRuntimeTests(TestCase):
                                 "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
                             }
                         ],
+                        "quality_catalog": {
+                            "path": "batches/batch-a/quality-catalog.json",
+                            "sha256": hashlib.sha256(
+                                quality_path.read_bytes()
+                            ).hexdigest(),
+                        },
+                        "quality_audit_catalog": {
+                            "path": (
+                                "batches/batch-a/quality-audit-catalog.json"
+                            ),
+                            "sha256": hashlib.sha256(
+                                quality_audit_path.read_bytes()
+                            ).hexdigest(),
+                            "selection_id": "sha256:" + "c" * 64,
+                        },
                     }
                 ),
                 encoding="utf-8",
@@ -720,4 +736,8 @@ class PredictorRuntimeTests(TestCase):
             self.assertIn("data/mushroom_ml_version_registry.json", sources)
             self.assertIn(f"models/{relative.as_posix()}", sources)
             self.assertIn("models/batches/batch-a/manifest.json", sources)
+            self.assertIn("models/batches/batch-a/quality-catalog.json", sources)
+            self.assertIn(
+                "models/batches/batch-a/quality-audit-catalog.json", sources
+            )
             self.assertNotIn("models/runtime-batch.json", sources)

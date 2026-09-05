@@ -137,7 +137,7 @@ def assess(
     if runtime_manifest_path is None:
         try:
             registry = mushroom_ml_version_registry.load_registry(registry_path)
-            runtime_manifest_path = mushroom_ml_version_registry.preferred_manifest_path(
+            runtime_manifest_path = mushroom_ml_version_registry.operational_manifest_path(
                 registry, models_root=models_root
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -149,7 +149,7 @@ def assess(
     if runtime_manifest_path is None:
         return {
             "status": "unknown",
-            "reason": "preferred_version_missing",
+            "reason": "operational_batch_missing",
             "errors": [],
         }
     runtime_path = Path(runtime_manifest_path)

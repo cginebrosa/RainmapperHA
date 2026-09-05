@@ -223,6 +223,11 @@ orquesta ventanas mensuales en:
   `wunderground::ID1,ID2`;
 - `tests/test_wunderground_daily_api.py` y `tests/test_web_server_auth.py`.
 
+Pese a su nombre histórico, `backfill_station_filter` no está condicionado por
+el modo mensual: limita cualquier update Wunderground mientras tenga valor. Se
+debe restaurar a vacio al terminar. Ninguna otra fuente meteorológica consume
+actualmente el filtro.
+
 Este mecanismo es relativo a meses y está integrado en un update completo. No
 debe ejecutarse en HA para el laboratorio. Conviene reutilizar su cliente y su
 normalización desde un wrapper local dirigido por el manifiesto global, iterando
@@ -244,8 +249,9 @@ datasets públicos Socrata con rangos derivados de `days_init/days_end`:
 Por tanto hay piezas reutilizables, pero el runner normal tiene efectos
 laterales sobre incrementales. La consulta de la red completa es adecuada para
 esta adquisición; lo que debe aislarse son sus escrituras y demás efectos. El filtro
-`backfill_station_filter` actualmente se aplica a Wunderground y solo está
-preparado para extenderse a otras fuentes. La próxima sesión debe extraer o
+`backfill_station_filter` actualmente se aplica exclusivamente a Wunderground,
+tanto en backfills como en updates normales, y solo está preparado
+sintácticamente para extenderse a otras fuentes. La próxima sesión debe extraer o
 envolver la lógica Meteocat en un descargador local dirigido por las ventanas
 globales, sin filtro espacial, con salida únicamente provisional.
 

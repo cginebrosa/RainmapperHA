@@ -2663,3 +2663,28 @@ def reassign_job(
 def recent_jobs(path: Path, *, limit: int = 10) -> list[dict[str, Any]]:
     jobs = load_queue(path)["jobs"]
     return sorted(jobs, key=lambda row: str(row.get("created_at", "")), reverse=True)[: max(0, limit)]
+
+
+def prune_superseded_terminal_jobs(
+    path: Path,
+    *,
+    job_types: set[str],
+    keep_job_ids: set[str],
+) -> dict[str, int]:
+    """Remove superseded terminal history only after its replacement is active."""
+    queue = load_queue(path)
+    retained: list[dict[str, Any]] = []
+    removed = 0
+    for job in queue["jobs"]:
+        if (
+            str(job.get("job_type") or "") in job_types
+            and str(job.get("status") or "") in TERMINAL_STATUSES
+            and str(job.get("job_id") or "") not in keep_job_ids
+        ):
+            removed += 1
+            continue
+        retained.append(job)
+    if removed:
+        queue["jobs"] = retained
+        _write_atomic(path, queue)
+    return {"removed": removed, "retained": len(retained)}

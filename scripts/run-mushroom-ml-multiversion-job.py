@@ -84,13 +84,11 @@ def _load_optional(path: Path | None) -> dict | None:
 def validate_operational_quality_catalog(
     source_catalog: dict,
     profile_keys: list[str],
+    training_plan: dict | None = None,
 ) -> None:
-    if (
-        source_catalog.get("kind") != mushroom_ml_quality_catalog.KIND
-        or source_catalog.get("schema_version")
-        != mushroom_ml_quality_catalog.SCHEMA_VERSION
-    ):
-        raise ValueError("Operational quality catalog contract is invalid")
+    mushroom_ml_quality_catalog.validate_catalog(
+        source_catalog, require_selections=True
+    )
     entries_by_profile: dict[str, list[dict]] = {}
     for row in source_catalog.get("entries", []):
         if not isinstance(row, dict):
@@ -113,6 +111,49 @@ def validate_operational_quality_catalog(
             "Operational quality catalog has no hold-out probabilities for: "
             + ", ".join(empty)
         )
+    if training_plan is not None:
+        planned_refs = [
+            fit.get("artifact_ref")
+            for fit in training_plan.get("fits", [])
+            if isinstance(fit, dict) and isinstance(fit.get("artifact_ref"), dict)
+        ]
+        missing_candidates: list[str] = []
+        for selection in source_catalog.get("species_area_selections", []):
+            if (
+                not isinstance(selection, dict)
+                or selection.get("selection_status") != "winner"
+                or not isinstance(selection.get("candidate"), dict)
+            ):
+                continue
+            candidate = selection["candidate"]
+            species_id = str(selection.get("species_id") or "")
+            represented = any(
+                str(ref.get("version_id") or "") == candidate.get("version_id")
+                and str(ref.get("profile_id") or "") == candidate.get("profile_id")
+                and str(ref.get("temporal_contract_id") or "")
+                == candidate.get("temporal_contract_id")
+                and str(ref.get("estimator_id") or "")
+                == candidate.get("estimator_id")
+                and str(ref.get("species_id") or "") in {species_id, "all_species"}
+                for ref in planned_refs
+            )
+            if not represented:
+                missing_candidates.append(
+                    "/".join(
+                        (
+                            species_id,
+                            str(candidate.get("version_id") or ""),
+                            str(candidate.get("profile_id") or ""),
+                            str(candidate.get("temporal_contract_id") or ""),
+                            str(candidate.get("estimator_id") or ""),
+                        )
+                    )
+                )
+        if missing_candidates:
+            raise ValueError(
+                "Operational training plan does not materialize selected candidates: "
+                + ", ".join(sorted(set(missing_candidates)))
+            )
 
 
 def _sha256(path: Path) -> str:
@@ -331,7 +372,9 @@ def main() -> int:
     source_quality_catalog = None
     if operational and args.quality_catalog is not None:
         source_quality_catalog = _load(args.quality_catalog)
-        validate_operational_quality_catalog(source_quality_catalog, profile_keys)
+        validate_operational_quality_catalog(
+            source_quality_catalog, profile_keys, plan
+        )
     progress_handle = None
     if args.progress_jsonl:
         args.progress_jsonl.parent.mkdir(parents=True, exist_ok=True)
@@ -383,12 +426,14 @@ def main() -> int:
                 expected_estimators.setdefault(key, [])
                 if ref["estimator_id"] not in expected_estimators[key]:
                     expected_estimators[key].append(ref["estimator_id"])
-            quality_catalog = mushroom_ml_quality_catalog.build_catalog(
+            quality_catalog, quality_audit_catalog = (
+                mushroom_ml_quality_catalog.build_catalog_bundle(
                 args.v2_v5_heldout,
                 args.v6_heldout,
                 snapshot_id=args.snapshot_id,
                 profile_keys=profile_keys,
                 expected_estimators=expected_estimators,
+            )
             )
             quality_path = destination / "quality-catalog.json"
             quality_path.write_text(
@@ -398,6 +443,25 @@ def main() -> int:
             manifest["quality_catalog"] = {
                 "path": "batches/" + manifest["batch_id"] + "/quality-catalog.json",
                 "sha256": _sha256(quality_path),
+            }
+            quality_audit_path = destination / "quality-audit-catalog.json"
+            quality_audit_path.write_text(
+                json.dumps(
+                    quality_audit_catalog,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            manifest["quality_audit_catalog"] = {
+                "path": (
+                    "batches/"
+                    + manifest["batch_id"]
+                    + "/quality-audit-catalog.json"
+                ),
+                "sha256": _sha256(quality_audit_path),
+                "selection_id": quality_audit_catalog["selection_id"],
             }
             report_result = mushroom_ml_benchmark_reports.write_report(
                 destination,
@@ -500,6 +564,18 @@ def main() -> int:
                     "path": "batch/quality-catalog.json",
                     "size_bytes": (result_batch / "quality-catalog.json").stat().st_size,
                     "sha256": _sha256(result_batch / "quality-catalog.json"),
+                }
+            )
+        if isinstance(manifest.get("quality_audit_catalog"), dict):
+            result_files.append(
+                {
+                    "path": "batch/quality-audit-catalog.json",
+                    "size_bytes": (
+                        result_batch / "quality-audit-catalog.json"
+                    ).stat().st_size,
+                    "sha256": _sha256(
+                        result_batch / "quality-audit-catalog.json"
+                    ),
                 }
             )
         for key, filename in (

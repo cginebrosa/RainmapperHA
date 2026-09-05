@@ -120,14 +120,19 @@ Hay varios entry points segun entorno:
 - Responsabilidad: reconstruir historicos por ventanas de meses sin obligar al
   administrador a calcular manualmente `days_init/days_end`.
 - Opciones: `backfill_months_enabled`, `months_init`, `months_end`,
-  `months_interval`, `backfill_pause_seconds` y `backfill_station_filter`.
+  `months_interval` y `backfill_pause_seconds`. `backfill_station_filter` puede
+  acotar las estaciones Wunderground usadas durante esta operacion, pero no es
+  exclusivo del backfill.
 - Contrato: al activar backfill se hace backup de incrementales antes del
   primer lanzamiento; cada ventana se ejecuta como un update normal acotado;
-  las pausas entre ventanas aparecen en `Current step`; el filtro de estaciones
-  usa `source::id1,id2`.
+  las pausas entre ventanas aparecen en `Current step`.
 - Diferencia Wunderground: en modo mensual recibe fechas locales exactas para
   evitar solapes. En modo normal por dias conserva la relectura historica del
   mes anterior cuando el rango cruza mes, porque refresca datos cerrados tarde.
+- Filtro Wunderground: `backfill_station_filter` usa
+  `wunderground::id1,id2` y se aplica a cualquier update de esa fuente, incluso
+  con `backfill_months_enabled=false`. Debe quedar vacio tras una ejecucion
+  dirigida. Las demas fuentes no implementan todavía este filtro.
 
 ### Upsert incremental
 - Ruta: `rainmapper_core/incremental_upsert.py`, sin wrapper raiz.

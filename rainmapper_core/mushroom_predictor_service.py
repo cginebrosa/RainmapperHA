@@ -213,7 +213,6 @@ class PredictorService:
             }
         result: dict[str, Any] = {
             "available": True,
-            "preferred_version_id": registry.get("preferred_version_id"),
             "entries": entries,
             "runtime_batches": {},
             "installed_artifacts": [],
@@ -450,6 +449,7 @@ class PredictorService:
         selections: Sequence[Mapping[str, object]],
         prepared_weather_cache: dict[tuple[object, ...], Any],
         comparison_cache: dict[str, Any],
+        operational_resolution_index: Mapping[tuple[str, str, int], object] | None = None,
     ) -> int:
         """Batch weekly inference while retaining the normal response assembly."""
         if self.version_registry_path is None or not self.version_registry_path.is_file():
@@ -461,17 +461,29 @@ class PredictorService:
                     self.version_registry_path
                 )
                 comparison_cache["service_registry"] = registry
-            dated = [
-                (
-                    current_date,
+            dated = []
+            for current_date in target_dates:
+                current_selections = (
                     mushroom_ml_multiversion_comparison.retarget_operational_selections(
                         selections,
                         target_date=current_date,
                         issue_date=min(issue_date, current_date),
-                    ),
+                    )
                 )
-                for current_date in target_dates
-            ]
+                if not current_selections and isinstance(
+                    operational_resolution_index, Mapping
+                ):
+                    prediction_day = (current_date - issue_date).days + 1
+                    resolution = operational_resolution_index.get(
+                        (species_id, area_id, prediction_day)
+                    )
+                    if isinstance(resolution, Mapping):
+                        current_selections = (
+                            mushroom_ml_multiversion_comparison.reliability_candidate_selections(
+                                resolution
+                            )
+                        )
+                dated.append((current_date, current_selections))
             version_ids = {
                 str(row.get("version_id") or "")
                 for _current_date, rows in dated
@@ -788,11 +800,9 @@ class PredictorService:
         context = shared_context if shared_context is not None else {}
         prepared_weather_cache = context.setdefault("prepared_weather_cache", {})
         comparison_cache = context.setdefault("comparison_cache", {})
-        preferred_result_cache = context.setdefault("preferred_result_cache", {})
         if (
             not isinstance(prepared_weather_cache, dict)
             or not isinstance(comparison_cache, dict)
-            or not isinstance(preferred_result_cache, dict)
         ):
             raise PredictorContractError("Predictor shared context is invalid.")
         data: dict[str, Any] = {
@@ -805,36 +815,6 @@ class PredictorService:
                 ),
             ),
         }
-
-        def comparison_for(
-            species_id: str,
-            current_area: str,
-            current_date: date,
-        ) -> dict[str, Any]:
-            issue_date = min(request_issue_date, current_date)
-            result_key = (
-                species_id,
-                current_area,
-                current_date.isoformat(),
-                issue_date.isoformat(),
-            )
-            cached_result = preferred_result_cache.get(result_key)
-            if isinstance(cached_result, dict):
-                return copy.deepcopy(cached_result)
-            result = timed(
-                "preferred_model_comparison",
-                lambda: self.v2_reference_compare(
-                    species_id=species_id,
-                    area_id=current_area,
-                    target_date=current_date,
-                    issue_date=issue_date,
-                    prepared_weather_cache=prepared_weather_cache,
-                    comparison_cache=comparison_cache,
-                ),
-            )
-            collect_runtime_metrics("preferred", result)
-            preferred_result_cache[result_key] = copy.deepcopy(result)
-            return result
 
         def multiversion_comparison_for(
             *,
@@ -864,9 +844,33 @@ class PredictorService:
             current_date: date,
         ) -> dict[str, Any]:
             selections = normalized["multiversion_selection"]
+            sealed_resolution = None
+            resolution_index = context.get("operational_resolution_index")
+            if not selections and isinstance(resolution_index, Mapping):
+                prediction_day = (current_date - request_issue_date).days + 1
+                candidate_resolution = resolution_index.get(
+                    (species_id, current_area, prediction_day)
+                )
+                if isinstance(candidate_resolution, Mapping):
+                    sealed_resolution = candidate_resolution
+                    if candidate_resolution.get("selection_status") == "abstain":
+                        return {
+                            "available": False,
+                            "reason": "reliability_selection_abstained",
+                            "reliability_selection": copy.deepcopy(
+                                candidate_resolution
+                            ),
+                        }
+                    selections = (
+                        mushroom_ml_multiversion_comparison.reliability_candidate_selections(
+                            candidate_resolution
+                        )
+                    )
             if not selections:
-                return comparison_for(species_id, current_area, current_date)
-            return multiversion_comparison_for(
+                raise PredictorContractError(
+                    "Predictor requires the installed operational model selection."
+                )
+            comparison = multiversion_comparison_for(
                 species_id=species_id,
                 current_area=current_area,
                 current_date=current_date,
@@ -878,6 +882,33 @@ class PredictorService:
                     )
                 ),
             )
+            if sealed_resolution is not None:
+                members = comparison.get("members")
+                members = members if isinstance(members, list) else []
+                operational, active_resolution = (
+                    mushroom_ml_multiversion_comparison.build_reliability_selected_operational_comparison(
+                        members,
+                        sealed_resolution,
+                        season_phase=self.predictor(species_id).season_phase(
+                            current_date
+                        ),
+                        phenology=self.species_phenology(species_id),
+                    )
+                )
+                operational["reliability_selection"] = copy.deepcopy(
+                    active_resolution
+                )
+                comparison["members"] = (
+                    mushroom_ml_multiversion_comparison.reliability_materialized_members(
+                        members,
+                        active_resolution,
+                    )
+                )
+                comparison["operational_comparison"] = operational
+                comparison["reliability_selection"] = copy.deepcopy(
+                    active_resolution
+                )
+            return comparison
 
         if view == "recommender":
             total = len(species_ids)
@@ -1023,110 +1054,54 @@ class PredictorService:
                         )
                     )
                 )
-                stations_file = self.stations_file_path
-                excluded_station_keys = (
-                    mushroom_weather_idw.disabled_wunderground_station_keys(
-                        stations_file
-                    )
-                    if stations_file is not None and stations_file.is_file()
-                    else frozenset()
-                )
-                if (
-                    self.version_registry_path is not None
-                    and self.version_registry_path.is_file()
-                ):
-                    timed(
-                        "preferred_weather_prewarm",
-                        lambda: [
-                            mushroom_ml_multiversion_comparison.prewarm_v2_week_weather(
-                                area_ids=[area_id],
-                                target_issue_dates=[
-                                    (
-                                        current_date,
-                                        min(request_issue_date, current_date),
-                                    )
-                                    for current_date in comparison_dates
-                                ],
-                                known_sites_path=self.known_sites_path,
-                                weather_data_dir=self.weather_data_dir,
-                                excluded_station_keys=excluded_station_keys,
-                                prepared_weather_cache=prepared_weather_cache,
-                                lookback_days=lookback_days,
-                                include_physical_state=include_physical_state,
-                            )
-                            for lookback_days, include_physical_state in (
-                                (90, False),
-                                (365, True),
-                            )
-                        ],
-                    )
                 report(88, "Comparing models", f"Evaluating operational models for {area_id}.")
-                species_data["model_comparisons"] = {
-                    area_id: {
-                        row.target_date.isoformat(): comparison_for(
-                            selected_species, area_id, row.target_date
-                        )
-                        for row in week
-                    }
-                }
-                if target.isoformat() not in species_data["model_comparisons"][area_id]:
-                    species_data["model_comparisons"][area_id][target.isoformat()] = (
-                        comparison_for(selected_species, area_id, target)
-                    )
-                if normalized["compare_models"] and normalized["multiversion_selection"]:
-                    timed(
-                        "multiversion_inference_prewarm",
-                        lambda: self.prewarm_multiversion_week(
-                            species_id=selected_species,
-                            area_id=area_id,
-                            target_dates=comparison_dates,
-                            issue_date=request_issue_date,
-                            selections=normalized["multiversion_selection"],
-                            prepared_weather_cache=prepared_weather_cache,
-                            comparison_cache=comparison_cache,
+                timed(
+                    "multiversion_inference_prewarm",
+                    lambda: self.prewarm_multiversion_week(
+                        species_id=selected_species,
+                        area_id=area_id,
+                        target_dates=comparison_dates,
+                        issue_date=request_issue_date,
+                        selections=normalized["multiversion_selection"],
+                        prepared_weather_cache=prepared_weather_cache,
+                        comparison_cache=comparison_cache,
+                        operational_resolution_index=(
+                            context.get("operational_resolution_index")
+                            if isinstance(
+                                context.get("operational_resolution_index"), Mapping
+                            )
+                            else None
                         ),
-                    )
-                    multiversion_comparisons = {
-                        current_date.isoformat(): multiversion_comparison_for(
+                    ),
+                )
+                multiversion_comparisons = {
+                    current_date.isoformat(): (
+                        selected_comparison_for(
+                            selected_species, area_id, current_date
+                        )
+                        if normalized["multiversion_selection"]
+                        or isinstance(
+                            context.get("operational_resolution_index"), Mapping
+                        )
+                        else multiversion_comparison_for(
                             species_id=selected_species,
                             current_area=area_id,
                             current_date=current_date,
-                            selections=(
-                                mushroom_ml_multiversion_comparison.retarget_operational_selections(
-                                    normalized["multiversion_selection"],
-                                    target_date=current_date,
-                                    issue_date=min(request_issue_date, current_date),
-                                )
-                            ),
+                            selections=[],
                         )
-                        for current_date in comparison_dates
+                    )
+                    for current_date in comparison_dates
+                }
+                species_data["model_comparisons"] = {
+                    area_id: {
+                        current_date: dict(payload.get("operational_comparison") or {})
+                        for current_date, payload in multiversion_comparisons.items()
                     }
-                    species_data["multiversion_comparisons"] = (
-                        multiversion_comparisons
-                    )
-                    species_data["multiversion_comparison"] = (
-                        multiversion_comparisons[target.isoformat()]
-                    )
-                for weather_key in list(prepared_weather_cache):
-                    if len(weather_key) > 2 and weather_key[2] == area_id:
-                        del prepared_weather_cache[weather_key]
-                version_caches = comparison_cache.get(
-                    "service_multiversion_caches", {}
+                }
+                species_data["multiversion_comparisons"] = multiversion_comparisons
+                species_data["multiversion_comparison"] = (
+                    multiversion_comparisons[target.isoformat()]
                 )
-                if isinstance(version_caches, Mapping):
-                    for version_cache in version_caches.values():
-                        if not isinstance(version_cache, dict):
-                            continue
-                        for cache_name in (
-                            "prediction_result_cache",
-                            "runtime_sample_cache",
-                        ):
-                            area_cache = version_cache.get(cache_name)
-                            if not isinstance(area_cache, dict):
-                                continue
-                            for cache_key in list(area_cache):
-                                if cache_key and cache_key[0] == area_id:
-                                    del area_cache[cache_key]
             else:
                 report(20, "Ranking areas", f"Evaluating {selected_species}.")
                 ranking_rows = timed(

@@ -143,6 +143,79 @@ class MushroomMLRuntimeInferenceTests(TestCase):
         self.assertEqual(result["applicability"]["status"], "outside_domain")
         self.assertEqual(result["applicability"]["outside_feature_count"], 1)
 
+    def test_rainfall_outside_training_range_warns_without_blocking(self) -> None:
+        class FixedModel:
+            def predict_proba(self, values):
+                return np.asarray([[0.25, 0.75]])
+
+        bundle = {
+            "artifact_ref": catalog.ModelArtifactRef(
+                batch_id="batch-a", generation_id="generation-a", version_id="biology_v3",
+                temporal_contract_id="fixed_gap_7d_biology_v3", profile_id="core",
+                estimator_id="random_forest_restricted_v1", species_id="boletus_edulis",
+            ).as_dict(),
+            "feature_cols": ["rain_cutoff_15_21d_mm"],
+            "feature_support": {
+                "rain_cutoff_15_21d_mm": {
+                    "min": 0.0, "max": 25.0, "mean": 5.0, "std": 3.0,
+                }
+            },
+            "model": FixedModel(),
+            "preprocessor": None,
+        }
+
+        result = inference.predict_bundle(
+            bundle,
+            {"rain_cutoff_15_21d_mm": 32.0},
+            species_id="boletus_edulis",
+        )
+
+        applicability = result["applicability"]
+        self.assertEqual(applicability["status"], "caution")
+        self.assertEqual(applicability["outside_feature_count"], 1)
+        self.assertEqual(applicability["blocking_outside_feature_count"], 0)
+        self.assertEqual(applicability["rainfall_warning_feature_count"], 1)
+        self.assertEqual(
+            applicability["most_extreme"][0]["applicability_effect"],
+            "warning_only",
+        )
+
+    def test_non_rainfall_excursion_still_blocks_alongside_rain_warning(self) -> None:
+        class FixedModel:
+            def predict_proba(self, values):
+                return np.asarray([[0.25, 0.75]])
+
+        feature_support = {
+            "rain_mm__lag_015": {
+                "min": 0.0, "max": 25.0, "mean": 5.0, "std": 3.0,
+            },
+            "temperature": {
+                "min": 5.0, "max": 20.0, "mean": 12.0, "std": 4.0,
+            },
+        }
+        bundle = {
+            "artifact_ref": catalog.ModelArtifactRef(
+                batch_id="batch-a", generation_id="generation-a", version_id="biology_v3",
+                temporal_contract_id="fixed_gap_7d_biology_v3", profile_id="core",
+                estimator_id="random_forest_restricted_v1", species_id="boletus_edulis",
+            ).as_dict(),
+            "feature_cols": list(feature_support),
+            "feature_support": feature_support,
+            "model": FixedModel(),
+            "preprocessor": None,
+        }
+
+        result = inference.predict_bundle(
+            bundle,
+            {"rain_mm__lag_015": 32.0, "temperature": 28.0},
+            species_id="boletus_edulis",
+        )
+
+        applicability = result["applicability"]
+        self.assertEqual(applicability["status"], "outside_domain")
+        self.assertEqual(applicability["blocking_outside_feature_count"], 1)
+        self.assertEqual(applicability["rainfall_warning_feature_count"], 1)
+
     def test_exact_artifact_is_deserialized_once_while_file_identity_is_unchanged(
         self,
     ) -> None:

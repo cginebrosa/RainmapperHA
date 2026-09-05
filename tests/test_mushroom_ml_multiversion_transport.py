@@ -143,6 +143,18 @@ class MushroomMLMultiversionTransportTests(TestCase):
                 "path": f"batches/{batch_manifest['batch_id']}/quality-catalog.json",
                 "sha256": hashlib.sha256(quality_path.read_bytes()).hexdigest(),
             }
+            quality_audit_path = batch_dir / "quality-audit-catalog.json"
+            quality_audit_path.write_text("{}", encoding="utf-8")
+            batch_manifest["quality_audit_catalog"] = {
+                "path": (
+                    f"batches/{batch_manifest['batch_id']}/"
+                    "quality-audit-catalog.json"
+                ),
+                "sha256": hashlib.sha256(
+                    quality_audit_path.read_bytes()
+                ).hexdigest(),
+                "selection_id": "sha256:" + "c" * 64,
+            }
             training_input_path = batch_dir / "training-input-manifest.json"
             training_input_path.write_text(
                 json.dumps({"snapshot_id": batch_manifest["snapshot_id"]}),

@@ -47,15 +47,20 @@ class LagEventFeaturesTests(unittest.TestCase):
         self.assertNotIn(99.0, features.values())
 
     def test_known_rain_age_is_expressed_at_target_date(self) -> None:
-        features, _ = build_lag_event_features(_episode(), horizon_days=4)
+        features, metadata = build_lag_event_features(_episode(), horizon_days=4)
         self.assertEqual(features["days_since_significant_rain_at_target"], 8.0)
+        self.assertEqual(metadata["significant_rain_event_date"], "2026-08-06")
+        self.assertEqual(metadata["significant_rain_event_amount_mm"], 10.0)
+        self.assertEqual(metadata["significant_rain_threshold_mm"], 5.0)
+        self.assertNotIn("significant_rain_event_date", features)
+        self.assertNotIn("significant_rain_event_amount_mm", features)
 
     def test_missing_rain_day_is_zero_with_separate_coverage(self) -> None:
         episode = _episode()
         episode["daily_rain_mm"][-6] = None
         episode["daily_rain_observed"][-6] = 0.0
 
-        features, _ = build_lag_event_features(episode, horizon_days=4)
+        features, metadata = build_lag_event_features(episode, horizon_days=4)
         self.assertEqual(features["rain_cutoff_0_3d_mm"], 0.0)
         self.assertEqual(features["rain_missing_days_21"], 1.0)
 
@@ -63,7 +68,7 @@ class LagEventFeaturesTests(unittest.TestCase):
         episode = _episode()
         episode["daily_temp_max_c"][-5] = None
 
-        features, _ = build_lag_event_features(episode, horizon_days=4)
+        features, metadata = build_lag_event_features(episode, horizon_days=4)
         self.assertEqual(features["heat_stress_observed_at_cutoff"], 0.0)
         self.assertEqual(features["heat_stress_is_censored"], 1.0)
 
@@ -71,11 +76,13 @@ class LagEventFeaturesTests(unittest.TestCase):
         episode = _episode()
         episode["daily_rain_mm"] = [0.0] * 120
 
-        features, _ = build_lag_event_features(episode, horizon_days=4)
+        features, metadata = build_lag_event_features(episode, horizon_days=4)
 
         self.assertEqual(features["days_since_rain_gt_2_at_target"], 90.0)
         self.assertEqual(features["days_since_significant_rain_at_target"], 90.0)
         self.assertEqual(features["significant_rain_found_90d"], 0.0)
+        self.assertIsNone(metadata["significant_rain_event_date"])
+        self.assertIsNone(metadata["significant_rain_event_amount_mm"])
 
     def test_fixed_gap_always_uses_target_minus_seven(self) -> None:
         features, metadata = build_fixed_gap_7d_features(_episode())

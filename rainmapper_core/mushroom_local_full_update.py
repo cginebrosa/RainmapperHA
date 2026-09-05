@@ -648,6 +648,39 @@ def run_local_benchmark(
         shutil.rmtree(operation_root, ignore_errors=True)
 
 
+def _local_full_update_candidate_names(
+    rebuild_job_id: str,
+    training_job_id: str,
+    comparison_job_id: str,
+) -> tuple[str, str, str]:
+    """Return the exact transient result directories created by a local update."""
+    return rebuild_job_id, f"ml.{training_job_id}", comparison_job_id
+
+
+def _cleanup_local_full_update_transients(
+    paths: LocalFullUpdatePaths,
+    *,
+    rebuild_job_id: str,
+    training_job_id: str,
+    comparison_job_id: str,
+    operation_root: Path,
+) -> None:
+    """Discard every private input and result created by one completed local update."""
+    for job_id in (rebuild_job_id, training_job_id, comparison_job_id):
+        bundle_dir = paths.bundle_root / job_id
+        if bundle_dir.is_dir() and not bundle_dir.is_symlink():
+            shutil.rmtree(bundle_dir)
+    for candidate_name in _local_full_update_candidate_names(
+        rebuild_job_id,
+        training_job_id,
+        comparison_job_id,
+    ):
+        candidate_dir = paths.candidate_results_root / candidate_name
+        if candidate_dir.is_dir() and not candidate_dir.is_symlink():
+            shutil.rmtree(candidate_dir)
+    shutil.rmtree(operation_root, ignore_errors=True)
+
+
 def run_local_full_update(
     *,
     operation_id: str,
@@ -1096,7 +1129,6 @@ def run_local_full_update(
                 paths.ml_models_dir / "batches" / installed_batch_id / "training-input-manifest.json"
             ),
             "version_ids": version_ids,
-            "preferred_version_id": installed_registry.get("preferred_version_id"),
             "operational_candidate_trained": True,
             "soilgrids_reconciliation": pre_snapshot_report,
         }
@@ -1127,14 +1159,13 @@ def run_local_full_update(
             )
         raise
     finally:
-        for job_id in (rebuild_job_id, training_job_id, comparison_job_id):
-            bundle_dir = paths.bundle_root / job_id
-            if bundle_dir.is_dir():
-                shutil.rmtree(bundle_dir)
-            candidate_dir = paths.candidate_results_root / job_id
-            if candidate_dir.is_dir():
-                shutil.rmtree(candidate_dir)
-        shutil.rmtree(operation_root, ignore_errors=True)
+        _cleanup_local_full_update_transients(
+            paths,
+            rebuild_job_id=rebuild_job_id,
+            training_job_id=training_job_id,
+            comparison_job_id=comparison_job_id,
+            operation_root=operation_root,
+        )
         try:
             if telemetry.snapshot().get("status") == "running":
                 telemetry.finish(telemetry_status, error=telemetry_error)

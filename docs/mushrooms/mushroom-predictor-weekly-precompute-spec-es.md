@@ -1,12 +1,56 @@
 # Precálculo semanal distribuido del Predictor
 
-Estado: especificación previa a implementación, acordada el 2026-08-29.
+Estado: implementación original completada; evolución al selector fiable
+implementada y validada localmente con un SQLite nuevo.
+
+Nota de evolución: la selección fiable definida posteriormente en
+`mushroom-predictor-reliability-selection-spec-es.md` reemplaza, para la ruta
+ordinaria, la obligación de calcular todos los miembros y elegir entre ellos
+durante la predicción. El SQLite local instalado ya representa el contrato del
+selector sellado. Ese selector publica una resolución
+por especie/área/día operativo: para el día `N` compara previamente `lag hN`
+con `fixed h7`. El precálculo no retargetea candidatos ni repite el ranking;
+calcula el miembro exacto y persiste también, para ese mismo candidato, la
+evidencia separada del área y de la especie —Wilson, `x/x`, observaciones
+hold-out y floradas— para presentarla junto a la probabilidad.
+La misma composición sellada se aplica como mínimo en `Esta semana`, `Por
+especie` y `Consulta por fecha`.
+
+Desde el contrato de artefacto `1.6`, la cadena completa y ordenada de
+candidatos alternativos permanece una sola vez en el catálogo de calidad
+inmutable. Durante el cálculo se recorren esos candidatos hasta encontrar el
+primero aplicable, pero el SQLite semanal conserva únicamente el miembro que se
+usará, su posición en la cadena, el número de candidatos considerados y los
+motivos compactos por los que se descartaron los anteriores. Así la RPi4 recibe
+la decisión ya resuelta sin tener que repetir la selección ni procesar miles de
+copias de la misma evidencia estadística.
+
+La validación local cruza por identidad completa las 504 celdas: 420 ganadores
+y 84 abstenciones, sin discrepancias ni miembros sobrantes. La ejecución no se
+divide por familia ganadora: una pareja especie/área se procesa una sola vez y
+en esa ejecución usa, para cada uno de los siete días, exclusivamente el
+candidato sellado correspondiente. Así se conservan las 623 respuestas lógicas
+con 143 ejecuciones para la cobertura actual: 72 semanas de área, 56 consultas
+de especie/día, 8 vistas semanales y 7 resúmenes globales. Los resultados y el
+contexto meteorológico común se reutilizan durante todo el lote.
+
+La revalidación del 5 de septiembre detectó una regresión de materialización,
+no una expansión científica necesaria. El primer precálculo posterior al
+reentrenamiento escribió los candidatos alternativos completos en cada celda:
+21.182 miembros y 477.696.000 bytes. Al conservar solo el candidato resuelto se
+redujo a 420 miembros; una segunda revisión eliminó también la repetición de la
+cadena y dejó el artefacto en 69.967.872 bytes. El análisis de páginas mostró
+que aproximadamente 40 MB eran espacio libre interno dejado por las
+sustituciones durante la construcción. El artefacto final construido con
+`VACUUM` ocupa 29.233.152 bytes, mantiene `quick_check = ok` y tiene
+`freelist_count = 0`; por eso el constructor compacta ahora su base privada de
+staging antes de validarla y publicarla atómicamente.
 
 ## Objetivo
 
 Eliminar el cálculo interactivo repetido de las consultas ordinarias del
 Predictor mediante un artefacto semanal regenerable que cubra todas las
-especies, áreas, fechas y versiones operativas instaladas. El cálculo pesado se
+especies, áreas y fechas con el candidato fiable ya elegido. El cálculo pesado se
 ejecutará exclusivamente en el worker operativo preferido. Home Assistant
 seguirá siendo coordinador y conservará una copia verificada para sus sesiones
 locales.
@@ -53,10 +97,8 @@ Cada artefacto cubrirá:
 - todas las especies entrenadas declaradas por el runtime;
 - todas las áreas con observaciones de cada especie;
 - la predicción base V0 necesaria para las vistas actuales;
-- todas las versiones operativas instaladas, no solo la preferida;
-- todos los miembros, contratos, horizontes, evaluaciones y exclusiones
-  necesarios para reconstruir la selección preferida o cualquier subconjunto
-  multiversión sin volver a inferir;
+- el único candidato sellado para cada especie/área/día, incluida su identidad
+  completa, ámbito territorial o fallback y evidencia resumida;
 - fenología, aplicabilidad, abstenciones e interpretaciones necesarias para
   reproducir el resultado vigente.
 
@@ -71,11 +113,18 @@ precalculado o de una futura acción manual explícita en worker. No se mezclar�
 silenciosamente filas precalculadas y filas calculadas en vivo dentro de una
 misma respuesta.
 
-La implementación no almacena una respuesta por cada combinación de versiones.
-Guarda una sola vez los miembros operativos de todas las versiones y el lector
-compone el subconjunto pedido. Esta composición se aplica por igual a la fecha
-concreta, la matriz de siete días de `Por especie` y todos los candidatos del
-recomendador global `Esta semana`.
+La implementación nueva almacena un único miembro ordinario por celda y el
+lector no admite que la selección multiversión de la petición cambie el ganador
+sellado. Esta composición se aplica por igual a la fecha concreta, la matriz de
+siete días de `Por especie` y el recomendador global `Esta semana`. Los
+controles comparativos antiguos de la UI se retirarán después de validar
+visualmente la migración; mientras existan no modifican el resultado sellado.
+
+«Único miembro» significa el candidato finalmente utilizable en esa
+especie/área/día. Si el candidato preferido queda fuera del dominio observado,
+el constructor prueba el siguiente de la cadena sellada y materializa ese
+fallback. Una abstención no materializa ningún miembro. La cadena completa no
+se replica dentro de respuestas, contexto de especie ni filas operativas.
 
 ## Formato del artefacto
 
@@ -94,11 +143,13 @@ El esquema mínimo tendrá:
 - metadatos e identidad del artefacto;
 - cobertura por especie, área y fecha;
 - predicciones base serializadas mediante el contrato vigente;
-- miembros operativos normalizados por especie, área, fecha y versión;
+- miembro operativo normalizado por especie, área, fecha e identidad completa
+  del candidato seleccionado;
 - contadores de cobertura y diagnóstico de construcción.
 
 La clave primaria lógica será, según la tabla, una combinación de especie,
-área, fecha, versión, contrato, horizonte y miembro. Los accesos usarán
+área, fecha y candidato sellado —versión, perfil, contrato, horizonte y
+estimador—. Los accesos usarán
 consultas parametrizadas. Los payloads estructurados conservarán el contrato
 canónico del Predictor; no se creará una interpretación científica alternativa
 en SQL.
@@ -138,9 +189,10 @@ misma construcción sí deberán tener exactamente el mismo `file_sha256`.
 El fingerprint del runtime seguirá siendo la autoridad para meteorología,
 modelos, contenido científico del registro de versiones, perfiles, features,
 áreas conocidas y catálogo de estaciones. El registro canónico empaquetado
-mantiene un default interno estable, pero no sigue la preferencia de UI: el
-SQLite ya cubre todas las versiones operativas instaladas y cambiar el puntero
-preferido no altera su identidad.
+mantiene un default interno estable y no sigue la preferencia de UI. En el
+contrato nuevo el SQLite cubre la selección sellada por especie/área/día, no
+todas las alternativas instaladas; cambiar el puntero preferido no altera su
+identidad.
 No se introducirá una regla débil basada únicamente en la hora del runner o el
 `mtime` del SQLite.
 
@@ -197,15 +249,17 @@ un protocolo explícito:
    local.
 
 Si se pierde la confirmación, el worker consultará el recibo por `artifact_id`
-y `file_sha256` antes de reintentar o activar. Un resultado sustituido podrá
-quedar en staging hasta la limpieza acotada, pero nunca se considerará activo.
+y `file_sha256` antes de reintentar o activar. Un resultado sustituido nunca se
+considerará activo.
 
 Solo habrá un artefacto activo y un temporal en construcción por ubicación. El
-anterior se conservará hasta publicar correctamente el nuevo y se sustituirá
-atómicamente; si la construcción falla, permanecerá en disco pero quedará
-inválido para el nuevo runtime. Estos ficheros son caché regenerable, no forman
-parte de la retención científica de modelos, benchmarks o históricos. La
-implementación no ampliará ni modificará esas políticas de retención.
+anterior se conserva únicamente mientras se construye y valida el nuevo y se
+sustituye atómicamente al publicarlo. Después no existe rollback de precálculo:
+solo queda el último artefacto completo y válido. Si una cancelación, error o
+caída brusca deja SQLite temporales o journals en staging, la siguiente
+ejecución los elimina antes de construir; la salida normal limpia además todos
+los temporales asociados al job. Estos ficheros son caché regenerable, no
+forman parte de la retención científica de modelos, benchmarks o históricos.
 
 ## Disparo y estado deseado
 
@@ -363,6 +417,15 @@ recuperar un artefacto dudoso, no al entrar en cada página. El camino caliente
 solo comprobará el recibo activo, metadatos, esquema y cobertura necesarios
 para la petición.
 
+La optimización comparte una ejecución semanal por pareja especie/área aunque
+el ganador cambie entre días, porque no retargetea un candidato común: consulta
+la resolución sellada independiente de cada fecha y precalienta únicamente
+esos siete candidatos. No ejecuta todas las versiones ni prepara ventanas
+meteorológicas que ningún ganador necesite. Al escribir el SQLite, cada miembro
+se admite únicamente si coincide de forma exacta con la selección sellada de
+su especie/área/día; una coincidencia solo en el número total de miembros no
+demuestra cobertura científica correcta.
+
 No podrán reutilizarse ni siquiera como desactualizados:
 
 - ausencia de fichero;
@@ -471,6 +534,9 @@ aislada.
   respuesta viva después de excluir únicamente métricas de ejecución y caché.
 - Todas las probabilidades, ganadores, abstenciones, criterios, diagnósticos y
   ordenaciones mantienen equivalencia.
+- Las 504 celdas se cruzan contra el catálogo sellado: cada una de las 420 con
+  ganador contiene exactamente su versión, contrato, perfil, estimador y
+  horizonte, y ninguna de las 84 abstenciones contiene un miembro operativo.
 - Una petición cubierta se sirve sin crear job, cargar modelos o leer Parquet,
   con objetivo de backend <= 1 s en el M1 y HA de referencia.
 - Tras reentrenar o actualizar meteorología, el artefacto anterior compatible
@@ -490,6 +556,12 @@ aislada.
 - El panel puede encolar manualmente el precálculo sin runner, abre el job ya
   activo en vez de duplicarlo y permite forzar una medición completa sobre la
   misma identidad.
+- Tras cancelar o fallar el intento que corresponde al estado deseado vigente,
+  un nuevo lanzamiento manual crea una revisión y un job nuevos aunque el
+  artefacto completo anterior siga siendo reutilizable. También funciona si la
+  cancelación cooperativa todavía está alcanzando su punto seguro o si HA se
+  reinició y ya no conserva en memoria el job: la revisión deseada solo se
+  considera satisfecha cuando coincide con el recibo de publicación.
 - Un job foreground puede empezar y terminar mientras existe un precálculo en
   el segundo carril; heartbeat y cancelación continúan respondiendo.
 - Reinicios del coordinador o worker recuperan de forma determinista cola,

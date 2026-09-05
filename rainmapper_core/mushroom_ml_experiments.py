@@ -307,6 +307,16 @@ def build_lag_event_features(
     temp_mean_7d, _temp_mean_days_7d = _available_mean(temp_mean[-7:])
 
     significant_found = significant_age is not None
+    significant_rain_date = (
+        (cutoff_date - timedelta(days=significant_age)).isoformat()
+        if significant_age is not None
+        else None
+    )
+    significant_rain_amount_mm = (
+        rain_search[-1 - significant_age]
+        if significant_age is not None
+        else None
+    )
     context_days = significant_age + 1 if significant_age is not None else EVENT_LOOKBACK_DAYS
     after_rain_temp, after_rain_temp_days = _available_mean(temp_mean[-context_days:])
     after_rain_humidity, after_rain_humidity_days = _available_mean(
@@ -380,6 +390,9 @@ def build_lag_event_features(
         "humidity_observed_days_21": humidity_observed_21,
         "rain_event_search_complete": enough_history,
         "significant_rain_search_complete": enough_history,
+        "significant_rain_event_date": significant_rain_date,
+        "significant_rain_event_amount_mm": significant_rain_amount_mm,
+        "significant_rain_threshold_mm": SIGNIFICANT_RAIN_THRESHOLD_MM,
         "temperature_contract": (
             "station_temperature_adjusted_to_area_representative_dem_altitude_v1"
             if altitude_corrected

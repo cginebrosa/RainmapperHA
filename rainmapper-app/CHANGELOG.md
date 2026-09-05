@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.292
+
+- Select the most reliable trained candidate for every species, area and day,
+  comparing territorial evidence with the species-wide fallback through the
+  same conservative hold-out criterion.
+- Publish compact operational and extended audit quality catalogs with matched
+  identities, contract validation and complete training-manifest transport.
+- Resolve weekly precompute results from sealed trained selections, preserve
+  explicit abstentions and remove superseded reconstructible job artifacts.
+- Compare every installed operational version automatically in Predictor and
+  remove the obsolete preferred-version and manual-version controls.
+- Present estimated probability separately from observed accuracy, conservative
+  confidence bound, observations and independent fruiting episodes for both
+  area and species evidence.
+- Keep ecological timing rules and significant-rain provenance available for
+  diagnostics without letting them veto or relabel learned predictions; compact
+  weekly evidence and add explanatory tooltips and colored verdict badges.
+- Keep rainfall excursions visible as applicability warnings without allowing
+  precipitation alone to reject an otherwise reliable prediction.
+- Encode the claim-bound precompute selection response with the same compact
+  JSON convention used by its advertised size and digest, avoiding a false
+  size rejection after sealing the area/day reliability matrix.
+- Keep complete reliability fallback rankings in the immutable quality catalog
+  while materializing only the runtime-selected member, fallback rank and
+  rejection reasons in the weekly SQLite; advance the artifact contract to 1.6
+  and migrate pending desires from 1.5 without losing their monotonic revision.
+- Vacuum the private staging SQLite before verification and atomic publication,
+  preventing superseded response pages from inflating the artifact served by
+  Home Assistant.
+
 ## 0.2.291
 
 - Reuse a complete previous weekly precompute when its runtime fingerprint is

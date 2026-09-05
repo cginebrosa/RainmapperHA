@@ -448,7 +448,6 @@ def operational_version_options(payload: object) -> list[dict[str, Any]]:
         str(row["version_id"]): row
         for row in checked["versions"]
     }
-    preferred_version_id = checked.get("preferred_version_id")
     grouped: dict[str, dict[str, Any]] = {}
     for profile in operational_profile_options(checked):
         version_id = profile["version_id"]
@@ -462,7 +461,6 @@ def operational_version_options(payload: object) -> list[dict[str, Any]]:
                 "installed": bool(
                     version_state[version_id].get("installed_generation_id")
                 ),
-                "preferred": version_id == preferred_version_id,
             },
         )
         option["profile_keys"].append(profile["profile_key"])
@@ -822,6 +820,26 @@ def installed_manifest_path(
     if generation is None:
         return None
     return Path(models_root) / "batches" / str(generation["batch_id"]) / "manifest.json"
+
+
+def operational_manifest_path(
+    payload: object,
+    *,
+    models_root: Path,
+) -> Path | None:
+    """Resolve the one batch shared by every installed operational version."""
+    checked = validate_registry(payload)
+    batch_ids = {
+        str(generation["batch_id"])
+        for version in checked["versions"]
+        if (generation := installed_generation(checked, version["version_id"]))
+        is not None
+    }
+    if not batch_ids:
+        return None
+    if len(batch_ids) != 1:
+        raise ValueError("Installed ML versions do not share one operational batch.")
+    return Path(models_root) / "batches" / next(iter(batch_ids)) / "manifest.json"
 
 
 def preferred_manifest_path(

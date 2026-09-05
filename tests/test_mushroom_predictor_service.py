@@ -35,6 +35,25 @@ def prediction(species: str, area: str, day: date, probability: float = 0.7) -> 
     )
 
 
+TEST_SELECTION = {
+    "version_id": "biology_v3",
+    "temporal_contract_id": "fixed_gap_7d_biology_v3",
+    "profile_id": "core",
+    "estimator_id": "logistic_regression",
+    "horizon_days": 7,
+}
+
+
+def operational_comparison(verdict: str = "uncertain") -> dict[str, object]:
+    return {
+        "available": True,
+        "operational_comparison": {
+            "selection_mode": "multiversion",
+            "interpretation": {"verdict": verdict},
+        },
+    }
+
+
 class PredictorServiceTests(TestCase):
     def request(self, **changes: object) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -53,6 +72,168 @@ class PredictorServiceTests(TestCase):
         with self.assertRaises(PredictorContractError):
             normalize_request(self.request(view="unknown"))
 
+    def test_week_uses_sealed_resolution_index_for_each_area_day(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            predictor.predict_many.return_value = [
+                prediction("boletus", "area_one", date(2026, 8, 9) + timedelta(days=offset))
+                for offset in range(7)
+            ]
+            service.predictor = Mock(return_value=predictor)
+            service.multiversion_compare = Mock(
+                side_effect=lambda **_kwargs: operational_comparison()
+            )
+            resolutions = {
+                ("boletus", "area_one", day): {
+                    "species_id": "boletus",
+                    "area_id": "area_one",
+                    "prediction_day": day,
+                    "selection_status": "abstain" if day == 1 else "winner",
+                    "selection_scope": "none" if day == 1 else "area",
+                    "candidate": None if day == 1 else dict(TEST_SELECTION),
+                }
+                for day in range(1, 8)
+            }
+
+            response = service.execute(
+                self.request(
+                    view="week",
+                    area_id="",
+                    issue_date="2026-08-09",
+                    multiversion_selection=[],
+                ),
+                shared_context={"operational_resolution_index": resolutions},
+            )
+
+        comparisons = response["data"]["species"]["boletus"]["model_comparisons"][
+            "area_one"
+        ]
+        self.assertFalse(comparisons["2026-08-09"]["available"])
+        self.assertEqual(
+            comparisons["2026-08-09"]["reason"],
+            "reliability_selection_abstained",
+        )
+        self.assertEqual(service.multiversion_compare.call_count, 6)
+        for call in service.multiversion_compare.call_args_list:
+            self.assertEqual(call.kwargs["selections"], [TEST_SELECTION])
+
+    def test_area_week_uses_each_sealed_daily_winner_without_broad_comparison(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            predictor.week_window.return_value = [
+                prediction(
+                    "boletus", "area_one", date(2026, 8, 9) + timedelta(days=offset)
+                )
+                for offset in range(7)
+            ]
+            service.predictor = Mock(return_value=predictor)
+            service.prewarm_multiversion_week = Mock(return_value=7)
+            predictor.season_phase.return_value = "in_season"
+
+            def compared(**kwargs: object) -> dict[str, object]:
+                selections = list(kwargs["selections"])
+                members = []
+                for index, reference in enumerate(selections):
+                    members.append(
+                        {
+                            "model_ref": dict(reference),
+                            "available": True,
+                            "prediction": {
+                                "probability": 0.9 - index / 10,
+                                "applicability": {
+                                    "status": "outside_domain"
+                                    if index == 0
+                                    else "within_observed_range"
+                                },
+                            },
+                            "evaluation": {
+                                "evidence": "better_than_prevalence",
+                                "brier_score": 0.1,
+                                "prevalence_brier_score": 0.25,
+                                "brier_delta_vs_prevalence": 0.15,
+                                "roc_auc": 0.8,
+                            },
+                        }
+                    )
+                return {
+                    "available": True,
+                    "members": members,
+                    "runtime_metrics": {"versions": {}, "phase_seconds": {}},
+                }
+
+            service.multiversion_compare = Mock(side_effect=compared)
+            resolutions = {}
+            for day in range(1, 8):
+                candidate = {**TEST_SELECTION, "estimator_id": f"winner_{day}"}
+                resolutions[("boletus", "area_one", day)] = {
+                    "species_id": "boletus",
+                    "area_id": "area_one",
+                    "prediction_day": day,
+                    "selection_status": "winner",
+                    "selection_scope": "area",
+                    "candidate": candidate,
+                    "candidate_chain": [
+                        {"candidate": candidate},
+                        {
+                            "candidate": {
+                                **candidate,
+                                "estimator_id": f"fallback_{day}",
+                            }
+                        },
+                    ],
+                }
+
+            response = service.execute(
+                self.request(
+                    area_id="area_one",
+                    issue_date="2026-08-09",
+                    multiversion_selection=[],
+                ),
+                shared_context={"operational_resolution_index": resolutions},
+            )
+
+        prewarm = service.prewarm_multiversion_week.call_args.kwargs
+        self.assertEqual(prewarm["selections"], [])
+        self.assertIs(prewarm["operational_resolution_index"], resolutions)
+        self.assertEqual(service.multiversion_compare.call_count, 7)
+        self.assertEqual(
+            [
+                [row["estimator_id"] for row in call.kwargs["selections"]]
+                for call in service.multiversion_compare.call_args_list
+            ],
+            [
+                [f"winner_{day}", f"fallback_{day}"]
+                for day in range(1, 8)
+            ],
+        )
+        comparisons = response["data"]["species"]["boletus"][
+            "multiversion_comparisons"
+        ]
+        self.assertTrue(comparisons)
+        for comparison_payload in comparisons.values():
+            self.assertEqual(len(comparison_payload["members"]), 1)
+            self.assertTrue(
+                comparison_payload["members"][0]["model_ref"]["estimator_id"].startswith(
+                    "fallback_"
+                )
+            )
+
     def test_query_response_can_be_rendered_through_prepared_adapter(self) -> None:
         with TemporaryDirectory() as temporary:
             service = PredictorService(
@@ -69,6 +250,7 @@ class PredictorServiceTests(TestCase):
                 for offset in range(7)
             ]
             service.predictor = Mock(return_value=predictor)
+            service.multiversion_compare = Mock(return_value=operational_comparison())
             comparator = Mock()
             comparator.compare.return_value = {"interpretation": {"verdict": "uncertain"}}
             service.comparator = Mock(return_value=comparator)
@@ -100,11 +282,17 @@ class PredictorServiceTests(TestCase):
                 prediction("boletus", "area_one", date(2026, 8, 9))
             ]
             service.predictor = Mock(return_value=predictor)
+            service.multiversion_compare = Mock(return_value=operational_comparison())
             comparator = Mock()
             comparator.compare.return_value = {"interpretation": {"verdict": "uncertain"}}
             service.comparator = Mock(return_value=comparator)
 
-            response = service.execute(self.request(area_id="area_from_previous_species"))
+            response = service.execute(
+                self.request(
+                    area_id="area_from_previous_species",
+                    multiversion_selection=[TEST_SELECTION],
+                )
+            )
 
         self.assertEqual(response["request"]["area_id"], "")
         self.assertEqual(
@@ -140,10 +328,10 @@ class PredictorServiceTests(TestCase):
         self.assertEqual(second["metrics"]["response_cache_status"], "hit")
         self.assertIn("prediction_data", first["metrics"]["phase_seconds"])
         self.assertIn(
-            "preferred_model_comparison", first["metrics"]["phase_seconds"]
+            "multiversion_model_comparison", first["metrics"]["phase_seconds"]
         )
         self.assertEqual(
-            first["metrics"]["phase_call_counts"]["preferred_model_comparison"],
+            first["metrics"]["phase_call_counts"]["multiversion_model_comparison"],
             7,
         )
         self.assertIn("response_cache_lookup", second["metrics"]["phase_seconds"])
@@ -163,14 +351,13 @@ class PredictorServiceTests(TestCase):
             predictor.season_phase.return_value = "in_season"
             predictor.areas_with_species_observations.return_value = ["area_one"]
             service.predictor = Mock(return_value=predictor)
-            service.v2_reference_compare = Mock(
-                return_value={"interpretation": {"verdict": "uncertain"}}
-            )
+            service.multiversion_compare = Mock(return_value=operational_comparison())
             request = self.request(
                 view="recommender",
                 area_id="",
                 trained_species_ids=["amanita", "boletus"],
                 species_id="amanita",
+                multiversion_selection=[TEST_SELECTION],
             )
 
             first = service.execute(request)
@@ -180,7 +367,7 @@ class PredictorServiceTests(TestCase):
         self.assertEqual(second["metrics"]["response_cache_status"], "hit")
         self.assertEqual(second["request"]["species_id"], "boletus")
         predictor.rank_areas.assert_not_called()
-        self.assertEqual(service.v2_reference_compare.call_count, 2)
+        self.assertEqual(service.multiversion_compare.call_count, 2)
 
     def test_installed_runtime_batches_loads_only_requested_version_once(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -261,7 +448,7 @@ class PredictorServiceTests(TestCase):
             comparison_cache=ANY,
         )
 
-    def test_query_attaches_common_idw_v2_reference_comparison(self) -> None:
+    def test_query_attaches_multiversion_operational_comparison(self) -> None:
         with TemporaryDirectory() as temporary:
             service = PredictorService(
                 models_dir=Path(temporary),
@@ -276,34 +463,23 @@ class PredictorServiceTests(TestCase):
                 prediction("boletus", "area_one", date(2026, 8, 9 + offset))
                 for offset in range(7)
             ]
-            v2_compare = Mock(
-                return_value={
-                "fixed_gap_7d_altitude_v2": {"available": True},
-                "interpretation": {"verdict": "uncertain"},
-                }
-            )
             service.predictor = Mock(return_value=predictor)
-            service.v2_reference_compare = v2_compare
+            service.multiversion_compare = Mock(return_value=operational_comparison())
 
             response = service.execute(
-                self.request(compare_models=True, issue_date="2026-08-09")
+                self.request(
+                    compare_models=True,
+                    issue_date="2026-08-09",
+                    multiversion_selection=[TEST_SELECTION],
+                )
             )
 
         comparison = response["data"]["species"]["boletus"]["model_comparisons"]
-        self.assertTrue(
-            comparison["area_one"]["2026-08-09"]["fixed_gap_7d_altitude_v2"][
-                "available"
-            ]
+        self.assertEqual(
+            comparison["area_one"]["2026-08-09"]["selection_mode"],
+            "multiversion",
         )
-        self.assertEqual(v2_compare.call_count, 7)
-        v2_compare.assert_any_call(
-            species_id="boletus",
-            area_id="area_one",
-            target_date=date(2026, 8, 9),
-            issue_date=date(2026, 8, 9),
-            prepared_weather_cache=ANY,
-            comparison_cache=ANY,
-        )
+        self.assertEqual(service.multiversion_compare.call_count, 7)
 
     def test_query_area_anchors_current_week_to_explicit_issue_date(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -466,10 +642,7 @@ class PredictorServiceTests(TestCase):
                 for area_id, target_date in requests
             ]
             service.predictor = Mock(return_value=predictor)
-            v2_compare = Mock(
-                return_value={"interpretation": {"verdict": "uncertain"}}
-            )
-            service.v2_reference_compare = v2_compare
+            service.multiversion_compare = Mock(return_value=operational_comparison())
 
             response = service.execute(
                 self.request(
@@ -477,6 +650,7 @@ class PredictorServiceTests(TestCase):
                     area_id="",
                     target_date="2026-09-02",
                     issue_date="2026-09-02",
+                    multiversion_selection=[TEST_SELECTION],
                 )
             )
 
@@ -491,7 +665,7 @@ class PredictorServiceTests(TestCase):
             requested_dates,
             {date(2026, 9, 2) + timedelta(days=offset) for offset in range(7)},
         )
-        self.assertEqual(v2_compare.call_count, 14)
+        self.assertEqual(service.multiversion_compare.call_count, 14)
 
     def test_week_view_uses_the_selected_operational_versions(self) -> None:
         selection = {
@@ -579,12 +753,17 @@ class PredictorServiceTests(TestCase):
                 "area_two",
             ]
             service.predictor = Mock(return_value=predictor)
-            service.v2_reference_compare = Mock(
-                return_value={"interpretation": {"verdict": "favorable"}}
+            service.multiversion_compare = Mock(
+                return_value=operational_comparison("favorable")
             )
 
             response = service.execute(
-                self.request(view="recommender", area_id="", target_date="2026-08-10")
+                self.request(
+                    view="recommender",
+                    area_id="",
+                    target_date="2026-08-10",
+                    multiversion_selection=[TEST_SELECTION],
+                )
             )
             prepared = PreparedPredictor("boletus", response)
 
@@ -600,7 +779,7 @@ class PredictorServiceTests(TestCase):
             {"area_one", "area_two"},
         )
         predictor.rank_areas.assert_not_called()
-        self.assertEqual(service.v2_reference_compare.call_count, 2)
+        self.assertEqual(service.multiversion_compare.call_count, 2)
 
     def test_recommender_uses_the_selected_operational_versions(self) -> None:
         selection = {
@@ -644,7 +823,7 @@ class PredictorServiceTests(TestCase):
         self.assertEqual(service.multiversion_compare.call_count, 2)
         service.v2_reference_compare.assert_not_called()
 
-    def test_history_preserves_preferred_operational_comparison_in_prepared_adapter(
+    def test_history_preserves_multiversion_operational_comparison_in_prepared_adapter(
         self,
     ) -> None:
         with TemporaryDirectory() as temporary:
@@ -665,8 +844,8 @@ class PredictorServiceTests(TestCase):
             ]
             predictor.areas_with_species_observations.return_value = ["area_one"]
             service.predictor = Mock(return_value=predictor)
-            preferred = {
-                "selection_mode": "preferred_version",
+            selected = {
+                "selection_mode": "multiversion",
                 "selected_winners": [
                     {
                         "model_ref": {
@@ -677,22 +856,21 @@ class PredictorServiceTests(TestCase):
                 ],
                 "interpretation": {"verdict": "favorable"},
             }
-            service.v2_reference_compare = Mock(return_value=preferred)
+            service.multiversion_compare = Mock(return_value=selected)
 
-            response = service.execute(self.request(view="history", area_id=""))
+            response = service.execute(
+                self.request(
+                    view="history",
+                    area_id="",
+                    multiversion_selection=[TEST_SELECTION],
+                )
+            )
             prepared = PreparedPredictor("boletus", response)
 
         self.assertEqual(
-            prepared.model_comparison("area_one", date(2026, 8, 9)), preferred
+            prepared.model_comparison("area_one", date(2026, 8, 9)), selected
         )
-        service.v2_reference_compare.assert_called_once_with(
-            species_id="boletus",
-            area_id="area_one",
-            target_date=date(2026, 8, 9),
-            issue_date=date(2026, 8, 9),
-            prepared_weather_cache=ANY,
-            comparison_cache=ANY,
-        )
+        service.multiversion_compare.assert_called_once()
 
     def test_history_uses_the_selected_operational_version(self) -> None:
         selection = {
@@ -742,7 +920,7 @@ class PredictorServiceTests(TestCase):
         service.multiversion_compare.assert_called_once()
         service.v2_reference_compare.assert_not_called()
 
-    def test_shared_context_reuses_preferred_comparison_across_views(self) -> None:
+    def test_shared_context_keeps_multiversion_results_consistent_across_views(self) -> None:
         with TemporaryDirectory() as temporary:
             service = PredictorService(
                 models_dir=Path(temporary),
@@ -758,8 +936,11 @@ class PredictorServiceTests(TestCase):
                 {"area_id": "area_one", "observed_at": "2026-08-09"}
             ]
             service.predictor = Mock(return_value=predictor)
-            preferred = {"interpretation": {"verdict": "favorable"}}
-            service.v2_reference_compare = Mock(return_value=preferred)
+            service.multiversion_compare = Mock(
+                return_value=operational_comparison("favorable")[
+                    "operational_comparison"
+                ]
+            )
             shared_context: dict[str, object] = {}
 
             recommender = service.execute(
@@ -767,15 +948,20 @@ class PredictorServiceTests(TestCase):
                     view="recommender",
                     area_id="",
                     target_date="2026-08-09",
+                    multiversion_selection=[TEST_SELECTION],
                 ),
                 shared_context=shared_context,
             )
             history = service.execute(
-                self.request(view="history", area_id=""),
+                self.request(
+                    view="history",
+                    area_id="",
+                    multiversion_selection=[TEST_SELECTION],
+                ),
                 shared_context=shared_context,
             )
 
-        self.assertEqual(service.v2_reference_compare.call_count, 1)
+        self.assertEqual(service.multiversion_compare.call_count, 2)
         self.assertEqual(
             recommender["data"]["species"]["boletus"]["model_comparisons"]
             ["area_one"]["2026-08-09"],

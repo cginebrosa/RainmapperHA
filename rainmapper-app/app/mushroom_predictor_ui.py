@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+import hashlib
 import html
 import json
 from contextvars import ContextVar
@@ -18,6 +19,7 @@ from rainmapper_core import mushroom_soilgrids_reconciler
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_ml_multiversion_comparison
+from rainmapper_core import mushroom_ml_quality_catalog
 from rainmapper_core import mushroom_weather_idw
 from rainmapper_core.mushroom_ml_predictor import (
     MushroomMLPredictor,
@@ -191,6 +193,26 @@ def _tooltip_label_key(
     strong: bool = True,
 ) -> str:
     return _tooltip_label(_lbl(label_key), help_key, strong=strong)
+
+
+def _tooltip_text_block(text: str, help_key: str, *, detail: str = "") -> str:
+    """Render multiline result text with one accessible explanation."""
+    help_text = _lbl(help_key)
+    if detail:
+        help_text = f"{help_text}\n\n{detail}"
+    escaped_help = html.escape(help_text, quote=True)
+    return (
+        f'<span class="pred-result-help" tabindex="0" title="{escaped_help}">'
+        f'{html.escape(text)}'
+        f'<span class="pred-tooltip-icon" aria-hidden="true">ⓘ</span></span>'
+    )
+
+
+def _verdict_badge(text: str, tone: str) -> str:
+    return (
+        f'<span class="pred-scenario-verdict pred-scenario-verdict-'
+        f'{html.escape(tone)}">{html.escape(text)}</span>'
+    )
 
 
 def _predictor_error_text(exc: Exception) -> str:
@@ -453,7 +475,13 @@ def _url(
         params["executor"] = _executor_query.get()
     if reuse_result and _job_query.get():
         params["job_id"] = _job_query.get()
-    params.update({k: v for k, v in extra.items() if v})
+    params.update(
+        {
+            k: v
+            for k, v in extra.items()
+            if v and k not in {"mv", "mvv", "preferred_version_id"}
+        }
+    )
     return "?" + urlencode(params, doseq=True)
 
 
@@ -517,58 +545,14 @@ def _model_comparison(species_id: str, area_id: str, target_date: date) -> dict[
         ):
             return dict(prepared["operational_comparison"])
         return prepared
-    request_cache = _comparison_cache.get()
-    registry = request_cache.get("registry") if request_cache is not None else None
-    if not isinstance(registry, dict):
-        registry = mushroom_ml_version_registry.load_registry(
-            mushroom_paths.mushroom_ml_version_registry_path()
-        )
-        if request_cache is not None:
-            request_cache["registry"] = registry
-    preferred = registry.get("preferred_version_id")
-    manifests = _installed_manifests(
-        registry,
-        version_ids={str(preferred)} if preferred is not None else set(),
+    payload = _multiversion_result(
+        species_id,
+        area_id,
+        target_date,
+        multiversion_tokens_for_versions(species_id, operational_version_ids()),
     )
-    manifest = manifests.get(str(preferred)) if preferred is not None else None
-    if manifest is None:
-        return {"available": False, "reason": "preferred_version_not_installed"}
-    profiles = request_cache.get("profiles") if request_cache is not None else None
-    if not isinstance(profiles, dict):
-        profiles = json.loads(
-            mushroom_paths.mushroom_profiles_path().read_text(encoding="utf-8")
-        )
-        if request_cache is not None:
-            request_cache["profiles"] = profiles
-    species_profile = next(
-        (
-            row
-            for row in profiles.get("species_profiles", [])
-            if isinstance(row, dict) and row.get("species_id") == species_id
-        ),
-        {},
-    )
-    stations_file = Path("/app/stations.txt")
-    return mushroom_ml_multiversion_comparison.compare_operational_reference(
-        registry,
-        manifest,
-        species_id=species_id,
-        area_id=area_id,
-        target_date=target_date,
-        issue_date=min(date.today(), target_date),
-        season_phase=predictor.season_phase(target_date),
-        phenology=dict(species_profile.get("phenology") or {}),
-        models_root=mushroom_paths.mushroom_ml_models_dir(),
-        known_sites_path=mushroom_paths.mushroom_known_sites_path(),
-        weather_data_dir=mushroom_paths.weather_data_dir(),
-        excluded_station_keys=(
-            mushroom_weather_idw.disabled_wunderground_station_keys(stations_file)
-            if stations_file.is_file()
-            else frozenset()
-        ),
-        prepared_weather_cache=_prepared_weather_cache.get(),
-        comparison_cache=request_cache,
-    )
+    comparison = payload.get("operational_comparison") if isinstance(payload, dict) else None
+    return comparison if isinstance(comparison, dict) else None
 
 
 def _multiversion_catalog_payload() -> dict[str, Any]:
@@ -580,7 +564,6 @@ def _multiversion_catalog_payload() -> dict[str, Any]:
         return {"available": False, "entries": [], "installed_artifacts": []}
     result: dict[str, Any] = {
         "available": True,
-        "preferred_version_id": registry.get("preferred_version_id"),
         "entries": mushroom_ml_model_catalog.catalog_entries(registry),
         "runtime_batch_status": "not_installed",
         "runtime_batches": {},
@@ -613,6 +596,62 @@ def _multiversion_catalog_payload() -> dict[str, Any]:
     return result
 
 
+def operational_reliability_selections(
+    area_ids_by_species: dict[str, list[str]],
+) -> list[dict[str, Any]]:
+    """Resolve every operational area from sealed area or species decisions."""
+    registry = mushroom_ml_version_registry.load_registry(
+        mushroom_paths.mushroom_ml_version_registry_path()
+    )
+    manifests = _installed_manifests(registry)
+    batch_ids = {str(row.get("batch_id") or "") for row in manifests.values()}
+    if len(batch_ids) != 1:
+        raise ValueError("Installed versions do not share one operational batch.")
+    manifest = next(iter(manifests.values()), None)
+    quality_ref = manifest.get("quality_catalog") if isinstance(manifest, dict) else None
+    if not isinstance(quality_ref, dict):
+        raise ValueError("Installed operational batch has no quality catalog.")
+    quality_path = mushroom_paths.mushroom_ml_models_dir() / str(
+        quality_ref.get("path") or ""
+    )
+    content = quality_path.read_bytes()
+    if hashlib.sha256(content).hexdigest() != str(quality_ref.get("sha256") or ""):
+        raise ValueError("Installed operational quality catalog digest is invalid.")
+    catalog = mushroom_ml_quality_catalog.validate_catalog(
+        json.loads(content), require_selections=True
+    )
+    area_rows = {
+        (
+            str(row["species_id"]),
+            str(row["area_id"]),
+            int(row["prediction_day"]),
+        ): dict(row)
+        for row in catalog["species_area_selections"]
+    }
+    species_rows = {
+        (str(row["species_id"]), int(row["prediction_day"])): dict(row)
+        for row in catalog["species_selections"]
+    }
+    resolved: list[dict[str, Any]] = []
+    for species_id, area_ids in sorted(area_ids_by_species.items()):
+        for area_id in sorted(set(area_ids)):
+            for prediction_day in range(1, 8):
+                area_row = area_rows.get((species_id, area_id, prediction_day))
+                if area_row is not None:
+                    resolved.append(area_row)
+                    continue
+                species_row = species_rows.get((species_id, prediction_day))
+                if species_row is None:
+                    raise ValueError(
+                        "Operational quality catalog does not cover every species day."
+                    )
+                resolution = {**species_row, "area_id": area_id}
+                if species_row.get("selection_status") == "winner":
+                    resolution["selection_scope"] = "species_fallback"
+                resolved.append(resolution)
+    return resolved
+
+
 def multiversion_tokens_for_versions(species_id: str, version_ids: list[str]) -> list[str]:
     """Expand the simple V2--V6 choice to exact installed members."""
     payload = _multiversion_catalog_payload()
@@ -624,7 +663,7 @@ def multiversion_tokens_for_versions(species_id: str, version_ids: list[str]) ->
     tokens: list[str] = []
     availability_by_profile: dict[tuple[str, str], bool] = {}
     for entry in entries:
-        if not isinstance(entry, dict) or not entry.get("catalog_visible"):
+        if not isinstance(entry, dict) or entry.get("operational_eligible") is not True:
             continue
         version_id = str(entry.get("version_id") or "")
         profile_id = str(entry.get("profile_id") or "")
@@ -671,29 +710,30 @@ def multiversion_tokens_for_versions(species_id: str, version_ids: list[str]) ->
     return tokens
 
 
-def _multiversion_controls(
-    species_id: str, selected_tokens: list[str], selected_versions: list[str]
-) -> str:
+def operational_version_ids() -> list[str]:
+    """Return every installed version with at least one operational profile."""
+    payload = _multiversion_catalog_payload()
+    installed = set((payload.get("runtime_batches") or {}).keys())
+    result: list[str] = []
+    for entry in payload.get("entries") or []:
+        if not isinstance(entry, dict) or entry.get("operational_eligible") is not True:
+            continue
+        version_id = str(entry.get("version_id") or "")
+        if version_id in installed and version_id not in result:
+            result.append(version_id)
+    return result
+
+
+def _operational_versions_detail(species_id: str) -> str:
+    """Describe the automatically compared operational set without controls."""
     payload = _multiversion_catalog_payload()
     entries = payload.get("entries") if isinstance(payload, dict) else []
     artifacts = payload.get("installed_artifacts") if isinstance(payload, dict) else []
     entries = entries if isinstance(entries, list) else []
     artifacts = artifacts if isinstance(artifacts, list) else []
-    selected_version_set = set(selected_versions)
-    if not selected_version_set:
-        selected_version_set = {
-            str(mushroom_ml_model_catalog.parse_selection_token(token)["version_id"])
-            for token in selected_tokens
-        }
-    if not selected_version_set:
-        preferred = str(payload.get("preferred_version_id") or "")
-        if preferred:
-            selected_version_set.add(preferred)
-    version_rows = []
-    seen_versions: set[str] = set()
     availability_by_profile: dict[tuple[str, str], bool] = {}
     for entry in entries:
-        if not isinstance(entry, dict) or not entry.get("catalog_visible"):
+        if not isinstance(entry, dict) or entry.get("operational_eligible") is not True:
             continue
         version_id = str(entry.get("version_id") or "")
         profile_id = str(entry.get("profile_id") or "")
@@ -708,148 +748,28 @@ def _multiversion_controls(
             )
         ]
         availability_by_profile[(version_id, profile_id)] = bool(matching)
-        if version_id in seen_versions:
-            continue
-        seen_versions.add(version_id)
-        short = _VERSION_SHORT_NAMES.get(version_id, version_id)
-        compact_name = _VERSION_COMPACT_NAMES.get(
-            version_id, str(entry.get("version_display_name") or version_id)
-        )
-        checked = " checked" if version_id in selected_version_set else ""
-        installed = any(
-            isinstance(row, dict) and isinstance(row.get("artifact_ref"), dict)
-            and row["artifact_ref"].get("version_id") == version_id
-            and (
-                not species_id
-                or row["artifact_ref"].get("species_id") in {species_id, "all_species"}
-            )
-            for row in artifacts
-        )
-        if not installed:
-            continue
-        version_rows.append(
-            f'<label class="pred-version-choice" title="{html.escape(compact_name, quote=True)}">'
-            f'<input type="checkbox" name="mvv" '
-            f'value="{html.escape(version_id, quote=True)}"{checked}> '
-            f'<strong>{html.escape(short)}</strong></label>'
-        )
     catalog_rows = "".join(
         f'<li><code>{html.escape(str(entry.get("version_display_name") or entry.get("version_id")))}</code> · '
         f'{html.escape(str(entry.get("profile_display_name") or entry.get("profile_id")))} · '
         f'{html.escape(_lbl("ui.predictor_multiversion_installed") if availability_by_profile.get((str(entry.get("version_id")), str(entry.get("profile_id")))) else _lbl("ui.predictor_multiversion_not_installed"))}</li>'
         for entry in entries
-        if isinstance(entry, dict) and entry.get("catalog_visible")
+        if isinstance(entry, dict) and entry.get("operational_eligible") is True
+        and availability_by_profile.get(
+            (str(entry.get("version_id")), str(entry.get("profile_id")))
+        )
     )
     return f"""
 <div class="pred-multiversion-controls">
-  <label>Versiones incluidas en la predicción</label>
-  <div class="pred-version-choices">{''.join(version_rows)}</div>
-  <small>Las versiones marcadas participan en igualdad. Se evaluarán sus perfiles, contratos y algoritmos disponibles para la fecha solicitada.</small>
-  <details><summary>Detalle técnico y disponibilidad</summary><ul>{catalog_rows}</ul></details>
+  <small>{html.escape(_lbl("ui.predictor_operational_versions_auto"))}</small>
+  <details><summary>{html.escape(_lbl("ui.predictor_operational_versions_detail"))}</summary><ul>{catalog_rows}</ul></details>
 </div>
 """
-
-
-def _preferred_version_control(
-    species_id: str,
-    area_id: str,
-    target_date: date,
-    *,
-    compare_models: bool,
-    selected_versions: list[str],
-) -> str:
-    payload = _multiversion_catalog_payload()
-    preferred = str(payload.get("preferred_version_id") or "")
-    installed_ids = set((payload.get("runtime_batches") or {}).keys())
-    entries = payload.get("entries") if isinstance(payload, dict) else []
-    entries = entries if isinstance(entries, list) else []
-    preferred = _preferred_version_id() or preferred
-    selected_choice = preferred
-    choices = []
-    seen: set[str] = set()
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        version_id = str(entry.get("version_id") or "")
-        if version_id in seen or version_id not in installed_ids:
-            continue
-        seen.add(version_id)
-        selected = " selected" if version_id == selected_choice else ""
-        short = _VERSION_SHORT_NAMES.get(version_id, version_id)
-        compact_name = _VERSION_COMPACT_NAMES.get(
-            version_id, str(entry.get("version_display_name") or version_id)
-        )
-        choices.append(
-            f'<option value="{html.escape(version_id, quote=True)}"{selected}>'
-            f'{html.escape(short)} · {html.escape(compact_name)}</option>'
-        )
-    if not choices:
-        return ""
-    return_url = _url(
-        "query",
-        species_id,
-        area_id,
-        target_date,
-        compare="1" if compare_models else "0",
-        mvv=selected_versions,
-    )
-    preferred_name = _VERSION_SHORT_NAMES.get(preferred, preferred)
-    return f"""
-<div class="pred-form-row pred-preferred-field">
-  <label for="pred-preferred-version">{html.escape(_lbl("ui.predictor_preferred_short"))}</label>
-  <div class="pred-preferred-actions">
-    <select id="pred-preferred-version" name="preferred_version_id"
-            title="{html.escape(_lbl("ui.predictor_preferred_help"), quote=True)}">{''.join(choices)}</select>
-    <button type="submit" class="secondary" name="predictor_action"
-            value="set_preferred_version" formmethod="post"
-            formaction="{html.escape(return_url, quote=True)}"
-            data-predictor-preferred-submit>{html.escape(_lbl("ui.predictor_preferred_save"))}</button>
-  </div>
-  <small class="pred-preferred-current"
-         data-predictor-preferred-current
-         data-current-template="{html.escape(_lbl('ui.predictor_preferred_current'), quote=True)}">{html.escape(_lbl("ui.predictor_preferred_current").format(version=preferred_name))}</small>
-</div>
-"""
-
-
-def _preferred_version_id() -> str:
-    request_cache = _comparison_cache.get()
-    registry = request_cache.get("registry") if request_cache is not None else None
-    if not isinstance(registry, dict):
-        try:
-            registry = mushroom_ml_version_registry.load_registry(
-                mushroom_paths.mushroom_ml_version_registry_path()
-            )
-            if request_cache is not None:
-                request_cache["registry"] = registry
-        except (OSError, ValueError):
-            registry = {}
-    return str(registry.get("preferred_version_id") or "")
 
 
 def resolved_query_versions(query: dict[str, list[str]]) -> list[str]:
-    """Resolve the exact query selection once for queueing and rendering."""
-    selected = [str(value) for value in query.get("mvv", []) if str(value)]
-    if selected:
-        return selected
-    form_choice = str((query.get("preferred_version_id") or [""])[0])
-    if form_choice:
-        return [form_choice]
-    preferred = _preferred_version_id()
-    return [preferred] if preferred else []
-
-
-def _preferred_version_badge() -> str:
-    preferred_id = _preferred_version_id()
-    if not preferred_id:
-        return ""
-    preferred_name = _VERSION_SHORT_NAMES.get(preferred_id, preferred_id)
-    return (
-        '<div class="pred-preferred-badge">'
-        f'<span>{html.escape(_lbl("ui.predictor_preferred_badge"))}</span>'
-        f'<strong data-predictor-preferred-badge>{html.escape(preferred_name)}</strong>'
-        '</div>'
-    )
+    """Resolve every currently installed operational version."""
+    del query
+    return operational_version_ids()
 
 
 def _prediction_timing_badge() -> str:
@@ -949,9 +869,6 @@ def _multiversion_result(
         if not isinstance(payload, dict):
             return None
         result = dict(payload)
-        catalog = data.get("model_catalog")
-        if isinstance(catalog, dict):
-            result.setdefault("preferred_version_id", catalog.get("preferred_version_id"))
         return result
     request_cache = _comparison_cache.get()
     registry = request_cache.get("registry") if request_cache is not None else None
@@ -1029,7 +946,6 @@ def _multiversion_result(
         "batch_ids": batch_ids,
         "members": members,
         "operational_comparison": operational,
-        "preferred_version_id": registry.get("preferred_version_id"),
     }
 
 
@@ -1094,7 +1010,7 @@ def _render_multiversion_result(payload: dict[str, Any] | None) -> str:
     }
     applicability_labels = {
         "within_observed_range": "en rango",
-        "caution": "extrapolación leve",
+        "caution": "advertencia de extrapolación",
         "outside_domain": "fuera de dominio",
     }
 
@@ -1404,8 +1320,6 @@ def _interpretation(comparison: dict[str, Any] | None) -> dict[str, Any]:
 def _interpretation_label(interpretation: dict[str, Any]) -> str:
     verdict = str(interpretation.get("verdict", "abstain"))
     if verdict == "abstain":
-        if interpretation.get("ecological_compatibility") == "compatible":
-            return _lbl("ui.predictor_conditions_compatible_unconfirmed")
         unvalidated_signal = str(
             interpretation.get("unvalidated_signal", "unavailable")
         )
@@ -1571,6 +1485,214 @@ def _compact_operational_abstention(comparison: dict[str, Any] | None) -> str:
     )
 
 
+def _reliability_evidence(
+    comparison: dict[str, Any] | None,
+    *,
+    scope: str | None = None,
+) -> dict[str, Any] | None:
+    """Return displayable evidence for the sealed winner in one scope."""
+    if not isinstance(comparison, dict):
+        return None
+    selection = comparison.get("reliability_selection")
+    if not isinstance(selection, dict):
+        return None
+    if scope is None:
+        evidence = selection.get("evidence")
+    else:
+        evidence_by_scope = selection.get("evidence_by_scope")
+        if isinstance(evidence_by_scope, dict):
+            evidence = evidence_by_scope.get(scope)
+        else:
+            selected_scope = str(selection.get("selection_scope") or "")
+            expected_scope = "area" if selected_scope == "area" else "species"
+            evidence = selection.get("evidence") if scope == expected_scope else None
+    if not isinstance(evidence, dict):
+        return None
+    integer_fields = (
+        "favorable_call_count",
+        "true_favorable_count",
+        "observation_count",
+        "validation_group_count",
+    )
+    if any(
+        not isinstance(evidence.get(field), int)
+        or isinstance(evidence.get(field), bool)
+        for field in integer_fields
+    ):
+        return None
+    numeric_fields = ("favorable_precision", "wilson_lower_95_observations")
+    if any(
+        evidence.get(field) is not None
+        and (
+            not isinstance(evidence.get(field), (int, float))
+            or isinstance(evidence.get(field), bool)
+        )
+        for field in numeric_fields
+    ):
+        return None
+    return evidence
+
+
+def _selection_evidence_source(comparison: dict[str, Any] | None) -> str:
+    if not isinstance(comparison, dict):
+        return ""
+    selection = comparison.get("reliability_selection")
+    if not isinstance(selection, dict):
+        return ""
+    scope = str(selection.get("selection_scope") or "")
+    if scope == "area":
+        return _lbl("ui.predictor_selected_by_area_evidence")
+    if scope in {"species", "species_fallback"}:
+        return _lbl("ui.predictor_selected_by_species_fallback")
+    return ""
+
+
+def _selection_evidence_source_short(comparison: dict[str, Any] | None) -> str:
+    if not isinstance(comparison, dict):
+        return ""
+    selection = comparison.get("reliability_selection")
+    if not isinstance(selection, dict):
+        return ""
+    scope = str(selection.get("selection_scope") or "")
+    if scope == "area":
+        return _lbl("ui.predictor_selected_by_area_evidence_short")
+    if scope in {"species", "species_fallback"}:
+        return _lbl("ui.predictor_selected_by_species_fallback_short")
+    return ""
+
+
+def _compact_scope_reliability(
+    comparison: dict[str, Any] | None,
+    scope: str,
+) -> str:
+    scope_label = _lbl(f"ui.predictor_{scope}_evidence")
+    evidence = _reliability_evidence(comparison, scope=scope)
+    if evidence is None:
+        return _lbl("ui.predictor_scope_evidence_unavailable").format(
+            scope=scope_label
+        )
+    eligibility = (
+        ""
+        if evidence.get("eligible", True)
+        else f' · {_lbl("ui.predictor_scope_evidence_not_eligible")}'
+    )
+    return _lbl("ui.predictor_scope_reliability_compact").format(
+        scope=scope_label,
+        observed=(
+            f'{float(evidence["favorable_precision"]) * 100:.0f}%'
+            if evidence.get("favorable_precision") is not None
+            else "—"
+        ),
+        reliability=(
+            f'{float(evidence["wilson_lower_95_observations"]) * 100:.0f}%'
+            if evidence.get("wilson_lower_95_observations") is not None
+            else "—"
+        ),
+        correct=evidence["true_favorable_count"],
+        calls=evidence["favorable_call_count"],
+        observations=evidence["observation_count"],
+        fruitings=evidence["validation_group_count"],
+        eligibility=eligibility,
+    )
+
+
+def _compact_conservative_reliability(
+    comparison: dict[str, Any] | None,
+) -> str:
+    """Show both evidence scopes in a compact, scan-friendly summary."""
+    evidence = _reliability_evidence(comparison)
+    if evidence is None:
+        return ""
+    lines: list[str] = []
+    for scope in ("area", "species"):
+        scoped = _reliability_evidence(comparison, scope=scope)
+        scope_label = _lbl(f"ui.predictor_{scope}_scope_short")
+        if scoped is None:
+            lines.append(
+                _lbl("ui.predictor_scope_evidence_unavailable").format(
+                    scope=scope_label
+                )
+            )
+            continue
+        eligibility = (
+            ""
+            if scoped.get("eligible", True)
+            else f' · {_lbl("ui.predictor_scope_evidence_not_eligible")}'
+        )
+        lines.append(
+            _lbl("ui.predictor_scope_reliability_summary").format(
+                scope=scope_label,
+                observed=(
+                    f'{float(scoped["favorable_precision"]) * 100:.0f}%'
+                    if scoped.get("favorable_precision") is not None
+                    else "—"
+                ),
+                reliability=(
+                    f'{float(scoped["wilson_lower_95_observations"]) * 100:.0f}%'
+                    if scoped.get("wilson_lower_95_observations") is not None
+                    else "—"
+                ),
+                correct=scoped["true_favorable_count"],
+                calls=scoped["favorable_call_count"],
+                observations=scoped["observation_count"],
+                fruitings=scoped["validation_group_count"],
+                eligibility=eligibility,
+            )
+        )
+    source = _selection_evidence_source_short(comparison)
+    if source:
+        lines.append(source)
+    return "\n".join(lines)
+
+
+def _compact_deciding_reliability_html(
+    comparison: dict[str, Any] | None,
+) -> str:
+    full_evidence = _compact_conservative_reliability(comparison)
+    if not full_evidence or not isinstance(comparison, dict):
+        return ""
+    selection = comparison.get("reliability_selection")
+    if not isinstance(selection, dict):
+        return _tooltip_text_block(
+            full_evidence, "ui.predictor_help_reliability_result"
+        )
+    scope = str(selection.get("selection_scope") or "")
+    if scope == "species_fallback":
+        scope = "species"
+    if scope not in {"area", "species"}:
+        return _tooltip_text_block(
+            full_evidence, "ui.predictor_help_reliability_result"
+        )
+    evidence = _reliability_evidence(comparison, scope=scope)
+    if evidence is None:
+        return _tooltip_text_block(
+            full_evidence, "ui.predictor_help_reliability_result"
+        )
+    observed = (
+        f'{float(evidence["favorable_precision"]) * 100:.0f}%'
+        if evidence.get("favorable_precision") is not None
+        else "—"
+    )
+    reliability = (
+        f'{float(evidence["wilson_lower_95_observations"]) * 100:.0f}%'
+        if evidence.get("wilson_lower_95_observations") is not None
+        else "—"
+    )
+    compact = _lbl("ui.predictor_deciding_reliability_compact").format(
+        scope=_lbl(f"ui.predictor_{scope}_scope_short"),
+        observed=observed,
+        correct=evidence["true_favorable_count"],
+        calls=evidence["favorable_call_count"],
+        reliability=reliability,
+        fruitings=evidence["validation_group_count"],
+    )
+    return _tooltip_text_block(
+        compact,
+        "ui.predictor_help_reliability_result",
+        detail=full_evidence,
+    )
+
+
 def _scenario_abstentions_html(comparison: dict[str, Any]) -> str:
     rendered: list[str] = []
     for row in _operational_abstention_rows(comparison):
@@ -1599,11 +1721,23 @@ def _scenario_abstentions_html(comparison: dict[str, Any]) -> str:
 def _interpretation_sort_key(interpretation: dict[str, Any]) -> tuple[int, float]:
     verdict = str(interpretation.get("verdict", "abstain"))
     rank = {"favorable": 5, "uncertain": 4, "unfavorable": 1, "abstain": 0}.get(verdict, 0)
-    if verdict == "abstain":
-        rank = 3 if interpretation.get("ecological_compatibility") == "compatible" else 0
     value = interpretation.get("reference_range")
     midpoint = value.get("midpoint") if isinstance(value, dict) else None
     return rank, float(midpoint) if isinstance(midpoint, (int, float)) else -1.0
+
+
+def _compact_result_probability(interpretation: dict[str, Any]) -> str:
+    # MOD_0001: ecological timing is advisory and cannot relabel the
+    # fitted probability as a pre-veto signal.
+    return _compact_interpretation_range(interpretation)
+
+
+def _compact_result_probability_html(interpretation: dict[str, Any]) -> str:
+    return _tooltip_label(
+        _compact_result_probability(interpretation),
+        "ui.predictor_help_prediction_probability",
+        strong=False,
+    )
 
 
 def _scenario_consensus_html(comparison: dict[str, Any]) -> str:
@@ -1766,28 +1900,14 @@ def _render_interpretation_card(
 ) -> str:
     interpretation = _interpretation(comparison)
     status = _interpretation_status(interpretation)
-    ecological_compatibility = str(
-        interpretation.get("ecological_compatibility", "unknown")
-    )
-    ecological_evidence = str(
-        interpretation.get("ecological_evidence", "low")
-    )
-    timing = str(interpretation.get("fruiting_timing", "unknown"))
-    weather = str(interpretation.get("weather_signal", "unknown"))
     reason_codes = {
         str(value) for value in interpretation.get("reason_codes", [])
     }
+    timing = str(interpretation.get("fruiting_timing", "unknown"))
+    # MOD_0001: timing is shown only as an advisory diagnostic. It never
+    # changes the fitted probability, verdict, ranking or applicability gate.
     ecological_detail_keys: list[str] = []
     statistical_detail_keys: list[str] = []
-    if weather in {"recent_event", "old_event", "no_event"}:
-        ecological_detail_keys.append(f"ui.predictor_interpretation_weather_{weather}")
-    ecological_rain_guardrail = "ecological_rain_guardrail" in reason_codes
-    if timing != "unknown" and not (
-        ecological_rain_guardrail and weather in {"old_event", "no_event"}
-    ):
-        ecological_detail_keys.append(f"ui.predictor_interpretation_timing_{timing}")
-    if ecological_rain_guardrail:
-        ecological_detail_keys.append("ui.predictor_interpretation_rain_guardrail")
     if "feature_sets_use_different_stations" in reason_codes:
         ecological_detail_keys.append("ui.predictor_interpretation_different_stations")
     if "no_estimator_beats_prevalence" in reason_codes:
@@ -1826,10 +1946,48 @@ def _render_interpretation_card(
     statistical_details = " ".join(
         html.escape(_lbl(key)) for key in statistical_detail_keys
     )
-    details_html = "".join(
-        f'<p class="pred-interpretation-detail">{details}</p>'
-        for details in (ecological_details, statistical_details)
-        if details
+    ecological_details_html = (
+        f'<p class="pred-interpretation-detail">{ecological_details}</p>'
+        if ecological_details
+        else ""
+    )
+    statistical_details_html = (
+        f'<p class="pred-interpretation-detail">{statistical_details}</p>'
+        if statistical_details
+        else ""
+    )
+    rain_event_rows: list[str] = []
+    for event in interpretation.get("significant_rain_events") or []:
+        if not isinstance(event, dict):
+            continue
+        try:
+            event_day = date.fromisoformat(str(event["date"]))
+            amount = float(event["amount_mm"])
+            days_since = int(event["days_since_target"])
+            threshold = float(event["threshold_mm"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        event_value = _lbl("ui.predictor_significant_rain_event_value").format(
+            date=f"{event_day.day:02d}/{event_day.month:02d}/{event_day.year}",
+            amount=f"{amount:.1f}",
+            days=days_since,
+            threshold=f"{threshold:g}",
+        )
+        rain_event_rows.append(f"<span>{html.escape(event_value)}</span>")
+    rain_event_html = (
+        '<div class="pred-interpretation-meta pred-rain-event-summary">'
+        f'{_tooltip_label_key("ui.predictor_significant_rain_event", "ui.predictor_help_significant_rain_event")}: '
+        f'{"".join(rain_event_rows)}</div>'
+        if rain_event_rows
+        else ""
+    )
+    fruiting_timing_html = (
+        '<div class="pred-interpretation-meta pred-fruiting-timing-summary">'
+        f'{_tooltip_label_key("ui.predictor_advisory_fruiting_timing", "ui.predictor_help_advisory_fruiting_timing")}: '
+        f'<span>{html.escape(_lbl(f"ui.predictor_interpretation_timing_{timing}"))}</span>'
+        '</div>'
+        if timing != "unknown"
+        else ""
     )
     multiversion = comparison.get("selection_mode") == "multiversion"
     selected_winners = [
@@ -1852,16 +2010,112 @@ def _render_interpretation_card(
             }
     range_html = ""
     if isinstance(display_reference_range, dict):
-        range_label_key = (
-            "ui.predictor_selected_range"
-            if multiversion
-            else "ui.predictor_operational_range"
-        )
         range_html = (
             f'<div class="pred-interpretation-range">'
-            f'<span>{html.escape(_lbl(range_label_key))}</span>'
+            f'<span>{_tooltip_label_key("ui.predictor_estimated_probability", "ui.predictor_help_prediction_probability", strong=False)}</span>'
             f'<strong>{html.escape(_probability_range(display_reference_range))}</strong>'
             f'</div>'
+        )
+    reliability_html = ""
+    reliability_selection = comparison.get("reliability_selection") or {}
+    reliability_selection = (
+        reliability_selection
+        if isinstance(reliability_selection, dict)
+        else {}
+    )
+    evidence = _reliability_evidence(comparison)
+    if evidence is not None:
+        scope_rows: list[str] = []
+        selection_scope = (
+            str(reliability_selection.get("selection_scope") or "")
+        )
+        scope_order = (
+            ("species", "area")
+            if selection_scope in {"species", "species_fallback"}
+            else ("area", "species")
+        )
+        for index, evidence_scope in enumerate(scope_order):
+            scope_label = _lbl(f"ui.predictor_{evidence_scope}_evidence")
+            scope_help_key = f"ui.predictor_help_{evidence_scope}_evidence"
+            evidence_role = _lbl(
+                "ui.predictor_deciding_evidence"
+                if index == 0
+                else "ui.predictor_reference_evidence"
+            )
+            scoped = _reliability_evidence(comparison, scope=evidence_scope)
+            if scoped is None:
+                scope_rows.append(
+                    f'<span><small>{html.escape(evidence_role)}</small>'
+                    f'{_tooltip_label(scope_label + ":", scope_help_key)} '
+                    f'{html.escape(_lbl("ui.predictor_evidence_unavailable"))}</span>'
+                )
+                continue
+            eligibility = (
+                ""
+                if scoped.get("eligible", True)
+                else f' · {_lbl("ui.predictor_scope_evidence_not_eligible")}'
+            )
+            conservative = (
+                f'{float(scoped["wilson_lower_95_observations"]) * 100:.0f}%'
+                if scoped.get("wilson_lower_95_observations") is not None
+                else "—"
+            )
+            observed = (
+                f'{float(scoped["favorable_precision"]) * 100:.0f}%'
+                if scoped.get("favorable_precision") is not None
+                else "—"
+            )
+            observed_text = (
+                f'{_lbl("ui.predictor_observed_outing_accuracy")} {observed} '
+                f'({scoped["true_favorable_count"]}/{scoped["favorable_call_count"]})'
+            )
+            conservative_text = (
+                f'{_lbl("ui.predictor_conservative_reliability")} {conservative}'
+            )
+            observations_text = (
+                f'{scoped["observation_count"]} '
+                f'{_lbl("ui.predictor_test_observations").lower()}'
+            )
+            fruitings_text = (
+                f'{scoped["validation_group_count"]} '
+                f'{_lbl("ui.predictor_test_fruiting_groups").lower()}'
+            )
+            scope_rows.append(
+                f'<span><small>{html.escape(evidence_role)}</small>'
+                f'{_tooltip_label(scope_label + ":", scope_help_key)} '
+                f'{_tooltip_label(observed_text, "ui.predictor_help_observed_outing_accuracy", strong=False)} · '
+                f'{_tooltip_label(conservative_text, "ui.predictor_help_conservative_reliability", strong=False)} · '
+                f'{_tooltip_label(observations_text, "ui.predictor_help_test_observations", strong=False)} · '
+                f'{_tooltip_label(fruitings_text, "ui.predictor_help_test_fruiting_groups", strong=False)}'
+                f'{html.escape(eligibility)}</span>'
+            )
+        source = _selection_evidence_source(comparison)
+        source_row = (
+            f'<span>{_tooltip_label_key("ui.predictor_selection_source", "ui.predictor_help_selection_source")}: '
+            f'{html.escape(source)}</span>'
+            if source
+            else ""
+        )
+        reliability_html = (
+            '<div class="pred-interpretation-meta pred-reliability-summary">'
+            f'{"".join(scope_rows)}{source_row}'
+            '</div>'
+        )
+    fallback_html = ""
+    fallback_rank = reliability_selection.get("fallback_rank")
+    if (
+        isinstance(fallback_rank, int)
+        and not isinstance(fallback_rank, bool)
+        and fallback_rank > 0
+    ):
+        fallback_text = _lbl("ui.predictor_applicability_fallback_value").format(
+            skipped=fallback_rank,
+            position=fallback_rank + 1,
+        )
+        fallback_html = (
+            '<div class="pred-interpretation-meta pred-applicability-fallback">'
+            f'{_tooltip_label_key("ui.predictor_applicability_fallback", "ui.predictor_help_applicability_fallback")}: '
+            f'<span>{html.escape(fallback_text)}</span></div>'
         )
     consensus_rows_html = _scenario_consensus_html(comparison)
     consensus_summary = comparison.get("consensus_summary") or {}
@@ -1935,14 +2189,13 @@ def _render_interpretation_card(
             )
             winner_rows.append(
                 '<span class="pred-selected-model">'
-                f'<strong>{html.escape(estimator)}–{html.escape(version)}</strong> '
-                f'{html.escape(_operational_pct(winner.get("probability")))}'
+                f'<strong>{html.escape(estimator)}–{html.escape(version)}</strong>'
                 f'<small>{html.escape(family)} h{html.escape(horizon)}{validation}{applicability}</small>'
                 '</span>'
             )
     winners_html = (
         '<div class="pred-selected-models">'
-        f'<span>{html.escape(_lbl("ui.predictor_selected_models"))}</span>'
+        f'<span>{_tooltip_label_key("ui.predictor_selected_model", "ui.predictor_help_selected_model", strong=False)}</span>'
         f'{"".join(winner_rows)}</div>'
         if winner_rows
         else ""
@@ -1966,6 +2219,14 @@ def _render_interpretation_card(
         if multiversion
         else "ui.predictor_active_version_role"
     )
+    technical_summary_html = (
+        '<details class="pred-summary-technical">'
+        f'<summary>{html.escape(_lbl("ui.predictor_summary_technical_details"))}</summary>'
+        f'{quality_gate_html}'
+        f'<p class="pred-version-role">{html.escape(_lbl(role_key))}</p>'
+        f'{scenario_evidence_html}{consensus_html}{statistical_details_html}'
+        '</details>'
+    )
     return f"""
 <section class="pred-interpretation-card {_status_cls(status)}">
   <div class="pred-result-header">
@@ -1977,16 +2238,13 @@ def _render_interpretation_card(
   <div class="pred-interpretation-title">{html.escape(_interpretation_label(interpretation))}</div>
   {range_html}
   {winners_html}
+  {fallback_html}
+  {reliability_html}
   {abstentions_html}
-  {quality_gate_html}
-  <p class="pred-version-role">{html.escape(_lbl(role_key))}</p>
-  <div class="pred-interpretation-meta">
-    <span>{_tooltip_label_key("ui.predictor_ecological_compatibility", "ui.predictor_help_ecological_compatibility")}: {html.escape(_lbl(f"ui.predictor_ecological_compatibility_{ecological_compatibility}"))}</span>
-    <span>{_tooltip_label_key("ui.predictor_ecological_evidence", "ui.predictor_help_ecological_reliability")}: {html.escape(_lbl(f"ui.predictor_ecological_evidence_{ecological_evidence}"))}</span>
-    {scenario_evidence_html}
-    {consensus_html}
-  </div>
-  {details_html}
+  {rain_event_html}
+  {fruiting_timing_html}
+  {ecological_details_html}
+  {technical_summary_html}
 </section>
 """
 
@@ -2029,22 +2287,8 @@ def _multiversion_view_form(
     selected_multiversion: list[str],
     selected_versions: list[str],
 ) -> str:
-    controls = _multiversion_controls(
-        species if view == "week" else "",
-        selected_multiversion,
-        selected_versions,
-    )
-    return f"""
-<form class="pred-form pred-multiversion-view-form" method="get" action=""
-      data-predictor-direct-form>
-  <input type="hidden" name="view" value="{html.escape(view, quote=True)}">
-  <input type="hidden" name="date" value="{target_date.isoformat()}">
-  {f'<input type="hidden" name="species" value="{html.escape(species, quote=True)}">' if species else ''}
-  {_executor_hidden_input()}
-  {controls}
-  <button type="submit" class="primary">{html.escape(_lbl("ui.search"))}</button>
-</form>
-"""
+    del target_date, selected_multiversion, selected_versions
+    return _operational_versions_detail(species if view == "week" else "")
 
 
 def normalize_predictor_target_date(
@@ -2111,7 +2355,7 @@ def _render_recommender(
         "recommender", "", target_date, selected_multiversion, selected_versions
     )
 
-    all_results: list[tuple[dict[str, Any], str, str, str, str]] = []
+    all_results: list[tuple[dict[str, Any], str, str, str, str, str]] = []
     errors = []
     for species_id in trained:
         try:
@@ -2129,6 +2373,7 @@ def _render_recommender(
                             area_id,
                             _selected_model_source(comparison),
                             _compact_operational_abstention(comparison),
+                            _compact_deciding_reliability_html(comparison),
                         )
                     )
         except FileNotFoundError:
@@ -2167,6 +2412,7 @@ def _render_recommender(
         best_area,
         best_source,
         best_abstention,
+        best_reliability,
     ) = ranked_results[0]
     best_species_name = _species_name(best_species, profiles_payload)
     best_area_name = _area_name(best_area, known_sites_payload)
@@ -2181,8 +2427,9 @@ def _render_recommender(
   <div class="pred-best-badge">{html.escape(best_badge)}</div>
   <div class="pred-best-name">{_status_dot(best_status)} {html.escape(best_species_name)}</div>
   <div class="pred-best-area">{html.escape(best_area_name)}</div>
-  <div class="pred-best-prob">{html.escape(_compact_interpretation_range(best_interpretation))}</div>
+  <div class="pred-best-prob">{_compact_result_probability_html(best_interpretation)}</div>
   <small class="pred-result-source">{html.escape(best_source or best_abstention)}</small>
+  {f'<small class="pred-result-reliability">{best_reliability}</small>' if best_reliability else ''}
   <div class="pred-best-hint">{html.escape(_interpretation_label(best_interpretation))}</div>
 </div>
 """
@@ -2190,7 +2437,14 @@ def _render_recommender(
     # Ranked list
     rows_html = ""
     area_options_by_species: dict[str, list[dict[str, str]]] = {}
-    for interpretation, sp_id, area_id, model_source, abstention in ranked_results[:15]:
+    for (
+        interpretation,
+        sp_id,
+        area_id,
+        model_source,
+        abstention,
+        conservative_reliability,
+    ) in ranked_results[:15]:
         sp_name = _species_name(sp_id, profiles_payload)
         area_n = _area_name(area_id, known_sites_payload)
         href = _url("query", sp_id, area_id, target_date, mvv=selected_versions)
@@ -2200,7 +2454,7 @@ def _render_recommender(
   <span class="pred-rank-dot">{_status_dot(status)}</span>
   <span class="pred-rank-species">{html.escape(sp_name)}</span>
   <span class="pred-rank-area">{html.escape(area_n)}</span>
-  <span class="pred-rank-prob">{html.escape(_compact_interpretation_range(interpretation))}<small class="pred-result-source">{html.escape(model_source or abstention)}</small></span>
+  <span class="pred-rank-prob">{_compact_result_probability_html(interpretation)}<small class="pred-result-source">{html.escape(model_source or abstention)}</small>{f'<small class="pred-result-reliability">{conservative_reliability}</small>' if conservative_reliability else ''}</span>
 </a>
 """
 
@@ -2313,20 +2567,6 @@ def _render_week(
         )
 
     sp_name = _species_name(species, profiles_payload)
-    bt = _get_species_backtest_stats(species)
-    by_area_bt = bt.get("by_area", {}) if bt else {}
-
-    # Species-level reliability strip
-    if bt and "total_episodes" in bt:
-        total_ep = bt["total_episodes"]
-        reliability_html = (
-            f'<div class="pred-reliability-strip">'
-            f'<span class="pred-rel-label">{html.escape(_lbl("ui.predictor_reliability"))}</span>'
-            f'<span class="pred-rel-episodes">{total_ep} {html.escape(_lbl("ui.predictor_stat_episodes")).lower()}</span>'
-            f'</div>'
-        )
-    else:
-        reliability_html = ""
 
     # Day header
     day_headers = ""
@@ -2339,26 +2579,32 @@ def _render_week(
     rows_html = ""
     for area_id in sorted(area_ids):
         area_n = _area_name(area_id, known_sites_payload)
-        area_bt = by_area_bt.get(area_id, {})
-        ep_n = area_bt.get("episodes", 0) if area_bt else 0
-        area_acc = area_bt.get("backtest_accuracy") if area_bt else None
-        rel_cell = f'<td class="pred-rel-cell">{_rel_badge(ep_n)}</td>'
-        row_cells = f'<td class="pred-area-cell">{html.escape(area_n)}</td>{rel_cell}'
+        row_cells = f'<td class="pred-area-cell">{html.escape(area_n)}</td>'
         for d in days:
             try:
                 comparison = _model_comparison(species, area_id, d)
                 interpretation = _interpretation(comparison)
                 model_source = _selected_model_source(comparison)
                 abstention = _compact_operational_abstention(comparison)
+                conservative_reliability = _compact_deciding_reliability_html(
+                    comparison
+                )
                 status = _interpretation_status(interpretation)
                 cell_href = _url(
                     "query", species, area_id, d, mvv=selected_versions
                 )
+                reliability_line = (
+                    '<small class="pred-result-reliability">'
+                    f'{conservative_reliability}</small>'
+                    if conservative_reliability
+                    else ""
+                )
                 row_cells += (
                     f'<td class="pred-cell {_status_cls(status)}">'
                     f'<a href="{html.escape(cell_href)}" data-predictor-direct-run>'
-                    f'{_status_dot(status)} {html.escape(_compact_interpretation_range(interpretation))}'
+                    f'{_status_dot(status)} {_compact_result_probability_html(interpretation)}'
                     f'<small class="pred-result-source">{html.escape(model_source or abstention)}</small>'
+                    f'{reliability_line}'
                     f'</a></td>'
                 )
             except WeatherParquetLayoutError as exc:
@@ -2377,13 +2623,12 @@ def _render_week(
   <div class="pred-chips">{chips}</div>
   <h2>{html.escape(sp_name)}</h2>
   {version_form}
-  {reliability_html}
+  <p class="pred-week-evidence-note">{html.escape(_lbl("ui.predictor_week_evidence_note"))}</p>
   <div class="pred-table-scroll">
     <table class="pred-week-table">
       <thead>
         <tr>
           <th>{html.escape(_lbl("ui.known_site_area"))}</th>
-          <th class="pred-rel-header">{html.escape(_lbl("ui.predictor_reliability"))}</th>
           {day_headers}
         </tr>
       </thead>
@@ -2393,7 +2638,6 @@ def _render_week(
     </table>
   </div>
   <div class="pred-legends-row">
-    {_rel_legend_html()}
     <p class="pred-hint-legend pred-hint-legend-right">
       🟢 {html.escape(_lbl("ui.predictor_favorable"))} &nbsp;
       🟡 {html.escape(_lbl("ui.predictor_uncertain"))} &nbsp;
@@ -2457,18 +2701,7 @@ def _render_query(
         if area
         else ""
     )
-    multiversion_controls = (
-        _multiversion_controls(species, selected_multiversion, selected_versions)
-        if compare_models and area
-        else ""
-    )
-    preferred_control = _preferred_version_control(
-        species,
-        area,
-        target_date,
-        compare_models=compare_models,
-        selected_versions=selected_versions,
-    )
+    versions_detail = _operational_versions_detail(species)
     form_html = f"""
 <form class="pred-form" method="get" action="" data-predictor-direct-form
       data-predictor-area-map="{area_map}">
@@ -2487,8 +2720,7 @@ def _render_query(
     <label>{html.escape(_lbl("ui.date_short"))}</label>
     <input type="date" name="date" value="{html.escape(target_date.isoformat())}">
   </div>
-  {preferred_control}
-  {multiversion_controls}
+  {versions_detail}
   <button type="submit" class="primary">{html.escape(_lbl("ui.predictor_query_submit"))}</button>
   {comparison_toggle}
 </form>
@@ -2601,6 +2833,9 @@ def _render_query_result(
             current_abstention = _compact_operational_abstention(
                 current_comparison
             )
+            current_reliability = _compact_deciding_reliability_html(
+                current_comparison
+            )
             status = _interpretation_status(current_interpretation)
             is_active = current_date == target_date
             day_name = ["L", "M", "X", "J", "V", "S", "D"][current_date.weekday()]
@@ -2618,21 +2853,15 @@ def _render_query_result(
 <a class="{cls} {_status_cls(status)}" href="{html.escape(href)}" data-predictor-direct-run>
   <small>{day_name} {current_date.day}/{current_date.month}</small>
   <span>{_status_dot(status)}</span>
-  <small>{html.escape(_compact_comparison_range(current_comparison))}</small>
+  <small>{_compact_result_probability_html(current_interpretation)}</small>
   <small class="pred-result-source">{html.escape(current_source or current_abstention)}</small>
+  {f'<small class="pred-result-reliability">{current_reliability}</small>' if current_reliability else ''}
 </a>
 """
     except Exception:
         pass
 
-    if selected_multiversion:
-        week_caption = _lbl("ui.predictor_multiversion_week_context")
-    else:
-        preferred_id = _preferred_version_id()
-        preferred_name = _VERSION_SHORT_NAMES.get(preferred_id, preferred_id)
-        week_caption = _lbl("ui.predictor_preferred_week_context").format(
-            version=preferred_name
-        )
+    week_caption = _lbl("ui.predictor_multiversion_week_context")
     week_strip = (
         '<div class="pred-week-reference">'
         f'<small>{html.escape(week_caption)}</small>'
@@ -3103,12 +3332,9 @@ def _render_model_comparison(species: str, area: str, target_date: date) -> str:
         f'<th>{_tooltip_label(short_name, _ESTIMATOR_HELP_KEYS[estimator_id], strong=False)}</th>'
         for estimator_id, short_name, _is_shadow in comparison_estimators
     )
-    catalog = _multiversion_catalog_payload()
-    preferred_id = str(catalog.get("preferred_version_id") or "")
-    preferred_name = _VERSION_SHORT_NAMES.get(preferred_id, preferred_id or "—")
     return f"""
 <section class="pred-model-comparison">
-  <h3>{html.escape(_lbl("ui.predictor_preferred_detail_title").format(version=preferred_name))}</h3>
+  <h3>{html.escape(_lbl("ui.predictor_multiversion_technical_detail"))}</h3>
   <p>{html.escape(_lbl("ui.predictor_model_comparison_help"))}</p>
   <div class="pred-table-wrap"><table class="pred-comparison-table">
     <thead><tr>
@@ -3206,7 +3432,7 @@ def _render_query_all_areas(
 <a class="pred-rank-row {_status_cls(status)}" href="{html.escape(href)}" data-predictor-direct-run>
   <span class="pred-rank-dot">{_status_dot(status)}</span>
   <span class="pred-rank-area">{html.escape(area_n)}</span>
-  <span class="pred-rank-prob pred-rank-outcome{outcome_class}">{html.escape(_compact_interpretation_range(interpretation))}<small class="pred-result-source">{html.escape(model_source or abstention)}</small></span>
+  <span class="pred-rank-prob pred-rank-outcome{outcome_class}">{_compact_result_probability_html(interpretation)}<small class="pred-result-source">{html.escape(model_source or abstention)}</small></span>
   {rel_badge}
 </a>
 """
@@ -3631,7 +3857,6 @@ def _render_page_inner(
     target_date = normalize_predictor_target_date(view, target_date)
 
     tabs = _render_tabs(view, species, target_date, selected_versions)
-    preferred_badge = _preferred_version_badge()
     prediction_timing_badge = _prediction_timing_badge()
     precompute_status_badge = _precompute_status_badge()
 
@@ -3692,7 +3917,7 @@ def _render_page_inner(
   <h1>🍄 {html.escape(_lbl("ui.predictor_title"))}</h1>
   {freshness_warning}
   {soilgrids_warning}
-  <div class="pred-status-row">{preferred_badge}<div class="pred-runtime-status">{prediction_timing_badge}{precompute_status_badge}</div></div>
+  <div class="pred-status-row"><div class="pred-runtime-status">{prediction_timing_badge}{precompute_status_badge}</div></div>
   {tabs}
   {content}
 </div>
@@ -3717,8 +3942,6 @@ _CSS = """
 .pred-training-warning span { color: #d6c7a0; }
 .pred-status-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin: 0 0 0.8rem; flex-wrap: wrap; }
 .pred-runtime-status { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
-.pred-preferred-badge { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.35rem 0.65rem; border: 1px solid #526570; border-radius: 999px; background: #182127; color: #aebbc4; }
-.pred-preferred-badge strong { color: #e8eef2; }
 .pred-timing-badge { color: #9aa8b2; font-size: 0.9rem; text-align: right; }
 .pred-precompute-status { color: #9aa8b2; font-size: 0.85rem; text-align: right; }
 .pred-precompute-used strong { color: #51cf66; }
@@ -3798,7 +4021,7 @@ _CSS = """
 .pred-rank-list { display: flex; flex-direction: column; gap: 0.25rem; }
 .pred-rank-header {
   display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 1fr) 13.5rem;
+  grid-template-columns: 1.5rem minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(24rem, 1.4fr);
   gap: 0.5rem;
   padding: 0.4rem 0.75rem;
   font-size: 0.92rem;
@@ -3812,7 +4035,7 @@ _CSS = """
 }
 .pred-rank-row {
   display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 1fr) 13.5rem;
+  grid-template-columns: 1.5rem minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(24rem, 1.4fr);
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
   background: #1b2229;
@@ -3902,8 +4125,6 @@ _CSS = """
 .pred-form { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; }
 .pred-form-row { display: flex; flex-direction: column; gap: 0.3rem; align-self: flex-start; }
 .pred-form-row label { font-size: 0.92rem; color: #9aa8b2; text-transform: uppercase; letter-spacing: 0.05em; }
-.pred-preferred-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-.pred-preferred-current { color: #9aa8b2; }
 .pred-form select, .pred-form input[type="date"] {
   background: #1b2229;
   border: 1px solid #33404a;
@@ -3914,7 +4135,6 @@ _CSS = """
   height: 2.55rem;
   box-sizing: border-box;
 }
-.pred-preferred-field select { min-width: 15rem; border-color: #4d6a79; }
 .pred-week-reference { margin-top: 0.7rem; }
 .pred-week-reference > small { display: block; color: #9aa8b2; margin-bottom: 0.35rem; }
 .pred-multiversion-controls { flex: 1 1 100%; display: grid; gap: 0.4rem; }
@@ -4039,6 +4259,15 @@ _CSS = """
 .pred-selected-model strong { color: #fff; }
 .pred-selected-model small { color: #9eacb6; }
 .pred-result-source { display: block; margin-top: 0.15rem; color: #8fa0aa; font-size: 0.76rem; font-weight: 500; }
+.pred-result-reliability { display: block; margin-top: 0.12rem; color: #c6d6df; font-size: 0.72rem; font-weight: 650; line-height: 1.25; white-space: pre-line; }
+.pred-result-help { cursor: help; white-space: pre-line; }
+.pred-result-help:focus { outline: 1px solid #5f7888; outline-offset: 2px; border-radius: 2px; }
+.pred-result-help .pred-tooltip-icon { margin-left: 0.25rem; }
+.pred-veto-result { margin-top: 0.55rem; color: #ffd1ce; font-weight: 650; }
+.pred-summary-verdicts { display: flex; flex-wrap: wrap; gap: 0.45rem 1rem; margin-top: 0.65rem; color: #c2ccd2; }
+.pred-summary-technical { margin-top: 0.75rem; color: #aebbc4; }
+.pred-summary-technical > summary { cursor: pointer; font-weight: 650; }
+.pred-reliability-summary > span > small { display: block; color: #8395a1; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .pred-quality-gate { font-size: 0.86rem; color: #aebbc4 !important; }
 .pred-interpretation-meta { display: flex; flex-wrap: wrap; gap: 0.55rem 1.25rem; margin-top: 0.65rem; color: #aebbc4; }
 .pred-interpretation-meta strong { color: #dfe8ed; }
@@ -4065,9 +4294,10 @@ _CSS = """
   text-transform: uppercase;
 }
 .pred-scenario-verdict-high { border-color: #51cf66; color: #7ee394; }
-.pred-scenario-verdict-moderate { border-color: #ffd166; color: #ffe08a; }
-.pred-scenario-verdict-limited,
+.pred-scenario-verdict-moderate,
+.pred-scenario-verdict-limited { border-color: #ffd166; color: #ffe08a; }
 .pred-scenario-verdict-low { border-color: #ff7b72; color: #ff9b94; }
+.pred-scenario-verdict-danger { border-color: #ff5f57; color: #ff8b85; background: rgba(255, 95, 87, 0.08); }
 .pred-scenario-verdict-unavailable { color: #9eacb6; }
 .pred-scenario-evidence,
 .pred-scenario-consensus { display: block; color: #c7d2d9; font-size: inherit; }

@@ -51,6 +51,10 @@ def _timing(days: float | None, delay: dict[str, Any]) -> str:
     optimal_min = _number(delay.get("optimal_min"))
     optimal_max = _number(delay.get("optimal_max"))
     maximum = _number(delay.get("max"))
+    # Zero-filled profiles are schema placeholders, not zero-day contracts.
+    configured = [minimum, optimal_min, optimal_max, maximum]
+    if not any(value is not None and value > 0 for value in configured):
+        return "unknown"
     if minimum is not None and days < minimum:
         return "early"
     if optimal_min is not None and days < optimal_min:
@@ -240,6 +244,7 @@ def build_interpretation(
             "confidence": "low",
             "weather_signal": "unknown",
             "fruiting_timing": "unknown",
+            "significant_rain_events": [],
             "trusted_results": [],
             "reason_codes": ["out_of_season"],
         }
@@ -370,28 +375,59 @@ def build_interpretation(
         confidence = "low"
     experimental_out_of_domain_caution = False
 
+    # MOD_0001: keep the former ecological timing calculation as
+    # advisory data, but never let it replace the fitted model's verdict.
+    # See mushroom-predictor-reliability-selection-spec-es.md.
     delay = dict((phenology or {}).get("fruiting_delay_after_rain_days") or {})
     timing_values: list[str] = []
     event_found = False
     active_event_found = False
+    significant_rain_events: dict[tuple[str, float, int, float], dict[str, Any]] = {}
     for _feature_set_id, result in available_results:
         features = result.get("features_used")
         features = features if isinstance(features, dict) else {}
         found = _flag(features.get("significant_rain_found_90d"))
         days = _number(features.get("days_since_significant_rain_at_target"))
+        event_date = features.get("significant_rain_event_date")
+        event_amount = _number(features.get("significant_rain_event_amount_mm"))
+        event_threshold = _number(features.get("significant_rain_threshold_mm"))
+        if (
+            found is True
+            and isinstance(event_date, str)
+            and event_date
+            and event_amount is not None
+            and days is not None
+            and event_threshold is not None
+        ):
+            event_key = (
+                event_date,
+                round(event_amount, 3),
+                int(round(days)),
+                round(event_threshold, 3),
+            )
+            significant_rain_events[event_key] = {
+                "date": event_key[0],
+                "amount_mm": event_key[1],
+                "days_since_target": event_key[2],
+                "threshold_mm": event_key[3],
+                "source": "area_idw_daily",
+            }
         event_found = event_found or found is True
         current_timing = _timing(days, delay)
         timing_values.append(current_timing)
         active_event_found = active_event_found or (
-            found is True and current_timing != "expired"
+            found is True and current_timing not in {"expired", "unknown"}
         )
     fruiting_timing = _combined_timing(timing_values)
     if active_event_found:
         weather_signal = "recent_event"
         reason_codes.append("significant_rain_event_detected")
-    elif event_found:
+    elif event_found and fruiting_timing == "expired":
         weather_signal = "old_event"
         reason_codes.append("significant_rain_event_too_old")
+    elif event_found:
+        weather_signal = "recent_event"
+        reason_codes.append("significant_rain_event_detected")
     elif available_results:
         weather_signal = "no_event"
         reason_codes.append("no_significant_rain_event_90d")
@@ -400,16 +436,15 @@ def build_interpretation(
 
     if fruiting_timing != "unknown":
         reason_codes.append(f"fruiting_timing_{fruiting_timing}")
-    ecological_rain_veto = bool(delay.get("max") is not None) and weather_signal in {
+    delay_configured = any(
+        (value := _number(delay.get(key))) is not None and value > 0
+        for key in ("min", "optimal_min", "optimal_max", "max")
+    )
+    ecological_rain_mismatch = delay_configured and weather_signal in {
         "no_event",
         "old_event",
     }
-    if ecological_rain_veto:
-        verdict = "unfavorable"
-        reference_range = None
-        confidence = "high"
-        reason_codes.append("ecological_rain_guardrail")
-    if ecological_rain_veto:
+    if ecological_rain_mismatch:
         ecological_compatibility = "incompatible"
     elif active_event_found:
         ecological_compatibility = "compatible"
@@ -422,6 +457,9 @@ def build_interpretation(
         if available_results
         else "low"
     )
+    # MOD_0001: deliberately do not mutate verdict, reference_range
+    # or confidence from ecological_compatibility. The calculation above is
+    # retained so that the advisory can be audited or reconsidered later.
     return {
         "schema_version": "1.1",
         "verdict": verdict,
@@ -440,6 +478,10 @@ def build_interpretation(
         "confidence": confidence,
         "weather_signal": weather_signal,
         "fruiting_timing": fruiting_timing,
+        "significant_rain_events": sorted(
+            significant_rain_events.values(),
+            key=lambda row: (row["days_since_target"], row["date"]),
+        ),
         "trusted_results": trusted,
         "unvalidated_signal": unvalidated_signal,
         "unvalidated_range": unvalidated_range,

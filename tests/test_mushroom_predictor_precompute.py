@@ -8,6 +8,7 @@ import sqlite3
 import tempfile
 import unittest
 import zlib
+from collections.abc import Mapping
 from datetime import date, timedelta
 from pathlib import Path
 from unittest import mock
@@ -42,6 +43,8 @@ from rainmapper_core.mushroom_predictor_precompute_control import (
     activate_worker_copy,
     advance_desired_state,
     cancel_desired_state,
+    cleanup_staged_artifact,
+    cleanup_staging_directory,
     load_desired_state,
     publish_received_artifact,
 )
@@ -51,6 +54,29 @@ class PredictorPrecomputeArtifactTests(unittest.TestCase):
     issue_date = date(2026, 8, 30)
     runtime_a = "sha256:" + "a" * 64
     runtime_b = "sha256:" + "b" * 64
+
+    def test_staging_cleanup_removes_abandoned_sqlite_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            staging = Path(temporary) / "staging"
+            staging.mkdir()
+            (staging / "old.sqlite3").write_bytes(b"artifact")
+            (staging / ".old.sqlite3.random.tmp").write_bytes(b"partial")
+            (staging / ".old.sqlite3.random.tmp-journal").write_bytes(b"journal")
+
+            self.assertEqual(cleanup_staging_directory(staging), 3)
+            self.assertEqual(list(staging.iterdir()), [])
+
+    def test_scoped_staging_cleanup_does_not_remove_another_job(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            staging = Path(temporary)
+            target = staging / "current.sqlite3"
+            target.write_bytes(b"artifact")
+            (staging / ".current.sqlite3.random.tmp").write_bytes(b"partial")
+            other = staging / "other.sqlite3"
+            other.write_bytes(b"other")
+
+            self.assertEqual(cleanup_staged_artifact(target), 2)
+            self.assertEqual(other.read_bytes(), b"other")
 
     def member_key(self, horizon_days: int) -> OperationalMemberKey:
         return OperationalMemberKey.create(
@@ -1138,7 +1164,7 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "desired.json"
             legacy_identity = self.identity().as_dict()
-            legacy_identity["schema_version"] = "1.0"
+            legacy_identity["schema_version"] = "1.5"
             path.write_text(
                 json.dumps(
                     {
@@ -1293,6 +1319,7 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
             self.owner = owner
             self.context_ids: list[int] = []
             self.prepared_weather_ids: list[int] = []
+            self.resolution_index_sizes: list[int] = []
             self.calls: list[dict[str, object]] = []
 
         def predictor(self, _species_id: str):
@@ -1305,6 +1332,9 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
             self.context_ids.append(id(shared_context))
             self.prepared_weather_ids.append(
                 id(shared_context.setdefault("prepared_weather_cache", {}))
+            )
+            self.resolution_index_sizes.append(
+                len(shared_context.get("operational_resolution_index", {}))
             )
             self.calls.append(dict(request))
             if progress is not None:
@@ -1431,6 +1461,134 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
             for horizon in range(1, 8)
         ]
 
+    def sealed_selections(self):
+        return [
+            {
+                "species_id": "boletus_edulis",
+                "area_id": "montseny",
+                "prediction_day": day,
+                "selection_status": "winner",
+                "selection_scope": "area",
+                "candidate": dict(self.selections()[day - 1]),
+                "evidence": {
+                    "favorable_call_count": 8,
+                    "true_favorable_count": 8,
+                    "favorable_precision": 1.0,
+                    "observation_count": 21,
+                    "validation_group_count": 6,
+                },
+                "evidence_by_scope": {
+                    "area": {
+                        "favorable_call_count": 8,
+                        "true_favorable_count": 8,
+                        "favorable_precision": 1.0,
+                        "observation_count": 21,
+                        "validation_group_count": 6,
+                    },
+                    "species": {
+                        "favorable_call_count": 10,
+                        "true_favorable_count": 9,
+                        "favorable_precision": 0.9,
+                        "observation_count": 32,
+                        "validation_group_count": 11,
+                    },
+                },
+            }
+            for day in range(1, 8)
+        ]
+
+    def test_batch_uses_one_sealed_candidate_for_query_week_and_recommender(self) -> None:
+        selections = self.sealed_selections()
+        identity = plan_artifact_identity(
+            runtime_fingerprint=self.runtime,
+            issue_date=self.issue_date,
+            trained_species_ids=["boletus_edulis"],
+            installed_versions=[
+                RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            area_ids_by_species={"boletus_edulis": ["montseny"]},
+            operational_selections_by_species=selections,
+        )
+        service = self.FakeService(self)
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "weekly.sqlite"
+            result = build_weekly_artifact(
+                target,
+                identity=identity,
+                predictor_service=service,
+                operational_selections=selections,
+            )
+            for view in ("query", "week", "recommender"):
+                request = next(
+                    row
+                    for row in service.calls
+                    if row["view"] == view
+                    and (view != "query" or row["area_id"])
+                )
+                request = {
+                    **request,
+                    "compare_models": True,
+                    "multiversion_selection": [dict(self.selections()[-1])],
+                }
+                stored = lookup_artifact(target, identity=identity, request=request)
+                self.assertTrue(stored.hit, (view, stored.reason))
+                species = stored.response["data"]["species"]["boletus_edulis"]
+                if view == "query":
+                    comparisons = {
+                        request["target_date"]: species["multiversion_comparison"]
+                    }
+                else:
+                    comparisons = species["model_comparisons"]["montseny"]
+                for comparison in comparisons.values():
+                    self.assertEqual(len(comparison["members"]), 1)
+                    reliability = comparison["reliability_selection"]
+                    self.assertEqual(reliability["evidence"]["true_favorable_count"], 8)
+                    self.assertEqual(
+                        reliability["evidence_by_scope"]["area"]["observation_count"],
+                        21,
+                    )
+                    self.assertEqual(
+                        reliability["evidence_by_scope"]["species"]["observation_count"],
+                        32,
+                    )
+
+        self.assertEqual(identity.as_dict()["expected_counts"]["members"], 7)
+        self.assertEqual(result.operational_member_count, 7)
+        self.assertEqual(set(service.resolution_index_sizes), {7})
+
+    def test_identity_counts_one_materialized_member_per_sealed_winner(self) -> None:
+        selections = self.sealed_selections()
+        for row in selections:
+            fallback = {
+                **dict(row["candidate"]),
+                "estimator_id": "extra_trees",
+            }
+            row["candidate_chain"] = [
+                {"candidate": dict(row["candidate"])},
+                {"candidate": fallback},
+            ]
+
+        identity = plan_artifact_identity(
+            runtime_fingerprint=self.runtime,
+            issue_date=self.issue_date,
+            trained_species_ids=["boletus_edulis"],
+            installed_versions=[
+                RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            area_ids_by_species={"boletus_edulis": ["montseny"]},
+            operational_selections_by_species=selections,
+        )
+
+        self.assertEqual(dict(identity.expected_counts)["members"], 7)
+
     def test_batch_reuses_one_context_and_matches_service_response(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary) / "weekly.sqlite"
@@ -1477,6 +1635,9 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
                 payload_row_count = connection.execute(
                     "SELECT COUNT(*) FROM response_payloads"
                 ).fetchone()[0]
+                freelist_count = connection.execute(
+                    "PRAGMA freelist_count"
+                ).fetchone()[0]
             finally:
                 connection.close()
 
@@ -1484,6 +1645,7 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
         self.assertEqual(result.executed_request_count, 16)
         self.assertEqual(response_row_count, 28)
         self.assertEqual(payload_row_count, 16)
+        self.assertEqual(freelist_count, 0)
         self.assertEqual(len(service.calls), 16)
         self.assertEqual(result.coverage_count, 7)
         self.assertEqual(result.base_prediction_count, 7)
@@ -1501,6 +1663,94 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
         self.assertEqual(
             scientific_response_payload(final_day_stored.response),
             scientific_response_payload(final_day_live),
+        )
+
+    def test_batch_keeps_each_days_sealed_candidate_when_winner_changes(self) -> None:
+        owner = self
+
+        class VaryingCandidateService(self.FakeService):
+            def execute(self, request, *, progress=None, shared_context=None):
+                response = super().execute(
+                    request, progress=progress, shared_context=shared_context
+                )
+                selections = request.get("multiversion_selection") or []
+                if request.get("view") != "query" or not request.get("area_id"):
+                    return response
+                comparisons = response["data"]["species"]["boletus_edulis"].get(
+                    "multiversion_comparisons", {}
+                )
+                resolution_index = shared_context.get(
+                    "operational_resolution_index", {}
+                )
+                for target_date, comparison in comparisons.items():
+                    selected = selections[0] if selections else None
+                    if selected is None:
+                        prediction_day = (
+                            date.fromisoformat(target_date) - owner.issue_date
+                        ).days + 1
+                        resolution = resolution_index.get(
+                            ("boletus_edulis", "montseny", prediction_day), {}
+                        )
+                        selected = resolution.get("candidate")
+                    if not isinstance(selected, Mapping):
+                        continue
+                    for member in comparison.get("members", []):
+                        member["model_ref"].update(
+                            {
+                                key: selected[key]
+                                for key in (
+                                    "version_id",
+                                    "temporal_contract_id",
+                                    "profile_id",
+                                    "estimator_id",
+                                )
+                            }
+                        )
+                return response
+
+        selections = self.sealed_selections()
+        for row in selections[3:]:
+            row["candidate"]["estimator_id"] = "extra_trees"
+        identity = plan_artifact_identity(
+            runtime_fingerprint=self.runtime,
+            issue_date=self.issue_date,
+            trained_species_ids=["boletus_edulis"],
+            installed_versions=list(self.identity().installed_versions),
+            area_ids_by_species={"boletus_edulis": ["montseny"]},
+            operational_selections_by_species=selections,
+        )
+        service = VaryingCandidateService(owner)
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "weekly.sqlite"
+            result = build_weekly_artifact(
+                target,
+                identity=identity,
+                predictor_service=service,
+                operational_selections=selections,
+            )
+            connection = sqlite3.connect(target)
+            try:
+                stored = connection.execute(
+                    "SELECT target_date, estimator_id FROM operational_members ORDER BY target_date"
+                ).fetchall()
+            finally:
+                connection.close()
+
+        self.assertEqual(result.executed_request_count, 16)
+        self.assertEqual(result.operational_member_count, 7)
+        self.assertEqual(
+            [estimator_id for _target, estimator_id in stored],
+            ["random_forest"] * 3 + ["extra_trees"] * 4,
+        )
+        self.assertEqual(
+            len(
+                [
+                    request
+                    for request in service.calls
+                    if request["view"] == "query" and request["area_id"]
+                ]
+            ),
+            1,
         )
 
     def test_batch_checks_cancellation_between_requests(self) -> None:

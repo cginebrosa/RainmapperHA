@@ -210,6 +210,134 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         self.assertEqual(winner["probability"], 0.78)
         self.assertEqual(winner["applicability_status"], "caution")
 
+    def test_rainfall_warning_does_not_trigger_legacy_logistic_exclusion(self) -> None:
+        result = comparison._contract_result(
+            "fixed_gap_7d_biology_v3",
+            [
+                {
+                    "model_ref": {
+                        "temporal_contract_id": "fixed_gap_7d_biology_v3",
+                        "profile_id": "core",
+                        "estimator_id": "logistic_regression_reduced_v1",
+                    },
+                    "available": True,
+                    "prediction": {
+                        "probability": 0.75,
+                        "applicability": {
+                            "status": "caution",
+                            "most_extreme": [
+                                {
+                                    "feature": "rain_cutoff_15_21d_mm",
+                                    "standard_deviations": 8.0,
+                                    "applicability_effect": "warning_only",
+                                }
+                            ],
+                        },
+                    },
+                    "evaluation": {
+                        "brier_score": 0.1,
+                        "prevalence_brier_score": 0.25,
+                    },
+                }
+            ],
+            horizon_days=7,
+            profile_id="core",
+        )
+
+        self.assertEqual(result["estimator_exclusions"], {})
+
+    def test_reliability_selection_falls_back_in_sealed_order_when_primary_is_ood(self) -> None:
+        def member(version_id: str, probability: float, applicability: str) -> dict[str, object]:
+            return {
+                "model_ref": {
+                    "version_id": version_id,
+                    "temporal_contract_id": "lag_event_test",
+                    "profile_id": "profile",
+                    "estimator_id": "logistic_regression_reduced_v1",
+                    "horizon_days": 5,
+                },
+                "available": True,
+                "prediction": {
+                    "probability": probability,
+                    "applicability": {"status": applicability},
+                },
+                "evaluation": {
+                    "evidence": "better_than_prevalence",
+                    "brier_score": 0.1,
+                    "prevalence_brier_score": 0.25,
+                    "brier_delta_vs_prevalence": 0.15,
+                    "roc_auc": 0.8,
+                },
+            }
+
+        primary = member("primary", 0.99, "outside_domain")
+        fallback = member("fallback", 0.72, "within_observed_range")
+        resolution = {
+            "selection_status": "winner",
+            "selection_scope": "species_fallback",
+            "candidate": dict(primary["model_ref"]),
+            "evidence": {"observation_count": 20},
+            "evidence_by_scope": {"area": None, "species": None},
+            "stability": {"same_winner_count": 4},
+            "candidate_chain": [
+                {
+                    "candidate": dict(primary["model_ref"]),
+                    "evidence": {"observation_count": 20},
+                    "evidence_by_scope": {"area": None, "species": None},
+                },
+                {
+                    "candidate": dict(fallback["model_ref"]),
+                    "evidence": {"observation_count": 18},
+                    "evidence_by_scope": {"area": None, "species": None},
+                },
+            ],
+        }
+
+        result, active = comparison.build_reliability_selected_operational_comparison(
+            [primary, fallback],
+            resolution,
+            season_phase="in_season",
+        )
+
+        self.assertEqual(
+            result["selected_winners"][0]["model_ref"]["version_id"],
+            "fallback",
+        )
+        self.assertEqual(result["reliability_fallback_rank"], 1)
+        self.assertEqual(
+            result["reliability_candidate_exclusions"][0]["reasons"],
+            ["unacceptable_applicability"],
+        )
+        self.assertEqual(active["candidate"]["version_id"], "fallback")
+        self.assertEqual(active["preferred_candidate"]["version_id"], "primary")
+        self.assertEqual(active["runtime_candidate_count"], 2)
+        self.assertNotIn("candidate_chain", active)
+        self.assertEqual(active["evidence"]["observation_count"], 18)
+        self.assertEqual(
+            active["runtime_candidate_exclusions"][0]["reasons"],
+            ["unacceptable_applicability"],
+        )
+        self.assertNotIn("stability", active)
+
+        materialized = comparison.reliability_materialized_members(
+            [primary, fallback], active
+        )
+        self.assertEqual(len(materialized), 1)
+        self.assertEqual(materialized[0]["model_ref"]["version_id"], "fallback")
+        restored, restored_active = (
+            comparison.build_reliability_selected_operational_comparison(
+                materialized,
+                active,
+                season_phase="in_season",
+            )
+        )
+        self.assertEqual(restored["reliability_fallback_rank"], 1)
+        self.assertEqual(
+            restored["reliability_candidate_exclusions"][0]["reasons"],
+            ["unacceptable_applicability"],
+        )
+        self.assertEqual(restored_active, active)
+
     def test_selected_operational_comparison_abstains_when_brier_is_worse_than_prevalence(self) -> None:
         member = {
             "model_ref": {
@@ -554,6 +682,9 @@ class MushroomMLMultiversionComparisonTests(TestCase):
             "quality": {
                 "significant_rain_found_90d": 1.0,
                 "significant_rain_search_complete": True,
+                "significant_rain_event_date": "2026-08-24",
+                "significant_rain_event_amount_mm": 12.4,
+                "significant_rain_threshold_mm": 5.0,
             },
         }
 
@@ -561,7 +692,11 @@ class MushroomMLMultiversionComparisonTests(TestCase):
 
         self.assertEqual(result["significant_rain_found_90d"], 1.0)
         self.assertTrue(result["significant_rain_search_complete"])
+        self.assertEqual(result["significant_rain_event_date"], "2026-08-24")
+        self.assertEqual(result["significant_rain_event_amount_mm"], 12.4)
+        self.assertEqual(result["significant_rain_threshold_mm"], 5.0)
         self.assertNotIn("significant_rain_found_90d", predictive)
+        self.assertNotIn("significant_rain_event_amount_mm", predictive)
 
     def test_interpretation_features_inherit_nested_v4_rain_evidence(self) -> None:
         sample = {
@@ -578,6 +713,25 @@ class MushroomMLMultiversionComparisonTests(TestCase):
 
         self.assertTrue(result["significant_rain_found_90d"])
         self.assertEqual(result["days_since_significant_rain_at_target"], 8.0)
+
+    def test_interpretation_features_do_not_replace_rain_age_with_adapter_null(self) -> None:
+        sample = {
+            "predictive_features": {
+                "days_since_significant_rain_at_target": 11.0,
+            },
+            "quality": {
+                "days_since_significant_rain_at_target": None,
+                "source_quality": {
+                    "days_since_significant_rain_at_target": 11.0,
+                    "significant_rain_found_90d": True,
+                },
+            },
+        }
+
+        result = comparison._interpretation_features(sample)
+
+        self.assertEqual(result["days_since_significant_rain_at_target"], 11.0)
+        self.assertTrue(result["significant_rain_found_90d"])
 
     def test_interpretation_features_find_common_evidence_through_any_adapter_depth(self) -> None:
         sample = {
@@ -689,6 +843,9 @@ class MushroomMLMultiversionComparisonTests(TestCase):
                             "features_used": {
                                 "significant_rain_found_90d": True,
                                 "days_since_significant_rain_at_target": 4.0,
+                                "significant_rain_event_date": "2026-08-16",
+                                "significant_rain_event_amount_mm": 12.4,
+                                "significant_rain_threshold_mm": 5.0,
                             },
                             "metadata": {"cutoff_date": "2026-08-18"},
                         }
@@ -726,6 +883,18 @@ class MushroomMLMultiversionComparisonTests(TestCase):
 
             self.assertEqual(result["interpretation"]["weather_signal"], "recent_event")
             self.assertEqual(result["interpretation"]["ecological_compatibility"], "compatible")
+            self.assertEqual(
+                result["interpretation"]["significant_rain_events"],
+                [
+                    {
+                        "date": "2026-08-16",
+                        "amount_mm": 12.4,
+                        "days_since_target": 4,
+                        "threshold_mm": 5.0,
+                        "source": "area_idw_daily",
+                    }
+                ],
+            )
             self.assertEqual(result["interpretation"]["reference_range"]["min"], 0.72)
             self.assertEqual(result["selection_mode"], "preferred_version")
             self.assertTrue(result["selected_winners"])

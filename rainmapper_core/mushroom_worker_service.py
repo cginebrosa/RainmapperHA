@@ -533,6 +533,15 @@ def cache_multiversion_predictor_objects(
                 "size_bytes": None,
             }
         )
+    quality_audit = manifest.get("quality_audit_catalog")
+    if isinstance(quality_audit, dict):
+        referenced.append(
+            {
+                "path": quality_audit.get("path"),
+                "sha256": quality_audit.get("sha256"),
+                "size_bytes": None,
+            }
+        )
     for row in referenced:
         if not isinstance(row, dict):
             raise ValueError("Worker multiversion artifact record is invalid.")
@@ -1242,6 +1251,9 @@ def serve(
                     )
                     staging_dir = worker_data_dir.resolve() / "predictor_precompute" / "staging"
                     staging_dir.mkdir(parents=True, exist_ok=True)
+                    mushroom_predictor_precompute_control.cleanup_staging_directory(
+                        staging_dir
+                    )
                     staged_artifact = staging_dir / f"{job_id}.sqlite3"
                     worker_phase_timings: dict[str, float] = {
                         "selection_sync_seconds": selection_sync_seconds,
@@ -1402,7 +1414,9 @@ def serve(
                         ),
                         flush=True,
                     )
-                    staged_artifact.unlink(missing_ok=True)
+                    mushroom_predictor_precompute_control.cleanup_staged_artifact(
+                        staged_artifact
+                    )
                     precompute_job_telemetry.flush()
                     job_update(
                         "finish",

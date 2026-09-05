@@ -45,6 +45,21 @@ class MushroomMLRuntimeFeaturesTests(TestCase):
 
         self.assertFalse(result["significant_rain_found_90d"])
         self.assertEqual(result["days_since_significant_rain_at_target"], 90.0)
+        self.assertIsNone(result["significant_rain_event_date"])
+        self.assertIsNone(result["significant_rain_event_amount_mm"])
+
+    def test_raw_rain_quality_identifies_exact_daily_idw_event(self) -> None:
+        area_series = self.area_series()
+        rain = [0.0] * raw.LOOKBACK_DAYS
+        rain[-5] = 12.4
+        area_series[raw.AREA_SERIES_KEYS["rain_mm"]] = rain
+
+        result = runtime_features._raw_rain_quality(area_series, horizon_days=7)
+
+        self.assertEqual(result["significant_rain_event_date"], "2024-12-26")
+        self.assertEqual(result["significant_rain_event_amount_mm"], 12.4)
+        self.assertEqual(result["significant_rain_threshold_mm"], 5.0)
+        self.assertEqual(result["days_since_significant_rain_at_target"], 11.0)
 
     def test_v5_lag_uses_complete_idw_physical_state_profile(self) -> None:
         result = runtime_features.build_runtime_features(
@@ -120,6 +135,9 @@ class MushroomMLRuntimeFeaturesTests(TestCase):
                 "training_eligible": False,
                 "inference_eligible": True,
                 "inference_exclusion_reasons": [],
+                "significant_rain_event_date": "2026-08-11",
+                "significant_rain_event_amount_mm": 12.2,
+                "significant_rain_threshold_mm": 5.0,
             },
             "metadata": {
                 "area_id": "area-a",
@@ -171,3 +189,9 @@ class MushroomMLRuntimeFeaturesTests(TestCase):
             ),
         )
         self.assertNotIn("rain_cutoff_22_30d_mm", result["predictive_features"])
+        self.assertEqual(result["quality"]["significant_rain_event_date"], "2026-08-11")
+        self.assertEqual(result["quality"]["significant_rain_event_amount_mm"], 12.2)
+        self.assertEqual(result["quality"]["significant_rain_threshold_mm"], 5.0)
+        self.assertEqual(
+            result["quality"]["days_since_significant_rain_at_target"], 1.0
+        )

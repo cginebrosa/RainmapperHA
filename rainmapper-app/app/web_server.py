@@ -11828,7 +11828,11 @@ def mushroom_worker_supports(payload: object, capability: str) -> bool:
     return isinstance(capabilities, list) and capability in capabilities
 
 
-def reconcile_mushroom_worker_storage_for_launch(worker_id: str = "") -> dict[str, object]:
+def reconcile_mushroom_worker_storage_for_launch(
+    worker_id: str = "",
+    *,
+    force_apply: bool | None = None,
+) -> dict[str, object]:
     """Run visible, conservative storage maintenance before queuing external work."""
     try:
         with RUN_LOCK:
@@ -11839,7 +11843,11 @@ def reconcile_mushroom_worker_storage_for_launch(worker_id: str = "") -> dict[st
                 models_root=mushroom_paths.mushroom_ml_models_dir(),
                 registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
                 report_path=storage_reconciliation_report_path(),
-                apply=storage_reconciliation_apply_enabled(),
+                apply=(
+                    storage_reconciliation_apply_enabled()
+                    if force_apply is None
+                    else force_apply
+                ),
             )
             pending_worker = (
                 mushroom_worker_jobs.pending_worker_job_cleanups(
@@ -12634,50 +12642,6 @@ def predictor_launch_script() -> str:
         }
       };
 
-      const runPreferred = async (directForm, submitter) => {
-        const target = new URL(
-          submitter?.formAction || directForm.getAttribute("action") || window.location.href,
-          window.location.href
-        );
-        const preferredSelect = directForm.querySelector("select[name='preferred_version_id']");
-        const preferredCurrent = directForm.querySelector("[data-predictor-preferred-current]");
-        const versionId = preferredSelect?.value || "";
-        const versionLabel = preferredSelect?.selectedOptions[0]?.textContent
-          ?.split("·")[0]?.trim() || versionId;
-        const body = new URLSearchParams({
-          predictor_action: "set_preferred_version",
-          preferred_version_id: versionId
-        });
-        submitter.disabled = true;
-        try {
-          const response = await fetch(target, {
-            method: "POST",
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-              "X-Rainmapper-Async": "1"
-            },
-            cache: "no-store",
-            credentials: "same-origin",
-            body
-          });
-          const payload = await response.json();
-          if (!response.ok || !payload.ok) {
-            throw new Error(payload.error || modal.dataset.errorLabel);
-          }
-          document.querySelectorAll("[data-predictor-preferred-badge]")
-            .forEach(node => { node.textContent = versionLabel; });
-          if (preferredCurrent) {
-            preferredCurrent.textContent = (preferredCurrent.dataset.currentTemplate || "{version}")
-              .replace("{version}", versionLabel);
-          }
-        } catch (error) {
-          if (preferredCurrent) preferredCurrent.textContent = error?.message || modal.dataset.errorLabel;
-        } finally {
-          submitter.disabled = false;
-        }
-      };
-
       document.addEventListener("click", event => {
         if (event.target.closest("[data-predictor-job-cancel]")) {
           cancelRunningJob();
@@ -12704,10 +12668,6 @@ def predictor_launch_script() -> str:
         const directForm = event.target.closest("[data-predictor-direct-form]");
         if (!directForm || directForm === form) return;
         event.preventDefault();
-        if (event.submitter?.matches("[data-predictor-preferred-submit]")) {
-          runPreferred(directForm, event.submitter);
-          return;
-        }
         const target = new URL(directForm.getAttribute("action") || window.location.href, window.location.href);
         target.search = new URLSearchParams(new FormData(directForm)).toString();
         runDirect(target, "warm");
@@ -12784,14 +12744,12 @@ def build_predictor_request(query: dict[str, list[str]]) -> dict[str, object]:
         today=current_date,
     )
     multiversion_selection = []
-    multiversion_tokens = list(query.get("mv", []))
+    multiversion_tokens: list[str] = []
     selected_versions = (
         mushroom_predictor_ui.resolved_query_versions(query)
         if view in {"recommender", "week", "query", "history"}
         else []
     )
-    if selected_versions:
-        query["mvv"] = list(selected_versions)
     if selected_versions:
         multiversion_tokens = mushroom_predictor_ui.multiversion_tokens_for_versions(
             "" if view == "recommender" else species,
@@ -12818,12 +12776,7 @@ def build_predictor_request(query: dict[str, list[str]]) -> dict[str, object]:
         "area_id": (query.get("area") or [""])[0],
         "target_date": target_date.isoformat(),
         "filter_mode": (query.get("filter") or [""])[0],
-        "compare_models": (
-            view in {"recommender", "week"} and bool(multiversion_selection)
-        )
-        or (
-            view == "query" and (query.get("compare") or [None])[0] != "0"
-        ),
+        "compare_models": bool(multiversion_selection),
         "multiversion_selection": multiversion_selection,
         "issue_date": issue_date.isoformat(),
         "trained_species_ids": trained,
@@ -12893,7 +12846,7 @@ def create_remote_predictor_job(
 
 def predictor_precompute_plan() -> tuple[
     mushroom_predictor_precompute.ArtifactIdentity,
-    dict[str, list[dict[str, object]]],
+    list[dict[str, object]],
     dict[str, object],
 ]:
     """Plan one weekly generation in HA without executing any prediction."""
@@ -12906,7 +12859,6 @@ def predictor_precompute_plan() -> tuple[
     installed_versions: list[
         mushroom_predictor_precompute.RuntimeVersionIdentity
     ] = []
-    installed_version_ids: list[str] = []
     for version in registry["versions"]:
         version_id = str(version.get("version_id", ""))
         generation = mushroom_ml_version_registry.installed_generation(
@@ -12914,7 +12866,6 @@ def predictor_precompute_plan() -> tuple[
         )
         if generation is None:
             continue
-        installed_version_ids.append(version_id)
         installed_versions.append(
             mushroom_predictor_precompute.RuntimeVersionIdentity.create(
                 version_id=version_id,
@@ -12929,14 +12880,11 @@ def predictor_precompute_plan() -> tuple[
         species_id: mushroom_predictor_ui.predictor_area_ids(species_id)
         for species_id in trained_species
     }
-    selections_by_species: dict[str, list[dict[str, object]]] = {}
-    for species_id in trained_species:
-        selections_by_species[species_id] = [
-            mushroom_ml_model_catalog.parse_selection_token(token)
-            for token in mushroom_predictor_ui.multiversion_tokens_for_versions(
-                species_id, installed_version_ids
-            )
-        ]
+    operational_resolutions = (
+        mushroom_predictor_ui.operational_reliability_selections(
+            area_ids_by_species
+        )
+    )
     issue_date = datetime.now(get_timezone()).date()
     identity = mushroom_predictor_precompute.plan_artifact_identity(
         runtime_fingerprint=str(runtime_manifest["fingerprint"]),
@@ -12944,9 +12892,9 @@ def predictor_precompute_plan() -> tuple[
         trained_species_ids=trained_species,
         installed_versions=installed_versions,
         area_ids_by_species=area_ids_by_species,
-        operational_selections_by_species=selections_by_species,
+        operational_selections_by_species=operational_resolutions,
     )
-    return identity, selections_by_species, runtime_manifest
+    return identity, operational_resolutions, runtime_manifest
 
 
 def predictor_precompute_summary() -> dict[str, object]:
@@ -13383,6 +13331,7 @@ def start_local_mushroom_predictor_precompute(
         staged_artifact = staging_dir / f"{job_id}.sqlite3"
         try:
             staging_dir.mkdir(parents=True, exist_ok=True)
+            mushroom_predictor_precompute_control.cleanup_staging_directory(staging_dir)
             build = mushroom_predictor_precompute.build_weekly_artifact(
                 staged_artifact,
                 identity=identity,
@@ -13446,7 +13395,9 @@ def start_local_mushroom_predictor_precompute(
                 message=error,
             )
         finally:
-            staged_artifact.unlink(missing_ok=True)
+            mushroom_predictor_precompute_control.cleanup_staged_artifact(
+                staged_artifact
+            )
 
     threading.Thread(
         target=run,
@@ -13475,6 +13426,54 @@ def request_mushroom_predictor_precompute(
         identity, selections_by_species, runtime_manifest = predictor_precompute_plan()
         with RUN_LOCK:
             queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
+            try:
+                desired_before = (
+                    mushroom_predictor_precompute_control.load_desired_state(
+                        mushroom_paths.mushroom_predictor_precompute_desired_path()
+                    )
+                )
+            except (OSError, ValueError, json.JSONDecodeError):
+                desired_before = None
+            desired_publication_pending = False
+            if (
+                trigger_origin == "manual"
+                and isinstance(desired_before, dict)
+                and desired_before.get("artifact_id") == identity.artifact_id
+            ):
+                try:
+                    receipt_path = (
+                        mushroom_paths.mushroom_predictor_precompute_receipt_path()
+                    )
+                    receipt = (
+                        mushroom_predictor_precompute_control.PublicationReceipt.from_dict(
+                            json.loads(receipt_path.read_text(encoding="utf-8"))
+                        )
+                    )
+                    desired_publication_pending = not (
+                        receipt.artifact_id == identity.artifact_id
+                        and receipt.desired_revision == desired_before.get("revision")
+                    )
+                except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
+                    desired_publication_pending = True
+            all_attempts = list(MUSHROOM_REBUILD_JOBS.values()) + queue["jobs"]
+            manual_retry_after_cancel = bool(
+                trigger_origin == "manual"
+                and isinstance(desired_before, dict)
+                and any(
+                    row.get("job_type")
+                    in {
+                        "local_predictor_precompute",
+                        mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+                    }
+                    and row.get("artifact_id") == identity.artifact_id
+                    and row.get("desired_revision") == desired_before.get("revision")
+                    and (
+                        row.get("status") in {"cancelled", "failed"}
+                        or bool(row.get("cancel_requested"))
+                    )
+                    for row in all_attempts
+                )
+            )
             local_active = next(
                 (
                     row
@@ -13497,9 +13496,14 @@ def request_mushroom_predictor_precompute(
                 None,
             )
             active = local_active or active
-            if active is not None and not force:
+            if active is not None and not force and not manual_retry_after_cancel:
                 return 200, {"ok": True, "reused": True, "job": dict(active)}
-            if trigger_origin == "manual" and not force:
+            if (
+                trigger_origin == "manual"
+                and not force
+                and not manual_retry_after_cancel
+                and not desired_publication_pending
+            ):
                 try:
                     mushroom_predictor_precompute.validate_artifact(
                         mushroom_paths.mushroom_predictor_precompute_artifact_path(),
@@ -15376,6 +15380,11 @@ def receive_mushroom_predictor_precompute_artifact(
                 claim_token=claim_token,
                 telemetry=publication_telemetry,
             )
+            mushroom_worker_jobs.prune_superseded_terminal_jobs(
+                mushroom_worker_jobs_path(),
+                job_types={mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE},
+                keep_job_ids={job_id},
+            )
     except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {
@@ -15700,6 +15709,15 @@ def _run_mushroom_full_update_promotion(
                     "predictor_runtime_publication": runtime_publication,
                 },
             )
+            mushroom_worker_jobs.prune_superseded_terminal_jobs(
+                mushroom_worker_jobs_path(),
+                job_types={
+                    mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD,
+                    mushroom_worker_jobs.JOB_TYPE_ML_TRAIN,
+                    mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,
+                },
+                keep_job_ids={rebuild_job_id, training_job_id, operational_job_id},
+            )
         mushroom_ml_multiversion_transport.discard_staged_result(
             mushroom_worker_candidate_results_path(), job_id=operational_job_id
         )
@@ -15707,7 +15725,7 @@ def _run_mushroom_full_update_promotion(
         discard_mushroom_worker_input_bundle(training_job)
         rebuild_cleanup = discard_promoted_mushroom_worker_result(rebuild_job)
         training_cleanup = discard_promoted_mushroom_worker_result(training_job)
-        reconcile_mushroom_worker_storage_for_launch()
+        reconcile_mushroom_worker_storage_for_launch(force_apply=True)
         warnings = " ".join(value for value in (rebuild_cleanup, training_cleanup) if value)
         set_mushroom_workers_flash(
             "Complete artifacts and their trained models were promoted as one generation."
@@ -17232,21 +17250,6 @@ def refresh_mushroom_predictor_runtime_publication() -> dict[str, object]:
         }
 
 
-def set_mushroom_predictor_preferred_version(version_id: str) -> dict[str, object]:
-    """Persist the installed version used by default across Predictor views."""
-    registry_path = mushroom_ml_version_registry.ensure_seeded()
-    registry = mushroom_ml_version_registry.load_registry(registry_path)
-    updated = mushroom_ml_version_registry.set_preferred_version(
-        registry, version_id
-    )
-    mushroom_ml_version_registry.save_registry(registry_path, updated)
-    released = mushroom_predictor_ui.release_predictor_cache()
-    return {
-        "preferred_version_id": updated["preferred_version_id"],
-        "released_predictor_instances": released,
-    }
-
-
 def start_mushroom_local_full_update(
     version_ids: list[str] | None = None,
 ) -> tuple[int, dict[str, object]]:
@@ -17386,8 +17389,12 @@ def start_mushroom_local_full_update(
             released = mushroom_predictor_ui.release_predictor_cache()
             runtime_publication = refresh_mushroom_predictor_runtime_publication()
             mushroom_model_state.clear_all_pending(full_rebuild=True)
+            storage_cleanup = reconcile_mushroom_worker_storage_for_launch(
+                force_apply=True
+            )
             result["released_predictor_instances"] = released
             result["predictor_runtime_publication"] = runtime_publication
+            result["storage_cleanup"] = storage_cleanup
             message = "Operational multiversion batch installed after reconstruction and ML v0 training."
             set_mushroom_workers_flash(message)
             set_mushroom_rebuild_progress(
@@ -20274,6 +20281,18 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "application/json; charset=utf-8",
         )
 
+    def send_compact_json(self, status: int, payload: dict) -> None:
+        """Send large protocol payloads using their bounded compact encoding."""
+        self.send_bytes(
+            status,
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8"),
+            "application/json; charset=utf-8",
+        )
+
     def send_file_path(self, status: int, path: Path) -> None:
         size = path.stat().st_size
         self.send_response(status)
@@ -21987,7 +22006,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     auth_token=worker_token,
                 )
             )
-            self.send_json(status, response)
+            self.send_compact_json(status, response)
             return
 
         if path == "/api/control-panel-fragment":
@@ -22551,42 +22570,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return
 
         form, files = self.read_form_and_files()
-        if parsed.path.rstrip("/") == "/mushrooms/predictor":
-            if not self.require_trusted_worker_control():
-                return
-            if self.form_action_value(form, "predictor_action") != "set_preferred_version":
-                self.send_bytes(
-                    400,
-                    b"Unknown Predictor action.",
-                    "text/plain; charset=utf-8",
-                )
-                return
-            try:
-                preferred_result = set_mushroom_predictor_preferred_version(
-                    self.form_value(form, "preferred_version_id")
-                )
-            except (OSError, ValueError, json.JSONDecodeError) as exc:
-                self.send_bytes(
-                    400,
-                    str(exc).encode("utf-8"),
-                    "text/plain; charset=utf-8",
-                )
-                return
-            if self.headers.get("X-Rainmapper-Async", "").strip() == "1":
-                self.send_json(
-                    200,
-                    {
-                        "ok": True,
-                        "preferred_version_id": preferred_result[
-                            "preferred_version_id"
-                        ],
-                    },
-                )
-                return
-            query = ("?" + parsed.query) if parsed.query else ""
-            self.redirect_to("./predictor" + query)
-            return
-
         if parsed.path.rstrip("/") == "/users":
             self.handle_user_admin_post(form)
             self.redirect_to("./users")

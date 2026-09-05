@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -22,20 +23,62 @@ def load_script():
     return module
 
 
+def complete_quality_catalog(module):
+    rows = [
+        {
+            "version_id": "biology_v4",
+            "profile_id": "extended_weather",
+            "species_id": "species_a",
+            "area_id": "area_a",
+            "split_id": "fruiting_groups_14d",
+            "temporal_contract_id": "fixed_gap_7d_biology_v4",
+            "horizon_days": 7,
+            "observation_id": f"observation-{index}",
+            "validation_group_id": f"group-{index // 2}",
+            "y_true": index % 2,
+            "train_prevalence_probability": 0.5,
+            "estimator_probabilities": {
+                "logistic_regression_reduced_v1": 0.8 if index % 2 else 0.2
+            },
+        }
+        for index in range(8)
+    ]
+    with TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        first = root / "v2-v5.jsonl"
+        first.write_text(
+            "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+        )
+        second = root / "v6.jsonl"
+        second.write_text("", encoding="utf-8")
+        return module.mushroom_ml_quality_catalog.build_catalog(
+            first,
+            second,
+            snapshot_id="sha256:" + "a" * 64,
+            profile_keys=["biology_v4/extended_weather"],
+            expected_estimators={
+                "biology_v4/extended_weather": [
+                    "logistic_regression_reduced_v1"
+                ]
+            },
+        )
+
+
 class RunMushroomMLMultiversionJobTests(TestCase):
+    def test_operational_quality_catalog_rejects_previous_schema_before_training(self) -> None:
+        module = load_script()
+        catalog = complete_quality_catalog(module)
+        catalog["schema_version"] = "1.1"
+
+        with self.assertRaisesRegex(ValueError, "contract is invalid"):
+            module.validate_operational_quality_catalog(
+                catalog, ["biology_v4/extended_weather"]
+            )
+
     def test_operational_quality_catalog_rejects_profile_without_holdout_probabilities(self) -> None:
         module = load_script()
-        catalog = {
-            "kind": module.mushroom_ml_quality_catalog.KIND,
-            "schema_version": module.mushroom_ml_quality_catalog.SCHEMA_VERSION,
-            "entries": [
-                {
-                    "version_id": "biology_v4",
-                    "profile_id": "extended_weather",
-                    "n_test": 0,
-                }
-            ],
-        }
+        catalog = complete_quality_catalog(module)
+        catalog["entries"][0]["n_test"] = 0
 
         with self.assertRaisesRegex(ValueError, "no hold-out probabilities"):
             module.validate_operational_quality_catalog(
@@ -44,21 +87,48 @@ class RunMushroomMLMultiversionJobTests(TestCase):
 
     def test_operational_quality_catalog_accepts_profile_with_holdout_probabilities(self) -> None:
         module = load_script()
-        catalog = {
-            "kind": module.mushroom_ml_quality_catalog.KIND,
-            "schema_version": module.mushroom_ml_quality_catalog.SCHEMA_VERSION,
-            "entries": [
-                {
-                    "version_id": "biology_v4",
-                    "profile_id": "extended_weather",
-                    "n_test": 12,
-                }
-            ],
-        }
+        catalog = complete_quality_catalog(module)
 
         module.validate_operational_quality_catalog(
-            catalog, ["biology_v4/extended_weather"]
+            catalog,
+            ["biology_v4/extended_weather"],
+            {
+                "fits": [
+                    {
+                        "artifact_ref": {
+                            "version_id": "biology_v4",
+                            "profile_id": "extended_weather",
+                            "temporal_contract_id": "fixed_gap_7d_biology_v4",
+                            "estimator_id": "logistic_regression_reduced_v1",
+                            "species_id": "species_a",
+                        }
+                    }
+                ]
+            },
         )
+
+    def test_operational_quality_catalog_rejects_unplanned_selected_candidate(self) -> None:
+        module = load_script()
+        catalog = complete_quality_catalog(module)
+
+        with self.assertRaisesRegex(ValueError, "does not materialize selected"):
+            module.validate_operational_quality_catalog(
+                catalog,
+                ["biology_v4/extended_weather"],
+                {
+                    "fits": [
+                        {
+                            "artifact_ref": {
+                                "version_id": "biology_v4",
+                                "profile_id": "extended_weather",
+                                "temporal_contract_id": "fixed_gap_7d_biology_v4",
+                                "estimator_id": "different_estimator",
+                                "species_id": "species_a",
+                            }
+                        }
+                    ]
+                },
+            )
 
     def test_operational_bootstrap_selects_five_complete_versions(self) -> None:
         module = load_script()

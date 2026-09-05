@@ -452,6 +452,28 @@ def validate_batch_manifest(
         if quality_path != expected_quality_path or not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise ValueError("Runtime quality catalog reference is invalid")
         checked_quality_catalog = {"path": quality_path.as_posix(), "sha256": digest}
+    quality_audit_catalog = payload.get("quality_audit_catalog")
+    checked_quality_audit_catalog = None
+    if quality_audit_catalog is not None:
+        if not isinstance(quality_audit_catalog, Mapping):
+            raise ValueError("Runtime quality audit catalog reference must be an object")
+        audit_path = Path(str(quality_audit_catalog.get("path") or ""))
+        expected_audit_path = Path(
+            "batches", batch_id, "quality-audit-catalog.json"
+        )
+        audit_digest = str(quality_audit_catalog.get("sha256") or "")
+        selection_id = str(quality_audit_catalog.get("selection_id") or "")
+        if (
+            audit_path != expected_audit_path
+            or not re.fullmatch(r"[0-9a-f]{64}", audit_digest)
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", selection_id)
+        ):
+            raise ValueError("Runtime quality audit catalog reference is invalid")
+        checked_quality_audit_catalog = {
+            "path": audit_path.as_posix(),
+            "sha256": audit_digest,
+            "selection_id": selection_id,
+        }
     result = {
         **dict(payload),
         "batch_id": batch_id,
@@ -469,6 +491,8 @@ def validate_batch_manifest(
         )
     if checked_quality_catalog is not None:
         result["quality_catalog"] = checked_quality_catalog
+    if checked_quality_audit_catalog is not None:
+        result["quality_audit_catalog"] = checked_quality_audit_catalog
     benchmark_report = payload.get("benchmark_report")
     if benchmark_report is not None:
         if not isinstance(benchmark_report, Mapping):

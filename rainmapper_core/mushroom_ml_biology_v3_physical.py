@@ -68,6 +68,7 @@ def _project_sample(
     )
     columns = predictive_columns(temporal_contract_id)
     predictive = dict(physical.get("predictive_features") or {})
+    source_predictive = dict(source.get("predictive_features") or {})
     missing = [name for name in columns if predictive.get(name) is None]
     source_quality = source.get("quality")
     source_quality = source_quality if isinstance(source_quality, Mapping) else {}
@@ -126,7 +127,16 @@ def _project_sample(
             "significant_rain_found_90d": source_quality.get(
                 "significant_rain_found_90d"
             ),
-            "days_since_significant_rain_at_target": predictive.get(
+            "significant_rain_event_date": source_quality.get(
+                "significant_rain_event_date"
+            ),
+            "significant_rain_event_amount_mm": source_quality.get(
+                "significant_rain_event_amount_mm"
+            ),
+            "significant_rain_threshold_mm": source_quality.get(
+                "significant_rain_threshold_mm"
+            ),
+            "days_since_significant_rain_at_target": source_predictive.get(
                 "days_since_significant_rain_at_target"
             ),
         },

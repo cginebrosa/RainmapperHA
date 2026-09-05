@@ -209,9 +209,11 @@ class MushroomWorkerServiceTests(unittest.TestCase):
             batch = result / "batch"
             model = batch / "generations/g/model.joblib"
             quality = batch / "quality-catalog.json"
+            quality_audit = batch / "quality-audit-catalog.json"
             model.parent.mkdir(parents=True)
             model.write_bytes(b"trained-here")
             quality.write_bytes(b"quality")
+            quality_audit.write_bytes(b"quality-audit")
             batch_id = "batch-local"
             manifest = {
                 "batch_id": batch_id,
@@ -224,6 +226,13 @@ class MushroomWorkerServiceTests(unittest.TestCase):
                     "path": f"batches/{batch_id}/quality-catalog.json",
                     "sha256": hashlib.sha256(quality.read_bytes()).hexdigest(),
                 },
+                "quality_audit_catalog": {
+                    "path": f"batches/{batch_id}/quality-audit-catalog.json",
+                    "sha256": hashlib.sha256(
+                        quality_audit.read_bytes()
+                    ).hexdigest(),
+                    "selection_id": "sha256:" + "a" * 64,
+                },
             }
             (batch / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
@@ -232,10 +241,10 @@ class MushroomWorkerServiceTests(unittest.TestCase):
                 result,
             )
 
-            self.assertEqual(cached["cached_objects"], 3)
+            self.assertEqual(cached["cached_objects"], 4)
             self.assertEqual(
                 len(list((root / "worker/predictor-runtime/objects").iterdir())),
-                3,
+                4,
             )
 
     def test_job_telemetry_coalesces_progress_and_control_every_ten_seconds(self) -> None:

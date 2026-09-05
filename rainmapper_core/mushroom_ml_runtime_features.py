@@ -21,6 +21,7 @@ def _raw_rain_quality(
     chronological = list(
         area_series.get(raw.AREA_SERIES_KEYS["rain_mm"]) or []
     )
+    chronological_dates = list(area_series.get("daily_dates") or [])
     recent = [raw._as_float(value) for value in reversed(chronological[-90:])]
     significant_age = next(
         (
@@ -31,10 +32,25 @@ def _raw_rain_quality(
         None,
     )
     complete = len(recent) == 90
+    event_index = (
+        len(chronological) - 1 - significant_age
+        if significant_age is not None
+        else None
+    )
+    event_date = (
+        str(chronological_dates[event_index])
+        if event_index is not None
+        and len(chronological_dates) == len(chronological)
+        else None
+    )
+    event_amount = recent[significant_age] if significant_age is not None else None
     return {
         "rain_event_search_complete": complete,
         "significant_rain_search_complete": complete,
         "significant_rain_found_90d": significant_age is not None,
+        "significant_rain_event_date": event_date,
+        "significant_rain_event_amount_mm": event_amount,
+        "significant_rain_threshold_mm": biology_v3.SIGNIFICANT_RAIN_THRESHOLD_MM,
         "days_since_significant_rain_at_target": float(
             min(90, significant_age + horizon_days)
             if significant_age is not None

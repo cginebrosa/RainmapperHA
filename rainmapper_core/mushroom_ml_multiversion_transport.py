@@ -373,6 +373,18 @@ def _verified_result(
         raise ValueError(
             f"{expected_purpose.capitalize()} batch has no synchronized hold-out quality catalog"
         )
+    quality_audit_ref = batch_manifest.get("quality_audit_catalog")
+    if isinstance(quality_audit_ref, Mapping):
+        quality_audit_path = extracted / Path(
+            str(quality_audit_ref["path"])
+        ).relative_to(Path("batches") / result["batch_id"])
+        if not _matches_received_digest(
+            result_root,
+            quality_audit_path,
+            quality_audit_ref["sha256"],
+            receipts=receipts,
+        ):
+            raise ValueError("Multiversion quality audit catalog integrity failed")
     training_input_ref = batch_manifest.get("training_input_manifest")
     if isinstance(training_input_ref, Mapping):
         training_input_path = extracted / Path(str(training_input_ref["path"])).relative_to(

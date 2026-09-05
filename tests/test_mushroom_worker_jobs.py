@@ -1768,6 +1768,46 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 )
                 self.assertFalse((derived / "job-payloads").exists())
 
+    def test_prunes_only_superseded_terminal_history_after_activation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            queue = mushroom_worker_jobs.empty_queue()
+            queue["jobs"] = [
+                {
+                    "job_id": "old-complete",
+                    "job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+                    "status": "complete",
+                },
+                {
+                    "job_id": "old-failed",
+                    "job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+                    "status": "failed",
+                },
+                {
+                    "job_id": "current-active",
+                    "job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+                    "status": "running",
+                },
+                {
+                    "job_id": "unrelated",
+                    "job_type": mushroom_worker_jobs.JOB_TYPE_PREDICTOR,
+                    "status": "complete",
+                },
+            ]
+            mushroom_worker_jobs._write_atomic(path, queue)
+
+            result = mushroom_worker_jobs.prune_superseded_terminal_jobs(
+                path,
+                job_types={mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE},
+                keep_job_ids={"current-active"},
+            )
+
+            self.assertEqual(result["removed"], 2)
+            self.assertEqual(
+                {row["job_id"] for row in mushroom_worker_jobs.load_queue(path)["jobs"]},
+                {"current-active", "unrelated"},
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

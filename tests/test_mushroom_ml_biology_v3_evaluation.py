@@ -54,6 +54,9 @@ class BiologyV3EvaluationTests(unittest.TestCase):
             "quality": {
                 "training_eligible": True,
                 "training_exclusion_reasons": [],
+                "significant_rain_event_date": "2025-12-24",
+                "significant_rain_event_amount_mm": 12.2,
+                "significant_rain_threshold_mm": 5.0,
                 **{name: float(index + 1) for index, name in enumerate(sorted(legacy_quality))},
             },
             "metadata": {
@@ -81,6 +84,20 @@ class BiologyV3EvaluationTests(unittest.TestCase):
         self.assertEqual(
             benchmark["samples"][0]["metadata"]["weather_idw_contract_id"],
             "weather-idw-test",
+        )
+        self.assertEqual(
+            benchmark["samples"][0]["quality"]["significant_rain_event_date"],
+            "2025-12-24",
+        )
+        self.assertEqual(
+            benchmark["samples"][0]["quality"]["significant_rain_event_amount_mm"],
+            12.2,
+        )
+        self.assertEqual(
+            benchmark["samples"][0]["quality"][
+                "days_since_significant_rain_at_target"
+            ],
+            source["predictive_features"]["days_since_significant_rain_at_target"],
         )
 
     def test_chronological_split_never_breaks_fruiting_group(self) -> None:

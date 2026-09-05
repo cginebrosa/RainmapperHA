@@ -125,7 +125,17 @@ class MushroomMLModelCatalogTests(TestCase):
                     "sha256": "b" * 64,
                 }
             ],
+            "quality_audit_catalog": {
+                "path": "batches/batch-a/quality-audit-catalog.json",
+                "sha256": "c" * 64,
+                "selection_id": "sha256:" + "d" * 64,
+            },
         }
+        checked = catalog.validate_batch_manifest(self.registry, manifest)
+        self.assertEqual(
+            checked["quality_audit_catalog"]["selection_id"],
+            "sha256:" + "d" * 64,
+        )
         self.assertEqual(
             catalog.resolve_artifact(
                 self.registry, manifest, model_ref, root=Path("/models")
@@ -139,6 +149,10 @@ class MushroomMLModelCatalogTests(TestCase):
                 self.ref(species_id="boletus_edulis"),
                 root=Path("/models"),
             )
+
+        manifest["quality_audit_catalog"]["selection_id"] = "invalid"
+        with self.assertRaisesRegex(ValueError, "quality audit"):
+            catalog.validate_batch_manifest(self.registry, manifest)
 
     def test_manifest_rejects_path_that_does_not_match_identity(self) -> None:
         model_ref = self.ref()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from datetime import date, timedelta
 import hashlib
 import json
@@ -73,13 +74,12 @@ def _load_quality_catalog(
     if hashlib.sha256(content).hexdigest() != expected_sha:
         return {}
     loaded = json.loads(content)
-    if (
-        not isinstance(loaded, dict)
-        or loaded.get("kind") != mushroom_ml_quality_catalog.KIND
-        or loaded.get("schema_version") != mushroom_ml_quality_catalog.SCHEMA_VERSION
-    ):
+    if not isinstance(loaded, dict):
         return {}
-    return loaded
+    try:
+        return mushroom_ml_quality_catalog.validate_catalog(loaded)
+    except ValueError:
+        return {}
 
 
 def _interpretation_features(sample: Mapping[str, object]) -> dict[str, object]:
@@ -106,11 +106,19 @@ def _interpretation_features(sample: Mapping[str, object]) -> dict[str, object]:
         "significant_rain_found_90d",
         "significant_rain_search_complete",
         "rain_event_search_complete",
+        "significant_rain_event_date",
+        "significant_rain_event_amount_mm",
+        "significant_rain_threshold_mm",
     ):
         for source in quality_sources:
-            if key in source:
-                features[key] = source[key]
+            if key not in source:
+                continue
+            value = source[key]
+            if value is not None:
+                features[key] = value
                 break
+            if key not in features:
+                features[key] = None
     return features
 
 
@@ -483,6 +491,181 @@ def _operational_gate_failures(member: Mapping[str, object]) -> list[str]:
     elif roc_auc < MIN_OPERATIONAL_ROC_AUC:
         failures.append("roc_auc_below_minimum")
     return failures
+
+
+_CANDIDATE_IDENTITY_FIELDS = (
+    "version_id",
+    "profile_id",
+    "temporal_contract_id",
+    "horizon_days",
+    "estimator_id",
+)
+
+
+def _candidate_identity(payload: Mapping[str, object]) -> tuple[object, ...]:
+    return tuple(payload.get(field) for field in _CANDIDATE_IDENTITY_FIELDS)
+
+
+def reliability_candidate_selections(
+    resolution: Mapping[str, object],
+) -> list[dict[str, object]]:
+    """Return the sealed reliability ranking, including legacy single winners."""
+    if resolution.get("runtime_selection_status") in {"winner", "abstain"}:
+        candidate = resolution.get("candidate")
+        return [dict(candidate)] if isinstance(candidate, Mapping) else []
+    chain = resolution.get("candidate_chain")
+    if isinstance(chain, list):
+        candidates = [
+            dict(candidate)
+            for entry in chain
+            if isinstance(entry, Mapping)
+            and isinstance((candidate := entry.get("candidate")), Mapping)
+        ]
+        if candidates:
+            return candidates
+    candidate = resolution.get("candidate")
+    return [dict(candidate)] if isinstance(candidate, Mapping) else []
+
+
+def build_reliability_selected_operational_comparison(
+    members: Sequence[Mapping[str, object]],
+    resolution: Mapping[str, object],
+    *,
+    season_phase: str,
+    phenology: Mapping[str, object] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Use the first currently applicable member in the sealed reliability order."""
+    chain = resolution.get("candidate_chain")
+    ranked_entries = (
+        [dict(entry) for entry in chain if isinstance(entry, Mapping)]
+        if isinstance(chain, list)
+        else []
+    )
+    if not ranked_entries:
+        candidate = resolution.get("candidate")
+        if isinstance(candidate, Mapping):
+            ranked_entries = [{"candidate": dict(candidate)}]
+
+    members_by_identity = {
+        _candidate_identity(ref): member
+        for member in members
+        if isinstance((ref := member.get("model_ref")), Mapping)
+    }
+    runtime_status = str(resolution.get("runtime_selection_status") or "")
+    if runtime_status in {"winner", "abstain"}:
+        candidate = resolution.get("candidate")
+        materialized = (
+            members_by_identity.get(_candidate_identity(candidate))
+            if isinstance(candidate, Mapping)
+            else None
+        )
+        comparison = build_selected_operational_comparison(
+            [materialized] if materialized is not None else [],
+            season_phase=season_phase,
+            phenology=phenology,
+            selection_mode="multiversion",
+        )
+        comparison["reliability_selection_mode"] = (
+            "sealed_order_with_applicability_fallback"
+        )
+        comparison["reliability_candidate_exclusions"] = copy.deepcopy(
+            list(resolution.get("runtime_candidate_exclusions") or [])
+        )
+        comparison["reliability_candidate_count"] = int(
+            resolution.get("runtime_candidate_count") or len(ranked_entries)
+        )
+        comparison["reliability_fallback_rank"] = resolution.get("fallback_rank")
+        return comparison, copy.deepcopy(dict(resolution))
+
+    exclusions: list[dict[str, object]] = []
+    selected_member: Mapping[str, object] | None = None
+    selected_entry: Mapping[str, object] | None = None
+    selected_rank: int | None = None
+    for rank, entry in enumerate(ranked_entries):
+        candidate = entry.get("candidate")
+        if not isinstance(candidate, Mapping):
+            continue
+        member = members_by_identity.get(_candidate_identity(candidate))
+        failures = (
+            ["member_unavailable"]
+            if member is None
+            else _operational_gate_failures(member)
+        )
+        if failures:
+            exclusions.append(
+                {
+                    "rank": rank,
+                    "model_ref": dict(candidate),
+                    "reasons": failures,
+                }
+            )
+            continue
+        selected_member = member
+        selected_entry = entry
+        selected_rank = rank
+        break
+
+    comparison = build_selected_operational_comparison(
+        [selected_member] if selected_member is not None else members,
+        season_phase=season_phase,
+        phenology=phenology,
+        selection_mode="multiversion",
+    )
+    comparison["reliability_selection_mode"] = "sealed_order_with_applicability_fallback"
+    comparison["reliability_candidate_exclusions"] = exclusions
+    comparison["reliability_candidate_count"] = len(ranked_entries)
+    comparison["reliability_fallback_rank"] = selected_rank
+
+    active_resolution = copy.deepcopy(dict(resolution))
+    active_resolution["runtime_candidate_count"] = len(ranked_entries)
+    # The full ranked chain belongs to the immutable quality catalog.  Once
+    # applicability has been resolved, repeating its evidence in every weekly
+    # response only inflates the serving artifact.  The chosen candidate,
+    # fallback rank and compact rejection trace are sufficient to reproduce
+    # and explain the operational decision.
+    active_resolution.pop("candidate_chain", None)
+    active_resolution["preferred_candidate"] = copy.deepcopy(
+        resolution.get("candidate")
+    )
+    if selected_entry is None or selected_rank is None:
+        active_resolution["runtime_selection_status"] = "abstain"
+        active_resolution["runtime_selection_reason"] = "no_applicable_reliable_candidate"
+        active_resolution["runtime_candidate_exclusions"] = copy.deepcopy(exclusions)
+        return comparison, active_resolution
+
+    active_resolution["runtime_selection_status"] = "winner"
+    active_resolution["fallback_rank"] = selected_rank
+    active_resolution["runtime_candidate_exclusions"] = copy.deepcopy(exclusions)
+    active_resolution["candidate"] = copy.deepcopy(selected_entry.get("candidate"))
+    if isinstance(selected_entry.get("evidence"), Mapping):
+        active_resolution["evidence"] = copy.deepcopy(selected_entry["evidence"])
+    if isinstance(selected_entry.get("evidence_by_scope"), Mapping):
+        active_resolution["evidence_by_scope"] = copy.deepcopy(
+            selected_entry["evidence_by_scope"]
+        )
+    if selected_rank > 0:
+        active_resolution.pop("stability", None)
+        active_resolution["fallback_reason"] = "preferred_candidate_not_runtime_eligible"
+        active_resolution["preferred_candidate_rejection_reasons"] = list(
+            exclusions[0].get("reasons") or []
+        )
+    return comparison, active_resolution
+
+
+def reliability_materialized_members(
+    members: Sequence[Mapping[str, object]],
+    resolution: Mapping[str, object],
+) -> list[dict[str, object]]:
+    """Keep the single runtime choice while the resolution retains its full fallback audit."""
+    candidate = resolution.get("candidate")
+    if not isinstance(candidate, Mapping):
+        return []
+    wanted = _candidate_identity(candidate)
+    for member in members:
+        reference = member.get("model_ref")
+        if isinstance(reference, Mapping) and _candidate_identity(reference) == wanted:
+            return [copy.deepcopy(dict(member))]
+    return []
 
 
 def _winner_statistical_reliability(
@@ -959,6 +1142,9 @@ def _contract_result(
         extreme = list((prediction.get("applicability") or {}).get("most_extreme") or [])
         if estimator_id == "logistic_regression_reduced_v1" and any(
             isinstance(item, Mapping)
+            and not mushroom_ml_runtime_inference.is_rainfall_feature(
+                item.get("feature")
+            )
             and isinstance(item.get("standard_deviations"), (int, float))
             and float(item["standard_deviations"]) >= 6.0
             for item in extreme

@@ -1154,6 +1154,16 @@ def _build_biology_v3_sample(
     significant_age = _last_event_age(rain_90, SIGNIFICANT_RAIN_THRESHOLD_MM)
     dry_run, dry_censored = _dry_spell(rain_90)
     significant_found = significant_age is not None
+    significant_rain_date = (
+        (cutoff_day - timedelta(days=significant_age)).isoformat()
+        if cutoff_day is not None and significant_age is not None
+        else None
+    )
+    significant_rain_amount_mm = (
+        rain_90[-1 - significant_age]
+        if significant_age is not None
+        else None
+    )
     if significant_age is None:
         after_temp, after_temp_days = None, 0
         after_humidity, after_humidity_days = None, 0
@@ -1264,6 +1274,9 @@ def _build_biology_v3_sample(
         "rain_event_search_complete": enough_history,
         "significant_rain_search_complete": enough_history,
         "significant_rain_found_90d": significant_found,
+        "significant_rain_event_date": significant_rain_date,
+        "significant_rain_event_amount_mm": significant_rain_amount_mm,
+        "significant_rain_threshold_mm": SIGNIFICANT_RAIN_THRESHOLD_MM,
         "temperature_altitude_correction_available": correction_available,
         "weather_idw_eligible": not metric_errors,
         "training_eligible": not reasons,

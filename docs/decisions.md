@@ -1,5 +1,175 @@
 # Decisions
 
+## 2026-09-05 - [VIGENTE][PREDICTOR] Fallback sellado por aplicabilidad y ventana solo diagnóstica
+
+- La selección de entrenamiento publica, además del ganador, la cadena completa
+  de candidatos estadísticamente elegibles en su orden de fiabilidad. Si las
+  features actuales dejan fuera de dominio al ganador, el runtime usa el primer
+  candidato posterior aplicable; nunca el de mayor probabilidad puntual.
+- La trazabilidad distingue candidato preferido y efectivo, posición del
+  fallback, razones de rechazo y evidencia del modelo efectivamente usado. Si
+  toda la cadena falla, se mantiene la abstención.
+- Este fallback no cambia el ámbito de evidencia: una selección
+  `species_fallback` sigue siendo global de esa especie y la probabilidad se
+  calcula con las features del área consultada. No existe fallback entre
+  especies.
+- La ventana de fructificación tras lluvia vuelve a mostrarse como diagnóstico
+  orientativo. Compara los días desde el episodio de al menos 5 mm con los
+  intervalos configurados para la especie; no es una feature aprendida y, bajo
+  `MOD_0001`, no modifica probabilidad, veredicto, color, ranking ni
+  aplicabilidad.
+- Los catálogos ya instalados, que solo contienen el ganador, conservan el
+  comportamiento anterior. Activar la cadena requiere un entrenamiento y un
+  precálculo nuevos; esta decisión no los autoriza por sí misma.
+
+## 2026-09-05 - [VIGENTE][PREDICTOR] No cambiar todavía la racha seca a 1 mm
+
+- La prueba controlada D0/D1/D2 no demuestra una mejora estable al tratar como
+  seco todo día con menos de 1 mm. Esa definición es intuitivamente más robusta
+  frente a trazas, pero mejora unas combinaciones y empeora otras.
+- Las cantidades inferiores a 1 mm se conservan siempre en lluvia continua,
+  acumulados y estado hídrico. La duda afecta solo al contador binario de días
+  secos.
+- Para un contrato futuro, la hipótesis preferida es probar la ausencia del
+  contador explícito y dejar que los modelos aprendan la sequedad desde las
+  variables continuas. Se repetirá frente a D0 y D1 cuando entren nuevos grupos
+  independientes; no se modifican ahora V2--V6.
+
+## 2026-09-04 - [VIGENTE][PREDICTOR][MOD_0001] La ecología queda como diagnóstico y no como veto
+
+- Las reglas deterministas de ventana tras lluvia, temperatura y compatibilidad
+  ecológica dejan de modificar el dictamen, el color o la probabilidad aprendida
+  por el modelo. Esto se aplica de forma transversal a todas las versiones y
+  vistas, no únicamente al caso que originó la revisión.
+- Los cálculos y metadatos no se eliminan: permanecen disponibles para auditoría
+  y para una posible reintroducción basada en evidencia. Los puntos de código y
+  pruebas se localizan buscando `MOD_0001`.
+- El motivo es que Rainmapper ya limita sus predicciones a combinaciones
+  especie/área confirmadas y pretende aprender de las observaciones la relación
+  temporal con lluvia, temperatura y demás variables. Un veto externo no es
+  defendible hasta demostrar que corrige errores fuera de muestra y no duplica
+  o contradice la señal aprendida.
+- Reintroducir una regla requerirá definición auditable, ablaciones con los
+  mismos grupos hold-out y validación prospectiva. La especificación vinculada
+  es `docs/mushrooms/mushroom-predictor-reliability-selection-spec-es.md`.
+
+## 2026-09-04 - [DUDA][PREDICTOR] Señal hídrica antecedente y calibración extrema
+
+- «Lluvia de activación» no se adopta como concepto causal. Se usará
+  provisionalmente «señal hídrica antecedente» hasta definir periodo, fuente,
+  acumulación, umbrales, cobertura, incertidumbre y transformación.
+- Sporas.io sirve para descubrir preguntas y contrastar la presentación, pero
+  no es ground truth. Sus ejemplos observados no permiten reconstruir de forma
+  independiente algunos acumulados, altitudes ni probabilidades a partir de las
+  estaciones visibles y la documentación pública.
+- Las divergencias entre sistemas tampoco validan ni refutan por sí solas a
+  Rainmapper. El caso Rovelló/Riu de Cerdanya —100 % con fallback global de
+  especie frente a 9,5 % externo— queda como caso centinela para auditar
+  features efectivas, extrapolación, saturación y calibración.
+- La investigación y sus condiciones de salida están documentadas en
+  `docs/mushrooms/literature/sporas_especies_informe_rainmapper.md` y en la
+  especificación del selector fiable.
+
+## 2026-09-04 - [VIGENTE][PREDICTOR] Área y especie compiten con la misma métrica
+
+- El selector calcula primero el mejor candidato elegible de área y el mejor
+  candidato elegible global de especie, y compara entre ambos el mismo límite
+  inferior de Wilson al 95 %. La especie sustituye al área solo si su límite es
+  estrictamente mayor; un empate conserva el candidato territorial.
+- Se elimina la antigua prioridad incondicional del área. Ser territorial no
+  añade una bonificación ni justifica retener evidencia conservadora inferior.
+  Si ninguno es elegible, se mantiene la abstención.
+- El contrato de selección pasa de `1.1` a `1.2`, por lo que un catálogo anterior
+  no puede reutilizarse silenciosamente: hace falta un entrenamiento nuevo y,
+  después, un precálculo nuevo.
+- La UI distingue `Acierto observado` del `Límite conservador (95 %)`. El segundo
+  es el suelo estadístico usado para seleccionar, no una probabilidad de la
+  predicción ni un porcentaje observado adicional.
+
+## 2026-09-02 - [VIGENTE][PREDICTOR] La selección fiable se sella durante entrenamiento
+
+- Cada combinación operativa de especie/área resolverá un único candidato
+  completo —versión, perfil/ventana, familia temporal, horizonte y estimador— a
+  partir de la evidencia hold-out producida por el entrenamiento.
+- La selección se calcula una vez, se publica dentro de
+  `quality-catalog.json` y se activa atómicamente con los modelos que
+  referencia. El precálculo semanal la consume sin reevaluar ni ordenar
+  candidatos, y la UI se limita a mostrar la probabilidad elegida y su
+  trazabilidad.
+- La evidencia insuficiente de un área permite únicamente el fallback sellado
+  de la misma especie; si tampoco existe un candidato global elegible, el
+  sistema se abstiene. No habrá fallback entre especies ni selección por el
+  mayor porcentaje aislado.
+- La selección reutiliza las probabilidades hold-out ya calculadas: no ajusta
+  modelos, no ejecuta inferencias adicionales y no explora combinaciones. Un
+  nuevo precálculo conserva los candidatos mientras no cambie la publicación
+  científica del entrenamiento.
+- El objetivo principal es acertar de forma demostrada cuando el candidato
+  recomienda salir. Cada observación se compara individualmente con su
+  predicción y Wilson al 95 % sobre esas recomendaciones es el criterio
+  conservador principal. Retirar `validation_group_id` completos mide
+  sensibilidad, pero no cambia métricas, gates ni ranking. Las sumas actuales de
+  varios `evaluated_count` no son soporte científico. La mejora estricta de
+  Brier frente a prevalencia es el control objetivo de utilidad; ROC-AUC,
+  recall, cobertura y calibración quedan como diagnóstico o desempates.
+- El split autoritativo es `fruiting_groups_14d`. No habrá mínimos manuales de
+  observaciones, recomendaciones de salida o recall: Wilson penaliza de forma
+  continua la evidencia pequeña y se reajusta al crecer el corpus. Siguen siendo
+  obligatorias las condiciones matemáticas y estructurales: población
+  comparable, ambas clases, al menos una recomendación favorable,
+  probabilidades válidas y Brier mejor que prevalencia. La especificación es
+  `docs/mushrooms/mushroom-predictor-reliability-selection-spec-es.md`.
+- La granularidad territorial termina en `area_id`; no se seleccionan candidatos
+  por microárea. `observation_id` identifica el resultado puntuado y
+  `validation_group_id` se usa como bloque de dependencia, no como una etiqueta
+  binaria agregada.
+- Los splits son contratos de validación incompatibles y nunca se acumulan. La
+  auditoría del batch local demostró que el catálogo `1.1` instalado los mezcla.
+  El productor queda corregido para incluir `split_id` en la clave y cada
+  entrada, rechazar filas sin split y resolver lookups explícitos. Los contratos
+  distintos permanecen disponibles solo para diagnóstico; el catálogo instalado
+  no cambia sin un nuevo entrenamiento.
+
+## 2026-09-02 - [VIGENTE][PREDICTOR] Un cambio incompatible del esquema de publicación exige reentrenamiento
+
+- El último precálculo completo solo se reutiliza cuando su contrato y la
+  publicación runtime son compatibles con el lector instalado. La continuidad
+  frente a cambios de fingerprint no equivale a compatibilidad automática
+  entre esquemas.
+- HA `0.2.291` exige publicación runtime `1.2`; el runtime real montado seguía
+  en `1.1`. Aunque `active.sqlite3` era completo y el lector podía encontrar la
+  petición, `render_mushroom_predictor` rechazaba primero el manifiesto antiguo
+  y no llegaba al lookup. No era un fallo del traslado `/share` → `/media`.
+- Se mantiene deliberadamente la política estricta. Ante un cambio de esquema,
+  el orden operativo es: reentrenamiento completo, publicación del runtime
+  nuevo y precálculo semanal posterior. El schedule cada tres horas puede
+  realizar el último paso una vez reactivado.
+- No se añade compatibilidad `1.1` → `1.2` por ahora. Sí queda pendiente que la
+  UI distinga `runtime requiere reentrenamiento` de `no existe precálculo`, para
+  no inducir a ejecutar las tareas en el orden equivocado.
+
+## 2026-09-02 - [VIGENTE][PREDICTOR] Historial en HA se sustituirá por evaluación persistida del entrenamiento
+
+- El SQLite semanal precalcula únicamente `recommender`, `week` y `query`.
+  `history` queda fuera; como HA real no ejecuta inferencia en línea, el
+  Historial retrospectivo actual no está disponible allí y un precálculo
+  semanal nuevo no lo solucionará.
+- La sustitución leerá `quality-catalog.json` del batch instalado y mostrará
+  cada candidato de forma indivisible por snapshot, split, especie, versión,
+  perfil/ventana, familia temporal, horizonte y estimador. No agregará matrices
+  de candidatos distintos.
+- Las cinco cifras visibles serán casos probados, favorables acertados,
+  favorables encontrados, desfavorables acertados y desfavorables encontrados,
+  con porcentaje y fracción. Soporte, comparabilidad, abstención, Brier,
+  ROC-AUC y evidencia impedirán elegir ganadores triviales o incomparables.
+- El evaluador podrá ordenar según distintos objetivos informativos, pero la
+  selección operativa se sella durante entrenamiento según la decisión y la
+  especificación posteriores. Esa selección no es el puntero global de UI
+  `preferred_version_id` y no debe reutilizarlo silenciosamente.
+- Las fichas hold-out y la lista retrospectiva actuales no son comparables:
+  las primeras agregan ganadores operativos y la segunda combina predicciones
+  sobre otra población. La lista no será fuente del ranking futuro.
+
 ## 2026-09-02 - [VIGENTE][RELEASE] HA 0.2.291 y worker privado 1.0.37
 
 - HA `0.2.291` y `latest` se publicaron con el mismo índice OCI
@@ -12,10 +182,12 @@
   reutilizó un precálculo anterior desactualizado con fecha/hora visible y sin
   cálculo nuevo. No se lanzó ni monitorizó otro precálculo durante la release.
 - El alcance incluye Predictor multiversión en las tres vistas operativas,
-  preferencia independiente, corrección del Historial y sus métricas hold-out,
-  y la prohibición de cálculo online automático en HA real.
+  preferencia independiente, corrección local del Historial y sus métricas
+  hold-out, y la prohibición de cálculo online automático en HA real. Historial
+  no forma parte del precálculo semanal y por ello no está disponible en HA
+  real bajo esta política; se reemplazará según la decisión anterior.
 
-## 2026-09-01 - [VIGENTE][PREDICTOR] La preferida no forma parte de la identidad científica
+## 2026-09-01 - [REEMPLAZADA][PREDICTOR] La preferida no forma parte de la identidad científica
 
 - La versión preferida es únicamente el valor operativo por defecto de la UI.
   El precálculo ya contiene todas las versiones operativas instaladas, por lo
@@ -53,8 +225,10 @@
 - Implementado en el worktree: `lookup_active_artifact` intenta leer el SQLite
   íntegro aunque su fingerprint sea anterior; un hit se marca
   `outdated_used`, muestra la fecha/hora operativa del fichero y evita toda
-  inferencia. Fuera del laboratorio local, cualquier miss termina antes de la
-  selección de ejecutor.
+  inferencia. Esto presupone que la publicación runtime y el artefacto usan
+  esquemas aceptados por el lector; la decisión del 2026-09-02 gobierna los
+  cambios incompatibles. Fuera del laboratorio local, cualquier miss termina
+  antes de la selección de ejecutor.
 
 ## 2026-09-01 - [VIGENTE][PREDICTOR] Multiversión coherente en las tres vistas operativas
 
@@ -69,8 +243,8 @@
 - El SQLite semanal guarda los miembros de todas las versiones operativas. El
   lector compone desde esos miembros cualquier subconjunto representado para
   las tres vistas; no mantiene respuestas duplicadas para cada combinación ni
-  vuelve a inferir. Implementado y probado en el worktree, pendiente de build,
-  validación visual y release.
+  vuelve a inferir. Implementado, probado, validado visualmente y publicado en
+  HA `0.2.291`.
 
 ## 2026-09-01 - [VIGENTE][PREDICTOR] El recomendador semanal tiene identidad global
 
@@ -96,7 +270,7 @@
   confirmó `Precálculo: usado`: 1,87 s para Aereus/Olvan por fecha y 0,33 s al
   regresar al recomendador; el cálculo informado fue `<0,1 s` en ambas.
 
-## 2026-09-01 - [VIGENTE][PREDICTOR] Elegir para una consulta y guardar la preferida son acciones distintas
+## 2026-09-01 - [REEMPLAZADA][PREDICTOR] Elegir para una consulta y guardar la preferida son acciones distintas
 
 - Las casillas `Versiones incluidas en la predicción` eligen qué versiones usa
   la consulta. El selector `Preferida` solo elige el puntero que se guardará;
@@ -2386,6 +2560,12 @@ Decision:
 - `backfill_station_filter` acepta entradas con separador `source::ids`.
 - Ejemplo: `wunderground::ICANIL20`.
 - Los IDs multiples se separan por coma.
+- Aunque conserva ese nombre por compatibilidad, no depende de
+  `backfill_months_enabled`: se aplica también a los updates Wunderground
+  normales y debe restaurarse a vacio tras una ejecucion dirigida.
+- Solo Wunderground consume actualmente el filtro. La sintaxis reserva el
+  prefijo de fuente para una posible extension futura, pero AEMET, Meteocat y
+  Meteoclimatic todavía lo ignoran.
 
 Motivo:
 
@@ -2399,6 +2579,8 @@ Consecuencias:
 - Wunderground ya se puede probar de forma acotada por estacion.
 - La sintaxis conserva sitio para extender el filtro a otras fuentes sin crear
   parametros separados por fuente.
+- Dejar el filtro configurado limita también las siguientes actualizaciones
+  ordinarias de Wunderground.
 
 ## 2026-07-11 - Valores IDW puntuales en popup MapLibre
 
@@ -5413,7 +5595,7 @@ Validacion local:
 - Esta decisión reemplaza la evaluación shadow exclusivamente cronológica; no
   cambia el corte meteorológico de `fixed_gap_7d_v1` ni `lag_event_v1`.
 
-# 2026-08-10 - [VIGENTE] Fixed-gap y lag-event sustituyen al v0 en la decisión visible
+# 2026-08-10 - [REEMPLAZADA] Fixed-gap y lag-event sustituyen al v0 en la decisión visible
 
 - `mushroom_ml_v0` no es válido como predictor futuro porque sus ventanas
   terminan en la fecha objetivo. Se conserva como baseline interno durante la
@@ -5480,7 +5662,7 @@ Validacion local:
   estabilidad entre contratos y horizontes, Brier frente a prevalencia,
   capacidad de recuperar episodios favorables y falsos avisos prospectivos.
 
-# 2026-08-10 - [VIGENTE] El dictamen separa ecología, estadística y acción
+# 2026-08-10 - [REEMPLAZADA] El dictamen separa ecología, estadística y acción
 
 - La compatibilidad ecológica, el soporte estadístico y el dictamen práctico
   son ejes diferentes del payload de interpretación y de la UI. «Confianza» se
@@ -5974,7 +6156,7 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
 - La retirada de copias legacy de `/share` es una acción separada, verificable
   y explícitamente autorizada. Este cambio no modifica retención ni borra datos.
 
-## 2026-09-01 - [VIGENTE] El selector multiversión usa el inventario vivo, no el catálogo del resultado
+## 2026-09-01 - [REEMPLAZADA] El selector multiversión usa el inventario vivo, no el catálogo del resultado
 
 - El catálogo embebido en una respuesta precalculada describe el resultado,
   pero no es la fuente de verdad para saber qué versiones están instaladas.
@@ -5988,7 +6170,7 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
 - El control visual son cinco casillas compactas con los nombres cortos; el
   detalle largo permanece accesible sin ocupar espacio permanente.
 
-## 2026-09-01 - [VIGENTE] «Todas las áreas» respeta la selección multiversión
+## 2026-09-01 - [REEMPLAZADA] «Todas las áreas» respeta la selección multiversión
 
 - `Consultar fecha` aplica las versiones marcadas tanto a un área concreta como
   al agregado de todas las áreas. El agregado se compone con los miembros
@@ -6008,6 +6190,23 @@ extremo a extremo. Queda reemplazada por la decisión anterior.
   añaden una ayuda contextual compacta. La ayuda define el total de episodios,
   el denominador evaluable del acierto y la diferencia entre no detectados y
   falsas alarmas sin ampliar las tarjetas.
+
+## 2026-09-03 - [VIGENTE] El Predictor compara siempre todo el inventario operativo instalado
+
+- Rainmapper mantiene una única instalación del Predictor. Sus vistas no
+  ofrecen selección manual de versiones ni una versión preferida.
+- El conjunto se obtiene dinámicamente del registro: participa toda versión
+  instalada con al menos un perfil `operational_eligible`. Añadir o retirar
+  versiones instaladas cambia el conjunto sin modificar una lista fija en UI.
+- `Esta semana`, `Por especie`, `Consultar fecha` e `Historial` envían esa
+  selección completa y consumen el ganador sellado por el selector fiable.
+  Los parámetros históricos `mv`, `mvv` y `preferred_version_id` no pueden
+  reducir el conjunto desde la navegación ordinaria.
+- La evidencia visible se mantiene separada en área y especie. En los rankings
+  semanales se resume en tres líneas —área, especie y ámbito decisor— y la
+  columna se ensancha para evitar filas artificialmente altas.
+- Esta decisión sustituye las decisiones del 2026-09-01 que declaraban vigente
+  la selección mediante casillas o el puntero de versión preferida.
 
 ## 2026-09-01 - [VIGENTE] Historial separa validación hold-out y auditoría retrospectiva
 

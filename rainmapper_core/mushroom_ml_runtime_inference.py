@@ -23,6 +23,15 @@ _artifact_cache: OrderedDict[tuple[str, str, int, int], dict[str, Any]] = (
 _artifact_cache_lock = RLock()
 
 
+def is_rainfall_feature(feature_name: object) -> bool:
+    """Identify the precipitation inputs covered by the warning-only policy."""
+    normalized = str(feature_name).strip().lower()
+    return (
+        normalized.startswith(("rain_", "rainfall_"))
+        or "rain_mm" in normalized
+    )
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -250,10 +259,23 @@ def _prediction_payload(
     outside.sort(
         key=lambda row: float(row.get("standard_deviations") or 0.0), reverse=True
     )
+    for row in outside:
+        rainfall_warning = is_rainfall_feature(row.get("feature"))
+        row["applicability_effect"] = (
+            "warning_only" if rainfall_warning else "may_block"
+        )
+    blocking_outside = [
+        row for row in outside if row["applicability_effect"] != "warning_only"
+    ]
     outside_ratio = len(outside) / len(columns)
+    blocking_outside_ratio = len(blocking_outside) / len(columns)
     applicability = (
         "outside_domain"
-        if outside_ratio >= 0.05 or any(float(row.get("standard_deviations") or 0) >= 3 for row in outside)
+        if blocking_outside_ratio >= 0.05
+        or any(
+            float(row.get("standard_deviations") or 0) >= 3
+            for row in blocking_outside
+        )
         else "caution"
         if outside
         else "within_observed_range"
@@ -272,6 +294,9 @@ def _prediction_payload(
             "outside_feature_count": len(outside),
             "checked_feature_count": len(columns),
             "outside_feature_ratio": round(outside_ratio, 6),
+            "blocking_outside_feature_count": len(blocking_outside),
+            "blocking_outside_feature_ratio": round(blocking_outside_ratio, 6),
+            "rainfall_warning_feature_count": len(outside) - len(blocking_outside),
             "most_extreme": outside[:5],
         },
         "ensemble_used": False,

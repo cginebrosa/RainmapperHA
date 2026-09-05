@@ -411,6 +411,15 @@ def materialize_daily_inference_row(
             "significant_rain_found_90d": source_quality.get(
                 "significant_rain_found_90d"
             ),
+            "significant_rain_event_date": source_quality.get(
+                "significant_rain_event_date"
+            ),
+            "significant_rain_event_amount_mm": source_quality.get(
+                "significant_rain_event_amount_mm"
+            ),
+            "significant_rain_threshold_mm": source_quality.get(
+                "significant_rain_threshold_mm"
+            ),
             "days_since_significant_rain_at_target": source_predictive.get(
                 "days_since_significant_rain_at_target"
             ),

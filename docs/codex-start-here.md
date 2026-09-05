@@ -37,50 +37,47 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-09-01
+## Estado general al cierre de 2026-09-04
 
-- Rama `inicial`; el HEAD revalidado antes de los cambios locales era
-  `5004b7261edab39c022f150fec3881e8c458c954`. Revalidar `pwd`, rama, HEAD,
-  worktree y runtime al comenzar.
-- El código declara HA `0.2.289` y worker `1.0.35`. HA `0.2.289` y `latest`
-  están publicados con el índice multiarch
-  `sha256:67d6abd75624474bf8703fe4b75fae6b9c8d396756b22e8cc7f03cfdcee62769`.
-  El usuario confirmó después que la aplicación funciona y que varios runners
-  programados completaron precálculos; revalidar versión instalada y worker
-  antes de afirmarlos en una sesión nueva.
-- El worker privado no se publica. La última observación confirmó `1.0.35`,
-  healthy/idle, identidad y volumen conservados, y capacidad
-  `predictor_precompute_v1`.
-- El precálculo semanal SQLite está implementado y validado localmente: lookup
-  en HA, cobertura multiversión, fallback íntegro, estado latest-wins,
-  publicación atómica en `/media/rainmapper`, job manual, solicitud asíncrona
-  del runner y estado visible en Predictor y Workers.
-- El primer E2E real de `0.2.284` falló porque el worker UTC calculaba la semana
-  desde `date.today()` en vez del `issue_date` planificado. `0.2.285`/`1.0.32`
-  corrigen el anclaje, muestran progreso fraccional y detalle remoto, y sacan
-  la telemetría síncrona del callback científico.
-- Con backup previo y autorización se retiraron de `/share` unos 405,6 MiB de
-  copias reconstruibles ya verificadas en `/media`; no se tocaron meteorología,
-  observaciones, catálogos, perfiles ni media de usuario.
-- El worktree contiene cambios pendientes de release: acción explícita para
-  guardar la versión operativa preferida y canonización de lectura del
-  precálculo. Esta última usa el `issue_date` que ancla la semana del artefacto
-  durante toda su cobertura y, para el recomendador global, ignora la especie
-  arrastrada desde `Consultar fecha`. Una prueba local fría sobre el SQLite real
-  dio hit en fecha (1,87 s) y al volver a `Esta semana` (0,33 s). Un cálculo
-  directo sin job permite ahora dejar de esperar sin afirmar que cancela el
-  trabajo del servidor.
-- La preferencia operativa ya no forma parte de la identidad científica del
-  runtime: `Usar como preferida` persiste el puntero y libera caché, pero no
-  republica ni invalida el precálculo multiversión. Cambios científicos reales
-  siguen marcando entrenamiento/precálculo como desactualizados. Está validado
-  por pruebas dirigidas y pendiente de build/release autorizados.
-- Todo cambio funcional o de almacenamiento debe quedar documentado en
-  `docs/active-context.md` y, cuando establezca una regla duradera, también en
-  `docs/decisions.md` y la especificación correspondiente antes del cierre.
-- No hay entrenamientos programados. La retención ML continúa activa; no borrar
-  datos, cambiar retención, lanzar entrenamientos ni hacer otro bump/build/
-  publicación sin autorización explícita.
+- Rama `inicial`; HEAD revalidado
+  `e5476dac9f40b81d612210b258696e176aa3785d`. El worktree contiene numerosos
+  cambios aún no publicados, incluidos datos del usuario. Revalidar `pwd`,
+  rama, HEAD, diff y runtimes al comenzar; no limpiar ni hacer commit global.
+- Las fuentes declaran HA `0.2.292` y worker privado `1.0.38`. La imagen HA
+  `0.2.292` ya está publicada en GHCR para amd64/arm64 y `latest` comparte su
+  digest
+  `sha256:9f1e111f292037f6d0d6a2dafe9d458d6d35dd9549182986ef5edd5a0230f6d1`;
+  la publicación Git queda incluida en este cierre y todavía falta la
+  instalación real. HA real sigue declarando `0.2.291` en el volumen montado. El worker local fue
+  reconstruido con `rainmapper-worker:1.0.38`, está healthy e idle y conserva
+  sus cachés; no se publicó una imagen remota del worker.
+- El entrenamiento local activo contiene cinco versiones operativas (`V2`,
+  `V3`, `V4`, `V5w`, `V6w`) y selector fiable `1.2`; la generación es
+  `local_operational_20260905T194632Z`, con 406 observaciones elegibles y
+  636/636 ajustes. El precálculo local activo es la revisión 39, usa contrato
+  `1.6`, cubre 2026-09-05–2026-09-11, pasa `quick_check` y materializa 420
+  miembros en 143 payloads físicos para 623 respuestas lógicas. Ocupa
+  29.233.152 bytes y no contiene páginas libres.
+- Predictor compara automáticamente todas las versiones operativas instaladas.
+  No existen selección manual ni versión preferida. Área y especie compiten con
+  el mismo límite inferior de Wilson al 95 %, conservando el área en empate.
+- `MOD_0001` retira temporalmente de la decisión los vetos externos de lluvia,
+  temperatura y compatibilidad ecológica. Sus cálculos y trazabilidad se
+  conservan como diagnóstico para poder auditarlos o reintroducirlos.
+- La auditoría hídrica de los ganadores V2--V6 para cinco especies está cerrada:
+  las versiones actuales no muestran un fallo que justifique sustituirlas y la
+  interacción explícita lluvia × suelo no mejora de forma estable. Quedan la
+  auditoría transversal de probabilidades extremas y repetir el hold-out cuando
+  haya datos útiles para las otras tres especies. Sporas.io se usa solo para
+  formular preguntas; sus probabilidades, acumulados y alturas visibles no son
+  una referencia suficientemente auditable.
+- HA real no calcula Predictor en línea. El precálculo semanal cubre
+  `recommender`, `week` y `query`, no `history`; el reemplazo de Historial por un
+  evaluador persistido del catálogo hold-out sigue pendiente.
+- La retención ML sigue activa. No borrar datos, cambiar retención, lanzar o
+  vigilar trabajos, hacer build/publicación ni tocar HA real sin autorización
+  explícita. Preservar especialmente
+  `mushroom-data/mushroom_observations.json`.
 
 El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.
@@ -94,6 +91,18 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Caja negra y procedimiento RPi4: `docs/runtime-diagnostics.md`
 - Diseño Predictor: `docs/mushrooms/mushroom-predictor-design-es.md`
 - Predictor remoto/worker: `docs/mushrooms/mushroom-remote-predictor-design-es.md`
+- Selección durante entrenamiento del candidato más fiable por
+  especie/área/día:
+  `docs/mushrooms/mushroom-predictor-reliability-selection-spec-es.md`
+- Revisión exploratoria de Sporas.io, límites de sus datos visibles y conceptos
+  pendientes para Rainmapper:
+  `docs/mushrooms/literature/sporas_especies_informe_rainmapper.md`
+- Auditoría P0 hídrica multiespecie y multiversión:
+  `docs/reports/mushroom-predictor-p0-multispecies-multiversion-hydric-audit-2026-09-05.md`
+- Pruebas aplazadas y batería Python reproducible:
+  `docs/reports/mushroom-predictor-p0-pending-tests-and-python-audit-battery-2026-09-05.md`
+- Pantalla futura de auditoría del selector:
+  `docs/mushrooms/mushroom-predictor-reliability-screen-spec-es.md`
 - Optimización acordada del camino frío del Predictor, caché semántica,
   workspace meteorológico común e inferencia por lotes:
   `docs/mushrooms/mushroom-predictor-cold-path-optimization-spec-es.md`
@@ -148,6 +157,9 @@ El estado exacto, la prueba siguiente y los riesgos están en
   `docs/reports/V2_V3_V4_V5_raw_weather_report001.md`.
 - V6 suave y jerárquica:
   `docs/reports/V2_V3_V4_V5_V6_smooth_hierarchical_report001.md`.
+- Auditoría científica P0 de la señal hídrica, multiespecie y multiversión,
+  incluidos los ganadores operativos V2--V6 y las ablaciones por retardos:
+  `docs/reports/mushroom-predictor-p0-multispecies-multiversion-hydric-audit-2026-09-05.md`.
 - Backfill histórico y promoción:
   `docs/mushrooms/mushroom-weather-historical-backfill-handoff-es.md`
 - Almacenamiento y retención meteorológica:

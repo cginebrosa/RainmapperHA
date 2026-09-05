@@ -31,6 +31,9 @@ def model(lr: float, rf: float, lr_brier: float, rf_brier: float) -> dict:
         "features_used": {
             "significant_rain_found_90d": 1.0,
             "days_since_significant_rain_at_target": 9.0,
+            "significant_rain_event_date": "2026-08-24",
+            "significant_rain_event_amount_mm": 12.4,
+            "significant_rain_threshold_mm": 5.0,
         },
     }
 
@@ -46,7 +49,25 @@ def with_svm(result: dict, probability: float, brier: float = 0.18) -> dict:
 
 
 class MushroomPredictionInterpretationTests(TestCase):
-    def test_boolean_significant_rain_flag_prevents_false_ecological_veto(self) -> None:
+    def test_exposes_the_exact_daily_idw_event_used_by_the_model(self) -> None:
+        result = build_interpretation(
+            {"fixed_gap_7d_v1": model(0.7, 0.65, 0.18, 0.17)},
+            season_phase="main",
+            phenology={"fruiting_delay_after_rain_days": {"min": 2, "max": 21}},
+        )
+
+        self.assertEqual(
+            result["significant_rain_events"],
+            [{
+                "date": "2026-08-24",
+                "amount_mm": 12.4,
+                "days_since_target": 9,
+                "threshold_mm": 5.0,
+                "source": "area_idw_daily",
+            }],
+        )
+
+    def test_significant_rain_keeps_ecological_calculation_as_advisory(self) -> None:
         fixed = model(0.7, 0.65, 0.18, 0.17)
         fixed["features_used"]["significant_rain_found_90d"] = True
 
@@ -58,6 +79,7 @@ class MushroomPredictionInterpretationTests(TestCase):
 
         self.assertEqual(result["weather_signal"], "recent_event")
         self.assertEqual(result["ecological_compatibility"], "compatible")
+        self.assertEqual(result["ecological_evidence"], "moderate")
         self.assertNotIn("ecological_rain_guardrail", result["reason_codes"])
 
     def test_uses_best_validated_estimator_per_feature_set(self) -> None:
@@ -181,7 +203,8 @@ class MushroomPredictionInterpretationTests(TestCase):
             },
         )
 
-    def test_old_rain_event_vetoes_favorable_statistical_score_for_any_species(self) -> None:
+    def test_manual_rain_window_does_not_override_statistical_score(self) -> None:
+        # MOD_0001: advisory mismatch must not become a veto.
         strong = model(1.0, 0.64, 0.17, 0.19)
         strong["features_used"].update(
             {
@@ -202,12 +225,36 @@ class MushroomPredictionInterpretationTests(TestCase):
             },
         )
 
-        self.assertEqual(result["verdict"], "unfavorable")
-        self.assertIsNone(result["reference_range"])
-        self.assertEqual(result["confidence"], "high")
+        self.assertEqual(result["verdict"], "favorable")
+        self.assertEqual(
+            result["reference_range"],
+            {"min": 1.0, "max": 1.0, "midpoint": 1.0},
+        )
         self.assertEqual(result["ecological_compatibility"], "incompatible")
         self.assertEqual(result["ecological_evidence"], "high")
-        self.assertIn("ecological_rain_guardrail", result["reason_codes"])
+        self.assertNotIn("ecological_rain_guardrail", result["reason_codes"])
+
+    def test_zero_placeholder_rain_window_is_not_a_real_timing_contract(self) -> None:
+        # MOD_0001: zero-filled biology is unknown, not incompatible.
+        strong = model(1.0, 0.64, 0.17, 0.19)
+
+        result = build_interpretation(
+            {"fixed_gap_7d_v1": strong},
+            season_phase="main",
+            phenology={
+                "fruiting_delay_after_rain_days": {
+                    "min": 0,
+                    "optimal_min": 0,
+                    "optimal_max": 0,
+                    "max": 0,
+                }
+            },
+        )
+
+        self.assertEqual(result["verdict"], "favorable")
+        self.assertEqual(result["fruiting_timing"], "unknown")
+        self.assertEqual(result["ecological_compatibility"], "unknown")
+        self.assertNotIn("ecological_rain_guardrail", result["reason_codes"])
 
     def test_any_validated_estimator_can_supply_the_operational_score(self) -> None:
         fixed = with_svm(model(0.0, 0.36, 0.26, 0.28), 0.66, 0.19)

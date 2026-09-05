@@ -23,6 +23,41 @@ RECEIPT_SCHEMA_VERSION = "1.0"
 DESIRED_TERMINAL_STATUSES = frozenset({"cancelled"})
 
 
+def cleanup_staging_directory(path: Path) -> int:
+    """Remove reconstructible leftovers before starting a new precompute."""
+    if not path.is_dir():
+        return 0
+    removed = 0
+    for candidate in path.iterdir():
+        if candidate.is_symlink() or candidate.is_file():
+            candidate.unlink(missing_ok=True)
+        elif candidate.is_dir():
+            shutil.rmtree(candidate)
+        else:
+            continue
+        removed += 1
+    return removed
+
+
+def cleanup_staged_artifact(path: Path) -> int:
+    """Remove one staged SQLite and the temp/journal files created for it."""
+    removed = 0
+    prefixes = (f".{path.name}.", f"{path.name}-")
+    if not path.parent.is_dir():
+        return 0
+    for candidate in path.parent.iterdir():
+        if candidate.name != path.name and not candidate.name.startswith(prefixes):
+            continue
+        if candidate.is_symlink() or candidate.is_file():
+            candidate.unlink(missing_ok=True)
+        elif candidate.is_dir():
+            shutil.rmtree(candidate)
+        else:
+            continue
+        removed += 1
+    return removed
+
+
 def _canonical_json(payload: object) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -81,7 +116,7 @@ def _desired_revision_for_advance(path: Path) -> int:
             isinstance(legacy_identity, dict)
             and legacy_identity.get("kind") == "rainmapper_mushroom_predictor_precompute"
             and legacy_identity.get("schema_version")
-            in {"1.0", "1.1", "1.2", "1.3", "1.4"}
+            in {"1.0", "1.1", "1.2", "1.3", "1.4", "1.5"}
         ):
             raise
     return revision

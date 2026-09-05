@@ -212,6 +212,9 @@ class MushroomMLBiologyV4Tests(unittest.TestCase):
             "rain_event_search_complete": True,
             "significant_rain_search_complete": True,
             "significant_rain_found_90d": True,
+            "significant_rain_event_date": "2026-08-11",
+            "significant_rain_event_amount_mm": 12.2,
+            "significant_rain_threshold_mm": 5.0,
             "training_exclusion_reasons": [
                 {"code": "modeling_target_unknown", "message": "target absent"}
             ],
@@ -226,6 +229,9 @@ class MushroomMLBiologyV4Tests(unittest.TestCase):
         self.assertTrue(row["quality"]["rain_event_search_complete"])
         self.assertTrue(row["quality"]["significant_rain_search_complete"])
         self.assertTrue(row["quality"]["significant_rain_found_90d"])
+        self.assertEqual(row["quality"]["significant_rain_event_date"], "2026-08-11")
+        self.assertEqual(row["quality"]["significant_rain_event_amount_mm"], 12.2)
+        self.assertEqual(row["quality"]["significant_rain_threshold_mm"], 5.0)
         self.assertEqual(
             row["quality"]["days_since_significant_rain_at_target"],
             source["predictive_features"]["days_since_significant_rain_at_target"],

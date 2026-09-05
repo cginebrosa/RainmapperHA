@@ -346,7 +346,7 @@ Notas rapidas:
 - `mode: serve` es el modo normal para usar webUI, sidebar y schedule interno.
 - `scheduled_action: all` ejecuta descarga de datos y generacion/publicacion de mapas.
 - `backfill_months_enabled: false` debe quedar desactivado en uso diario. Al activarlo, Rainmapper hace una reconstruccion administrativa por ventanas mensuales, crea antes un backup de los CSV incrementales y espera `backfill_pause_seconds` entre ventanas. En Wunderground, las ventanas de backfill se pasan tambien como fechas locales exactas para evitar que la conversion UTC desplace el inicio al mes anterior.
-- `backfill_station_filter: ""` permite limitar una reconstruccion administrativa a estaciones concretas. El formato es `fuente::id1,id2`, por ejemplo `wunderground::IORDIN1,IMERAN22`. Usa `;` para varias fuentes, por ejemplo `wunderground::IORDIN1;aemet::1234X`. Las comillas son opcionales para IDs con espacios. Si queda vacio no filtra nada.
+- `backfill_station_filter: ""` limita las estaciones Wunderground procesadas, tanto en backfills como en updates normales. El formato actual es `wunderground::id1,id2`, por ejemplo `wunderground::IORDIN1,IMERAN22`. Las comillas son opcionales para IDs con espacios. Ninguna otra fuente aplica todavía este filtro. Debe volver a dejarse vacio al terminar una ejecucion dirigida; de lo contrario, los updates posteriores de Wunderground seguiran limitados a esas estaciones.
 - `meteocat_request_timeout: 30` y `meteocat_max_attempts: 3` hacen que las consultas Meteocat/Socrata reintenten ante timeouts transitorios antes de fallar el run.
 - `max_threads: 3` es el valor operativo recomendado tras validacion real en Home Assistant/Raspberry Pi sin carga relevante observada. Si aparecen timeouts, errores de Wunderground o carga excesiva, bajar temporalmente a `1`.
 - `create_aemet: false` deja AEMET desactivado por defecto. Para usar AEMET, activa esta opcion y configura `aemet_api_key`.
@@ -383,7 +383,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `scheduled_action`: `update`, `maps` o `all`.
 - `days_init` / `days_end`: rango relativo de dias usado por las descargas.
 - `backfill_months_enabled`, `months_init`, `months_end`, `months_interval`, `backfill_pause_seconds`: modo administrativo para reconstrucciones por ventanas de meses. Cuando esta activado, el update calcula ventanas mensuales, las convierte a `days_init`/`days_end`, ejecuta un update por ventana, hace backup previo de los CSV incrementales y muestra la pausa entre ventanas en `Current step`. Para Wunderground, ademas de `days_init`/`days_end`, se pasan fechas locales exactas de inicio y fin de ventana. Esto es deliberado: el uso diario mantiene la relectura legacy del mes anterior cuando `days_init` cruza un cambio de mes, pero el backfill mensual no debe duplicar meses por el desfase UTC/local.
-- `backfill_station_filter`: filtro administrativo de estaciones por fuente. Actualmente se aplica a Wunderground y queda preparado para extenderlo a otras fuentes. Formato: `fuente::id1,id2`; separa fuentes con `;`. Dejalo vacio en uso diario para que no limite updates normales.
+- `backfill_station_filter`: filtro persistente de estaciones Wunderground. Se aplica siempre que se ejecuta esa fuente, aunque `backfill_months_enabled` sea `false`; no afecta actualmente a Meteoclimatic, Meteocat ni AEMET. Formato: `wunderground::id1,id2`. Dejalo vacio en uso diario y restauralo a `""` inmediatamente despues de una ejecucion dirigida.
 - `create_meteoclimatic`, `create_meteocat`, `create_wunderground`, `create_aemet`: activan o desactivan fuentes.
 - `meteoclimatic_pattern`: patron o patrones del RSS Meteoclimatic.
 - `nomaps`, `nototals`, `days_bucket`: opciones legacy del core de Rainmapper conservadas por compatibilidad.
@@ -471,17 +471,19 @@ en reconstrucciones administrativas. Antes de la primera ventana copia los CSV
 Entre ventanas espera la pausa configurada y la muestra en el `Current step` de
 la pantalla Summary.
 
-Para reconstruir solo algunas estaciones de una fuente, informa
+Para reconstruir solo algunas estaciones Wunderground, informa
 `backfill_station_filter`:
 
 ```yaml
 backfill_station_filter: "wunderground::IORDIN1,IMERAN22"
 ```
 
-El separador entre fuente y estaciones es `::`; las estaciones se separan con
-coma. Si hubiera un ID con espacios, puede escribirse entre comillas. Deja el
-valor vacio al terminar la reconstruccion para volver a procesar todas las
-estaciones.
+El separador entre `wunderground` y las estaciones es `::`; las estaciones se
+separan con coma. Si hubiera un ID con espacios, puede escribirse entre
+comillas. El filtro no depende del modo mensual: tambien limita los updates
+normales. Deja el valor vacio al terminar la reconstruccion para volver a
+procesar todas las estaciones. Meteoclimatic, Meteocat y AEMET no aplican
+actualmente este parametro.
 
 ## Historico reciente en popups
 
@@ -748,6 +750,27 @@ modelos ML entrenados (`ml_models/*.joblib`). Tiene cuatro vistas:
 - **Historial**: backtesting: predicciones pasadas comparadas con observaciones
   reales. Las tarjetas de estadisticas (aciertos/falsos negativos/falsos positivos)
   son clicables y filtran el historial.
+
+Las cuatro vistas operativas comparan automáticamente todas las versiones
+instaladas que tengan perfiles operativos. No existe selección manual ni
+versión preferida en el Predictor; el inventario se obtiene dinámicamente del
+registro instalado. Cada resultado muestra por separado la evidencia del área,
+la evidencia global de la especie y cuál de las dos decidió la selección. El
+selector compara el mejor candidato elegible de ambos ámbitos por su límite
+conservador al 95 % y conserva el área en caso de empate. La presentación
+distingue el porcentaje realmente observado (`x/x`) de ese límite estadístico;
+ninguno de ellos es la probabilidad meteorológica mostrada para la fecha.
+La tarjeta puntual presenta primero el resultado, la probabilidad estimada, el
+modelo seleccionado y la evidencia que decidió. Brier, ROC-AUC, gates y
+consenso quedan en un detalle técnico plegado. Las métricas incluyen tooltips y
+los veredictos usan badges de color. Según `MOD_0001`, las reglas externas de
+ventana tras lluvia, temperatura y compatibilidad ecológica se conservan como
+diagnóstico, pero no vetan, reetiquetan ni modifican la probabilidad aprendida.
+Cuando se ha encontrado el episodio evaluado por esa capa diagnóstica, la
+tarjeta puede mostrar su fecha, la lluvia diaria IDW del área, los días
+transcurridos hasta la fecha objetivo y el umbral aplicado. No debe confundirse
+ese dato diario con el acumulado del mapa para 7, 14 o más días, con la lectura
+aislada de la estación más cercana ni con una causa demostrada de fructificación.
 
 Los modelos se cargan bajo demanda; si no hay `.joblib` para una especie, esa
 especie no aparece en el selector.

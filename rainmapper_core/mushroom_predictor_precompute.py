@@ -32,7 +32,7 @@ from rainmapper_core.mushroom_predictor_service import (
 )
 
 
-ARTIFACT_SCHEMA_VERSION = "1.5"
+ARTIFACT_SCHEMA_VERSION = "1.6"
 ARTIFACT_KIND = "rainmapper_mushroom_predictor_precompute"
 SQLITE_USER_VERSION = 6
 PRECOMPUTED_VIEWS = {"recommender", "week", "query"}
@@ -403,7 +403,10 @@ def plan_artifact_identity(
     trained_species_ids: Sequence[str],
     installed_versions: Sequence[RuntimeVersionIdentity],
     area_ids_by_species: Mapping[str, Sequence[str]],
-    operational_selections_by_species: Mapping[str, Sequence[Mapping[str, object]]],
+    operational_selections_by_species: (
+        Mapping[str, Sequence[Mapping[str, object]]]
+        | Sequence[Mapping[str, object]]
+    ),
 ) -> ArtifactIdentity:
     """Build the immutable identity without executing a prediction in HA."""
     species = tuple(sorted({str(value) for value in trained_species_ids if str(value)}))
@@ -411,21 +414,48 @@ def plan_artifact_identity(
         len({str(value) for value in area_ids_by_species.get(species_id, ()) if str(value)})
         for species_id in species
     )
-    member_count = 0
-    for species_id in species:
-        area_total = len(
-            {str(value) for value in area_ids_by_species.get(species_id, ()) if str(value)}
-        )
-        selections = operational_selections_by_species.get(species_id, ())
-        for offset in range(7):
-            target = issue_date + timedelta(days=offset)
-            member_count += area_total * len(
-                mushroom_ml_multiversion_comparison.operational_selections(
-                    selections,
-                    target_date=target,
-                    issue_date=issue_date,
-                )
+    sealed = _sealed_resolution_index(operational_selections_by_species)
+    if sealed is not None:
+        expected_keys = {
+            (species_id, str(area_id), prediction_day)
+            for species_id in species
+            for area_id in area_ids_by_species.get(species_id, ())
+            for prediction_day in range(1, 8)
+        }
+        if set(sealed) != expected_keys:
+            raise PrecomputeContractError(
+                "Sealed reliability selections do not cover the precompute matrix."
             )
+        # Candidate chains are the compact, auditable fallback plan.  The
+        # weekly artifact materializes exactly one member for every sealed
+        # winner after applicability has been resolved; storing every fallback
+        # candidate would multiply the SQLite payload without changing the
+        # operational decision.
+        member_count = sum(
+            1 for row in sealed.values() if row.get("selection_status") == "winner"
+        )
+    else:
+        member_count = 0
+        if not isinstance(operational_selections_by_species, Mapping):
+            raise PrecomputeContractError("Operational selections are invalid.")
+        for species_id in species:
+            area_total = len(
+                {
+                    str(value)
+                    for value in area_ids_by_species.get(species_id, ())
+                    if str(value)
+                }
+            )
+            selections = operational_selections_by_species.get(species_id, ())
+            for offset in range(7):
+                target = issue_date + timedelta(days=offset)
+                member_count += area_total * len(
+                    mushroom_ml_multiversion_comparison.operational_selections(
+                        selections,
+                        target_date=target,
+                        issue_date=issue_date,
+                    )
+                )
     return ArtifactIdentity.create(
         runtime_fingerprint=runtime_fingerprint,
         issue_date=issue_date,
@@ -439,6 +469,43 @@ def plan_artifact_identity(
             "members": member_count,
         },
     )
+
+
+def _sealed_resolution_index(
+    selections: object,
+) -> dict[tuple[str, str, int], dict[str, object]] | None:
+    """Index the validated catalog shape, or identify the legacy selection shape."""
+    if isinstance(selections, Mapping) or not isinstance(selections, Sequence):
+        return None
+    rows = list(selections)
+    if not rows or not all(
+        isinstance(row, Mapping)
+        and "area_id" in row
+        and "prediction_day" in row
+        and "selection_status" in row
+        for row in rows
+    ):
+        return None
+    indexed: dict[tuple[str, str, int], dict[str, object]] = {}
+    for raw in rows:
+        row = dict(raw)
+        key = (
+            _required_text(row.get("species_id"), "species_id"),
+            _required_text(row.get("area_id"), "area_id"),
+            int(row.get("prediction_day") or 0),
+        )
+        if key[2] not in range(1, 8) or key in indexed:
+            raise PrecomputeContractError("Sealed reliability selection key is invalid.")
+        status = str(row.get("selection_status") or "")
+        candidate = row.get("candidate")
+        if status == "winner" and not isinstance(candidate, Mapping):
+            raise PrecomputeContractError("Sealed reliability winner is invalid.")
+        if status == "abstain" and candidate is not None:
+            raise PrecomputeContractError("Sealed reliability abstention is invalid.")
+        if status not in {"winner", "abstain"}:
+            raise PrecomputeContractError("Sealed reliability status is invalid.")
+        indexed[key] = row
+    return indexed
 
 
 def _request_key(request: Mapping[str, object]) -> str:
@@ -641,7 +708,12 @@ def _normalized_species_context(
         raw = dict((supplied or {}).get(species_id, {}))
         phenology = raw.get("phenology") or {}
         raw_phases = raw.get("season_phase_by_date") or {}
-        if not isinstance(phenology, Mapping) or not isinstance(raw_phases, Mapping):
+        raw_resolutions = raw.get("operational_resolutions_by_area_date") or {}
+        if (
+            not isinstance(phenology, Mapping)
+            or not isinstance(raw_phases, Mapping)
+            or not isinstance(raw_resolutions, Mapping)
+        ):
             raise PrecomputeContractError("Predictor species context is invalid.")
         phases = {
             target: str(
@@ -654,6 +726,15 @@ def _normalized_species_context(
         normalized[species_id] = {
             "phenology": dict(phenology),
             "season_phase_by_date": phases,
+            "operational_resolutions_by_area_date": {
+                str(area_id): {
+                    str(target): dict(resolution)
+                    for target, resolution in by_date.items()
+                    if isinstance(resolution, Mapping)
+                }
+                for area_id, by_date in raw_resolutions.items()
+                if isinstance(by_date, Mapping)
+            },
         }
     return normalized
 
@@ -675,13 +756,21 @@ def _validate_species_context(
             payload = json.loads(row["payload_json"])
             phenology = payload.get("phenology")
             phases = payload.get("season_phase_by_date")
+            resolutions = payload.get("operational_resolutions_by_area_date", {})
         except (json.JSONDecodeError, TypeError, AttributeError) as exc:
             raise PrecomputeArtifactError("Predictor species context is corrupt.") from exc
         if (
             not isinstance(phenology, dict)
             or not isinstance(phases, dict)
+            or not isinstance(resolutions, dict)
             or set(phases) != expected_days
             or any(not str(value) for value in phases.values())
+            or any(
+                not isinstance(by_date, dict)
+                or set(by_date) != expected_days
+                or any(not isinstance(value, dict) for value in by_date.values())
+                for by_date in resolutions.values()
+            )
         ):
             raise PrecomputeArtifactError("Predictor species context is invalid.")
 
@@ -983,6 +1072,10 @@ class _AsyncBatchArtifactWriter:
             members_by_cell: dict[
                 tuple[str, str, str], set[OperationalMemberKey]
             ] = {}
+            runtime_resolution_hashes: dict[tuple[str, str, str], str] = {}
+            runtime_resolutions: dict[
+                str, dict[str, dict[str, dict[str, object]]]
+            ] = {}
             response_payload_keys: set[str] = set()
             pending_responses: list[
                 tuple[
@@ -1011,6 +1104,39 @@ class _AsyncBatchArtifactWriter:
                         "Batch response runtime does not match artifact identity."
                     )
                 response_request = normalize_request(checked_response.get("request"))
+                selected_members_by_cell: dict[
+                    tuple[str, str, str], set[OperationalMemberKey]
+                ] = {}
+                for variant_request, _required_keys in variants:
+                    normalized_variant = normalize_request(variant_request)
+                    if (
+                        normalized_variant.get("view") != "query"
+                        or not normalized_variant.get("area_id")
+                    ):
+                        continue
+                    cell_key = (
+                        str(normalized_variant["species_id"]),
+                        str(normalized_variant["area_id"]),
+                        str(normalized_variant["target_date"]),
+                    )
+                    allowed: set[OperationalMemberKey] = set()
+                    for selection in normalized_variant.get(
+                        "multiversion_selection", []
+                    ):
+                        if not isinstance(selection, Mapping):
+                            continue
+                        allowed.add(
+                            OperationalMemberKey.create(
+                                version_id=selection.get("version_id"),
+                                temporal_contract_id=selection.get(
+                                    "temporal_contract_id"
+                                ),
+                                profile_id=selection.get("profile_id"),
+                                estimator_id=selection.get("estimator_id"),
+                                horizon_days=selection.get("horizon_days"),
+                            )
+                        )
+                    selected_members_by_cell[cell_key] = allowed
                 payload_key = _canonical_sha256(checked_response)
                 if payload_key not in response_payload_keys:
                     connection.execute(
@@ -1065,6 +1191,33 @@ class _AsyncBatchArtifactWriter:
                         for target_date, raw_comparison in comparisons.items():
                             if not isinstance(raw_comparison, Mapping):
                                 continue
+                            cell_key = (
+                                str(species_id),
+                                request_area,
+                                str(target_date),
+                            )
+                            active_resolution = raw_comparison.get(
+                                "reliability_selection"
+                            )
+                            if isinstance(active_resolution, Mapping):
+                                resolution = copy.deepcopy(dict(active_resolution))
+                                resolution_hash = _canonical_sha256(resolution)
+                                previous_resolution_hash = runtime_resolution_hashes.get(
+                                    cell_key
+                                )
+                                if (
+                                    previous_resolution_hash is not None
+                                    and previous_resolution_hash != resolution_hash
+                                ):
+                                    raise PrecomputeContractError(
+                                        "Runtime reliability resolution changed within one batch."
+                                    )
+                                runtime_resolution_hashes[cell_key] = resolution_hash
+                                runtime_resolutions.setdefault(
+                                    str(species_id), {}
+                                ).setdefault(request_area, {})[
+                                    str(target_date)
+                                ] = resolution
                             raw_members = raw_comparison.get("members", [])
                             if not isinstance(raw_members, list):
                                 continue
@@ -1074,11 +1227,10 @@ class _AsyncBatchArtifactWriter:
                                 member_key = _member_key_from_payload(payload)
                                 if member_key is None:
                                     continue
-                                cell_key = (
-                                    str(species_id),
-                                    request_area,
-                                    str(target_date),
-                                )
+                                if member_key not in selected_members_by_cell.get(
+                                    cell_key, set()
+                                ):
+                                    continue
                                 full_key = cell_key + tuple(
                                     member_key.as_dict().values()
                                 )
@@ -1112,9 +1264,16 @@ class _AsyncBatchArtifactWriter:
                 for variant_request, required_keys in variants:
                     normalized = normalize_request(variant_request)
                     if response_request != normalized and (
-                        _weekly_execution_key(response_request)
-                        != _weekly_execution_key(normalized)
-                        or _weekly_execution_key(normalized)[0] == "exact"
+                        _weekly_execution_key(
+                            response_request, sealed_daily_winners=True
+                        )
+                        != _weekly_execution_key(
+                            normalized, sealed_daily_winners=True
+                        )
+                        or _weekly_execution_key(
+                            normalized, sealed_daily_winners=True
+                        )[0]
+                        == "exact"
                     ):
                         raise PrecomputeContractError(
                             "Stored response cannot be retargeted to its normalized request."
@@ -1123,6 +1282,34 @@ class _AsyncBatchArtifactWriter:
                         (normalized, tuple(required_keys), payload_key)
                     )
                 self.executed_request_count += 1
+
+            expected_runtime_resolution_keys = {
+                key
+                for key in self.all_cell_keys
+                if isinstance(
+                    self.species_context.get(key[0], {}).get(
+                        "operational_resolutions_by_area_date", {}
+                    ),
+                    Mapping,
+                )
+            }
+            if expected_runtime_resolution_keys and runtime_resolution_hashes:
+                if set(runtime_resolution_hashes) != expected_runtime_resolution_keys:
+                    raise PrecomputeContractError(
+                        "Runtime reliability resolutions do not cover the precompute matrix."
+                    )
+                for species_id, payload in sorted(self.species_context.items()):
+                    updated = copy.deepcopy(dict(payload))
+                    if isinstance(
+                        updated.get("operational_resolutions_by_area_date"), Mapping
+                    ):
+                        updated["operational_resolutions_by_area_date"] = (
+                            runtime_resolutions.get(species_id, {})
+                        )
+                        connection.execute(
+                            "UPDATE species_context SET payload_json=? WHERE species_id=?",
+                            (_canonical_json(updated), species_id),
+                        )
 
             coverage_rows = tuple(
                 CoverageCell.create(
@@ -1226,6 +1413,10 @@ class _AsyncBatchArtifactWriter:
                 "INSERT INTO metadata VALUES (?, ?)", sorted(metadata.items())
             )
             connection.commit()
+            # Deduplicating and replacing response payloads can leave a large
+            # freelist behind.  Compact the private staging database before it
+            # crosses into HA/RPi serving; this never touches the active file.
+            connection.execute("VACUUM")
             quick_check = connection.execute("PRAGMA quick_check").fetchone()
             if quick_check is None or quick_check[0] != "ok":
                 raise PrecomputeArtifactError(
@@ -1453,23 +1644,54 @@ class ArtifactReader:
             if normalized["view"] == "query" and normalized["area_id"]:
                 template_row = self._multiversion_template_row(normalized)
                 if template_row is None:
-                    return LookupResult(
-                        False,
-                        None,
-                        "selection_not_precomputed",
-                        self.identity.artifact_id,
+                    context_row = self.connection.execute(
+                        "SELECT payload_json FROM species_context WHERE species_id=?",
+                        (normalized["species_id"],),
+                    ).fetchone()
+                    try:
+                        stored_context = (
+                            json.loads(context_row["payload_json"])
+                            if context_row is not None
+                            else {}
+                        )
+                        has_sealed_resolution = isinstance(
+                            stored_context.get("operational_resolutions_by_area_date", {})
+                            .get(normalized["area_id"], {})
+                            .get(normalized["target_date"]),
+                            dict,
+                        )
+                    except (AttributeError, json.JSONDecodeError, TypeError):
+                        has_sealed_resolution = False
+                    if not has_sealed_resolution:
+                        return LookupResult(
+                            False,
+                            None,
+                            "selection_not_precomputed",
+                            self.identity.artifact_id,
+                        )
+                    canonical = self.lookup(
+                        {
+                            **normalized,
+                            "compare_models": False,
+                            "multiversion_selection": [],
+                        }
                     )
-                rows_read = 1
-                template_request = normalize_request(
-                    json.loads(template_row["request_json"])
-                )
-                response = validate_response(
-                    json.loads(
-                        zlib.decompress(template_row["payload_json"]).decode("utf-8")
+                    rows_read = canonical.rows_read
+                    if not canonical.hit or canonical.response is None:
+                        return canonical
+                    response = copy.deepcopy(canonical.response)
+                else:
+                    rows_read = 1
+                    template_request = normalize_request(
+                        json.loads(template_row["request_json"])
                     )
-                )
-                if normalize_request(response.get("request")) != template_request:
-                    response = _retarget_weekly_response(response, template_request)
+                    response = validate_response(
+                        json.loads(
+                            zlib.decompress(template_row["payload_json"]).decode("utf-8")
+                        )
+                    )
+                    if normalize_request(response.get("request")) != template_request:
+                        response = _retarget_weekly_response(response, template_request)
             else:
                 canonical = self.lookup(
                     {
@@ -1535,7 +1757,14 @@ class ArtifactReader:
                 context = json.loads(context_row["payload_json"])
                 phenology = context.get("phenology", {})
                 phases = context.get("season_phase_by_date", {})
-                if not isinstance(phenology, dict) or not isinstance(phases, dict):
+                sealed_by_area = context.get(
+                    "operational_resolutions_by_area_date", {}
+                )
+                if (
+                    not isinstance(phenology, dict)
+                    or not isinstance(phases, dict)
+                    or not isinstance(sealed_by_area, dict)
+                ):
                     return LookupResult(
                         False,
                         None,
@@ -1579,11 +1808,45 @@ class ArtifactReader:
                             _member_key_from_dict(value)
                             for value in json.loads(coverage_row["member_keys_json"])
                         }
-                        selections = mushroom_ml_multiversion_comparison.retarget_operational_selections(
-                            normalized["multiversion_selection"],
-                            target_date=target,
-                            issue_date=min(artifact_issue_date, target),
+                        sealed_resolution = (
+                            sealed_by_area.get(area_id, {}).get(target.isoformat())
+                            if isinstance(sealed_by_area.get(area_id), dict)
+                            else None
                         )
+                        if isinstance(sealed_resolution, dict):
+                            if sealed_resolution.get("selection_status") == "abstain":
+                                unavailable = {
+                                    "available": False,
+                                    "reason": "reliability_selection_abstained",
+                                    "reliability_selection": copy.deepcopy(
+                                        sealed_resolution
+                                    ),
+                                }
+                                composed[target.isoformat()] = {
+                                    **unavailable,
+                                    "area_id": area_id,
+                                    "target_date": target.isoformat(),
+                                    "members": [],
+                                    "operational_comparison": dict(unavailable),
+                                    "consensus_computed": False,
+                                    "ensemble_computed": False,
+                                    "runtime_metrics": {
+                                        "versions": {},
+                                        "phase_seconds": {},
+                                    },
+                                }
+                                continue
+                            selections = (
+                                mushroom_ml_multiversion_comparison.reliability_candidate_selections(
+                                    sealed_resolution
+                                )
+                            )
+                        else:
+                            selections = mushroom_ml_multiversion_comparison.retarget_operational_selections(
+                                normalized["multiversion_selection"],
+                                target_date=target,
+                                issue_date=min(artifact_issue_date, target),
+                            )
                         if not selections:
                             return LookupResult(
                                 False,
@@ -1661,17 +1924,36 @@ class ArtifactReader:
                             )
                             for member in members
                         }
+                        active_resolution = sealed_resolution
+                        if isinstance(sealed_resolution, dict):
+                            (
+                                operational_comparison,
+                                active_resolution,
+                            ) = mushroom_ml_multiversion_comparison.build_reliability_selected_operational_comparison(
+                                members,
+                                sealed_resolution,
+                                season_phase=season_phase,
+                                phenology=phenology,
+                            )
+                            operational_comparison["reliability_selection"] = (
+                                copy.deepcopy(active_resolution)
+                            )
+                        else:
+                            operational_comparison = mushroom_ml_multiversion_comparison.build_selected_operational_comparison(
+                                members,
+                                season_phase=season_phase,
+                                phenology=phenology,
+                            )
                         composed[target.isoformat()] = {
                             "available": True,
                             "batch_ids": batch_ids,
                             "area_id": area_id,
                             "target_date": target.isoformat(),
                             "members": members,
-                            "operational_comparison": mushroom_ml_multiversion_comparison.build_selected_operational_comparison(
-                                members,
-                                season_phase=season_phase,
-                                phenology=phenology,
-                            ),
+                            "operational_comparison": operational_comparison,
+                            "reliability_selection": copy.deepcopy(active_resolution)
+                            if isinstance(active_resolution, dict)
+                            else None,
                             "consensus_computed": True,
                             "ensemble_computed": False,
                             "runtime_metrics": {"versions": {}, "phase_seconds": {}},
@@ -2020,7 +2302,9 @@ def _member_key_from_payload(payload: object) -> OperationalMemberKey | None:
         return None
 
 
-def _weekly_execution_key(request: Mapping[str, object]) -> tuple[object, ...]:
+def _weekly_execution_key(
+    request: Mapping[str, object], *, sealed_daily_winners: bool = False
+) -> tuple[object, ...]:
     """Collapse UI variants whose scientific work covers the same seven days."""
     view = str(request.get("view", ""))
     species_id = str(request.get("species_id", ""))
@@ -2028,7 +2312,24 @@ def _weekly_execution_key(request: Mapping[str, object]) -> tuple[object, ...]:
     if view == "week":
         return (view, species_id)
     if view == "query" and area_id:
-        return (view, species_id, area_id)
+        if sealed_daily_winners:
+            # The sealed resolution index already identifies the exact winner
+            # for each day. One execution can cover the full week.
+            return (view, species_id, area_id)
+        selections = request.get("multiversion_selection")
+        candidate_families = tuple(
+            sorted(
+                (
+                    str(row.get("version_id", "")),
+                    str(row.get("temporal_contract_id", "")),
+                    str(row.get("profile_id", "")),
+                    str(row.get("estimator_id", "")),
+                )
+                for row in (selections if isinstance(selections, list) else [])
+                if isinstance(row, Mapping)
+            )
+        )
+        return (view, species_id, area_id, candidate_families)
     return ("exact", _canonical_json(dict(request)))
 
 
@@ -2080,6 +2381,7 @@ def build_weekly_artifact(
     """
     issue = date.fromisoformat(identity.issue_date)
     days = [issue + timedelta(days=offset) for offset in range(7)]
+    sealed_resolutions = _sealed_resolution_index(operational_selections)
     area_map: dict[str, tuple[str, ...]] = {}
     species_context: dict[str, dict[str, object]] = {}
     for species_id in identity.trained_species_ids:
@@ -2103,6 +2405,19 @@ def build_weekly_artifact(
                 target.isoformat(): str(predictor.season_phase(target))
                 for target in days
             },
+            "operational_resolutions_by_area_date": (
+                {
+                    area_id: {
+                        target.isoformat(): dict(
+                            sealed_resolutions[(species_id, area_id, offset + 1)]
+                        )
+                        for offset, target in enumerate(days)
+                    }
+                    for area_id in areas
+                }
+                if sealed_resolutions is not None
+                else {}
+            ),
         }
 
     request_plan: list[tuple[dict[str, object], tuple[tuple[str, str, str], ...]]] = []
@@ -2155,17 +2470,29 @@ def build_weekly_artifact(
                     species_day_cells,
                 )
             )
-            species_selections = (
-                operational_selections.get(species_id, ())
-                if isinstance(operational_selections, Mapping)
-                else operational_selections
-            )
-            day_selections = mushroom_ml_multiversion_comparison.operational_selections(
-                species_selections,
-                target_date=target,
-                issue_date=issue,
-            )
             for area_id in area_map[species_id]:
+                if sealed_resolutions is not None:
+                    resolution = sealed_resolutions[
+                        (species_id, area_id, (target - issue).days + 1)
+                    ]
+                    day_selections = (
+                        mushroom_ml_multiversion_comparison.reliability_candidate_selections(
+                            resolution
+                        )
+                    )
+                else:
+                    species_selections = (
+                        operational_selections.get(species_id, ())
+                        if isinstance(operational_selections, Mapping)
+                        else operational_selections
+                    )
+                    day_selections = (
+                        mushroom_ml_multiversion_comparison.operational_selections(
+                            species_selections,
+                            target_date=target,
+                            issue_date=issue,
+                        )
+                    )
                 request_plan.append(
                     (
                         _batch_request(
@@ -2188,7 +2515,12 @@ def build_weekly_artifact(
         list[tuple[dict[str, object], tuple[tuple[str, str, str], ...]]],
     ] = {}
     for request, required_keys in request_plan:
-        execution_groups.setdefault(_weekly_execution_key(request), []).append(
+        execution_groups.setdefault(
+            _weekly_execution_key(
+                request, sealed_daily_winners=sealed_resolutions is not None
+            ),
+            [],
+        ).append(
             (request, required_keys)
         )
 
@@ -2206,12 +2538,37 @@ def build_weekly_artifact(
     )
     total = len(execution_groups)
     completed = 0
-    shared_context: dict[str, Any] = {"disable_response_cache": True}
+    shared_context: dict[str, Any] = {
+        "disable_response_cache": True,
+        "operational_resolution_index": sealed_resolutions or {},
+    }
     try:
-        for variants in execution_groups.values():
+        ordered_groups = sorted(
+            execution_groups.values(),
+            key=lambda variants: (
+                0
+                if variants[0][0].get("view") == "query"
+                and variants[0][0].get("area_id")
+                else 1
+            ),
+        )
+        for variants in ordered_groups:
             if cancel_check is not None:
                 cancel_check()
             request = variants[0][0]
+            if (
+                sealed_resolutions is not None
+                and request.get("view") == "query"
+                and request.get("area_id")
+            ):
+                # Let PredictorService resolve the independently sealed winner
+                # for every covered day.  The original variants are retained
+                # by the writer so lookup keys remain exact and auditable.
+                request = {
+                    **request,
+                    "compare_models": False,
+                    "multiversion_selection": [],
+                }
 
             def request_progress(_percent: int, phase: str, message: str) -> None:
                 if progress is not None:

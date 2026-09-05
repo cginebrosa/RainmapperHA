@@ -49,6 +49,38 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
 
             mushroom_local_full_update._validate_isolated_work_root(paths)
 
+    def test_local_full_update_finally_removes_prefixed_ml_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            paths = self._paths(root, work_root=root / ".local-full-update")
+            rebuild_job_id = "worker_job_rebuild123"
+            training_job_id = "worker_job_training123"
+            comparison_job_id = "worker_job_comparison123"
+            operation_root = paths.work_root / "operation123"
+            for job_id in (rebuild_job_id, training_job_id, comparison_job_id):
+                (paths.bundle_root / job_id).mkdir(parents=True, exist_ok=True)
+            for candidate_name in (
+                rebuild_job_id,
+                f"ml.{training_job_id}",
+                comparison_job_id,
+            ):
+                (paths.candidate_results_root / candidate_name).mkdir(
+                    parents=True, exist_ok=True
+                )
+            operation_root.mkdir(parents=True)
+
+            mushroom_local_full_update._cleanup_local_full_update_transients(
+                paths,
+                rebuild_job_id=rebuild_job_id,
+                training_job_id=training_job_id,
+                comparison_job_id=comparison_job_id,
+                operation_root=operation_root,
+            )
+
+            self.assertEqual([], list(paths.bundle_root.iterdir()))
+            self.assertEqual([], list(paths.candidate_results_root.iterdir()))
+            self.assertFalse(operation_root.exists())
+
     def test_training_species_require_ten_eligible_rows(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             features = Path(temporary) / "features.json"
