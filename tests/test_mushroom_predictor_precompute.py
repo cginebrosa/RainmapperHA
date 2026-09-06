@@ -1072,6 +1072,82 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
             self.assertTrue(mismatch.stale)
             self.assertIsNotNone(mismatch.artifact_mtime)
 
+    def test_active_lookup_reads_one_prevalidated_response_row(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "active.sqlite3"
+            identity, stored, _manifest = self.write_fixture(path)
+            with mock.patch(
+                "rainmapper_core.mushroom_predictor_precompute.validate_response",
+                side_effect=AssertionError(
+                    "active lookup must trust the publication validation"
+                ),
+            ):
+                result = lookup_active_artifact(
+                    path,
+                    runtime_fingerprint=identity.runtime_fingerprint,
+                    request=stored.request,
+                )
+
+        self.assertTrue(result.hit, result.reason)
+        self.assertEqual(result.rows_read, 1)
+        self.assertEqual(result.response, stored.response)
+
+    def test_active_week_lookup_uses_the_single_sealed_operational_response(self) -> None:
+        identity, coverage, predictions, members, stored = self.fixture()
+        canonical_request = self.request(view="week", area_id="")
+        canonical_response = copy.deepcopy(stored.response)
+        canonical_response["request"] = canonical_request
+        requested = {
+            **canonical_request,
+            "compare_models": True,
+            "multiversion_selection": [self.member_key(1).as_dict()],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "active.sqlite3"
+            write_artifact(
+                path,
+                identity=identity,
+                coverage=coverage,
+                base_predictions=predictions,
+                operational_members=members,
+                responses=[
+                    PrecomputedResponse(
+                        canonical_request, canonical_response, tuple(coverage)
+                    )
+                ],
+            )
+            result = lookup_active_artifact(
+                path,
+                runtime_fingerprint=identity.runtime_fingerprint,
+                request=requested,
+            )
+
+        self.assertTrue(result.hit, result.reason)
+        self.assertEqual(result.rows_read, 1)
+        self.assertEqual(result.response["request"], requested)
+
+    def test_full_validation_rejects_a_tampered_response_before_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "staged.sqlite3"
+            identity, _stored, _manifest = self.write_fixture(path)
+            connection = sqlite3.connect(path)
+            row = connection.execute(
+                "SELECT payload_key, payload_json FROM response_payloads LIMIT 1"
+            ).fetchone()
+            payload = json.loads(zlib.decompress(row[1]).decode("utf-8"))
+            payload["runtime_fingerprint"] = self.runtime_b
+            with connection:
+                connection.execute(
+                    "UPDATE response_payloads SET payload_json=? WHERE payload_key=?",
+                    (zlib.compress(json.dumps(payload).encode("utf-8")), row[0]),
+                )
+            connection.close()
+
+            with self.assertRaisesRegex(
+                PrecomputeArtifactError, "response payload identity"
+            ):
+                validate_artifact(path, expected_identity=identity, full=True)
+
     def test_scientific_payload_ignores_nested_runtime_metrics_and_area_order(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             _identity, stored, _manifest = self.write_fixture(
@@ -1555,6 +1631,28 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
                         reliability["evidence_by_scope"]["species"]["observation_count"],
                         32,
                     )
+
+            sealed_query_request = next(
+                row
+                for row in service.calls
+                if row["view"] == "query" and row["area_id"]
+            )
+            with mock.patch(
+                "rainmapper_core.mushroom_predictor_precompute.validate_response",
+                side_effect=AssertionError(
+                    "active sealed query lookup must not revalidate or recompose"
+                ),
+            ):
+                sealed_query = lookup_active_artifact(
+                    target,
+                    runtime_fingerprint=identity.runtime_fingerprint,
+                    request=sealed_query_request,
+                )
+            self.assertTrue(sealed_query.hit, sealed_query.reason)
+            self.assertEqual(sealed_query.rows_read, 1)
+            self.assertEqual(
+                sealed_query.response["request"], sealed_query_request
+            )
 
         self.assertEqual(identity.as_dict()["expected_counts"]["members"], 7)
         self.assertEqual(result.operational_member_count, 7)

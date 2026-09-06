@@ -97,7 +97,7 @@ class MushroomStorageReconcilerTests(unittest.TestCase):
         )
 
         self.assertEqual(dry_run["mode"], "dry-run")
-        self.assertEqual(dry_run["summary"]["planned_entries"], 5)
+        self.assertEqual(dry_run["summary"]["planned_entries"], 6)
         self.assertGreater(dry_run["summary"]["recoverable_bytes"], 0)
         self.assertIsNone(dry_run["execution"])
         self.assertTrue(bundle.is_dir())
@@ -119,19 +119,19 @@ class MushroomStorageReconcilerTests(unittest.TestCase):
         )
 
         self.assertEqual(applied["mode"], "apply")
-        self.assertEqual(applied["summary"]["planned_entries"], 5)
+        self.assertEqual(applied["summary"]["planned_entries"], 6)
         self.assertFalse(bundle.exists())
         self.assertFalse(result.exists())
         self.assertFalse(orphan.exists())
         self.assertFalse(empty_orphan.exists())
         self.assertFalse(older_backup.exists())
-        self.assertTrue(current_backup.is_dir())
+        self.assertFalse(current_backup.exists())
         persisted = json.loads(
             (self.root / "diagnostics" / "storage_reconciliation.json").read_text(
                 encoding="utf-8"
             )
         )
-        self.assertEqual(persisted["summary"]["removed_entries"], 5)
+        self.assertEqual(persisted["summary"]["removed_entries"], 6)
         self.assertIn("predictor_runtime_archive", persisted)
         self.assertEqual(
             persisted["predictor_runtime_archive"]["legacy_cleanup_state"],
@@ -151,8 +151,38 @@ class MushroomStorageReconcilerTests(unittest.TestCase):
         )
         self.assertEqual(
             applied["execution"]["promotion_backups"]["removed"],
-            [older_backup.name],
+            [current_backup.name, older_backup.name],
         )
+        self.assertEqual(applied["lifecycle"]["retained_rollbacks"], 0)
+
+    def test_promotion_backups_use_the_explicit_live_artifact_root(self) -> None:
+        self._write_json(
+            self.queue_path,
+            {"schema_version": "0.1", "storage_version": "2.0", "jobs": []},
+        )
+        live_artifacts = self.root / "derived" / "mushroom-artifacts"
+        backup = (
+            live_artifacts
+            / ".worker-promotion-backups"
+            / "worker_job_explicitbackup1"
+        )
+        (backup / "payload.bin").parent.mkdir(parents=True)
+        (backup / "payload.bin").write_bytes(b"rollback")
+
+        report = reconcile_worker_storage(
+            queue_path=self.queue_path,
+            bundle_root=self.bundle_root,
+            result_root=self.result_root,
+            live_artifact_root=live_artifacts,
+            apply=True,
+        )
+
+        self.assertFalse(backup.exists())
+        self.assertEqual(
+            report["execution"]["promotion_backups"]["removed"],
+            ["worker_job_explicitbackup1"],
+        )
+        self.assertEqual(report["lifecycle"]["retained_rollbacks"], 0)
 
     def test_dry_run_refuses_symlink_without_following_it(self) -> None:
         target = self.root / "outside"

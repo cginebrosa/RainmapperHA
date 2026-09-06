@@ -165,6 +165,9 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn('docker network create "${WORKER_NETWORK}"', start)
         self.assertIn("--name", start)
         self.assertIn("--rainmapper-url", start)
+        self.assertIn("--add-coordinator", start)
+        self.assertIn("--max-coordinators", start)
+        self.assertIn("check-all", start)
         self.assertIn("--token-stdin", start)
         self.assertIn("--non-interactive", start)
         self.assertIn("rainmapper-worker-data", start)
@@ -195,6 +198,8 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         )
 
         self.assertIn("--rainmapper-url URL", result.stdout)
+        self.assertIn("--add-coordinator URL", result.stdout)
+        self.assertIn("--max-coordinators N", result.stdout)
         self.assertIn("--token-stdin", result.stdout)
         self.assertIn("Future starts can omit them", result.stdout)
         self.assertIn("http://rainmapper-ha-ui:8100", result.stdout)

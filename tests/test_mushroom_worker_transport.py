@@ -478,6 +478,40 @@ class MushroomWorkerTransportTests(unittest.TestCase):
         self.assertTrue(removed)
         self.assertFalse(worker_job.exists())
 
+    def test_same_job_id_is_isolated_between_coordinator_workspaces(self) -> None:
+        shared_job_id = "worker_job_collision123"
+        roots = []
+        for coordinator_id in ("coordinator_alpha", "coordinator_beta"):
+            worker_job = (
+                self.worker_data
+                / "coordinators"
+                / coordinator_id
+                / "jobs"
+                / shared_job_id
+            )
+            worker_job.mkdir(parents=True)
+            (worker_job / "job_spec.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "0.1",
+                        "kind": "mushroom_ml_train_v0_spec",
+                        "job_id": shared_job_id,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            roots.append(worker_job)
+
+        removed = mushroom_worker_transport.discard_worker_job(
+            self.worker_data,
+            shared_job_id,
+            coordinator_id="coordinator_alpha",
+        )
+
+        self.assertTrue(removed)
+        self.assertFalse(roots[0].exists())
+        self.assertTrue(roots[1].exists())
+
     def test_cleanup_reconciles_only_discardable_old_storage(self) -> None:
         def prepare(job_id: str) -> None:
             mushroom_worker_transport.prepare_coordinator_bundle(

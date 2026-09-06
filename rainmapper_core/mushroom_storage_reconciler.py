@@ -239,7 +239,7 @@ def _apply_orphan_result_plan(result_root: Path, plan: dict[str, Any]) -> dict[s
 
 
 def _plan_promotion_backups(live_root: Path) -> dict[str, Any]:
-    """Keep the newest identified legacy promotion backup and plan older ones."""
+    """Plan every identified promotion backup once the transaction has finished."""
     backup_root = Path(live_root) / ".worker-promotion-backups"
     report: dict[str, Any] = {"retained": [], "planned": [], "errors": []}
     if not backup_root.exists():
@@ -263,13 +263,13 @@ def _plan_promotion_backups(live_root: Path) -> dict[str, Any]:
             continue
         known.append(child)
     known.sort(key=lambda path: (path.stat().st_mtime_ns, path.name), reverse=True)
-    if known:
-        report["retained"].append(
-            {"name": known[0].name, "reason": "current_rollback", "size_bytes": _tree_size(known[0])}
-        )
     report["planned"] = [
-        {"name": path.name, "reason": "superseded_rollback", "size_bytes": _tree_size(path)}
-        for path in known[1:]
+        {
+            "name": path.name,
+            "reason": "completed_promotion_transaction",
+            "size_bytes": _tree_size(path),
+        }
+        for path in known
     ]
     return report
 
@@ -301,6 +301,7 @@ def reconcile_worker_storage(
     result_root: Path,
     models_root: Path | None = None,
     registry_path: Path | None = None,
+    live_artifact_root: Path | None = None,
     report_path: Path | None = None,
     apply: bool = False,
     now: float | None = None,
@@ -310,6 +311,11 @@ def reconcile_worker_storage(
 ) -> dict[str, Any]:
     """Plan first, optionally apply the exact conservative lifecycle cleanup."""
     started = time.perf_counter()
+    promotion_root = (
+        Path(live_artifact_root)
+        if live_artifact_root is not None
+        else Path(queue_path).parent
+    )
     queue = mushroom_worker_jobs.load_queue(Path(queue_path))
     jobs = queue["jobs"]
     bundle_plan = mushroom_worker_transport.cleanup_coordinator_bundles(
@@ -333,7 +339,7 @@ def reconcile_worker_storage(
         staging_grace_seconds=staging_grace_seconds,
         terminal_retention_seconds=terminal_result_retention_seconds,
     )
-    promotion_backup_plan = _plan_promotion_backups(Path(queue_path).parent)
+    promotion_backup_plan = _plan_promotion_backups(promotion_root)
     predictor_result_plan = mushroom_worker_jobs.plan_predictor_result_expiration(
         Path(queue_path),
         now=(datetime.fromtimestamp(now, UTC) if now is not None else None),
@@ -413,7 +419,7 @@ def reconcile_worker_storage(
                 orphan_result_plan,
             ),
             "promotion_backups": _apply_promotion_backup_plan(
-                Path(queue_path).parent,
+                promotion_root,
                 promotion_backup_plan,
             ),
             "predictor_results": mushroom_worker_jobs.expire_predictor_results(
@@ -540,11 +546,6 @@ def reconcile_worker_storage(
             ),
             "retained_rollbacks": (
                 len(model_plan.get("retained_rollbacks", [])) if model_plan else 0
-            )
-            + sum(
-                1
-                for row in promotion_backup_plan.get("retained", [])
-                if isinstance(row, dict) and row.get("reason") == "current_rollback"
             ),
         },
         "predictor_runtime_archive": {
@@ -594,6 +595,7 @@ def main() -> int:
     parser.add_argument("--result-root", type=Path, required=True)
     parser.add_argument("--models-root", type=Path)
     parser.add_argument("--registry", type=Path)
+    parser.add_argument("--live-artifact-root", type=Path)
     parser.add_argument("--report", type=Path)
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
@@ -607,6 +609,7 @@ def main() -> int:
                 result_root=args.result_root,
                 models_root=args.models_root,
                 registry_path=args.registry,
+                live_artifact_root=args.live_artifact_root,
                 report_path=args.report,
                 apply=args.apply,
             ),

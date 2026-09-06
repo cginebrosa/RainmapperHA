@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 import copy
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -949,6 +950,55 @@ class MushroomMLMultiversionComparisonTests(TestCase):
             loaded = comparison._load_quality_catalog(registry, {}, root)
 
         self.assertEqual(loaded, {})
+
+    def test_compressed_quality_catalog_is_verified_and_loaded_once_per_reference(self) -> None:
+        quality = {
+            "schema_version": "1.0",
+            "kind": "mushroom_ml_quality_catalog",
+            "snapshot_id": "sha256:" + "b" * 64,
+            "entries": [],
+        }
+        compressed = gzip.compress(json.dumps(quality).encode("utf-8"), mtime=0)
+        digest = hashlib.sha256(compressed).hexdigest()
+        checked = {
+            "quality_catalog": {
+                "path": "batches/generation/quality-catalog.json.gz",
+                "sha256": digest,
+            }
+        }
+        shared_cache: dict[tuple[str, str], dict[str, object]] = {}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            quality_path = root / "batches/generation/quality-catalog.json.gz"
+            quality_path.parent.mkdir(parents=True)
+            quality_path.write_bytes(compressed)
+            with mock.patch.object(
+                comparison.gzip,
+                "decompress",
+                wraps=gzip.decompress,
+            ) as decompress, mock.patch.object(
+                comparison.mushroom_ml_quality_catalog,
+                "validate_catalog",
+                side_effect=lambda loaded: loaded,
+            ) as validate:
+                first = comparison._load_quality_catalog(
+                    {},
+                    checked,
+                    root,
+                    quality_catalog_cache=shared_cache,
+                )
+                second = comparison._load_quality_catalog(
+                    {},
+                    checked,
+                    root,
+                    quality_catalog_cache=shared_cache,
+                )
+
+        self.assertEqual(first, quality)
+        self.assertIs(second, first)
+        decompress.assert_called_once_with(compressed)
+        validate.assert_called_once()
 
     def test_preferred_v3_exposes_both_profiles_and_both_temporal_contracts(self) -> None:
         registry = copy.deepcopy(mushroom_ml_version_registry.load_registry(REGISTRY_PATH))

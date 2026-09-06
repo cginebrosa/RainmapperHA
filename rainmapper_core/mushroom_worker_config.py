@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -15,6 +17,13 @@ from urllib.request import Request, urlopen
 SCHEMA_VERSION = "0.1"
 CONFIG_RELATIVE_PATH = Path("config/coordinator.json")
 TOKEN_RELATIVE_PATH = Path("secrets/coordinator-token")
+MULTICOORDINATOR_SCHEMA_VERSION = "0.1"
+SECONDARY_CONFIG_RELATIVE_PATH = Path("config/additional-coordinators.json")
+SECONDARY_TOKEN_DIR = Path("secrets/coordinators")
+PRIMARY_COORDINATOR_ID = "primary"
+DEFAULT_MAX_COORDINATORS = 4
+MAX_COORDINATORS_LIMIT = 16
+_COORDINATOR_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{2,63}$")
 
 
 def normalize_rainmapper_url(value: str) -> str:
@@ -103,6 +112,211 @@ def clear_coordinator_token(worker_data_dir: Path) -> bool:
     existed = token_path.exists()
     token_path.unlink(missing_ok=True)
     return existed
+
+
+def validate_coordinator_id(value: object) -> str:
+    coordinator_id = str(value or "").strip()
+    if not _COORDINATOR_ID_RE.fullmatch(coordinator_id):
+        raise ValueError("Rainmapper coordinator ID is invalid.")
+    return coordinator_id
+
+
+def _empty_secondary_config() -> dict[str, Any]:
+    return {
+        "schema_version": MULTICOORDINATOR_SCHEMA_VERSION,
+        "max_coordinators": DEFAULT_MAX_COORDINATORS,
+        "coordinators": [],
+    }
+
+
+def _secondary_token_path(worker_data_dir: Path, coordinator_id: str) -> Path:
+    checked_id = validate_coordinator_id(coordinator_id)
+    if checked_id == PRIMARY_COORDINATOR_ID:
+        raise ValueError("The primary coordinator uses its existing credential path.")
+    return worker_data_dir.resolve() / SECONDARY_TOKEN_DIR / f"{checked_id}.token"
+
+
+def _load_secondary_config(worker_data_dir: Path) -> dict[str, Any]:
+    path = worker_data_dir.resolve() / SECONDARY_CONFIG_RELATIVE_PATH
+    if not path.exists():
+        return _empty_secondary_config()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot load additional Rainmapper coordinators: {exc}") from exc
+    if not isinstance(payload, dict) or payload.get("schema_version") != MULTICOORDINATOR_SCHEMA_VERSION:
+        raise ValueError("Additional Rainmapper coordinator configuration schema is invalid.")
+    max_coordinators = payload.get("max_coordinators")
+    if (
+        not isinstance(max_coordinators, int)
+        or isinstance(max_coordinators, bool)
+        or not 1 <= max_coordinators <= MAX_COORDINATORS_LIMIT
+    ):
+        raise ValueError("Rainmapper coordinator limit is invalid.")
+    rows = payload.get("coordinators")
+    if not isinstance(rows, list):
+        raise ValueError("Additional Rainmapper coordinators must be a list.")
+    normalized: list[dict[str, str]] = []
+    seen_ids: set[str] = set()
+    seen_urls: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("Additional Rainmapper coordinator entry is invalid.")
+        coordinator_id = validate_coordinator_id(row.get("coordinator_id"))
+        if coordinator_id == PRIMARY_COORDINATOR_ID or coordinator_id in seen_ids:
+            raise ValueError("Additional Rainmapper coordinator ID is duplicated or reserved.")
+        rainmapper_url = normalize_rainmapper_url(str(row.get("rainmapper_url", "")))
+        if rainmapper_url in seen_urls:
+            raise ValueError("Additional Rainmapper coordinator URL is duplicated.")
+        label = str(row.get("label", "") or rainmapper_url).strip()[:80]
+        if not label:
+            raise ValueError("Additional Rainmapper coordinator label is invalid.")
+        normalized.append(
+            {
+                "coordinator_id": coordinator_id,
+                "label": label,
+                "rainmapper_url": rainmapper_url,
+            }
+        )
+        seen_ids.add(coordinator_id)
+        seen_urls.add(rainmapper_url)
+    return {
+        "schema_version": MULTICOORDINATOR_SCHEMA_VERSION,
+        "max_coordinators": max_coordinators,
+        "coordinators": normalized,
+    }
+
+
+def load_coordinators(
+    worker_data_dir: Path, *, include_tokens: bool = False
+) -> dict[str, Any]:
+    """Load the untouched primary association plus additive secondary associations."""
+    root = worker_data_dir.resolve()
+    primary = load_coordinator_config(root, include_token=include_tokens)
+    additional = _load_secondary_config(root)
+    coordinators: list[dict[str, Any]] = []
+    primary_url = str(primary.get("rainmapper_url", ""))
+    if primary_url:
+        primary_row: dict[str, Any] = {
+            "coordinator_id": PRIMARY_COORDINATOR_ID,
+            "label": "Primary",
+            "rainmapper_url": primary_url,
+            "has_token": bool(primary.get("has_token")),
+            "primary": True,
+        }
+        if include_tokens:
+            primary_row["token"] = str(primary.get("token", ""))
+        coordinators.append(primary_row)
+    seen_urls = {primary_url} if primary_url else set()
+    for row in additional["coordinators"]:
+        rainmapper_url = str(row["rainmapper_url"])
+        if rainmapper_url in seen_urls:
+            raise ValueError("A Rainmapper coordinator URL is configured more than once.")
+        token_path = _secondary_token_path(root, str(row["coordinator_id"]))
+        token = token_path.read_text(encoding="utf-8").strip() if token_path.exists() else ""
+        loaded: dict[str, Any] = {
+            **row,
+            "has_token": bool(token),
+            "primary": False,
+        }
+        if include_tokens:
+            loaded["token"] = token
+        coordinators.append(loaded)
+        seen_urls.add(rainmapper_url)
+    if len(coordinators) > int(additional["max_coordinators"]):
+        raise ValueError("Configured Rainmapper coordinators exceed the persisted limit.")
+    return {
+        "schema_version": MULTICOORDINATOR_SCHEMA_VERSION,
+        "max_coordinators": int(additional["max_coordinators"]),
+        "coordinators": coordinators,
+    }
+
+
+def add_coordinator(
+    worker_data_dir: Path,
+    *,
+    rainmapper_url: str,
+    token: str,
+    label: str = "",
+) -> dict[str, Any]:
+    """Add or refresh a secondary coordinator without rewriting the primary files."""
+    root = worker_data_dir.resolve()
+    normalized_url = normalize_rainmapper_url(rainmapper_url)
+    clean_token = str(token or "").strip()
+    if len(clean_token) < 32:
+        raise ValueError("A valid Rainmapper coordinator credential is required.")
+    primary = load_coordinator_config(root)
+    if normalized_url == str(primary.get("rainmapper_url", "")):
+        raise ValueError("The Rainmapper coordinator is already configured as primary.")
+    payload = _load_secondary_config(root)
+    rows = [dict(row) for row in payload["coordinators"]]
+    existing = next((row for row in rows if row["rainmapper_url"] == normalized_url), None)
+    if existing is None:
+        configured_count = len(rows) + (1 if primary.get("rainmapper_url") else 0)
+        if configured_count >= int(payload["max_coordinators"]):
+            raise ValueError("Rainmapper coordinator limit reached.")
+        digest = hashlib.sha256(normalized_url.encode("utf-8")).hexdigest()[:16]
+        coordinator_id = validate_coordinator_id(f"coordinator_{digest}")
+        existing = {
+            "coordinator_id": coordinator_id,
+            "label": str(label or normalized_url).strip()[:80],
+            "rainmapper_url": normalized_url,
+        }
+        rows.append(existing)
+    elif label:
+        existing["label"] = str(label).strip()[:80]
+    if not existing["label"]:
+        raise ValueError("Rainmapper coordinator label is invalid.")
+    token_path = _secondary_token_path(root, str(existing["coordinator_id"]))
+    _write_atomic(token_path, clean_token + "\n")
+    updated = {
+        "schema_version": MULTICOORDINATOR_SCHEMA_VERSION,
+        "max_coordinators": int(payload["max_coordinators"]),
+        "coordinators": rows,
+    }
+    _write_atomic(
+        root / SECONDARY_CONFIG_RELATIVE_PATH,
+        json.dumps(updated, indent=2, ensure_ascii=False) + "\n",
+    )
+    return next(
+        row
+        for row in load_coordinators(root)["coordinators"]
+        if row["coordinator_id"] == existing["coordinator_id"]
+    )
+
+
+def forget_coordinator(worker_data_dir: Path, coordinator_id: str) -> bool:
+    checked_id = validate_coordinator_id(coordinator_id)
+    if checked_id == PRIMARY_COORDINATOR_ID:
+        raise ValueError("The primary coordinator cannot be forgotten by this command.")
+    root = worker_data_dir.resolve()
+    payload = _load_secondary_config(root)
+    rows = [row for row in payload["coordinators"] if row["coordinator_id"] != checked_id]
+    if len(rows) == len(payload["coordinators"]):
+        return False
+    updated = {**payload, "coordinators": rows}
+    _write_atomic(
+        root / SECONDARY_CONFIG_RELATIVE_PATH,
+        json.dumps(updated, indent=2, ensure_ascii=False) + "\n",
+    )
+    _secondary_token_path(root, checked_id).unlink(missing_ok=True)
+    return True
+
+
+def set_max_coordinators(worker_data_dir: Path, value: int) -> int:
+    if isinstance(value, bool) or not 1 <= int(value) <= MAX_COORDINATORS_LIMIT:
+        raise ValueError(f"Rainmapper coordinator limit must be between 1 and {MAX_COORDINATORS_LIMIT}.")
+    root = worker_data_dir.resolve()
+    configured = load_coordinators(root)["coordinators"]
+    if int(value) < len(configured):
+        raise ValueError("Rainmapper coordinator limit is below the configured association count.")
+    payload = _load_secondary_config(root)
+    payload["max_coordinators"] = int(value)
+    _write_atomic(
+        root / SECONDARY_CONFIG_RELATIVE_PATH,
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    )
+    return int(value)
 
 
 def probe_coordinator(

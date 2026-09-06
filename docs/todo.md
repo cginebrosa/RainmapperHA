@@ -18,29 +18,28 @@ breve está en `docs/active-context.md`; las decisiones duraderas, en
   modificar probabilidades ni porcentajes empíricos de acierto.
 - [x] Validar el worktree: 1.283 pruebas de la suite completa, prueba adicional
   de migración del registro, compilación, JSON y `git diff --check` correctos.
-- [ ] Reconstruir y recrear HA local. Verificar dentro del contenedor el nuevo
+- [x] Reconstruir y recrear HA local. Verificar dentro del contenedor el nuevo
   ID y la migración del registro. No usar worker.
-- [ ] Ejecutar entrenamiento operativo local normal con `docker-data`; comprobar
+- [x] Ejecutar entrenamiento operativo local normal con `docker-data`; comprobar
   observaciones elegibles, perfiles, ajustes, métricas, catálogo y que la nueva
   generación no contiene `knn_distance_v1`.
-- [ ] Ejecutar después el precálculo local; verificar `quick_check`, cobertura,
+- [x] Ejecutar después el precálculo local; verificar `quick_check`, cobertura,
   tamaño, miembros/payloads y las tres vistas del Predictor.
-- [ ] Revisar en UI extremos, fallback, advertencias de lluvia y `MOD_0001`.
+- [x] Revisar en UI extremos, fallback, advertencias de lluvia y `MOD_0001`.
 
 ## P0 — Próxima release HA
 
 - [x] HA `0.2.292` fue publicada antes del cambio KNN.
-- [ ] No instalar `0.2.292` como release del KNN suavizado. Elegir una versión
+- [x] No instalar `0.2.292` como release del KNN suavizado. Elegir una versión
   HA posterior y seguir `docs/release-flow.md` cuando el usuario autorice
   bump/build/push.
-- [ ] Instalar esa nueva HA en el equipo real; confirmar versión desde
+- [x] Instalar esa nueva HA en el equipo real; confirmar versión desde
   Diagnostics y ejecutar en orden entrenamiento → precálculo.
-- [ ] Medir en la RPi4 recepción, validación y activación del SQLite deduplicado.
+- [x] Medir en la RPi4 recepción, validación y activación del SQLite deduplicado.
   Confirmar que no reaparece el timeout al 95 % observado con el artefacto de
   465 MB.
-- [ ] Reconstruir/versionar el worker solo si se va a utilizar para entrenamiento
-  o precálculo remoto; el `1.0.38` actual no contiene el KNN nuevo y no es
-  necesario para el ciclo local.
+- [x] Reconstruir/versionar el worker porque se utilizó para entrenamiento y
+  precálculo remoto. La versión comprobada es `1.0.41`.
 
 ## P1 — Auditoría científica pendiente
 
@@ -64,6 +63,14 @@ breve está en `docs/active-context.md`; las decisiones duraderas, en
 - [ ] Decidir si se implementa una **tendencia predictiva** de siete días para
   sustituir el antiguo texto de ventana. No usar los ceros placeholder de
   Rovelló ni presentar la tendencia como regla biológica.
+- [x] Auditar de forma no destructiva el cambio de contexto de área a microárea
+  para las ocho especies y los 11 perfiles operativos. No desplegarlo: mejora
+  global de Brier de solo `0,225 %`, separación correcta de episodios mixtos en
+  `52,8 %` de evaluaciones y coste incompatible con la RPi4 usando los JSON
+  expandidos actuales.
+- [ ] Repetir la auditoría de microáreas solo cuando existan más episodios
+  simultáneos positivos/negativos en varias áreas y campañas. No crear modelos
+  por identificador de microárea ni reglas altitudinales fijas.
 
 ## P1 — Predictor y datos
 
@@ -72,12 +79,13 @@ breve está en `docs/active-context.md`; las decisiones duraderas, en
   hold-out; el precálculo semanal no contiene `history`.
 - [ ] Mejorar los mensajes de incompatibilidad: diferenciar reentrenamiento,
   precálculo, cobertura y corrupción.
-- [ ] Identificar el propietario del SQLite de cero bytes en la raíz del
-  precálculo antes de decidir si se elimina.
+- [x] Comprobar y retirar la antigua carpeta local de precálculo: contenía un
+  SQLite de cero bytes y un staging vacío; el estado activo está bajo
+  `docker-media/rainmapper/predictor_precompute/`.
 
 ## P2 — Rendimiento y observabilidad
 
-- [ ] Medir el nuevo entrenamiento y precálculo local de forma comparable al
+- [x] Medir el nuevo entrenamiento y precálculo local de forma comparable al
   lote anterior: duración, ajustes, lecturas, inferencias, tamaño, miembros y
   payloads.
 - [ ] Instrumentar por separado cálculo, transferencia, validación/publicación

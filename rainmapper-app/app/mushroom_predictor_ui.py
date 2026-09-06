@@ -358,6 +358,12 @@ def _get_species_backtest_stats(species_id: str) -> dict[str, Any] | None:
 
 def trained_species_ids() -> list[str]:
     """Return model IDs that are also declared trained by the live report."""
+    prepared = _prepared_response.get()
+    if isinstance(prepared, dict):
+        request = prepared.get("request")
+        trained = request.get("trained_species_ids") if isinstance(request, dict) else None
+        if isinstance(trained, list):
+            return sorted({str(value) for value in trained if str(value)})
     models_dir = mushroom_paths.mushroom_ml_models_dir()
     if not models_dir.exists():
         return []
@@ -566,6 +572,12 @@ def _model_comparison(species_id: str, area_id: str, target_date: date) -> dict[
 
 
 def _multiversion_catalog_payload() -> dict[str, Any]:
+    prepared = _prepared_response.get()
+    if isinstance(prepared, dict):
+        data = prepared.get("data")
+        catalog = data.get("model_catalog") if isinstance(data, dict) else None
+        if isinstance(catalog, dict):
+            return catalog
     try:
         registry = mushroom_ml_version_registry.load_registry(
             mushroom_paths.mushroom_ml_version_registry_path()
@@ -749,6 +761,8 @@ def _operational_versions_detail(species_id: str) -> str:
             (str(entry.get("version_id")), str(entry.get("profile_id")))
         )
     )
+    if not catalog_rows:
+        return ""
     return f"""
 <div class="pred-multiversion-controls">
   <small>{html.escape(_lbl("ui.predictor_operational_versions_auto"))}</small>
@@ -2522,7 +2536,10 @@ def _render_week(
         sp_name = _species_name(sp_id, profiles_payload)
         href = _url("week", sp_id, target_date=target_date, mvv=selected_versions)
         cls = "pred-chip pred-chip-active" if sp_id == species else "pred-chip"
-        chips += f'<a class="{cls}" href="{html.escape(href)}">{html.escape(sp_name)}</a>'
+        chips += (
+            f'<a class="{cls}" href="{html.escape(href)}" '
+            f'data-predictor-direct-run>{html.escape(sp_name)}</a>'
+        )
 
     try:
         predictor = _get_predictor(species)
@@ -3739,11 +3756,12 @@ def render_page(
     profiles_payload: dict[str, Any],
     known_sites_payload: dict[str, Any],
     prepared_response: dict[str, Any] | None = None,
+    prepared_response_validated: bool = False,
     allow_executor_change: bool = True,
     training_freshness: dict[str, Any] | None = None,
     prediction_timing: dict[str, Any] | None = None,
 ) -> str:
-    if prepared_response is not None:
+    if prepared_response is not None and not prepared_response_validated:
         prepared_response = validate_response(prepared_response)
     prepared_token = _prepared_response.set(prepared_response)
     weather_cache_token = _prepared_weather_cache.set({})

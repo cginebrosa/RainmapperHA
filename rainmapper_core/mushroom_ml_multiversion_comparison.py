@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 from datetime import date, timedelta
+import gzip
 import hashlib
 import json
 import math
@@ -61,6 +62,11 @@ def _load_quality_catalog(
     registry: Mapping[str, object],
     checked: Mapping[str, object],
     models_root: Path,
+    *,
+    quality_catalog_cache: MutableMapping[
+        tuple[str, str], dict[str, Any]
+    ]
+    | None = None,
 ) -> dict[str, Any]:
     """Load declared evidence, with a verified promotion-source fallback."""
     quality_path: Path | None = None
@@ -71,16 +77,29 @@ def _load_quality_catalog(
         expected_sha = str(quality_ref.get("sha256") or "")
     if quality_path is None or not quality_path.is_file() or not expected_sha:
         return {}
+    cache_key = (str(quality_path.resolve()), expected_sha)
+    cached = (
+        quality_catalog_cache.get(cache_key)
+        if quality_catalog_cache is not None
+        else None
+    )
+    if isinstance(cached, dict):
+        return cached
     content = quality_path.read_bytes()
     if hashlib.sha256(content).hexdigest() != expected_sha:
         return {}
+    if quality_path.suffix == ".gz":
+        content = gzip.decompress(content)
     loaded = json.loads(content)
     if not isinstance(loaded, dict):
         return {}
     try:
-        return mushroom_ml_quality_catalog.validate_catalog(loaded)
+        validated = mushroom_ml_quality_catalog.validate_catalog(loaded)
     except ValueError:
         return {}
+    if quality_catalog_cache is not None:
+        quality_catalog_cache[cache_key] = validated
+    return validated
 
 
 def _interpretation_features(sample: Mapping[str, object]) -> dict[str, object]:
@@ -136,6 +155,10 @@ def compare_prepared(
     stations: Mapping[tuple[str, str], Any],
     checked_manifest: Mapping[str, object] | None = None,
     comparison_cache: MutableMapping[str, Any] | None = None,
+    quality_catalog_cache: MutableMapping[
+        tuple[str, str], dict[str, Any]
+    ]
+    | None = None,
 ) -> dict[str, Any]:
     """Compare individual members; quality precedes output and no mean is made."""
     started = monotonic()
@@ -160,7 +183,12 @@ def compare_prepared(
         else None
     )
     if not isinstance(quality_catalog, dict):
-        quality_catalog = _load_quality_catalog(registry, checked, models_root)
+        quality_catalog = _load_quality_catalog(
+            registry,
+            checked,
+            models_root,
+            quality_catalog_cache=quality_catalog_cache,
+        )
         if comparison_cache is not None:
             comparison_cache["quality_catalog"] = quality_catalog
     record_phase("quality_catalog", phase_started)
@@ -1787,6 +1815,10 @@ def compare_selection(
     | None = None,
     checked_manifest: Mapping[str, object] | None = None,
     comparison_cache: MutableMapping[str, Any] | None = None,
+    quality_catalog_cache: MutableMapping[
+        tuple[str, str], dict[str, Any]
+    ]
+    | None = None,
 ) -> dict[str, Any]:
     started = monotonic()
     phase_seconds: dict[str, float] = {}
@@ -1878,6 +1910,7 @@ def compare_selection(
         stations=stations,
         checked_manifest=checked,
         comparison_cache=comparison_cache,
+        quality_catalog_cache=quality_catalog_cache,
     )
     record_phase("prepared_comparison", phase_started)
     prepared_metrics = result.get("runtime_metrics") or {}

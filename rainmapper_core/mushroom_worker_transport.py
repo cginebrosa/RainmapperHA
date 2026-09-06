@@ -31,6 +31,7 @@ MAX_DATASET_FILE_BYTES = 8 * 1024 * 1024 * 1024
 MAX_DATASET_BYTES = 16 * 1024 * 1024 * 1024
 DATASET_PROGRESS_BYTES = 64 * 1024 * 1024
 _JOB_ID_RE = re.compile(r"^worker_job_[a-zA-Z0-9_-]{8,80}$")
+_COORDINATOR_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{2,63}$")
 _STAGING_DIR_RE = re.compile(
     r"^\.worker_job_[a-zA-Z0-9_-]{8,80}\.staging-[0-9a-f]{32}$"
 )
@@ -58,6 +59,16 @@ def validate_job_id(job_id: str) -> str:
     if not _JOB_ID_RE.fullmatch(resolved):
         raise ValueError("Worker transport job ID is invalid.")
     return resolved
+
+
+def _coordinator_workspace(worker_data_dir: Path, coordinator_id: str) -> Path:
+    root = worker_data_dir.resolve()
+    resolved = str(coordinator_id or "").strip()
+    if not resolved:
+        return root
+    if not _COORDINATOR_ID_RE.fullmatch(resolved) or resolved == "primary":
+        raise ValueError("Worker coordinator storage ID is invalid.")
+    return root / "coordinators" / resolved
 
 
 def _bundle_metadata(job_spec: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
@@ -291,12 +302,19 @@ def cleanup_coordinator_bundles(
     return report
 
 
-def discard_worker_job(worker_data_dir: Path, job_id: str) -> bool:
+def discard_worker_job(
+    worker_data_dir: Path, job_id: str, *, coordinator_id: str = ""
+) -> bool:
     """Remove one completed worker job without touching the shared dataset cache."""
     resolved_job_id = validate_job_id(job_id)
-    jobs_root = worker_data_dir.resolve() / "jobs"
-    job_dir = jobs_root / resolved_job_id
-    if not job_dir.exists():
+    workspace = _coordinator_workspace(worker_data_dir, coordinator_id)
+    candidates = [workspace / "jobs" / resolved_job_id]
+    if coordinator_id:
+        candidates.append(workspace / "legacy-jobs" / resolved_job_id)
+    else:
+        candidates.append(workspace / resolved_job_id)
+    job_dir = next((candidate for candidate in candidates if candidate.exists()), None)
+    if job_dir is None:
         return False
     if not job_dir.is_dir():
         raise ValueError("Worker job path is not a directory.")
@@ -777,6 +795,7 @@ def download_input_bundle(
     token: str = "",
     timeout: float = 30.0,
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    coordinator_id: str = "",
 ) -> dict[str, Any]:
     """Download, verify and persist the immutable inputs for a claimed job."""
     job_id = validate_job_id(str(job.get("job_id", "")))
@@ -786,7 +805,7 @@ def download_input_bundle(
     endpoint = str(input_bundle.get("endpoint", "") or "")
     if not endpoint.startswith("/api/mushrooms/workers/jobs/input"):
         raise ValueError("Worker job input endpoint is invalid.")
-    jobs_root = worker_data_dir.resolve() / "jobs"
+    jobs_root = _coordinator_workspace(worker_data_dir, coordinator_id) / "jobs"
     destination = jobs_root / job_id
     if destination.exists():
         snapshot_dir = destination / SNAPSHOT_PREFIX
@@ -1012,6 +1031,7 @@ def download_ml_train_inputs(
     token: str,
     timeout: float = 60.0,
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    coordinator_id: str = "",
 ) -> dict[str, Any]:
     """Download the three input files for a ml_train_v0 job (job_spec, features, known_sites)."""
     job_id = validate_job_id(str(job.get("job_id", "")))
@@ -1019,10 +1039,15 @@ def download_ml_train_inputs(
     endpoint = str(input_bundle.get("endpoint", "") or "")
     if endpoint != "/api/mushrooms/workers/jobs/input":
         raise ValueError("Worker ML training input endpoint is invalid.")
-    destination = worker_data_dir / job_id
+    work_root = (
+        _coordinator_workspace(worker_data_dir, coordinator_id) / "legacy-jobs"
+        if coordinator_id
+        else worker_data_dir
+    )
+    destination = work_root / job_id
     if destination.is_dir():
         return {"status": "reused", "input_dir": str(destination)}
-    staging = worker_data_dir / f".ml.{job_id}.staging"
+    staging = work_root / f".ml.{job_id}.staging"
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True, exist_ok=True)
     try:
@@ -1113,6 +1138,7 @@ def download_ml_multiversion_inputs(
     token: str,
     timeout: float = 120.0,
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    coordinator_id: str = "",
 ) -> dict[str, Any]:
     """Download and verify the exact files declared by a multiversion job."""
     job_id = validate_job_id(str(job.get("job_id", "")))
@@ -1135,10 +1161,15 @@ def download_ml_multiversion_inputs(
             raise ValueError(f"Worker multiversion input metadata is invalid: {logical_path}")
         records.append({"path": logical_path, "size_bytes": size, "sha256": digest})
         total_expected += size
-    destination = worker_data_dir / job_id
+    work_root = (
+        _coordinator_workspace(worker_data_dir, coordinator_id) / "legacy-jobs"
+        if coordinator_id
+        else worker_data_dir
+    )
+    destination = work_root / job_id
     if destination.is_dir():
         return {"status": "reused", "input_dir": str(destination)}
-    staging = worker_data_dir / f".multiversion.{job_id}.staging"
+    staging = work_root / f".multiversion.{job_id}.staging"
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True, exist_ok=True)
     transferred = 0

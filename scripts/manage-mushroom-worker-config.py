@@ -23,10 +23,16 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--worker-data-dir", type=Path, default=Path("/var/lib/rainmapper-worker"))
     subparsers = root.add_subparsers(dest="command", required=True)
     subparsers.add_parser("show", help="Show persisted configuration without revealing its token.")
+    subparsers.add_parser("list", help="List all configured coordinators without revealing tokens.")
     subparsers.add_parser("get-url", help="Print only the persisted Rainmapper URL.")
     subparsers.add_parser("clear-token", help="Remove the persisted coordinator token without probing it.")
     check = subparsers.add_parser("check", help="Check that the persisted Rainmapper URL is reachable.")
     check.add_argument("--timeout", type=float, default=5.0)
+    check_all = subparsers.add_parser(
+        "check-all",
+        help="Check every coordinator and succeed when at least one is reachable.",
+    )
+    check_all.add_argument("--timeout", type=float, default=5.0)
     configure = subparsers.add_parser("configure", help="Validate and persist a Rainmapper URL.")
     configure.add_argument("--rainmapper-url", required=True)
     configure.add_argument("--token-stdin", action="store_true", help="Read a token from standard input.")
@@ -38,6 +44,19 @@ def parser() -> argparse.ArgumentParser:
     pair.add_argument("--display-name", default="")
     pair.add_argument("--host-name", default="")
     pair.add_argument("--timeout", type=float, default=5.0)
+    add = subparsers.add_parser(
+        "add", help="Pair and add another coordinator without replacing the primary one."
+    )
+    add.add_argument("--rainmapper-url", required=True)
+    add.add_argument("--pairing-code-stdin", action="store_true", required=True)
+    add.add_argument("--label", default="")
+    add.add_argument("--display-name", default="")
+    add.add_argument("--host-name", default="")
+    add.add_argument("--timeout", type=float, default=5.0)
+    forget = subparsers.add_parser("forget", help="Forget one additional coordinator locally.")
+    forget.add_argument("--coordinator-id", required=True)
+    limit = subparsers.add_parser("set-limit", help="Set the maximum number of coordinators.")
+    limit.add_argument("--max-coordinators", required=True, type=int)
     return root
 
 
@@ -47,6 +66,14 @@ def main() -> int:
         if args.command == "show":
             print(json.dumps(mushroom_worker_config.load_coordinator_config(args.worker_data_dir), ensure_ascii=False))
             return 0
+        if args.command == "list":
+            print(
+                json.dumps(
+                    mushroom_worker_config.load_coordinators(args.worker_data_dir),
+                    ensure_ascii=False,
+                )
+            )
+            return 0
         if args.command == "get-url":
             print(mushroom_worker_config.load_coordinator_config(args.worker_data_dir)["rainmapper_url"])
             return 0
@@ -54,7 +81,94 @@ def main() -> int:
             removed = mushroom_worker_config.clear_coordinator_token(args.worker_data_dir)
             print(json.dumps({"ok": True, "token_removed": removed}, ensure_ascii=False))
             return 0
+        if args.command == "forget":
+            removed = mushroom_worker_config.forget_coordinator(
+                args.worker_data_dir, args.coordinator_id
+            )
+            print(json.dumps({"ok": True, "removed": removed}, ensure_ascii=False))
+            return 0
+        if args.command == "set-limit":
+            value = mushroom_worker_config.set_max_coordinators(
+                args.worker_data_dir, args.max_coordinators
+            )
+            print(
+                json.dumps(
+                    {"ok": True, "max_coordinators": value}, ensure_ascii=False
+                )
+            )
+            return 0
+        identity = mushroom_worker_service.ensure_worker_identity(
+            args.worker_data_dir,
+            display_name=os.environ.get("RAINMAPPER_WORKER_DISPLAY_NAME", ""),
+            host_name=os.environ.get("RAINMAPPER_WORKER_HOST_NAME", ""),
+        )
+        if args.command == "check-all":
+            configured = mushroom_worker_config.load_coordinators(
+                args.worker_data_dir, include_tokens=True
+            )
+            checks = []
+            reachable = 0
+            for coordinator in configured["coordinators"]:
+                coordinator_id = str(coordinator["coordinator_id"])
+                try:
+                    mushroom_worker_config.probe_coordinator(
+                        str(coordinator["rainmapper_url"]),
+                        token=str(coordinator.get("token", "")),
+                        worker_id=identity["worker_id"],
+                        timeout=args.timeout,
+                    )
+                    checks.append({"coordinator_id": coordinator_id, "reachable": True})
+                    reachable += 1
+                except ValueError as exc:
+                    checks.append(
+                        {
+                            "coordinator_id": coordinator_id,
+                            "reachable": False,
+                            "error": str(exc),
+                        }
+                    )
+            print(
+                json.dumps(
+                    {
+                        "ok": reachable > 0,
+                        "reachable_count": reachable,
+                        "configured_count": len(checks),
+                        "coordinators": checks,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 0 if reachable > 0 else 1
         current = mushroom_worker_config.load_coordinator_config(args.worker_data_dir, include_token=True)
+        if args.command == "add":
+            identity = mushroom_worker_service.ensure_worker_identity(
+                args.worker_data_dir,
+                display_name=str(args.display_name),
+                host_name=str(args.host_name),
+            )
+            result = mushroom_worker_config.pair_coordinator(
+                args.rainmapper_url,
+                pairing_code=sys.stdin.read().strip(),
+                identity=identity,
+                timeout=args.timeout,
+            )
+            added = mushroom_worker_config.add_coordinator(
+                args.worker_data_dir,
+                rainmapper_url=args.rainmapper_url,
+                token=str(result["token"]),
+                label=str(args.label),
+            )
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "worker_id": identity["worker_id"],
+                        "coordinator": added,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 0
         if args.command == "pair":
             identity = mushroom_worker_service.ensure_worker_identity(
                 args.worker_data_dir,
@@ -74,11 +188,6 @@ def main() -> int:
             )
             print(json.dumps({"ok": True, "worker_id": identity["worker_id"], "paired": True}, ensure_ascii=False))
             return 0
-        identity = mushroom_worker_service.ensure_worker_identity(
-            args.worker_data_dir,
-            display_name=os.environ.get("RAINMAPPER_WORKER_DISPLAY_NAME", ""),
-            host_name=os.environ.get("RAINMAPPER_WORKER_HOST_NAME", ""),
-        )
         if args.command == "check":
             result = mushroom_worker_config.probe_coordinator(
                 current["rainmapper_url"],

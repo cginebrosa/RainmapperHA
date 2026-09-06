@@ -1,32 +1,32 @@
 # Active Context
 
-Ventana operativa de RainmapperHA al cierre del 6 de septiembre de 2026. No es
+Ventana operativa de RainmapperHA al cierre del 7 de septiembre de 2026. No es
 un histórico. Revalidar siempre `pwd`, rama, HEAD, worktree, fuentes y runtimes
 antes de asumir que este estado continúa vigente.
 
 ## Estado comprobado
 
 - Repositorio: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
-  El punto de partida de esta corrección fue
-  `d975047801a85075513fc22066b339469b3a625f`; revalidar el HEAD tras el commit.
+  HEAD comprobado al cerrar esta auditoría:
+  `666ff08b299f75285a01c611fae1a89c216a75db`.
 - El fichero `mushroom-data/mushroom_observations.json` queda modificado fuera
   del commit de release porque pertenece al usuario. No limpiarlo, editarlo,
   restaurarlo ni incluirlo ciegamente en otro commit.
 - Fuente de datos local viva para entrenamiento y pruebas:
   `docker-data/mushroom-data/`. `mushroom-data/` contiene defaults para una
   instalación nueva; no sustituye los datos vivos descargados de HA.
-- Versiones declaradas en fuente: HA `0.2.294` en
+- Versiones declaradas en fuente: HA `0.2.295` en
   `rainmapper-app/config.yaml` y worker `1.0.41` en
   `rainmapper-worker/Dockerfile`.
-- HA `0.2.294` está publicada en GHCR. Los tags `0.2.294` y `latest` comparten
-  el digest `sha256:79610e563f9124cfc55ae28c57402d9cbd4d4ea3d2012a9b0427a0fb5c14cd9b`
+- HA `0.2.295` está publicada en GHCR. Los tags `0.2.295` y `latest` comparten
+  el digest `sha256:11a9796443555a9ba8d0fb66ae01c6ecf7a1cd5df813013e2b354cd9cc40d217`
   y contienen manifests `linux/amd64` y `linux/arm64`.
 - El contenedor local `rainmapper-local-rainmapper-ha-ui-1` se comprobó activo
-  con la imagen `sha256:08a111d121f66c6554926c399e8352b5441a39b2a75e281edc3ebd1bcc81db92`.
+  con la imagen `rainmapperha:local-ha-ui`.
   Dentro del contenedor, `EXPERIMENT_ESTIMATOR_IDS` contiene
   `knn_distance_beta_smoothed_v2` y no el KNN antiguo.
-- El worker local se reconstruyó y comprobó activo y healthy con
-  `rainmapper-worker:1.0.41`. Conserva el volumen, la identidad
+- El worker local se comprobó activo y healthy con la imagen de prueba
+  `rainmapper-worker:multicoordinator-test`. Conserva el volumen, la identidad
   `worker_1a9a232c20fe2ee2`, el emparejamiento, la caché GIS de 6.341.520.039
   bytes y la URL autorizada `http://100.111.77.48:8100`.
 
@@ -45,8 +45,8 @@ antes de asumir que este estado continúa vigente.
   catálogo completo. Auditoría, informe y hold-out no entran en el runtime ni
   en la caché del worker.
 - El worker y HA mueven el lote verificado dentro del mismo sistema de ficheros
-  en vez de copiarlo. No se crean backups, árboles de rollback ni staging
-  `.install` para el lote operativo.
+  en vez de duplicarlo. La instalación normal no conserva otro árbol completo
+  del lote operativo.
 - La generación real ya instalada es compatible: HA 0.2.294 y worker 1.0.41
   pueden repetir el precálculo sin reentrenar. La compresión y el índice pequeño
   se aplicarán a partir del siguiente entrenamiento.
@@ -74,32 +74,32 @@ antes de asumir que este estado continúa vigente.
   compilación Python, parseo JavaScript y shell, fixtures y
   `git diff --check`.
 
-## Artefactos operativos locales comprobados
+## Estado operativo real comprobado después de la release
 
-- El registro persistente instala V2, V3, V4, V5w y V6w desde el lote
-  `local_operational_20260905T231844Z`: 406 observaciones elegibles, 8 especies,
-  11 perfiles y 636/636 artefactos correctos, sin fallos.
-- El catálogo de ajustes pertenece al mismo lote: 636 decisiones, 80 del KNN
-  suavizado. Se cargaron y verificaron los 636 modelos instalados; los 80 KNN
-  serializan `BetaSmoothedKNeighborsClassifier` con 7 vecinos, pesos por
-  distancia, tamaño efectivo 7 y prior beta `alpha=1`.
-- El hold-out contiene 27.536 filas físicas únicas y 2.880 métricas completas,
-  sin valores no finitos. Los 10.640 valores KNN quedan entre `1/9` y `8/9`,
-  sin ceros ni unos exactos. La generación nueva no contiene ninguna aparición
-  de `knn_distance_v1`.
-- El precálculo activo es la revisión 40, artefacto
-  `sha256:2cf9112367c3565abe76c4984c248f753e87208f22712b43eb28f7181dafb447`,
-  cobertura 2026-09-06--2026-09-12 y 29.917.184 bytes. Su fichero coincide con
-  el recibo (`sha256:c21f6f3bd237f6003f9583fe90976a0824fe628f071a892c6de7be216624300d`).
-- El SQLite devuelve `quick_check=ok`, cero violaciones de claves externas y
-  cero páginas libres. Materializa 504 coberturas y predicciones base, 420
-  miembros, 623 respuestas lógicas y 143 payloads deduplicados; las vistas se
-  reparten en 560 `query`, 56 `week` y 7 `recommender`. Todo el JSON, incluido
-  el contenido comprimido, tiene cero apariciones del KNN antiguo y ningún
-  valor no finito.
-- La carpeta obsoleta `docker-data/mushroom-data/predictor_precompute` se eliminó
-  tras comprobar que solo contenía un SQLite de cero bytes y `staging` vacío.
-  El estado activo reside en `docker-media/rainmapper/predictor_precompute/`.
+- El registro real instala V2, V3, V4, V5w y V6w desde el lote
+  `operational_20260906T001649Z`. Las cinco generaciones instaladas declaran el
+  snapshot `sha256:a6d501ab43ff9aea8fa6539c96125bad3b0a1de4b13aae85ecf17f4d8cd2b30b`
+  y observaciones `sha256:24464e4c6414e5dd2cda5752495b7668d13f1e1bffe66df646da6f668e656899`.
+- El trabajo multiversión `worker_job_9Ly2myJUDAFsD5bL` terminó a las
+  `2026-09-06T03:21:17Z`: 636 ajustes planificados, 636 correctos y cero fallos,
+  lote calculado `operational_20260906T030610Z`. El registro real consultado
+  sigue señalando como instalada la generación `...T001649Z`; no confundir un
+  trabajo terminado con una activación que el registro no refleja.
+- El precálculo `worker_job_bNaaBwELXbGW` terminó a las
+  `2026-09-06T09:15:24Z`, revisión 59, cobertura 2026-09-06--2026-09-12 y
+  30.007.296 bytes. Recibo
+  `sha256:8394ede7128ea237a8bc951d05be75ce92fca6579ed66de590012ba1249ec830`.
+- Después de esos trabajos se corrigieron las observaciones. La fuente viva
+  local y la de HA real son idénticas, contienen 447 observaciones y tienen
+  SHA-256 `13081f3d8ff8ed4f629ce69a7eb625b270222f0a2011047313dbc8b256e03c38`.
+  Por tanto, la generación instalada y el precálculo terminado son anteriores
+  al snapshot corregido; no presentarlos como recalculados con esas correcciones.
+- La meteorología vigente es
+  `20260906T090356917682Z-e918eb2b7bc4`, manifiesto
+  `b6309a877e5d3df1aa616e6dcf4d2c3b322ca49363679172eede484e2a7e49ad`.
+- El estado activo local del precálculo reside en
+  `docker-media/rainmapper/predictor_precompute/`; la antigua carpeta bajo
+  `docker-data/mushroom-data/` ya no existe.
 
 ## Auditoría científica cerrada
 
@@ -123,6 +123,33 @@ antes de asumir que este estado continúa vigente.
 - Sporas.io es solo fuente de preguntas. «Lluvia de activación» no es ground
   truth ni una variable ad hoc que deba copiarse.
 
+## Auditoría de resolución por microárea cerrada
+
+- El snapshot corregido deja 377 observaciones elegibles para las ocho especies
+  operativas. No hay objetivos opuestos dentro de una misma especie,
+  microárea y día. Sí hay ocho episodios legítimos con resultados distintos
+  entre microáreas de una misma área y día.
+- Se compararon los 11 perfiles operativos y todos sus estimadores sobre 27.312
+  filas fuera de muestra idénticas. La microárea mejora Brier solo un `0,225 %`
+  relativo: 55 comparaciones mejoran y 44 empeoran.
+- En los episodios mixtos, la microárea positiva queda por encima de la negativa
+  solo en el `52,8 %` de las evaluaciones. El candidato no separa todavía la
+  señal espacial de forma fiable. `knn_distance_beta_smoothed_v2` empeora
+  `1,607 %` en esta variante.
+- Para resumir el área, media y mediana empeoran. El máximo mejora apenas
+  `0,098 %` global y está favorecido por el objetivo actual «cualquier
+  microárea favorable»; no justifica un cambio de producción.
+- No bajar entrenamiento ni precálculo a microárea con los datos actuales. Una
+  revisión futura debe conservar las etiquetas microespaciales, compartir la
+  caché meteorológica, procesar en flujo y guardar únicamente resultados
+  finales compactos.
+- El laboratorio temporal alcanzó `6,96 GiB` de RSS y 1,8 GiB de disco con los
+  JSON expandidos actuales. Es una prueba científica, no un diseño compatible
+  con la Raspberry Pi 4. Los temporales se eliminaron; quedan 657.218 bytes de
+  resúmenes compactos.
+- Evidencia completa:
+  `docs/reports/mushroom-microarea-resolution-audit-2026-09-06.md`.
+
 ## MOD_0001 y ventana de fructificación
 
 - `MOD_0001` sigue vigente: ecología, lluvia y ventanas externas pueden
@@ -138,24 +165,108 @@ antes de asumir que este estado continúa vigente.
   predictiva derivada de la secuencia aprendida de siete días y requerirá una
   decisión semántica explícita. No está implementada.
 
-## Próxima secuencia autorizable
+## Worker multicoordinador y reproducción del precálculo
 
-1. HA `0.2.294` ya está instalada en HA real; el worker privado `1.0.41` está
-   preparado en el Mac.
-2. Verificar versión, arranque, emparejamiento y que el worker conserva la URL
-   autorizada `http://100.111.77.48:8100`.
-3. Reintentar directamente el precálculo de la generación ya instalada y
-   comprobar 504 coberturas, 420 miembros, integridad y ausencia del KNN
-   antiguo.
-4. En el siguiente entrenamiento, medir el lote comprimido y confirmar que HA
-   no crea copias ni incorpora la auditoría al runtime.
+- El diseño completo está consolidado en
+  `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`. Es distinto
+  del runtime científico multiversión V2--V6, documentado en
+  `docs/mushrooms/mushroom-ml-multiversion-runtime-spec-es.md`.
+- La imagen de prueba `rainmapper-worker:multicoordinator-test` atiende al HA
+  real y al HA local con el mismo `worker_id`, credenciales separadas y un
+  carril global `foreground` más otro `background`.
+- El entrenamiento solicitado desde HA local completó el mismo circuito de
+  tres jobs que HA real. Después, el precálculo local
+  `worker_job_MR1tD64I514P` reprodujo el fallo real: ocho especies, 72 pares
+  especie/área, siete días, cinco versiones y cero miembros materializados
+  frente a 420 esperados.
+- La causa comprobada del fallo al `64 %` era un lector incompleto del catálogo
+  de calidad: verificaba el hash del `quality-catalog.json.gz`, pero entregaba
+  los bytes todavía comprimidos a `json.loads()`. El lector ya descomprime
+  después de verificar el hash y comparte una caché por referencia durante
+  toda la comparación. El contrato de 420 miembros no se ha rebajado.
+- Las pruebas dirigidas del lector, el servicio y el precálculo suman 114 casos
+  correctos. El worker de prueba completó después el precálculo real de 420
+  miembros y publicó un SQLite de 30.048.256 bytes; así quedó comprobado el
+  mismo circuito que antes fallaba.
+- El runtime multicoordinador funciona, pero el CLI público de
+  `mushroom_worker_start.sh` no permite aún listar, seleccionar, reemparejar,
+  cambiar URL, limpiar token u olvidar cualquier coordinador de forma explícita
+  por `coordinator_id`. Esa administración debe completarse antes del
+  versionado del worker.
+
+## Vigencia y latencia del precálculo
+
+- La vigencia no depende solo de la fecha. Se conservan la coincidencia exacta
+  de la huella del runtime, la revisión y el identificador del artefacto, el
+  recibo, el tamaño y las validaciones del SQLite. La condición de fecha deja
+  de exigir que `coverage_start` sea hoy: el artefacto es vigente mientras hoy
+  esté dentro del intervalo inclusivo `coverage_start..coverage_end`.
+- Hay una prueba directa del intervalo y una prueba integrada en los dos
+  resúmenes de HA que conserva activo un precálculo iniciado el día anterior.
+  Un intervalo vencido o una huella distinta sigue marcado como desactualizado.
+- La lentitud interactiva estaba en HA, no en el worker ni principalmente en el
+  navegador. Los diagnósticos reales anteriores registraban aciertos del
+  precálculo con 282 a 527 lecturas SQLite: unos 8 segundos sin contención y
+  hasta 54 segundos cuando coincidían varias peticiones.
+- La publicación valida exhaustivamente el SQLite una sola vez antes de hacerlo
+  activo. La lectura interactiva confía después en ese artefacto inmutable: no
+  vuelve a recorrer celdas, predicciones base ni miembros, no repite la
+  validación profunda del JSON y usa el catálogo de modelos incluido en la
+  propia respuesta sellada.
+- `Esta semana` y `Por especie` leen una única respuesta precomputada. En HA
+  local, la búsqueda del recomendador bajó de unos `0,98 s` y 333 filas a
+  `0,036 s` y una fila; la petición completa quedó en unos `0,15 s`.
+- `Consultar fecha` conservaba otra recomposición redundante cuando la selección
+  expandida de la UI no coincidía con la clave sellada. Llegaba a 16 filas y
+  `0,91--0,97 s`. Ahora localiza directamente la respuesta sellada por
+  especie--área--fecha: una fila, `0,045 s` de búsqueda y `0,167 s` para la
+  petición completa en la prueba local real.
+- Las rutas directas de la UI muestran el modal y bloquean nuevos clics mientras
+  hay una navegación en curso. Las 392 pruebas dirigidas de precálculo y
+  servidor pasan. El smoke completo de release supera 1.316 pruebas, además de
+  fixtures, sintaxis shell y `git diff --check`. No se ha modificado la ciencia
+  ni `MOD_0001`.
+
+## Release HA 0.2.295
+
+- Publicada el 7 de septiembre de 2026 como `0.2.295` y `latest`, ambos con el
+  digest multiarquitectura
+  `sha256:11a9796443555a9ba8d0fb66ae01c6ecf7a1cd5df813013e2b354cd9cc40d217`.
+- Incluye la vigencia correcta del precálculo al cruzar medianoche, las lecturas
+  directas de una sola fila sellada para recomendador, especie y consulta por
+  fecha, y evita validaciones y recomposiciones redundantes durante la consulta.
+- Oculta el detalle vacío de versiones en las vistas agregadas, lo conserva en
+  `Consultar fecha` cuando contiene datos, muestra el modal en navegaciones
+  directas y bloquea clics repetidos mientras la petición está en curso.
+- La validación local previa a publicar fue funcional, no solo de compilación:
+  1.316 pruebas completas correctas y mediciones HTTP reales con una sola fila
+  SQLite y tiempos de petición de décimas de segundo.
+- La imagen del worker no forma parte de esta release y sus asociaciones con
+  coordinadores no se han modificado.
+
+## Próxima secuencia
+
+1. No implementar ni desplegar la resolución por microárea a partir de la
+   auditoría actual.
+2. Instalar HA `0.2.295` en HA real y comprobar que recomendador, especie y
+   consulta por fecha reutilizan el precálculo con latencia interactiva baja.
+3. Confirmar en los diagnósticos reales una sola fila SQLite por respuesta
+   sellada y ausencia de recomposición o validación profunda durante la lectura.
+4. Completar la administración multicoordinador del CLI con destino explícito
+   por `coordinator_id` y pruebas de no modificación de las demás asociaciones.
+5. Construir HA local y worker desde el mismo source y superar un circuito
+   completo local después de cualquier cambio ejecutable.
 
 ## Riesgos y dudas activas
 
-- El worker `1.0.41` está construido y operativo en local. HA `0.2.294` está
-  publicada, verificada e instalada en HA real. La corrección superó el smoke
-  completo con 1.293 pruebas y una regresión funcional del cierre del lote;
-  falta repetir el entrenamiento y el precálculo en HA real.
+- HA real continúa en `0.2.294` hasta que el usuario instale `0.2.295`; la
+  publicación en GHCR no demuestra todavía el rendimiento en la Raspberry Pi.
+- El trabajo multiversión más reciente figura completo, mientras que el registro
+  sigue apuntando al lote anterior. Antes de otro ciclo hay que tratar el
+  registro como fuente de verdad y comprobar la activación, no inferirla del
+  porcentaje del trabajo.
+- La resolución por microárea no supera el umbral científico ni el de recursos;
+  queda cerrada, no pendiente de implementación.
 - El commit de release excluye expresamente las observaciones del usuario; ese
   fichero seguirá apareciendo como modificación local después del cierre.
 
@@ -172,6 +283,8 @@ antes de asumir que este estado continúa vigente.
   `rainmapper_core/mushroom_ml_version_registry.py`.
 - UI: `rainmapper-app/app/mushroom_predictor_ui.py`.
 - Auditoría reproducible: `scripts/audit-mushroom-probability-extremes.py`.
+- Auditoría de resolución espacial:
+  `docs/reports/mushroom-microarea-resolution-audit-2026-09-06.md`.
 - Datos vivos: `docker-data/mushroom-data/`.
 - Modelos y precálculo actuales:
   `docker-media/rainmapper/mushroom-derived/ml_models/` y

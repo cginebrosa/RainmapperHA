@@ -364,6 +364,11 @@ class PredictorService:
                 if comparison_cache is not None
                 else {}
             )
+            quality_catalog_cache = (
+                comparison_cache.setdefault("service_quality_catalogs_by_ref", {})
+                if comparison_cache is not None
+                else {}
+            )
             members: list[dict[str, Any]] = []
             batch_ids: dict[str, str] = {}
             version_runtime_metrics: dict[str, dict[str, Any]] = {}
@@ -398,6 +403,7 @@ class PredictorService:
                     ),
                     prepared_weather_cache=shared_weather,
                     comparison_cache=version_caches.setdefault(version_id, {}),
+                    quality_catalog_cache=quality_catalog_cache,
                 )
                 batch_ids[version_id] = str(result["batch_id"])
                 members.extend(result["members"])

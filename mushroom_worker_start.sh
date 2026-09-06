@@ -32,6 +32,9 @@ fi
 
 DISPLAY_NAME=""
 RAINMAPPER_URL=""
+ADDITIONAL_COORDINATOR_URL=""
+ADDITIONAL_COORDINATOR_LABEL=""
+MAX_COORDINATORS=""
 TOKEN_VALUE=""
 TOKEN_MODE="keep"
 PAIRING_CODE_VALUE=""
@@ -50,6 +53,9 @@ usage() {
         'Options:' \
         '  --name NAME             Visible worker name. Persisted with its identity.' \
         '  --rainmapper-url URL    Rainmapper coordinator this worker must contact.' \
+        '  --add-coordinator URL   Pair and add another coordinator; keep the primary.' \
+        '  --coordinator-label NAME  Label for the coordinator being added.' \
+        '  --max-coordinators N   Persist the coordinator limit (1-16; default 4).' \
         '  --token-stdin           Read the coordinator token from standard input.' \
         '  --token-file FILE       Read the coordinator token from a private file.' \
         '  --clear-token           Remove the currently persisted coordinator token.' \
@@ -101,6 +107,25 @@ while [[ $# -gt 0 ]]; do
         --rainmapper-url)
             require_value "$1" "${2:-}"
             RAINMAPPER_URL="$2"
+            shift 2
+            ;;
+        --add-coordinator)
+            require_value "$1" "${2:-}"
+            ADDITIONAL_COORDINATOR_URL="$2"
+            shift 2
+            ;;
+        --coordinator-label)
+            require_value "$1" "${2:-}"
+            ADDITIONAL_COORDINATOR_LABEL="$2"
+            shift 2
+            ;;
+        --max-coordinators)
+            require_value "$1" "${2:-}"
+            if [[ ! "$2" =~ ^[1-9][0-9]*$ || "$2" -gt 16 ]]; then
+                printf 'Error: --max-coordinators must be an integer from 1 to 16.\n' >&2
+                exit 2
+            fi
+            MAX_COORDINATORS="$2"
             shift 2
             ;;
         --token-stdin)
@@ -156,6 +181,11 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ -n "${ADDITIONAL_COORDINATOR_LABEL}" && -z "${ADDITIONAL_COORDINATOR_URL}" ]]; then
+    printf 'Error: --coordinator-label requires --add-coordinator.\n' >&2
+    exit 2
+fi
 
 if [[ "${TOKEN_MODE}" == "stdin" ]]; then
     IFS= read -r TOKEN_VALUE || true
@@ -222,6 +252,33 @@ worker_config() {
 }
 
 PERSISTED_URL="$(worker_config get-url)"
+if [[ -n "${MAX_COORDINATORS}" ]]; then
+    worker_config set-limit --max-coordinators "${MAX_COORDINATORS}" >/dev/null
+fi
+if [[ -n "${ADDITIONAL_COORDINATOR_URL}" ]]; then
+    if [[ "${PAIRING_MODE}" != "replace" ]]; then
+        printf 'Error: --add-coordinator requires --pairing-code-stdin.\n' >&2
+        exit 2
+    fi
+    add_args=(
+        add
+        --rainmapper-url "${ADDITIONAL_COORDINATOR_URL}"
+        --pairing-code-stdin
+        --host-name "${RAINMAPPER_PHYSICAL_HOST_NAME}"
+    )
+    if [[ -n "${DISPLAY_NAME}" ]]; then
+        add_args+=(--display-name "${DISPLAY_NAME}")
+    fi
+    if [[ -n "${ADDITIONAL_COORDINATOR_LABEL}" ]]; then
+        add_args+=(--label "${ADDITIONAL_COORDINATOR_LABEL}")
+    fi
+    if ! printf '%s\n' "${PAIRING_CODE_VALUE}" | worker_config "${add_args[@]}"; then
+        printf 'Error: the additional Rainmapper coordinator was not added.\n' >&2
+        printf 'The primary coordinator configuration was not changed.\n' >&2
+        exit 2
+    fi
+    PAIRING_MODE="keep"
+fi
 if [[ -z "${RAINMAPPER_URL}" ]]; then
     if [[ "${PERSISTED_URL}" == "http://rainmapper-ha-ui:8099" ]]; then
         RAINMAPPER_URL="${LAB_COORDINATOR_URL}"
@@ -310,7 +367,7 @@ fi
 validate_or_save_configuration() {
     local output
     if [[ "${CONFIGURATION_CHANGED}" == false ]]; then
-        if output="$(worker_config check 2>&1)"; then
+        if output="$(worker_config check-all 2>&1)"; then
             return 0
         fi
     elif [[ "${TOKEN_MODE}" == "replace" ]]; then

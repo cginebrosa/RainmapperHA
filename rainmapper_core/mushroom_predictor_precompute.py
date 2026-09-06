@@ -1546,6 +1546,171 @@ def _validated_metadata(
     return identity, {str(key): int(value) for key, value in stored_counts.items()}
 
 
+def _validate_published_rows(
+    connection: sqlite3.Connection,
+    identity: ArtifactIdentity,
+) -> None:
+    """Validate every stored relationship once, before an artifact is published."""
+    try:
+        coverage_rows: list[CoverageCell] = []
+        coverage_map: dict[tuple[str, str, str], CoverageCell] = {}
+        for row in connection.execute(
+            "SELECT species_id, area_id, target_date, has_base_prediction, member_keys_json FROM coverage"
+        ):
+            cell = CoverageCell.create(
+                species_id=row["species_id"],
+                area_id=row["area_id"],
+                target_date=row["target_date"],
+                has_base_prediction=bool(row["has_base_prediction"]),
+                member_keys=(
+                    _member_key_from_dict(value)
+                    for value in json.loads(row["member_keys_json"])
+                ),
+            )
+            key = (cell.species_id, cell.area_id, cell.target_date)
+            if key in coverage_map:
+                raise PrecomputeArtifactError(
+                    "Predictor precompute coverage contains duplicate cells."
+                )
+            coverage_rows.append(cell)
+            coverage_map[key] = cell
+
+        base_keys: set[tuple[str, str, str]] = set()
+        for row in connection.execute(
+            "SELECT species_id, area_id, target_date, payload_json FROM base_predictions"
+        ):
+            key = (str(row["species_id"]), str(row["area_id"]), str(row["target_date"]))
+            payload = json.loads(zlib.decompress(row["payload_json"]).decode("utf-8"))
+            prediction = deserialize_prediction(payload)
+            if (
+                prediction.species_id,
+                prediction.area_id,
+                prediction.target_date.isoformat(),
+            ) != key:
+                raise PrecomputeArtifactError(
+                    "Predictor precompute base prediction key is invalid."
+                )
+            base_keys.add(key)
+
+        member_keys: set[tuple[str, str, str, OperationalMemberKey]] = set()
+        member_rows: list[OperationalMemberRow] = []
+        for row in connection.execute(
+            """SELECT species_id, area_id, target_date, version_id,
+                      temporal_contract_id, profile_id, estimator_id,
+                      horizon_days, payload_json
+                 FROM operational_members"""
+        ):
+            member = OperationalMemberKey.create(
+                version_id=row["version_id"],
+                temporal_contract_id=row["temporal_contract_id"],
+                profile_id=row["profile_id"],
+                estimator_id=row["estimator_id"],
+                horizon_days=row["horizon_days"],
+            )
+            payload = json.loads(zlib.decompress(row["payload_json"]).decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise PrecomputeArtifactError(
+                    "Predictor precompute operational member payload is invalid."
+                )
+            species_id = str(row["species_id"])
+            area_id = str(row["area_id"])
+            target_date = str(row["target_date"])
+            member_keys.add((species_id, area_id, target_date, member))
+            member_rows.append(
+                OperationalMemberRow(
+                    species_id, area_id, target_date, member, payload
+                )
+            )
+
+        _validate_identity_coverage(identity, coverage_rows, member_rows)
+        for key, cell in coverage_map.items():
+            if cell.has_base_prediction != (key in base_keys):
+                raise PrecomputeArtifactError(
+                    "Predictor precompute coverage base-prediction flag is invalid."
+                )
+            if any(key + (member,) not in member_keys for member in cell.member_keys):
+                raise PrecomputeArtifactError(
+                    "Predictor precompute coverage references a missing operational member."
+                )
+
+        coverage_payloads: dict[str, tuple[CoverageCell, ...]] = {}
+        for row in connection.execute(
+            "SELECT coverage_key, payload_json FROM response_coverage"
+        ):
+            raw = json.loads(zlib.decompress(row["payload_json"]).decode("utf-8"))
+            if not isinstance(raw, list):
+                raise PrecomputeArtifactError(
+                    "Predictor precompute response coverage is invalid."
+                )
+            cells = tuple(sorted({_coverage_from_dict(value) for value in raw}))
+            if not cells or str(row["coverage_key"]) != _canonical_sha256(
+                [cell.as_dict() for cell in cells]
+            ):
+                raise PrecomputeArtifactError(
+                    "Predictor precompute response coverage identity is invalid."
+                )
+            if any(
+                coverage_map.get((cell.species_id, cell.area_id, cell.target_date))
+                != cell
+                for cell in cells
+            ):
+                raise PrecomputeArtifactError(
+                    "Predictor precompute response requires unavailable coverage."
+                )
+            coverage_payloads[str(row["coverage_key"])] = cells
+
+        response_payloads: dict[str, dict[str, Any]] = {}
+        for row in connection.execute(
+            "SELECT payload_key, payload_json FROM response_payloads"
+        ):
+            payload = json.loads(zlib.decompress(row["payload_json"]).decode("utf-8"))
+            response = validate_response(payload)
+            if str(row["payload_key"]) != _canonical_sha256(response):
+                raise PrecomputeArtifactError(
+                    "Predictor precompute response payload identity is invalid."
+                )
+            if response.get("runtime_fingerprint") != identity.runtime_fingerprint:
+                raise PrecomputeArtifactError(
+                    "Predictor precompute response runtime is invalid."
+                )
+            response_payloads[str(row["payload_key"])] = response
+
+        for row in connection.execute(
+            "SELECT request_key, request_json, coverage_key, payload_key FROM responses"
+        ):
+            normalized = normalize_request(json.loads(row["request_json"]))
+            if str(row["request_key"]) != _request_key(normalized):
+                raise PrecomputeArtifactError(
+                    "Predictor precompute request identity is invalid."
+                )
+            if str(row["coverage_key"]) not in coverage_payloads:
+                raise PrecomputeArtifactError(
+                    "Predictor precompute response coverage is missing."
+                )
+            response = response_payloads.get(str(row["payload_key"]))
+            if response is None:
+                raise PrecomputeArtifactError(
+                    "Predictor precompute response payload is missing."
+                )
+            response_request = normalize_request(response.get("request"))
+            if response_request != normalized:
+                _retarget_weekly_response(response, normalized)
+    except PrecomputeArtifactError:
+        raise
+    except (
+        json.JSONDecodeError,
+        TypeError,
+        ValueError,
+        KeyError,
+        PredictorContractError,
+        PrecomputeContractError,
+        zlib.error,
+    ) as exc:
+        raise PrecomputeArtifactError(
+            "Predictor precompute published rows are invalid."
+        ) from exc
+
+
 def validate_artifact(
     path: Path,
     *,
@@ -1571,6 +1736,7 @@ def validate_artifact(
                 if actual_counts != stored_counts:
                     raise PrecomputeArtifactError("Predictor precompute table counters do not match.")
                 _validate_species_context(connection, identity)
+                _validate_published_rows(connection, identity)
         finally:
             connection.close()
     except sqlite3.DatabaseError as exc:
@@ -1584,14 +1750,21 @@ def validate_artifact(
 class ArtifactReader:
     """Short-lived read-only access to one already published artifact."""
 
-    def __init__(self, path: Path, *, expected_identity: ArtifactIdentity) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        expected_identity: ArtifactIdentity | None,
+        validate_context: bool = True,
+    ) -> None:
         self.path = Path(path)
         self.connection = _open_readonly(self.path)
         try:
             self.identity, self.table_counts = _validated_metadata(
                 self.connection, expected_identity=expected_identity
             )
-            _validate_species_context(self.connection, self.identity)
+            if validate_context:
+                _validate_species_context(self.connection, self.identity)
         except Exception:
             self.connection.close()
             raise
@@ -1618,12 +1791,16 @@ class ArtifactReader:
             "trained_species_ids",
         )
         rows = self.connection.execute(
-            """SELECT responses.request_json,
-                      response_coverage.payload_json AS required_coverage_json,
-                      response_payloads.payload_json
+            """SELECT responses.request_json, response_payloads.payload_json
                  FROM responses
-                 JOIN response_coverage USING (coverage_key)
-                 JOIN response_payloads USING (payload_key)"""
+                 JOIN response_payloads USING (payload_key)
+                WHERE json_extract(responses.request_json, '$.view') = ?
+                  AND json_extract(responses.request_json, '$.species_id') = ?
+                  AND json_extract(responses.request_json, '$.area_id') = ?
+                  AND json_extract(responses.request_json, '$.target_date') = ?
+                  AND json_extract(responses.request_json, '$.filter_mode') = ?
+                  AND json_extract(responses.request_json, '$.issue_date') = ?""",
+            tuple(normalized.get(field) for field in fields[:6]),
         )
         for row in rows:
             candidate = json.loads(row["request_json"])
@@ -1634,6 +1811,74 @@ class ArtifactReader:
             ):
                 return row
         return None
+
+    def _has_sealed_query_resolution(
+        self, normalized: Mapping[str, object]
+    ) -> bool:
+        row = self.connection.execute(
+            "SELECT payload_json FROM species_context WHERE species_id=?",
+            (normalized["species_id"],),
+        ).fetchone()
+        if row is None:
+            return False
+        try:
+            context = json.loads(row["payload_json"])
+            resolution = (
+                context.get("operational_resolutions_by_area_date", {})
+                .get(normalized["area_id"], {})
+                .get(normalized["target_date"])
+            )
+            return isinstance(resolution, dict)
+        except (AttributeError, json.JSONDecodeError, TypeError):
+            return False
+
+    def lookup_sealed_query_response(
+        self, normalized: Mapping[str, object]
+    ) -> LookupResult | None:
+        """Read one already sealed area/date response without recomposition."""
+        if not (
+            normalized.get("view") == "query"
+            and normalized.get("area_id")
+            and normalized.get("filter_mode") == ""
+            and self._has_sealed_query_resolution(normalized)
+        ):
+            return None
+        try:
+            row = self._multiversion_template_row(normalized)
+            if row is None:
+                return None
+            response = json.loads(
+                zlib.decompress(row["payload_json"]).decode("utf-8")
+            )
+            if not isinstance(response, dict):
+                return LookupResult(
+                    False, None, "response_invalid", self.identity.artifact_id, 1
+                )
+            response = _retarget_weekly_response(
+                response, normalized, validate=False
+            )
+            if (
+                response.get("runtime_fingerprint")
+                != self.identity.runtime_fingerprint
+                or normalize_request(response.get("request")) != normalized
+            ):
+                return LookupResult(
+                    False, None, "response_invalid", self.identity.artifact_id, 1
+                )
+            return LookupResult(
+                True, response, None, self.identity.artifact_id, 1
+            )
+        except (
+            json.JSONDecodeError,
+            TypeError,
+            PredictorContractError,
+            PrecomputeContractError,
+            sqlite3.DatabaseError,
+            zlib.error,
+        ):
+            return LookupResult(
+                False, None, "artifact_corrupt", self.identity.artifact_id, 1
+            )
 
     def _compose_multiversion_subset(
         self, normalized: dict[str, Any]
@@ -2002,7 +2247,13 @@ class ArtifactReader:
                 False, None, "artifact_corrupt", self.identity.artifact_id, rows_read
             )
 
-    def lookup(self, request: object) -> LookupResult:
+    def lookup(
+        self,
+        request: object,
+        *,
+        validate_dependencies: bool = True,
+        validate_payload: bool = True,
+    ) -> LookupResult:
         normalized = normalize_request(request)
         if normalized["view"] not in PRECOMPUTED_VIEWS:
             return LookupResult(
@@ -2023,20 +2274,25 @@ class ArtifactReader:
                 **normalized,
                 "issue_date": self.identity.issue_date,
             }
-            canonical = self.lookup(canonical_request)
+            canonical = self.lookup(
+                canonical_request,
+                validate_dependencies=validate_dependencies,
+                validate_payload=validate_payload,
+            )
             if canonical.hit and canonical.response is not None:
                 response = copy.deepcopy(canonical.response)
                 response["request"] = copy.deepcopy(normalized)
-                try:
-                    response = validate_response(response)
-                except PredictorContractError:
-                    return LookupResult(
-                        False,
-                        None,
-                        "artifact_corrupt",
-                        self.identity.artifact_id,
-                        canonical.rows_read,
-                    )
+                if validate_payload:
+                    try:
+                        response = validate_response(response)
+                    except PredictorContractError:
+                        return LookupResult(
+                            False,
+                            None,
+                            "artifact_corrupt",
+                            self.identity.artifact_id,
+                            canonical.rows_read,
+                        )
                 return LookupResult(
                     True,
                     response,
@@ -2058,20 +2314,25 @@ class ArtifactReader:
                 **normalized,
                 "species_id": self.identity.trained_species_ids[0],
             }
-            canonical = self.lookup(canonical_request)
+            canonical = self.lookup(
+                canonical_request,
+                validate_dependencies=validate_dependencies,
+                validate_payload=validate_payload,
+            )
             if canonical.hit and canonical.response is not None:
                 response = copy.deepcopy(canonical.response)
                 response["request"] = copy.deepcopy(normalized)
-                try:
-                    response = validate_response(response)
-                except PredictorContractError:
-                    return LookupResult(
-                        False,
-                        None,
-                        "artifact_corrupt",
-                        self.identity.artifact_id,
-                        canonical.rows_read,
-                    )
+                if validate_payload:
+                    try:
+                        response = validate_response(response)
+                    except PredictorContractError:
+                        return LookupResult(
+                            False,
+                            None,
+                            "artifact_corrupt",
+                            self.identity.artifact_id,
+                            canonical.rows_read,
+                        )
                 return LookupResult(
                     True,
                     response,
@@ -2080,14 +2341,24 @@ class ArtifactReader:
                     canonical.rows_read,
                 )
             return canonical
+        coverage_column = (
+            ", response_coverage.payload_json AS required_coverage_json"
+            if validate_dependencies
+            else ""
+        )
+        coverage_join = (
+            "JOIN response_coverage USING (coverage_key)"
+            if validate_dependencies
+            else ""
+        )
         row = self.connection.execute(
-            """SELECT responses.request_json,
-                      response_coverage.payload_json AS required_coverage_json,
-                      response_payloads.payload_json
-                 FROM responses
-                 JOIN response_coverage USING (coverage_key)
-                 JOIN response_payloads USING (payload_key)
-                WHERE responses.request_key = ?""",
+            f"""SELECT responses.request_json,
+                       response_payloads.payload_json
+                       {coverage_column}
+                  FROM responses
+                  {coverage_join}
+                  JOIN response_payloads USING (payload_key)
+                 WHERE responses.request_key = ?""",
             (_request_key(normalized),),
         ).fetchone()
         if row is None:
@@ -2098,60 +2369,72 @@ class ArtifactReader:
         rows_read = 1
         try:
             stored_request = json.loads(row["request_json"])
-            required = [
-                _coverage_from_dict(value)
-                for value in json.loads(
-                    zlib.decompress(row["required_coverage_json"]).decode("utf-8")
-                )
-            ]
-            if stored_request != normalized or not required:
+            if stored_request != normalized:
                 return LookupResult(False, None, "response_invalid", self.identity.artifact_id, rows_read)
-            for cell in required:
-                coverage_row = self.connection.execute(
-                    "SELECT has_base_prediction, member_keys_json FROM coverage WHERE species_id=? AND area_id=? AND target_date=?",
-                    (cell.species_id, cell.area_id, cell.target_date),
-                ).fetchone()
-                rows_read += 1
-                if coverage_row is None:
-                    return LookupResult(False, None, "coverage_partial", self.identity.artifact_id, rows_read)
-                stored_members = tuple(
-                    sorted(_member_key_from_dict(value) for value in json.loads(coverage_row["member_keys_json"]))
-                )
-                if bool(coverage_row["has_base_prediction"]) != cell.has_base_prediction or stored_members != cell.member_keys:
-                    return LookupResult(False, None, "coverage_partial", self.identity.artifact_id, rows_read)
-                if cell.has_base_prediction:
-                    exists = self.connection.execute(
-                        "SELECT 1 FROM base_predictions WHERE species_id=? AND area_id=? AND target_date=?",
+            if validate_dependencies:
+                required = [
+                    _coverage_from_dict(value)
+                    for value in json.loads(
+                        zlib.decompress(row["required_coverage_json"]).decode("utf-8")
+                    )
+                ]
+                if not required:
+                    return LookupResult(False, None, "response_invalid", self.identity.artifact_id, rows_read)
+                for cell in required:
+                    coverage_row = self.connection.execute(
+                        "SELECT has_base_prediction, member_keys_json FROM coverage WHERE species_id=? AND area_id=? AND target_date=?",
                         (cell.species_id, cell.area_id, cell.target_date),
                     ).fetchone()
                     rows_read += 1
-                    if exists is None:
+                    if coverage_row is None:
                         return LookupResult(False, None, "coverage_partial", self.identity.artifact_id, rows_read)
-                for member in cell.member_keys:
-                    exists = self.connection.execute(
-                        """SELECT 1 FROM operational_members
-                           WHERE species_id=? AND area_id=? AND target_date=? AND version_id=?
-                             AND temporal_contract_id=? AND profile_id=? AND estimator_id=?
-                             AND horizon_days=?""",
-                        (
-                            cell.species_id,
-                            cell.area_id,
-                            cell.target_date,
-                            member.version_id,
-                            member.temporal_contract_id,
-                            member.profile_id,
-                            member.estimator_id,
-                            member.horizon_days,
-                        ),
-                    ).fetchone()
-                    rows_read += 1
-                    if exists is None:
+                    stored_members = tuple(
+                        sorted(_member_key_from_dict(value) for value in json.loads(coverage_row["member_keys_json"]))
+                    )
+                    if bool(coverage_row["has_base_prediction"]) != cell.has_base_prediction or stored_members != cell.member_keys:
                         return LookupResult(False, None, "coverage_partial", self.identity.artifact_id, rows_read)
-            response = validate_response(
-                json.loads(zlib.decompress(row["payload_json"]).decode("utf-8"))
+                    if cell.has_base_prediction:
+                        exists = self.connection.execute(
+                            "SELECT 1 FROM base_predictions WHERE species_id=? AND area_id=? AND target_date=?",
+                            (cell.species_id, cell.area_id, cell.target_date),
+                        ).fetchone()
+                        rows_read += 1
+                        if exists is None:
+                            return LookupResult(False, None, "coverage_partial", self.identity.artifact_id, rows_read)
+                    for member in cell.member_keys:
+                        exists = self.connection.execute(
+                            """SELECT 1 FROM operational_members
+                               WHERE species_id=? AND area_id=? AND target_date=? AND version_id=?
+                                 AND temporal_contract_id=? AND profile_id=? AND estimator_id=?
+                                 AND horizon_days=?""",
+                            (
+                                cell.species_id,
+                                cell.area_id,
+                                cell.target_date,
+                                member.version_id,
+                                member.temporal_contract_id,
+                                member.profile_id,
+                                member.estimator_id,
+                                member.horizon_days,
+                            ),
+                        ).fetchone()
+                        rows_read += 1
+                        if exists is None:
+                            return LookupResult(False, None, "coverage_partial", self.identity.artifact_id, rows_read)
+            response_payload = json.loads(
+                zlib.decompress(row["payload_json"]).decode("utf-8")
             )
+            response = (
+                validate_response(response_payload)
+                if validate_payload
+                else response_payload
+            )
+            if not isinstance(response, dict):
+                return LookupResult(False, None, "response_invalid", self.identity.artifact_id, rows_read)
             if normalize_request(response.get("request")) != normalized:
-                response = _retarget_weekly_response(response, normalized)
+                response = _retarget_weekly_response(
+                    response, normalized, validate=validate_payload
+                )
             if response.get("runtime_fingerprint") != self.identity.runtime_fingerprint:
                 return LookupResult(False, None, "identity_mismatch", self.identity.artifact_id, rows_read)
             if normalize_request(response.get("request")) != normalized:
@@ -2198,14 +2481,57 @@ def lookup_active_artifact(
     if not candidate.is_file():
         return LookupResult(False, None, "artifact_missing")
     try:
-        connection = _open_readonly(candidate)
-        try:
-            identity, _counts = _validated_metadata(connection, expected_identity=None)
-        finally:
-            connection.close()
-        stale = identity.runtime_fingerprint != runtime_fingerprint
-        with ArtifactReader(candidate, expected_identity=identity) as reader:
-            result = reader.lookup(request)
+        normalized = normalize_request(request)
+        with ArtifactReader(
+            candidate,
+            expected_identity=None,
+            validate_context=False,
+        ) as reader:
+            identity = reader.identity
+            stale = identity.runtime_fingerprint != runtime_fingerprint
+            lookup_request = normalized
+            sealed_query = reader.lookup_sealed_query_response(normalized)
+            if normalized["view"] in {"recommender", "week"} and normalized[
+                "compare_models"
+            ]:
+                # These screens display the operational winners already sealed
+                # by the precompute.  The UI's expanded list of installed
+                # candidates is presentation state, not a reason to rebuild the
+                # response from hundreds of member rows.
+                lookup_request = {
+                    **normalized,
+                    "compare_models": False,
+                    "multiversion_selection": [],
+                }
+            result = (
+                sealed_query
+                if sealed_query is not None
+                else reader.lookup(
+                    lookup_request,
+                    validate_dependencies=False,
+                    validate_payload=False,
+                )
+            )
+            if not result.hit and lookup_request != normalized:
+                result = reader.lookup(
+                    normalized,
+                    validate_dependencies=False,
+                    validate_payload=False,
+                )
+            elif (
+                result.hit
+                and result.response is not None
+                and lookup_request != normalized
+            ):
+                result = LookupResult(
+                    True,
+                    _retarget_weekly_response(
+                        result.response, normalized, validate=False
+                    ),
+                    result.reason,
+                    result.artifact_id,
+                    result.rows_read,
+                )
         return LookupResult(
             result.hit,
             result.response,
@@ -2342,6 +2668,8 @@ def _weekly_execution_key(
 def _retarget_weekly_response(
     response: Mapping[str, object],
     request: Mapping[str, object],
+    *,
+    validate: bool = True,
 ) -> dict[str, Any]:
     """Materialize one exact UI response from an equivalent weekly execution."""
     retargeted = copy.deepcopy(dict(response))
@@ -2363,7 +2691,7 @@ def _retarget_weekly_response(
             species_payload["multiversion_comparison"] = copy.deepcopy(
                 comparisons[target_date]
             )
-    return validate_response(retargeted)
+    return validate_response(retargeted) if validate else retargeted
 
 
 def build_weekly_artifact(

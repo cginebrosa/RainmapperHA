@@ -72,6 +72,75 @@ class PredictorServiceTests(TestCase):
         with self.assertRaises(PredictorContractError):
             normalize_request(self.request(view="unknown"))
 
+    def test_multiversion_compare_shares_quality_catalog_cache_across_versions(self) -> None:
+        selections = [
+            {**TEST_SELECTION, "version_id": "biology_v3"},
+            {**TEST_SELECTION, "version_id": "biology_v4"},
+        ]
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            registry_path = root / "registry.json"
+            registry_path.write_text("{}", encoding="utf-8")
+            service = PredictorService(
+                models_dir=root,
+                weather_data_dir=root,
+                features_artifact_path=root / "features.json",
+                known_sites_path=root / "sites.json",
+                runtime_fingerprint="sha256:test",
+                version_registry_path=registry_path,
+            )
+            service._installed_runtime_batches = Mock(
+                return_value={
+                    "biology_v3": {"batch_id": "batch-v3"},
+                    "biology_v4": {"batch_id": "batch-v4"},
+                }
+            )
+            predictor = Mock()
+            predictor.season_phase.return_value = "in_season"
+            service.predictor = Mock(return_value=predictor)
+            comparison_cache: dict[str, object] = {}
+
+            with patch.object(
+                service_module.mushroom_ml_version_registry,
+                "load_registry",
+                return_value={},
+            ), patch.object(
+                service_module.mushroom_ml_multiversion_comparison,
+                "operational_selections",
+                return_value=selections,
+            ), patch.object(
+                service_module.mushroom_ml_multiversion_comparison,
+                "compare_selection",
+                side_effect=[
+                    {"batch_id": "batch-v3", "members": []},
+                    {"batch_id": "batch-v4", "members": []},
+                ],
+            ) as compare_selection, patch.object(
+                service_module.mushroom_ml_multiversion_comparison,
+                "build_selected_operational_comparison",
+                return_value={"available": True},
+            ):
+                result = service.multiversion_compare(
+                    species_id="boletus",
+                    area_id="area_one",
+                    target_date=date(2026, 8, 9),
+                    issue_date=date(2026, 8, 9),
+                    selections=selections,
+                    comparison_cache=comparison_cache,
+                )
+
+        self.assertTrue(result["available"])
+        calls = compare_selection.call_args_list
+        self.assertEqual(len(calls), 2)
+        self.assertIs(
+            calls[0].kwargs["quality_catalog_cache"],
+            calls[1].kwargs["quality_catalog_cache"],
+        )
+        self.assertIs(
+            calls[0].kwargs["quality_catalog_cache"],
+            comparison_cache["service_quality_catalogs_by_ref"],
+        )
+
     def test_week_uses_sealed_resolution_index_for_each_area_day(self) -> None:
         with TemporaryDirectory() as temporary:
             service = PredictorService(

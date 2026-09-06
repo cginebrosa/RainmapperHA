@@ -1285,6 +1285,64 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("ui.predictor_no_data", rendered)
         self.assertNotIn("cannot access local variable", rendered)
 
+    def test_predictor_species_chips_launch_through_the_progress_modal(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        predictor = mock.Mock()
+        predictor.areas_with_species_observations.return_value = []
+        with (
+            mock.patch.object(predictor_ui, "_get_predictor", return_value=predictor),
+            mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: key),
+        ):
+            rendered = predictor_ui._render_week(
+                "boletus_aereus",
+                date.today(),
+                ["boletus_aereus", "boletus_edulis"],
+                {},
+                {},
+            )
+
+        self.assertEqual(rendered.count("data-predictor-direct-run"), 2)
+
+    def test_precomputed_page_reuses_embedded_species_and_model_catalog(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        catalog = {
+            "available": True,
+            "runtime_batches": {"biology_v3": {"batch_id": "batch-1"}},
+            "entries": [
+                {
+                    "version_id": "biology_v3",
+                    "profile_id": "biology_core",
+                    "operational_eligible": True,
+                }
+            ],
+            "installed_artifacts": [],
+        }
+        token = predictor_ui._prepared_response.set(
+            {
+                "request": {
+                    "trained_species_ids": ["boletus_edulis", "boletus_aereus"]
+                },
+                "data": {"model_catalog": catalog, "species": {}},
+            }
+        )
+        try:
+            with mock.patch.object(
+                predictor_ui.mushroom_ml_version_registry,
+                "load_registry",
+                side_effect=AssertionError(
+                    "a precomputed page must not reload installed manifests"
+                ),
+            ):
+                trained = predictor_ui.trained_species_ids()
+                embedded = predictor_ui._multiversion_catalog_payload()
+                versions = predictor_ui.operational_version_ids()
+        finally:
+            predictor_ui._prepared_response.reset(token)
+
+        self.assertEqual(trained, ["boletus_aereus", "boletus_edulis"])
+        self.assertIs(embedded, catalog)
+        self.assertEqual(versions, ["biology_v3"])
+
     def test_compact_reliability_keeps_ineligible_area_evidence_visible(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
         area = {
@@ -2680,6 +2738,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("data-predictor-direct-run", script)
         self.assertIn("data-predictor-direct-form", script)
         self.assertIn("runDirect", script)
+        self.assertIn("if (running) return;", script)
         self.assertNotIn(".pred-page a[href^='?']", script)
         self.assertIn("dataset.predictorAreaMap", script)
         self.assertIn("sessionStorage.setItem(areaMapStorageKey", script)
@@ -2982,7 +3041,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertEqual(summaries[-1]["operation"], "predictor_request")
         self.assertTrue(summaries[-1]["details"]["cold_request"])
-        build_request.assert_called_once_with({"executor": ["home_assistant"]})
+        self.assertEqual(
+            build_request.call_args_list,
+            [
+                mock.call(
+                    {"executor": ["home_assistant"]},
+                    expand_multiversion=False,
+                ),
+                mock.call({"executor": ["home_assistant"]}),
+            ],
+        )
         execute_request.assert_called_once_with(predictor_request)
         self.assertIs(
             render_page.call_args.kwargs["prepared_response"], prepared_response
@@ -3096,7 +3164,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 handler.render_mushroom_predictor({})
 
         self.assertEqual(captured["status"], 200)
-        build_request.assert_called_once_with({})
+        build_request.assert_called_once_with({}, expand_multiversion=False)
         artifact_lookup.assert_called_once_with(
             mock.ANY,
             runtime_fingerprint="sha256:runtime",
@@ -3105,6 +3173,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         live_execute.assert_not_called()
         self.assertIs(
             render_page.call_args.kwargs["prepared_response"], precomputed_response
+        )
+        self.assertTrue(
+            render_page.call_args.kwargs["prepared_response_validated"]
         )
         timing = render_page.call_args.kwargs["prediction_timing"]
         self.assertEqual(timing["backend_seconds"], 0.0)
@@ -3860,6 +3931,25 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn("Biology V5 legacy", rendered)
         self.assertNotIn('type="checkbox"', rendered)
 
+    def test_operational_versions_detail_hides_an_empty_catalog(self) -> None:
+        predictor_ui = self.web_server.mushroom_predictor_ui
+        catalog = {
+            "entries": [
+                {
+                    "version_id": "biology_v3",
+                    "profile_id": "core",
+                    "operational_eligible": True,
+                }
+            ],
+            "installed_artifacts": [],
+        }
+        with mock.patch.object(
+            predictor_ui, "_multiversion_catalog_payload", return_value=catalog
+        ):
+            rendered = predictor_ui._operational_versions_detail("boletus_edulis")
+
+        self.assertEqual(rendered, "")
+
     def test_operational_tokens_exclude_visible_non_operational_profiles(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
         catalog = {
@@ -3968,41 +4058,25 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         self.assertEqual(fallback[-1]["selection_status"], "abstain")
 
-    def test_multiversion_catalog_uses_live_registry_not_precomputed_copy(self) -> None:
+    def test_multiversion_catalog_uses_the_catalog_sealed_in_the_precompute(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
-        registry = {"preferred_version_id": "biology_v3", "versions": []}
-        entries = [
-            {
-                "version_id": "biology_v3",
-                "profile_id": "core",
-                "catalog_visible": True,
-            }
-        ]
+        sealed = {"entries": [], "installed_artifacts": []}
         prepared_token = predictor_ui._prepared_response.set(
-            {"data": {"model_catalog": {"entries": [], "installed_artifacts": []}}}
+            {"data": {"model_catalog": sealed}}
         )
         try:
-            with (
-                mock.patch.object(
-                    predictor_ui.mushroom_ml_version_registry,
-                    "load_registry",
-                    return_value=registry,
-                ),
-                mock.patch.object(
-                    predictor_ui.mushroom_ml_model_catalog,
-                    "catalog_entries",
-                    return_value=entries,
-                ),
-                mock.patch.object(
-                    predictor_ui, "_installed_manifests", return_value={}
+            with mock.patch.object(
+                predictor_ui.mushroom_ml_version_registry,
+                "load_registry",
+                side_effect=AssertionError(
+                    "a precomputed response must not reload the live registry"
                 ),
             ):
                 catalog = predictor_ui._multiversion_catalog_payload()
         finally:
             predictor_ui._prepared_response.reset(prepared_token)
 
-        self.assertNotIn("preferred_version_id", catalog)
-        self.assertEqual(catalog["entries"], entries)
+        self.assertIs(catalog, sealed)
 
     def test_prepared_week_and_recommender_use_nested_multiversion_comparison(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
@@ -9612,6 +9686,51 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(stale_identity.artifact_id, summary["desired_artifact_id"])
         plan.assert_not_called()
 
+    def test_precompute_currentness_uses_the_full_coverage_interval(self) -> None:
+        fingerprint = "sha256:" + "a" * 64
+        identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+            runtime_fingerprint=fingerprint,
+            issue_date="2026-09-06",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={
+                "species": 1,
+                "areas": 1,
+                "days": 7,
+                "versions": 1,
+                "members": 7,
+            },
+        )
+        manifest = {"fingerprint": fingerprint}
+
+        self.assertTrue(
+            self.web_server.predictor_precompute_identity_is_current(
+                identity,
+                manifest,
+                today=date(2026, 9, 7),
+            )
+        )
+        self.assertFalse(
+            self.web_server.predictor_precompute_identity_is_current(
+                identity,
+                manifest,
+                today=date(2026, 9, 13),
+            )
+        )
+        self.assertFalse(
+            self.web_server.predictor_precompute_identity_is_current(
+                identity,
+                {"fingerprint": "sha256:" + "b" * 64},
+                today=date(2026, 9, 7),
+            )
+        )
+
     def test_local_precompute_desire_without_a_job_is_not_reported_as_queued(self) -> None:
         identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
             runtime_fingerprint="sha256:" + "a" * 64,
@@ -9690,10 +9809,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual("missing", workers_summary["status"])
         self.assertEqual("missing", panel_summary["status"])
 
-    def test_completed_precompute_job_with_receipt_is_reported_as_active(self) -> None:
+    def test_previous_day_precompute_with_receipt_stays_active_while_covered(self) -> None:
         identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
             runtime_fingerprint="sha256:" + "a" * 64,
-            issue_date=date.today().isoformat(),
+            issue_date=(date.today() - timedelta(days=1)).isoformat(),
             trained_species_ids=["boletus"],
             installed_versions=[
                 self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(

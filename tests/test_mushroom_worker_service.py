@@ -1,10 +1,14 @@
 import json
 import hashlib
 import io
+import os
+import subprocess
+import sys
 import tempfile
 import threading
 import time
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
 from urllib.error import HTTPError, URLError
@@ -13,6 +17,410 @@ from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_quiet_process_drains_stderr_and_keeps_only_a_bounded_tail(self) -> None:
+        process, stderr_capture = mushroom_worker_service._start_quiet_process(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys; "
+                    "sys.stderr.buffer.write(b'x' * (1024 * 1024)); "
+                    "sys.stderr.buffer.write(b'\\nEND-OF-ERROR\\n'); "
+                    "sys.stderr.flush()"
+                ),
+            ]
+        )
+
+        self.assertEqual(process.wait(timeout=10), 0)
+        stderr_capture.wait()
+        tail = stderr_capture.tail_bytes()
+        self.assertLessEqual(
+            len(tail), mushroom_worker_service.SUBPROCESS_STDERR_TAIL_MAX_BYTES
+        )
+        self.assertTrue(tail.endswith(b"\nEND-OF-ERROR\n"))
+
+    def test_service_runs_one_job_per_lane_from_different_coordinators(self) -> None:
+        def coordinator_server(
+            lane: str, job_id: str, *, heartbeat_ok: bool = True
+        ) -> tuple[ThreadingHTTPServer, dict[str, object]]:
+            state: dict[str, object] = {
+                "claimed": False,
+                "requests": [],
+                "started": threading.Event(),
+                "finished": threading.Event(),
+                "started_at": 0.0,
+            }
+            state_lock = threading.Lock()
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_POST(self) -> None:  # noqa: N802
+                    size = int(self.headers.get("Content-Length", "0"))
+                    payload = json.loads(self.rfile.read(size) or b"{}")
+                    with state_lock:
+                        state["requests"].append(
+                            (self.path, payload, self.headers.get("Authorization", ""))
+                        )
+                    if self.path.endswith("/heartbeat"):
+                        if not heartbeat_ok:
+                            self.send_error(503)
+                            return
+                        response = {"ok": True}
+                    elif self.path.endswith("/jobs/claim"):
+                        with state_lock:
+                            should_claim = (
+                                payload.get("lane") == lane and not state["claimed"]
+                            )
+                            if should_claim:
+                                state["claimed"] = True
+                        response = {
+                            "ok": True,
+                            "job": {
+                                "job_id": job_id,
+                                "job_type": "worker_claim_probe",
+                                "claim_token": f"claim-{job_id}",
+                            }
+                            if should_claim
+                            else None,
+                        }
+                    elif self.path.endswith("/jobs/start"):
+                        state["started_at"] = time.monotonic()
+                        state["started"].set()
+                        response = {"ok": True, "job": {}}
+                    elif self.path.endswith("/jobs/control"):
+                        response = {"ok": True, "job": {}, "cancel_requested": False}
+                    elif self.path.endswith("/jobs/finish"):
+                        state["finished"].set()
+                        response = {"ok": True, "job": {}}
+                    else:
+                        self.send_error(404)
+                        return
+                    body = json.dumps(response).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+                def log_message(self, _format: str, *_args: object) -> None:
+                    return
+
+            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            return server, state
+
+        primary_server, primary = coordinator_server(
+            "foreground", "worker_job_foreground123"
+        )
+        secondary_server, secondary = coordinator_server(
+            "background", "worker_job_background123"
+        )
+        unavailable_server, unavailable = coordinator_server(
+            "foreground",
+            "worker_job_unavailable123",
+            heartbeat_ok=False,
+        )
+        process: subprocess.Popen[str] | None = None
+        try:
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                primary_url = f"http://127.0.0.1:{primary_server.server_port}"
+                secondary_url = f"http://127.0.0.1:{secondary_server.server_port}"
+                unavailable_url = f"http://127.0.0.1:{unavailable_server.server_port}"
+                mushroom_worker_service.mushroom_worker_config.save_coordinator_config(
+                    root, rainmapper_url=primary_url, token="p" * 40
+                )
+                mushroom_worker_service.mushroom_worker_config.add_coordinator(
+                    root, rainmapper_url=secondary_url, token="s" * 40
+                )
+                mushroom_worker_service.mushroom_worker_config.add_coordinator(
+                    root, rainmapper_url=unavailable_url, token="u" * 40
+                )
+                primary_config_before = (
+                    root / "config/coordinator.json"
+                ).read_bytes()
+                primary_token_before = (
+                    root / "secrets/coordinator-token"
+                ).read_bytes()
+                environment = {
+                    **os.environ,
+                    "RAINMAPPER_WORKER_CLAIM_PROBE_SECONDS": "2",
+                    "RAINMAPPER_WORKER_JOB_RETRY_SECONDS": "0",
+                }
+                process = subprocess.Popen(
+                    [
+                        sys.executable,
+                        str(
+                            Path(__file__).resolve().parents[1]
+                            / "scripts/run-mushroom-worker-service.py"
+                        ),
+                        "--host",
+                        "127.0.0.1",
+                        "--port",
+                        "0",
+                        "--worker-data-dir",
+                        str(root),
+                        "--heartbeat-interval",
+                        "1",
+                    ],
+                    cwd=Path(__file__).resolve().parents[1],
+                    env=environment,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                self.assertTrue(primary["started"].wait(8))
+                self.assertTrue(secondary["started"].wait(8))
+                self.assertLess(
+                    abs(float(primary["started_at"]) - float(secondary["started_at"])),
+                    1.0,
+                )
+                self.assertTrue(primary["finished"].wait(8))
+                self.assertTrue(secondary["finished"].wait(8))
+
+                primary_paths = [path for path, _payload, _auth in primary["requests"]]
+                secondary_paths = [path for path, _payload, _auth in secondary["requests"]]
+                self.assertIn("/api/mushrooms/workers/jobs/finish", primary_paths)
+                self.assertIn("/api/mushrooms/workers/jobs/finish", secondary_paths)
+                unavailable_paths = [
+                    path for path, _payload, _auth in unavailable["requests"]
+                ]
+                self.assertIn("/api/mushrooms/workers/heartbeat", unavailable_paths)
+                self.assertNotIn(
+                    "/api/mushrooms/workers/jobs/claim", unavailable_paths
+                )
+                self.assertTrue(
+                    all(auth == f"Bearer {'p' * 40}" for _path, _payload, auth in primary["requests"])
+                )
+                self.assertTrue(
+                    all(auth == f"Bearer {'s' * 40}" for _path, _payload, auth in secondary["requests"])
+                )
+                primary_busy = [
+                    payload
+                    for path, payload, _auth in primary["requests"]
+                    if path.endswith("/heartbeat")
+                    and payload.get("lanes", {}).get("foreground", {}).get("status")
+                    == "busy"
+                    and payload.get("lanes", {}).get("background", {}).get("status")
+                    == "busy"
+                ]
+                secondary_busy = [
+                    payload
+                    for path, payload, _auth in secondary["requests"]
+                    if path.endswith("/heartbeat")
+                    and payload.get("lanes", {}).get("foreground", {}).get("status")
+                    == "busy"
+                    and payload.get("lanes", {}).get("background", {}).get("status")
+                    == "busy"
+                ]
+                self.assertTrue(primary_busy)
+                self.assertTrue(secondary_busy)
+                self.assertEqual(
+                    primary_busy[0]["lanes"]["foreground"]["active_job_id"],
+                    "worker_job_foreground123",
+                )
+                self.assertEqual(
+                    primary_busy[0]["lanes"]["background"]["active_job_id"], ""
+                )
+                self.assertEqual(
+                    secondary_busy[0]["lanes"]["foreground"]["active_job_id"], ""
+                )
+                self.assertEqual(
+                    secondary_busy[0]["lanes"]["background"]["active_job_id"],
+                    "worker_job_background123",
+                )
+                self.assertEqual(
+                    (root / "config/coordinator.json").read_bytes(),
+                    primary_config_before,
+                )
+                self.assertEqual(
+                    (root / "secrets/coordinator-token").read_bytes(),
+                    primary_token_before,
+                )
+        finally:
+            if process is not None:
+                process.terminate()
+                output, _ = process.communicate(timeout=8)
+                self.assertEqual(process.returncode, 0, output)
+            primary_server.shutdown()
+            primary_server.server_close()
+            secondary_server.shutdown()
+            secondary_server.server_close()
+            unavailable_server.shutdown()
+            unavailable_server.server_close()
+
+    def test_configured_coordinators_keeps_primary_and_loads_many_secondaries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            mushroom_worker_service.mushroom_worker_config.save_coordinator_config(
+                root,
+                rainmapper_url="https://real-ha.example",
+                token="r" * 40,
+            )
+            for index in range(3):
+                mushroom_worker_service.mushroom_worker_config.add_coordinator(
+                    root,
+                    rainmapper_url=f"https://lab-{index}.example",
+                    token=str(index) * 40,
+                )
+
+            coordinators = mushroom_worker_service.configured_coordinators(root)
+
+        self.assertEqual(len(coordinators), 4)
+        self.assertTrue(coordinators[0]["primary"])
+        self.assertEqual(coordinators[0]["rainmapper_url"], "https://real-ha.example")
+        self.assertEqual(coordinators[0]["token"], "r" * 40)
+        self.assertEqual(
+            {row["token"] for row in coordinators[1:]},
+            {"0" * 40, "1" * 40, "2" * 40},
+        )
+
+    def test_coordinator_lane_view_hides_another_coordinators_job_id(self) -> None:
+        lanes = {
+            "foreground": {
+                "status": "busy",
+                "active_job_id": "worker_job_real12345",
+                "coordinator_id": "primary",
+            },
+            "background": {
+                "status": "busy",
+                "active_job_id": "worker_job_local1234",
+                "coordinator_id": "coordinator_local",
+            },
+        }
+
+        primary = mushroom_worker_service.coordinator_visible_lanes(lanes, "primary")
+        local = mushroom_worker_service.coordinator_visible_lanes(
+            lanes, "coordinator_local"
+        )
+
+        self.assertEqual(primary["foreground"]["active_job_id"], "worker_job_real12345")
+        self.assertEqual(primary["background"]["active_job_id"], "")
+        self.assertEqual(local["foreground"]["active_job_id"], "")
+        self.assertEqual(local["background"]["active_job_id"], "worker_job_local1234")
+        self.assertNotIn("coordinator_id", primary["foreground"])
+        self.assertNotIn("coordinator_id", local["background"])
+
+    def test_round_robin_supports_more_than_two_coordinators(self) -> None:
+        coordinators = [
+            {"coordinator_id": f"coordinator_{index}"} for index in range(5)
+        ]
+
+        order = mushroom_worker_service.round_robin_coordinators(coordinators, 3)
+
+        self.assertEqual(
+            [row["coordinator_id"] for _index, row in order],
+            [
+                "coordinator_3",
+                "coordinator_4",
+                "coordinator_0",
+                "coordinator_1",
+                "coordinator_2",
+            ],
+        )
+
+    def test_claim_round_robin_skips_unreachable_and_claims_only_one_job(self) -> None:
+        coordinators = [
+            {
+                "coordinator_id": f"coordinator_{index}",
+                "rainmapper_url": f"https://coordinator-{index}.example",
+                "token": f"token-{index}",
+            }
+            for index in range(5)
+        ]
+        calls: list[tuple[str, str]] = []
+
+        def claim(url: str, _worker_id: str, **kwargs: object) -> dict | None:
+            calls.append((url, str(kwargs["lane"])))
+            if url == "https://coordinator-4.example":
+                return {"job_id": "worker_job_selected123"}
+            return None
+
+        result = mushroom_worker_service.claim_job_round_robin(
+            coordinators,
+            reachable_coordinator_ids={
+                "coordinator_0",
+                "coordinator_2",
+                "coordinator_4",
+            },
+            start_index=1,
+            lane="foreground",
+            worker_id="worker_12345678",
+            claim=claim,
+        )
+
+        self.assertEqual(
+            calls,
+            [
+                ("https://coordinator-2.example", "foreground"),
+                ("https://coordinator-4.example", "foreground"),
+            ],
+        )
+        self.assertEqual(result["job"]["job_id"], "worker_job_selected123")
+        self.assertEqual(result["coordinator"]["coordinator_id"], "coordinator_4")
+        self.assertEqual(result["next_index"], 0)
+
+    def test_claim_affinity_and_two_lanes_are_independent(self) -> None:
+        coordinators = [
+            {
+                "coordinator_id": f"coordinator_{index}",
+                "rainmapper_url": f"https://coordinator-{index}.example",
+                "token": f"token-{index}",
+            }
+            for index in range(3)
+        ]
+        calls: list[tuple[str, str]] = []
+
+        def claim(url: str, _worker_id: str, **kwargs: object) -> dict:
+            lane = str(kwargs["lane"])
+            calls.append((url, lane))
+            return {"job_id": f"worker_job_{lane}123"}
+
+        foreground = mushroom_worker_service.claim_job_round_robin(
+            coordinators,
+            reachable_coordinator_ids={row["coordinator_id"] for row in coordinators},
+            start_index=2,
+            lane="foreground",
+            worker_id="worker_12345678",
+            preferred_coordinator_id="coordinator_1",
+            claim=claim,
+        )
+        background = mushroom_worker_service.claim_job_round_robin(
+            coordinators,
+            reachable_coordinator_ids={row["coordinator_id"] for row in coordinators},
+            start_index=2,
+            lane="background",
+            worker_id="worker_12345678",
+            claim=claim,
+        )
+
+        self.assertEqual(
+            calls,
+            [
+                ("https://coordinator-1.example", "foreground"),
+                ("https://coordinator-2.example", "background"),
+            ],
+        )
+        self.assertEqual(foreground["job"]["job_id"], "worker_job_foreground123")
+        self.assertEqual(background["job"]["job_id"], "worker_job_background123")
+
+    def test_primary_and_secondary_precompute_paths_are_isolated(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            primary = mushroom_worker_service.coordinator_precompute_root(
+                root, {"coordinator_id": "primary", "primary": True}
+            )
+            secondary = mushroom_worker_service.coordinator_precompute_root(
+                root,
+                {"coordinator_id": "coordinator_local", "primary": False},
+            )
+
+        self.assertEqual(primary, root.resolve() / "predictor_precompute")
+        self.assertEqual(
+            secondary,
+            root.resolve() / "coordinators/coordinator_local/predictor_precompute",
+        )
+
     def test_precompute_resolves_selections_from_runtime_without_ha_download(self) -> None:
         job = {"area_ids_by_species": {"boletus_edulis": ["area-a"]}}
         expected = [{"species_id": "boletus_edulis", "area_id": "area-a"}]

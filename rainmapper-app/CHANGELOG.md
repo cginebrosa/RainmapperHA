@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.295
+
+- Keep a weekly Predictor precompute current across midnight while its runtime
+  fingerprint matches and today remains inside its declared coverage interval.
+- Validate the immutable SQLite response set once before publication, then read
+  each weekly, species, recommender, or dated result directly without repeating
+  hundreds of dependency queries and deep JSON validations on Home Assistant.
+- Resolve sealed dated-query winners from their indexed precomputed response
+  instead of rebuilding the comparison from individual operational members.
+- Reuse the model catalogue embedded in the sealed response, hide empty
+  operational-version details, and retain populated availability details for
+  dated queries.
+- Show the prediction modal for direct species navigation and ignore repeated
+  clicks while a request is already running.
+
 ## 0.2.294
 
 - Keep the weekly precompute job below the coordinator limit by sending only

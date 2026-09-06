@@ -11842,6 +11842,7 @@ def reconcile_mushroom_worker_storage_for_launch(
                 result_root=mushroom_worker_candidate_results_path(),
                 models_root=mushroom_paths.mushroom_ml_models_dir(),
                 registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+                live_artifact_root=mushroom_paths.mushroom_rebuild_artifacts_dir(),
                 report_path=storage_reconciliation_report_path(),
                 apply=(
                     storage_reconciliation_apply_enabled()
@@ -12612,6 +12613,7 @@ def predictor_launch_script() -> str:
         return option?.dataset.displayName || executor;
       };
       const runDirect = async (url, timingKind = "warm") => {
+        if (running) return;
         reset();
         rememberAreaMap(document.querySelector("[data-predictor-area-map]"));
         const target = new URL(url, window.location.href);
@@ -12654,7 +12656,7 @@ def predictor_launch_script() -> str:
           return;
         }
         const direct = event.target.closest("[data-predictor-direct-run]");
-        if (direct && new URL(direct.getAttribute("href") || "", window.location.href).searchParams.has("executor")) {
+        if (direct) {
           event.preventDefault();
           runDirect(
             direct.getAttribute("href") || window.location.href,
@@ -12723,7 +12725,11 @@ def predictor_launch_script() -> str:
     </script>"""
 
 
-def build_predictor_request(query: dict[str, list[str]]) -> dict[str, object]:
+def build_predictor_request(
+    query: dict[str, list[str]],
+    *,
+    expand_multiversion: bool = True,
+) -> dict[str, object]:
     """Translate one UI query into the contract shared by HA and workers."""
     trained = mushroom_predictor_ui.trained_species_ids()
     species = (query.get("species") or [trained[0] if trained else ""])[0]
@@ -12747,7 +12753,8 @@ def build_predictor_request(query: dict[str, list[str]]) -> dict[str, object]:
     multiversion_tokens: list[str] = []
     selected_versions = (
         mushroom_predictor_ui.resolved_query_versions(query)
-        if view in {"recommender", "week", "query", "history"}
+        if expand_multiversion
+        and view in {"recommender", "week", "query", "history"}
         else []
     )
     if selected_versions:
@@ -12914,6 +12921,27 @@ def _unpack_predictor_precompute_plan() -> tuple[
     return identity, selections, runtime_manifest, None
 
 
+def predictor_precompute_identity_is_current(
+    identity: mushroom_predictor_precompute.ArtifactIdentity,
+    published_manifest: dict[str, object] | None,
+    *,
+    today: date | None = None,
+) -> bool:
+    """Return whether one desired artifact matches the runtime and covers today."""
+    if (
+        published_manifest is None
+        or identity.runtime_fingerprint != published_manifest.get("fingerprint")
+    ):
+        return False
+    current_date = today or datetime.now(get_timezone()).date()
+    try:
+        coverage_start = date.fromisoformat(identity.coverage_start)
+        coverage_end = date.fromisoformat(identity.coverage_end)
+    except (TypeError, ValueError):
+        return False
+    return coverage_start <= current_date <= coverage_end
+
+
 def predictor_precompute_summary() -> dict[str, object]:
     """Return cheap persisted panel state; never plan or inspect SQLite here."""
     summary: dict[str, object] = {
@@ -12991,12 +13019,9 @@ def predictor_precompute_summary() -> dict[str, object]:
                 )
             except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
                 published_manifest = None
-            desired_is_current = bool(
-                published_manifest is not None
-                and desired_identity.runtime_fingerprint
-                == published_manifest.get("fingerprint")
-                and desired_identity.coverage_start
-                == datetime.now(get_timezone()).date().isoformat()
+            desired_is_current = predictor_precompute_identity_is_current(
+                desired_identity,
+                published_manifest,
             )
             summary.update(
                 {
@@ -13140,12 +13165,9 @@ def predictor_precompute_control_panel_summary() -> dict[str, object]:
             )
         except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
             published_manifest = None
-        desired_is_current = bool(
-            published_manifest is not None
-            and desired_identity.runtime_fingerprint
-            == published_manifest.get("fingerprint")
-            and desired_identity.coverage_start
-            == datetime.now(get_timezone()).date().isoformat()
+        desired_is_current = predictor_precompute_identity_is_current(
+            desired_identity,
+            published_manifest,
         )
         summary.update(
             {
@@ -20684,10 +20706,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         coordinator_precompute_lookup = None
         coordinator_lookup_seconds = 0.0
         predictor_request = None
+        predictor_request_expanded = False
         precompute_response_used = False
         coordinator_lookup_started = time.perf_counter()
         try:
-            predictor_request = build_predictor_request(query)
+            predictor_request = build_predictor_request(
+                query, expand_multiversion=False
+            )
             try:
                 runtime_manifest = (
                     mushroom_predictor_runtime.load_published_manifest_metadata(
@@ -20708,6 +20733,22 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         request=predictor_request,
                     )
                 )
+            if (
+                not coordinator_precompute_lookup.hit
+                and coordinator_precompute_lookup.reason
+                in {"request_not_precomputed", "coverage_partial"}
+            ):
+                expanded_request = build_predictor_request(query)
+                if expanded_request != predictor_request:
+                    predictor_request = expanded_request
+                    predictor_request_expanded = True
+                    coordinator_precompute_lookup = (
+                        mushroom_predictor_precompute.lookup_active_artifact(
+                            mushroom_paths.mushroom_predictor_precompute_artifact_path(),
+                            runtime_fingerprint=str(runtime_manifest["fingerprint"]),
+                            request=predictor_request,
+                        )
+                    )
             if coordinator_precompute_lookup.hit and not job_id:
                 prepared_response = coordinator_precompute_lookup.response
                 precompute_response_used = True
@@ -20753,6 +20794,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 "text/html; charset=utf-8",
             )
             return
+
+        if prepared_response is None and not predictor_request_expanded:
+            predictor_request = build_predictor_request(query)
+            predictor_request_expanded = True
 
         if (
             prepared_response is None
@@ -21169,6 +21214,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 if isinstance(known_sites_payload, dict)
                                 else {},
                                 prepared_response=prepared_response,
+                                prepared_response_validated=precompute_response_used,
                                 allow_executor_change=execution_policy.allow_manual_selection,
                                 training_freshness=training_freshness,
                                 prediction_timing=prediction_timing,

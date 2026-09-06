@@ -51,6 +51,34 @@ el cliente local no termina después de subir las capas, no cancelarlo hasta
 verificar en GHCR los tags de versión y `latest`, el mismo digest y los manifests
 `linux/amd64` y `linux/arm64`.
 
+## Paridad local obligatoria antes de HA real
+
+PROHIBIDO usar HA real como primer entorno de integración o actualizarlo con
+código que no haya completado antes el circuito local equivalente.
+
+HA local es la puerta de aceptación obligatoria de la versión que se pretende
+usar en HA real, no un laboratorio opcional. Una ejecución local con cualquiera
+de las dos imágenes sin reconstruir no cuenta como validación.
+
+Antes de autorizar una release o actualización de HA real, reconstruir desde el
+mismo estado del worktree tanto la imagen de HA local como la imagen del worker
+de pruebas; recrear ambos contenedores y comprobar dentro de ellos que las
+versiones o huellas efectivas corresponden a ese mismo código. No basta con que
+el repositorio, los tests o las etiquetas de las imágenes coincidan: hay que
+verificar el código que ejecutan realmente los contenedores.
+
+Cuando el cambio afecte al coordinador, al worker, a sus contratos o a los
+artefactos de entrenamiento/predicción, ejecutar mediante el worker el circuito
+local completo aplicable: asignación, reconstrucción, entrenamiento base,
+entrenamiento multiversión, recepción y promoción, precálculo, recepción y
+activación. Auditar los estados y artefactos persistidos, no solo la salida del
+build o que el programa compile.
+
+Solo después de que el circuito local termine correctamente y el usuario acepte
+expresamente el resultado se puede construir/publicar la release e instalarla o
+probarla en HA real. Cualquier cambio de código posterior invalida esa aceptación
+y obliga a reconstruir y repetir una validación proporcional antes de publicar.
+
 ## Protección del destino del worker
 
 PROHIBIDO cambiar la IP, el hostname o la URL del coordinador configurado en un

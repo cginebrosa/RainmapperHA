@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import http.client
 import os
 import platform
@@ -44,6 +44,7 @@ JOB_TELEMETRY_INTERVAL_SECONDS = 10.0
 PREDICTOR_RUNTIME_MANIFEST_MAX_BYTES = 8 * 1024 * 1024
 PREDICTOR_PRECOMPUTE_SELECTIONS_MAX_BYTES = 16 * 1024 * 1024
 PREDICTOR_FINISH_TIMEOUT_SECONDS = 60.0
+SUBPROCESS_STDERR_TAIL_MAX_BYTES = 8 * 1024
 _T = TypeVar("_T")
 
 
@@ -53,6 +54,60 @@ def _job_update_timeout(action: str, job_type: str) -> float:
         if action == "finish" and job_type == "worker_predictor_v1"
         else 3.0
     )
+
+
+class _BoundedStderrCapture:
+    """Continuously drain a child pipe while retaining only its bounded tail."""
+
+    def __init__(self, stream: Any, *, max_bytes: int = SUBPROCESS_STDERR_TAIL_MAX_BYTES) -> None:
+        self._stream = stream
+        self._max_bytes = max(1, int(max_bytes))
+        self._tail = bytearray()
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(
+            target=self._drain,
+            name="rainmapper-worker-stderr-drain",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def _drain(self) -> None:
+        try:
+            while chunk := self._stream.read(16 * 1024):
+                with self._lock:
+                    self._tail.extend(chunk)
+                    excess = len(self._tail) - self._max_bytes
+                    if excess > 0:
+                        del self._tail[:excess]
+        finally:
+            self._stream.close()
+
+    def wait(self, timeout: float = 2.0) -> None:
+        self._thread.join(timeout=max(0.0, timeout))
+
+    def tail_bytes(self) -> bytes:
+        with self._lock:
+            return bytes(self._tail)
+
+    def text(self, *, max_bytes: int = 2000) -> str:
+        return self.tail_bytes()[-max(1, int(max_bytes)):].decode(
+            "utf-8", errors="replace"
+        )
+
+
+def _start_quiet_process(command: list[str]) -> tuple[subprocess.Popen[bytes], _BoundedStderrCapture]:
+    """Start compute without allowing an unread stderr pipe to block it."""
+
+    process = subprocess.Popen(
+        command,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
+    if process.stderr is None:
+        process.terminate()
+        raise RuntimeError("Worker compute process has no stderr stream.")
+    return process, _BoundedStderrCapture(process.stderr)
 
 
 class _CoalescedJobTelemetry:
@@ -660,6 +715,62 @@ def claim_job(
     return dict(job)
 
 
+def claim_job_round_robin(
+    coordinators: list[dict[str, Any]],
+    *,
+    reachable_coordinator_ids: set[str],
+    start_index: int,
+    lane: str,
+    worker_id: str,
+    preferred_coordinator_id: str = "",
+    claim: Callable[..., dict[str, Any] | None] = claim_job,
+) -> dict[str, Any]:
+    """Claim at most one job for one global lane across any number of coordinators."""
+    empty: list[str] = []
+    errors: list[dict[str, str]] = []
+    ordered_coordinators = round_robin_coordinators(
+        coordinators, start_index
+    )
+    if preferred_coordinator_id:
+        ordered_coordinators.sort(
+            key=lambda item: str(item[1]["coordinator_id"])
+            != preferred_coordinator_id
+        )
+    for coordinator_index, coordinator in ordered_coordinators:
+        coordinator_id = str(coordinator["coordinator_id"])
+        if coordinator_id not in reachable_coordinator_ids:
+            continue
+        try:
+            job = claim(
+                str(coordinator["rainmapper_url"]),
+                worker_id,
+                token=str(coordinator.get("token", "")),
+                lane=lane,
+            )
+        except Exception as exc:
+            errors.append({"coordinator_id": coordinator_id, "error": str(exc)})
+            continue
+        if job is None:
+            empty.append(coordinator_id)
+            continue
+        return {
+            "job": job,
+            "coordinator": coordinator,
+            "coordinator_index": coordinator_index,
+            "next_index": (coordinator_index + 1) % len(coordinators),
+            "empty": empty,
+            "errors": errors,
+        }
+    return {
+        "job": None,
+        "coordinator": None,
+        "coordinator_index": None,
+        "next_index": start_index % len(coordinators) if coordinators else 0,
+        "empty": empty,
+        "errors": errors,
+    }
+
+
 def upload_predictor_precompute_artifact(
     ha_url: str,
     path: Path,
@@ -789,7 +900,14 @@ def _handler_class(
                 identity=identity,
                 runtime_status=runtime_status,
             )
-            payload["lanes"] = lanes
+            payload["lanes"] = {
+                lane: {
+                    key: value
+                    for key, value in state.items()
+                    if key != "coordinator_id"
+                }
+                for lane, state in lanes.items()
+            }
             if request_path == "/ready" and payload["dataset_cache"].get("status") != "valid":
                 self._write_json(503, payload)
                 return
@@ -901,6 +1019,94 @@ def validate_multiversion_retry_identity(
     return manifest
 
 
+def configured_coordinators(
+    worker_data_dir: Path,
+    *,
+    ha_url: str = "",
+    token: str = "",
+) -> list[dict[str, Any]]:
+    """Resolve all outbound coordinator contexts without changing persisted state."""
+    configured = mushroom_worker_config.load_coordinators(
+        worker_data_dir.resolve(), include_tokens=True
+    )
+    rows = [dict(row) for row in configured["coordinators"]]
+    override_url = str(ha_url or "").strip()
+    override_token = str(token or "").strip()
+    if override_url:
+        normalized = mushroom_worker_config.normalize_rainmapper_url(override_url)
+        primary = {
+            "coordinator_id": mushroom_worker_config.PRIMARY_COORDINATOR_ID,
+            "label": "Primary",
+            "rainmapper_url": normalized,
+            "token": override_token,
+            "has_token": bool(override_token),
+            "primary": True,
+        }
+        rows = [
+            primary,
+            *[
+                row
+                for row in rows
+                if not row.get("primary") and row.get("rainmapper_url") != normalized
+            ],
+        ]
+    if not rows:
+        raise ValueError(
+            "Rainmapper coordinator is not configured. Run mushroom_worker_start.sh "
+            "with --rainmapper-url or complete its interactive setup."
+        )
+    for row in rows:
+        row["coordinator_id"] = mushroom_worker_config.validate_coordinator_id(
+            row.get("coordinator_id")
+        )
+        row["rainmapper_url"] = mushroom_worker_config.normalize_rainmapper_url(
+            str(row.get("rainmapper_url", ""))
+        )
+        row["token"] = str(row.get("token", ""))
+    return rows
+
+
+def coordinator_storage_id(coordinator: dict[str, Any]) -> str:
+    """Keep primary paths byte-for-byte compatible; namespace every added coordinator."""
+    return "" if coordinator.get("primary") else str(coordinator["coordinator_id"])
+
+
+def coordinator_precompute_root(
+    worker_data_dir: Path, coordinator: dict[str, Any]
+) -> Path:
+    storage_id = coordinator_storage_id(coordinator)
+    root = worker_data_dir.resolve()
+    if storage_id:
+        root = root / "coordinators" / storage_id
+    return root / "predictor_precompute"
+
+
+def coordinator_visible_lanes(
+    lanes: dict[str, dict[str, Any]], coordinator_id: str
+) -> dict[str, dict[str, Any]]:
+    """Expose global occupancy without leaking another coordinator's job identity."""
+    visible: dict[str, dict[str, Any]] = {}
+    for lane in ("foreground", "background"):
+        state = dict(lanes.get(lane, {}))
+        if state.get("coordinator_id") != coordinator_id:
+            state["active_job_id"] = ""
+        state.pop("coordinator_id", None)
+        visible[lane] = state
+    return visible
+
+
+def round_robin_coordinators(
+    coordinators: list[dict[str, Any]], start_index: int
+) -> list[tuple[int, dict[str, Any]]]:
+    if not coordinators:
+        return []
+    start = start_index % len(coordinators)
+    return [
+        ((start + offset) % len(coordinators), coordinators[(start + offset) % len(coordinators)])
+        for offset in range(len(coordinators))
+    ]
+
+
 def serve(
     worker_data_dir: Path,
     *,
@@ -914,17 +1120,9 @@ def serve(
     heartbeat_interval: float = 10.0,
 ) -> None:
     resolved_version = worker_version or os.environ.get("RAINMAPPER_WORKER_VERSION", "local")
-    persisted_config = mushroom_worker_config.load_coordinator_config(
-        worker_data_dir.resolve(),
-        include_token=True,
+    coordinators = configured_coordinators(
+        worker_data_dir.resolve(), ha_url=ha_url, token=token
     )
-    ha_url = str(ha_url or persisted_config.get("rainmapper_url", "")).strip()
-    token = str(token or persisted_config.get("token", "")).strip()
-    if not ha_url:
-        raise ValueError(
-            "Rainmapper coordinator is not configured. Run mushroom_worker_start.sh "
-            "with --rainmapper-url or complete its interactive setup."
-        )
     identity = ensure_worker_identity(
         worker_data_dir.resolve(),
         display_name=display_name,
@@ -932,11 +1130,15 @@ def serve(
     )
     runtime_lock = threading.Lock()
     runtime_state: dict[str, Any] = {
-        "foreground": {"status": "idle", "active_job_id": ""},
-        "background": {"status": "idle", "active_job_id": ""},
+        "foreground": {"status": "idle", "active_job_id": "", "coordinator_id": ""},
+        "background": {"status": "idle", "active_job_id": "", "coordinator_id": ""},
     }
-    discarded_job_ids_pending: set[str] = set()
-    cleaned_job_ids_pending: set[str] = set()
+    discarded_job_ids_pending: dict[str, set[str]] = {
+        str(row["coordinator_id"]): set() for row in coordinators
+    }
+    cleaned_job_ids_pending: dict[str, set[str]] = {
+        str(row["coordinator_id"]): set() for row in coordinators
+    }
     predictor_services: dict[str, PredictorService] = {}
     predictor_services_lock = threading.RLock()
     server = ThreadingHTTPServer(
@@ -954,6 +1156,7 @@ def serve(
                 "worker_id": identity["worker_id"],
                 "display_name": identity["display_name"],
                 "host_name": identity["host_name"],
+                "coordinator_count": len(coordinators),
             },
             ensure_ascii=False,
         ),
@@ -966,29 +1169,47 @@ def serve(
         "foreground": None,
         "background": None,
     }
+    next_coordinator_affinity = {"foreground": "", "background": ""}
     probe_duration = max(2.0, float(os.environ.get("RAINMAPPER_WORKER_CLAIM_PROBE_SECONDS", "12")))
     job_retry_seconds = max(
         0.0,
         float(os.environ.get("RAINMAPPER_WORKER_JOB_RETRY_SECONDS", "120")),
     )
 
-    if ha_url:
-        def set_runtime(lane: str, status: str, job_id: str = "") -> None:
+    if coordinators:
+        def set_runtime(
+            lane: str,
+            status: str,
+            job_id: str = "",
+            coordinator_id: str = "",
+        ) -> None:
             with runtime_lock:
-                runtime_state[lane] = {"status": status, "active_job_id": job_id}
+                runtime_state[lane] = {
+                    "status": status,
+                    "active_job_id": job_id,
+                    "coordinator_id": coordinator_id,
+                }
 
-        def run_claimed_job(job: dict[str, Any], lane: str) -> None:
+        def run_claimed_job(
+            job: dict[str, Any], lane: str, coordinator: dict[str, Any]
+        ) -> None:
             job_thread_started = time.perf_counter()
+            coordinator_id = str(coordinator["coordinator_id"])
+            storage_coordinator_id = coordinator_storage_id(coordinator)
+            ha_url = str(coordinator["rainmapper_url"])
+            token = str(coordinator.get("token", ""))
             job_id = str(job.get("job_id", ""))
             claim_token = str(job.get("claim_token", ""))
             started = False
             finish_acknowledged = False
+            job_succeeded = False
             compute_process: subprocess.Popen[bytes] | None = None
+            compute_stderr: _BoundedStderrCapture | None = None
             candidate_dir: Path | None = None
             candidate_runtime_files: list[Path] = []
 
             def job_update(action: str, payload: dict[str, Any]) -> dict[str, Any]:
-                nonlocal finish_acknowledged
+                nonlocal finish_acknowledged, job_succeeded
                 result = retry_transient(
                     lambda: update_job(
                         ha_url,
@@ -1002,6 +1223,7 @@ def serve(
                 )
                 if action == "finish":
                     finish_acknowledged = True
+                    job_succeeded = payload.get("status") == "complete"
                 return result
 
             def with_transport_retry(operation: Callable[[], _T]) -> _T:
@@ -1048,7 +1270,7 @@ def serve(
                     {"job_id": job_id, "worker_id": identity["worker_id"], "claim_token": claim_token},
                 )
                 started = True
-                set_runtime(lane, "busy", job_id)
+                set_runtime(lane, "busy", job_id, coordinator_id)
                 if job_type == "worker_predictor_v1":
                     runtime_reference = job.get("runtime_manifest_ref")
                     lookup_fingerprint = str(
@@ -1059,7 +1281,8 @@ def serve(
                         else ""
                     )
                     precomputed = mushroom_predictor_precompute.lookup_active_artifact(
-                        worker_data_dir.resolve() / "predictor_precompute" / "active.sqlite3",
+                        coordinator_precompute_root(worker_data_dir, coordinator)
+                        / "active.sqlite3",
                         runtime_fingerprint=lookup_fingerprint,
                         request=job.get("predictor_request"),
                     )
@@ -1257,7 +1480,10 @@ def serve(
                     service_setup_seconds = round(
                         time.perf_counter() - service_setup_started, 6
                     )
-                    staging_dir = worker_data_dir.resolve() / "predictor_precompute" / "staging"
+                    staging_dir = (
+                        coordinator_precompute_root(worker_data_dir, coordinator)
+                        / "staging"
+                    )
                     staging_dir.mkdir(parents=True, exist_ok=True)
                     mushroom_predictor_precompute_control.cleanup_staging_directory(
                         staging_dir
@@ -1390,7 +1616,8 @@ def serve(
                     mushroom_predictor_precompute_control.activate_worker_copy(
                         staged_artifact,
                         destination_path=(
-                            worker_data_dir.resolve() / "predictor_precompute" / "active.sqlite3"
+                            coordinator_precompute_root(worker_data_dir, coordinator)
+                            / "active.sqlite3"
                         ),
                         receipt=receipt,
                         identity=artifact_identity,
@@ -1473,6 +1700,7 @@ def serve(
                             claim_token=claim_token,
                             token=token,
                             progress_callback=report_progress,
+                            coordinator_id=storage_coordinator_id,
                         )
                     )
                     job_update(
@@ -1547,6 +1775,7 @@ def serve(
                             claim_token=claim_token,
                             token=token,
                             progress_callback=input_progress,
+                            coordinator_id=storage_coordinator_id,
                         )
                     )
                     worker_job_dir = Path(str(input_result["input_dir"])).resolve()
@@ -1701,6 +1930,7 @@ def serve(
                             claim_token=claim_token,
                             token=token,
                             progress_callback=ml_input_progress,
+                            coordinator_id=storage_coordinator_id,
                         )
                     )
                     worker_job_dir = Path(str(input_result["input_dir"])).resolve()
@@ -1851,6 +2081,7 @@ def serve(
                                 claim_token=claim_token,
                                 token=token,
                                 progress_callback=multiversion_progress,
+                                coordinator_id=storage_coordinator_id,
                             )
                             if dynamic_inputs
                             else mushroom_worker_transport.download_ml_multiversion_inputs(
@@ -1861,6 +2092,7 @@ def serve(
                                 claim_token=claim_token,
                                 token=token,
                                 progress_callback=multiversion_progress,
+                                coordinator_id=storage_coordinator_id,
                             )
                         )
                     )
@@ -1970,11 +2202,8 @@ def serve(
                             },
                             force=True,
                         )
-                        compute_process = subprocess.Popen(
-                            preparation_command,
-                            stdin=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.PIPE,
+                        compute_process, compute_stderr = _start_quiet_process(
+                            preparation_command
                         )
                         published_preparation_lines = 0
                         while compute_process.poll() is None:
@@ -1997,10 +2226,9 @@ def serve(
                                     )
                                     published_preparation_lines = len(lines)
                             stop_event.wait(0.5)
+                        compute_stderr.wait()
                         if compute_process.returncode != 0:
-                            detail = (
-                                compute_process.stderr.read() if compute_process.stderr else b""
-                            ).decode("utf-8", errors="replace")[-2000:]
+                            detail = compute_stderr.text()
                             raise RuntimeError(
                                 "V2--V6 input preparation exited with status "
                                 f"{compute_process.returncode}: {detail}"
@@ -2082,12 +2310,7 @@ def serve(
                         },
                         force=True,
                     )
-                    compute_process = subprocess.Popen(
-                        command,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.PIPE,
-                    )
+                    compute_process, compute_stderr = _start_quiet_process(command)
                     published_multiversion_lines = 0
                     while compute_process.poll() is None:
                         multiversion_telemetry.poll_control()
@@ -2117,10 +2340,9 @@ def serve(
                                 )
                                 published_multiversion_lines = len(lines)
                         stop_event.wait(0.5)
+                    compute_stderr.wait()
                     if compute_process.returncode != 0:
-                        detail = (compute_process.stderr.read() if compute_process.stderr else b"").decode(
-                            "utf-8", errors="replace"
-                        )[-2000:]
+                        detail = compute_stderr.text()
                         raise RuntimeError(
                             f"V2--V6 training process exited with status {compute_process.returncode}: {detail}"
                         )
@@ -2283,14 +2505,17 @@ def serve(
                     except subprocess.TimeoutExpired:
                         compute_process.kill()
                         compute_process.wait(timeout=1.0)
+                if compute_stderr is not None:
+                    compute_stderr.wait()
                 if finish_acknowledged:
                     try:
                         mushroom_worker_transport.discard_worker_job(
                             worker_data_dir.resolve(),
                             job_id,
+                            coordinator_id=storage_coordinator_id,
                         )
                         with runtime_lock:
-                            cleaned_job_ids_pending.add(job_id)
+                            cleaned_job_ids_pending[coordinator_id].add(job_id)
                     except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
                         print(
                             json.dumps(
@@ -2309,6 +2534,7 @@ def serve(
                         {
                             "status": "job_thread_released",
                             "service": "rainmapper-worker",
+                            "coordinator_id": coordinator_id,
                             "job_id": job_id,
                             "lane": lane,
                             "finish_acknowledged": finish_acknowledged,
@@ -2320,134 +2546,272 @@ def serve(
                     ),
                     flush=True,
                 )
+                if (
+                    job_succeeded
+                    and lane == "foreground"
+                    and (
+                        (
+                            job.get("job_type") == "worker_candidate_rebuild"
+                            and bool(job.get("full_update"))
+                        )
+                        or (
+                            job.get("job_type") == "worker_ml_train_v0"
+                            and bool(job.get("triggered_by_job_id"))
+                        )
+                    )
+                ):
+                    with runtime_lock:
+                        next_coordinator_affinity[lane] = coordinator_id
                 set_runtime(lane, "idle")
 
         def heartbeat_loop() -> None:
-            last_error = ""
-            empty_claim_polls = {"foreground": 0, "background": 0}
-            previous_claim_at = {
-                "foreground": time.perf_counter(),
-                "background": time.perf_counter(),
+            last_errors = {
+                str(row["coordinator_id"]): "" for row in coordinators
             }
+            empty_claim_polls = {
+                (str(row["coordinator_id"]), lane): 0
+                for row in coordinators
+                for lane in ("foreground", "background")
+            }
+            previous_claim_at = {
+                (str(row["coordinator_id"]), lane): time.perf_counter()
+                for row in coordinators
+                for lane in ("foreground", "background")
+            }
+            next_coordinator_index = {"foreground": 0, "background": 0}
+            last_status_error = ""
             while not stop_event.is_set():
+                reachable_coordinator_ids: set[str] = set()
+                with runtime_lock:
+                    lanes = {
+                        lane: dict(runtime_state.get(lane, {}))
+                        for lane in ("foreground", "background")
+                    }
                 try:
-                    with runtime_lock:
-                        lanes = {
-                            lane: dict(runtime_state.get(lane, {}))
-                            for lane in ("foreground", "background")
-                        }
-                        runtime_status = str(lanes["foreground"].get("status", "idle"))
-                    status = worker_status(
+                    base_status = worker_status(
                         worker_data_dir.resolve(),
                         worker_version=resolved_version,
                         identity=identity,
-                        runtime_status=runtime_status,
+                        runtime_status=str(
+                            lanes["foreground"].get("status", "idle")
+                        ),
                     )
-                    status["lanes"] = lanes
+                    if last_status_error:
+                        print(
+                            json.dumps(
+                                {
+                                    "status": "worker_status_restored",
+                                    "service": "rainmapper-worker",
+                                }
+                            ),
+                            flush=True,
+                        )
+                    last_status_error = ""
+                except Exception as exc:
+                    error = str(exc)
+                    if error != last_status_error:
+                        print(
+                            json.dumps(
+                                {
+                                    "status": "worker_status_failed",
+                                    "service": "rainmapper-worker",
+                                    "error": error,
+                                },
+                                ensure_ascii=False,
+                            ),
+                            flush=True,
+                        )
+                    last_status_error = error
+                    stop_event.wait(max(1.0, heartbeat_interval))
+                    continue
+                for coordinator in coordinators:
+                    coordinator_id = str(coordinator["coordinator_id"])
+                    coordinator_url = str(coordinator["rainmapper_url"])
+                    coordinator_token = str(coordinator.get("token", ""))
+                    storage_coordinator_id = coordinator_storage_id(coordinator)
+                    visible_lanes = coordinator_visible_lanes(lanes, coordinator_id)
                     active_job_ids = {
                         str(value.get("active_job_id", "") or "")
                         for value in lanes.values()
-                        if value.get("active_job_id")
+                        if value.get("coordinator_id") == coordinator_id
+                        and value.get("active_job_id")
                     }
+                    try:
+                        # Cache/runtime verification is independent of the recipient.
+                        # Perform it once per heartbeat cycle, not once per coordinator.
+                        status = dict(base_status)
+                        status["lanes"] = visible_lanes
+                        with runtime_lock:
+                            sent_discarded_ids = sorted(
+                                discarded_job_ids_pending[coordinator_id]
+                            )
+                            sent_cleaned_ids = sorted(
+                                cleaned_job_ids_pending[coordinator_id]
+                            )
+                        heartbeat_response = send_heartbeat(
+                            coordinator_url,
+                            heartbeat_payload(
+                                status,
+                                discarded_job_ids=sent_discarded_ids,
+                                cleaned_job_ids=sent_cleaned_ids,
+                            ),
+                            token=coordinator_token,
+                        )
+                        with runtime_lock:
+                            discarded_job_ids_pending[coordinator_id].difference_update(
+                                sent_discarded_ids
+                            )
+                            cleaned_job_ids_pending[coordinator_id].difference_update(
+                                sent_cleaned_ids
+                            )
+                        discard_job_ids = heartbeat_response.get("discard_job_ids", [])
+                        if not isinstance(discard_job_ids, list) or len(discard_job_ids) > 50:
+                            raise ValueError("HA worker cleanup request is invalid.")
+                        for discard_job_id in discard_job_ids:
+                            resolved_discard_job_id = mushroom_worker_transport.validate_job_id(
+                                discard_job_id
+                            )
+                            if resolved_discard_job_id in active_job_ids:
+                                continue
+                            mushroom_worker_transport.discard_worker_job(
+                                worker_data_dir.resolve(),
+                                resolved_discard_job_id,
+                                coordinator_id=storage_coordinator_id,
+                            )
+                            with runtime_lock:
+                                discarded_job_ids_pending[coordinator_id].add(
+                                    resolved_discard_job_id
+                                )
+                                cleaned_job_ids_pending[coordinator_id].add(
+                                    resolved_discard_job_id
+                                )
+                        cleanup_job_ids = heartbeat_response.get("cleanup_job_ids", [])
+                        if not isinstance(cleanup_job_ids, list) or len(cleanup_job_ids) > 50:
+                            raise ValueError("HA worker terminal cleanup request is invalid.")
+                        for cleanup_job_id in cleanup_job_ids:
+                            resolved_cleanup_job_id = mushroom_worker_transport.validate_job_id(
+                                cleanup_job_id
+                            )
+                            if resolved_cleanup_job_id in active_job_ids:
+                                continue
+                            mushroom_worker_transport.discard_worker_job(
+                                worker_data_dir.resolve(),
+                                resolved_cleanup_job_id,
+                                coordinator_id=storage_coordinator_id,
+                            )
+                            with runtime_lock:
+                                cleaned_job_ids_pending[coordinator_id].add(
+                                    resolved_cleanup_job_id
+                                )
+                        reachable_coordinator_ids.add(coordinator_id)
+                        if last_errors[coordinator_id]:
+                            print(
+                                json.dumps(
+                                    {
+                                        "status": "heartbeat_restored",
+                                        "service": "rainmapper-worker",
+                                        "coordinator_id": coordinator_id,
+                                    }
+                                ),
+                                flush=True,
+                            )
+                        last_errors[coordinator_id] = ""
+                    except Exception as exc:
+                        error = str(exc)
+                        if error != last_errors[coordinator_id]:
+                            print(
+                                json.dumps(
+                                    {
+                                        "status": "heartbeat_failed",
+                                        "service": "rainmapper-worker",
+                                        "coordinator_id": coordinator_id,
+                                        "error": error,
+                                    },
+                                    ensure_ascii=False,
+                                ),
+                                flush=True,
+                            )
+                        last_errors[coordinator_id] = error
+
+                for lane in ("foreground", "background"):
+                    active_thread = active_job_threads[lane]
+                    if active_thread is not None and active_thread.is_alive():
+                        continue
                     with runtime_lock:
-                        sent_discarded_ids = sorted(discarded_job_ids_pending)
-                        sent_cleaned_ids = sorted(cleaned_job_ids_pending)
-                    heartbeat_response = send_heartbeat(
-                        ha_url,
-                        heartbeat_payload(
-                            status,
-                            discarded_job_ids=sent_discarded_ids,
-                            cleaned_job_ids=sent_cleaned_ids,
-                        ),
-                        token=token,
+                        affinity_id = next_coordinator_affinity[lane]
+                        next_coordinator_affinity[lane] = ""
+                    claim_result = claim_job_round_robin(
+                        coordinators,
+                        reachable_coordinator_ids=reachable_coordinator_ids,
+                        start_index=next_coordinator_index[lane],
+                        lane=lane,
+                        worker_id=identity["worker_id"],
+                        preferred_coordinator_id=affinity_id,
                     )
-                    with runtime_lock:
-                        discarded_job_ids_pending.difference_update(sent_discarded_ids)
-                        cleaned_job_ids_pending.difference_update(sent_cleaned_ids)
-                    discard_job_ids = heartbeat_response.get("discard_job_ids", [])
-                    if not isinstance(discard_job_ids, list) or len(discard_job_ids) > 50:
-                        raise ValueError("HA worker cleanup request is invalid.")
-                    for discard_job_id in discard_job_ids:
-                        resolved_discard_job_id = mushroom_worker_transport.validate_job_id(
-                            discard_job_id
-                        )
-                        if resolved_discard_job_id in active_job_ids:
-                            continue
-                        mushroom_worker_transport.discard_worker_job(
-                            worker_data_dir.resolve(),
-                            resolved_discard_job_id,
-                        )
-                        with runtime_lock:
-                            discarded_job_ids_pending.add(resolved_discard_job_id)
-                            cleaned_job_ids_pending.add(resolved_discard_job_id)
-                    cleanup_job_ids = heartbeat_response.get("cleanup_job_ids", [])
-                    if not isinstance(cleanup_job_ids, list) or len(cleanup_job_ids) > 50:
-                        raise ValueError("HA worker terminal cleanup request is invalid.")
-                    for cleanup_job_id in cleanup_job_ids:
-                        resolved_cleanup_job_id = mushroom_worker_transport.validate_job_id(
-                            cleanup_job_id
-                        )
-                        if resolved_cleanup_job_id in active_job_ids:
-                            continue
-                        mushroom_worker_transport.discard_worker_job(
-                            worker_data_dir.resolve(),
-                            resolved_cleanup_job_id,
-                        )
-                        with runtime_lock:
-                            cleaned_job_ids_pending.add(resolved_cleanup_job_id)
-                    for lane in ("foreground", "background"):
-                        active_thread = active_job_threads[lane]
-                        if active_thread is not None and active_thread.is_alive():
-                            continue
-                        claimed_job = claim_job(
-                            ha_url, identity["worker_id"], token=token, lane=lane
-                        )
-                        if claimed_job is None or stop_event.is_set():
-                            if claimed_job is None:
-                                empty_claim_polls[lane] += 1
+                    for empty_coordinator_id in claim_result["empty"]:
+                        empty_claim_polls[(empty_coordinator_id, lane)] += 1
+                    for claim_error in claim_result["errors"]:
+                        coordinator_id = claim_error["coordinator_id"]
+                        error = claim_error["error"]
+                        if error != last_errors[coordinator_id]:
+                            print(
+                                json.dumps(
+                                    {
+                                        "status": "claim_failed",
+                                        "service": "rainmapper-worker",
+                                        "coordinator_id": coordinator_id,
+                                        "lane": lane,
+                                        "error": error,
+                                    },
+                                    ensure_ascii=False,
+                                ),
+                                flush=True,
+                            )
+                        last_errors[coordinator_id] = error
+                    claimed_job = claim_result["job"]
+                    coordinator = claim_result["coordinator"]
+                    if claimed_job is not None and coordinator is not None:
+                        coordinator_id = str(coordinator["coordinator_id"])
+                        claim_key = (coordinator_id, lane)
+                        if stop_event.is_set():
                             continue
                         claimed_at = time.perf_counter()
-                        set_runtime(lane, "busy", str(claimed_job.get("job_id", "")))
+                        set_runtime(
+                            lane,
+                            "busy",
+                            str(claimed_job.get("job_id", "")),
+                            coordinator_id,
+                        )
                         print(
                             json.dumps(
                                 {
                                     "status": "job_claimed",
                                     "service": "rainmapper-worker",
+                                    "coordinator_id": coordinator_id,
                                     "job_id": claimed_job.get("job_id", ""),
                                     "job_type": claimed_job.get("job_type", ""),
                                     "lane": lane,
-                                    "empty_claim_polls_before_claim": empty_claim_polls[lane],
+                                    "empty_claim_polls_before_claim": empty_claim_polls[
+                                        claim_key
+                                    ],
                                     "seconds_since_previous_claim": round(
-                                        claimed_at - previous_claim_at[lane], 6
+                                        claimed_at - previous_claim_at[claim_key], 6
                                     ),
                                 },
                                 ensure_ascii=False,
                             ),
                             flush=True,
                         )
-                        empty_claim_polls[lane] = 0
-                        previous_claim_at[lane] = claimed_at
+                        empty_claim_polls[claim_key] = 0
+                        previous_claim_at[claim_key] = claimed_at
+                        next_coordinator_index[lane] = claim_result["next_index"]
                         active_job_threads[lane] = threading.Thread(
                             target=run_claimed_job,
-                            args=(claimed_job, lane),
+                            args=(claimed_job, lane, coordinator),
                             daemon=True,
                             name=f"rainmapper-worker-{lane}-job",
                         )
                         active_job_threads[lane].start()
-                    if last_error:
-                        print(json.dumps({"status": "heartbeat_restored", "service": "rainmapper-worker"}), flush=True)
-                    last_error = ""
-                except Exception as exc:
-                    error = str(exc)
-                    if error != last_error:
-                        print(
-                            json.dumps(
-                                {"status": "heartbeat_failed", "service": "rainmapper-worker", "error": error},
-                                ensure_ascii=False,
-                            ),
-                            flush=True,
-                        )
-                    last_error = error
                 stop_event.wait(max(1.0, heartbeat_interval))
 
         heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True, name="rainmapper-worker-heartbeat")
