@@ -377,7 +377,11 @@ def evaluate_benchmark(
                         estimator_id, y_train
                     )
                 )
-                if estimator_id == "knn_distance_v1" and len(y_train) < 7:
+                if (
+                    estimator_id
+                    in mushroom_ml_experiment_trainer.KNN_DISTANCE_ESTIMATOR_IDS
+                    and len(y_train) < 7
+                ):
                     unavailable_reason = "KNN requires at least seven training samples"
                 if unavailable_reason is not None:
                     estimator_species[estimator_id][species_id] = {

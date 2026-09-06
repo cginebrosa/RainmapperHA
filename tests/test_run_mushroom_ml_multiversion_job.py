@@ -65,6 +65,33 @@ def complete_quality_catalog(module):
 
 
 class RunMushroomMLMultiversionJobTests(TestCase):
+    def test_emitted_tuning_catalog_must_match_new_batch_manifest(self) -> None:
+        module = load_script()
+        with TemporaryDirectory() as temporary:
+            destination = Path(temporary)
+            tuning_path = destination / "tuning-catalog.json"
+            emitted = {
+                "catalog_id": "sha256:" + "a" * 64,
+                "source_batch_id": "batch-new",
+            }
+            tuning_path.write_text(json.dumps(emitted) + "\n", encoding="utf-8")
+            manifest = {
+                "batch_id": "batch-new",
+                "tuning_catalog": {
+                    "catalog_id": emitted["catalog_id"],
+                    "source_batch_id": "batch-new",
+                    "path": "batches/batch-new/tuning-catalog.json",
+                    "sha256": module._sha256(tuning_path),
+                },
+            }
+
+            module._validate_emitted_tuning_catalog(destination, manifest)
+
+            stale = dict(emitted, source_batch_id="batch-old")
+            tuning_path.write_text(json.dumps(stale) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                module._validate_emitted_tuning_catalog(destination, manifest)
+
     def test_operational_quality_catalog_rejects_previous_schema_before_training(self) -> None:
         module = load_script()
         catalog = complete_quality_catalog(module)

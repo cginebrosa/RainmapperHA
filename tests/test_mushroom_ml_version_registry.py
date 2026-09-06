@@ -742,6 +742,44 @@ class MushroomMLVersionRegistryTests(TestCase):
                 persistent["preferred_version_id"],
             )
 
+    def test_seed_replaces_legacy_knn_definition_but_keeps_generations(self) -> None:
+        packaged = registry.load_registry(DEFAULT_REGISTRY)
+        persistent = json.loads(json.dumps(packaged))
+        persistent_v3 = next(
+            row
+            for row in persistent["versions"]
+            if row["version_id"] == "biology_v3"
+        )
+        for profile in persistent_v3["runtime"]["profiles"]:
+            profile["estimator_ids"] = [
+                "knn_distance_v1"
+                if estimator_id == "knn_distance_beta_smoothed_v2"
+                else estimator_id
+                for estimator_id in profile["estimator_ids"]
+            ]
+        persistent_v3["generations"] = [
+            {
+                "generation_id": "legacy-v3-generation",
+                "version_id": "biology_v3",
+                "kind": "trained_model",
+                "retention": "permanent",
+                "promotion_gate_status": "not_evaluated",
+            }
+        ]
+
+        merged = registry.merge_packaged_definitions(packaged, persistent)
+        merged_v3 = next(
+            row for row in merged["versions"] if row["version_id"] == "biology_v3"
+        )
+
+        for profile in merged_v3["runtime"]["profiles"]:
+            self.assertIn("knn_distance_beta_smoothed_v2", profile["estimator_ids"])
+            self.assertNotIn("knn_distance_v1", profile["estimator_ids"])
+        self.assertEqual(
+            merged_v3["generations"][0]["generation_id"],
+            "legacy-v3-generation",
+        )
+
     def test_seed_promotes_newly_implemented_packaged_versions_to_candidate(self) -> None:
         packaged = registry.load_registry(DEFAULT_REGISTRY)
         persistent = json.loads(json.dumps(packaged))

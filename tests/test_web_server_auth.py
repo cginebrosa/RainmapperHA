@@ -4801,6 +4801,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_operational_percentage_does_not_round_across_decision_band(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
 
+        self.assertEqual(predictor_ui._pct(1.0), ">99%")
+        self.assertEqual(predictor_ui._pct(0.999962), ">99%")
+        self.assertEqual(predictor_ui._pct(0.0), "<1%")
+        self.assertEqual(predictor_ui._operational_pct(1.0), ">99%")
+        self.assertEqual(predictor_ui._operational_pct(0.999962), ">99%")
+        self.assertEqual(predictor_ui._operational_pct(0.0), "<1%")
         self.assertEqual(predictor_ui._operational_pct(0.596691), "59.7%")
         self.assertEqual(predictor_ui._operational_pct(0.604), "60%")
         self.assertEqual(predictor_ui._operational_pct(0.404), "40.4%")

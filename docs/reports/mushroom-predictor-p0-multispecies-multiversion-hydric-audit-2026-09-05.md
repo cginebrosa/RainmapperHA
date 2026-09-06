@@ -680,6 +680,89 @@ recomendaciones favorables de `10/14` a `8/12`. La calibración mejora muy poco
 Ninguna de estas pruebas utilizó Sporas.io como etiqueta ni permitió que la
 ecología vetara o corrigiera la predicción; `MOD_0001` sigue intacto.
 
+### Revalidación tras las observaciones del 5 de septiembre
+
+La revalidación se repitió sobre el lote operativo
+`local_operational_20260905T194632Z`, que consumió el fichero vivo
+`docker-data/mushroom-data/mushroom_observations.json`. Las dos nuevas
+observaciones de Rovelló —Salteguet y La Masella— sí están en el hold-out
+oficial de 14 días. El recuento se mantiene en 16 porque el corte conserva el
+30 % de grupos temporales más recientes: entraron esas dos observaciones y el
+grupo de Rectoria de la Selva del 5--10 de octubre de 2024, con dos
+observaciones, pasó al entrenamiento. El hold-out tiene ahora 11 grupos en vez
+de 10; por tanto, el mismo tamaño no significa que se hayan ignorado los datos
+nuevos.
+
+La fotografía actual aumenta la evidencia contra interpretar `100 %` como
+certeza. Entre los candidatos elegidos por especie hay 25 probabilidades KNN
+exactamente iguales a `1,0`; cuatro corresponden a negativos. Al proyectar los
+candidatos seleccionados sobre los contextos especie--área--día de la pantalla,
+hay 27 unos exactos y los mismos cuatro errores. Los 72 contextos con
+probabilidad `>= 99 %` aciertan 68 veces (`94,4 %`), no el cien por cien.
+
+Se compararon dos familias de corrección sin tocar los modelos operativos:
+
+- Platt e isotónica, ajustadas fuera de cada grupo evaluado, eliminan los
+  extremos pero empeoran el Brier de KNN (`0,1618` a `0,1670`--`0,1812`). No
+  quedan justificadas.
+- Una suavización beta-binomial compatible con los siete vecinos de KNN,
+  `(7p + 1) / 9`, fue elegida en los cinco pliegues agrupados frente a
+  `alpha = 0, 0,1, 0,25, 0,5, 1 y 2`. Conserva exactamente el orden de los
+  casos, elimina ceros y unos exactos y mejora Brier (`0,1618` a `0,1554`),
+  ECE de diez intervalos (`0,1310` a `0,0821`) y log-loss (`2,1054` a
+  `0,4863`).
+
+Al aplicar esa corrección a todos los KNN y repetir el selector, solo cambian
+5 de 301 decisiones especie--área--día: todas son Aereus, horizonte 3, y pasan
+del KNN de V2 al SVM calibrado de V3. El Brier operativo oficial queda
+prácticamente igual (`0,17431` a `0,17429`), el corte alternativo de 7 días
+mejora (`0,17345` a `0,17129`) y desaparecen los extremos exactos. Esta prueba
+respalda sustituir el KNN operativo por su salida suavizada. No se mantienen dos
+KNN compitiendo: `knn_distance_beta_smoothed_v2` es el único KNN de la lista
+activa y `knn_distance_v1` queda disponible solo para leer artefactos históricos.
+
+Existe además un problema distinto de presentación: probabilidades como
+`0,999962` procedentes de regresión logística se muestran como `100 %` al
+redondear a enteros, aunque no sean unos exactos. La corrección honesta es
+mostrar `>99 %` en el extremo superior (y `<1 %` en el inferior), sin recortar
+ni modificar la probabilidad que usa el selector.
+
+La adopción quedó implementada en código el 5 de septiembre. Entrenamiento,
+hold-out e inferencia usan la misma clase y la misma fórmula; el registro
+empaquetado asigna el nuevo estimador a V2, V3 y V4. La interfaz muestra `>99 %`
+y `<1 %` cuando una probabilidad predictiva quedaría redondeada visualmente a
+un extremo. No se alteran los porcentajes empíricos de acierto, que sí pueden
+decir `100 % (13/13)`. Los artefactos instalados siguen siendo los anteriores
+hasta ejecutar un entrenamiento normal autorizado; ese entrenamiento será para
+materializar la decisión ya auditada, no para volver a compararla.
+
+### Diagnóstico de la antigua «ventana de fructificación»
+
+La ausencia del texto en Rovelló no procede de una pérdida del payload. El
+precálculo conserva `fruiting_timing: unknown`; el perfil de
+`lactarius_deliciosus` contiene desde su creación los cuatro límites de retardo
+a cero. Antes esos ceros de relleno se interpretaban como una ventana real y
+cualquier día posterior a la lluvia aparecía como «fuera» o «terminando». Era
+un diagnóstico falso. La versión actual detecta que no existe una ventana
+cuantitativa válida y no la muestra.
+
+No se recomienda volver a rellenar esos límites con cifras de Sporas.io ni con
+un retardo elegido manualmente. Si se recupera una indicación equivalente en
+la pantalla debe llamarse **tendencia predictiva**, no ventana biológica, y
+derivarse de la secuencia de probabilidades ya aprendidas para los siete días:
+
+- `favorable y estable` cuando la señal favorable continúa durante el
+  horizonte disponible;
+- `favorable, pero termina en el horizonte visible` cuando posteriormente
+  cruza los umbrales operativos ya existentes hacia incierto o desfavorable;
+- `señal favorable en formación` cuando ocurre el cruce contrario;
+- `sin tendencia calculable` si hay abstenciones o no existe horizonte
+  posterior suficiente.
+
+Este texto sería solo diagnóstico. No cambiaría probabilidad, modelo ganador,
+aplicabilidad ni recomendación, por lo que respeta `MOD_0001`. El diseño queda
+pendiente de aprobación explícita antes de modificar la semántica de la UI.
+
 ## Artefactos reproducibles
 
 - runner: `scripts/audit-mushroom-hydric-ablation.py`;

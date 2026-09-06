@@ -74,6 +74,7 @@ _COMPARISON_ESTIMATORS = (
     ("extra_trees_restricted_v1", "ET", False),
     ("hist_gradient_boosting_restricted_v1", "HGB", False),
     ("knn_distance_v1", "KNN", False),
+    ("knn_distance_beta_smoothed_v2", "KNN", False),
     ("rbf_svm_calibrated_v1", "SVM", False),
     ("elastic_net_logistic_raw365_v1", "Elastic Net", False),
     ("sparse_group_logistic_raw365_v1", "Sparse Group", False),
@@ -87,6 +88,7 @@ _ESTIMATOR_HELP_KEYS = {
     "extra_trees_restricted_v1": "ui.predictor_estimator_help_et",
     "hist_gradient_boosting_restricted_v1": "ui.predictor_estimator_help_hgb",
     "knn_distance_v1": "ui.predictor_estimator_help_knn",
+    "knn_distance_beta_smoothed_v2": "ui.predictor_estimator_help_knn",
     "rbf_svm_calibrated_v1": "ui.predictor_estimator_help_svm",
     "elastic_net_logistic_raw365_v1": "ui.predictor_help_estimator_generic",
     "sparse_group_logistic_raw365_v1": "ui.predictor_help_estimator_generic",
@@ -418,6 +420,10 @@ def _status_dot(label: str) -> str:
 def _pct(prob: float | None) -> str:
     if prob is None:
         return "—"
+    if prob > 0.99:
+        return ">99%"
+    if prob < 0.01:
+        return "<1%"
     return f"{round(prob * 100)}%"
 
 
@@ -425,6 +431,10 @@ def _operational_pct(prob: float | None) -> str:
     """Avoid rounding a score across one of the displayed decision boundaries."""
     if prob is None:
         return "—"
+    if prob > 0.99:
+        return ">99%"
+    if prob < 0.01:
+        return "<1%"
     percentage = float(prob) * 100
     rounded_probability = round(percentage) / 100
     raw_band = (

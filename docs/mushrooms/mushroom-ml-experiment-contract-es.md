@@ -303,7 +303,7 @@ sets, exactamente las mismas seis familias gestionables:
 - `random_forest_restricted_v1`;
 - `extra_trees_restricted_v1`;
 - `hist_gradient_boosting_restricted_v1`;
-- `knn_distance_v1`;
+- `knn_distance_beta_smoothed_v2`;
 - `rbf_svm_calibrated_v1`.
 
 LR y RF siguen siendo los únicos estimadores que pueden alimentar el dictamen
@@ -313,6 +313,12 @@ omite por contrato cuando su calibración en dos folds no puede conservar dos
 ejemplos de cada clase. Esto sucede actualmente solo para Marçot en
 `fixed_gap_7d_v1`; no se mueven episodios ni se crean muestras sintéticas para
 forzar su entrenamiento.
+
+Desde 2026-09-05, el KNN operativo aplica a su probabilidad cruda el suavizado
+simétrico `(7p + 1) / 9`. La auditoría agrupada mostró mejor Brier, ECE y log
+loss sin alterar el ROC-AUC. El identificador anterior `knn_distance_v1` queda
+admitido únicamente para cargar y auditar artefactos históricos; no forma parte
+de la lista activa de nuevos entrenamientos.
 
 ### Primera lectura local con seis estimadores (2026-08-10)
 

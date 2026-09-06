@@ -29,6 +29,11 @@ from rainmapper_core.mushroom_ml_trainer import load_area_representative_altitud
 
 
 EXPERIMENT_MODEL_PREFIX = "mushroom_ml_experiment"
+KNN_DISTANCE_LEGACY_ESTIMATOR_ID = "knn_distance_v1"
+KNN_DISTANCE_SMOOTHED_ESTIMATOR_ID = "knn_distance_beta_smoothed_v2"
+KNN_DISTANCE_ESTIMATOR_IDS = frozenset(
+    {KNN_DISTANCE_LEGACY_ESTIMATOR_ID, KNN_DISTANCE_SMOOTHED_ESTIMATOR_ID}
+)
 DEFAULT_FEATURE_SET_IDS = (
     FIXED_GAP_7D_ALTITUDE_V2.feature_set_id,
     LAG_EVENT_ALTITUDE_V2.feature_set_id,
@@ -38,7 +43,7 @@ EXPERIMENT_ESTIMATOR_IDS = (
     "random_forest_restricted_v1",
     "extra_trees_restricted_v1",
     "hist_gradient_boosting_restricted_v1",
-    "knn_distance_v1",
+    KNN_DISTANCE_SMOOTHED_ESTIMATOR_ID,
     "rbf_svm_calibrated_v1",
 )
 
@@ -170,12 +175,32 @@ def _pipeline(estimator_id: str) -> Any:
                 ("classifier", estimator),
             ]
         )
-    if estimator_id == "knn_distance_v1":
+    if estimator_id == KNN_DISTANCE_LEGACY_ESTIMATOR_ID:
         estimator = KNeighborsClassifier(
             n_neighbors=7,
             weights="distance",
             metric="minkowski",
             p=2,
+        )
+        return Pipeline(
+            [
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+                ("classifier", estimator),
+            ]
+        )
+    if estimator_id == KNN_DISTANCE_SMOOTHED_ESTIMATOR_ID:
+        from rainmapper_core.mushroom_ml_probability_calibration import (  # noqa: PLC0415
+            BetaSmoothedKNeighborsClassifier,
+        )
+
+        estimator = BetaSmoothedKNeighborsClassifier(
+            n_neighbors=7,
+            weights="distance",
+            metric="minkowski",
+            p=2,
+            effective_sample_size=7.0,
+            beta_alpha=1.0,
         )
         return Pipeline(
             [

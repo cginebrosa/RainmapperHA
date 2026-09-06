@@ -270,7 +270,10 @@ def _fit_current(estimator_id: str, X: np.ndarray, y: np.ndarray) -> dict[str, A
     unavailable = mushroom_ml_experiment_trainer._estimator_unavailable_reason(
         estimator_id, y
     )
-    if estimator_id == "knn_distance_v1" and len(y) < 7:
+    if (
+        estimator_id in mushroom_ml_experiment_trainer.KNN_DISTANCE_ESTIMATOR_IDS
+        and len(y) < 7
+    ):
         unavailable = "KNN requires at least seven training samples"
     if unavailable:
         raise ValueError(unavailable)

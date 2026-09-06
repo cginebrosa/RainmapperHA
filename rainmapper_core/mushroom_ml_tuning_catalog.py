@@ -281,17 +281,33 @@ def build_from_decisions(
     training_plan: Mapping[str, object] | None = None,
 ) -> dict[str, Any]:
     """Build a catalog from already fitted artifacts without reading them again."""
-    checked_decisions = [
-        {
-            "key": decision_key(row.get("scope") or {}),
-            "scope": decision_scope(row.get("scope") or {}),
-            "fit_config": _validated_fit_config(
-                decision_scope(row.get("scope") or {}), row.get("fit_config") or {}
-            ),
-            "source_artifact_sha256": str(row.get("source_artifact_sha256") or ""),
-        }
-        for row in decisions
-    ]
+    def current_scope(row: Mapping[str, object]) -> dict[str, str]:
+        scope = decision_scope(row.get("scope") or {})
+        scope["estimator_id"] = (
+            mushroom_ml_model_catalog.resolve_profile_estimator_id(
+                registry,
+                version_id=scope["version_id"],
+                profile_id=scope["profile_id"],
+                estimator_id=scope["estimator_id"],
+            )
+        )
+        return scope
+
+    checked_decisions = []
+    for row in decisions:
+        scope = current_scope(row)
+        checked_decisions.append(
+            {
+                "key": decision_key(scope),
+                "scope": scope,
+                "fit_config": _validated_fit_config(
+                    scope, row.get("fit_config") or {}
+                ),
+                "source_artifact_sha256": str(
+                    row.get("source_artifact_sha256") or ""
+                ),
+            }
+        )
     checked_decisions.sort(key=lambda row: row["key"])
     identity_payload = {
         "compatibility_fingerprint": compatibility_fingerprint(registry),

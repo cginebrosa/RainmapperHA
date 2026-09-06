@@ -227,7 +227,10 @@ def evaluate_daily_continuity(
         estimator_reports: dict[str, object] = {}
         for estimator_id in selected_estimators:
             reason = trainer._estimator_unavailable_reason(estimator_id, y_train)
-            if estimator_id == "knn_distance_v1" and len(y_train) < 7:
+            if (
+                estimator_id in trainer.KNN_DISTANCE_ESTIMATOR_IDS
+                and len(y_train) < 7
+            ):
                 reason = "KNN requires at least seven training samples"
             if reason is not None:
                 estimator_reports[estimator_id] = {"available": False, "reason": reason}

@@ -164,6 +164,24 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _validate_emitted_tuning_catalog(destination: Path, manifest: dict) -> None:
+    """Keep the newly materialized catalog aligned with its manifest reference."""
+    reference = manifest.get("tuning_catalog")
+    if not isinstance(reference, dict):
+        raise ValueError("Training batch did not emit a tuning catalog reference")
+    tuning_path = destination / "tuning-catalog.json"
+    emitted = _load(tuning_path)
+    if (
+        emitted.get("catalog_id") != reference.get("catalog_id")
+        or emitted.get("source_batch_id") != manifest.get("batch_id")
+        or emitted.get("source_batch_id") != reference.get("source_batch_id")
+        or reference.get("path")
+        != "batches/" + str(manifest.get("batch_id") or "") + "/tuning-catalog.json"
+        or reference.get("sha256") != _sha256(tuning_path)
+    ):
+        raise ValueError("Emitted tuning catalog does not match its batch manifest")
+
+
 def _sanitized_training_manifest(path: Path) -> dict:
     payload = _load(path)
     if payload.get("kind") != "mushroom_rebuild_input_manifest":
@@ -403,13 +421,7 @@ def main() -> int:
             manifest["operational_scope_id"] = operational_plan["scope_id"]
             manifest["operational_plan_id"] = operational_plan["plan_id"]
         if tuning_catalog is not None:
-            tuning_path = destination / "tuning-catalog.json"
-            mushroom_ml_tuning_catalog.save(tuning_path, tuning_catalog)
-            manifest["tuning_catalog"] = {
-                **manifest["tuning_catalog"],
-                "path": "batches/" + manifest["batch_id"] + "/tuning-catalog.json",
-                "sha256": _sha256(tuning_path),
-            }
+            _validate_emitted_tuning_catalog(destination, manifest)
         if operational and args.quality_catalog is not None:
             assert source_quality_catalog is not None
             quality_path = destination / "quality-catalog.json"

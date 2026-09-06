@@ -332,7 +332,9 @@ class MushroomMLRuntimeTrainerTests(TestCase):
             catalog.ModelArtifactRef(
                 **base, estimator_id="logistic_regression_reduced_v1"
             ),
-            catalog.ModelArtifactRef(**base, estimator_id="knn_distance_v1"),
+            catalog.ModelArtifactRef(
+                **base, estimator_id="knn_distance_beta_smoothed_v2"
+            ),
         ]
         training_plan = {
             "batch_id": "batch-matrix-cache",

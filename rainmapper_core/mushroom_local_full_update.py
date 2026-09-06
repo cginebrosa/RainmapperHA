@@ -418,12 +418,12 @@ def materialize_operational_tuning_catalog(
             raise ValueError("Runtime tuning catalog is outside its batch") from exc
         source_catalog_path = source_root / within_batch
         if reference_source_batch_id != source_batch_id:
-            source_catalog_path.unlink(missing_ok=True)
+            pass
         elif source_catalog_path.is_file():
             content = _read_bytes(source_catalog_path)
             actual_digest = hashlib.sha256(content).hexdigest()
             if actual_digest != str(catalog_reference.get("sha256") or ""):
-                source_catalog_path.unlink(missing_ok=True)
+                pass
             else:
                 loaded = json.loads(content.decode("utf-8"))
                 loaded_decisions = loaded.get("decisions") if isinstance(loaded, dict) else None
@@ -435,7 +435,7 @@ def materialize_operational_tuning_catalog(
                     and len(loaded_decisions) == catalog_reference.get("decision_count")
                 )
                 if not identity_matches:
-                    source_catalog_path.unlink(missing_ok=True)
+                    pass
                 else:
                     catalog = mushroom_ml_tuning_catalog.validate_catalog(
                         registry, loaded

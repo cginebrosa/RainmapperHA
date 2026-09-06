@@ -320,7 +320,7 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
                 )
 
             self.assertIs(result, rebuilt_catalog)
-            self.assertFalse((source / "tuning-catalog.json").exists())
+            self.assertTrue((source / "tuning-catalog.json").exists())
             validate.assert_not_called()
             build.assert_called_once_with(
                 {"schema_version": "test"},
@@ -386,7 +386,7 @@ class MushroomLocalFullUpdateTests(unittest.TestCase):
                 )
 
             self.assertIs(result, rebuilt_catalog)
-            self.assertFalse((source / "tuning-catalog.json").exists())
+            self.assertTrue((source / "tuning-catalog.json").exists())
             validate.assert_not_called()
             build.assert_called_once_with(
                 {"schema_version": "test"},

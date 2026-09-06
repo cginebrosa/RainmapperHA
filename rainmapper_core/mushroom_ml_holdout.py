@@ -301,7 +301,11 @@ def evaluate_dataset(
                     if frozen_config:
                         raise ValueError("Current estimator tuning configuration must be empty")
                     unavailable = mushroom_ml_experiment_trainer._estimator_unavailable_reason(estimator_id, y_train)
-                    if estimator_id == "knn_distance_v1" and len(y_train) < 7:
+                    if (
+                        estimator_id
+                        in mushroom_ml_experiment_trainer.KNN_DISTANCE_ESTIMATOR_IDS
+                        and len(y_train) < 7
+                    ):
                         unavailable = "KNN requires at least seven training samples"
                     if unavailable:
                         raise ValueError(unavailable)

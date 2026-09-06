@@ -109,6 +109,44 @@ class MushroomMLModelCatalogTests(TestCase):
                 self.ref(estimator_id="random_forest_restricted_v1"),
             )
 
+    def test_historical_knn_remains_valid_for_a_profile_using_its_successor(self) -> None:
+        model_ref = self.ref(
+            version_id="altitude_v2",
+            temporal_contract_id="fixed_gap_7d_altitude_v2",
+            profile_id="common_idw",
+            estimator_id="knn_distance_v1",
+            horizon_days=7,
+        )
+
+        self.assertEqual(catalog.validate_model_ref(self.registry, model_ref), model_ref)
+        self.assertEqual(
+            catalog.resolve_profile_estimator_id(
+                self.registry,
+                version_id="altitude_v2",
+                profile_id="common_idw",
+                estimator_id="knn_distance_v1",
+            ),
+            "knn_distance_beta_smoothed_v2",
+        )
+        self.assertEqual(
+            catalog.artifact_ref_for_model_ref(self.registry, model_ref).estimator_id,
+            "knn_distance_v1",
+        )
+        profile = next(
+            row
+            for row in catalog.catalog_entries(self.registry)
+            if row["version_id"] == "altitude_v2"
+            and row["profile_id"] == "common_idw"
+        )
+        self.assertNotIn("knn_distance_v1", profile["estimator_ids"])
+
+    def test_historical_knn_is_not_accepted_by_an_unrelated_profile(self) -> None:
+        with self.assertRaisesRegex(ValueError, "estimator"):
+            catalog.validate_model_ref(
+                self.registry,
+                self.ref(estimator_id="knn_distance_v1"),
+            )
+
     def test_manifest_resolves_exact_model_without_v2_fallback(self) -> None:
         model_ref = self.ref()
         path = catalog.model_relative_path(model_ref)

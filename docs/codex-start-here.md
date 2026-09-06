@@ -37,47 +37,45 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-09-04
+## Estado general al cierre de 2026-09-06
 
-- Rama `inicial`; HEAD revalidado
-  `e5476dac9f40b81d612210b258696e176aa3785d`. El worktree contiene numerosos
-  cambios aún no publicados, incluidos datos del usuario. Revalidar `pwd`,
-  rama, HEAD, diff y runtimes al comenzar; no limpiar ni hacer commit global.
-- Las fuentes declaran HA `0.2.292` y worker privado `1.0.38`. La imagen HA
-  `0.2.292` ya está publicada en GHCR para amd64/arm64 y `latest` comparte su
-  digest
-  `sha256:9f1e111f292037f6d0d6a2dafe9d458d6d35dd9549182986ef5edd5a0230f6d1`;
-  la publicación Git queda incluida en este cierre y todavía falta la
-  instalación real. HA real sigue declarando `0.2.291` en el volumen montado. El worker local fue
-  reconstruido con `rainmapper-worker:1.0.38`, está healthy e idle y conserva
-  sus cachés; no se publicó una imagen remota del worker.
-- El entrenamiento local activo contiene cinco versiones operativas (`V2`,
-  `V3`, `V4`, `V5w`, `V6w`) y selector fiable `1.2`; la generación es
-  `local_operational_20260905T194632Z`, con 406 observaciones elegibles y
-  636/636 ajustes. El precálculo local activo es la revisión 39, usa contrato
-  `1.6`, cubre 2026-09-05–2026-09-11, pasa `quick_check` y materializa 420
-  miembros en 143 payloads físicos para 623 respuestas lógicas. Ocupa
-  29.233.152 bytes y no contiene páginas libres.
-- Predictor compara automáticamente todas las versiones operativas instaladas.
-  No existen selección manual ni versión preferida. Área y especie compiten con
-  el mismo límite inferior de Wilson al 95 %, conservando el área en empate.
-- `MOD_0001` retira temporalmente de la decisión los vetos externos de lluvia,
-  temperatura y compatibilidad ecológica. Sus cálculos y trazabilidad se
-  conservan como diagnóstico para poder auditarlos o reintroducirlos.
-- La auditoría hídrica de los ganadores V2--V6 para cinco especies está cerrada:
-  las versiones actuales no muestran un fallo que justifique sustituirlas y la
-  interacción explícita lluvia × suelo no mejora de forma estable. Quedan la
-  auditoría transversal de probabilidades extremas y repetir el hold-out cuando
-  haya datos útiles para las otras tres especies. Sporas.io se usa solo para
-  formular preguntas; sus probabilidades, acumulados y alturas visibles no son
-  una referencia suficientemente auditable.
-- HA real no calcula Predictor en línea. El precálculo semanal cubre
-  `recommender`, `week` y `query`, no `history`; el reemplazo de Historial por un
-  evaluador persistido del catálogo hold-out sigue pendiente.
-- La retención ML sigue activa. No borrar datos, cambiar retención, lanzar o
-  vigilar trabajos, hacer build/publicación ni tocar HA real sin autorización
-  explícita. Preservar especialmente
-  `mushroom-data/mushroom_observations.json`.
+- Rama `inicial`. La release se cierra en un commit selectivo y el único cambio
+  que debe permanecer fuera es el fichero de observaciones del usuario.
+  Preservar especialmente
+  `mushroom-data/mushroom_observations.json`. Los datos vivos locales para
+  entrenamiento están en `docker-data/mushroom-data/`.
+- Las fuentes declaran HA `0.2.293` y worker `1.0.39`. HA `0.2.293` está
+  publicada en GHCR: `0.2.293` y `latest` comparten el digest
+  `sha256:3dce0e5cecec99645f89313925d93cf6ff594711a383fa413d13ba276bc57e03`
+  con manifests `linux/amd64` y `linux/arm64`. No se ha instalado todavía en HA
+  real.
+- El worker privado local `1.0.39` está healthy e idle, conserva identidad,
+  emparejamiento, volumen y cachés, y contiene el nuevo módulo de calibración.
+- Se adoptó `knn_distance_beta_smoothed_v2` como único KNN de nuevos
+  entrenamientos. Aplica `(7p + 1) / 9`; el KNN anterior solo queda para
+  artefactos históricos. Entrenamiento, hold-out e inferencia comparten la misma
+  implementación. La UI evita certezas predictivas redondeadas mostrando
+  `>99 %` y `<1 %`.
+- La suite completa de release superó 1.288 pruebas. El cambio se materializó en
+  `local_operational_20260905T231844Z`: 406 observaciones elegibles, 8 especies,
+  11 perfiles y 636/636 artefactos correctos. Los modelos, hold-out, métricas y
+  catálogos nuevos no contienen `knn_distance_v1`.
+- El precálculo revisión 40 cubre 2026-09-06--2026-09-12, pesa 29.917.184 bytes
+  y pasó integridad, hash, relaciones, conteos y auditoría del JSON comprimido.
+  Contiene 504 predicciones base, 420 miembros, 623 respuestas lógicas y 143
+  payloads deduplicados, con las tres vistas presentes y sin el KNN antiguo.
+- La secuencia siguiente es instalar HA `0.2.293` con autorización explícita y
+  repetir allí entrenamiento y precálculo, midiendo la activación del SQLite en
+  la RPi4.
+- La auditoría P0 para Rovelló, Edulis, Pinícola, Aereus y Ou de reig está
+  cerrada. No justifica V7; sí respalda el suavizado KNN. Llanega negra, Marçot y
+  Múrgola negra esperan hold-outs con ambas clases. Sporas.io continúa siendo
+  solo fuente de preguntas.
+- `MOD_0001` sigue vigente: ecología y ventanas son diagnóstico y no modifican
+  ninguna predicción. En Rovelló el timing es desconocido y los límites cero son
+  placeholders; no restaurar la antigua ventana falsa.
+- No borrar datos o artefactos, cambiar retención, lanzar trabajos, hacer
+  build/publicación ni tocar HA real sin autorización explícita.
 
 El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.
@@ -99,6 +97,8 @@ El estado exacto, la prueba siguiente y los riesgos están en
   `docs/mushrooms/literature/sporas_especies_informe_rainmapper.md`
 - Auditoría P0 hídrica multiespecie y multiversión:
   `docs/reports/mushroom-predictor-p0-multispecies-multiversion-hydric-audit-2026-09-05.md`
+- Revisión y diseño experimental de la variable de racha seca:
+  `docs/mushrooms/literature/prediction/rainmapper_dry_spell_variable_review.md`
 - Pruebas aplazadas y batería Python reproducible:
   `docs/reports/mushroom-predictor-p0-pending-tests-and-python-audit-battery-2026-09-05.md`
 - Pantalla futura de auditoría del selector:

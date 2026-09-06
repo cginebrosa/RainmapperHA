@@ -133,6 +133,35 @@ class MushroomMLTuningCatalogTests(TestCase):
             ), self.assertRaisesRegex(ValueError, "incompatible"):
                 tuning_catalog.validate_catalog(registry, catalog)
 
+    def test_historical_knn_decision_is_rekeyed_to_the_active_successor(self) -> None:
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        legacy_scope = {
+            "version_id": "altitude_v2",
+            "temporal_contract_id": "fixed_gap_7d_altitude_v2",
+            "profile_id": "common_idw",
+            "estimator_id": "knn_distance_v1",
+            "species_id": "boletus_edulis",
+        }
+
+        migrated = tuning_catalog.build_from_decisions(
+            registry,
+            source_batch_id="historical-batch",
+            source_snapshot_id="sha256:" + "a" * 64,
+            decisions=[
+                {
+                    "scope": legacy_scope,
+                    "fit_config": {},
+                    "source_artifact_sha256": "b" * 64,
+                }
+            ],
+        )
+
+        self.assertEqual(
+            migrated["decisions"][0]["scope"]["estimator_id"],
+            "knn_distance_beta_smoothed_v2",
+        )
+        self.assertNotIn("knn_distance_v1", migrated["decisions"][0]["key"])
+
     def test_catalog_round_trips_as_json(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary) / "batches" / "batch-source"

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.293
+
+- Replace the raw distance-weighted KNN in new training generations with the
+  beta-smoothed `knn_distance_beta_smoothed_v2`, sharing the same estimator
+  implementation across training, hold-out evaluation and runtime inference.
+- Migrate active profile and tuning-catalog definitions to the smoothed KNN
+  while preserving compatible historical model references and generations.
+- Keep the newly generated tuning catalog aligned with its batch manifest
+  instead of restoring the superseded input catalog after training.
+- Render extreme predictive probabilities as `>99 %` or `<1 %` without
+  changing their internal values or empirical accuracy percentages.
+
 ## 0.2.292
 
 - Select the most reliable trained candidate for every species, area and day,

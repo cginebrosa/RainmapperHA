@@ -143,7 +143,7 @@ class BiologyV3EvaluationTests(unittest.TestCase):
                         "random_forest_restricted_v1",
                         "extra_trees_restricted_v1",
                         "hist_gradient_boosting_restricted_v1",
-                        "knn_distance_v1",
+                        "knn_distance_beta_smoothed_v2",
                         "rbf_svm_calibrated_v1",
                     },
                 )

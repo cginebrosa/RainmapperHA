@@ -52,6 +52,7 @@ METHODOLOGICAL_FAMILY_BY_ESTIMATOR = {
     "extra_trees_restricted_v1": "bagged_trees",
     "hist_gradient_boosting_restricted_v1": "boosting",
     "knn_distance_v1": "distance",
+    "knn_distance_beta_smoothed_v2": "distance",
     "rbf_svm_calibrated_v1": "kernel",
 }
 

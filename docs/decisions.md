@@ -1,6 +1,59 @@
 # Decisions
 
-## 2026-09-05 - [VIGENTE][PREDICTOR] Fallback sellado por aplicabilidad y ventana solo diagnóstica
+## 2026-09-06 - [VIGENTE][RELEASE] HA 0.2.293 publicada y worker privado 1.0.39
+
+- HA `0.2.292` se construyó y publicó antes de implementar el KNN suavizado y
+  el formato `>99 %`/`<1 %`. No se instalará como si contuviera esos cambios.
+- HA `0.2.293` se publicó después de materializar y auditar en local el
+  entrenamiento y el precálculo. Los tags `0.2.293` y `latest` comparten el
+  digest `sha256:3dce0e5cecec99645f89313925d93cf6ff594711a383fa413d13ba276bc57e03`
+  y contienen manifests `linux/amd64` y `linux/arm64`.
+- El worker privado local se reconstruyó como `1.0.39`, incluyendo el módulo
+  `mushroom_ml_probability_calibration.py`. Quedó healthy e idle con imagen
+  `sha256:55849222b054c6cc66d29541d3f5a678001c86e1c86134f3f59fb2f1e9316ef0`,
+  conservando volumen, identidad, emparejamiento y cachés.
+- El cierre incluye un único commit y push Git selectivos de la release,
+  excluyendo `mushroom-data/mushroom_observations.json`. No se instaló HA real.
+
+## 2026-09-06 - [VIGENTE][PREDICTOR] El KNN suavizado sustituye al KNN crudo en nuevos entrenamientos
+
+- La salida operativa de KNN aplica `(7p + 1) / 9`. La decisión se apoya en
+  evaluación fuera de muestra agrupada: Brier `0,1618 → 0,1554`, ECE
+  `0,1310 → 0,0821`, log-loss `2,1054 → 0,4863` y ROC-AUC sin cambios.
+- `knn_distance_beta_smoothed_v2` es el único KNN de la lista activa. No se
+  mantienen dos variantes compitiendo ni se requiere otra comparación para
+  adoptarlo. `knn_distance_v1` se conserva solo para leer y auditar generaciones
+  históricas.
+- La transformación forma parte de la clase serializada y se usa igual en
+  entrenamiento, hold-out e inferencia. Cambiar el identificador evita atribuir
+  semántica nueva a artefactos históricos con el mismo nombre.
+- El registro empaquetado sustituye el ID en V2, V3 y V4. Al sembrar una
+  instalación existente se refrescan definiciones, pero se preservan estados y
+  generaciones instaladas.
+- La UI muestra `>99 %` o `<1 %` cuando el redondeo produciría una certeza
+  predictiva. Los porcentajes observados, por ejemplo `100 % (13/13)`, siguen
+  siendo exactos porque describen un recuento, no una probabilidad futura.
+- La implementación no queda activa en una generación hasta reconstruir HA y
+  reentrenar. Después se requiere un precálculo nuevo. Esta decisión no autoriza
+  por sí sola build, entrenamiento, precálculo ni release.
+
+## 2026-09-06 - [VIGENTE][PREDICTOR] Fallback sellado y timing desconocido no forman una ventana biológica
+
+- Se mantiene el fallback sellado por aplicabilidad: si el primer candidato
+  estadísticamente fiable está fuera de dominio, se usa el siguiente candidato
+  aplicable de la misma cadena; si no hay ninguno, se abstiene.
+- Una desviación exclusivamente de precipitación se muestra como advertencia y
+  no veta por sí sola. Los demás motivos de aplicabilidad conservan su función.
+- En Rovelló, los cuatro límites de retardo a cero son placeholders y el payload
+  declara `fruiting_timing=unknown`. La antigua UI los interpretaba erróneamente
+  como una ventana real. La ausencia actual del texto es correcta y no es una
+  pérdida de datos del precálculo.
+- No se rellenarán esos límites con cifras ad hoc ni de Sporas.io. Una futura
+  indicación «activa/terminando» deberá llamarse tendencia predictiva, derivarse
+  de las probabilidades aprendidas del horizonte y mantenerse diagnóstica bajo
+  `MOD_0001`.
+
+## 2026-09-05 - [REEMPLAZADA][PREDICTOR] Fallback sellado por aplicabilidad y ventana solo diagnóstica
 
 - La selección de entrenamiento publica, además del ganador, la cadena completa
   de candidatos estadísticamente elegibles en su orden de fiabilidad. Si las
@@ -21,6 +74,9 @@
 - Los catálogos ya instalados, que solo contienen el ganador, conservan el
   comportamiento anterior. Activar la cadena requiere un entrenamiento y un
   precálculo nuevos; esta decisión no los autoriza por sí misma.
+- Reemplazada por la decisión del 2026-09-06: el fallback continúa vigente,
+  pero no se muestra una ventana cuando sus límites son placeholders y el
+  timing es desconocido.
 
 ## 2026-09-05 - [VIGENTE][PREDICTOR] No cambiar todavía la racha seca a 1 mm
 
@@ -53,7 +109,7 @@
   mismos grupos hold-out y validación prospectiva. La especificación vinculada
   es `docs/mushrooms/mushroom-predictor-reliability-selection-spec-es.md`.
 
-## 2026-09-04 - [DUDA][PREDICTOR] Señal hídrica antecedente y calibración extrema
+## 2026-09-04 - [DUDA][PREDICTOR] Señal hídrica antecedente
 
 - «Lluvia de activación» no se adopta como concepto causal. Se usará
   provisionalmente «señal hídrica antecedente» hasta definir periodo, fuente,
@@ -69,6 +125,9 @@
 - La investigación y sus condiciones de salida están documentadas en
   `docs/mushrooms/literature/sporas_especies_informe_rainmapper.md` y en la
   especificación del selector fiable.
+- La duda sobre calibración extrema de KNN quedó resuelta por la decisión del
+  2026-09-06; continúa abierta únicamente la definición de señal hídrica
+  antecedente.
 
 ## 2026-09-04 - [VIGENTE][PREDICTOR] Área y especie compiten con la misma métrica
 

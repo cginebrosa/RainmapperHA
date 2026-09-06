@@ -229,6 +229,7 @@ def _without_knn_catalog(path: Path) -> dict[str, Any]:
                 continue
             probabilities = dict(row.get("estimator_probabilities") or {})
             probabilities.pop("knn_distance_v1", None)
+            probabilities.pop("knn_distance_beta_smoothed_v2", None)
             if probabilities:
                 rows.append({**row, "estimator_probabilities": probabilities})
     audit = audit_rows(
@@ -262,7 +263,14 @@ def _knn_replacements(
             if not isinstance(row, Mapping):
                 continue
             candidate = row.get("candidate") or {}
-            if not isinstance(candidate, Mapping) or candidate.get("estimator_id") != "knn_distance_v1":
+            if (
+                not isinstance(candidate, Mapping)
+                or candidate.get("estimator_id")
+                not in {
+                    "knn_distance_v1",
+                    "knn_distance_beta_smoothed_v2",
+                }
+            ):
                 continue
             identity = tuple(row.get(key) for key in identity_fields)
             replacement = alternatives.get(identity)

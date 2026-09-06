@@ -17,6 +17,9 @@ SCHEMA_VERSION = "1.0"
 BATCH_MANIFEST_KIND = "mushroom_ml_runtime_batch"
 FIXED_HORIZONS = frozenset({7})
 LAG_HORIZONS = frozenset(range(1, 8))
+LEGACY_ESTIMATOR_SUCCESSORS = {
+    "knn_distance_v1": "knn_distance_beta_smoothed_v2",
+}
 _SAFE_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,159}$")
 
 
@@ -251,6 +254,43 @@ def catalog_entries(registry: Mapping[str, object]) -> list[dict[str, Any]]:
     return entries
 
 
+def _compatible_profile_estimator_id(
+    profile: Mapping[str, object], estimator_id: str
+) -> str | None:
+    estimator_ids = profile.get("estimator_ids")
+    if not isinstance(estimator_ids, list):
+        return None
+    if estimator_id in estimator_ids:
+        return estimator_id
+    successor_id = LEGACY_ESTIMATOR_SUCCESSORS.get(estimator_id)
+    return successor_id if successor_id in estimator_ids else None
+
+
+def resolve_profile_estimator_id(
+    registry: Mapping[str, object],
+    *,
+    version_id: str,
+    profile_id: str,
+    estimator_id: str,
+) -> str:
+    """Resolve a historical estimator to its active profile successor."""
+    profile = next(
+        (
+            entry
+            for entry in catalog_entries(registry)
+            if entry["version_id"] == version_id
+            and entry["profile_id"] == profile_id
+        ),
+        None,
+    )
+    if profile is None:
+        raise ValueError(f"Unknown runtime profile: {version_id}/{profile_id}")
+    resolved = _compatible_profile_estimator_id(profile, estimator_id)
+    if resolved is None:
+        raise ValueError("Model reference estimator does not match its profile")
+    return resolved
+
+
 def validate_model_ref(
     registry: Mapping[str, object], value: ModelRef | Mapping[str, object]
 ) -> ModelRef:
@@ -268,7 +308,7 @@ def validate_model_ref(
     profile = matches[0]
     if model_ref.temporal_contract_id not in profile["temporal_contract_ids"]:
         raise ValueError("Model reference temporal contract does not match its profile")
-    if model_ref.estimator_id not in profile["estimator_ids"]:
+    if _compatible_profile_estimator_id(profile, model_ref.estimator_id) is None:
         raise ValueError("Model reference estimator does not match its profile")
     if model_ref.temporal_contract_id.startswith("fixed_gap_"):
         allowed_horizons = FIXED_HORIZONS
@@ -291,9 +331,15 @@ def artifact_ref_for_model_ref(
         if row["version_id"] == model_ref.version_id
         and row["profile_id"] == model_ref.profile_id
     )
+    profile_estimator_id = resolve_profile_estimator_id(
+        registry,
+        version_id=model_ref.version_id,
+        profile_id=model_ref.profile_id,
+        estimator_id=model_ref.estimator_id,
+    )
     species_id = (
         "all_species"
-        if profile["estimator_scopes"][model_ref.estimator_id] == "shared"
+        if profile["estimator_scopes"][profile_estimator_id] == "shared"
         else model_ref.species_id
     )
     return ModelArtifactRef(
