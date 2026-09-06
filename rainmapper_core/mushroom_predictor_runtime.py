@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import gzip
 import json
 import os
 import shutil
@@ -14,6 +15,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 from rainmapper_core import mushroom_paths
+from rainmapper_core import mushroom_ml_model_catalog
+from rainmapper_core import mushroom_ml_quality_catalog
+from rainmapper_core import mushroom_ml_version_registry
 
 
 SCHEMA_VERSION = "1.0"
@@ -253,12 +257,13 @@ def build_manifest(
             )
             manifest_relative = manifest_path.relative_to(models)
             sources[f"models/{manifest_relative.as_posix()}"] = manifest_path
+            # The runtime contains only inputs used to serve predictions.
+            # Extended quality audits, benchmark reports and hold-out rows are
+            # retained in the installed batch, but are never copied into the
+            # runtime used by HA or a worker.
             for reference_name in (
                 "quality_catalog",
-                "quality_audit_catalog",
                 "training_input_manifest",
-                "benchmark_report",
-                "holdout_predictions",
             ):
                 reference = batch.get(reference_name)
                 if not isinstance(reference, dict):
@@ -821,3 +826,173 @@ def service_paths(runtime_root: Path) -> dict[str, Path]:
         "version_registry_path": root / "data/mushroom_ml_version_registry.json",
         "stations_file_path": root / "data/stations.txt",
     }
+
+
+def _operational_batch_manifest(
+    *,
+    models_dir: Path,
+    version_registry_path: Path,
+) -> dict[str, Any]:
+    """Load the one validated batch manifest shared by installed versions."""
+    registry = mushroom_ml_version_registry.load_registry(version_registry_path)
+    manifests: list[dict[str, Any]] = []
+    for version in registry["versions"]:
+        version_id = str(version["version_id"])
+        if version.get("installed_generation_id") is None:
+            continue
+        manifest_path = mushroom_ml_version_registry.installed_manifest_path(
+            registry, version_id, models_root=models_dir
+        )
+        if manifest_path is None or not manifest_path.is_file():
+            raise FileNotFoundError(
+                f"Installed manifest is missing for {version_id}"
+            )
+        manifests.append(
+            mushroom_ml_model_catalog.validate_batch_manifest(
+                registry,
+                json.loads(manifest_path.read_text(encoding="utf-8")),
+            )
+        )
+    batch_ids = {str(row.get("batch_id") or "") for row in manifests}
+    if len(batch_ids) != 1:
+        raise ValueError("Installed versions do not share one operational batch.")
+    manifest = manifests[0] if manifests else None
+    if manifest is None:  # pragma: no cover - covered by the batch-id check
+        raise ValueError("No operational batch is installed.")
+    return manifest
+
+
+def _operational_quality_catalog(
+    *,
+    models_dir: Path,
+    version_registry_path: Path,
+) -> dict[str, Any]:
+    """Load the sealed operational catalog only where prediction needs it."""
+    manifest = _operational_batch_manifest(
+        models_dir=models_dir,
+        version_registry_path=version_registry_path,
+    )
+    quality_ref = manifest.get("quality_catalog") if manifest else None
+    if not isinstance(quality_ref, dict):
+        raise ValueError("Installed operational batch has no quality catalog.")
+    quality_path = Path(models_dir) / str(quality_ref.get("path") or "")
+    content = quality_path.read_bytes()
+    if hashlib.sha256(content).hexdigest() != str(quality_ref.get("sha256") or ""):
+        raise ValueError("Installed operational quality catalog digest is invalid.")
+    if quality_path.suffix == ".gz":
+        content = gzip.decompress(content)
+    return mushroom_ml_quality_catalog.validate_catalog(
+        json.loads(content), require_selections=True
+    )
+
+
+def operational_reliability_winner_count(
+    *,
+    models_dir: Path,
+    version_registry_path: Path,
+    area_ids_by_species: dict[str, list[str]],
+) -> int:
+    """Count planned winners from compact metadata, with legacy fallback."""
+    manifest = _operational_batch_manifest(
+        models_dir=Path(models_dir),
+        version_registry_path=Path(version_registry_path),
+    )
+    quality_ref = manifest.get("quality_catalog")
+    selection_index = (
+        quality_ref.get("selection_index")
+        if isinstance(quality_ref, dict)
+        else None
+    )
+    if not isinstance(selection_index, dict):
+        count = operational_reliability_selections(
+            models_dir=models_dir,
+            version_registry_path=version_registry_path,
+            area_ids_by_species=area_ids_by_species,
+            materialize=False,
+        )
+        return int(count)
+    species_index = selection_index.get("species")
+    area_index = selection_index.get("areas")
+    if not isinstance(species_index, dict) or not isinstance(area_index, dict):
+        raise ValueError("Operational quality selection index is invalid.")
+    winners = 0
+    for species_id, area_ids in sorted(area_ids_by_species.items()):
+        species_days = species_index.get(species_id)
+        species_areas = area_index.get(species_id, {})
+        if not isinstance(species_days, dict) or not isinstance(species_areas, dict):
+            raise ValueError("Operational quality selection index lacks a species.")
+        for area_id in sorted(set(area_ids)):
+            indexed_days = species_areas.get(area_id, species_days)
+            if not isinstance(indexed_days, dict):
+                raise ValueError("Operational quality selection index is invalid.")
+            for prediction_day in range(1, 8):
+                value = indexed_days.get(str(prediction_day))
+                if not isinstance(value, bool):
+                    raise ValueError(
+                        "Operational quality selection index does not cover every day."
+                    )
+                winners += int(value)
+    return winners
+
+
+def operational_reliability_selections(
+    *,
+    models_dir: Path,
+    version_registry_path: Path,
+    area_ids_by_species: dict[str, list[str]],
+    materialize: bool = True,
+) -> list[dict[str, Any]] | int:
+    """Resolve sealed area decisions, or only count winners for HA planning."""
+    catalog = _operational_quality_catalog(
+        models_dir=Path(models_dir),
+        version_registry_path=Path(version_registry_path),
+    )
+    return operational_reliability_selections_from_catalog(
+        catalog,
+        area_ids_by_species=area_ids_by_species,
+        materialize=materialize,
+    )
+
+
+def operational_reliability_selections_from_catalog(
+    catalog: dict[str, Any],
+    *,
+    area_ids_by_species: dict[str, list[str]],
+    materialize: bool = True,
+) -> list[dict[str, Any]] | int:
+    """Resolve or count an already validated sealed quality catalog."""
+    area_rows = {
+        (
+            str(row["species_id"]),
+            str(row["area_id"]),
+            int(row["prediction_day"]),
+        ): row
+        for row in catalog["species_area_selections"]
+    }
+    species_rows = {
+        (str(row["species_id"]), int(row["prediction_day"])): row
+        for row in catalog["species_selections"]
+    }
+    resolved: list[dict[str, Any]] = []
+    winner_count = 0
+    for species_id, area_ids in sorted(area_ids_by_species.items()):
+        for area_id in sorted(set(area_ids)):
+            for prediction_day in range(1, 8):
+                row = area_rows.get((species_id, area_id, prediction_day))
+                fallback = row is None
+                if row is None:
+                    row = species_rows.get((species_id, prediction_day))
+                if row is None:
+                    raise ValueError(
+                        "Operational quality catalog does not cover every species day."
+                    )
+                if row.get("selection_status") == "winner":
+                    winner_count += 1
+                if not materialize:
+                    continue
+                resolution = dict(row)
+                resolution["area_id"] = area_id
+                if fallback and row.get("selection_status") == "winner":
+                    resolution["selection_scope"] = "species_fallback"
+                resolved.append(resolution)
+    return resolved if materialize else winner_count

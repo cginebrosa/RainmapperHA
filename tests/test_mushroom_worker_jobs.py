@@ -108,6 +108,31 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             )
             self.assertEqual("complete", finished["status"])
 
+    def test_precompute_area_contract_stays_small_and_has_no_selection_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "jobs.json"
+            area_ids = {
+                f"species-{species}": [
+                    f"area-{species}-{area}" for area in range(9)
+                ]
+                for species in range(8)
+            }
+            job = mushroom_worker_jobs.create_predictor_precompute_job(
+                path,
+                worker_id="worker_aaaaaaaa",
+                worker_display_name="Worker A",
+                identity=self.precompute_identity().as_dict(),
+                runtime_manifest=self.predictor_manifest(),
+                area_ids_by_species=area_ids,
+                desired_revision=1,
+                job_id="worker_job_precompute_compact",
+            )
+
+            self.assertEqual(area_ids, job["area_ids_by_species"])
+            self.assertNotIn("operational_selections", job)
+            self.assertNotIn("operational_selections_ref", job)
+            self.assertLess(path.stat().st_size, 64 * 1024)
+
     def test_precompute_timings_are_persisted_across_worker_and_ha_milestones(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"

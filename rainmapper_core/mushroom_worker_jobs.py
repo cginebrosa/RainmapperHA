@@ -110,6 +110,26 @@ def predictor_precompute_operational_selections_ref(
     }
 
 
+def normalize_predictor_precompute_area_ids(
+    area_ids_by_species: object,
+) -> dict[str, list[str]]:
+    """Validate the compact coverage map sent to a precompute worker."""
+    if not isinstance(area_ids_by_species, dict):
+        raise ValueError("Precompute area coverage is invalid.")
+    checked: dict[str, list[str]] = {}
+    for raw_species_id, raw_area_ids in area_ids_by_species.items():
+        species_id = str(raw_species_id or "").strip()
+        if not species_id or not isinstance(raw_area_ids, list):
+            raise ValueError("Precompute area coverage is invalid.")
+        area_ids = sorted({str(value or "").strip() for value in raw_area_ids})
+        if not area_ids or any(not value for value in area_ids):
+            raise ValueError("Precompute area coverage is invalid.")
+        checked[species_id] = area_ids
+    if not checked:
+        raise ValueError("Precompute area coverage is invalid.")
+    return dict(sorted(checked.items()))
+
+
 def validate_predictor_result_size(response: object) -> int:
     """Return the encoded response size or reject it before transport/storage."""
     encoded_size = len(json.dumps(response, ensure_ascii=False).encode("utf-8"))
@@ -1399,7 +1419,9 @@ def create_predictor_precompute_job(
     runtime_manifest: dict[str, Any],
     operational_selections: (
         list[dict[str, Any]] | dict[str, list[dict[str, Any]]]
-    ),
+        | None
+    ) = None,
+    area_ids_by_species: dict[str, list[str]] | None = None,
     desired_revision: int,
     job_id: str | None = None,
     trigger_origin: str = "runtime",
@@ -1423,11 +1445,22 @@ def create_predictor_precompute_job(
         raise ValueError("Precompute runtime manifest does not match artifact identity.")
     if not isinstance(desired_revision, int) or isinstance(desired_revision, bool) or desired_revision < 1:
         raise ValueError("Precompute desired revision is invalid.")
-    checked_selections = normalize_predictor_precompute_operational_selections(
-        operational_selections
+    checked_area_ids = (
+        normalize_predictor_precompute_area_ids(area_ids_by_species)
+        if area_ids_by_species is not None
+        else None
     )
-    checked_selections_ref = predictor_precompute_operational_selections_ref(
-        checked_selections
+    checked_selections = (
+        normalize_predictor_precompute_operational_selections(operational_selections)
+        if operational_selections is not None
+        else None
+    )
+    if checked_area_ids is None and checked_selections is None:
+        raise ValueError("Precompute job has no operational coverage.")
+    checked_selections_ref = (
+        predictor_precompute_operational_selections_ref(checked_selections)
+        if checked_selections is not None
+        else None
     )
     timestamp = created_at or utc_now()
     queue = load_queue(path)
@@ -1482,14 +1515,16 @@ def create_predictor_precompute_job(
         "artifact_identity": checked_identity.as_dict(),
         "artifact_id": checked_identity.artifact_id,
         "runtime_manifest": checked_manifest,
-        "operational_selections": checked_selections,
-        "operational_selections_ref": checked_selections_ref,
+        "area_ids_by_species": checked_area_ids,
         "trigger_origin": str(trigger_origin or "runtime")[:40],
         "force": bool(force),
         "precompute_telemetry": {},
         "runtime_endpoint": "/api/mushrooms/workers/jobs/predictor-runtime",
         "artifact_endpoint": "/api/mushrooms/workers/jobs/precompute-artifact",
     }
+    if checked_selections is not None:
+        job["operational_selections"] = checked_selections
+        job["operational_selections_ref"] = checked_selections_ref
     queue["jobs"].append(job)
     queue["jobs"] = queue["jobs"][-MAX_JOBS:]
     _write_atomic(path, queue)

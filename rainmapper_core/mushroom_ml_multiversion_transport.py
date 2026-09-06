@@ -410,20 +410,28 @@ def _verified_result(
     ):
         if not isinstance(report_ref, Mapping) or not isinstance(predictions_ref, Mapping):
             raise ValueError("Training batch does not contain synchronized hold-out evidence")
-        report_path = extracted / mushroom_ml_benchmark_reports.REPORT_NAME
-        predictions_path = extracted / mushroom_ml_benchmark_reports.PREDICTIONS_NAME
+        report_relative = Path(str(report_ref.get("path") or "")).relative_to(
+            Path("batches") / result["batch_id"]
+        )
+        predictions_relative = Path(
+            str(predictions_ref.get("path") or "")
+        ).relative_to(Path("batches") / result["batch_id"])
+        report_path = extracted / report_relative
+        predictions_path = extracted / predictions_relative
         if (
-            report_ref.get("path")
-            != f"batches/{result['batch_id']}/{mushroom_ml_benchmark_reports.REPORT_NAME}"
-            or (
+            (
                 expected_purpose == "benchmark"
-                and report_ref.get("report_id") != result["report_id"]
+                and (
+                    report_relative.as_posix()
+                    != mushroom_ml_benchmark_reports.REPORT_NAME
+                    or predictions_relative.as_posix()
+                    != mushroom_ml_benchmark_reports.PREDICTIONS_NAME
+                    or report_ref.get("report_id") != result["report_id"]
+                )
             )
             or not _matches_received_digest(
                 result_root, report_path, report_ref.get("sha256"), receipts=receipts
             )
-            or predictions_ref.get("path")
-            != f"batches/{result['batch_id']}/{mushroom_ml_benchmark_reports.PREDICTIONS_NAME}"
             or not _matches_received_digest(
                 result_root,
                 predictions_path,
@@ -432,15 +440,16 @@ def _verified_result(
             )
         ):
             raise ValueError("Benchmark report artifacts failed integrity checks")
-        report = mushroom_ml_benchmark_reports.validate_report(
-            json.loads(report_path.read_text(encoding="utf-8")),
-            root=extracted,
-        )
-        if (
-            report.get("batch_id") != result["batch_id"]
-            or report.get("snapshot_id") != result["snapshot_id"]
-        ):
-            raise ValueError("Benchmark report identity does not match its batch")
+        if expected_purpose == "benchmark":
+            report = mushroom_ml_benchmark_reports.validate_report(
+                json.loads(report_path.read_text(encoding="utf-8")),
+                root=extracted,
+            )
+            if (
+                report.get("batch_id") != result["batch_id"]
+                or report.get("snapshot_id") != result["snapshot_id"]
+            ):
+                raise ValueError("Benchmark report identity does not match its batch")
     for artifact in batch_manifest["artifacts"]:
         staged_path = extracted / Path(str(artifact["path"])).relative_to(
             Path("batches") / result["batch_id"]
@@ -475,12 +484,12 @@ def install_verified_result(
     destination = batches / result["batch_id"]
     if destination.exists():
         raise FileExistsError(f"Multiversion batch already exists: {destination}")
-    staging = Path(tempfile.mkdtemp(prefix=f".{result['batch_id']}.", suffix=".install", dir=batches))
-    try:
-        shutil.copytree(extracted, staging / "batch")
-        _record_tree_copy(extracted)
-        os.replace(staging / "batch", destination)
-        return {
+    if extracted.stat().st_dev != batches.stat().st_dev:
+        raise ValueError(
+            "Verified multiversion result and model storage must share one filesystem"
+        )
+    os.replace(extracted, destination)
+    return {
             "status": "verified_batch_installed",
             "batch_id": result["batch_id"],
             "snapshot_id": result["snapshot_id"],
@@ -499,9 +508,7 @@ def install_verified_result(
             },
             "profile_keys": [str(value) for value in batch_manifest.get("profile_keys", [])],
             "input_revisions": batch_manifest.get("input_revisions"),
-        }
-    finally:
-        shutil.rmtree(staging, ignore_errors=True)
+    }
 
 
 def verify_installed_batch(

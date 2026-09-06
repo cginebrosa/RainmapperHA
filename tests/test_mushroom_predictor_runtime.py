@@ -25,6 +25,38 @@ from rainmapper_core.mushroom_predictor_runtime import (
 
 
 class PredictorRuntimeTests(TestCase):
+    def test_ha_counts_winners_from_compact_index_without_loading_catalog(self) -> None:
+        index = {
+            "schema_version": "1.0",
+            "species": {
+                "boletus": {str(day): day != 7 for day in range(1, 8)}
+            },
+            "areas": {
+                "boletus": {
+                    "area-a": {str(day): day <= 3 for day in range(1, 8)}
+                }
+            },
+        }
+        with (
+            mock.patch.object(
+                mushroom_predictor_runtime,
+                "_operational_batch_manifest",
+                return_value={"quality_catalog": {"selection_index": index}},
+            ),
+            mock.patch.object(
+                mushroom_predictor_runtime,
+                "_operational_quality_catalog",
+                side_effect=AssertionError("HA must not load the full quality catalog"),
+            ),
+        ):
+            winners = mushroom_predictor_runtime.operational_reliability_winner_count(
+                models_dir=Path("/models"),
+                version_registry_path=Path("/registry.json"),
+                area_ids_by_species={"boletus": ["area-a", "area-b"]},
+            )
+
+        self.assertEqual(9, winners)
+
     def _source_tree(self, root: Path) -> tuple[Path, Path, Path, Path, Path]:
         weather = root / "weather-source"
         models = root / "models-source"
@@ -737,7 +769,7 @@ class PredictorRuntimeTests(TestCase):
             self.assertIn(f"models/{relative.as_posix()}", sources)
             self.assertIn("models/batches/batch-a/manifest.json", sources)
             self.assertIn("models/batches/batch-a/quality-catalog.json", sources)
-            self.assertIn(
+            self.assertNotIn(
                 "models/batches/batch-a/quality-audit-catalog.json", sources
             )
             self.assertNotIn("models/runtime-batch.json", sources)

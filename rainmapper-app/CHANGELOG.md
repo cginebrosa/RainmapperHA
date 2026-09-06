@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.294
+
+- Keep the weekly precompute job below the coordinator limit by sending only
+  its 72-area coverage map; the worker resolves the sealed candidate order and
+  applicability fallbacks from its verified runtime.
+- Store operational quality and audit evidence as gzip artifacts, expose a
+  compact winner index for HA planning, and exclude audit-only evidence from
+  predictor runtimes and worker caches.
+- Move verified operational batches between same-filesystem staging locations
+  instead of duplicating the complete model tree before upload and again during
+  HA installation.
+
 ## 0.2.293
 
 - Replace the raw distance-weighted KNN in new training generations with the

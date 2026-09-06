@@ -406,7 +406,9 @@ def plan_artifact_identity(
     operational_selections_by_species: (
         Mapping[str, Sequence[Mapping[str, object]]]
         | Sequence[Mapping[str, object]]
+        | None
     ),
+    operational_member_count: int | None = None,
 ) -> ArtifactIdentity:
     """Build the immutable identity without executing a prediction in HA."""
     species = tuple(sorted({str(value) for value in trained_species_ids if str(value)}))
@@ -415,7 +417,11 @@ def plan_artifact_identity(
         for species_id in species
     )
     sealed = _sealed_resolution_index(operational_selections_by_species)
-    if sealed is not None:
+    if operational_member_count is not None:
+        if operational_member_count < 0:
+            raise PrecomputeContractError("Operational member count is invalid.")
+        member_count = operational_member_count
+    elif sealed is not None:
         expected_keys = {
             (species_id, str(area_id), prediction_day)
             for species_id in species

@@ -627,38 +627,19 @@ def operational_reliability_selections(
     content = quality_path.read_bytes()
     if hashlib.sha256(content).hexdigest() != str(quality_ref.get("sha256") or ""):
         raise ValueError("Installed operational quality catalog digest is invalid.")
+    if quality_path.suffix == ".gz":
+        import gzip  # noqa: PLC0415
+
+        content = gzip.decompress(content)
     catalog = mushroom_ml_quality_catalog.validate_catalog(
         json.loads(content), require_selections=True
     )
-    area_rows = {
-        (
-            str(row["species_id"]),
-            str(row["area_id"]),
-            int(row["prediction_day"]),
-        ): dict(row)
-        for row in catalog["species_area_selections"]
-    }
-    species_rows = {
-        (str(row["species_id"]), int(row["prediction_day"])): dict(row)
-        for row in catalog["species_selections"]
-    }
-    resolved: list[dict[str, Any]] = []
-    for species_id, area_ids in sorted(area_ids_by_species.items()):
-        for area_id in sorted(set(area_ids)):
-            for prediction_day in range(1, 8):
-                area_row = area_rows.get((species_id, area_id, prediction_day))
-                if area_row is not None:
-                    resolved.append(area_row)
-                    continue
-                species_row = species_rows.get((species_id, prediction_day))
-                if species_row is None:
-                    raise ValueError(
-                        "Operational quality catalog does not cover every species day."
-                    )
-                resolution = {**species_row, "area_id": area_id}
-                if species_row.get("selection_status") == "winner":
-                    resolution["selection_scope"] = "species_fallback"
-                resolved.append(resolution)
+    resolved = mushroom_predictor_runtime.operational_reliability_selections_from_catalog(
+        catalog,
+        area_ids_by_species=area_ids_by_species,
+    )
+    if not isinstance(resolved, list):  # pragma: no cover - fixed by materialize default
+        raise RuntimeError("Operational reliability selections were not materialized.")
     return resolved
 
 

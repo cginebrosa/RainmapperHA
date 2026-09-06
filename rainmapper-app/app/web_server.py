@@ -12846,8 +12846,9 @@ def create_remote_predictor_job(
 
 def predictor_precompute_plan() -> tuple[
     mushroom_predictor_precompute.ArtifactIdentity,
-    list[dict[str, object]],
+    list[dict[str, object]] | None,
     dict[str, object],
+    dict[str, list[str]],
 ]:
     """Plan one weekly generation in HA without executing any prediction."""
     runtime_manifest, _sources, _publication_status = (
@@ -12880,10 +12881,10 @@ def predictor_precompute_plan() -> tuple[
         species_id: mushroom_predictor_ui.predictor_area_ids(species_id)
         for species_id in trained_species
     }
-    operational_resolutions = (
-        mushroom_predictor_ui.operational_reliability_selections(
-            area_ids_by_species
-        )
+    operational_member_count = mushroom_predictor_runtime.operational_reliability_winner_count(
+        models_dir=mushroom_paths.mushroom_ml_models_dir(),
+        version_registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+        area_ids_by_species=area_ids_by_species,
     )
     issue_date = datetime.now(get_timezone()).date()
     identity = mushroom_predictor_precompute.plan_artifact_identity(
@@ -12892,9 +12893,25 @@ def predictor_precompute_plan() -> tuple[
         trained_species_ids=trained_species,
         installed_versions=installed_versions,
         area_ids_by_species=area_ids_by_species,
-        operational_selections_by_species=operational_resolutions,
+        operational_selections_by_species=None,
+        operational_member_count=int(operational_member_count),
     )
-    return identity, operational_resolutions, runtime_manifest
+    return identity, None, runtime_manifest, area_ids_by_species
+
+
+def _unpack_predictor_precompute_plan() -> tuple[
+    mushroom_predictor_precompute.ArtifactIdentity,
+    list[dict[str, object]] | dict[str, list[dict[str, object]]] | None,
+    dict[str, object],
+    dict[str, list[str]] | None,
+]:
+    """Accept old three-item test/upgrade plans while emitting the compact v2 plan."""
+    planned = predictor_precompute_plan()
+    if len(planned) == 4:
+        identity, selections, runtime_manifest, area_ids = planned
+        return identity, selections, runtime_manifest, area_ids
+    identity, selections, runtime_manifest = planned
+    return identity, selections, runtime_manifest, None
 
 
 def predictor_precompute_summary() -> dict[str, object]:
@@ -13423,7 +13440,20 @@ def request_mushroom_predictor_precompute(
         supplied_worker_id = str(expected_worker_id or "").strip()
         if supplied_worker_id and supplied_worker_id != target_worker_id:
             raise ValueError("The selected worker is no longer the configured default.")
-        identity, selections_by_species, runtime_manifest = predictor_precompute_plan()
+        (
+            identity,
+            selections_by_species,
+            runtime_manifest,
+            area_ids_by_species,
+        ) = _unpack_predictor_precompute_plan()
+        area_ids_by_species = (
+            {
+                species_id: mushroom_predictor_ui.predictor_area_ids(species_id)
+                for species_id in identity.trained_species_ids
+            }
+            if selections_by_species is None and area_ids_by_species is None
+            else area_ids_by_species
+        )
         with RUN_LOCK:
             queue = mushroom_worker_jobs.load_queue(mushroom_worker_jobs_path())
             try:
@@ -13555,12 +13585,21 @@ def request_mushroom_predictor_precompute(
                     ),
                     identity=identity.as_dict(),
                     runtime_manifest=runtime_manifest,
+                    area_ids_by_species=area_ids_by_species,
                     operational_selections=selections_by_species,
                     desired_revision=int(desired["revision"]),
                     trigger_origin=trigger_origin,
                     force=force,
                 )
         if local_executor:
+            if selections_by_species is None:
+                if area_ids_by_species is None:  # pragma: no cover - guarded above
+                    raise RuntimeError("Precompute area coverage was not planned.")
+                selections_by_species = (
+                    mushroom_predictor_ui.operational_reliability_selections(
+                        area_ids_by_species
+                    )
+                )
             job = start_local_mushroom_predictor_precompute(
                 identity=identity,
                 operational_selections=selections_by_species,
@@ -13632,7 +13671,17 @@ def reconcile_mushroom_predictor_precompute_desire(
         if attempt_key in MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS:
             return None
         MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS.add(attempt_key)
-    identity, selections_by_species, runtime_manifest = predictor_precompute_plan()
+    identity, selections, runtime_manifest, area_ids_by_species = (
+        _unpack_predictor_precompute_plan()
+    )
+    area_ids_by_species = (
+        {
+            species_id: mushroom_predictor_ui.predictor_area_ids(species_id)
+            for species_id in identity.trained_species_ids
+        }
+        if selections is None and area_ids_by_species is None
+        else area_ids_by_species
+    )
     if identity.artifact_id != desired.get("artifact_id"):
         return None
     with RUN_LOCK:
@@ -13649,7 +13698,8 @@ def reconcile_mushroom_predictor_precompute_desire(
             ),
             identity=identity.as_dict(),
             runtime_manifest=runtime_manifest,
-            operational_selections=selections_by_species,
+            area_ids_by_species=area_ids_by_species,
+            operational_selections=selections,
             desired_revision=int(desired["revision"]),
             trigger_origin=str(desired.get("trigger_origin", "manual")),
             force=bool(desired.get("force")),

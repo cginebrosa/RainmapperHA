@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import gzip
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -65,6 +66,38 @@ def complete_quality_catalog(module):
 
 
 class RunMushroomMLMultiversionJobTests(TestCase):
+    def test_operational_archive_helpers_leave_only_compressed_storage(self) -> None:
+        module = load_script()
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            catalog_path = root / "quality-catalog.json.gz"
+            module._write_gzip_json(catalog_path, {"value": "x" * 10000})
+            self.assertEqual(
+                {"value": "x" * 10000},
+                json.loads(gzip.decompress(catalog_path.read_bytes())),
+            )
+
+            raw_path = root / "holdout-predictions.jsonl"
+            raw_path.write_bytes((b'{"value":1}\n') * 1000)
+            compressed_path = module._compress_and_remove(raw_path)
+            self.assertFalse(raw_path.exists())
+            self.assertEqual(
+                (b'{"value":1}\n') * 1000,
+                gzip.decompress(compressed_path.read_bytes()),
+            )
+
+            produced = root / "produced"
+            produced.mkdir()
+            manifest = produced / "manifest.json"
+            manifest.write_text("{}", encoding="utf-8")
+            inode = manifest.stat().st_ino
+            staged = root / "result" / "batch"
+            module._move_batch(produced, staged)
+            self.assertFalse(produced.exists())
+            self.assertEqual(inode, (staged / "manifest.json").stat().st_ino)
+            self.assertEqual([], list(root.rglob("*.backup")))
+            self.assertEqual([], list(root.rglob("*.install")))
+
     def test_emitted_tuning_catalog_must_match_new_batch_manifest(self) -> None:
         module = load_script()
         with TemporaryDirectory() as temporary:

@@ -493,24 +493,38 @@ def validate_batch_manifest(
         if not isinstance(quality_catalog, Mapping):
             raise ValueError("Runtime quality catalog reference must be an object")
         quality_path = Path(str(quality_catalog.get("path") or ""))
-        expected_quality_path = Path("batches", batch_id, "quality-catalog.json")
+        expected_quality_paths = {
+            Path("batches", batch_id, "quality-catalog.json"),
+            Path("batches", batch_id, "quality-catalog.json.gz"),
+        }
         digest = str(quality_catalog.get("sha256") or "")
-        if quality_path != expected_quality_path or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        if quality_path not in expected_quality_paths or not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise ValueError("Runtime quality catalog reference is invalid")
         checked_quality_catalog = {"path": quality_path.as_posix(), "sha256": digest}
+        selection_index = quality_catalog.get("selection_index")
+        if selection_index is not None:
+            if (
+                not isinstance(selection_index, Mapping)
+                or selection_index.get("schema_version") != "1.0"
+                or not isinstance(selection_index.get("species"), Mapping)
+                or not isinstance(selection_index.get("areas"), Mapping)
+            ):
+                raise ValueError("Runtime quality selection index is invalid")
+            checked_quality_catalog["selection_index"] = dict(selection_index)
     quality_audit_catalog = payload.get("quality_audit_catalog")
     checked_quality_audit_catalog = None
     if quality_audit_catalog is not None:
         if not isinstance(quality_audit_catalog, Mapping):
             raise ValueError("Runtime quality audit catalog reference must be an object")
         audit_path = Path(str(quality_audit_catalog.get("path") or ""))
-        expected_audit_path = Path(
-            "batches", batch_id, "quality-audit-catalog.json"
-        )
+        expected_audit_paths = {
+            Path("batches", batch_id, "quality-audit-catalog.json"),
+            Path("batches", batch_id, "quality-audit-catalog.json.gz"),
+        }
         audit_digest = str(quality_audit_catalog.get("sha256") or "")
         selection_id = str(quality_audit_catalog.get("selection_id") or "")
         if (
-            audit_path != expected_audit_path
+            audit_path not in expected_audit_paths
             or not re.fullmatch(r"[0-9a-f]{64}", audit_digest)
             or not re.fullmatch(r"sha256:[0-9a-f]{64}", selection_id)
         ):
@@ -547,7 +561,11 @@ def validate_batch_manifest(
         report_digest = str(benchmark_report.get("sha256") or "")
         report_id = str(benchmark_report.get("report_id") or "")
         if (
-            report_path != Path("batches", batch_id, "benchmark-report.json")
+            report_path
+            not in {
+                Path("batches", batch_id, "benchmark-report.json"),
+                Path("batches", batch_id, "benchmark-report.json.gz"),
+            }
             or not re.fullmatch(r"[0-9a-f]{64}", report_digest)
             or not re.fullmatch(r"sha256:[0-9a-f]{64}", report_id)
         ):
@@ -566,7 +584,10 @@ def validate_batch_manifest(
         row_count = holdout_predictions.get("row_count")
         if (
             predictions_path
-            != Path("batches", batch_id, "holdout-predictions.jsonl")
+            not in {
+                Path("batches", batch_id, "holdout-predictions.jsonl"),
+                Path("batches", batch_id, "holdout-predictions.jsonl.gz"),
+            }
             or not re.fullmatch(r"[0-9a-f]{64}", predictions_digest)
             or not isinstance(row_count, int)
             or isinstance(row_count, bool)

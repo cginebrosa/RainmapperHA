@@ -405,6 +405,28 @@ def build_catalog_bundle(
     return catalog, audit_catalog
 
 
+def operational_selection_index(catalog: Mapping[str, Any]) -> dict[str, Any]:
+    """Return only winner/abstention coverage needed by HA artifact planning."""
+    checked = validate_catalog(catalog, require_selections=True)
+    species: dict[str, dict[str, bool]] = {}
+    areas: dict[str, dict[str, dict[str, bool]]] = {}
+    for row in checked["species_selections"]:
+        species.setdefault(str(row["species_id"]), {})[
+            str(int(row["prediction_day"]))
+        ] = row.get("selection_status") == "winner"
+    for row in checked["species_area_selections"]:
+        areas.setdefault(str(row["species_id"]), {}).setdefault(
+            str(row["area_id"]), {}
+        )[str(int(row["prediction_day"]))] = (
+            row.get("selection_status") == "winner"
+        )
+    return {
+        "schema_version": "1.0",
+        "species": species,
+        "areas": areas,
+    }
+
+
 def _selection_payload(catalog: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": catalog.get("selection_schema_version"),

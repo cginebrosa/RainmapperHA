@@ -271,6 +271,9 @@ class MushroomMLMultiversionTransportTests(TestCase):
             self.assertEqual("verified", verified["status"])
             self.assertFalse((models / "runtime-batch.json").exists())
             self.assertTrue((staging / job_id / "multiversion").is_dir())
+            staged_manifest_inode = (
+                staging / job_id / "multiversion" / "batch" / "manifest.json"
+            ).stat().st_ino
 
             with mock.patch.object(
                 transport,
@@ -288,6 +291,17 @@ class MushroomMLMultiversionTransportTests(TestCase):
             self.assertTrue(
                 (models / "batches" / batch_manifest["batch_id"] / "manifest.json").is_file()
             )
+            self.assertEqual(
+                staged_manifest_inode,
+                (
+                    models
+                    / "batches"
+                    / batch_manifest["batch_id"]
+                    / "manifest.json"
+                ).stat().st_ino,
+            )
+            self.assertFalse((staging / job_id / "multiversion" / "batch").exists())
+            self.assertEqual([], list((models / "batches").glob(".*.install")))
 
     def test_benchmark_result_is_archived_without_changing_runtime(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)

@@ -6,30 +6,53 @@ antes de asumir que este estado continúa vigente.
 
 ## Estado comprobado
 
-- Repositorio: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`;
-  el commit de release HA `0.2.293` debe ser el HEAD al retomar.
+- Repositorio: `/Users/carlosginebrosa/Developer/RainmapperHA`, rama `inicial`.
+  El punto de partida de esta corrección fue
+  `d975047801a85075513fc22066b339469b3a625f`; revalidar el HEAD tras el commit.
 - El fichero `mushroom-data/mushroom_observations.json` queda modificado fuera
   del commit de release porque pertenece al usuario. No limpiarlo, editarlo,
   restaurarlo ni incluirlo ciegamente en otro commit.
 - Fuente de datos local viva para entrenamiento y pruebas:
   `docker-data/mushroom-data/`. `mushroom-data/` contiene defaults para una
   instalación nueva; no sustituye los datos vivos descargados de HA.
-- Versiones declaradas en fuente: HA `0.2.293` en
-  `rainmapper-app/config.yaml` y worker `1.0.39` en
+- Versiones declaradas en fuente: HA `0.2.294` en
+  `rainmapper-app/config.yaml` y worker `1.0.40` en
   `rainmapper-worker/Dockerfile`.
-- HA `0.2.293` está publicada en GHCR. Los tags `0.2.293` y `latest` comparten
-  el digest `sha256:3dce0e5cecec99645f89313925d93cf6ff594711a383fa413d13ba276bc57e03`
+- HA `0.2.294` está publicada en GHCR. Los tags `0.2.294` y `latest` comparten
+  el digest `sha256:79610e563f9124cfc55ae28c57402d9cbd4d4ea3d2012a9b0427a0fb5c14cd9b`
   y contienen manifests `linux/amd64` y `linux/arm64`.
 - El contenedor local `rainmapper-local-rainmapper-ha-ui-1` se comprobó activo
   con la imagen `sha256:08a111d121f66c6554926c399e8352b5441a39b2a75e281edc3ebd1bcc81db92`.
   Dentro del contenedor, `EXPERIMENT_ESTIMATOR_IDS` contiene
   `knn_distance_beta_smoothed_v2` y no el KNN antiguo.
-- El worker local se comprobó activo y healthy con
-  `rainmapper-worker:1.0.39`, imagen
-  `sha256:55849222b054c6cc66d29541d3f5a678001c86e1c86134f3f59fb2f1e9316ef0`.
-  Conserva el volumen, la identidad `worker_1a9a232c20fe2ee2`, el emparejamiento
-  y las cachés; empaqueta el nuevo módulo de calibración y anuncia el KNN
-  suavizado como único KNN activo.
+- El worker local se reconstruyó y comprobó activo y healthy con
+  `rainmapper-worker:1.0.40`. Conserva el volumen, la identidad
+  `worker_1a9a232c20fe2ee2`, el emparejamiento, la caché GIS de 6.341.520.039
+  bytes y la URL autorizada `http://100.111.77.48:8100`. HA registró su
+  heartbeat 1.0.40 a las 2026-09-06T01:27:41Z.
+
+## Corrección de recursos publicada y pendiente de instalación real
+
+- El fallo real del precálculo fue `Worker precompute selections are too
+  large`: HA había expandido 504 resoluciones a 49.913.415 bytes antes de que
+  el worker pudiera sincronizar el runtime.
+- El contrato nuevo encola solo el mapa de 72 áreas, medido en 1.117 bytes. El
+  worker 1.0.40 sincroniza primero su runtime y resuelve allí los 420 ganadores,
+  cadenas y vetos de aplicabilidad. El límite de 16 MiB no se eleva.
+- Los nuevos lotes operativos guardan catálogo, auditoría, informe y hold-out
+  comprimidos. El catálogo real medido baja de 66.897.313 a 2.264.625 bytes y
+  la auditoría de 18.743.962 a 965.421 bytes.
+- HA planifica con un índice de ganador/abstención de 4.329 bytes; no abre el
+  catálogo completo. Auditoría, informe y hold-out no entran en el runtime ni
+  en la caché del worker.
+- El worker y HA mueven el lote verificado dentro del mismo sistema de ficheros
+  en vez de copiarlo. No se crean backups, árboles de rollback ni staging
+  `.install` para el lote operativo.
+- La generación real ya instalada es compatible: HA 0.2.294 y worker 1.0.40
+  pueden repetir el precálculo sin reentrenar. La compresión y el índice pequeño
+  se aplicarán a partir del siguiente entrenamiento.
+- Evidencia completa:
+  `docs/reports/mushroom-precompute-resource-regression-2026-09-06.md`.
 
 ## Cambio KNN implementado y materializado en local
 
@@ -118,20 +141,22 @@ antes de asumir que este estado continúa vigente.
 
 ## Próxima secuencia autorizable
 
-1. Instalar HA `0.2.293` en el equipo real solo con autorización explícita.
-2. Verificar versión, arranque, almacenamiento persistente y migración del
-   registro sin borrar generaciones fuera de la política de retención.
-3. Ejecutar allí entrenamiento y después precálculo, auditando las mismas
-   identidades, conteos y ausencia del KNN antiguo que en local.
-4. Medir especialmente la activación del SQLite de unos 29 MB en la RPi4.
+1. Instalar HA `0.2.294` en HA real solo con autorización explícita; el worker
+   privado `1.0.40` ya está preparado en el Mac.
+2. Verificar versión, arranque, emparejamiento y que el worker conserva la URL
+   autorizada `http://100.111.77.48:8100`.
+3. Reintentar directamente el precálculo de la generación ya instalada y
+   comprobar 504 coberturas, 420 miembros, integridad y ausencia del KNN
+   antiguo.
+4. En el siguiente entrenamiento, medir el lote comprimido y confirmar que HA
+   no crea copias ni incorpora la auditoría al runtime.
 
 ## Riesgos y dudas activas
 
-- La generación y el precálculo auditados son locales; todavía falta comprobar
-  el ciclo equivalente en HA real después de instalar `0.2.293`.
-- La RPi4 sufrió anteriormente una publicación/validación síncrona muy lenta
-  con un SQLite grande. El artefacto deduplicado local es de unos 29 MB, pero
-  falta medir allí el ciclo real completo.
+- El worker `1.0.40` está construido y operativo en local. HA `0.2.294` está
+  publicada y verificada en GHCR, pero aún no se ha instalado en HA real. La
+  corrección superó el smoke completo con 1.292 pruebas y la comprobación
+  funcional con el catálogo real; falta el ciclo en HA real.
 - El commit de release excluye expresamente las observaciones del usuario; ese
   fichero seguirá apareciendo como modificación local después del cierre.
 

@@ -13,6 +13,41 @@ from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_precompute_resolves_selections_from_runtime_without_ha_download(self) -> None:
+        job = {"area_ids_by_species": {"boletus_edulis": ["area-a"]}}
+        expected = [{"species_id": "boletus_edulis", "area_id": "area-a"}]
+        with (
+            mock.patch.object(
+                mushroom_worker_service.mushroom_predictor_runtime,
+                "service_paths",
+                return_value={
+                    "models_dir": Path("/runtime/models"),
+                    "version_registry_path": Path("/runtime/registry.json"),
+                },
+            ),
+            mock.patch.object(
+                mushroom_worker_service.mushroom_predictor_runtime,
+                "operational_reliability_selections",
+                return_value=expected,
+            ) as resolve,
+            mock.patch.object(
+                mushroom_worker_service,
+                "download_predictor_precompute_operational_selections",
+            ) as download,
+        ):
+            actual = mushroom_worker_service.resolve_predictor_precompute_operational_selections(
+                job,
+                Path("/runtime"),
+                ha_url="http://ha",
+                worker_id="worker_12345678",
+                claim_token="claim-secret",
+                token="coordinator-secret",
+            )
+
+        self.assertEqual(expected, actual)
+        resolve.assert_called_once()
+        download.assert_not_called()
+
     def test_precompute_selections_are_downloaded_and_verified_outside_claim(self) -> None:
         selections = {"boletus_edulis": [{"profile_key": "biology_v4:model"}]}
         reference = (
@@ -241,10 +276,17 @@ class MushroomWorkerServiceTests(unittest.TestCase):
                 result,
             )
 
-            self.assertEqual(cached["cached_objects"], 4)
+            self.assertEqual(cached["cached_objects"], 3)
             self.assertEqual(
                 len(list((root / "worker/predictor-runtime/objects").iterdir())),
-                4,
+                3,
+            )
+            self.assertFalse(
+                (
+                    root
+                    / "worker/predictor-runtime/objects"
+                    / hashlib.sha256(quality_audit.read_bytes()).hexdigest()
+                ).exists()
             )
 
     def test_job_telemetry_coalesces_progress_and_control_every_ten_seconds(self) -> None:

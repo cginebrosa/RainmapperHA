@@ -64,6 +64,21 @@ siendo exactamente la misma. Si no puede determinarse con seguridad el destino
 existente, detenerse y pedir autorización; no usar por defecto un coordinador
 local ni ningún otro fallback.
 
+## Presupuesto de recursos de Home Assistant
+
+Rainmapper HA real se ejecuta en una Raspberry Pi 4 compartida con otros
+servicios. Tratar CPU, memoria, disco, escrituras y serialización como recursos
+estrictamente limitados. PROHIBIDO aplicar fuerza bruta, duplicar estructuras
+grandes por área/día/modelo, regenerar artefactos costosos para diagnosticarlos
+o elevar límites como sustituto de corregir el diseño sin autorización expresa.
+
+Antes de añadir o transportar un payload, medir su cardinalidad y tamaño,
+deduplicar datos repetidos mediante referencias y mantener la evidencia
+diagnóstica fuera del contrato operativo mínimo. Los productores deben rechazar
+un payload sobredimensionado antes de materializarlo o encolarlo. Para investigar
+HA real, priorizar metadatos y artefactos ya persistidos; no repetir entrenamiento,
+precálculo ni construcción de runtime salvo autorización expresa.
+
 ## Validación proporcional
 
 Ejecutar la comprobación mínima suficiente para el riesgo real del cambio.

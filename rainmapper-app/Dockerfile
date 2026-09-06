@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.293" \
+LABEL io.hass.version="0.2.294" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.293
+ENV RAINMAPPER_APP_VERSION=0.2.294
 
 WORKDIR /app
 

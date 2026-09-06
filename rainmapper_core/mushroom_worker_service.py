@@ -484,6 +484,39 @@ def download_predictor_precompute_operational_selections(
     return selections
 
 
+def resolve_predictor_precompute_operational_selections(
+    job: dict[str, Any],
+    runtime_root: Path,
+    *,
+    ha_url: str,
+    worker_id: str,
+    claim_token: str,
+    token: str,
+) -> list[dict[str, Any]] | dict[str, list[dict[str, Any]]]:
+    """Resolve new jobs locally; download only legacy already-queued payloads."""
+    area_ids_by_species = job.get("area_ids_by_species")
+    if isinstance(area_ids_by_species, dict):
+        checked_area_ids = mushroom_worker_jobs.normalize_predictor_precompute_area_ids(
+            area_ids_by_species
+        )
+        runtime_paths = mushroom_predictor_runtime.service_paths(runtime_root)
+        resolved = mushroom_predictor_runtime.operational_reliability_selections(
+            models_dir=runtime_paths["models_dir"],
+            version_registry_path=runtime_paths["version_registry_path"],
+            area_ids_by_species=checked_area_ids,
+        )
+        if not isinstance(resolved, list):  # pragma: no cover - materialized above
+            raise RuntimeError("Worker did not materialize operational selections.")
+        return resolved
+    return download_predictor_precompute_operational_selections(
+        ha_url,
+        job,
+        worker_id=worker_id,
+        claim_token=claim_token,
+        token=token,
+    )
+
+
 def cache_ml_train_predictor_objects(worker_data_dir: Path, candidate_dir: Path) -> dict[str, int]:
     """Preserve locally trained v0/shadow models before terminal job cleanup."""
     root = Path(candidate_dir)
@@ -530,15 +563,6 @@ def cache_multiversion_predictor_objects(
             {
                 "path": quality.get("path"),
                 "sha256": quality.get("sha256"),
-                "size_bytes": None,
-            }
-        )
-    quality_audit = manifest.get("quality_audit_catalog")
-    if isinstance(quality_audit, dict):
-        referenced.append(
-            {
-                "path": quality_audit.get("path"),
-                "sha256": quality_audit.get("sha256"),
                 "size_bytes": None,
             }
         )
@@ -1185,33 +1209,7 @@ def serve(
                                 "status": "predictor_precompute_phase",
                                 "service": "rainmapper-worker",
                                 "job_id": job_id,
-                                "phase": "selection_sync",
-                            },
-                            ensure_ascii=False,
-                        ),
-                        flush=True,
-                    )
-                    selection_sync_started = time.perf_counter()
-                    operational_selections = with_transport_retry(
-                        lambda: download_predictor_precompute_operational_selections(
-                            ha_url,
-                            job,
-                            worker_id=identity["worker_id"],
-                            claim_token=claim_token,
-                            token=token,
-                        )
-                    )
-                    selection_sync_seconds = round(
-                        time.perf_counter() - selection_sync_started, 6
-                    )
-                    print(
-                        json.dumps(
-                            {
-                                "status": "predictor_precompute_phase",
-                                "service": "rainmapper-worker",
-                                "job_id": job_id,
                                 "phase": "runtime_sync",
-                                "selection_sync_seconds": selection_sync_seconds,
                             },
                             ensure_ascii=False,
                         ),
@@ -1238,6 +1236,16 @@ def serve(
                     fingerprint = str(manifest["fingerprint"])
                     if fingerprint != artifact_identity.runtime_fingerprint:
                         raise ValueError("Precompute runtime does not match artifact identity.")
+                    operational_selections = with_transport_retry(
+                        lambda: resolve_predictor_precompute_operational_selections(
+                            job,
+                            runtime_root,
+                            ha_url=ha_url,
+                            worker_id=identity["worker_id"],
+                            claim_token=claim_token,
+                            token=token,
+                        )
+                    )
                     service_setup_started = time.perf_counter()
                     with predictor_services_lock:
                         if fingerprint not in predictor_services:
@@ -1256,7 +1264,6 @@ def serve(
                     )
                     staged_artifact = staging_dir / f"{job_id}.sqlite3"
                     worker_phase_timings: dict[str, float] = {
-                        "selection_sync_seconds": selection_sync_seconds,
                         "service_setup_seconds": service_setup_seconds,
                         "preparation_seconds": round(
                             time.perf_counter() - precompute_started, 6

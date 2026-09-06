@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
+import io
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -71,10 +74,47 @@ def parse_args() -> argparse.Namespace:
 
 
 def _load(path: Path) -> dict:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    content = path.read_bytes()
+    if path.suffix == ".gz":
+        content = gzip.decompress(content)
+    payload = json.loads(content)
     if not isinstance(payload, dict):
         raise ValueError(f"Benchmark must be an object: {path}")
     return payload
+
+
+def _write_gzip_json(path: Path, payload: object) -> None:
+    """Write canonical compact JSON directly to gzip without a raw sibling."""
+    with path.open("wb") as raw:
+        with gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=6, mtime=0) as compressed:
+            with io.TextIOWrapper(compressed, encoding="utf-8") as text:
+                json.dump(
+                    payload,
+                    text,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
+                text.write("\n")
+
+
+def _compress_and_remove(source: Path) -> Path:
+    """Replace one generated audit file with its deterministic gzip form."""
+    destination = source.with_name(source.name + ".gz")
+    with source.open("rb") as raw, destination.open("wb") as target:
+        with gzip.GzipFile(
+            fileobj=target, mode="wb", compresslevel=6, mtime=0
+        ) as compressed:
+            shutil.copyfileobj(raw, compressed, length=1024 * 1024)
+    source.unlink()
+    return destination
+
+
+def _move_batch(source: Path, destination: Path) -> None:
+    """Stage a completed batch by rename, never by duplicate tree copy."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if source.stat().st_dev != destination.parent.stat().st_dev:
+        raise ValueError("Produced batch and result staging must share one filesystem")
+    os.replace(source, destination)
 
 
 def _load_optional(path: Path | None) -> dict | None:
@@ -424,11 +464,14 @@ def main() -> int:
             _validate_emitted_tuning_catalog(destination, manifest)
         if operational and args.quality_catalog is not None:
             assert source_quality_catalog is not None
-            quality_path = destination / "quality-catalog.json"
-            shutil.copyfile(args.quality_catalog, quality_path)
+            quality_path = destination / "quality-catalog.json.gz"
+            _write_gzip_json(quality_path, source_quality_catalog)
             manifest["quality_catalog"] = {
-                "path": "batches/" + manifest["batch_id"] + "/quality-catalog.json",
+                "path": "batches/" + manifest["batch_id"] + "/" + quality_path.name,
                 "sha256": _sha256(quality_path),
+                "selection_index": mushroom_ml_quality_catalog.operational_selection_index(
+                    source_quality_catalog
+                ),
             }
         if args.quality_catalog is None:
             expected_estimators: dict[str, list[str]] = {}
@@ -447,31 +490,42 @@ def main() -> int:
                 expected_estimators=expected_estimators,
             )
             )
-            quality_path = destination / "quality-catalog.json"
-            quality_path.write_text(
-                json.dumps(quality_catalog, indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
+            quality_path = destination / (
+                "quality-catalog.json.gz" if operational else "quality-catalog.json"
             )
-            manifest["quality_catalog"] = {
-                "path": "batches/" + manifest["batch_id"] + "/quality-catalog.json",
-                "sha256": _sha256(quality_path),
-            }
-            quality_audit_path = destination / "quality-audit-catalog.json"
-            quality_audit_path.write_text(
-                json.dumps(
-                    quality_audit_catalog,
-                    ensure_ascii=False,
-                    separators=(",", ":"),
+            if operational:
+                _write_gzip_json(quality_path, quality_catalog)
+            else:
+                quality_path.write_text(
+                    json.dumps(quality_catalog, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
                 )
-                + "\n",
-                encoding="utf-8",
-            )
-            manifest["quality_audit_catalog"] = {
-                "path": (
-                    "batches/"
-                    + manifest["batch_id"]
-                    + "/quality-audit-catalog.json"
+            manifest["quality_catalog"] = {
+                "path": "batches/" + manifest["batch_id"] + "/" + quality_path.name,
+                "sha256": _sha256(quality_path),
+                "selection_index": mushroom_ml_quality_catalog.operational_selection_index(
+                    quality_catalog
                 ),
+            }
+            quality_audit_path = destination / (
+                "quality-audit-catalog.json.gz"
+                if operational
+                else "quality-audit-catalog.json"
+            )
+            if operational:
+                _write_gzip_json(quality_audit_path, quality_audit_catalog)
+            else:
+                quality_audit_path.write_text(
+                    json.dumps(
+                        quality_audit_catalog,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            manifest["quality_audit_catalog"] = {
+                "path": "batches/" + manifest["batch_id"] + "/" + quality_audit_path.name,
                 "sha256": _sha256(quality_audit_path),
                 "selection_id": quality_audit_catalog["selection_id"],
             }
@@ -488,13 +542,16 @@ def main() -> int:
             )
             report_path = report_result["report_path"]
             predictions_path = report_result["predictions_path"]
+            if operational:
+                report_path = _compress_and_remove(report_path)
+                predictions_path = _compress_and_remove(predictions_path)
             manifest["benchmark_report"] = {
-                "path": "batches/" + manifest["batch_id"] + "/benchmark-report.json",
+                "path": "batches/" + manifest["batch_id"] + "/" + report_path.name,
                 "sha256": _sha256(report_path),
                 "report_id": report_result["report"]["report_id"],
             }
             manifest["holdout_predictions"] = {
-                "path": "batches/" + manifest["batch_id"] + "/holdout-predictions.jsonl",
+                "path": "batches/" + manifest["batch_id"] + "/" + predictions_path.name,
                 "sha256": _sha256(predictions_path),
                 "row_count": report_result["report"]["holdout_predictions"]["row_count"],
             }
@@ -562,7 +619,13 @@ def main() -> int:
         result_batch = args.result_manifest.parent / "batch"
         if result_batch.exists():
             raise FileExistsError(f"Result batch already exists: {result_batch}")
-        shutil.copytree(destination, result_batch)
+        _move_batch(destination, result_batch)
+        summary["batch_dir"] = str(result_batch)
+        summary["manifest_path"] = str(result_batch / "manifest.json")
+        args.summary.write_text(
+            json.dumps(summary, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         result_files = [
             {
                 "path": "batch/manifest.json",
@@ -571,30 +634,27 @@ def main() -> int:
             }
         ]
         if isinstance(manifest.get("quality_catalog"), dict):
+            filename = Path(manifest["quality_catalog"]["path"]).name
             result_files.append(
                 {
-                    "path": "batch/quality-catalog.json",
-                    "size_bytes": (result_batch / "quality-catalog.json").stat().st_size,
-                    "sha256": _sha256(result_batch / "quality-catalog.json"),
+                    "path": "batch/" + filename,
+                    "size_bytes": (result_batch / filename).stat().st_size,
+                    "sha256": _sha256(result_batch / filename),
                 }
             )
         if isinstance(manifest.get("quality_audit_catalog"), dict):
+            filename = Path(manifest["quality_audit_catalog"]["path"]).name
             result_files.append(
                 {
-                    "path": "batch/quality-audit-catalog.json",
-                    "size_bytes": (
-                        result_batch / "quality-audit-catalog.json"
-                    ).stat().st_size,
-                    "sha256": _sha256(
-                        result_batch / "quality-audit-catalog.json"
-                    ),
+                    "path": "batch/" + filename,
+                    "size_bytes": (result_batch / filename).stat().st_size,
+                    "sha256": _sha256(result_batch / filename),
                 }
             )
-        for key, filename in (
-            ("benchmark_report", "benchmark-report.json"),
-            ("holdout_predictions", "holdout-predictions.jsonl"),
-        ):
-            if isinstance(manifest.get(key), dict):
+        for key in ("benchmark_report", "holdout_predictions"):
+            reference = manifest.get(key)
+            if isinstance(reference, dict):
+                filename = Path(reference["path"]).name
                 path = result_batch / filename
                 result_files.append(
                     {
