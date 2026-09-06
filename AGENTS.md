@@ -51,6 +51,19 @@ el cliente local no termina después de subir las capas, no cancelarlo hasta
 verificar en GHCR los tags de versión y `latest`, el mismo digest y los manifests
 `linux/amd64` y `linux/arm64`.
 
+## Protección del destino del worker
+
+PROHIBIDO cambiar la IP, el hostname o la URL del coordinador configurado en un
+worker sin autorización expresa del usuario para ese destino concreto. Una
+autorización para reconstruir, recrear, reiniciar, actualizar o probar el worker
+no autoriza a modificar su coordinador.
+
+Antes de reconstruir, recrear o reiniciar un worker existente, leer y conservar
+su URL persistida. Después de la operación, comprobar que la URL efectiva sigue
+siendo exactamente la misma. Si no puede determinarse con seguridad el destino
+existente, detenerse y pedir autorización; no usar por defecto un coordinador
+local ni ningún otro fallback.
+
 ## Validación proporcional
 
 Ejecutar la comprobación mínima suficiente para el riesgo real del cambio.
