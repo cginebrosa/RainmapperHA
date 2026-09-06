@@ -70,16 +70,30 @@ los diagnósticos ecológicos.
   nuevo, HA no abre el catálogo completo cuando existe el índice, los runtime no
   contienen auditoría y los dos movimientos conservan el inodo sin dejar
   `.install` ni copias.
-- Smoke completo superado sobre el código definitivo: 1.292 pruebas, sintaxis
+- Smoke completo superado sobre el código definitivo: 1.293 pruebas, sintaxis
   Python, JavaScript y shell, fixtures funcionales, empaquetado, versiones
-  HA 0.2.294/worker 1.0.40 y `git diff --check`.
-- Worker 1.0.40 reconstruido y verificado `healthy` con la misma identidad,
-  volumen, cachés y URL `http://100.111.77.48:8100`; el registro de HA recibió
-  el heartbeat de la versión nueva.
+  HA 0.2.294/worker 1.0.41 y `git diff --check`.
+- Worker 1.0.41 reconstruido y verificado `healthy` con la misma identidad,
+  volumen, cachés y URL `http://100.111.77.48:8100`. El endpoint local confirma
+  la versión nueva; el heartbeat en HA real se comprobará con el siguiente
+  trabajo.
+
+## Fallos detectados durante la prueba real
+
+- Los dos primeros intentos fueron terminados por falta de memoria
+  (`status -9`, `OOMKilled=true`) con 7,75 GiB disponibles. El segundo falló
+  durante la preparación porque el worker aún conservaba 1,78 GiB del servicio
+  predictivo cargado por un precálculo cancelado. Docker se amplió a 10,44 GiB
+  y se reiniciaron HA local y el worker para liberar esa memoria.
+- El tercer intento completó los entrenamientos, pero worker 1.0.40 movió el
+  lote al área de resultado y después intentó calcular la huella del manifiesto
+  en la ruta de origen ya movida. El worker 1.0.41 calcula la huella desde la
+  ruta nueva. Una regresión ejecuta ahora el cierre completo: crea el lote, lo
+  mueve sin copia, genera la huella y escribe el manifiesto de resultado.
 
 ## Despliegue
 
-HA 0.2.294 y worker 1.0.40 deben instalarse juntos para usar el contrato nuevo.
+HA 0.2.294 y worker 1.0.41 deben instalarse juntos para usar el contrato nuevo.
 No requieren repetir el entrenamiento actual para desbloquear el precálculo:
 la generación instalada conserva el catálogo antiguo y el worker nuevo lo puede
 leer desde el runtime. El siguiente entrenamiento ya producirá los artefactos

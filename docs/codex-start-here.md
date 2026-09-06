@@ -44,12 +44,11 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   Preservar especialmente
   `mushroom-data/mushroom_observations.json`. Los datos vivos locales para
   entrenamiento están en `docker-data/mushroom-data/`.
-- Las fuentes declaran HA `0.2.294` y worker `1.0.40`. HA `0.2.294` está
+- Las fuentes declaran HA `0.2.294` y worker `1.0.41`. HA `0.2.294` está
   publicada; sus tags `0.2.294` y `latest` comparten el digest
   `sha256:79610e563f9124cfc55ae28c57402d9cbd4d4ea3d2012a9b0427a0fb5c14cd9b`
-  con manifests `linux/amd64` y `linux/arm64`. No se ha instalado todavía en HA
-  real.
-- El worker privado local `1.0.40` está healthy e idle, conserva identidad,
+  con manifests `linux/amd64` y `linux/arm64`, y está instalada en HA real.
+- El worker privado local `1.0.41` está healthy e idle, conserva identidad,
   emparejamiento, volumen, cachés y la URL autorizada
   `http://100.111.77.48:8100`.
 - Se adoptó `knn_distance_beta_smoothed_v2` como único KNN de nuevos
@@ -65,7 +64,7 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   y pasó integridad, hash, relaciones, conteos y auditoría del JSON comprimido.
   Contiene 504 predicciones base, 420 miembros, 623 respuestas lógicas y 143
   payloads deduplicados, con las tres vistas presentes y sin el KNN antiguo.
-- La corrección 0.2.294/1.0.40 elimina el JSON de 49.913.415 bytes previo al
+- La corrección 0.2.294/1.0.41 elimina el JSON de 49.913.415 bytes previo al
   precálculo, mantiene auditoría comprimida fuera del runtime y mueve los lotes
   operativos sin duplicarlos. La build y publicación multi-arquitectura están
   verificadas; tras instalar HA puede repetirse el precálculo actual sin

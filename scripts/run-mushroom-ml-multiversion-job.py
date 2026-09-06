@@ -692,7 +692,7 @@ def main() -> int:
             "batch_id": manifest["batch_id"],
             "snapshot_id": manifest["snapshot_id"],
             "files": result_files,
-            "batch_manifest_sha256": _sha256(destination / "manifest.json"),
+            "batch_manifest_sha256": _sha256(result_batch / "manifest.json"),
             "planned_fit_count": int(manifest.get("planned_fit_count", 0)),
             "successful_fit_count": int(manifest.get("successful_fit_count", 0)),
             "failed_fit_count": int(manifest.get("failed_fit_count", 0)),

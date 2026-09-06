@@ -16,7 +16,7 @@ antes de asumir que este estado continúa vigente.
   `docker-data/mushroom-data/`. `mushroom-data/` contiene defaults para una
   instalación nueva; no sustituye los datos vivos descargados de HA.
 - Versiones declaradas en fuente: HA `0.2.294` en
-  `rainmapper-app/config.yaml` y worker `1.0.40` en
+  `rainmapper-app/config.yaml` y worker `1.0.41` en
   `rainmapper-worker/Dockerfile`.
 - HA `0.2.294` está publicada en GHCR. Los tags `0.2.294` y `latest` comparten
   el digest `sha256:79610e563f9124cfc55ae28c57402d9cbd4d4ea3d2012a9b0427a0fb5c14cd9b`
@@ -26,18 +26,17 @@ antes de asumir que este estado continúa vigente.
   Dentro del contenedor, `EXPERIMENT_ESTIMATOR_IDS` contiene
   `knn_distance_beta_smoothed_v2` y no el KNN antiguo.
 - El worker local se reconstruyó y comprobó activo y healthy con
-  `rainmapper-worker:1.0.40`. Conserva el volumen, la identidad
+  `rainmapper-worker:1.0.41`. Conserva el volumen, la identidad
   `worker_1a9a232c20fe2ee2`, el emparejamiento, la caché GIS de 6.341.520.039
-  bytes y la URL autorizada `http://100.111.77.48:8100`. HA registró su
-  heartbeat 1.0.40 a las 2026-09-06T01:27:41Z.
+  bytes y la URL autorizada `http://100.111.77.48:8100`.
 
-## Corrección de recursos publicada y pendiente de instalación real
+## Corrección de recursos publicada y en prueba real
 
 - El fallo real del precálculo fue `Worker precompute selections are too
   large`: HA había expandido 504 resoluciones a 49.913.415 bytes antes de que
   el worker pudiera sincronizar el runtime.
 - El contrato nuevo encola solo el mapa de 72 áreas, medido en 1.117 bytes. El
-  worker 1.0.40 sincroniza primero su runtime y resuelve allí los 420 ganadores,
+  worker 1.0.41 sincroniza primero su runtime y resuelve allí los 420 ganadores,
   cadenas y vetos de aplicabilidad. El límite de 16 MiB no se eleva.
 - Los nuevos lotes operativos guardan catálogo, auditoría, informe y hold-out
   comprimidos. El catálogo real medido baja de 66.897.313 a 2.264.625 bytes y
@@ -48,7 +47,7 @@ antes de asumir que este estado continúa vigente.
 - El worker y HA mueven el lote verificado dentro del mismo sistema de ficheros
   en vez de copiarlo. No se crean backups, árboles de rollback ni staging
   `.install` para el lote operativo.
-- La generación real ya instalada es compatible: HA 0.2.294 y worker 1.0.40
+- La generación real ya instalada es compatible: HA 0.2.294 y worker 1.0.41
   pueden repetir el precálculo sin reentrenar. La compresión y el índice pequeño
   se aplicarán a partir del siguiente entrenamiento.
 - Evidencia completa:
@@ -141,8 +140,8 @@ antes de asumir que este estado continúa vigente.
 
 ## Próxima secuencia autorizable
 
-1. Instalar HA `0.2.294` en HA real solo con autorización explícita; el worker
-   privado `1.0.40` ya está preparado en el Mac.
+1. HA `0.2.294` ya está instalada en HA real; el worker privado `1.0.41` está
+   preparado en el Mac.
 2. Verificar versión, arranque, emparejamiento y que el worker conserva la URL
    autorizada `http://100.111.77.48:8100`.
 3. Reintentar directamente el precálculo de la generación ya instalada y
@@ -153,10 +152,10 @@ antes de asumir que este estado continúa vigente.
 
 ## Riesgos y dudas activas
 
-- El worker `1.0.40` está construido y operativo en local. HA `0.2.294` está
-  publicada y verificada en GHCR, pero aún no se ha instalado en HA real. La
-  corrección superó el smoke completo con 1.292 pruebas y la comprobación
-  funcional con el catálogo real; falta el ciclo en HA real.
+- El worker `1.0.41` está construido y operativo en local. HA `0.2.294` está
+  publicada, verificada e instalada en HA real. La corrección superó el smoke
+  completo con 1.293 pruebas y una regresión funcional del cierre del lote;
+  falta repetir el entrenamiento y el precálculo en HA real.
 - El commit de release excluye expresamente las observaciones del usuario; ese
   fichero seguirá apareciendo como modificación local después del cierre.
 

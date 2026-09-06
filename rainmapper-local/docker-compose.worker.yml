@@ -6,8 +6,8 @@ services:
       context: ..
       dockerfile: rainmapper-worker/Dockerfile
       args:
-        RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.40}
-    image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.40}
+        RAINMAPPER_WORKER_VERSION: ${RAINMAPPER_WORKER_VERSION:-1.0.41}
+    image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.0.41}
     pull_policy: never
     container_name: rainmapper-worker
     environment:

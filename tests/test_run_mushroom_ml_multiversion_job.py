@@ -3,9 +3,11 @@ from __future__ import annotations
 import importlib.util
 import gzip
 import json
+from argparse import Namespace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_version_registry
@@ -66,6 +68,106 @@ def complete_quality_catalog(module):
 
 
 class RunMushroomMLMultiversionJobTests(TestCase):
+    def test_main_hashes_manifest_after_batch_is_moved_to_result_staging(self) -> None:
+        module = load_script()
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            produced_batch = root / "models" / "batches" / "batch-test"
+            result_manifest = root / "result" / "multiversion_result.json"
+            summary_path = root / "summary.json"
+            args = Namespace(
+                registry=root / "registry.json",
+                generation=[("biology_v3", "generation-test")],
+                job_purpose="benchmark",
+                profile_key=[],
+                version=["biology_v3"],
+                batch_id="batch-test",
+                snapshot_id="sha256:" + "a" * 64,
+                species=[],
+                operational_plan=None,
+                tuning_catalog=None,
+                quality_catalog=root / "unused-quality-catalog.json",
+                v3_fixed=root / "v3-fixed.json",
+                v3_lag=root / "v3-lag.json",
+                v4_fixed=None,
+                v4_lag=None,
+                v5_fixed=None,
+                v5_lag=None,
+                v2_v5_heldout=root / "v2-v5.jsonl",
+                v6_heldout=root / "v6.jsonl",
+                models_root=root / "models",
+                progress_jsonl=None,
+                job_id="job-test",
+                result_manifest=result_manifest,
+                summary=summary_path,
+                training_input_manifest=None,
+            )
+            manifest = {
+                "batch_id": "batch-test",
+                "snapshot_id": args.snapshot_id,
+                "artifacts": [],
+                "planned_fit_count": 0,
+                "successful_fit_count": 0,
+                "failed_fit_count": 0,
+            }
+            args.v3_fixed.write_text("{}\n", encoding="utf-8")
+            args.v3_lag.write_text("{}\n", encoding="utf-8")
+
+            def write_batch(*_args, **_kwargs):
+                produced_batch.mkdir(parents=True)
+                (produced_batch / "manifest.json").write_text(
+                    json.dumps(manifest) + "\n", encoding="utf-8"
+                )
+                return produced_batch, dict(manifest)
+
+            with (
+                patch.object(module, "parse_args", return_value=args),
+                patch.object(
+                    module.mushroom_ml_version_registry,
+                    "load_registry",
+                    return_value={},
+                ),
+                patch.object(
+                    module,
+                    "resolve_training_scope",
+                    return_value=([], [], ["biology_v3"]),
+                ),
+                patch.object(
+                    module.mushroom_ml_model_catalog,
+                    "catalog_entries",
+                    return_value=[],
+                ),
+                patch.object(
+                    module.mushroom_ml_multiversion_plan,
+                    "build_plan",
+                    return_value={"fit_count": 0, "fits": [], "profile_keys": []},
+                ),
+                patch.object(
+                    module.mushroom_ml_runtime_trainer,
+                    "materialize_runtime_benchmarks",
+                    return_value={},
+                ),
+                patch.object(
+                    module.mushroom_ml_runtime_trainer,
+                    "write_batch",
+                    side_effect=write_batch,
+                ),
+            ):
+                self.assertEqual(0, module.main())
+
+            staged_batch = result_manifest.parent / "batch"
+            self.assertFalse(produced_batch.exists())
+            self.assertTrue((staged_batch / "manifest.json").is_file())
+            result = json.loads(result_manifest.read_text(encoding="utf-8"))
+            self.assertEqual(
+                module._sha256(staged_batch / "manifest.json"),
+                result["batch_manifest_sha256"],
+            )
+            self.assertEqual(
+                "batch/manifest.json",
+                result["files"][0]["path"],
+            )
+
     def test_operational_archive_helpers_leave_only_compressed_storage(self) -> None:
         module = load_script()
         with TemporaryDirectory() as temporary:
