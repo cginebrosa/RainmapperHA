@@ -2517,6 +2517,108 @@ class AuthDeviceLimitTests(unittest.TestCase):
         factory.assert_called_once()
         thread.start.assert_called_once_with()
 
+    def test_published_precompute_desire_is_not_requeued_after_restart(self) -> None:
+        identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
+            runtime_fingerprint="sha256:" + "a" * 64,
+            issue_date="2026-09-07",
+            trained_species_ids=["boletus"],
+            installed_versions=[
+                self.web_server.mushroom_predictor_precompute.RuntimeVersionIdentity.create(
+                    version_id="biology_v4",
+                    generation_id="generation-v4",
+                    profile_ids=["extended_weather"],
+                )
+            ],
+            expected_counts={
+                "species": 1,
+                "areas": 1,
+                "days": 7,
+                "versions": 1,
+                "members": 7,
+            },
+        )
+        heartbeat = {
+            "worker_id": "worker_aaaaaaaa",
+            "display_name": "Worker A",
+            "capabilities": [
+                self.web_server.mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            desired_path = root / "desired.json"
+            jobs_path = root / "jobs.json"
+            artifact_path = root / "active.sqlite3"
+            receipt_path = root / "active-receipt.json"
+            desired = (
+                self.web_server.mushroom_predictor_precompute_control.advance_desired_state(
+                    desired_path,
+                    identity=identity,
+                    worker_id="worker_aaaaaaaa",
+                    trigger_origin="manual",
+                )
+            )
+            artifact_path.write_bytes(b"published")
+            receipt_path.write_text("{}", encoding="utf-8")
+            receipt = (
+                self.web_server.mushroom_predictor_precompute_control.PublicationReceipt(
+                    receipt_id="sha256:" + "b" * 64,
+                    desired_revision=int(desired["revision"]),
+                    artifact_id=identity.artifact_id,
+                    file_sha256="sha256:" + "c" * 64,
+                    size_bytes=artifact_path.stat().st_size,
+                )
+            )
+            with (
+                mock.patch.object(
+                    self.web_server.mushroom_worker_registry,
+                    "load_registry",
+                    return_value={"default_executor": "worker:worker_aaaaaaaa"},
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "mushroom_worker_jobs_path",
+                    return_value=jobs_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_desired_path",
+                    return_value=desired_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_artifact_path",
+                    return_value=artifact_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_paths,
+                    "mushroom_predictor_precompute_receipt_path",
+                    return_value=receipt_path,
+                ),
+                mock.patch.object(
+                    self.web_server.mushroom_predictor_precompute_control.PublicationReceipt,
+                    "from_dict",
+                    return_value=receipt,
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "MUSHROOM_PRECOMPUTE_RECONCILE_ATTEMPTS",
+                    set(),
+                ),
+                mock.patch.object(
+                    self.web_server,
+                    "predictor_precompute_plan",
+                    side_effect=AssertionError("published desire must not be replanned"),
+                ) as plan,
+            ):
+                existing = self.web_server.reconcile_mushroom_predictor_precompute_desire(
+                    heartbeat
+                )
+
+            self.assertIsNone(existing)
+            plan.assert_not_called()
+            self.assertEqual([], self.web_server.mushroom_worker_jobs.load_queue(jobs_path)["jobs"])
+
     def test_failed_precompute_revision_is_not_requeued_after_restart(self) -> None:
         identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(
             runtime_fingerprint="sha256:" + "a" * 64,
@@ -3261,6 +3363,91 @@ class AuthDeviceLimitTests(unittest.TestCase):
         timing = render_page.call_args.kwargs["prediction_timing"]
         self.assertEqual(timing["precompute_status"], "outdated_used")
         self.assertIn("precompute_generated_at", timing)
+
+    def test_predictor_uses_stale_precompute_while_runtime_publication_is_dirty(self) -> None:
+        self.addCleanup(self.reset_run_state)
+        handler = self.web_server.RainmapperHandler.__new__(
+            self.web_server.RainmapperHandler
+        )
+        captured: dict[str, object] = {}
+        handler.send_bytes = lambda status, content, content_type: captured.update(
+            status=status, content=content, content_type=content_type
+        )
+        store = mock.MagicMock()
+        store.load.return_value = {"species_profiles": []}
+        predictor_request = {
+            "view": "recommender",
+            "trained_species_ids": ["boletus_edulis"],
+        }
+        precomputed_response = {"metrics": {}}
+        lookup = self.web_server.mushroom_predictor_precompute.LookupResult(
+            True,
+            precomputed_response,
+            "identity_mismatch",
+            "sha256:old-artifact",
+            1,
+            stale=True,
+            artifact_mtime=1788298200.0,
+        )
+
+        with (
+            mock.patch.object(
+                self.web_server, "build_predictor_request", return_value=predictor_request
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_runtime,
+                "load_published_manifest_metadata",
+                side_effect=ValueError("Predictor runtime publication is dirty."),
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_precompute,
+                "lookup_active_artifact",
+                return_value=lookup,
+            ) as artifact_lookup,
+            mock.patch.object(
+                self.web_server, "predictor_precompute_activity_status", return_value="running"
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui, "execute_predictor_request"
+            ) as live_execute,
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "predictor_cache_info",
+                return_value={"cold_request": False},
+            ),
+            mock.patch.object(self.web_server, "default_store", return_value=store),
+            mock.patch.object(
+                self.web_server.mushroom_known_sites,
+                "load_payload",
+                return_value={"known_sites": []},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_ml_training_freshness,
+                "assess",
+                return_value={"status": "current"},
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_predictor_ui,
+                "render_page",
+                return_value="<div>stale precomputed predictor</div>",
+            ) as render_page,
+        ):
+            handler.render_mushroom_predictor({})
+
+        self.assertEqual(captured["status"], 200)
+        artifact_lookup.assert_called_once_with(
+            mock.ANY,
+            runtime_fingerprint="",
+            request=predictor_request,
+        )
+        live_execute.assert_not_called()
+        self.assertIs(
+            render_page.call_args.kwargs["prepared_response"], precomputed_response
+        )
+        self.assertEqual(
+            render_page.call_args.kwargs["prediction_timing"]["precompute_status"],
+            "outdated_used",
+        )
 
     def test_real_ha_never_falls_back_to_online_predictor(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(

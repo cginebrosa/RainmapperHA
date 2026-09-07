@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.296
+
+- Keep serving the last self-contained Predictor precompute as explicitly stale
+  while the runner replaces the published runtime.
+- Resolve dated queries across midnight from their single sealed SQLite response
+  instead of rebuilding hundreds of operational members.
+- Do not enqueue an already published precompute again after a coordinator
+  restart when its matching queue history has been compacted.
+
 ## 0.2.295
 
 - Keep a weekly Predictor precompute current across midnight while its runtime

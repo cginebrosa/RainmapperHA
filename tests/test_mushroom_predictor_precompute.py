@@ -1654,6 +1654,26 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
                 sealed_query.response["request"], sealed_query_request
             )
 
+            next_day_request = {
+                **sealed_query_request,
+                "target_date": (self.issue_date + timedelta(days=1)).isoformat(),
+                "issue_date": (self.issue_date + timedelta(days=1)).isoformat(),
+            }
+            with mock.patch(
+                "rainmapper_core.mushroom_predictor_precompute.validate_response",
+                side_effect=AssertionError(
+                    "cross-midnight sealed query lookup must not revalidate or recompose"
+                ),
+            ):
+                next_day_query = lookup_active_artifact(
+                    target,
+                    runtime_fingerprint=identity.runtime_fingerprint,
+                    request=next_day_request,
+                )
+            self.assertTrue(next_day_query.hit, next_day_query.reason)
+            self.assertEqual(next_day_query.rows_read, 1)
+            self.assertEqual(next_day_query.response["request"], next_day_request)
+
         self.assertEqual(identity.as_dict()["expected_counts"]["members"], 7)
         self.assertEqual(result.operational_member_count, 7)
         self.assertEqual(set(service.resolution_index_sizes), {7})

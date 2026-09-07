@@ -1836,15 +1836,23 @@ class ArtifactReader:
         self, normalized: Mapping[str, object]
     ) -> LookupResult | None:
         """Read one already sealed area/date response without recomposition."""
+        artifact_request = (
+            {
+                **dict(normalized),
+                "issue_date": self.identity.issue_date,
+            }
+            if normalized.get("issue_date") != self.identity.issue_date
+            else normalized
+        )
         if not (
             normalized.get("view") == "query"
             and normalized.get("area_id")
             and normalized.get("filter_mode") == ""
-            and self._has_sealed_query_resolution(normalized)
+            and self._has_sealed_query_resolution(artifact_request)
         ):
             return None
         try:
-            row = self._multiversion_template_row(normalized)
+            row = self._multiversion_template_row(artifact_request)
             if row is None:
                 return None
             response = json.loads(

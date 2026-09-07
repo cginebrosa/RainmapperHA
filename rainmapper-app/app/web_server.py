@@ -13685,6 +13685,25 @@ def reconcile_mushroom_predictor_precompute_desire(
         )
     if existing is not None:
         return dict(existing)
+    receipt_path = mushroom_paths.mushroom_predictor_precompute_receipt_path()
+    artifact_path = mushroom_paths.mushroom_predictor_precompute_artifact_path()
+    try:
+        receipt = mushroom_predictor_precompute_control.PublicationReceipt.from_dict(
+            json.loads(receipt_path.read_text(encoding="utf-8"))
+        )
+    except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
+        receipt = None
+    if (
+        receipt is not None
+        and receipt.desired_revision == desired.get("revision")
+        and receipt.artifact_id == desired.get("artifact_id")
+        and artifact_path.is_file()
+        and artifact_path.stat().st_size == receipt.size_bytes
+    ):
+        # Publication receipts are written only after the immutable SQLite has
+        # been validated and activated.  A coordinator restart must not replay
+        # that already satisfied desire when its old queue entry is unavailable.
+        return None
     # A cancelled or stale desire remains persisted for UI traceability.  Do not
     # rebuild its comparatively expensive scientific plan on every two-second
     # worker heartbeat.  A new manual/runner request advances the revision and
@@ -20713,6 +20732,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             predictor_request = build_predictor_request(
                 query, expand_multiversion=False
             )
+            runtime_fingerprint = ""
             try:
                 runtime_manifest = (
                     mushroom_predictor_runtime.load_published_manifest_metadata(
@@ -20720,19 +20740,19 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     )
                 )
             except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError):
-                coordinator_precompute_lookup = (
-                    mushroom_predictor_precompute.LookupResult(
-                        False, None, "artifact_missing"
-                    )
-                )
+                # The runner marks the runtime publication dirty while replacing
+                # its inputs.  The active precompute is self-contained, so keep
+                # serving it as stale until the next artifact is published.
+                pass
             else:
-                coordinator_precompute_lookup = (
-                    mushroom_predictor_precompute.lookup_active_artifact(
-                        mushroom_paths.mushroom_predictor_precompute_artifact_path(),
-                        runtime_fingerprint=str(runtime_manifest["fingerprint"]),
-                        request=predictor_request,
-                    )
+                runtime_fingerprint = str(runtime_manifest["fingerprint"])
+            coordinator_precompute_lookup = (
+                mushroom_predictor_precompute.lookup_active_artifact(
+                    mushroom_paths.mushroom_predictor_precompute_artifact_path(),
+                    runtime_fingerprint=runtime_fingerprint,
+                    request=predictor_request,
                 )
+            )
             if (
                 not coordinator_precompute_lookup.hit
                 and coordinator_precompute_lookup.reason
@@ -20745,7 +20765,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     coordinator_precompute_lookup = (
                         mushroom_predictor_precompute.lookup_active_artifact(
                             mushroom_paths.mushroom_predictor_precompute_artifact_path(),
-                            runtime_fingerprint=str(runtime_manifest["fingerprint"]),
+                            runtime_fingerprint=runtime_fingerprint,
                             request=predictor_request,
                         )
                     )
