@@ -39,8 +39,9 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 
 ## Estado general al cierre de 2026-09-08
 
-- Rama `inicial`; HEAD y `origin/inicial` estaban en `6055dabc72a2` al cierre,
-  release HA `0.2.297`. La fuente y HA local declaran esa versión. GHCR
+- Rama `inicial`; el commit funcional de la release HA `0.2.297` es
+  `6055dabc72a2` y HEAD contiene además el cierre documental. La fuente y HA
+  local declaran esa versión. GHCR
   `0.2.297` y `latest` comparten el digest
   multi-arquitectura
   `sha256:07d3eb86efcfc2e6ba2ed02193c19d1503efba021a6256c95b858d71e24fcbfe`.

@@ -7,9 +7,11 @@ antes de asumir que este estado sigue vigente.
 ## Estado comprobado del repositorio
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
-- HEAD y `origin/inicial`:
+- Commit funcional publicado de la release:
   `6055dabc72a2ac7837a297f27cf905251d8fe2ae`
   (`Release Rainmapper HA 0.2.297`).
+- HEAD añade únicamente el cierre documental posterior. Revalidar su hash y
+  `origin/inicial` al comenzar la próxima sesión en vez de fijarlo aquí.
 - La fuente declara HA `0.2.297` y worker `1.1.0`; sus secuencias de versión son
   independientes.
 - El único cambio previo al cierre era
