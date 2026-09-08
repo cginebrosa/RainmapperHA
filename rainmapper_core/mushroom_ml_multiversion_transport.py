@@ -20,6 +20,7 @@ from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_runtime_trainer
 from rainmapper_core import mushroom_ml_benchmark_reports
 from rainmapper_core import mushroom_ml_multiversion_plan
+from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_performance_telemetry
 from rainmapper_core import mushroom_worker_transport
@@ -360,6 +361,25 @@ def _verified_result(
         actual_refs = {ref.key for ref in artifact_refs}
         if expected_refs != actual_refs or len(actual_refs) != result["planned_fit_count"]:
             raise ValueError("Operational batch does not contain every required artifact")
+    tuning_ref = batch_manifest.get("tuning_catalog")
+    if isinstance(tuning_ref, Mapping):
+        tuning_path = extracted / Path(str(tuning_ref["path"])).relative_to(
+            Path("batches") / result["batch_id"]
+        )
+        if not _matches_received_digest(
+            result_root, tuning_path, tuning_ref["sha256"], receipts=receipts
+        ):
+            raise ValueError("Multiversion tuning catalog integrity failed")
+        checked_tuning = mushroom_ml_tuning_catalog.validate_catalog(
+            registry,
+            json.loads(tuning_path.read_text(encoding="utf-8")),
+        )
+        if (
+            checked_tuning["catalog_id"] != tuning_ref.get("catalog_id")
+            or checked_tuning["source_batch_id"] != result["batch_id"]
+            or len(checked_tuning["decisions"]) != tuning_ref.get("decision_count")
+        ):
+            raise ValueError("Multiversion tuning catalog reference is inconsistent")
     quality_ref = batch_manifest.get("quality_catalog")
     if isinstance(quality_ref, Mapping):
         quality_path = extracted / Path(str(quality_ref["path"])).relative_to(

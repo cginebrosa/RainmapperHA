@@ -73,6 +73,64 @@ class MushroomMLRuntimeTrainerTests(TestCase):
                 fit_config={"C": 0.1},
             )
 
+    def test_bootstrap_v5_decision_runs_train_only_selection(self) -> None:
+        artifact_ref = catalog.ModelArtifactRef(
+            batch_id="batch-bootstrap",
+            generation_id="generation-v5",
+            version_id="biology_v5_windowed_raw_weather",
+            temporal_contract_id="fixed_gap_7d_biology_v5_raw365_v2",
+            profile_id="raw_window_30d_plus_physical_state",
+            estimator_id="elastic_net_logistic_raw365_v1",
+            species_id="cantharellus_cibarius_sl",
+        )
+        scope = (
+            artifact_ref.version_id,
+            artifact_ref.temporal_contract_id,
+            artifact_ref.profile_id,
+            artifact_ref.species_id,
+        )
+        decision = {
+            "key": trainer.mushroom_ml_tuning_catalog.decision_key(
+                artifact_ref.as_dict()
+            ),
+            "fit_config": {
+                "C": 0.1,
+                "l1_ratio": 0.5,
+                "class_weight": None,
+                "inner_selection_available": False,
+            },
+            "bootstrap": {"mode": "train_only_select"},
+        }
+        fitted = {
+            "model": object(),
+            "preprocessor": object(),
+            "fit_config": {
+                "C": 0.01,
+                "l1_ratio": 0.1,
+                "class_weight": None,
+                "inner_selection_available": True,
+            },
+        }
+        with mock.patch.object(trainer, "_fit_v5", return_value=fitted) as fit_v5:
+            result = trainer.fit_artifact(
+                artifact_ref,
+                {},
+                snapshot_id="sha256:" + "a" * 64,
+                tuning_decision=decision,
+                prepared_inputs={
+                    "scope": scope,
+                    "columns": ["feature"],
+                    "samples": [{"metadata": {"species_id": artifact_ref.species_id}}],
+                    "X": np.asarray([[1.0]]),
+                    "y": np.asarray([1]),
+                    "feature_support": {},
+                    "training_species_ids": [artifact_ref.species_id],
+                },
+            )
+
+        self.assertIsNone(fit_v5.call_args.kwargs["fit_config"])
+        self.assertEqual(result["fit_config"]["C"], 0.01)
+
     def test_operational_materialization_needs_only_v3_fixed_and_lag_inputs(self) -> None:
         fixed = {"source": "fixed"}
         lag = {"source": "lag"}

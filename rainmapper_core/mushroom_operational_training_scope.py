@@ -250,6 +250,34 @@ def build_plan(
     }
 
 
+def extend_tuning_catalog(
+    registry: Mapping[str, object],
+    scope: Mapping[str, object],
+    tuning_catalog: Mapping[str, object],
+    *,
+    version_ids: Sequence[str],
+    profile_keys: Sequence[str],
+) -> dict[str, Any]:
+    """Add sealed bootstrap decisions only for wholly absent species."""
+    checked_scope = validate_scope(scope)
+    versions = sorted({str(value) for value in version_ids})
+    profiles = sorted({str(value) for value in profile_keys})
+    fit_plan = mushroom_ml_multiversion_plan.build_plan(
+        registry,
+        batch_id="operational_plan",
+        snapshot_id=checked_scope["scope_id"],
+        generation_ids={version_id: f"plan_{version_id}" for version_id in versions},
+        species_ids=checked_scope["admitted_species_ids"],
+        version_ids=versions,
+        profile_keys=profiles,
+    )
+    return mushroom_ml_tuning_catalog.extend_for_new_species(
+        registry,
+        tuning_catalog,
+        training_plan=fit_plan,
+    )
+
+
 def validate_plan(payload: object) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise ValueError("Operational training plan must be an object")

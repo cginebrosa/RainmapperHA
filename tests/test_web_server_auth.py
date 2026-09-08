@@ -629,6 +629,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "tuning_catalog_id": "sha256:" + "c" * 64,
                 },
             ),
+            mock.patch.object(
+                self.web_server.mushroom_operational_training_scope,
+                "extend_tuning_catalog",
+                return_value={"kind": "tuning"},
+            ),
         ):
             result = self.web_server.prepare_multiversion_bundle_with_tuning(
                 purpose="operational",
@@ -644,7 +649,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(result, {"snapshot_id": "sha256:snapshot"})
         self.assertTrue(captured["tuning_exists"])
         self.assertTrue(captured["plan_exists"])
-        self.assertEqual(captured["tuning_content"], '{"kind":"tuning"}\n')
+        self.assertEqual(json.loads(captured["tuning_content"]), {"kind": "tuning"})
         self.assertEqual(
             spec["tuning_catalog_path"],
             "snapshot/inputs/extra/tuning-catalog.json",
@@ -710,6 +715,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "plan_id": "sha256:" + "b" * 64,
                     "tuning_catalog_id": "sha256:" + "c" * 64,
                 },
+            ),
+            mock.patch.object(
+                self.web_server.mushroom_operational_training_scope,
+                "extend_tuning_catalog",
+                return_value={"kind": "tuning"},
             ),
         ):
             self.web_server.prepare_multiversion_bundle_with_tuning(

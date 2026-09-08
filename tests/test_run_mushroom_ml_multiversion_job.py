@@ -115,6 +115,12 @@ class RunMushroomMLMultiversionJobTests(TestCase):
 
             def write_batch(*_args, **_kwargs):
                 produced_batch.mkdir(parents=True)
+                tuning_path = produced_batch / "tuning-catalog.json"
+                tuning_path.write_text("{}\n", encoding="utf-8")
+                manifest["tuning_catalog"] = {
+                    "path": "batches/batch-test/tuning-catalog.json",
+                    "sha256": module._sha256(tuning_path),
+                }
                 (produced_batch / "manifest.json").write_text(
                     json.dumps(manifest) + "\n", encoding="utf-8"
                 )
@@ -166,6 +172,10 @@ class RunMushroomMLMultiversionJobTests(TestCase):
             self.assertEqual(
                 "batch/manifest.json",
                 result["files"][0]["path"],
+            )
+            self.assertIn(
+                "batch/tuning-catalog.json",
+                {row["path"] for row in result["files"]},
             )
 
     def test_operational_archive_helpers_leave_only_compressed_storage(self) -> None:

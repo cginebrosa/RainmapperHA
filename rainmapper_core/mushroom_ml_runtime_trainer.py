@@ -440,7 +440,10 @@ def fit_artifact(
         raw_config = tuning_decision.get("fit_config")
         if not isinstance(raw_config, Mapping):
             raise ValueError("Tuning decision fit_config is invalid")
-        frozen_config = raw_config
+        if not mushroom_ml_tuning_catalog.requires_train_only_selection(
+            tuning_decision
+        ):
+            frozen_config = raw_config
     if artifact_ref.version_id in {"altitude_v2", "biology_v3", "biology_v4"}:
         if frozen_config:
             raise ValueError("Current-version estimators require an empty fit_config")

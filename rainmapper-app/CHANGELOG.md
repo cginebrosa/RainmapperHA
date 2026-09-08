@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.298
+
+- Bootstrap tuning decisions when a newly eligible species first enters
+  operational training, selecting V5 settings only from training partitions.
+- Persist the resulting tuning catalog with each operational batch and verify
+  its identity and digest during worker result installation.
+- Reuse sealed species settings in later training while rejecting unexpected
+  partial catalog gaps.
+
 ## 0.2.297
 
 - Detect constant hold-out probabilities per species and exact model candidate,

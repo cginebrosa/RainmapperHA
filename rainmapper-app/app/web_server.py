@@ -68,6 +68,7 @@ from rainmapper_core import mushroom_ml_benchmark_reports
 from rainmapper_core import mushroom_ml_multiversion_comparison
 from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core import mushroom_ml_training_freshness
+from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_local_full_update
 from rainmapper_core import mushroom_operational_training_scope
@@ -14668,6 +14669,14 @@ def prepare_multiversion_bundle_with_tuning(
                 "observation-features.json": features_path,
                 "known-sites.json": known_sites_path,
             }
+        tuning_catalog = mushroom_operational_training_scope.extend_tuning_catalog(
+            registry,
+            operational_scope,
+            tuning_catalog,
+            version_ids=version_ids,
+            profile_keys=profile_keys,
+        )
+        mushroom_ml_tuning_catalog.save(tuning_catalog_path, tuning_catalog)
         operational_plan = mushroom_operational_training_scope.build_plan(
             registry,
             operational_scope,

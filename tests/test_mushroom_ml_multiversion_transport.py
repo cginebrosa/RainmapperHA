@@ -13,6 +13,7 @@ from rainmapper_core import mushroom_ml_benchmark_reports as benchmark_reports
 from rainmapper_core import mushroom_ml_multiversion_plan
 from rainmapper_core import mushroom_ml_multiversion_transport as transport
 from rainmapper_core import mushroom_ml_runtime_trainer as trainer
+from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
 
 
@@ -128,8 +129,26 @@ class MushroomMLMultiversionTransportTests(TestCase):
         job_id = "worker_job_operationaltransport"
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
+            input_tuning = mushroom_ml_tuning_catalog.build_from_decisions(
+                registry,
+                source_batch_id="batch-prior",
+                source_snapshot_id="sha256:" + "c" * 64,
+                decisions=[
+                    {
+                        "scope": fit["artifact_ref"],
+                        "fit_config": {},
+                        "source_artifact_sha256": "e" * 64,
+                    }
+                    for fit in plan["fits"]
+                ],
+                training_plan=plan,
+            )
             batch_dir, batch_manifest = trainer.write_batch(
-                registry, plan, benchmarks, models_root=root / "produced"
+                registry,
+                plan,
+                benchmarks,
+                models_root=root / "produced",
+                tuning_catalog=input_tuning,
             )
             self.assertEqual(0, batch_manifest["failed_fit_count"])
             batch_manifest["job_purpose"] = "operational"
@@ -290,6 +309,14 @@ class MushroomMLMultiversionTransportTests(TestCase):
             self.assertFalse((models / "runtime-batch.json").exists())
             self.assertTrue(
                 (models / "batches" / batch_manifest["batch_id"] / "manifest.json").is_file()
+            )
+            self.assertTrue(
+                (
+                    models
+                    / "batches"
+                    / batch_manifest["batch_id"]
+                    / "tuning-catalog.json"
+                ).is_file()
             )
             self.assertEqual(
                 staged_manifest_inode,

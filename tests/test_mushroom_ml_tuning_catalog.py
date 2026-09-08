@@ -11,6 +11,7 @@ import joblib
 from rainmapper_core import mushroom_ml_model_catalog as model_catalog
 from rainmapper_core import mushroom_ml_tuning_catalog as tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_ml_multiversion_plan
 
 
 REGISTRY_PATH = Path(__file__).resolve().parents[1] / "mushroom-data/mushroom_ml_version_registry.json"
@@ -105,6 +106,98 @@ class MushroomMLTuningCatalogTests(TestCase):
                 tuning_catalog.validate_catalog(
                     registry, catalog, training_plan=missing
                 )
+
+    def test_wholly_new_species_gets_a_sealed_v5_bootstrap(self) -> None:
+        registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
+        existing_species = "boletus_edulis"
+        old_plan = mushroom_ml_multiversion_plan.build_plan(
+            registry,
+            batch_id="old-plan",
+            snapshot_id="sha256:" + "b" * 64,
+            generation_ids={
+                "biology_v5_windowed_raw_weather": "old-v5-windowed"
+            },
+            species_ids=[existing_species],
+            version_ids=["biology_v5_windowed_raw_weather"],
+            profile_keys=[
+                "biology_v5_windowed_raw_weather/raw_window_30d_plus_physical_state"
+            ],
+        )
+        decisions = []
+        for fit in old_plan["fits"]:
+            scope = tuning_catalog.decision_scope(fit["artifact_ref"])
+            decisions.append(
+                {
+                    "scope": scope,
+                    "fit_config": tuning_catalog._bootstrap_fit_config(scope),
+                    "source_artifact_sha256": "a" * 64,
+                }
+            )
+        catalog = tuning_catalog.build_from_decisions(
+            registry,
+            source_batch_id="batch-source",
+            source_snapshot_id="sha256:" + "b" * 64,
+            decisions=decisions,
+            training_plan=old_plan,
+        )
+        training_plan = mushroom_ml_multiversion_plan.build_plan(
+            registry,
+            batch_id="operational_plan",
+            snapshot_id="sha256:" + "c" * 64,
+            generation_ids={
+                "biology_v5_windowed_raw_weather": "plan-v5-windowed"
+            },
+            species_ids=[existing_species, "cantharellus_cibarius_sl"],
+            version_ids=["biology_v5_windowed_raw_weather"],
+            profile_keys=[
+                "biology_v5_windowed_raw_weather/raw_window_30d_plus_physical_state"
+            ],
+        )
+
+        extended = tuning_catalog.extend_for_new_species(
+            registry, catalog, training_plan=training_plan
+        )
+
+        added = [
+            row
+            for row in extended["decisions"]
+            if row["scope"]["species_id"] == "cantharellus_cibarius_sl"
+        ]
+        self.assertEqual(len(added), 4)
+        self.assertTrue(
+            all(row["bootstrap"]["mode"] == "train_only_select" for row in added)
+        )
+        self.assertTrue(all("source_artifact_sha256" not in row for row in added))
+        self.assertTrue(
+            all(
+                row["fit_config"]["inner_selection_available"] is False
+                for row in added
+            )
+        )
+
+    def test_partial_gap_for_existing_species_still_fails_closed(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary) / "batches" / "batch-source"
+            registry, artifact_ref, manifest, _plan = self._fixture(root)
+            catalog = tuning_catalog.build_from_batch(
+                registry, manifest, batch_root=root
+            )
+        training_plan = {
+            "fits": [
+                {"artifact_ref": artifact_ref.as_dict()},
+                {
+                    "artifact_ref": {
+                        **artifact_ref.as_dict(),
+                        "estimator_id": "sparse_group_logistic_raw365_v1",
+                    }
+                },
+            ]
+        }
+
+        with self.assertRaisesRegex(ValueError, "partial or shared-scope"):
+            tuning_catalog.extend_for_new_species(
+                registry, catalog, training_plan=training_plan
+            )
 
     def test_artifact_tampering_is_rejected(self) -> None:
         with TemporaryDirectory() as temporary:

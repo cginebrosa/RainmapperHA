@@ -898,6 +898,14 @@ def run_local_full_update(
             models_root=paths.ml_models_dir,
             destination=tuning_catalog_path,
         )
+        tuning_catalog = mushroom_operational_training_scope.extend_tuning_catalog(
+            registry,
+            operational_scope,
+            tuning_catalog,
+            version_ids=version_ids,
+            profile_keys=profile_keys,
+        )
+        mushroom_ml_tuning_catalog.save(tuning_catalog_path, tuning_catalog)
         operational_plan = mushroom_operational_training_scope.build_plan(
             registry,
             operational_scope,

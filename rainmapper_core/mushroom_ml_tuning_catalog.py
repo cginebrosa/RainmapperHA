@@ -21,6 +21,7 @@ from rainmapper_core import mushroom_ml_version_registry
 SCHEMA_VERSION = "1.0"
 KIND = "mushroom_ml_tuning_catalog"
 IMPLEMENTATION_REVISION = "operational-tuning-2026-08-26.1"
+BOOTSTRAP_POLICY_REVISION = "new-species-training-only-2026-09-08.1"
 SCOPE_KEYS = (
     "version_id",
     "temporal_contract_id",
@@ -135,6 +136,40 @@ def _validated_fit_config(scope: Mapping[str, str], value: object) -> dict[str, 
     return config
 
 
+def _validated_bootstrap(scope: Mapping[str, str], value: object) -> dict[str, str] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("Tuning bootstrap metadata must be an object")
+    checked = {
+        "policy_revision": str(value.get("policy_revision") or ""),
+        "reason_code": str(value.get("reason_code") or ""),
+        "mode": str(value.get("mode") or ""),
+    }
+    if set(value) != set(checked):
+        raise ValueError("Tuning bootstrap metadata keys are invalid")
+    if (
+        checked["policy_revision"] != BOOTSTRAP_POLICY_REVISION
+        or checked["reason_code"] != "new_or_reintroduced_species"
+    ):
+        raise ValueError("Tuning bootstrap policy is invalid")
+    is_v5 = scope["version_id"] in {
+        "biology_v5_raw_weather_discovery",
+        "biology_v5_windowed_raw_weather",
+    }
+    expected_mode = "train_only_select" if is_v5 else "declared_default"
+    if checked["mode"] != expected_mode:
+        raise ValueError("Tuning bootstrap mode is invalid")
+    if scope["species_id"] == "all_species":
+        raise ValueError("Shared tuning decisions cannot be bootstrapped")
+    return checked
+
+
+def requires_train_only_selection(decision: Mapping[str, object] | None) -> bool:
+    bootstrap = decision.get("bootstrap") if isinstance(decision, Mapping) else None
+    return isinstance(bootstrap, Mapping) and bootstrap.get("mode") == "train_only_select"
+
+
 def _expected_keys(training_plan: Mapping[str, object]) -> set[str]:
     fits = training_plan.get("fits")
     if not isinstance(fits, Sequence) or isinstance(fits, (str, bytes)):
@@ -177,19 +212,23 @@ def validate_catalog(
         if row.get("key") != key or key in seen:
             raise ValueError("Tuning catalog contains an invalid or duplicate key")
         seen.add(key)
+        bootstrap = _validated_bootstrap(scope, row.get("bootstrap"))
         artifact_sha256 = str(row.get("source_artifact_sha256") or "")
-        if not re.fullmatch(r"[0-9a-f]{64}", artifact_sha256):
-            raise ValueError("Tuning decision artifact digest is invalid")
-        checked_decisions.append(
-            {
-                "key": key,
-                "scope": scope,
-                "fit_config": _validated_fit_config(
-                    scope, row.get("fit_config") or {}
-                ),
-                "source_artifact_sha256": artifact_sha256,
-            }
-        )
+        if bootstrap is None:
+            if not re.fullmatch(r"[0-9a-f]{64}", artifact_sha256):
+                raise ValueError("Tuning decision artifact digest is invalid")
+        elif artifact_sha256:
+            raise ValueError("Bootstrap tuning decision cannot cite an artifact")
+        checked_row = {
+            "key": key,
+            "scope": scope,
+            "fit_config": _validated_fit_config(scope, row.get("fit_config") or {}),
+        }
+        if bootstrap is None:
+            checked_row["source_artifact_sha256"] = artifact_sha256
+        else:
+            checked_row["bootstrap"] = bootstrap
+        checked_decisions.append(checked_row)
     checked_decisions.sort(key=lambda row: row["key"])
     if training_plan is not None:
         expected = _expected_keys(training_plan)
@@ -296,18 +335,19 @@ def build_from_decisions(
     checked_decisions = []
     for row in decisions:
         scope = current_scope(row)
-        checked_decisions.append(
-            {
-                "key": decision_key(scope),
-                "scope": scope,
-                "fit_config": _validated_fit_config(
-                    scope, row.get("fit_config") or {}
-                ),
-                "source_artifact_sha256": str(
-                    row.get("source_artifact_sha256") or ""
-                ),
-            }
-        )
+        checked_row = {
+            "key": decision_key(scope),
+            "scope": scope,
+            "fit_config": _validated_fit_config(scope, row.get("fit_config") or {}),
+        }
+        bootstrap = row.get("bootstrap")
+        if bootstrap is not None:
+            checked_row["bootstrap"] = bootstrap
+        else:
+            checked_row["source_artifact_sha256"] = str(
+                row.get("source_artifact_sha256") or ""
+            )
+        checked_decisions.append(checked_row)
     checked_decisions.sort(key=lambda row: row["key"])
     identity_payload = {
         "compatibility_fingerprint": compatibility_fingerprint(registry),
@@ -322,6 +362,115 @@ def build_from_decisions(
         **identity_payload,
     }
     return validate_catalog(registry, payload, training_plan=training_plan)
+
+
+def _bootstrap_fit_config(scope: Mapping[str, str]) -> dict[str, object]:
+    version_id = scope["version_id"]
+    estimator_id = scope["estimator_id"]
+    if version_id in {"altitude_v2", "biology_v3", "biology_v4"}:
+        return {}
+    if version_id in {
+        "biology_v5_raw_weather_discovery",
+        "biology_v5_windowed_raw_weather",
+    }:
+        if estimator_id == "elastic_net_logistic_raw365_v1":
+            return {
+                "C": 0.1,
+                "l1_ratio": 0.5,
+                "class_weight": None,
+                "inner_selection_available": False,
+            }
+        return {
+            "regularization": 0.1,
+            "l1_ratio": 0.5,
+            "inner_selection_available": False,
+        }
+    if version_id in {
+        "biology_v6_smooth_hierarchical",
+        "biology_v6_windowed_smooth_hierarchical",
+    }:
+        return {
+            "C": 0.1,
+            "deviation_scale": (
+                4.0
+                if estimator_id == "smooth_partial_pooling_logistic_v1"
+                else None
+            ),
+        }
+    raise ValueError(f"Unsupported tuning catalog version: {version_id}")
+
+
+def extend_for_new_species(
+    registry: Mapping[str, object],
+    payload: Mapping[str, object],
+    *,
+    training_plan: Mapping[str, object],
+) -> dict[str, Any]:
+    """Fill only all-or-nothing gaps for species absent from the prior catalog."""
+    checked = validate_catalog(registry, payload)
+    fits = training_plan.get("fits")
+    if not isinstance(fits, Sequence) or isinstance(fits, (str, bytes)):
+        raise ValueError("Training plan fits are invalid")
+    expected_scopes = {
+        decision_key(row.get("artifact_ref") or {}): decision_scope(
+            row.get("artifact_ref") or {}
+        )
+        for row in fits
+        if isinstance(row, Mapping)
+    }
+    available = {str(row["key"]): row for row in checked["decisions"]}
+    missing = {key: scope for key, scope in expected_scopes.items() if key not in available}
+    if not missing:
+        return validate_catalog(
+            registry, checked, training_plan=training_plan, allow_superset=True
+        )
+
+    existing_species = {
+        str((row.get("scope") or {}).get("species_id") or "")
+        for row in checked["decisions"]
+    }
+    missing_species = {scope["species_id"] for scope in missing.values()}
+    if "all_species" in missing_species or missing_species & existing_species:
+        raise ValueError("Tuning catalog has a partial or shared-scope coverage gap")
+
+    known_shapes = {
+        tuple(row["scope"][key] for key in SCOPE_KEYS if key != "species_id")
+        for row in checked["decisions"]
+    }
+    for scope in missing.values():
+        shape = tuple(scope[key] for key in SCOPE_KEYS if key != "species_id")
+        if shape not in known_shapes:
+            raise ValueError(
+                "Tuning catalog gap changes a version, contract, profile, or estimator"
+            )
+
+    decisions = list(checked["decisions"])
+    for key in sorted(missing):
+        scope = missing[key]
+        is_v5 = scope["version_id"] in {
+            "biology_v5_raw_weather_discovery",
+            "biology_v5_windowed_raw_weather",
+        }
+        decisions.append(
+            {
+                "scope": scope,
+                "fit_config": _bootstrap_fit_config(scope),
+                "bootstrap": {
+                    "policy_revision": BOOTSTRAP_POLICY_REVISION,
+                    "reason_code": "new_or_reintroduced_species",
+                    "mode": "train_only_select" if is_v5 else "declared_default",
+                },
+            }
+        )
+    extended = build_from_decisions(
+        registry,
+        source_batch_id=checked["source_batch_id"],
+        source_snapshot_id=checked["source_snapshot_id"],
+        decisions=decisions,
+    )
+    return validate_catalog(
+        registry, extended, training_plan=training_plan, allow_superset=True
+    )
 
 
 def lookup(payload: Mapping[str, object], artifact_ref: Mapping[str, object]) -> dict[str, Any]:

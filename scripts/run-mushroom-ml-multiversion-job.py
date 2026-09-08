@@ -633,6 +633,16 @@ def main() -> int:
                 "sha256": _sha256(result_batch / "manifest.json"),
             }
         ]
+        if isinstance(manifest.get("tuning_catalog"), dict):
+            filename = Path(manifest["tuning_catalog"]["path"]).name
+            tuning_path = result_batch / filename
+            result_files.append(
+                {
+                    "path": "batch/" + filename,
+                    "size_bytes": tuning_path.stat().st_size,
+                    "sha256": _sha256(tuning_path),
+                }
+            )
         if isinstance(manifest.get("quality_catalog"), dict):
             filename = Path(manifest["quality_catalog"]["path"]).name
             result_files.append(

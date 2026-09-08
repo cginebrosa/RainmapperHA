@@ -39,15 +39,13 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 
 ## Estado general al cierre de 2026-09-08
 
-- Rama `inicial`; el commit funcional de la release HA `0.2.297` es
-  `6055dabc72a2` y HEAD contiene además el cierre documental. La fuente y HA
-  local declaran esa versión. GHCR
-  `0.2.297` y `latest` comparten el digest
-  multi-arquitectura
-  `sha256:07d3eb86efcfc2e6ba2ed02193c19d1503efba021a6256c95b858d71e24fcbfe`.
-  HA local fue reconstruida y recreada desde ese HEAD, responde en el puerto
-  8101 y sus huellas centrales coinciden. No se comprobó qué versión ejecuta HA
-  real. Revalidar HEAD, remoto y HA real antes de actuar.
+- Rama `inicial`; la fuente declara HA `0.2.298`. GHCR `0.2.298` y `latest`
+  comparten el índice multi-arquitectura
+  `sha256:0c0bb47d532146c9cfed16f02de277c27c917207a5765c032c44b9933e0f2785`,
+  con manifests `linux/amd64` y `linux/arm64`. HA local y el worker se
+  reconstruyeron desde el código funcional definitivo y completaron el circuito
+  de entrenamiento y precálculo antes del bump mecánico. HA real no se ha
+  actualizado todavía a `0.2.298`.
 - HA usa el último precálculo autocontenido durante una actualización, aunque
   esté marcado como desactualizado. Las tres vistas del Predictor leen una
   respuesta SQLite sellada e indexada y no reconstruyen ni revalidan cientos de
@@ -70,6 +68,10 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 - El gate por especie para modelos con predicciones hold-out constantes está
   entrenado y aplicado: ninguna de las 280 selecciones selladas ni de los 420
   miembros del precálculo eligió una candidata constante.
+- Las especies que entran por primera vez en el entrenamiento reciben
+  decisiones V2--V4/V6 declaradas y seleccionan V5 únicamente con la partición
+  de entrenamiento. El catálogo resultante se transporta, verifica, instala y
+  reutiliza; los huecos parciales siguen fallando de forma cerrada.
 - El worker ofrece un Explorador de modelos de solo lectura en `/models`
   (`http://127.0.0.1:8110/models` en local). Navegar selectores no abre bundles;
   el modelo elegido solo se carga al pedir la inspección y después de verificar

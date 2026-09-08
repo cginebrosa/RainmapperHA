@@ -1,6 +1,23 @@
 # Decisions
 
-## 2026-09-08 - [VIGENTE][RELEASE] HA 0.2.297 y worker local 1.1.0
+## 2026-09-08 - [VIGENTE][RELEASE] HA 0.2.298 y alta automática de especies
+
+- GHCR `0.2.298` y `latest` comparten el índice
+  `sha256:0c0bb47d532146c9cfed16f02de277c27c917207a5765c032c44b9933e0f2785`
+  con manifests `linux/amd64` y `linux/arm64`. Esta decisión reemplaza como
+  release vigente la 0.2.297.
+- Cuando una especie entra por primera vez, V2--V4 y V6 reciben las
+  configuraciones declaradas ya vigentes. Las 12 combinaciones V5 eligen con la
+  partición de entrenamiento y registran el fallback conservador si la
+  selección interna no es posible.
+- El catálogo de tuning resultante forma parte del batch operativo, se verifica
+  durante el transporte y se reutiliza. Los huecos parciales de una especie ya
+  conocida y las formas nuevas de versión/perfil/estimador no se rellenan de
+  forma implícita: fallan cerradas y requieren una decisión explícita.
+- El circuito local terminó con 714/714 ajustes, nueve especies y precálculo
+  activo de 462 miembros. El smoke de release pasó 1.335 pruebas.
+
+## 2026-09-08 - [REEMPLAZADA][RELEASE] HA 0.2.297 y worker local 1.1.0
 
 - La release fuente está en `inicial`, commit
   `6055dabc72a2ac7837a297f27cf905251d8fe2ae`. GHCR `0.2.297` y `latest`

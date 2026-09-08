@@ -296,7 +296,10 @@ def evaluate_dataset(
                             "species_id": species_id,
                         },
                     )
-                    frozen_config = dict(decision["fit_config"])
+                    if not mushroom_ml_tuning_catalog.requires_train_only_selection(
+                        decision
+                    ):
+                        frozen_config = dict(decision["fit_config"])
                 if mode == "current":
                     if frozen_config:
                         raise ValueError("Current estimator tuning configuration must be empty")

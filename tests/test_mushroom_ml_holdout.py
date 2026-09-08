@@ -171,6 +171,74 @@ class HoldoutEvaluationTests(unittest.TestCase):
             all(row["available"] for row in report["species"]["species_a"]["estimators"].values())
         )
 
+    def test_new_species_bootstrap_selects_v5_only_from_holdout_training_rows(self):
+        train = [_sample("train_a", 1, "unfavorable", 1), _sample("train_b", 2, "favorable", 2)]
+        test = [_sample("test", 1, "favorable", 3)]
+        benchmark = {
+            "feature_set": {"profiles": {"raw_primary": ["target_day_sin", "target_day_cos", "horizon_days"]}},
+            "samples": train + test,
+        }
+        scopes = []
+        for estimator_id, fit_config in (
+            (
+                holdout.V5_ESTIMATORS[0],
+                {"C": 0.1, "l1_ratio": 0.5, "class_weight": None, "inner_selection_available": False},
+            ),
+            (
+                holdout.V5_ESTIMATORS[1],
+                {"regularization": 0.1, "l1_ratio": 0.5, "inner_selection_available": False},
+            ),
+        ):
+            scope = {
+                "version_id": "biology_v5_raw_weather_discovery",
+                "temporal_contract_id": "lag_event_biology_v5_raw365_v1",
+                "profile_id": "raw_primary",
+                "estimator_id": estimator_id,
+                "species_id": "species_a",
+            }
+            scopes.append(
+                {
+                    "key": "|".join(scope[key] for key in (
+                        "version_id", "temporal_contract_id", "profile_id", "estimator_id", "species_id"
+                    )),
+                    "scope": scope,
+                    "fit_config": fit_config,
+                    "bootstrap": {"mode": "train_only_select"},
+                }
+            )
+        selected = {
+            holdout.V5_ESTIMATORS[0]: {"C": 0.01, "l1_ratio": 0.1, "class_weight": None},
+            holdout.V5_ESTIMATORS[1]: {"regularization": 0.01, "l1_ratio": 0.25},
+        }
+
+        def choose(estimator_id, samples, *_args):
+            self.assertEqual(
+                {row["metadata"]["observation_id"] for row in samples},
+                {"train_a", "train_b"},
+            )
+            return dict(selected[estimator_id]), True
+
+        with (
+            patch.object(holdout, "LogisticRegression", _FakeLogistic),
+            patch.object(holdout, "SparseGroupLogisticClassifier", _FakeSparse),
+            patch.object(holdout, "_select_v5", side_effect=choose) as select,
+        ):
+            report, _rows, _selections = holdout.evaluate_dataset(
+                benchmark,
+                version_id="biology_v5_raw_weather_discovery",
+                profile_id="raw_primary",
+                group_days=7,
+                train_keys={holdout.comparison_key(row) for row in train},
+                test_keys={holdout.comparison_key(row) for row in test},
+                mode="v5",
+                tuning_catalog={"decisions": scopes},
+            )
+
+        self.assertEqual(select.call_count, 2)
+        self.assertTrue(
+            all(row["available"] for row in report["species"]["species_a"]["estimators"].values())
+        )
+
     def test_lag_horizons_reuse_one_fit_per_estimator(self):
         train = [_sample("train_a", 1, "unfavorable", 1), _sample("train_b", 2, "favorable", 2)]
         test = [_sample("test", horizon, "favorable", 3) for horizon in (1, 2, 3, 7)]
