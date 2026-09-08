@@ -10,6 +10,7 @@ from rainmapper_core.mushroom_ml_reliability_audit import (
     audit_rows,
     build_quality_audit_catalog,
     build_selection_catalog,
+    probability_variability,
     validate_quality_audit_catalog,
 )
 
@@ -63,6 +64,17 @@ class MushroomMLReliabilityAuditTests(unittest.TestCase):
         probabilities = np.asarray([0.1, 0.5, 0.5, 0.9], dtype=float)
 
         self.assertEqual(_binary_roc_auc(y, probabilities), 0.875)
+
+    def test_prediction_variability_uses_the_declared_numerical_tolerance(self) -> None:
+        near_constant = probability_variability(
+            np.asarray([0.7, 0.7000005], dtype=float)
+        )
+        variable = probability_variability(
+            np.asarray([0.7, 0.700002], dtype=float)
+        )
+
+        self.assertTrue(near_constant["constant_prediction"])
+        self.assertFalse(variable["constant_prediction"])
 
     def test_wilson_ranking_prefers_broader_favorable_evidence(self) -> None:
         labels = [1] * 9 + [0] * 11
@@ -257,6 +269,72 @@ class MushroomMLReliabilityAuditTests(unittest.TestCase):
         }
         self.assertIn("no_favorable_calls", reasons["never-go"])
         self.assertIn("not_better_than_prevalence", reasons["worse-than-baseline"])
+
+    def test_rejects_constant_candidate_for_species_and_area_selection(self) -> None:
+        labels = [1, 1, 1, 0, 1, 1, 1, 0]
+        constant = _rows_for_candidate(
+            version="constant",
+            probabilities=[0.7] * 8,
+            labels=labels,
+        )
+        variable = _rows_for_candidate(
+            version="variable",
+            probabilities=[0.8, 0.75, 0.7, 0.2, 0.8, 0.75, 0.7, 0.2],
+            labels=labels,
+        )
+
+        report = audit_rows(
+            constant + variable,
+            policy=self.policy,
+            include_candidates=True,
+            include_stability=False,
+        )
+
+        area_day = _day(report)
+        species_day = next(
+            row
+            for row in report["species_scopes"][0]["operational_days"]
+            if row["prediction_day"] == 3
+        )
+        for day in (area_day, species_day):
+            self.assertEqual(
+                day["provisional_winner"]["candidate"]["version_id"],
+                "variable",
+            )
+            rejected = next(
+                row
+                for row in day["candidates"]
+                if row["candidate"]["version_id"] == "constant"
+            )
+            self.assertTrue(rejected["constant_prediction"])
+            self.assertTrue(rejected["constant_species_prediction"])
+            self.assertIn(
+                "constant_species_prediction", rejected["exclusion_reasons"]
+            )
+
+        selections = build_selection_catalog(report)
+        self.assertTrue(
+            selections["selection_policy"]["reject_constant_species_predictions"]
+        )
+        self.assertEqual(
+            selections["selection_policy"][
+                "constant_probability_range_tolerance"
+            ],
+            1e-6,
+        )
+        selected = next(
+            row
+            for row in selections["species_area_selections"]
+            if row["prediction_day"] == 3
+        )
+        self.assertEqual(selected["candidate"]["version_id"], "variable")
+        self.assertNotIn(
+            "constant",
+            {
+                row["candidate"]["version_id"]
+                for row in selected["candidate_chain"]
+            },
+        )
 
     def test_selects_the_population_shared_by_most_candidates(self) -> None:
         labels = [1, 1, 0, 0]

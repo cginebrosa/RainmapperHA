@@ -4689,6 +4689,7 @@
   "ui.predictor_abstention_compact": {"en": "Abstention: {reasons}", "es": "Abstención: {reasons}", "ca": "Abstenció: {reasons}"},
   "ui.predictor_abstention_no_eligible": {"en": "no eligible model", "es": "ningún modelo elegible", "ca": "cap model elegible"},
   "ui.predictor_abstention_applicability": {"en": "applicability", "es": "aplicabilidad", "ca": "aplicabilitat"},
+  "ui.predictor_abstention_constant_model": {"en": "constant model", "es": "modelo constante", "ca": "model constant"},
   "ui.predictor_abstention_brier": {"en": "Brier does not beat prevalence", "es": "Brier no mejora la prevalencia", "ca": "Brier no millora la prevalença"},
   "ui.predictor_abstention_auc_below_minimum": {"en": "ROC-AUC below 0.55", "es": "ROC-AUC inferior a 0,55", "ca": "ROC-AUC inferior a 0,55"},
   "ui.predictor_abstention_auc_unavailable": {"en": "ROC-AUC unavailable", "es": "ROC-AUC sin métrica", "ca": "ROC-AUC sense mètrica"},

@@ -557,7 +557,63 @@ class PredictorRuntimeTests(TestCase):
             )
 
             self.assertNotIn(model_row["path"], fetched)
-            self.assertFalse((cache / "objects").exists())
+            self.assertTrue((cache / "objects").is_dir())
+            self.assertTrue(
+                (cache / "objects" / model_row["sha256"].removeprefix("sha256:")).is_file()
+            )
+
+    def test_runtime_objects_are_shared_between_coordinator_caches(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            first_source = root / "first"
+            second_source = root / "second"
+            first_source.mkdir()
+            second_source.mkdir()
+            first_parts = self._source_tree(first_source)
+            second_parts = self._source_tree(second_source)
+            first_manifest, first_sources = build_manifest(
+                weather_data_dir=first_parts[0],
+                models_dir=first_parts[1],
+                features_artifact_path=first_parts[2],
+                known_sites_path=first_parts[3],
+                profiles_path=first_parts[4],
+            )
+            for source in second_parts[1].iterdir():
+                source.rename(source.with_name(source.name.replace("boletus", "edulis")))
+            second_manifest, second_sources = build_manifest(
+                weather_data_dir=second_parts[0],
+                models_dir=second_parts[1],
+                features_artifact_path=second_parts[2],
+                known_sites_path=second_parts[3],
+                profiles_path=second_parts[4],
+            )
+            objects = root / "worker/predictor-runtime/objects"
+
+            synchronize_runtime(
+                root / "worker/predictor-runtime/coordinators/one",
+                first_manifest,
+                lambda logical_path, target: target.write_bytes(
+                    first_sources[logical_path].read_bytes()
+                ),
+                objects_root=objects,
+            )
+            fetched: list[str] = []
+            _runtime, result = synchronize_runtime(
+                root / "worker/predictor-runtime/coordinators/two",
+                second_manifest,
+                lambda logical_path, target: (
+                    fetched.append(logical_path),
+                    target.write_bytes(second_sources[logical_path].read_bytes()),
+                ),
+                objects_root=objects,
+            )
+
+            self.assertNotEqual(
+                first_manifest["fingerprint"], second_manifest["fingerprint"]
+            )
+            self.assertEqual([], fetched)
+            self.assertEqual(0, result["transferred_size_bytes"])
+            self.assertEqual(len(second_manifest["files"]), result["reused_file_count"])
 
     def test_runtime_packages_enabled_station_source_contract(self) -> None:
         with TemporaryDirectory() as temporary:

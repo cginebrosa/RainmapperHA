@@ -93,6 +93,77 @@ class MushroomMLQualityCatalogTests(TestCase):
         self.assertEqual(classification["species_b"]["false_favorable_count"], 4)
         self.assertEqual(classification["species_b"]["false_unfavorable_count"], 4)
 
+    def test_reports_constant_predictions_separately_for_each_species(self) -> None:
+        rows = []
+        for species_id, probabilities in (
+            ("species_constant", [0.7] * 8),
+            ("species_variable", [0.2, 0.8] * 4),
+        ):
+            for index, probability in enumerate(probabilities):
+                rows.append(
+                    {
+                        "version_id": "biology_v5_windowed_raw_weather",
+                        "profile_id": "raw_window_60d",
+                        "species_id": species_id,
+                        "area_id": "area_a",
+                        "split_id": "fruiting_groups_14d",
+                        "temporal_contract_id": "fixed_gap_7d_biology_v5",
+                        "horizon_days": 7,
+                        "observation_id": f"{species_id}-observation-{index}",
+                        "validation_group_id": f"{species_id}-group-{index // 2}",
+                        "y_true": index % 2,
+                        "train_prevalence_probability": 0.5,
+                        "estimator_probabilities": {"elastic_net": probability},
+                    }
+                )
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            first = root / "v2-v5.jsonl"
+            first.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+            )
+            second = root / "v6.jsonl"
+            second.write_text("", encoding="utf-8")
+            result = quality.build_catalog(
+                first,
+                second,
+                snapshot_id="sha256:" + "e" * 64,
+            )
+
+        entries = {row["species_id"]: row for row in result["entries"]}
+        constant = entries["species_constant"]
+        variable = entries["species_variable"]
+        self.assertTrue(constant["constant_prediction"])
+        self.assertEqual(constant["probability_range"], 0.0)
+        self.assertEqual(constant["probability_standard_deviation"], 0.0)
+        self.assertFalse(variable["constant_prediction"])
+        self.assertGreater(variable["probability_range"], 0.0)
+        self.assertEqual(
+            result["prediction_variability_policy"],
+            {
+                "scope": "species_candidate_split",
+                "minimum_prediction_count": 2,
+                "constant_probability_range_tolerance": 1e-6,
+                "constant_prediction_exclusion_reason": (
+                    "constant_species_prediction"
+                ),
+            },
+        )
+        constant_resolution = next(
+            row
+            for row in result["species_area_selections"]
+            if row["species_id"] == "species_constant"
+            and row["prediction_day"] == 1
+        )
+        variable_resolution = next(
+            row
+            for row in result["species_area_selections"]
+            if row["species_id"] == "species_variable"
+            and row["prediction_day"] == 1
+        )
+        self.assertEqual(constant_resolution["selection_status"], "abstain")
+        self.assertEqual(variable_resolution["selection_status"], "winner")
+
     def test_lookup_requires_exact_species_contract_horizon_and_estimator(self) -> None:
         catalog = {"split_id": "fruiting_groups_7d", "entries": [{
             "split_id": "fruiting_groups_7d",

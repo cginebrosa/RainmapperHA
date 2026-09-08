@@ -35,6 +35,7 @@ RUNTIME_REGISTRY_SNAPSHOT_NAME = "mushroom_ml_version_registry.runtime.json"
 _DIGEST_CACHE: dict[tuple[str, int, int], str] = {}
 _ARCHIVE_LOCK = threading.Lock()
 _PUBLICATION_LOCK = threading.Lock()
+_RUNTIME_SYNC_LOCK = threading.Lock()
 
 
 def _sha256(path: Path) -> str:
@@ -577,6 +578,8 @@ def synchronize_runtime_archive(
     cache_root: Path,
     manifest: object,
     archive_path: Path,
+    *,
+    objects_root: Path | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """Synchronize a runtime from one verified tar transport."""
     checked = validate_manifest(manifest)
@@ -593,7 +596,54 @@ def synchronize_runtime_archive(
             with source, target.open("xb") as handle:
                 shutil.copyfileobj(source, handle, length=1024 * 1024)
 
-        return synchronize_runtime(cache_root, checked, fetch)
+        return synchronize_runtime(
+            cache_root,
+            checked,
+            fetch,
+            objects_root=objects_root,
+        )
+
+
+def _cache_verified_runtime_object(
+    objects_root: Path,
+    source: Path,
+    *,
+    digest: str,
+    size_bytes: int,
+) -> Path:
+    """Retain one verified object so every coordinator can hard-link it."""
+    objects = Path(objects_root)
+    objects.mkdir(parents=True, exist_ok=True)
+    destination = objects / digest.removeprefix("sha256:")
+    if destination.is_file():
+        if destination.stat().st_size == size_bytes:
+            return destination
+        destination.unlink()
+    temporary = objects / f".{destination.name}.{os.getpid()}.tmp"
+    temporary.unlink(missing_ok=True)
+    try:
+        try:
+            os.link(source, temporary)
+        except OSError:
+            shutil.copy2(source, temporary)
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return destination
+
+
+def _prune_unreferenced_runtime_objects(objects_root: Path) -> int:
+    """Drop content objects no retained runtime links to anymore."""
+    objects = Path(objects_root)
+    if not objects.is_dir():
+        return 0
+    removed = 0
+    for candidate in objects.iterdir():
+        if not candidate.is_file() or candidate.stat().st_nlink > 1:
+            continue
+        candidate.unlink()
+        removed += 1
+    return removed
 
 
 def cache_runtime_objects(
@@ -601,6 +651,14 @@ def cache_runtime_objects(
     records: list[tuple[Path, str, int]],
 ) -> dict[str, int]:
     """Retain worker-produced files by digest until a runtime can link them."""
+    with _RUNTIME_SYNC_LOCK:
+        return _cache_runtime_objects_unlocked(cache_root, records)
+
+
+def _cache_runtime_objects_unlocked(
+    cache_root: Path,
+    records: list[tuple[Path, str, int]],
+) -> dict[str, int]:
     objects = Path(cache_root) / "objects"
     objects.mkdir(parents=True, exist_ok=True)
     cached = 0
@@ -635,6 +693,25 @@ def synchronize_runtime(
     cache_root: Path,
     manifest: object,
     fetch: Callable[[str, Path], None],
+    *,
+    objects_root: Path | None = None,
+) -> tuple[Path, dict[str, Any]]:
+    """Materialize one runtime while serializing access to shared objects."""
+    with _RUNTIME_SYNC_LOCK:
+        return _synchronize_runtime_unlocked(
+            cache_root,
+            manifest,
+            fetch,
+            objects_root=objects_root,
+        )
+
+
+def _synchronize_runtime_unlocked(
+    cache_root: Path,
+    manifest: object,
+    fetch: Callable[[str, Path], None],
+    *,
+    objects_root: Path | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """Materialize one runtime, reusing identical files from the current one."""
     synchronization_started = time.perf_counter()
@@ -686,7 +763,12 @@ def synchronize_runtime(
                 }
         except (OSError, ValueError, json.JSONDecodeError):
             current_manifest = None
-    objects = root / "objects"
+    objects = Path(objects_root) if objects_root is not None else root / "objects"
+    available_objects = {
+        candidate.name
+        for candidate in objects.iterdir()
+        if candidate.is_file()
+    } if objects.is_dir() else set()
     hashed_files = 0
     reused_files = 0
     fetched_files = 0
@@ -727,7 +809,8 @@ def synchronize_runtime(
             if not reused:
                 cached_object = objects / str(row["sha256"]).removeprefix("sha256:")
                 if (
-                    cached_object.is_file()
+                    cached_object.name in available_objects
+                    and cached_object.is_file()
                     and cached_object.stat().st_size == row["size_bytes"]
                     and _sha256(cached_object) == row["sha256"]
                 ):
@@ -751,6 +834,20 @@ def synchronize_runtime(
                 or (not reused_verified and _sha256(target) != row["sha256"])
             ):
                 raise ValueError(f"Predictor runtime file verification failed: {row['path']}")
+            cached_object = _cache_verified_runtime_object(
+                objects,
+                target,
+                digest=str(row["sha256"]),
+                size_bytes=int(row["size_bytes"]),
+            )
+            if cached_object != target and target.stat().st_ino != cached_object.stat().st_ino:
+                replacement = target.with_name(f".{target.name}.object-link")
+                replacement.unlink(missing_ok=True)
+                try:
+                    os.link(cached_object, replacement)
+                    os.replace(replacement, target)
+                except OSError:
+                    replacement.unlink(missing_ok=True)
         manifest_path_staging = staging / "manifest.json"
         _atomic_write_json(manifest_path_staging, checked)
         _write_verified_receipt(staging, checked)
@@ -760,11 +857,12 @@ def synchronize_runtime(
         _fsync_directory(versions)
         _set_current(root, destination)
         pruned = _prune_runtime_versions(versions, keep={destination, current})
-        shutil.rmtree(objects, ignore_errors=True)
+        pruned_objects = _prune_unreferenced_runtime_objects(objects)
         return destination, {
             "status": "synchronized",
             "transferred_size_bytes": transferred,
             "pruned_versions": pruned,
+            "pruned_objects": pruned_objects,
             "verification_status": "full",
             "hashed_file_count": hashed_files,
             "reused_file_count": reused_files,

@@ -66,6 +66,10 @@ las que se obtuvo.
     operativo `N` compiten únicamente los candidatos `lag` de horizonte `N` y
     los candidatos `fixed` de horizonte 7. El entrenamiento sella hasta siete
     resoluciones por especie/área.
+11. Un candidato cuya probabilidad hold-out sea constante para una especie no
+    es elegible para esa especie, aunque su probabilidad constante mejore el
+    Brier de prevalencia. El veto es por salida predictiva, no por la existencia
+    de coeficientes, y se aplica también a sus resoluciones territoriales.
 
 ## Estado actual verificado
 
@@ -327,7 +331,16 @@ Un candidato no puede ganar si incumple cualquiera de estos requisitos:
   denominador;
 - probabilidades o baseline no finitos o fuera del intervalo `[0, 1]`;
 - evidencia que no mejora el Brier de prevalencia;
+- probabilidad hold-out constante para la especie, definida por un rango máximo
+  menos mínimo no superior a `0,000001` con al menos dos predicciones;
 - candidato ausente del inventario operativo publicado.
+
+El catálogo conserva por candidato y especie la media, desviación estándar,
+rango y el indicador `constant_prediction`. La selección propaga el motivo
+`constant_species_prediction` a los ámbitos de área: una muestra territorial
+pequeña no puede rehabilitar un modelo que no distingue casos al evaluar la
+especie completa. Este gate es independiente del algoritmo; no excluye Random
+Forest, KNN u otros estimadores por carecer legítimamente de `coef_`.
 
 No existe un mínimo manual de observaciones, recomendaciones de salida o
 recall. Tampoco se traslada el gate histórico de ROC-AUC `>= 0,55`: ROC-AUC,
@@ -468,7 +481,8 @@ Para cada especie/área/fecha el precálculo:
 3. comprueba que los candidatos de la cadena pertenecen a los modelos
    instalados;
 4. ejecuta la cadena sellada y elige el primero que supera la aplicabilidad y
-   los controles operativos actuales;
+   los controles operativos actuales, incluido el veto defensivo de predicción
+   constante registrado en el catálogo;
 5. persiste probabilidad, identidad preferida y efectiva, posición del
    fallback, razones de rechazo, política, ámbito y evidencia efectiva;
 6. se abstiene si la selección falta, es inválida o ningún candidato resulta

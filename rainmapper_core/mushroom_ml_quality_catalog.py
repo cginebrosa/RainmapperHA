@@ -275,6 +275,9 @@ def _build_catalog_bundle(
         calibration_error, calibration_bins = (
             _calibration(y, probabilities) if len(values) else (None, [])
         )
+        variability = mushroom_ml_reliability_audit.probability_variability(
+            probabilities
+        )
         operational_classification = _operational_classification(y, probabilities)
         if len(values) < 8 or not both_classes or delta is None:
             evidence = "insufficient"
@@ -304,6 +307,7 @@ def _build_catalog_bundle(
                 "roc_auc": round(float(roc_auc_score(y, probabilities)), 6) if both_classes else None,
                 "expected_calibration_error": calibration_error,
                 "calibration_bins": calibration_bins,
+                **variability,
                 "operational_classification": operational_classification,
                 "evidence": evidence,
             }
@@ -349,6 +353,16 @@ def _build_catalog_bundle(
         "species_area_selections": selections["species_area_selections"],
         "version_cautions": dict(VERSION_CAUTIONS),
         "species_metrics_are_never_averaged": True,
+        "prediction_variability_policy": {
+            "scope": "species_candidate_split",
+            "minimum_prediction_count": 2,
+            "constant_probability_range_tolerance": (
+                mushroom_ml_reliability_audit.CONSTANT_PROBABILITY_RANGE_TOLERANCE
+            ),
+            "constant_prediction_exclusion_reason": (
+                "constant_species_prediction"
+            ),
+        },
     }
     validated = validate_catalog(catalog)
     audit_catalog = (
@@ -615,6 +629,16 @@ def validate_catalog(
         raise ValueError("Quality catalog selection split is invalid")
     if catalog.get("selection_prediction_days") != list(range(1, 8)):
         raise ValueError("Quality catalog prediction days are invalid")
+    variability_policy = catalog.get("prediction_variability_policy")
+    if variability_policy is not None and variability_policy != {
+        "scope": "species_candidate_split",
+        "minimum_prediction_count": 2,
+        "constant_probability_range_tolerance": (
+            mushroom_ml_reliability_audit.CONSTANT_PROBABILITY_RANGE_TOLERANCE
+        ),
+        "constant_prediction_exclusion_reason": "constant_species_prediction",
+    }:
+        raise ValueError("Quality catalog prediction variability policy is invalid")
     selection_policy = catalog.get("selection_policy")
     if (
         not isinstance(selection_policy, Mapping)

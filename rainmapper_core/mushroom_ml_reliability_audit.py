@@ -23,6 +23,7 @@ import numpy as np
 
 FAVORABLE_THRESHOLD = 0.60
 UNFAVORABLE_THRESHOLD = 0.40
+CONSTANT_PROBABILITY_RANGE_TOLERANCE = 1e-6
 WILSON_Z_95 = 1.959963984540054
 OFFICIAL_SELECTION_SPLIT_ID = "fruiting_groups_14d"
 SELECTION_SCHEMA_VERSION = "1.2"
@@ -61,6 +62,39 @@ class AuditPolicy:
     official_split_id: str = OFFICIAL_SELECTION_SPLIT_ID
     require_both_classes: bool = True
     require_brier_improvement: bool = True
+    reject_constant_species_predictions: bool = True
+    constant_probability_range_tolerance: float = (
+        CONSTANT_PROBABILITY_RANGE_TOLERANCE
+    )
+
+
+def probability_variability(
+    probabilities: np.ndarray,
+    *,
+    tolerance: float = CONSTANT_PROBABILITY_RANGE_TOLERANCE,
+) -> dict[str, Any]:
+    """Describe whether hold-out probabilities contain usable variation."""
+    values = np.asarray(probabilities, dtype=float).reshape(-1)
+    if not len(values):
+        return {
+            "probability_mean": None,
+            "probability_standard_deviation": None,
+            "probability_range": None,
+            "constant_prediction": None,
+        }
+    minimum = float(np.min(values))
+    maximum = float(np.max(values))
+    spread = maximum - minimum
+    return {
+        "probability_mean": round(float(np.mean(values)), 12),
+        "probability_standard_deviation": round(float(np.std(values)), 12),
+        "probability_range": round(spread, 12),
+        "constant_prediction": (
+            spread <= tolerance
+            if len(values) >= 2
+            else None
+        ),
+    }
 
 
 def wilson_lower_95(successes: int, total: int) -> float | None:
@@ -205,6 +239,10 @@ def _evaluate(
     )
     both_classes = positive_count > 0 and negative_count > 0
     auc = _binary_roc_auc(y, probabilities) if both_classes else None
+    variability = probability_variability(
+        probabilities,
+        tolerance=policy.constant_probability_range_tolerance,
+    )
     favorable_precision = true_favorable / favorable_calls if favorable_calls else None
     favorable_recall = true_favorable / positive_count if positive_count else None
     exclusion_reasons: list[str] = []
@@ -236,6 +274,8 @@ def _evaluate(
         "brier_delta_vs_prevalence": brier_delta,
         "roc_auc": auc,
         "expected_calibration_error": _calibration_error(y, probabilities),
+        **variability,
+        "constant_species_prediction": False,
         "eligible": not exclusion_reasons,
         "exclusion_reasons": exclusion_reasons,
     }
@@ -267,8 +307,10 @@ def _rank_candidates(
     *,
     evaluation_cache: dict[tuple[CandidateKey, str | None], dict[str, Any]] | None = None,
     omitted_group_id: str | None = None,
+    constant_species_candidates: set[CandidateKey] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
     evaluated = []
+    blocked_candidates = constant_species_candidates or set()
     for candidate, cases in candidates.items():
         cache_key = (candidate, omitted_group_id)
         cached = evaluation_cache.get(cache_key) if evaluation_cache is not None else None
@@ -285,9 +327,13 @@ def _rank_candidates(
             cached = _evaluate(candidate, evaluated_cases, policy)
             if evaluation_cache is not None:
                 evaluation_cache[cache_key] = cached
-        evaluated.append(
-            {**cached, "exclusion_reasons": list(cached["exclusion_reasons"])}
-        )
+        result = {**cached, "exclusion_reasons": list(cached["exclusion_reasons"])}
+        if candidate in blocked_candidates:
+            result["constant_species_prediction"] = True
+            if "constant_species_prediction" not in result["exclusion_reasons"]:
+                result["exclusion_reasons"].append("constant_species_prediction")
+            result["eligible"] = False
+        evaluated.append(result)
     population_counts = Counter(
         (result["population_id"], result["observation_count"]) for result in evaluated
     )
@@ -332,6 +378,7 @@ def _stability(
     policy: AuditPolicy,
     winner: Mapping[str, Any],
     evaluation_cache: dict[tuple[CandidateKey, str | None], dict[str, Any]],
+    constant_species_candidates: set[CandidateKey] | None = None,
 ) -> dict[str, Any]:
     winner_key = tuple(winner["candidate_key"])
     winner_cases = candidates[winner_key]  # type: ignore[index]
@@ -344,6 +391,7 @@ def _stability(
             policy,
             evaluation_cache=evaluation_cache,
             omitted_group_id=group_id,
+            constant_species_candidates=constant_species_candidates,
         )
         omitted_winner = tuple(ranked[0]["candidate_key"]) if ranked else None
         alternatives[omitted_winner] += 1
@@ -380,6 +428,7 @@ def _operational_days(
     top: int,
     include_candidates: bool,
     include_stability: bool,
+    constant_species_candidates: set[CandidateKey] | None = None,
 ) -> list[dict[str, Any]]:
     days: list[dict[str, Any]] = []
     evaluation_cache: dict[
@@ -388,7 +437,10 @@ def _operational_days(
     for prediction_day in range(1, 8):
         applicable = _operational_day_candidates(candidates, prediction_day)
         ranked, population, audited_candidates = _rank_candidates(
-            applicable, policy, evaluation_cache=evaluation_cache
+            applicable,
+            policy,
+            evaluation_cache=evaluation_cache,
+            constant_species_candidates=constant_species_candidates,
         )
         winner = ranked[0] if ranked else None
         day_payload: dict[str, Any] = {
@@ -402,7 +454,11 @@ def _operational_days(
         }
         if winner and include_stability:
             day_payload["stability"] = _stability(
-                applicable, policy, winner, evaluation_cache
+                applicable,
+                policy,
+                winner,
+                evaluation_cache,
+                constant_species_candidates=constant_species_candidates,
             )
         if include_candidates:
             day_payload["eligible_candidates"] = ranked
@@ -536,6 +592,22 @@ def audit_rows(
                 ),
             }
 
+    constant_species_candidates_by_scope: dict[
+        SpeciesScopeKey, set[CandidateKey]
+    ] = {}
+    for species_scope, candidates in species_grouped.items():
+        constant_species_candidates_by_scope[species_scope] = {
+            candidate
+            for candidate, cases in candidates.items()
+            if probability_variability(
+                np.asarray(
+                    [value["probability"] for value in cases.values()], dtype=float
+                ),
+                tolerance=active_policy.constant_probability_range_tolerance,
+            )["constant_prediction"]
+            is True
+        }
+
     scopes: list[dict[str, Any]] = []
     for scope, candidates in sorted(grouped.items()):
         scope_payload: dict[str, Any] = {
@@ -549,6 +621,11 @@ def audit_rows(
                 top=top,
                 include_candidates=include_candidates,
                 include_stability=include_stability,
+                constant_species_candidates=(
+                    constant_species_candidates_by_scope.get((scope[0], scope[1]))
+                    if active_policy.reject_constant_species_predictions
+                    else None
+                ),
             ),
         }
         scopes.append(scope_payload)
@@ -566,6 +643,11 @@ def audit_rows(
                     top=top,
                     include_candidates=include_candidates,
                     include_stability=include_stability,
+                    constant_species_candidates=(
+                        constant_species_candidates_by_scope.get(scope)
+                        if active_policy.reject_constant_species_predictions
+                        else None
+                    ),
                 ),
             }
         )

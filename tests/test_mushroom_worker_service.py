@@ -1137,6 +1137,59 @@ class MushroomWorkerServiceTests(unittest.TestCase):
         urlopen.assert_not_called()
         self.assertEqual(synchronize.call_args.args[1], manifest)
 
+    def test_predictor_runtime_is_namespaced_by_coordinator(self) -> None:
+        manifest = {
+            "schema_version": "1.0",
+            "kind": "rainmapper_mushroom_predictor_runtime",
+            "fingerprint": "sha256:" + "a" * 64,
+            "files": [
+                {
+                    "path": "models/model.joblib",
+                    "sha256": "sha256:" + "b" * 64,
+                    "size_bytes": 0,
+                }
+            ],
+        }
+        synchronized = (Path("/runtime"), {"status": "synchronized"})
+        job = {
+            "job_id": "worker_job_predict123",
+            "runtime_endpoint": "/api/mushrooms/workers/jobs/predictor-runtime",
+            "runtime_manifest": manifest,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            shared_objects = Path(temporary) / "predictor-runtime/objects"
+            shared_objects.mkdir(parents=True)
+            (shared_objects / ("b" * 64)).write_bytes(b"")
+            with (
+                mock.patch.object(mushroom_worker_service, "urlopen") as urlopen,
+                mock.patch.object(
+                    mushroom_worker_service.mushroom_predictor_runtime,
+                    "synchronize_runtime",
+                    return_value=synchronized,
+                ) as synchronize,
+            ):
+                result = mushroom_worker_service.download_predictor_runtime(
+                    "http://rainmapper-ha-ui:8099",
+                    job,
+                    Path(temporary),
+                    worker_id="worker_12345678",
+                    claim_token="claim-secret",
+                    token="coordinator-secret",
+                    coordinator_id="coordinator_1234567890abcdef",
+                )
+
+        self.assertEqual(synchronized, result)
+        urlopen.assert_not_called()
+        self.assertEqual(
+            Path(temporary).resolve()
+            / "predictor-runtime/coordinators/coordinator_1234567890abcdef",
+            synchronize.call_args.args[0],
+        )
+        self.assertEqual(
+            Path(temporary).resolve() / "predictor-runtime/objects",
+            synchronize.call_args.kwargs["objects_root"],
+        )
+
     def test_predictor_runtime_uses_delta_protocol_when_current_runtime_exists(self) -> None:
         manifest = {
             "schema_version": "1.0",

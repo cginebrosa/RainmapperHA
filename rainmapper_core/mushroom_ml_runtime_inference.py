@@ -81,6 +81,7 @@ def load_exact_artifact(
     checked_manifest: Mapping[str, object] | None = None,
     artifact_row: Mapping[str, object] | None = None,
     validated_model_ref: catalog.ModelRef | None = None,
+    cache: bool = True,
 ) -> dict[str, Any]:
     """Load one hash-verified artifact and reject identity substitution."""
     import joblib
@@ -108,6 +109,18 @@ def load_exact_artifact(
         stat.st_mtime_ns,
         stat.st_size,
     )
+    expected = catalog.ModelArtifactRef.from_mapping(row["artifact_ref"])
+    if not cache:
+        if _sha256(path) != declared_digest:
+            raise ValueError(f"Runtime model digest mismatch: {path}")
+        bundle = joblib.load(path)
+        if not isinstance(bundle, dict):
+            raise ValueError("Runtime model bundle must be an object")
+        actual = catalog.ModelArtifactRef.from_mapping(bundle.get("artifact_ref") or {})
+        if actual != expected:
+            raise ValueError("Runtime model bundle identity mismatch")
+        return bundle
+
     with _artifact_cache_lock:
         cached = _artifact_cache.get(cache_key)
         if cached is not None:
@@ -120,7 +133,6 @@ def load_exact_artifact(
         if not isinstance(bundle, dict):
             raise ValueError("Runtime model bundle must be an object")
         actual = catalog.ModelArtifactRef.from_mapping(bundle.get("artifact_ref") or {})
-        expected = catalog.ModelArtifactRef.from_mapping(row["artifact_ref"])
         if actual != expected:
             raise ValueError("Runtime model bundle identity mismatch")
 

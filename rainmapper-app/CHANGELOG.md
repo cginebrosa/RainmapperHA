@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.297
+
+- Detect constant hold-out probabilities per species and exact model candidate,
+  and exclude those candidates from sealed operational selection.
+- Recheck the constant-model veto in the shared prediction gate so weekly
+  precomputes cannot restore a rejected candidate through fallback.
+- Preserve probability variability diagnostics in the compact quality catalog
+  and identify constant-model abstentions explicitly in the Predictor UI.
+
 ## 0.2.296
 
 - Keep serving the last self-contained Predictor precompute as explicitly stale

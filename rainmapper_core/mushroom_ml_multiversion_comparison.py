@@ -505,6 +505,8 @@ def _operational_gate_failures(member: Mapping[str, object]) -> list[str]:
 
     evaluation = member.get("evaluation") or {}
     evaluation = evaluation if isinstance(evaluation, Mapping) else {}
+    if evaluation.get("constant_prediction") is True:
+        failures.append("constant_species_prediction")
     brier = _finite_number(evaluation.get("brier_score"))
     baseline = _finite_number(evaluation.get("prevalence_brier_score"))
     if (

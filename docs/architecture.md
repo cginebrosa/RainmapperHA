@@ -272,9 +272,10 @@ Hay varios entry points segun entorno:
 
 ### Coordinador y worker externo de setas
 
-> Evolución pendiente: el runtime instalado sigue siendo monocoordinador. El
-> diseño para que una sola instalación conserve varias asociaciones aisladas,
-> un límite local configurable y un único job global está en
+> El worker admite varias asociaciones aisladas con coordinadores y un límite
+> local configurable. Conserva dos carriles globales de cálculo —trabajo
+> principal y precálculo— y no multiplica la concurrencia por coordinador. El
+> diseño vinculante y la administración CLI todavía pendiente están en
 > `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`.
 
 - Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
@@ -291,6 +292,14 @@ Hay varios entry points segun entorno:
 - Servicio remoto: `rainmapper-worker/` y
   `rainmapper_core/mushroom_worker_service.py`; inicia conexiones outbound y no
   necesita acceso directo a Docker ni a las rutas vivas de HA.
+- Aislamiento multicoordinador: identidad común del worker, pero URL,
+  credencial, heartbeat, claim y runtime lógico independientes por asociación.
+  El coordinador principal conserva la raíz de runtime histórica y los demás
+  usan `predictor-runtime/coordinators/<coordinator_id>/`. Cada árbol tiene su
+  propio puntero `current`; los ficheros idénticos se enlazan desde
+  `predictor-runtime/objects/`, un almacén compartido por SHA-256. La
+  sincronización del almacén se serializa para que dos jobs concurrentes no
+  materialicen ni eliminen el mismo objeto simultáneamente.
 - Comunicación del worker: control, cancelación y progreso usan telemetría
   desacoplada y coalescida para que una petición lenta no bloquee el cálculo.
   La entrega final conserva reintento recuperable e idempotencia ante cortes
@@ -384,8 +393,10 @@ Hay varios entry points segun entorno:
   enumera todos sus perfiles y contratos.
 - Runtime Predictor remoto: los modelos producidos por el propio worker se
   conservan transitoriamente por SHA-256 y se enlazan a la caché de runtime; no
-  se descargan de nuevo desde HA. Los hashes ausentes viajan en un único tar
-  verificado, con fallback compatible al transporte por fichero.
+  se descargan de nuevo desde HA. Cada coordinador activa su propio runtime
+  lógico, mientras que los objetos iguales se comparten físicamente por hash.
+  Los hashes ausentes viajan en un único tar verificado, con fallback compatible
+  al transporte por fichero.
 - Handoff entre jobs: el worker conserva inputs inmutables sellados en objetos
   direccionados por contenido y entrega receipts verificables a HA. Un job
   enlazado puede reutilizarlos localmente; si identidad, alcance o integridad no

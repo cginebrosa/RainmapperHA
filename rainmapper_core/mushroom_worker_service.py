@@ -34,6 +34,7 @@ from rainmapper_core import mushroom_predictor_runtime
 from rainmapper_core import mushroom_predictor_precompute
 from rainmapper_core import mushroom_predictor_precompute_control
 from rainmapper_core import mushroom_ml_multiversion_transport
+from rainmapper_core import mushroom_model_explorer
 from rainmapper_core.mushroom_predictor_service import PredictorService
 
 
@@ -394,6 +395,7 @@ def download_predictor_runtime(
     worker_id: str,
     claim_token: str,
     token: str,
+    coordinator_id: str = "",
 ) -> tuple[Path, dict[str, Any]]:
     endpoint = str(job.get("runtime_endpoint", ""))
     if endpoint != "/api/mushrooms/workers/jobs/predictor-runtime":
@@ -418,8 +420,16 @@ def download_predictor_runtime(
     manifest = mushroom_predictor_runtime.validate_manifest(manifest_payload)
     job["runtime_manifest"] = manifest
 
-    runtime_cache_root = worker_data_dir.resolve() / "predictor-runtime"
-    objects_root = runtime_cache_root / "objects"
+    shared_runtime_root = worker_data_dir.resolve() / "predictor-runtime"
+    runtime_cache_root = shared_runtime_root
+    if coordinator_id:
+        checked_coordinator_id = mushroom_worker_config.validate_coordinator_id(
+            coordinator_id
+        )
+        runtime_cache_root = (
+            shared_runtime_root / "coordinators" / checked_coordinator_id
+        )
+    objects_root = shared_runtime_root / "objects"
     has_local_objects = objects_root.is_dir() and any(objects_root.iterdir())
     has_current_runtime = (
         mushroom_predictor_runtime.current_runtime(runtime_cache_root) is not None
@@ -455,6 +465,7 @@ def download_predictor_runtime(
                     runtime_cache_root,
                     manifest,
                     Path(archive_handle.name),
+                    objects_root=objects_root,
                 )
         except HTTPError as exc:
             if exc.code not in {404, 409}:
@@ -474,6 +485,7 @@ def download_predictor_runtime(
         runtime_cache_root,
         manifest,
         fetch,
+        objects_root=objects_root,
     )
 
 
@@ -880,11 +892,19 @@ def _handler_class(
     runtime_state: dict[str, Any],
     runtime_lock: threading.Lock,
 ) -> type[BaseHTTPRequestHandler]:
+    model_explorer = mushroom_model_explorer.ModelExplorerApp(worker_data_dir)
+
     class WorkerStatusHandler(BaseHTTPRequestHandler):
         server_version = "RainmapperWorker/0.1"
 
         def do_GET(self) -> None:  # noqa: N802
             request_path = urlsplit(self.path).path
+            if mushroom_model_explorer.is_explorer_path(request_path):
+                response = model_explorer.get(self.path)
+                self._write_response(
+                    response.status, response.content_type, response.body
+                )
+                return
             if request_path not in {"/", "/health", "/ready"}:
                 self._write_json(404, {"status": "not_found"})
                 return
@@ -915,10 +935,16 @@ def _handler_class(
 
         def _write_json(self, status: int, payload: dict[str, Any]) -> None:
             body = (json.dumps(payload, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+            self._write_response(status, "application/json; charset=utf-8", body)
+
+        def _write_response(
+            self, status: int, content_type: str, body: bytes
+        ) -> None:
             self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(body)
 
@@ -1311,6 +1337,7 @@ def serve(
                             worker_id=identity["worker_id"],
                             claim_token=claim_token,
                             token=token,
+                            coordinator_id=storage_coordinator_id,
                         )
                     )
                     manifest = mushroom_predictor_runtime.validate_manifest(
@@ -1447,6 +1474,7 @@ def serve(
                             worker_id=identity["worker_id"],
                             claim_token=claim_token,
                             token=token,
+                            coordinator_id=storage_coordinator_id,
                         )
                     )
                     runtime_sync_seconds = round(

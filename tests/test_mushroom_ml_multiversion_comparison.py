@@ -417,6 +417,63 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         exclusions = result["selected:fixed:h7"]["candidate_exclusions"]
         self.assertEqual(exclusions[0]["reasons"], ["roc_auc_below_minimum"])
 
+    def test_selected_operational_comparison_rejects_constant_species_prediction(self) -> None:
+        def member(
+            estimator_id: str,
+            *,
+            brier: float,
+            constant_prediction: bool,
+        ) -> dict[str, object]:
+            return {
+                "model_ref": {
+                    "version_id": "biology_v5_windowed_raw_weather",
+                    "temporal_contract_id": "fixed_gap_7d_biology_v5",
+                    "profile_id": "raw_window_60d",
+                    "estimator_id": estimator_id,
+                    "horizon_days": 7,
+                },
+                "available": True,
+                "prediction": {
+                    "probability": 0.72,
+                    "applicability": {"status": "within_observed_range"},
+                },
+                "evaluation": {
+                    "evidence": "better_than_prevalence",
+                    "brier_score": brier,
+                    "prevalence_brier_score": 0.30,
+                    "brier_delta_vs_prevalence": 0.30 - brier,
+                    "roc_auc": 0.80,
+                    "constant_prediction": constant_prediction,
+                    "n_test": 24,
+                },
+            }
+
+        result = comparison.build_selected_operational_comparison(
+            [
+                member(
+                    "elastic_net_logistic_raw365_v1",
+                    brier=0.10,
+                    constant_prediction=True,
+                ),
+                member(
+                    "random_forest_restricted_v1",
+                    brier=0.18,
+                    constant_prediction=False,
+                ),
+            ],
+            season_phase="in_season",
+        )
+
+        winner = result["selected_winners"][0]
+        self.assertEqual(
+            winner["model_ref"]["estimator_id"],
+            "random_forest_restricted_v1",
+        )
+        exclusions = result["selected:fixed:h7"]["candidate_exclusions"]
+        self.assertEqual(
+            exclusions[0]["reasons"], ["constant_species_prediction"]
+        )
+
     def test_selected_operational_comparison_measures_consensus_between_eligible_families(self) -> None:
         def member(
             estimator_id: str,

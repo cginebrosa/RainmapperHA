@@ -37,47 +37,43 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-09-06
+## Estado general al cierre de 2026-09-08
 
-- Rama `inicial`. La release se cierra en un commit selectivo y el único cambio
-  que debe permanecer fuera es el fichero de observaciones del usuario.
-  Preservar especialmente
-  `mushroom-data/mushroom_observations.json`. Los datos vivos locales para
-  entrenamiento están en `docker-data/mushroom-data/`.
-- Las fuentes declaran HA `0.2.294` y worker `1.0.41`. HA `0.2.294` está
-  publicada; sus tags `0.2.294` y `latest` comparten el digest
-  `sha256:79610e563f9124cfc55ae28c57402d9cbd4d4ea3d2012a9b0427a0fb5c14cd9b`
-  con manifests `linux/amd64` y `linux/arm64`, y está instalada en HA real.
-- El worker privado local `1.0.41` está healthy e idle, conserva identidad,
-  emparejamiento, volumen, cachés y la URL autorizada
-  `http://100.111.77.48:8100`.
+- Rama `inicial`, release HA `0.2.297`. La fuente y HA local declaran esa
+  versión. GHCR `0.2.297` y `latest` comparten el digest
+  multi-arquitectura
+  `sha256:07d3eb86efcfc2e6ba2ed02193c19d1503efba021a6256c95b858d71e24fcbfe`.
+  La imagen está lista, pero aún no se había instalado en HA real al cerrar esta
+  ventana. Revalidar HEAD y `origin/inicial` antes de actuar.
+- HA usa el último precálculo autocontenido durante una actualización, aunque
+  esté marcado como desactualizado. Las tres vistas del Predictor leen una
+  respuesta SQLite sellada e indexada y no reconstruyen ni revalidan cientos de
+  componentes en cada consulta.
+- El worker privado está healthy con la imagen local `rainmapper-worker:1.1.0`;
+  no se distribuye mediante GHCR. Mantiene la URL principal
+  autorizada `http://100.111.77.48:8100` y HA local como asociación adicional.
+  No cambiar ninguna sin autorización expresa para ese destino.
+- La separación de cachés de runtime por coordinador está implementada,
+  probada y ejercitada en el circuito local completo, con objetos físicos
+  compartidos por SHA-256.
+- También permanece modificado
+  `mushroom-data/mushroom_observations.json`. Es del usuario: no editarlo,
+  restaurarlo, borrarlo ni incluirlo ciegamente. Los datos vivos locales para
+  pruebas están en `docker-data/mushroom-data/`.
 - Se adoptó `knn_distance_beta_smoothed_v2` como único KNN de nuevos
-  entrenamientos. Aplica `(7p + 1) / 9`; el KNN anterior solo queda para
-  artefactos históricos. Entrenamiento, hold-out e inferencia comparten la misma
-  implementación. La UI evita certezas predictivas redondeadas mostrando
-  `>99 %` y `<1 %`.
-- La suite completa de release superó 1.288 pruebas. El cambio se materializó en
-  `local_operational_20260905T231844Z`: 406 observaciones elegibles, 8 especies,
-  11 perfiles y 636/636 artefactos correctos. Los modelos, hold-out, métricas y
-  catálogos nuevos no contienen `knn_distance_v1`.
-- El precálculo revisión 40 cubre 2026-09-06--2026-09-12, pesa 29.917.184 bytes
-  y pasó integridad, hash, relaciones, conteos y auditoría del JSON comprimido.
-  Contiene 504 predicciones base, 420 miembros, 623 respuestas lógicas y 143
-  payloads deduplicados, con las tres vistas presentes y sin el KNN antiguo.
-- La corrección 0.2.294/1.0.41 elimina el JSON de 49.913.415 bytes previo al
-  precálculo, mantiene auditoría comprimida fuera del runtime y mueve los lotes
-  operativos sin duplicarlos. La build y publicación multi-arquitectura están
-  verificadas; tras instalar HA puede repetirse el precálculo actual sin
-  entrenar.
-- La auditoría P0 para Rovelló, Edulis, Pinícola, Aereus y Ou de reig está
-  cerrada. No justifica V7; sí respalda el suavizado KNN. Llanega negra, Marçot y
-  Múrgola negra esperan hold-outs con ambas clases. Sporas.io continúa siendo
-  solo fuente de preguntas.
-- `MOD_0001` sigue vigente: ecología y ventanas son diagnóstico y no modifican
-  ninguna predicción. En Rovelló el timing es desconocido y los límites cero son
-  placeholders; no restaurar la antigua ventana falsa.
-- No borrar datos o artefactos, cambiar retención, lanzar trabajos, hacer
-  build/publicación ni tocar HA real sin autorización explícita.
+  entrenamientos. El KNN anterior solo se conserva para leer generaciones
+  históricas. `MOD_0001` sigue vigente: ecología y ventanas son diagnóstico y
+  no modifican la predicción.
+- El gate por especie para modelos con predicciones hold-out constantes está
+  entrenado y aplicado: ninguna de las 280 selecciones selladas ni de los 420
+  miembros del precálculo eligió una candidata constante.
+- Queda abierta una revisión de aplicabilidad a partir de Rovelló / Els Ports /
+  2026-09-07: el modelo calculó `0,0016 %`, pero se abstuvo por humedad menos de
+  un punto fuera del mínimo aprendido y temperatura máxima superior al rango.
+  Solo está documentado; no se cambiaron reglas ni UI.
+- No borrar datos o artefactos, crear copias o mecanismos de reversión ad hoc,
+  cambiar retención, lanzar trabajos, hacer build/publicación ni tocar HA real
+  sin autorización explícita.
 
 El estado exacto, la prueba siguiente y los riesgos están en
 `docs/active-context.md`.
@@ -116,8 +112,11 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Alcance y plan operativo únicos para local, HA y worker:
   `docs/mushrooms/mushroom-operational-training-scope-unification-spec-es.md`
 - Plataforma de workers: `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
-- Evolución pendiente del worker para conservar varios coordinadores:
+- Diseño vigente del worker multicoordinador y administración CLI pendiente:
   `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`
+- Auditoría y propuesta todavía no implementada para reducir copias, buffers y
+  rehashes durante transferencias HA--worker sin debilitar integridad:
+  `docs/mushrooms/mushroom-worker-streaming-integrity-performance-handoff-es.md`
 - Entrenamiento ML/dataset: `docs/mushrooms/mushroom-ml-training-plan-es.md`
 - Versiones canónicas de contratos ML:
   `docs/mushrooms/mushroom-ml-contract-versions-es.md`
@@ -196,6 +195,11 @@ El estado exacto, la prueba siguiente y los riesgos están en
   del alcance; ante una duda real sobre cualquiera de esos tres casos, preguntar.
 - No hacer bump, build ni publicación HA sin petición explícita. Antes de una
   release, leer y seguir `docs/release-flow.md`.
+- Todo cambio ejecutable destinado a HA real debe probarse primero construyendo
+  HA local y, si interviene cálculo remoto, el worker desde el mismo source. La
+  prueba debe recorrer el circuito funcional afectado; compilar por sí solo no
+  constituye validación. Solo después de la aceptación se publica o instala HA
+  real.
 - Durante un build/push HA, vigilar la misma sesión cada 20–30 s e informar al
   usuario al menos cada minuto; no duplicar builds. Verificar tags, digest y
   manifests antes de cancelar un cliente que tarde en cerrar.
@@ -208,6 +212,9 @@ El estado exacto, la prueba siguiente y los riesgos están en
   cuando opera fuera de la red local.
 - No tocar CSV meteorológicos reales sin `docs/history-safety.md`.
 - No inventar features, umbrales, pesos, ventanas o reglas micológicas.
+- HA real corre en una Raspberry Pi 4 compartida. No usar fuerza bruta,
+  expansiones cartesianas, validaciones repetidas, copias grandes ni aumentos de
+  límites como sustituto de un diseño eficiente.
 - Todo texto visible nuevo de setas debe existir en
   `mushroom-data/mushroom_labels.json` en inglés, español y catalán.
 - Evitar ampliar `web_server.py` con dominio nuevo: preferir `rainmapper_core`
@@ -215,8 +222,10 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Usar `.venv/bin/python` (Python 3.11) para desarrollo y validación local.
 - Preservar el contexto de navegación y no crear versiones divergentes de un
   modal según su origen.
-- No limpiar GHCR sin confirmar versión activa y rollback y sin conservar los
-  manifests/attestations multi-arquitectura necesarios.
+- No limpiar GHCR sin confirmar la versión activa ni crear copias, imágenes de
+  reserva o mecanismos de reversión no solicitados. Conservar únicamente los
+  manifests/attestations multi-arquitectura necesarios para las versiones que
+  el usuario haya decidido mantener.
 
 ## Fuentes de verdad y rutas sensibles
 

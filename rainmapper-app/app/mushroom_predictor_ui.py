@@ -1428,6 +1428,7 @@ def _selected_model_source(comparison: dict[str, Any] | None) -> str:
 
 _ABSTENTION_REASON_LABELS = {
     "unacceptable_applicability": "ui.predictor_abstention_applicability",
+    "constant_species_prediction": "ui.predictor_abstention_constant_model",
     "brier_not_better_than_prevalence": "ui.predictor_abstention_brier",
     "roc_auc_below_minimum": "ui.predictor_abstention_auc_below_minimum",
     "roc_auc_unavailable": "ui.predictor_abstention_auc_unavailable",

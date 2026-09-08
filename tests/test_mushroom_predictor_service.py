@@ -237,6 +237,7 @@ class PredictorServiceTests(TestCase):
                                 "prevalence_brier_score": 0.25,
                                 "brier_delta_vs_prevalence": 0.15,
                                 "roc_auc": 0.8,
+                                "constant_prediction": index == 0,
                             },
                         }
                     )
@@ -301,6 +302,12 @@ class PredictorServiceTests(TestCase):
                 comparison_payload["members"][0]["model_ref"]["estimator_id"].startswith(
                     "fallback_"
                 )
+            )
+            self.assertIn(
+                "constant_species_prediction",
+                comparison_payload["operational_comparison"][
+                    "reliability_candidate_exclusions"
+                ][0]["reasons"],
             )
 
     def test_query_response_can_be_rendered_through_prepared_adapter(self) -> None:

@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=1.0.41
+ARG RAINMAPPER_WORKER_VERSION=1.1.0
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -53,6 +53,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_ml_runtime_trainer.py \
      rainmapper_core/mushroom_ml_runtime_inference.py \
      rainmapper_core/mushroom_ml_runtime_features.py \
+     rainmapper_core/mushroom_model_explorer.py \
      rainmapper_core/mushroom_ml_area_weather_runtime.py \
      rainmapper_core/mushroom_ml_multiversion_comparison.py \
      rainmapper_core/mushroom_ml_probability_calibration.py \
@@ -131,6 +132,7 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_ml_runtime_trainer.py \
         /app/rainmapper_core/mushroom_ml_runtime_inference.py \
         /app/rainmapper_core/mushroom_ml_runtime_features.py \
+        /app/rainmapper_core/mushroom_model_explorer.py \
         /app/rainmapper_core/mushroom_ml_area_weather_runtime.py \
         /app/rainmapper_core/mushroom_ml_multiversion_comparison.py \
         /app/rainmapper_core/mushroom_ml_probability_calibration.py \

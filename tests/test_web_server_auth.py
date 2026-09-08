@@ -5089,6 +5089,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "candidate_exclusions": [
                     {
                         "reasons": [
+                            "constant_species_prediction",
                             "brier_not_better_than_prevalence",
                             "roc_auc_below_minimum",
                         ]
@@ -5119,6 +5120,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             compact = predictor_ui._compact_operational_abstention(comparison)
 
         self.assertIn("ui.predictor_abstention_title", rendered)
+        self.assertIn("ui.predictor_abstention_constant_model", rendered)
         self.assertIn("ui.predictor_abstention_brier", rendered)
         self.assertIn("ui.predictor_abstention_auc_below_minimum", rendered)
         self.assertIn("ui.predictor_abstention_applicability", rendered)

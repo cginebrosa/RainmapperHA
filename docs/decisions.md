@@ -1,6 +1,68 @@
 # Decisions
 
-## 2026-09-06 - [VIGENTE][RELEASE] HA 0.2.293 publicada y worker privado 1.0.39
+## 2026-09-07 - [DUDA][PREDICTOR] Revisar el bloqueo por aplicabilidad y mostrar la probabilidad vetada
+
+- El caso de control es Rovelló / Els Ports / 2026-09-07, inspeccionado en el
+  SQLite activo del worker. LR-V3 `h1` existe y calcula `0,000016`
+  (`0,0016 %`), pero la selección termina en abstención.
+- La aplicabilidad bloquea dos de 27 variables: humedad máxima de 8--14 días
+  `88,062 %` frente al mínimo aprendido `89,001 %` (`4,451` desviaciones) y
+  temperatura máxima de 7 días `33,151 °C` frente al máximo aprendido
+  `30,933 °C` (`3,015` desviaciones).
+- Se considera dudoso que una diferencia absoluta inferior a un punto de
+  humedad pueda vetar por sí sola. La temperatura por encima de 30 °C y más de
+  dos grados fuera del rango sí puede representar una extrapolación material.
+  Esta apreciación no modifica todavía ninguna regla.
+- La probabilidad extremadamente baja hace que el veto no cambie la decisión
+  práctica del caso, pero ocultarla impide entender qué calculó el modelo. Se
+  evaluará mostrarla con una marca inequívoca de `abstención`, sin usarla como
+  recomendación, color operativo ni ranking.
+- Antes de cambiar el bloqueo se exige una auditoría multiespecie que separe
+  tolerancia absoluta, desviación normalizada, naturaleza de la variable y
+  dirección de la extrapolación. No se aprueba ampliar límites globales.
+- La UI debe diferenciar `modelo no disponible` de `modelo disponible pero
+  rechazado por aplicabilidad`; el texto actual mezcla ambos motivos.
+
+## 2026-09-07 - [VIGENTE][WORKER] Cada coordinador conserva su runtime lógico y comparte objetos por contenido
+
+- Una instalación multicoordinador no puede alternar un único puntero de
+  runtime entre coordinadores. Cada asociación mantiene su propio árbol lógico
+  y su propio `current`.
+- Para no duplicar en disco los mismos modelos, meteorología y catálogos, todos
+  los árboles reutilizan un almacén físico común direccionado por SHA-256. La
+  sincronización está serializada y solo elimina objetos que ya no tienen
+  referencias.
+- Por compatibilidad, el coordinador principal conserva la raíz histórica de
+  runtime; los coordinadores adicionales usan
+  `predictor-runtime/coordinators/<coordinator_id>/`. El almacén compartido es
+  `predictor-runtime/objects/`.
+- La implementación y sus pruebas están en el worktree y en la imagen privada
+  `multicoordinator-test`, pero aún no están en un commit ni en una versión
+  definitiva del worker. La decisión arquitectónica es vigente; su cierre de
+  release continúa pendiente.
+- Ninguna operación sobre caché o versión autoriza a cambiar IP, URL, hostname,
+  token o asociación de un coordinador.
+
+## 2026-09-07 - [VIGENTE][RELEASE] HA 0.2.296 publicada e instalada
+
+- HA `0.2.296` está en `inicial` mediante el commit `52d7d3e`. Los tags GHCR
+  `0.2.296` y `latest` comparten el digest
+  `sha256:877f1b369daed6f6cffdcbf1e512ef572d318244077988eb5016e1f4c9d30919`
+  y contienen manifests `linux/amd64` y `linux/arm64`.
+- Conserva como fallback explícitamente desactualizado el último precálculo
+  autocontenido mientras se sustituye el runtime; la fecha de inicio del SQLite
+  no lo invalida si hoy sigue dentro de su cobertura y las identidades son
+  compatibles.
+- Las vistas del Predictor leen respuestas selladas e indexadas sin recomponer
+  miembros ni repetir validaciones profundas por consulta. `Consultar fecha`
+  sigue mostrando el detalle de versiones porque allí contiene información.
+- Evita volver a encolar una petición de precálculo que ya fue publicada aunque
+  su job histórico se haya compactado.
+- El usuario confirmó la instalación real, la finalización del precálculo y la
+  disponibilidad de predicciones. HA local fue reconstruida con la misma
+  versión.
+
+## 2026-09-06 - [REEMPLAZADA][RELEASE] HA 0.2.293 publicada y worker privado 1.0.39
 
 - HA `0.2.292` se construyó y publicó antes de implementar el KNN suavizado y
   el formato `>99 %`/`<1 %`. No se instalará como si contuviera esos cambios.
