@@ -33,7 +33,9 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `rainmapper-app/app/`: codigo especifico de Home Assistant que entra en la imagen HA (`web_server.py`, `mushroom_catalogs_ui.py`, `mushroom_profiles_ui.py`, `mushroom_gis_mappings_ui.py`, `mushroom_known_sites_ui.py`, `mushroom_workers_ui.py`). El core, store/validador de setas y visores se copian desde las rutas canonicas de raiz durante el build.
 - `rainmapper-local/`: runtime Docker local y scripts especificos de pruebas locales.
 - `rainmapper-local/docker-compose.yml`: compose local con el servicio historico `rainmapper` y el servicio `rainmapper-ha-ui`, que levanta la WebUI HA contra `docker-data/` para pruebas locales sin tocar Home Assistant y comparte la red privada de computo local.
-- `rainmapper-worker/`: imagen/servicio headless y ligero del worker externo; no contiene GIS/DEM ni WebUI.
+- `rainmapper-worker/`: imagen/servicio de cálculo del worker externo; no
+  contiene GIS/DEM propios ni la WebUI administrativa de HA. Su servidor de
+  estado monta el Explorador de modelos de solo lectura en `/models`.
 - `rainmapper-local/docker-compose.worker.yml`: despliegue del worker (portable, se ejecuta siempre en la máquina local que hace de worker, sea de laboratorio o el real emparejado con HA vía `--rainmapper-url`) con el volumen persistente `rainmapper-worker-data`.
 - `rainmapper_core/viewers/leaflet-viewer/`: fuente canonica del visor Leaflet.
 - `rainmapper_core/viewers/maplibre-viewer/`: fuente canonica del visor MapLibre.
@@ -292,6 +294,14 @@ Hay varios entry points segun entorno:
 - Servicio remoto: `rainmapper-worker/` y
   `rainmapper_core/mushroom_worker_service.py`; inicia conexiones outbound y no
   necesita acceso directo a Docker ni a las rutas vivas de HA.
+- Explorador de modelos: `rainmapper_core/mushroom_model_explorer.py` es una
+  aplicación HTTP pequeña y aislable, montada en `/models` por el servidor de
+  estado del worker. Descubre los runtimes activos y navega sus catálogos sin
+  abrir bundles; solo el artefacto solicitado se carga mediante el loader
+  verificado, sin caché compartida. Expone estructura, entradas, rangos,
+  coeficientes o importancias cuando el estimador los proporciona. No modifica
+  modelos, runtimes, catálogos ni asociaciones y todavía no está enlazada desde
+  HA.
 - Aislamiento multicoordinador: identidad común del worker, pero URL,
   credencial, heartbeat, claim y runtime lógico independientes por asociación.
   El coordinador principal conserva la raíz de runtime histórica y los demás

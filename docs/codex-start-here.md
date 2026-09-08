@@ -39,12 +39,14 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 
 ## Estado general al cierre de 2026-09-08
 
-- Rama `inicial`, release HA `0.2.297`. La fuente y HA local declaran esa
-  versión. GHCR `0.2.297` y `latest` comparten el digest
+- Rama `inicial`; HEAD y `origin/inicial` estaban en `6055dabc72a2` al cierre,
+  release HA `0.2.297`. La fuente y HA local declaran esa versión. GHCR
+  `0.2.297` y `latest` comparten el digest
   multi-arquitectura
   `sha256:07d3eb86efcfc2e6ba2ed02193c19d1503efba021a6256c95b858d71e24fcbfe`.
-  La imagen está lista, pero aún no se había instalado en HA real al cerrar esta
-  ventana. Revalidar HEAD y `origin/inicial` antes de actuar.
+  HA local fue reconstruida y recreada desde ese HEAD, responde en el puerto
+  8101 y sus huellas centrales coinciden. No se comprobó qué versión ejecuta HA
+  real. Revalidar HEAD, remoto y HA real antes de actuar.
 - HA usa el último precálculo autocontenido durante una actualización, aunque
   esté marcado como desactualizado. Las tres vistas del Predictor leen una
   respuesta SQLite sellada e indexada y no reconstruyen ni revalidan cientos de
@@ -67,6 +69,10 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 - El gate por especie para modelos con predicciones hold-out constantes está
   entrenado y aplicado: ninguna de las 280 selecciones selladas ni de los 420
   miembros del precálculo eligió una candidata constante.
+- El worker ofrece un Explorador de modelos de solo lectura en `/models`
+  (`http://127.0.0.1:8110/models` en local). Navegar selectores no abre bundles;
+  el modelo elegido solo se carga al pedir la inspección y después de verificar
+  su SHA-256. Todavía no existe enlace desde HA.
 - Queda abierta una revisión de aplicabilidad a partir de Rovelló / Els Ports /
   2026-09-07: el modelo calculó `0,0016 %`, pero se abstuvo por humedad menos de
   un punto fuera del mínimo aprendido y temperatura máxima superior al rango.

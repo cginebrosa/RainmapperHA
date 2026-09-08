@@ -1,5 +1,76 @@
 # Decisions
 
+## 2026-09-08 - [VIGENTE][RELEASE] HA 0.2.297 y worker local 1.1.0
+
+- La release fuente está en `inicial`, commit
+  `6055dabc72a2ac7837a297f27cf905251d8fe2ae`. GHCR `0.2.297` y `latest`
+  comparten el índice
+  `sha256:07d3eb86efcfc2e6ba2ed02193c19d1503efba021a6256c95b858d71e24fcbfe`
+  con manifests `linux/amd64` y `linux/arm64`.
+- HA local se reconstruyó y recreó desde ese HEAD. La imagen y el contenedor
+  declaran 0.2.297, la UI responde y las huellas de cinco ficheros ejecutables
+  centrales coinciden con el workspace.
+- El worker se versiona independientemente como `1.1.0`, permanece como imagen
+  privada local y no se publica en GHCR. Conserva sus dos coordinadores y el
+  runtime lógico aislado por asociación.
+- No se ha verificado en este cierre qué versión ejecuta HA real. Instalar y
+  comprobar 0.2.297 sigue siendo una acción posterior del usuario.
+- Esta decisión reemplaza como release vigente la 0.2.296 del 7 de septiembre.
+
+## 2026-09-08 - [VIGENTE][PREDICTOR] Una candidata hold-out constante no puede participar en selección ni precálculo
+
+- La degeneración se determina por `split_id`, especie y candidata exacta
+  —versión, perfil, contrato, horizonte y estimador—, no por el nombre de la
+  familia algorítmica ni por la existencia de coeficientes visibles.
+- Con al menos dos predicciones hold-out y rango máximo menos mínimo
+  `<= 0,000001`, la evaluación queda marcada como constante. La selección
+  sellada excluye esa candidata para toda la especie y el selector operativo
+  vuelve a comprobar el veto como defensa.
+- Random Forest, KNN y otros modelos sin coeficiente global siguen siendo aptos
+  si sus predicciones varían. Un vector de coeficientes cero es una señal para
+  inspeccionar, no el criterio operativo universal.
+- La regla se calcula durante entrenamiento y se consume durante precálculo; no
+  añade análisis ni latencia a la consulta. Activarla exige reentrenamiento y un
+  precálculo nuevo, ya completados para la generación actual.
+- La auditoría de la generación promovida encontró cero constantes entre las
+  280 selecciones selladas y cero entre los 420 miembros precalculados.
+
+## 2026-09-08 - [VIGENTE][ARQUITECTURA][MODELOS] El Explorador es una aplicación de solo lectura alojada en el worker
+
+- El Explorador vive en `rainmapper_core/mushroom_model_explorer.py` y se monta
+  en `/models` dentro del servidor HTTP del worker. También conserva un
+  entrypoint autónomo para poder separarlo en otro proceso si fuera necesario.
+- La navegación por runtime, batch, especie, versión, contrato, perfil y
+  algoritmo solo lee catálogo y manifiestos. El bundle elegido se carga, con
+  SHA-256 verificado y sin caché compartida, únicamente después de solicitar la
+  inspección.
+- La UI muestra la estructura que realmente expone el estimador: coeficientes,
+  importancias o ausencia de peso global, además de rangos y configuración. No
+  inventa dirección para algoritmos que no la proporcionan ni presenta pesos
+  como causalidad.
+- No existe todavía integración ni enlace desde HA; esa posible entrada queda
+  separada de la aplicación inspectora.
+
+## 2026-09-08 - [VIGENTE][ARQUITECTURA][INTEGRIDAD] Optimizar transferencias sin retirar validación semántica ni promoción atómica
+
+- El objetivo es reducir lecturas, buffers y escrituras en la Raspberry Pi 4,
+  calculando tamaño y SHA-256 mientras se transmite o recibe cuando el protocolo
+  lo permita.
+- Deben mantenerse autenticación y autorización previas, límites, fichero
+  temporal, identidad del job/artefacto, validación semántica, reintentos
+  idempotentes y `os.replace`. El hash prueba identidad de bytes; no sustituye
+  esquema, cardinalidad, contexto ni propiedad del job.
+- HA -> worker ya hashea mientras descarga. Worker -> HA todavía contiene
+  cuerpos completos en memoria y al menos un rehash evitable en la publicación
+  del SQLite. Los bundles multiversión también materializan buffers y hacen
+  `fsync` por miembro.
+- Antes de implementar se medirán en HA real lectura de red, hash/escritura,
+  `fsync`, validación y promoción. El coste dominante de los cientos de `fsync`
+  es una duda pendiente, no una conclusión.
+- No se acepta una caché ingenua basada solo en tamaño y `mtime`. La propuesta y
+  pruebas de fallo requeridas están en
+  `docs/mushrooms/mushroom-worker-streaming-integrity-performance-handoff-es.md`.
+
 ## 2026-09-07 - [DUDA][PREDICTOR] Revisar el bloqueo por aplicabilidad y mostrar la probabilidad vetada
 
 - El caso de control es Rovelló / Els Ports / 2026-09-07, inspeccionado en el
@@ -37,13 +108,13 @@
   `predictor-runtime/coordinators/<coordinator_id>/`. El almacén compartido es
   `predictor-runtime/objects/`.
 - La implementación y sus pruebas están en el worktree y en la imagen privada
-  `multicoordinator-test`, pero aún no están en un commit ni en una versión
-  definitiva del worker. La decisión arquitectónica es vigente; su cierre de
-  release continúa pendiente.
+  local `1.1.0`, commit `6055dab`. El circuito completo con ambos coordinadores
+  quedó validado; solo continúa pendiente la administración CLI por
+  `coordinator_id`.
 - Ninguna operación sobre caché o versión autoriza a cambiar IP, URL, hostname,
   token o asociación de un coordinador.
 
-## 2026-09-07 - [VIGENTE][RELEASE] HA 0.2.296 publicada e instalada
+## 2026-09-07 - [REEMPLAZADA][RELEASE] HA 0.2.296 publicada e instalada
 
 - HA `0.2.296` está en `inicial` mediante el commit `52d7d3e`. Los tags GHCR
   `0.2.296` y `latest` comparten el digest
@@ -61,6 +132,7 @@
 - El usuario confirmó la instalación real, la finalización del precálculo y la
   disponibilidad de predicciones. HA local fue reconstruida con la misma
   versión.
+- Reemplazada el 8 de septiembre por HA 0.2.297.
 
 ## 2026-09-06 - [REEMPLAZADA][RELEASE] HA 0.2.293 publicada y worker privado 1.0.39
 
