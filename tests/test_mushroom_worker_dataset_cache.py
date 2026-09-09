@@ -138,7 +138,7 @@ class MushroomWorkerDatasetCacheTests(unittest.TestCase):
         def fetch(record: dict[str, object], destination: Path) -> tuple[int, str]:
             nonlocal calls
             calls += 1
-            if calls == 2:
+            if calls == 1:
                 raise ConnectionError("injected network interruption")
             content = (self.source / str(record["path"])).read_bytes()
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -193,6 +193,109 @@ class MushroomWorkerDatasetCacheTests(unittest.TestCase):
         self.assertTrue((versions / old_fingerprint).is_dir())
         self.assertTrue((versions / result["fingerprint"]).is_dir())
 
+    def test_new_version_links_unchanged_files_and_fetches_only_changed_files(self) -> None:
+        first = mushroom_worker_dataset_cache.sync_local(
+            self.manifest, self.source, self.worker_data
+        )
+        old_version = (
+            self.worker_data
+            / "datasets/mushroom_gis_v0/versions"
+            / str(first["fingerprint"])
+        )
+        old_unchanged = old_version / "nested/a.dat"
+        (self.source / "b.dat").write_bytes(b"updated")
+        updated_manifest = self.make_manifest()
+        fetched: list[str] = []
+
+        def fetch(record: dict[str, object], destination: Path) -> tuple[int, str]:
+            fetched.append(str(record["path"]))
+            content = (self.source / str(record["path"])).read_bytes()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+            return len(content), hashlib.sha256(content).hexdigest()
+
+        result = mushroom_worker_dataset_cache.sync_from_fetcher(
+            updated_manifest,
+            self.worker_data,
+            fetch_file=fetch,
+        )
+        new_unchanged = (
+            self.worker_data
+            / "datasets/mushroom_gis_v0/versions"
+            / str(result["fingerprint"])
+            / "nested/a.dat"
+        )
+
+        self.assertEqual(fetched, ["b.dat"])
+        self.assertEqual(result["transferred_file_count"], 1)
+        self.assertEqual(result["transferred_size_bytes"], len(b"updated"))
+        self.assertEqual(result["reused_file_count"], 1)
+        self.assertEqual(result["reused_size_bytes"], len(b"alpha"))
+        self.assertEqual(old_unchanged.stat().st_ino, new_unchanged.stat().st_ino)
+        self.assertEqual(
+            mushroom_worker_dataset_cache.verify_version(self.worker_data, deep=True)["status"],
+            "valid",
+        )
+
+    def test_link_failure_falls_back_to_fetching_the_reusable_file(self) -> None:
+        mushroom_worker_dataset_cache.sync_local(
+            self.manifest, self.source, self.worker_data
+        )
+        (self.source / "b.dat").write_bytes(b"updated")
+        updated_manifest = self.make_manifest()
+        fetched: list[str] = []
+
+        def fetch(record: dict[str, object], destination: Path) -> tuple[int, str]:
+            fetched.append(str(record["path"]))
+            content = (self.source / str(record["path"])).read_bytes()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+            return len(content), hashlib.sha256(content).hexdigest()
+
+        with mock.patch.object(
+            mushroom_worker_dataset_cache.os,
+            "link",
+            side_effect=OSError("hard links unavailable"),
+        ):
+            result = mushroom_worker_dataset_cache.sync_from_fetcher(
+                updated_manifest,
+                self.worker_data,
+                fetch_file=fetch,
+            )
+
+        self.assertEqual(fetched, ["nested/a.dat", "b.dat"])
+        self.assertEqual(result["transferred_file_count"], 2)
+        self.assertEqual(result["reused_file_count"], 0)
+        self.assertEqual(
+            mushroom_worker_dataset_cache.verify_version(self.worker_data, deep=True)["status"],
+            "valid",
+        )
+
+    def test_free_space_check_only_counts_files_that_need_transfer(self) -> None:
+        mushroom_worker_dataset_cache.sync_local(
+            self.manifest, self.source, self.worker_data
+        )
+        (self.source / "b.dat").write_bytes(b"updated")
+        updated_manifest = self.make_manifest()
+        required = len(b"updated")
+        disk_usage = type(
+            "DiskUsage",
+            (),
+            {"free": required + mushroom_worker_dataset_cache.MIN_DATASET_FREE_BYTES},
+        )()
+
+        with mock.patch.object(
+            mushroom_worker_dataset_cache.shutil,
+            "disk_usage",
+            return_value=disk_usage,
+        ):
+            result = mushroom_worker_dataset_cache.sync_local(
+                updated_manifest, self.source, self.worker_data
+            )
+
+        self.assertEqual(result["transferred_size_bytes"], required)
+        self.assertEqual(result["reused_size_bytes"], len(b"alpha"))
+
     def test_copy_failure_preserves_current_and_cleans_staging(self) -> None:
         first = mushroom_worker_dataset_cache.sync_local(
             self.manifest, self.source, self.worker_data
@@ -202,17 +305,17 @@ class MushroomWorkerDatasetCacheTests(unittest.TestCase):
         original_copy = mushroom_worker_dataset_cache._copy_and_hash
         calls = 0
 
-        def fail_second_copy(source: Path, destination: Path, chunk_size: int = 4 * 1024 * 1024) -> str:
+        def fail_copy(source: Path, destination: Path, chunk_size: int = 4 * 1024 * 1024) -> str:
             nonlocal calls
             calls += 1
-            if calls == 2:
+            if calls == 1:
                 raise OSError("injected copy failure")
             return original_copy(source, destination, chunk_size)
 
         with mock.patch.object(
             mushroom_worker_dataset_cache,
             "_copy_and_hash",
-            side_effect=fail_second_copy,
+            side_effect=fail_copy,
         ):
             with self.assertRaisesRegex(OSError, "injected copy failure"):
                 mushroom_worker_dataset_cache.sync_local(

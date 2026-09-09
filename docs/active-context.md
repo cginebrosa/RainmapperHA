@@ -1,6 +1,6 @@
 # Active Context
 
-Ventana operativa de RainmapperHA al cierre del 8 de septiembre de 2026. No es
+Ventana operativa de RainmapperHA al 9 de septiembre de 2026. No es
 un histórico. Revalidar siempre repositorio, contenedores, datos y servicios
 antes de asumir que este estado sigue vigente.
 
@@ -9,13 +9,15 @@ antes de asumir que este estado sigue vigente.
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
 - La release HA `0.2.298` está publicada en GHCR; revalidar el commit de
   `inicial`, HEAD y `origin/inicial` al comenzar la próxima sesión.
-- La fuente declara HA `0.2.298` y worker `1.1.0`; sus secuencias de versión son
+- La fuente declara HA `0.2.298` y worker `1.1.1`; sus secuencias de versión son
   independientes.
-- El único cambio previo al cierre era
-  `mushroom-data/mushroom_observations.json`, con SHA-256
-  `f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0`.
-  Es dato del usuario: no editarlo, restaurarlo, borrarlo ni incluirlo en un
-  commit. Los datos vivos del laboratorio están en `docker-data/`.
+- `origin/inicial` se revalidó en
+  `b9f36e7bf7e2f0c7e4da7ab9f8ccc3c30f91847a`; la rama local queda un commit por
+  delante con la candidata GIS francesa y la reutilización incremental del
+  dataset por el worker. El worktree conserva documentos meteorológicos en
+  curso. También permanece modificado `mushroom-data/mushroom_observations.json`:
+  es dato del usuario y no debe editarse, restaurarse, borrarse ni incluirse en
+  el commit. Los datos vivos del laboratorio están en `docker-data/`.
 
 ## HA 0.2.298
 
@@ -25,20 +27,20 @@ antes de asumir que este estado sigue vigente.
   `sha256:18aaba6e48bfdaeb4d1ba7e482fd6acf8b9e4e4235fcb4d68b10df4b33ed133f`
   y `linux/arm64`
   `sha256:04a9bdee109704b57ce6e18c257775db6791ba8115533f409d12b2279526908f`.
-- HA local se reconstruyó desde el código funcional definitivo antes del bump
-  mecánico y conserva la etiqueta `0.2.297`; su imagen efectiva es
-  `sha256:2bb6456c346a40072b2ae2d7e81cd9f235e1913510d584f2f3008d896e608676`.
-  Las huellas ejecutables comparadas coinciden con el workspace y la UI responde
-  200. El smoke completo posterior pasó antes de publicar `0.2.298`.
+- HA local se ha reconstruido desde el worktree actual con la etiqueta de
+  desarrollo `rainmapperha:local-ha-ui`; su imagen efectiva es
+  `sha256:4464ab6d2b313d41ca62df32c81fd4bac5a453b527d6788aaa2e9f6a50673b87`.
+  Las huellas ejecutables relevantes coinciden con el workspace y la UI
+  responde 200.
 - HA real no se ha actualizado todavía a `0.2.298`.
 
 ## Worker operativo
 
 - `rainmapper-worker` está activo y healthy con la imagen local privada
-  `rainmapper-worker:1.1.0`; el worker no se publica en GHCR.
+  `rainmapper-worker:1.1.1`; el worker no se publica en GHCR.
 - Imagen efectiva:
-  `sha256:1bfb37b01867524214f2d8160cac05501bc62599768dff423b63174c6eac3e88`.
-  Etiqueta, entorno y `/health` declaran `1.1.0`.
+  `sha256:dd4d13731754a2f662ce05fe176116f5c54d62090d607ac6a932d3b476abe435`.
+  Etiqueta, entorno y `/health` declaran `1.1.1`.
 - Identidad: `worker_1a9a232c20fe2ee2`, nombre `M1 Personal`. Ambos carriles
   están idle; caché GIS/dataset y caché Predictor figuran válidas.
 - Asociaciones persistidas revalidadas sin exponer credenciales:
@@ -51,8 +53,34 @@ antes de asumir que este estado sigue vigente.
   modificar asociaciones.
 - El runtime lógico está aislado por coordinador y reutiliza objetos físicos
   comunes por SHA-256. El CLI por `coordinator_id` continúa incompleto.
+- La caché GIS activa todavía es la versión anterior de 12 ficheros y
+  6.341.520.039 bytes. El nuevo inventario local contiene 13 ficheros y
+  6.424.592.573 bytes. La sincronización incremental compara los manifiestos,
+  reutiliza mediante enlaces los 12 ficheros iguales y transfiere únicamente
+  el DEM francés de 83.072.534 bytes; todavía no se ha activado ese nuevo
+  dataset en el worker.
+- El volumen persistente del worker ocupa 18.084.029.423 bytes. Una auditoría
+  por SHA-256 e inodo encontró 9.413.367.857 bytes de copias físicas repetidas:
+  6.306.367.027 en una versión GIS inactiva y 3.107.000.830 en snapshots y
+  directorios de trabajos históricos. No se eliminó nada; hay que reconciliar
+  los trabajos con ambos coordinadores antes de una limpieza.
 
 ## Trabajo funcional cerrado
+
+### GIS francés Font-Romeu–Quérigut
+
+- El DEM IGN RGE ALTI francés de 5 m está integrado como cuarto fallback, con
+  `source_id = dem_france_rge_alti_5m`, y forma parte condicional del inventario
+  del snapshot.
+- El TIFF definitivo local tiene 6579 × 8368 píxeles, CRS EPSG:2154 reconocido
+  formalmente por GDAL, 100 % de cobertura válida, checksum de banda 63498 y
+  SHA-256
+  `3e86d6c2ee4e3677dd895de369045b8f49c02a23902771692177b7a60256860f`.
+- HA local obtiene ocho muestras válidas procedentes del DEM francés en cada
+  una de las tres microáreas. La validación fue de solo lectura: la interfaz
+  debe revisar y aplicar el contexto GIS/DEM persistido.
+- La copia de `/Volumes/media` se sustituyó y verificó: tiene el mismo tamaño,
+  SHA-256, checksum de banda y CRS EPSG:2154 que el TIFF local definitivo.
 
 ### Alta automática de especies en el catálogo de tuning
 
@@ -117,17 +145,20 @@ antes de asumir que este estado sigue vigente.
 
 ## Próximos pasos, por prioridad
 
-1. Instalar HA `0.2.298` en HA real
-   y comprobar únicamente arranque, versión y lectura del precálculo existente;
-   no repetir entrenamiento ni precálculo sin una causa nueva.
-2. Auditar de forma multiespecie las abstenciones por aplicabilidad. Separar
+1. Revisar y aplicar desde la interfaz el GIS/DEM de las tres microáreas
+   francesas. No sobrescribir silenciosamente el contexto persistido.
+2. Antes de publicar estos cambios, asignar las versiones HA y worker que
+   correspondan y completar la validación proporcional exigida por el flujo de
+   release. No lanzar entrenamiento ni precálculo solo para probar la copia del
+   DEM.
+3. Auditar de forma multiespecie las abstenciones por aplicabilidad. Separar
    tolerancia absoluta, desviación normalizada, tipo de variable y dirección de
    extrapolación. Caso inicial: Rovelló / Els Ports / 2026-09-07.
-3. Diseñar cómo mostrar una probabilidad calculada pero vetada como dato
+4. Diseñar cómo mostrar una probabilidad calculada pero vetada como dato
    diagnóstico, sin color de recomendación, ranking ni mensaje favorable.
-4. Medir en la Raspberry Pi 4 la publicación HA--worker por fases antes de
+5. Medir en la Raspberry Pi 4 la publicación HA--worker por fases antes de
    implementar streaming incremental o cambiar la política de `fsync`.
-5. Completar administración CLI por `coordinator_id` sin alterar otros
+6. Completar administración CLI por `coordinator_id` sin alterar otros
    coordinadores.
 
 ## Riesgos y dudas activas

@@ -759,13 +759,19 @@ def _sync_required_dataset(
         dataset_id=dataset["dataset_id"],
     )
     if progress_callback is not None:
+        transferred_size = int(result.get("transferred_size_bytes", 0))
+        reused_size = int(result.get("reused_size_bytes", 0))
         progress_callback(
             {
                 "phase": "GIS dataset ready",
                 "message": (
                     "Required GIS dataset reused from persistent cache."
                     if result["status"] == "reused"
-                    else "Required GIS dataset downloaded, verified and activated."
+                    else (
+                        "Required GIS dataset verified and activated: "
+                        f"{transferred_size} byte(s) downloaded and "
+                        f"{reused_size} byte(s) reused locally."
+                    )
                 ),
                 "overall_percent": 45,
             }
@@ -840,6 +846,8 @@ def download_input_bundle(
             "dataset_fingerprint": dataset.get("fingerprint"),
             "dataset_cache_status": dataset_sync.get("status"),
             "dataset_transferred_size_bytes": dataset_sync.get("transferred_size_bytes", 0),
+            "dataset_reused_file_count": dataset_sync.get("reused_file_count", 0),
+            "dataset_reused_size_bytes": dataset_sync.get("reused_size_bytes", 0),
             "weather_cache_reused_size_bytes": 0,
         }
 
@@ -1010,6 +1018,8 @@ def download_input_bundle(
             "dataset_fingerprint": cache.get("fingerprint"),
             "dataset_cache_status": dataset_sync.get("status"),
             "dataset_transferred_size_bytes": dataset_sync.get("transferred_size_bytes", 0),
+            "dataset_reused_file_count": dataset_sync.get("reused_file_count", 0),
+            "dataset_reused_size_bytes": dataset_sync.get("reused_size_bytes", 0),
             "input_transferred_size_bytes": transferred,
             "weather_cache_reused_size_bytes": reused_weather_bytes,
             "weather_cache_pruned_size_bytes": pruned_weather_bytes,

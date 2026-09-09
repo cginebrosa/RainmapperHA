@@ -97,6 +97,15 @@ def ign_mtn50_592_dem_path(gis_root_path: Path | None = None) -> Path:
     )
 
 
+def france_rge_alti_dem_path(gis_root_path: Path | None = None) -> Path:
+    return (
+        gis_root(gis_root_path)
+        / "dem-france-rge-alti-5m"
+        / "extracted"
+        / "rainmapper-dem-france-rge-alti-5m.tif"
+    )
+
+
 def vector_layers(gis_root_path: Path | None = None) -> tuple[VectorLayer, ...]:
     root = gis_root(gis_root_path)
     return (
@@ -837,20 +846,34 @@ def sample_dem(
             if tertiary.get("status") == "ok":
                 selected = tertiary
             else:
-                primary["fallback"] = {
-                    "status": secondary.get("status"),
-                    "source": secondary.get("source"),
-                    "source_id": secondary.get("source_id"),
-                }
-                primary["fallback_chain"] = [
-                    primary["fallback"],
-                    {
-                        "status": tertiary.get("status"),
-                        "source": tertiary.get("source"),
-                        "source_id": tertiary.get("source_id"),
-                    },
-                ]
-                return primary
+                quaternary = _sample_dem_path(
+                    france_rge_alti_dem_path(gis_root_path),
+                    lon,
+                    lat,
+                    source_id="dem_france_rge_alti_5m",
+                )
+                if quaternary.get("status") == "ok":
+                    selected = quaternary
+                else:
+                    primary["fallback"] = {
+                        "status": secondary.get("status"),
+                        "source": secondary.get("source"),
+                        "source_id": secondary.get("source_id"),
+                    }
+                    primary["fallback_chain"] = [
+                        primary["fallback"],
+                        {
+                            "status": tertiary.get("status"),
+                            "source": tertiary.get("source"),
+                            "source_id": tertiary.get("source_id"),
+                        },
+                        {
+                            "status": quaternary.get("status"),
+                            "source": quaternary.get("source"),
+                            "source_id": quaternary.get("source_id"),
+                        },
+                    ]
+                    return primary
     observed_value = None
     if isinstance(observed_altitude, dict):
         try:
@@ -1004,6 +1027,7 @@ def derive_site_gis_dem(
         "dem_source": str(dem_path()),
         "dem_fallback_source": str(andorra_dem_path()),
         "dem_second_fallback_source": str(ign_mtn50_592_dem_path()),
+        "dem_third_fallback_source": str(france_rge_alti_dem_path()),
         "dem_status": "missing_layer" if not dem_path().exists() else "no_data",
         "gis": {},
     }

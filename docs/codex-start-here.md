@@ -37,7 +37,7 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al cierre de 2026-09-08
+## Estado general al 2026-09-09
 
 - Rama `inicial`; la fuente declara HA `0.2.298`. GHCR `0.2.298` y `latest`
   comparten el índice multi-arquitectura
@@ -50,10 +50,15 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
   esté marcado como desactualizado. Las tres vistas del Predictor leen una
   respuesta SQLite sellada e indexada y no reconstruyen ni revalidan cientos de
   componentes en cada consulta.
-- El worker privado está healthy con la imagen local `rainmapper-worker:1.1.0`;
+- El worker privado está healthy con la imagen local `rainmapper-worker:1.1.1`;
   no se distribuye mediante GHCR. Mantiene la URL principal
   autorizada `http://100.111.77.48:8100` y HA local como asociación adicional.
   No cambiar ninguna sin autorización expresa para ese destino.
+- La candidata GIS francesa incorpora RGE ALTI 5 m para Font-Romeu y Quérigut.
+  El TIFF operativo local tiene SHA-256
+  `3e86d6c2ee4e3677dd895de369045b8f49c02a23902771692177b7a60256860f`;
+  la copia montada en `/Volumes/media` se verificó con el mismo hash, tamaño,
+  checksum y CRS EPSG:2154.
 - La separación de cachés de runtime por coordinador está implementada,
   probada y ejercitada en el circuito local completo, con objetos físicos
   compartidos por SHA-256.

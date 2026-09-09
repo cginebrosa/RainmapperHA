@@ -100,6 +100,34 @@ class MushroomGisLabTests(unittest.TestCase):
             result["source"],
         )
 
+    def test_sample_dem_falls_back_to_france_after_existing_sources(self):
+        missing = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        france = subprocess.CompletedProcess([], 0, stdout="1964.125\n", stderr="")
+
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(
+                mushroom_gis_lab,
+                "run_command",
+                side_effect=[missing, missing, missing, france],
+            ),
+        ):
+            result = mushroom_gis_lab.sample_dem(
+                2.0708249,
+                42.6825108,
+                None,
+                Path("/gis"),
+            )
+
+        self.assertEqual("ok", result["status"])
+        self.assertEqual("dem_france_rge_alti_5m", result["source_id"])
+        self.assertEqual(1964.12, result["elevation_m"])
+        self.assertEqual(
+            "/gis/dem-france-rge-alti-5m/extracted/"
+            "rainmapper-dem-france-rge-alti-5m.tif",
+            result["source"],
+        )
+
     def test_build_gis_context_preserves_dem_source_id(self):
         context = mushroom_gis_lab.build_gis_context_v0({
             "layers": {

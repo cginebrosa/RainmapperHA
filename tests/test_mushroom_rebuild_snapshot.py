@@ -499,6 +499,20 @@ class MushroomRebuildSnapshotTests(unittest.TestCase):
 
         self.assertIn(ign_dem.resolve(), paths)
 
+    def test_gis_dataset_files_includes_optional_france_rge_alti_dem(self) -> None:
+        france_dem = (
+            self.gis
+            / "dem-france-rge-alti-5m"
+            / "extracted"
+            / "rainmapper-dem-france-rge-alti-5m.tif"
+        )
+        france_dem.parent.mkdir(parents=True)
+        france_dem.write_text("france-dem", encoding="utf-8")
+
+        paths = mushroom_rebuild_snapshot.gis_dataset_files(self.gis)
+
+        self.assertIn(france_dem.resolve(), paths)
+
     def test_gis_hash_cache_reuses_unchanged_semi_static_files(self) -> None:
         cache_path = self.root / "private" / ".gis-hash-cache.json"
         original_sha256_file = mushroom_rebuild_snapshot.sha256_file

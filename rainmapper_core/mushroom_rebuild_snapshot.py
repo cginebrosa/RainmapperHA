@@ -216,6 +216,9 @@ def gis_dataset_files(gis_root: Path) -> list[Path]:
     ign_mtn50_592_dem = mushroom_gis_lab.ign_mtn50_592_dem_path(root)
     if ign_mtn50_592_dem.is_file():
         paths.append(ign_mtn50_592_dem)
+    france_rge_alti_dem = mushroom_gis_lab.france_rge_alti_dem_path(root)
+    if france_rge_alti_dem.is_file():
+        paths.append(france_rge_alti_dem)
     unique: dict[str, Path] = {}
     for path in paths:
         resolved = path.resolve()

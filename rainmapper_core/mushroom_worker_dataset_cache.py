@@ -153,6 +153,40 @@ def _load_cache_manifest(version_dir: Path) -> dict[str, Any]:
     return payload
 
 
+def _reusable_current_files(
+    dataset: dict[str, Any],
+    worker_data_dir: Path,
+    dataset_id: str,
+) -> dict[str, Path]:
+    """Return unchanged files that can be hard-linked from the active version."""
+    verification = verify_version(worker_data_dir, dataset_id=dataset_id, deep=False)
+    if verification["status"] != "valid":
+        return {}
+    root = _cache_root(worker_data_dir, dataset_id)
+    current_dir = (root / "current").resolve()
+    try:
+        current_dataset = _validated_dataset(
+            {"datasets": [_load_cache_manifest(current_dir)]},
+            dataset_id,
+        )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError):
+        return {}
+    current_records = {record["path"]: record for record in current_dataset["files"]}
+    reusable: dict[str, Path] = {}
+    for record in dataset["files"]:
+        previous = current_records.get(record["path"])
+        if previous != record:
+            continue
+        relative = _safe_relative_path(record["path"])
+        source = current_dir / relative
+        if source.is_symlink() or not source.is_file():
+            continue
+        if source.stat().st_size != record["size_bytes"]:
+            continue
+        reusable[record["path"]] = source
+    return reusable
+
+
 def verify_version(
     worker_data_dir: Path,
     *,
@@ -323,9 +357,18 @@ def sync_from_fetcher(
             "status": "reused",
             "transferred_file_count": 0,
             "transferred_size_bytes": 0,
+            "reused_file_count": len(dataset["files"]),
+            "reused_size_bytes": sum(
+                int(record["size_bytes"]) for record in dataset["files"]
+            ),
         }
 
-    required_bytes = sum(int(record["size_bytes"]) for record in dataset["files"])
+    reusable_files = _reusable_current_files(dataset, worker_data_dir, dataset_id)
+    required_bytes = sum(
+        int(record["size_bytes"])
+        for record in dataset["files"]
+        if record["path"] not in reusable_files
+    )
     free_bytes = shutil.disk_usage(root).free
     if free_bytes < required_bytes + MIN_DATASET_FREE_BYTES:
         raise RuntimeError(
@@ -337,9 +380,31 @@ def sync_from_fetcher(
     staging.mkdir()
     transferred_files = 0
     transferred_bytes = 0
+    reused_files = 0
+    reused_bytes = 0
+    remaining_required_bytes = required_bytes
     try:
         for record in dataset["files"]:
             relative = _safe_relative_path(record["path"])
+            reusable_source = reusable_files.get(record["path"])
+            if reusable_source is not None:
+                destination = staging / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    os.link(reusable_source, destination)
+                except OSError:
+                    fallback_required = remaining_required_bytes + int(record["size_bytes"])
+                    free_bytes = shutil.disk_usage(root).free
+                    if free_bytes < fallback_required + MIN_DATASET_FREE_BYTES:
+                        raise RuntimeError(
+                            "insufficient free space for dataset staging: "
+                            f"required={fallback_required + MIN_DATASET_FREE_BYTES}, "
+                            f"available={free_bytes}"
+                        )
+                else:
+                    reused_files += 1
+                    reused_bytes += int(record["size_bytes"])
+                    continue
             size, digest = fetch_file(record, staging / relative)
             if size != record["size_bytes"]:
                 raise RuntimeError(f"dataset source size mismatch: {record['path']}")
@@ -347,6 +412,8 @@ def sync_from_fetcher(
                 raise RuntimeError(f"dataset source hash mismatch: {record['path']}")
             transferred_files += 1
             transferred_bytes += size
+            if reusable_source is None:
+                remaining_required_bytes -= int(record["size_bytes"])
         _write_cache_manifest(staging, dataset)
         staging.replace(version_dir)
         verification = verify_version(
@@ -367,6 +434,8 @@ def sync_from_fetcher(
         "status": "synchronized",
         "transferred_file_count": transferred_files,
         "transferred_size_bytes": transferred_bytes,
+        "reused_file_count": reused_files,
+        "reused_size_bytes": reused_bytes,
     }
 
 
