@@ -353,7 +353,8 @@ Las opciones más relevantes al desarrollar (lista completa en `rainmapper-app/c
 | `publish_to_www` | false | Publica Bokeh/Leaflet en `/config/www` |
 | `external_worker_connections_enabled` | false | Arranca listener 8100 |
 | `external_worker_rebuilds_enabled` | false | Autoriza rebuilds externos |
-| `wunderground_daily_api` | true | API diaria con fallback scraper HTML |
+| `wunderground_weekly_api` | false | API diaria alternativa, ventana movil de siete dias |
+| `wunderground_monthly_api` | true | Consulta legacy predeterminada; incompatible con la semanal |
 | `max_threads` | 3 | Threads Wunderground — usar 1 si hay timeouts |
 
 ## Worker externo — reglas

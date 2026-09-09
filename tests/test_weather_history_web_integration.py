@@ -10,6 +10,17 @@ class WeatherHistoryWebIntegrationTests(unittest.TestCase):
         config = (ROOT / "rainmapper-app" / "config.yaml").read_text(encoding="utf-8")
         self.assertIn("partitioned_weather_history: false", config)
 
+    def test_wunderground_api_modes_are_explicit_and_weekly_by_default(self):
+        config = (ROOT / "rainmapper-app" / "config.yaml").read_text(encoding="utf-8")
+        script = (ROOT / "rainmapper-app" / "run.sh").read_text(encoding="utf-8")
+
+        self.assertIn("wunderground_monthly_api: true", config)
+        self.assertIn("wunderground_weekly_api: false", config)
+        self.assertNotIn("wunderground_daily_api:", config)
+        self.assertIn('--wunderground_monthly_api "$WUNDERGROUND_MONTHLY_API_VALUE"', script)
+        self.assertIn('--wunderground_weekly_api "$WUNDERGROUND_WEEKLY_API_VALUE"', script)
+        self.assertIn("cannot both be enabled", script)
+
     def test_shell_runner_wraps_and_drains_partitioned_updates(self):
         script = (ROOT / "rainmapper-app" / "run.sh").read_text(encoding="utf-8")
         self.assertIn("rainmapper_core.weather_history_run_lock", script)

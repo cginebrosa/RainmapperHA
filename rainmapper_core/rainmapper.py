@@ -94,7 +94,8 @@ from rainmapper_core.config.const import   _codi_estacio,\
                     _max_threads,\
                     _max_attempts,\
                     _wunderground_full_log,\
-                    _wunderground_daily_api,\
+                    _wunderground_monthly_api,\
+                    _wunderground_weekly_api,\
                     _backfill_station_filter,\
                     _last_number_rains,\
                     _create_daily_stats,\
@@ -203,13 +204,27 @@ parser.add_argument('--wunderground_full_log',
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
                     default=_wunderground_full_log,
                     help='Print detailed Wunderground log (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=False')
-parser.add_argument('--wunderground_daily_api',
-                    dest='_wunderground_daily_api',
+parser.add_argument('--wunderground_monthly_api',
+                    dest='_wunderground_monthly_api',
                     nargs='?',
                     const=True,
                     type=lambda x: (str(x).lower() in ['true','1','yes']),
-                    default=_wunderground_daily_api,
-                    help='Use Wunderground daily JSON API before HTML fallback (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=True')
+                    default=_wunderground_monthly_api,
+                    help='Use Wunderground daily JSON API with the configured date range (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=True')
+parser.add_argument('--wunderground_weekly_api',
+                    dest='_wunderground_weekly_api',
+                    nargs='?',
+                    const=True,
+                    type=lambda x: (str(x).lower() in ['true','1','yes']),
+                    default=_wunderground_weekly_api,
+                    help='Use Wunderground daily JSON API for the latest seven calendar days (TRUE/FALSE, 1/0, YES/NO) -> Const=Default=False')
+parser.add_argument('--wunderground_daily_api',
+                    dest='_wunderground_daily_api_legacy',
+                    nargs='?',
+                    const=True,
+                    type=lambda x: (str(x).lower() in ['true','1','yes']),
+                    default=None,
+                    help=argparse.SUPPRESS)
 parser.add_argument('--wunderground_local_start_date',
                     dest='_wunderground_local_start_date',
                     nargs='?',
@@ -254,7 +269,15 @@ _meteocat_max_attempts = max(1, args._meteocat_max_attempts)
 _max_threads = args._max_threads
 _max_attempts = args._max_attempts
 _wunderground_full_log = args._wunderground_full_log
-_wunderground_daily_api = args._wunderground_daily_api
+_wunderground_monthly_api = args._wunderground_monthly_api
+_wunderground_weekly_api = args._wunderground_weekly_api
+if args._wunderground_daily_api_legacy is not None:
+    if '--wunderground_monthly_api' in sys.argv or '--wunderground_weekly_api' in sys.argv:
+        parser.error('--wunderground_daily_api cannot be combined with the new Wunderground API switches')
+    _wunderground_monthly_api = args._wunderground_daily_api_legacy
+    _wunderground_weekly_api = False
+if _wunderground_monthly_api and _wunderground_weekly_api:
+    parser.error('--wunderground_monthly_api and --wunderground_weekly_api are mutually exclusive')
 _wunderground_local_start_date = (args._wunderground_local_start_date or '').strip()
 _wunderground_local_end_date = (args._wunderground_local_end_date or '').strip()
 _backfill_station_filter = args._backfill_station_filter
@@ -537,6 +560,9 @@ SOURCE_STATUS_PATH = os.path.join(_DATA_PATH, 'source_status.json')
 SOURCE_STATUSES = {}
 SOURCE_RUNTIME_METRICS = {}
 WUNDERGROUND_API_FALLBACK_ERRORS = 0
+WUNDERGROUND_CACHE_RETRIES = 0
+WUNDERGROUND_CACHE_RECOVERIES = 0
+WUNDERGROUND_STALE_RESPONSES = 0
 WUNDERGROUND_STATION_METADATA_CACHE = None
 WUNDERGROUND_STATION_METADATA_LOCK = threading.Lock()
 
@@ -659,6 +685,10 @@ def source_diagnostic_summary():
         'finished_at',
         'timings',
         'phase_intervals',
+        'api_fallback_errors',
+        'cache_retries',
+        'cache_recoveries',
+        'stale_responses',
     )
     return {
         source: {
@@ -672,7 +702,12 @@ def source_diagnostic_summary():
 
 def source_extra_status(source):
     if source == 'Wunderground':
-        return {'api_fallback_errors': WUNDERGROUND_API_FALLBACK_ERRORS}
+        return {
+            'api_fallback_errors': WUNDERGROUND_API_FALLBACK_ERRORS,
+            'cache_retries': WUNDERGROUND_CACHE_RETRIES,
+            'cache_recoveries': WUNDERGROUND_CACHE_RECOVERIES,
+            'stale_responses': WUNDERGROUND_STALE_RESPONSES,
+        }
     if source != 'AEMET':
         return {}
     try:
@@ -1939,7 +1974,15 @@ def scrap_wunderground_station(weather_station_url, launchtime):
         if(first_date_with_data != -1):
             START_DATE = first_date_with_data
 
-    url_gen = Utils.date_url_generator(weather_station_url, START_DATE, END_DATE)
+    wunderground_start_date = START_DATE
+    wunderground_end_date = END_DATE
+    if _wunderground_monthly_api or _wunderground_weekly_api:
+        wunderground_start_date, wunderground_end_date = wunderground_api_range()
+    url_gen = Utils.date_url_generator(
+        weather_station_url,
+        wunderground_start_date,
+        wunderground_end_date,
+    )
     station_name = weather_station_url.split('/')[-1]
     file_prefix = station_name
     summary_station_id = station_name
@@ -1947,6 +1990,9 @@ def scrap_wunderground_station(weather_station_url, launchtime):
     summary_rows = 0
     summary_errors = []
     summary_api_errors = 0
+    summary_cache_retries = 0
+    summary_cache_recoveries = 0
+    summary_stale_responses = 0
 
     if MERGE_DATA:
         file_prefix = 'MERGED'
@@ -2006,6 +2052,8 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                 raise Exception("please set 'unit_system' to either \"metric\" or \"imperial\"! ")
             wunderground_header = False
 
+        weekly_api_attempted = False
+        weekly_api_succeeded = False
         #print(f'url_gen: {list(url_gen)}')
         for date_string, url in url_gen:
             try:
@@ -2052,23 +2100,50 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                 wunderground_log(f"Altitude: {elevation} m")
 # Fin modi
                 data_to_write = None
-                if _wunderground_daily_api and MONTHLY and UNIT_SYSTEM == "metric":
-                    try:
-                        data_to_write = fetch_wunderground_api_rows(
-                            weather_station_url,
-                            date_string,
-                            station_ID,
-                            station_name,
-                            location_name,
-                            elevation,
-                            latitude,
-                            longitude,
-                            session,
-                            timeout,
-                        )
-                    except WundergroundDailyApiError as e:
-                        summary_api_errors += 1
-                        print(f'Wunderground API failed for {station_ID} {date_string}: {e}. Falling back to HTML scraper.')
+                if (_wunderground_monthly_api or _wunderground_weekly_api) and MONTHLY and UNIT_SYSTEM == "metric":
+                    weekly_window = wunderground_weekly_window_enabled()
+                    if weekly_window and weekly_api_attempted:
+                        if weekly_api_succeeded:
+                            continue
+                    else:
+                        weekly_api_attempted = weekly_window
+                        try:
+                            cache_diagnostics = {}
+                            data_to_write = fetch_wunderground_api_rows(
+                                weather_station_url,
+                                date_string,
+                                station_ID,
+                                station_name,
+                                location_name,
+                                elevation,
+                                latitude,
+                                longitude,
+                                session,
+                                timeout,
+                                cache_diagnostics=cache_diagnostics,
+                            )
+                            if cache_diagnostics.get('cache_retry_attempted'):
+                                summary_cache_retries += 1
+                            if cache_diagnostics.get('cache_recovered'):
+                                summary_cache_recoveries += 1
+                                print(
+                                    f'Wunderground cache retry recovered fresher data for {station_ID}: '
+                                    f'{cache_diagnostics.get("initial_observation_utc")} -> '
+                                    f'{cache_diagnostics.get("selected_observation_utc")} '
+                                    f'using {cache_diagnostics.get("selected_encoding")}.'
+                                )
+                            if cache_diagnostics.get('stale_after_retries'):
+                                summary_stale_responses += 1
+                                encodings = ', '.join(cache_diagnostics.get('attempted_encodings') or [])
+                                print(
+                                    f'Wunderground response remains stale for {station_ID}: '
+                                    f'latest observation {cache_diagnostics.get("selected_observation_utc")} '
+                                    f'after trying {encodings or "no cache variants"}.'
+                                )
+                            weekly_api_succeeded = weekly_window
+                        except WundergroundDailyApiError as e:
+                            summary_api_errors += 1
+                            print(f'Wunderground API failed for {station_ID} {date_string}: {e}. Falling back to HTML scraper.')
 
                 if data_to_write is None:
                     wunderground_log(f'Scraping data from {url}')
@@ -2127,6 +2202,9 @@ def scrap_wunderground_station(weather_station_url, launchtime):
         'ok': summary_rows > 0,
         'errors': summary_errors,
         'api_errors': summary_api_errors,
+        'cache_retries': summary_cache_retries,
+        'cache_recoveries': summary_cache_recoveries,
+        'stale_responses': summary_stale_responses,
         'duration_seconds': duration_seconds,
         'timestamp_lectura': station_started_at.isoformat(timespec='seconds'),
         'fecha_lectura': station_started_at.strftime('%Y%m%d'),
@@ -2266,9 +2344,15 @@ def save_wunderground_metrics(results):
 
 def print_wunderground_summary(results):
     global WUNDERGROUND_API_FALLBACK_ERRORS
+    global WUNDERGROUND_CACHE_RETRIES
+    global WUNDERGROUND_CACHE_RECOVERIES
+    global WUNDERGROUND_STALE_RESPONSES
     updated = [result for result in results if result.get('ok')]
     failed = [result for result in results if not result.get('ok')]
     WUNDERGROUND_API_FALLBACK_ERRORS = sum(result.get("api_errors", 0) for result in results)
+    WUNDERGROUND_CACHE_RETRIES = sum(result.get("cache_retries", 0) for result in results)
+    WUNDERGROUND_CACHE_RECOVERIES = sum(result.get("cache_recoveries", 0) for result in results)
+    WUNDERGROUND_STALE_RESPONSES = sum(result.get("stale_responses", 0) for result in results)
     timed_results = [
         result for result in results
         if isinstance(result.get('duration_seconds'), (int, float))
@@ -2281,6 +2365,9 @@ def print_wunderground_summary(results):
     print(f'Updated stations: {len(updated)}')
     print(f'Failed stations: {len(failed)}')
     print(f'API fallback errors: {WUNDERGROUND_API_FALLBACK_ERRORS}')
+    print(f'Cache retries: {WUNDERGROUND_CACHE_RETRIES}')
+    print(f'Cache recoveries: {WUNDERGROUND_CACHE_RECOVERIES}')
+    print(f'Stale responses after retries: {WUNDERGROUND_STALE_RESPONSES}')
 
     if timed_results:
         sorted_by_duration = sorted(timed_results, key=lambda result: result['duration_seconds'])
@@ -2657,6 +2744,7 @@ from rainmapper_core.sources.wunderground.daily_api import (
     WundergroundDailyApiError,
     build_monthly_rows,
     fetch_daily_observations,
+    query_date_range,
     station_id_from_url,
 )
 #inicio modi
@@ -2687,9 +2775,10 @@ URLS = stations_file.readlines()
 # Date format: YYYY-MM-DD
 #START_DATE = config_wunderground.START_DATE
 #END_DATE = config_wunderground.END_DATE
-# Normal updates keep the legacy days_init/days_end UTC conversion. In monthly
-# Wunderground mode that deliberately rereads the previous month when a normal
-# short range crosses a month boundary, so late-arriving month totals are fixed.
+# Normal updates keep the legacy days_init/days_end UTC conversion. Weekly API
+# mode reduces that interval to one rolling seven-day window, which naturally
+# includes the needed previous-month days when it crosses a month boundary.
+# Monthly API mode preserves the legacy interval behavior.
 #
 # Administrative monthly backfills are different: each window is a local
 # calendar month and must not shift to the previous UTC day in Europe/Madrid.
@@ -2750,11 +2839,26 @@ def cached_wunderground_station_metadata(weather_station_url):
     return load_wunderground_station_metadata_cache().get(station_id)
 
 
+def wunderground_api_range():
+    return query_date_range(
+        START_DATE,
+        END_DATE,
+        weekly=wunderground_weekly_window_enabled(),
+    )
+
+
+def wunderground_weekly_window_enabled():
+    return _wunderground_weekly_api and not (
+        _wunderground_local_start_date and _wunderground_local_end_date
+    )
+
+
 def month_api_range(month_date):
+    query_start, query_end = wunderground_api_range()
     start_date = month_date.replace(day=1)
-    if start_date < START_DATE:
-        start_date = START_DATE
-    end_date = min(month_date, END_DATE)
+    if start_date < query_start:
+        start_date = query_start
+    end_date = min(month_date, query_end)
     return start_date, end_date
 
 
@@ -2769,18 +2873,23 @@ def fetch_wunderground_api_rows(
     longitude,
     session,
     timeout,
+    cache_diagnostics=None,
 ):
     if not MONTHLY:
         raise WundergroundDailyApiError("daily API fallback is only implemented for monthly mode")
 
-    month_date = datetime.strptime(date_string, "%Y-%m-%d").date()
-    api_start, api_end = month_api_range(month_date)
+    if wunderground_weekly_window_enabled():
+        api_start, api_end = wunderground_api_range()
+    else:
+        month_date = datetime.strptime(date_string, "%Y-%m-%d").date()
+        api_start, api_end = month_api_range(month_date)
     observations = fetch_daily_observations(
         station_id_from_url(weather_station_url),
         api_start,
         api_end,
         session=session,
         timeout=timeout,
+        diagnostics=cache_diagnostics,
     )
     return build_monthly_rows(
         observations,

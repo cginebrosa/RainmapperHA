@@ -334,7 +334,8 @@ maplibre_estimated_field_smoothing_local_power: 3
 maplibre_estimated_field_temperature_lapse_rate_c_per_100m: 0.65
 max_threads: 3
 max_attempts: 3
-wunderground_daily_api: true
+wunderground_monthly_api: true
+wunderground_weekly_api: false
 wunderground_full_log: false
 publish_to_www: false
 gmap_api_key: ""
@@ -345,7 +346,7 @@ Notas rapidas:
 
 - `mode: serve` es el modo normal para usar webUI, sidebar y schedule interno.
 - `scheduled_action: all` ejecuta descarga de datos y generacion/publicacion de mapas.
-- `backfill_months_enabled: false` debe quedar desactivado en uso diario. Al activarlo, Rainmapper hace una reconstruccion administrativa por ventanas mensuales, crea antes un backup de los CSV incrementales y espera `backfill_pause_seconds` entre ventanas. En Wunderground, las ventanas de backfill se pasan tambien como fechas locales exactas para evitar que la conversion UTC desplace el inicio al mes anterior.
+- `backfill_months_enabled: false` debe quedar desactivado en uso diario. Al activarlo, Rainmapper hace una reconstruccion administrativa por ventanas mensuales, crea antes un backup de los CSV incrementales y espera `backfill_pause_seconds` entre ventanas. En Wunderground, las ventanas de backfill se pasan tambien como fechas locales exactas para evitar que la conversion UTC desplace el inicio al mes anterior y siempre se consultan completas, aunque el modo semanal este seleccionado.
 - `backfill_station_filter: ""` limita las estaciones Wunderground procesadas, tanto en backfills como en updates normales. El formato actual es `wunderground::id1,id2`, por ejemplo `wunderground::IORDIN1,IMERAN22`. Las comillas son opcionales para IDs con espacios. Ninguna otra fuente aplica todavía este filtro. Debe volver a dejarse vacio al terminar una ejecucion dirigida; de lo contrario, los updates posteriores de Wunderground seguiran limitados a esas estaciones.
 - `meteocat_request_timeout: 30` y `meteocat_max_attempts: 3` hacen que las consultas Meteocat/Socrata reintenten ante timeouts transitorios antes de fallar el run.
 - `max_threads: 3` es el valor operativo recomendado tras validacion real en Home Assistant/Raspberry Pi sin carga relevante observada. Si aparecen timeouts, errores de Wunderground o carga excesiva, bajar temporalmente a `1`.
@@ -382,7 +383,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `schedule_days`: `all` o lista de dias.
 - `scheduled_action`: `update`, `maps` o `all`.
 - `days_init` / `days_end`: rango relativo de dias usado por las descargas.
-- `backfill_months_enabled`, `months_init`, `months_end`, `months_interval`, `backfill_pause_seconds`: modo administrativo para reconstrucciones por ventanas de meses. Cuando esta activado, el update calcula ventanas mensuales, las convierte a `days_init`/`days_end`, ejecuta un update por ventana, hace backup previo de los CSV incrementales y muestra la pausa entre ventanas en `Current step`. Para Wunderground, ademas de `days_init`/`days_end`, se pasan fechas locales exactas de inicio y fin de ventana. Esto es deliberado: el uso diario mantiene la relectura legacy del mes anterior cuando `days_init` cruza un cambio de mes, pero el backfill mensual no debe duplicar meses por el desfase UTC/local.
+- `backfill_months_enabled`, `months_init`, `months_end`, `months_interval`, `backfill_pause_seconds`: modo administrativo para reconstrucciones por ventanas de meses. Cuando esta activado, el update calcula ventanas mensuales, las convierte a `days_init`/`days_end`, ejecuta un update por ventana, hace backup previo de los CSV incrementales y muestra la pausa entre ventanas en `Current step`. Para Wunderground, ademas de `days_init`/`days_end`, se pasan fechas locales exactas de inicio y fin de ventana. El modo semanal ordinario ya incluye por si mismo los dias necesarios del mes anterior cuando su ventana cruza el cambio de mes; el backfill mensual usa fechas locales exactas y conserva completas sus ventanas administrativas.
 - `backfill_station_filter`: filtro persistente de estaciones Wunderground. Se aplica siempre que se ejecuta esa fuente, aunque `backfill_months_enabled` sea `false`; no afecta actualmente a Meteoclimatic, Meteocat ni AEMET. Formato: `wunderground::id1,id2`. Dejalo vacio en uso diario y restauralo a `""` inmediatamente despues de una ejecucion dirigida.
 - `create_meteoclimatic`, `create_meteocat`, `create_wunderground`, `create_aemet`: activan o desactivan fuentes.
 - `meteoclimatic_pattern`: patron o patrones del RSS Meteoclimatic.
@@ -393,7 +394,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius`, `maplibre_heatmap_intensity`: valores iniciales del heatmap MapLibre para dispositivos sin preferencias guardadas. Opacidad, radio e intensidad se expresan como porcentaje. El visor incluye una accion para restaurar esos defaults desde Settings > Heatmap.
 - `maplibre_estimated_field_enabled`, `maplibre_estimated_field_opacity`, `maplibre_estimated_field_radius`, `maplibre_estimated_field_quality`, `maplibre_estimated_field_smoothing`, `maplibre_estimated_field_altitude_correction`, `maplibre_estimated_field_dem_zoom`: valores iniciales de la capa experimental `IDW` para dispositivos sin preferencias guardadas. La correccion de altitud usa DEM externo Terrarium/Mapzen por celda y solo afecta a temperatura; no se aplica a lluvia, humedad ni viento.
 - `maplibre_estimated_field_radius_*_km`, `maplibre_estimated_field_max_radius_km`, `maplibre_estimated_field_grid_*_cell_km`, `maplibre_estimated_field_smoothing_*_power`, `maplibre_estimated_field_temperature_lapse_rate_c_per_100m`: parametros tecnicos de la interpolacion IDW. Se sirven en `/protected/maplibre/config.js` y se actualizan al reiniciar la app.
-- `max_threads`, `max_attempts`, `wunderground_daily_api`, `wunderground_full_log`: concurrencia, reintentos, fuente diaria primaria y logging de Wunderground.
+- `max_threads`, `max_attempts`, `wunderground_weekly_api`, `wunderground_monthly_api`, `wunderground_full_log`: concurrencia, reintentos, alcance de la API y logging de Wunderground. El modo mensual es el predeterminado; semanal y mensual son mutuamente excluyentes y con ambos desactivados se usa el scraper HTML. Cuando una consulta incluye hoy, Rainmapper compara el timestamp UTC de la ultima observacion con la hora real y, si supera cuatro horas de antiguedad, prueba las variantes CDN `identity`, `gzip` y `deflate`. El resumen y la tarjeta de estado muestran reintentos, recuperaciones y respuestas que continuan antiguas.
 - `publish_to_www`: activa la generacion/publicacion legacy en `/config/www` de Bokeh/Google Maps y Leaflet publico. Por defecto esta desactivado.
 - `gmap_api_key`: clave Google Maps.
 - `aemet_api_key`: clave AEMET OpenData.
@@ -552,11 +553,14 @@ Si aparecen timeouts, errores de Wunderground o carga excesiva, usar `max_thread
 max_attempts: 3
 ```
 
-`wunderground_daily_api` usa la API diaria de Wunderground como fuente primaria para tablas mensuales. Si la API falla, Rainmapper escribe un log de fallback, usa el scraper HTML existente y muestra el contador `API fallback errors` en el resumen de Wunderground:
+La API devuelve observaciones diarias, pero Rainmapper permite elegir el alcance. El modo recomendado pide una ventana movil de siete dias (hoy y los seis anteriores), que cruza de mes sin ninguna descarga especial:
 
 ```yaml
-wunderground_daily_api: true
+wunderground_weekly_api: false
+wunderground_monthly_api: true
 ```
+
+Para conservar la consulta legacy, intercambia los valores. No actives ambos modos a la vez: el runner rechazara la configuracion. Con ambos desactivados se usa directamente el scraper HTML. Los backfills administrativos mantienen siempre sus ventanas mensuales completas. Si una consulta API falla, Rainmapper escribe un log de fallback, usa el scraper HTML existente y muestra el contador `API fallback errors` en el resumen de Wunderground.
 
 `wunderground_full_log` activa log detallado por estacion:
 

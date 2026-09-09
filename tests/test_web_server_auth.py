@@ -5416,6 +5416,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("normalize 2s", wunderground_html)
         self.assertIn("upsert 4s", wunderground_html)
         self.assertIn("API fallback errors: 0", wunderground_html)
+        self.assertIn("Cache retries: 0", wunderground_html)
+        self.assertIn("Cache recoveries: 0", wunderground_html)
+        self.assertIn("Stale responses: 0", wunderground_html)
 
     def test_control_panel_tabs_preserve_existing_actions_and_links(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -13948,8 +13951,29 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertIn("--create_aemet", command)
         self.assertEqual(command[command.index("--create_aemet") + 1], "true")
-        self.assertEqual(command[command.index("--wunderground_daily_api") + 1], "true")
+        self.assertEqual(command[command.index("--wunderground_monthly_api") + 1], "true")
+        self.assertEqual(command[command.index("--wunderground_weekly_api") + 1], "false")
         self.assertEqual(command[command.index("--backfill_station_filter") + 1], "")
+
+    def test_webui_update_command_rejects_two_wunderground_api_modes(self) -> None:
+        previous_values = {
+            name: os.environ.get(name)
+            for name in (
+                "RAINMAPPER_WUNDERGROUND_MONTHLY_API",
+                "RAINMAPPER_WUNDERGROUND_WEEKLY_API",
+            )
+        }
+        os.environ["RAINMAPPER_WUNDERGROUND_MONTHLY_API"] = "true"
+        os.environ["RAINMAPPER_WUNDERGROUND_WEEKLY_API"] = "true"
+        try:
+            with self.assertRaisesRegex(ValueError, "cannot both be enabled"):
+                self.web_server.command_for("update")
+        finally:
+            for name, previous in previous_values.items():
+                if previous is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = previous
 
     def test_webui_update_command_passes_backfill_station_filter(self) -> None:
         previous = os.environ.get("RAINMAPPER_BACKFILL_STATION_FILTER")

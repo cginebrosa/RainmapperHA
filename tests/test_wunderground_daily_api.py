@@ -1,10 +1,43 @@
 import unittest
+from datetime import date, datetime, timezone
 
 from rainmapper_core.sources.wunderground.daily_api import (
     build_monthly_rows,
+    fetch_daily_observations,
     inch_to_mm,
+    query_date_range,
     station_id_from_url,
 )
+
+
+class FakeResponse:
+    status_code = 200
+
+    def __init__(self, observation):
+        self.observation = observation
+
+    def json(self):
+        return {"observations": [self.observation]}
+
+
+class FakeSession:
+    def __init__(self, observations):
+        self.responses = [FakeResponse(observation) for observation in observations]
+        self.encodings = []
+
+    def get(self, _url, *, params, headers, timeout):
+        self.encodings.append(headers["Accept-Encoding"])
+        return self.responses.pop(0)
+
+
+def observation_at(utc_text):
+    epoch = datetime.fromisoformat(utc_text.replace("Z", "+00:00")).timestamp()
+    return {
+        "epoch": epoch,
+        "obsTimeUtc": utc_text,
+        "obsTimeLocal": utc_text.replace("T", " ").replace("Z", ""),
+        "imperial": {"precipTotal": 0},
+    }
 
 
 class WundergroundDailyApiTest(unittest.TestCase):
@@ -16,6 +49,110 @@ class WundergroundDailyApiTest(unittest.TestCase):
 
     def test_inch_to_mm_matches_wunderground_metric_display(self):
         self.assertEqual(inch_to_mm(1.82), 46.23)
+
+    def test_weekly_query_uses_seven_inclusive_days_across_month_boundary(self):
+        self.assertEqual(
+            query_date_range(date(2026, 8, 1), date(2026, 9, 3), weekly=True),
+            (date(2026, 8, 28), date(2026, 9, 3)),
+        )
+
+    def test_monthly_query_preserves_requested_range(self):
+        self.assertEqual(
+            query_date_range(date(2026, 8, 1), date(2026, 9, 3), weekly=False),
+            (date(2026, 8, 1), date(2026, 9, 3)),
+        )
+
+    def test_fresh_identity_response_does_not_retry_cache_variants(self):
+        session = FakeSession([
+            observation_at("2026-09-09T20:30:00Z"),
+        ])
+        diagnostics = {}
+
+        observations = fetch_daily_observations(
+            "IOLVAN3",
+            date(2026, 9, 1),
+            date(2026, 9, 9),
+            session=session,
+            api_key="test",
+            diagnostics=diagnostics,
+            now_utc=datetime(2026, 9, 9, 22, 0, tzinfo=timezone.utc),
+            today=date(2026, 9, 9),
+        )
+
+        self.assertEqual(session.encodings, ["identity"])
+        self.assertEqual(observations[-1]["obsTimeUtc"], "2026-09-09T20:30:00Z")
+        self.assertFalse(diagnostics["cache_retry_attempted"])
+        self.assertFalse(diagnostics["cache_recovered"])
+        self.assertFalse(diagnostics["stale_after_retries"])
+
+    def test_stale_identity_response_uses_fresher_gzip_variant(self):
+        session = FakeSession([
+            observation_at("2026-09-09T01:44:50Z"),
+            observation_at("2026-09-09T21:00:00Z"),
+        ])
+        diagnostics = {}
+
+        observations = fetch_daily_observations(
+            "IOLVAN3",
+            date(2026, 9, 1),
+            date(2026, 9, 9),
+            session=session,
+            api_key="test",
+            diagnostics=diagnostics,
+            now_utc=datetime(2026, 9, 9, 22, 0, tzinfo=timezone.utc),
+            today=date(2026, 9, 9),
+        )
+
+        self.assertEqual(session.encodings, ["identity", "gzip"])
+        self.assertEqual(observations[-1]["obsTimeUtc"], "2026-09-09T21:00:00Z")
+        self.assertTrue(diagnostics["cache_retry_attempted"])
+        self.assertTrue(diagnostics["cache_recovered"])
+        self.assertEqual(diagnostics["selected_encoding"], "gzip")
+        self.assertFalse(diagnostics["stale_after_retries"])
+
+    def test_all_old_variants_are_reported_and_newest_is_kept(self):
+        session = FakeSession([
+            observation_at("2026-09-09T01:00:00Z"),
+            observation_at("2026-09-09T01:30:00Z"),
+            observation_at("2026-09-09T02:00:00Z"),
+        ])
+        diagnostics = {}
+
+        observations = fetch_daily_observations(
+            "IOLVAN3",
+            date(2026, 9, 1),
+            date(2026, 9, 9),
+            session=session,
+            api_key="test",
+            diagnostics=diagnostics,
+            now_utc=datetime(2026, 9, 9, 22, 0, tzinfo=timezone.utc),
+            today=date(2026, 9, 9),
+        )
+
+        self.assertEqual(session.encodings, ["identity", "gzip", "deflate"])
+        self.assertEqual(observations[-1]["obsTimeUtc"], "2026-09-09T02:00:00Z")
+        self.assertEqual(diagnostics["selected_encoding"], "deflate")
+        self.assertTrue(diagnostics["stale_after_retries"])
+
+    def test_recent_previous_day_timestamp_is_fresh_across_midnight(self):
+        session = FakeSession([
+            observation_at("2026-09-09T23:30:00Z"),
+        ])
+        diagnostics = {}
+
+        fetch_daily_observations(
+            "IOLVAN3",
+            date(2026, 9, 1),
+            date(2026, 9, 10),
+            session=session,
+            api_key="test",
+            diagnostics=diagnostics,
+            now_utc=datetime(2026, 9, 10, 0, 30, tzinfo=timezone.utc),
+            today=date(2026, 9, 10),
+        )
+
+        self.assertEqual(session.encodings, ["identity"])
+        self.assertFalse(diagnostics["stale_after_retries"])
 
     def test_build_monthly_rows_maps_precipitation_and_weather_fields(self):
         rows = build_monthly_rows(

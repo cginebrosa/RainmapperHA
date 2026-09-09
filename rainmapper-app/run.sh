@@ -86,6 +86,7 @@ PY
   print_blue "MapLibre heatmap defaults: ${MAPLIBRE_HEATMAP_WEIGHT_CURVE_VALUE}, opacity ${MAPLIBRE_HEATMAP_OPACITY_VALUE}%, radius ${MAPLIBRE_HEATMAP_RADIUS_VALUE}%, intensity ${MAPLIBRE_HEATMAP_INTENSITY_VALUE}%"
   print_blue "Meteocat request timeout: ${METEOCAT_REQUEST_TIMEOUT_VALUE}s"
   print_blue "Meteocat max attempts: ${METEOCAT_MAX_ATTEMPTS_VALUE}"
+  print_blue "Wunderground API: ${WUNDERGROUND_API_MODE_VALUE}"
   print_blue ""
   print_blue "System: ${system_version} (${architecture})"
   print_blue "Python: ${python_version}"
@@ -156,7 +157,8 @@ METEOCAT_REQUEST_TIMEOUT_VALUE="$(option meteocat_request_timeout 30)"
 METEOCAT_MAX_ATTEMPTS_VALUE="$(option meteocat_max_attempts 3)"
 MAX_THREADS_VALUE="$(option max_threads 3)"
 MAX_ATTEMPTS_VALUE="$(option max_attempts 3)"
-WUNDERGROUND_DAILY_API_VALUE="$(option wunderground_daily_api true)"
+WUNDERGROUND_MONTHLY_API_VALUE="$(option wunderground_monthly_api true)"
+WUNDERGROUND_WEEKLY_API_VALUE="$(option wunderground_weekly_api false)"
 WUNDERGROUND_FULL_LOG_VALUE="$(option wunderground_full_log false)"
 METEOCLIMATIC_PATTERN_VALUE="$(option meteoclimatic_pattern ESCAT)"
 LAST_RAINS_HISTORY_VALUE="$(option last_rains_history 30)"
@@ -218,7 +220,20 @@ export RAINMAPPER_METEOCAT_REQUEST_TIMEOUT="$METEOCAT_REQUEST_TIMEOUT_VALUE"
 export RAINMAPPER_METEOCAT_MAX_ATTEMPTS="$METEOCAT_MAX_ATTEMPTS_VALUE"
 export RAINMAPPER_MAX_THREADS="$MAX_THREADS_VALUE"
 export RAINMAPPER_MAX_ATTEMPTS="$MAX_ATTEMPTS_VALUE"
-export RAINMAPPER_WUNDERGROUND_DAILY_API="$WUNDERGROUND_DAILY_API_VALUE"
+if [ "$WUNDERGROUND_MONTHLY_API_VALUE" = "true" ] && [ "$WUNDERGROUND_WEEKLY_API_VALUE" = "true" ]; then
+  echo "Invalid Wunderground configuration: wunderground_monthly_api and wunderground_weekly_api cannot both be enabled." >&2
+  exit 2
+fi
+if [ "$WUNDERGROUND_WEEKLY_API_VALUE" = "true" ]; then
+  WUNDERGROUND_API_MODE_VALUE="weekly (latest 7 calendar days)"
+elif [ "$WUNDERGROUND_MONTHLY_API_VALUE" = "true" ]; then
+  WUNDERGROUND_API_MODE_VALUE="monthly"
+else
+  WUNDERGROUND_API_MODE_VALUE="HTML scraper"
+fi
+
+export RAINMAPPER_WUNDERGROUND_MONTHLY_API="$WUNDERGROUND_MONTHLY_API_VALUE"
+export RAINMAPPER_WUNDERGROUND_WEEKLY_API="$WUNDERGROUND_WEEKLY_API_VALUE"
 export RAINMAPPER_WUNDERGROUND_FULL_LOG="$WUNDERGROUND_FULL_LOG_VALUE"
 export RAINMAPPER_METEOCLIMATIC_PATTERN="$METEOCLIMATIC_PATTERN_VALUE"
 export RAINMAPPER_LAST_RAINS_HISTORY="$LAST_RAINS_HISTORY_VALUE"
@@ -294,15 +309,17 @@ run_update() {
     --meteocat_max_attempts "$METEOCAT_MAX_ATTEMPTS_VALUE" \
     --max_threads "$MAX_THREADS_VALUE" \
     --max_attempts "$MAX_ATTEMPTS_VALUE" \
-    --wunderground_daily_api "$WUNDERGROUND_DAILY_API_VALUE" \
+    --wunderground_monthly_api "$WUNDERGROUND_MONTHLY_API_VALUE" \
+    --wunderground_weekly_api "$WUNDERGROUND_WEEKLY_API_VALUE" \
     --wunderground_full_log "$WUNDERGROUND_FULL_LOG_VALUE" \
     --backfill_station_filter "$BACKFILL_STATION_FILTER_VALUE" \
     --meteoclimatic_pattern "$METEOCLIMATIC_PATTERN_VALUE"
   if [ -n "$run_wunderground_local_start_date" ] && [ -n "$run_wunderground_local_end_date" ]; then
     # Monthly backfill windows are local calendar windows. Pass explicit
     # Wunderground dates so Europe/Madrid midnight is not converted to the
-    # previous UTC day. Normal updates intentionally keep days_init/days_end so
-    # early-month runs reread the previous month and close late WU totals.
+    # previous UTC day. Weekly normal updates use one rolling seven-day window,
+    # including the needed days from the previous month when the window crosses
+    # a month boundary. Monthly mode preserves the legacy range behavior.
     set -- "$@" \
       --wunderground_local_start_date "$run_wunderground_local_start_date" \
       --wunderground_local_end_date "$run_wunderground_local_end_date"

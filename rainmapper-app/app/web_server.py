@@ -9523,6 +9523,14 @@ def command_for(
 ) -> list[str]:
     if only_source and only_source not in UPDATE_SOURCE_FLAGS:
         raise ValueError(f"Invalid source: {only_source}")
+    wunderground_monthly_api = env("RAINMAPPER_WUNDERGROUND_MONTHLY_API", "true")
+    wunderground_weekly_api = env("RAINMAPPER_WUNDERGROUND_WEEKLY_API", "false")
+    if bool_env("RAINMAPPER_WUNDERGROUND_MONTHLY_API", False) and bool_env(
+        "RAINMAPPER_WUNDERGROUND_WEEKLY_API", True
+    ):
+        raise ValueError(
+            "wunderground_monthly_api and wunderground_weekly_api cannot both be enabled"
+        )
     update_command = [
         "python",
         "-m",
@@ -9553,8 +9561,10 @@ def command_for(
         env("RAINMAPPER_MAX_THREADS", "3"),
         "--max_attempts",
         env("RAINMAPPER_MAX_ATTEMPTS", "3"),
-        "--wunderground_daily_api",
-        env("RAINMAPPER_WUNDERGROUND_DAILY_API", "true"),
+        "--wunderground_monthly_api",
+        wunderground_monthly_api,
+        "--wunderground_weekly_api",
+        wunderground_weekly_api,
         "--wunderground_full_log",
         env("RAINMAPPER_WUNDERGROUND_FULL_LOG", "false"),
         "--backfill_station_filter",
@@ -9565,8 +9575,9 @@ def command_for(
     if wunderground_local_start_date and wunderground_local_end_date:
         # Monthly backfill windows are local calendar windows. Pass explicit
         # Wunderground dates so Europe/Madrid midnight is not converted to the
-        # previous UTC day. Normal updates intentionally keep days_init/days_end
-        # so early-month runs reread the previous month and close late WU totals.
+        # previous UTC day. Weekly normal updates use one rolling seven-day
+        # window across month boundaries; monthly mode preserves the legacy
+        # range behavior.
         update_command.extend(
             [
                 "--wunderground_local_start_date",
@@ -9837,13 +9848,18 @@ def source_status_card(source: str, payload: dict, disabled: str = "") -> str:
                 + "</div>"
             )
     elif source == "Wunderground":
-        try:
-            api_fallback_errors = int(payload.get("api_fallback_errors") or 0)
-        except (TypeError, ValueError):
-            api_fallback_errors = 0
+        counters = {}
+        for key in ("api_fallback_errors", "cache_retries", "cache_recoveries", "stale_responses"):
+            try:
+                counters[key] = int(payload.get(key) or 0)
+            except (TypeError, ValueError):
+                counters[key] = 0
         alerts_text = (
             '<div class="source-alerts">'
-            f'<div class="source-alert">API fallback errors: {api_fallback_errors}</div>'
+            f'<div class="source-alert">API fallback errors: {counters["api_fallback_errors"]}</div>'
+            f'<div class="source-alert">Cache retries: {counters["cache_retries"]}</div>'
+            f'<div class="source-alert">Cache recoveries: {counters["cache_recoveries"]}</div>'
+            f'<div class="source-alert">Stale responses: {counters["stale_responses"]}</div>'
             "</div>"
         )
     if isinstance(timings, dict) and timings:

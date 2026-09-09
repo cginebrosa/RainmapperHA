@@ -1,5 +1,5 @@
 import os
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 
@@ -7,10 +7,21 @@ import requests
 DEFAULT_API_KEY = "e1f10a1e78da46f5b10a1e78da96f525"
 API_URL = "https://api.weather.com/v2/pws/history/daily"
 INCH_TO_MM = 25.4
+CACHE_ENCODINGS = ("identity", "gzip", "deflate")
+CACHE_STALE_AFTER_HOURS = 4
 
 
 class WundergroundDailyApiError(Exception):
     pass
+
+
+def query_date_range(start_date: date, end_date: date, *, weekly: bool) -> tuple[date, date]:
+    """Return the requested interval, capped to seven inclusive days in weekly mode."""
+    if start_date > end_date:
+        raise ValueError("Wunderground start date must not be after end date")
+    if weekly:
+        start_date = max(start_date, end_date - timedelta(days=6))
+    return start_date, end_date
 
 
 def station_id_from_url(weather_station_url: str) -> str:
@@ -21,10 +32,11 @@ def daily_api_key() -> str:
     return os.environ.get("RAINMAPPER_WUNDERGROUND_API_KEY", DEFAULT_API_KEY)
 
 
-def fetch_daily_observations(
+def _fetch_daily_observations_once(
     station_id: str,
     start_date: date,
     end_date: date,
+    accept_encoding: str,
     session=None,
     timeout=5,
     api_key=None,
@@ -40,7 +52,12 @@ def fetch_daily_observations(
         "apiKey": api_key or daily_api_key(),
     }
     try:
-        response = requester.get(API_URL, params=params, timeout=timeout)
+        response = requester.get(
+            API_URL,
+            params=params,
+            headers={"Accept-Encoding": accept_encoding},
+            timeout=timeout,
+        )
     except requests.RequestException as exc:
         raise WundergroundDailyApiError(str(exc)) from exc
 
@@ -56,6 +73,127 @@ def fetch_daily_observations(
     if not observations:
         raise WundergroundDailyApiError("empty observations")
     return observations
+
+
+def _observation_epoch(observation: dict):
+    try:
+        return float(observation.get("epoch"))
+    except (TypeError, ValueError):
+        pass
+
+    utc_text = str(observation.get("obsTimeUtc") or "").strip()
+    if not utc_text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(utc_text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
+def _latest_observation_epoch(observations):
+    epochs = [
+        epoch
+        for epoch in (_observation_epoch(observation) for observation in observations)
+        if epoch is not None
+    ]
+    return max(epochs) if epochs else None
+
+
+def _format_observation_time(epoch):
+    if epoch is None:
+        return "unknown"
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def fetch_daily_observations(
+    station_id: str,
+    start_date: date,
+    end_date: date,
+    session=None,
+    timeout=5,
+    api_key=None,
+    diagnostics=None,
+    now_utc=None,
+    today=None,
+    stale_after_hours=CACHE_STALE_AFTER_HOURS,
+):
+    """Fetch daily observations and escape stale CDN compression variants.
+
+    Weather.com caches responses separately by ``Accept-Encoding``. For a
+    request that includes today, retry alternate variants only when the latest
+    observation is older than the accepted freshness window, then keep the
+    response with the newest observation timestamp.
+    """
+    diagnostics_target = diagnostics if diagnostics is not None else {}
+    current_time = now_utc or datetime.now(timezone.utc)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=timezone.utc)
+    current_time = current_time.astimezone(timezone.utc)
+    current_date = today or date.today()
+    requesting_today = start_date <= current_date <= end_date
+    stale_cutoff = current_time.timestamp() - (float(stale_after_hours) * 3600)
+
+    attempted_encodings = []
+    retry_errors = []
+    selected_observations = None
+    selected_epoch = None
+    selected_encoding = CACHE_ENCODINGS[0]
+    initial_epoch = None
+
+    for index, accept_encoding in enumerate(CACHE_ENCODINGS):
+        if index > 0 and (not requesting_today or (selected_epoch is not None and selected_epoch >= stale_cutoff)):
+            break
+        try:
+            observations = _fetch_daily_observations_once(
+                station_id,
+                start_date,
+                end_date,
+                accept_encoding,
+                session=session,
+                timeout=timeout,
+                api_key=api_key,
+            )
+        except WundergroundDailyApiError as exc:
+            if index == 0:
+                raise
+            attempted_encodings.append(accept_encoding)
+            retry_errors.append(f"{accept_encoding}: {exc}")
+            continue
+
+        attempted_encodings.append(accept_encoding)
+        latest_epoch = _latest_observation_epoch(observations)
+        if index == 0:
+            initial_epoch = latest_epoch
+            selected_observations = observations
+            selected_epoch = latest_epoch
+            selected_encoding = accept_encoding
+            continue
+        if latest_epoch is not None and (selected_epoch is None or latest_epoch > selected_epoch):
+            selected_observations = observations
+            selected_epoch = latest_epoch
+            selected_encoding = accept_encoding
+
+    retry_attempted = len(attempted_encodings) > 1
+    recovered = retry_attempted and selected_epoch is not None and (
+        initial_epoch is None or selected_epoch > initial_epoch
+    )
+    stale_after_retries = bool(
+        requesting_today and (selected_epoch is None or selected_epoch < stale_cutoff)
+    )
+    diagnostics_target.update({
+        "cache_retry_attempted": retry_attempted,
+        "cache_recovered": recovered,
+        "stale_after_retries": stale_after_retries,
+        "attempted_encodings": attempted_encodings,
+        "selected_encoding": selected_encoding,
+        "initial_observation_utc": _format_observation_time(initial_epoch),
+        "selected_observation_utc": _format_observation_time(selected_epoch),
+        "retry_errors": retry_errors,
+    })
+    return selected_observations
 
 
 def imperial_to_metric(observation: dict) -> dict:

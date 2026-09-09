@@ -59,6 +59,18 @@ _print_dataframes = False               # Debug dataframes by printing (be caref
 _max_threads = 3                        # Recommended Wunderground threads after HA/RPi validation; use 1 for conservative diagnostics
 _max_attempts = 3                       # Number of attempts to scrap url from Wunderground
 _wunderground_full_log = False          # Imprimir log detallado de estaciones Wunderground
-_wunderground_daily_api = _bool_env('RAINMAPPER_WUNDERGROUND_DAILY_API', True)  # Use Wunderground daily JSON first; HTML remains fallback
+_wunderground_monthly_api = _bool_env('RAINMAPPER_WUNDERGROUND_MONTHLY_API', True)
+_wunderground_weekly_api = _bool_env('RAINMAPPER_WUNDERGROUND_WEEKLY_API', False)
+
+# Compatibility for older wrappers that only exported the misleadingly named
+# daily_api switch. It selected the daily-observation endpoint with a monthly
+# date range, so map it to monthly mode only when neither new setting exists.
+if (
+    'RAINMAPPER_WUNDERGROUND_DAILY_API' in os.environ
+    and 'RAINMAPPER_WUNDERGROUND_MONTHLY_API' not in os.environ
+    and 'RAINMAPPER_WUNDERGROUND_WEEKLY_API' not in os.environ
+):
+    _wunderground_monthly_api = _bool_env('RAINMAPPER_WUNDERGROUND_DAILY_API', True)
+    _wunderground_weekly_api = False
 _backfill_station_filter = os.environ.get('RAINMAPPER_BACKFILL_STATION_FILTER', '')  # Optional source::station filter for administrative backfills
 #_codi_provincia = '' ## NOT IMPLEMENTED

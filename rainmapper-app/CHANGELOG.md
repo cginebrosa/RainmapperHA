@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.300
+
+- Add the French RGE ALTI DEM to GIS discovery and reuse unchanged GIS files
+  when synchronizing a new dataset generation.
+- Replace the ambiguous Wunderground daily API switch with mutually exclusive
+  weekly and monthly modes, preserving the monthly mode as the default.
+- Detect stale current-day Weather.com CDN responses by their UTC timestamp,
+  retry the `identity`, `gzip`, and `deflate` cache variants, keep the freshest
+  response, and expose recovery or persistent-staleness counters in diagnostics.
+- Keep administrative Wunderground backfills on their complete monthly windows
+  and preserve the HTML scraper as fallback when the selected API mode fails.
+
 ## 0.2.298
 
 - Bootstrap tuning decisions when a newly eligible species first enters

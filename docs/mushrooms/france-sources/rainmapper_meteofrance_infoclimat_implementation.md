@@ -1,1470 +1,612 @@
-# Rainmapper – Integración de estaciones meteorológicas francesas
-## Météo-France + Infoclimat/StatIC
-**Fecha de investigación:** 4 de septiembre de 2026
+# Rainmapper — meteorología para el corredor Quérigut–Font-Romeu
 
-**Objetivo:** ampliar Rainmapper en Cerdanya francesa / Capcir / Donezan / Haute-Ariège, inicialmente alrededor de Font-Romeu, Les Angles, Formiguères, Quérigut, Osséja y Mérens-les-Vals.
+**Estado:** diseño adaptado al repositorio y a los datos operativos actuales
 
----
+**Revisado:** 9 de septiembre de 2026
 
-## 1. Resumen ejecutivo
+**Ámbito inicial:** corredor Quérigut–Formiguères–Les Angles–Font-Romeu, entre Ariège (D09) y Pyrénées-Orientales (D66).
 
-La recomendación es implementar **dos proveedores franceses**:
+**Especificación técnica para implementar:**
+`rainmapper_meteofrance_implementation_spec.md`. Esa especificación concreta
+configuración, runner separado, desfase, diagnósticos, UI y criterios de
+aceptación, y prevalece para la implementación.
 
-1. **Météo-France** como proveedor oficial y principal.
-2. **Infoclimat/StatIC** únicamente como proveedor complementario para estaciones que no estén disponibles en Météo-France o aporten una ubicación realmente distinta.
+## 1. Decisión
 
-No debe utilizarse Infoclimat como réplica de estaciones Météo-France cuando ambas fuentes representen el mismo emplazamiento.
+La ampliación usará inicialmente los **CSV climatológicos diarios D66 de
+Météo-France**. D09 sólo se añadirá si una microárea posterior demuestra que lo
+necesita. Para el dato reciente no hace falta
+crear otro proveedor: Rainmapper ya integra Wunderground y HA real ya tiene
+configuradas `IFORMI6` (Formiguères) e `IFONTR8` (Font-Romeu).
 
-### Decisión principal
+Se separan dos canales:
 
-Para Rainmapper:
+1. **Histórico oficial diario**, sin credenciales, mediante Météo-France, para
+   ampliar y contrastar entrenamiento y predicción.
+2. **Histórico y dato reciente**, mediante el flujo Wunderground ya existente,
+   para Formiguères y Font-Romeu.
 
-```text
-AEMET
-Meteocat
-MeteoFrance       <- proveedor francés principal
-Infoclimat        <- proveedor complementario, sólo estaciones adicionales
-```
-
-### Descubrimiento clave
-
-La API climatológica diaria de Météo-France puede proporcionar en una misma descarga los parámetros necesarios para Rainmapper, incluyendo:
-
-- `RR` – precipitación diaria
-- `TN` – temperatura mínima
-- `TX` – temperatura máxima
-- `TM` – temperatura media
-- `FFM` – viento medio diario
-- `FXI` / `FXI3S` – racha máxima
-- `DXI` / `DXI3S` – dirección de la racha
-- `UN` – humedad relativa mínima
-- `UX` – humedad relativa máxima
-- `UM` – humedad relativa media
-
-Por tanto, **no es necesario construir la humedad diaria agregando obligatoriamente datos horarios** si esos parámetros diarios están disponibles para la estación concreta.
-
-Los CSV públicos diarios del bloque básico `RR-T-Vent` no contienen todos los parámetros de humedad, pero la **API climatológica diaria completa sí puede devolverlos**.
-
----
-
-# 2. Météo-France
-
-## 2.1 Fuente recomendada
-
-API oficial:
-
-`https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesClimatologie`
-
-Base pública usada por clientes:
-
-`https://public-api.meteofrance.fr/public/DPClim/v1/`
-
-Dataset oficial diario:
-
-`https://www.data.gouv.fr/datasets/donnees-climatologiques-de-base-quotidiennes`
-
-Dataset diario de estaciones complementarias:
-
-`https://www.data.gouv.fr/datasets/donnees-climatologiques-de-base-quotidiennes-stations-complementaires`
-
-Metadatos / catálogo de estaciones:
-
-`https://www.data.gouv.fr/datasets/informations-sur-les-stations-metadonnees`
-
-Documentación general data.gouv.fr:
-
-`https://guides.data.gouv.fr/guides/reutiliser-des-donnees/prise-en-main-des-donnees-meteorologiques`
-
-## 2.2 Autenticación
-
-La API climatológica requiere:
-
-- cuenta gratuita Météo-France;
-- suscripción gratuita a la API de datos climatológicos;
-- token/API key.
-
-Límite publicado:
-
-```text
-50 requests/minute
-```
-
-Fuente:
-
-`https://www.data.gouv.fr/dataservices/api-donnees-climatologiques`
-
-El mecanismo usado por ejemplos de Météo-France es compatible con API key/token.
-
-## 2.3 Flujo de descarga
-
-La API climatológica trabaja mediante una **orden asíncrona**.
-
-### Paso 1 – solicitar datos diarios de una estación
-
-Endpoint:
-
-```text
-GET /public/DPClim/v1/commande-station/quotidienne
-```
-
-Parámetros típicos:
-
-```text
-id-station
-date-deb-periode
-date-fin-periode
-apikey
-```
-
-Ejemplo conceptual:
-
-```python
-params = {
-    "id-station": station_id,
-    "date-deb-periode": "2026-08-01T00:00:00Z",
-    "date-fin-periode": "2026-09-01T00:00:00Z",
-    "apikey": token,
-}
-```
-
-La respuesta contiene un identificador de pedido.
-
-### Paso 2 – recuperar el CSV generado
-
-Endpoint:
-
-```text
-GET /public/DPClim/v1/commande/fichier
-```
-
-Parámetros:
-
-```text
-id-cmde
-apikey
-```
-
-Referencia técnica útil:
-
-`https://github.com/mmandem/Meteo-France_API/blob/main/extrait_obs_BDCLIM_viaAPI_Meteo-France.py`
-
-Ese ejemplo está firmado por personal Météo-France/CNRM y fue actualizado en enero de 2026.
-
-## 2.4 Formato temporal
-
-Las fechas de petición se manejan en UTC:
-
-```text
-YYYY-MM-DDTHH:MM:SSZ
-```
-
-Rainmapper debe tratar explícitamente la diferencia entre:
-
-- UTC usado por Météo-France;
-- `Europe/Paris`;
-- definición climatológica de día.
-
-No se debe asumir que una agregación local 00:00–24:00 reproduce exactamente el día climatológico oficial.
-
----
-
-# 3. Parámetros Météo-France relevantes para Rainmapper
-
-## 3.1 Precipitación
-
-```text
-RR
-```
-
-Significado:
-
-```text
-precipitación diaria acumulada [mm]
-```
-
-Campo de calidad asociado:
-
-```text
-QRR
-```
-
-## 3.2 Temperatura
-
-```text
-TN      temperatura mínima diaria [°C]
-TX      temperatura máxima diaria [°C]
-TM      temperatura media diaria [°C]
-TNTXM   (TN + TX) / 2
-```
-
-También pueden existir:
-
-```text
-HTN     hora de TN
-HTX     hora de TX
-```
-
-Campos de calidad:
-
-```text
-QTN
-QTX
-QTM
-...
-```
-
-## 3.3 Humedad relativa
-
-La respuesta diaria completa puede contener:
-
-```text
-UN      humedad relativa mínima diaria [%]
-UX      humedad relativa máxima diaria [%]
-UM      humedad relativa media diaria [%]
-HUN     hora de UN
-HUX     hora de UX
-```
-
-y sus flags:
-
-```text
-QUN
-QUX
-QUM
-QHUN
-QHUX
-```
-
-Esto está confirmado por ejemplos reales de respuesta de la API climatológica diaria.
-
-Por tanto, en Rainmapper:
-
-```text
-humidity_min_pct  <- UN
-humidity_max_pct  <- UX
-humidity_mean_pct <- UM
-```
-
-No calcular `UM = (UN + UX) / 2`.
-
-Si `UM` no está disponible pero existen datos horarios `U`, se puede calcular como fallback a partir de observaciones horarias válidas.
-
-## 3.4 Viento
-
-Variables relevantes:
-
-```text
-FFM      media diaria de la fuerza del viento medio de 10 min a 10 m [m/s]
-FF2M     equivalente a 2 m, si existe
-
-FXY      máximo diario del viento medio de 10 min
-DXY      dirección de FXY [grados]
-HXY      hora de FXY
-
-FXI      máximo diario del viento instantáneo
-DXI      dirección de FXI [grados]
-HXI      hora de FXI
-
-FXI3S    racha máxima diaria promediada sobre 3 s
-DXI3S    dirección de FXI3S
-HXI3S    hora de FXI3S
-```
-
-### Normalización propuesta
-
-```text
-wind_mean_ms       <- FFM
-wind_gust_ms       <- first_available(FXI3S, FXI)
-wind_direction_deg <- first_available(DXI3S, DXI)
-```
-
-No convertir a km/h en almacenamiento interno. Mantener SI (`m/s`) y convertir únicamente en presentación.
-
----
-
-# 4. Flags de calidad Météo-France
-
-Cada valor puede venir acompañado de un campo `Qxxx`.
-
-Rainmapper debe conservar el flag original.
-
-Ejemplos observados en la documentación/ecosistema Météo-France:
-
-```text
-0 = dato protegido/validado definitivamente
-1 = dato validado
-2 = dato dudoso en verificación
-9 = dato filtrado / ha superado controles iniciales
-```
-
-No se recomienda descartar todos los valores que no sean `0` o `1` sin estudiar primero el comportamiento real del feed.
-
-### Esquema recomendado
-
-```text
-rain_mm
-rain_quality
-
-temp_min_c
-temp_min_quality
-
-temp_max_c
-temp_max_quality
-
-humidity_min_pct
-humidity_min_quality
-
-...
-```
-
-O alternativamente guardar un JSON de calidad por observación.
-
----
-
-# 5. Estaciones Météo-France investigadas
-
-## 5.1 Formiguères
-
-### Identidad correcta
-
-**Corrección respecto a la investigación preliminar:**
-
-el identificador actual que aparece asociado a la estación activa de Formiguères es:
-
-```text
-MF66082004
-```
-
-Indicativo visible en Infoclimat:
-
-```text
-07737
-```
-
-No usar `66082401`; ese identificador aparecido en una búsqueda preliminar no corresponde al puesto operativo que interesa.
-
-Datos:
-
-```text
-Nombre: Formiguères
-Lat: ~42.62
-Lon: ~2.11
-Altitud: 1495 m
-Inicio de serie visible: 01/07/2005
-Red: Météo-France
-```
-
-En 2026 hay observaciones actuales con:
-
-```text
-temperatura
-precipitación
-viento
-racha
-humedad
-punto de rocío
-```
-
-Fuentes:
-
-`https://www.infoclimat.fr/observations-meteo/temps-reel/formigueres/07737.html`
-
-`https://www.infoclimat.fr/climatologie/annee/2026/formigueres/valeurs/07737.html`
-
-### Prioridad Rainmapper
-
-```text
-MUY ALTA
-```
-
-Es la estación francesa más completa y consolidada de las investigadas en el sector Capcir.
-
----
-
-## 5.2 Les Angles
-
-Identificador:
-
-```text
-MF66004401
-```
-
-Datos:
-
-```text
-Nombre: Les Angles
-Lat: ~42.57
-Lon: ~2.05
-Altitud: 2108 m
-Inicio visible: 21/12/1983
-Red: Météo-France
-```
-
-En la climatología visible de 2026 aparecen datos en invierno/inicio de primavera, pero no una continuidad anual completa.
-
-Fuente:
-
-`https://www.infoclimat.fr/climatologie/annee/2026/test-mf-csv-les-angles/valeurs/MF66004401.html`
-
-### Interpretación
-
-Parece una estación de alta montaña/nivológica con posible funcionamiento estacional o disponibilidad parcial.
-
-### Prioridad Rainmapper
-
-```text
-ALTA como estación de montaña
-pero NO confiar en ella como única fuente continua
-```
-
-Rainmapper debe tolerar huecos amplios.
-
----
-
-## 5.3 Quérigut
-
-Identificador investigado:
-
-```text
-MF09239005
-```
-
-Datos:
-
-```text
-Nombre: Quérigut
-Lat: ~42.68
-Lon: ~2.12
-Altitud: 1430 m
-Inicio visible: 01/10/2008
-Red: Météo-France
-```
-
-Fuente:
-
-`https://www.infoclimat.fr/observations-meteo/temps-reel/test-mf-csv-querigut/MF09239005.html`
-
-Sin embargo, la evidencia pública disponible no demuestra continuidad reciente equivalente a Formiguères. La climatología visible de Infoclimat es muy incompleta para este identificador.
-
-También existen puestos anteriores:
-
-```text
-MF09239004  ~1220 m
-MF09239001  ~1200 m
-```
-
-sin datos actuales visibles en 2026.
-
-### Decisión
-
-**No tratar Quérigut como estación activa garantizada hasta consultar los metadatos de la API Météo-France con token.**
-
-Codex debe implementar el proveedor de forma que la selección final de estaciones pueda activarse/desactivarse por configuración.
-
-```text
-status = candidate_pending_api_verification
-```
-
----
-
-# 6. Infoclimat / StatIC
-
-## 6.1 Fuente
-
-Open Data:
-
-`https://www.infoclimat.fr/opendata/`
-
-La plataforma incluye:
-
-- algunas estaciones oficiales nacionales;
-- estaciones de la asociación Infoclimat;
-- estaciones de colaboradores StatIC que han autorizado reutilización.
-
-## 6.2 Autenticación
-
-La automatización requiere API key.
-
-Es necesario:
-
-1. crear cuenta;
-2. declarar el tipo de reutilización;
-3. generar la clave API.
-
-Infoclimat documenta un máximo habitual de:
-
-```text
-7 días consecutivos por petición
-```
-
-excepto para propietarios de estaciones.
-
-Fuente:
-
-`https://www.infoclimat.fr/opendata/`
-
-### Consecuencia para Rainmapper
-
-El downloader debe trocear automáticamente rangos grandes:
-
-```python
-for chunk in split_date_range(start, end, days=7):
-    fetch(chunk)
-```
-
-Esto es especialmente importante para backfill histórico.
-
----
-
-# 7. Licencias Infoclimat
-
-La licencia es **por estación**.
-
-Tipos relevantes:
-
-```text
-Open
-Non-commercial
-Closed
-```
-
-Infoclimat considera uso personal como no comercial.
-
-Rainmapper, mientras sea un proyecto personal/no lucrativo, puede utilizar estaciones con licencia `Non-commercial`, respetando atribución.
-
-### Regla de implementación
-
-Guardar en metadatos:
-
-```text
-license_type
-license_text
-license_checked_at
-```
-
-y no asumir que una estación mantiene siempre la misma licencia.
-
-Infoclimat señala que un cambio de licencia puede ser retroactivo.
-
----
-
-# 8. Estaciones StatIC investigadas
-
-## 8.1 Font-Romeu-Odeillo-Via – nueva estación
-
-ID:
-
-```text
-STATIC0478
-```
-
-Datos:
-
-```text
-Lat: 42.506
-Lon: 2.040
-Altitud: 1952 m
-Apertura: 22/06/2026
-Red: StatIC
-Propietario: Météo Pyrénées
-Modelo: Davis Vantage Pro 2 inalámbrica
-```
-
-Instrumentación:
-
-```text
-thermo/hygro
-anemómetro
-veleta
-pluviómetro
-barómetro
-```
-
-La observación real muestra:
-
-```text
-temperatura
-precipitación
-viento
-racha
-humedad
-punto de rocío
-presión
-```
-
-Fuentes:
-
-`https://www.infoclimat.fr/stations/metadonnees.php?id=STATIC0478`
-
-`https://www.infoclimat.fr/observations-meteo/temps-reel/font-romeu-odeillo-via/STATIC0478.html`
-
-### Problema de licencia
-
-En la ficha consultada:
-
-```text
-Licence des données: non saisi
-```
-
-Por tanto:
-
-```text
-NO asumir acceso API todavía
-```
-
-La estación debe quedar como:
-
-```text
-candidate_pending_license
-```
-
-hasta que una llamada real a la API OpenData confirme que está incluida.
-
-### Prioridad
-
-Meteorológicamente:
-
-```text
-MUY ALTA
-```
-
-Por acceso programático:
-
-```text
-PENDIENTE
-```
-
----
-
-## 8.2 Osséja
-
-ID:
-
-```text
-000EN
-```
-
-Datos:
-
-```text
-Lat: 42.414
-Lon: 1.982
-Altitud: 1350 m
-Apertura: 25/06/2016
-Red: StatIC
-Modelo: Davis Vantage Pro 2 inalámbrica
-```
-
-Licencia:
-
-```text
-non-commercial (CC BY-NC)
-```
-
-La ficha indica calidad:
-
-```text
-Temperatura / humedad: Très bonne
-```
-
-Existe instrumentación y observaciones de:
-
-```text
-temperatura
-humedad
-pluviómetro
-viento
-dirección
-```
-
-Fuentes:
-
-`https://www.infoclimat.fr/stations/metadonnees.php?id=000EN`
-
-`https://www.infoclimat.fr/observations-meteo/temps-reel/osseja/000EN.html`
-
-### Prioridad
-
-```text
-MUY ALTA para Rainmapper personal
-```
-
-Es especialmente útil para Cerdanya por su posición y altitud.
-
----
-
-## 8.3 Mérens-les-Vals
-
-ID:
-
-```text
-000BR
-```
-
-Datos:
-
-```text
-Lat: 42.650
-Lon: 1.833
-Altitud: 1070 m
-Apertura: 24/08/2015
-Red: StatIC
-Modelo: Davis Vantage Pro 2 inalámbrica
-```
-
-Instrumentación:
-
-```text
-thermo/hygro
-anemómetro
-veleta
-pluviómetro
-```
-
-Calidad declarada del emplazamiento:
-
-```text
-Temperatura / humedad: moyenne
-Vent: moyenne
-Pluviométrie: moyenne
-```
-
-por vegetación alrededor y anemómetro a 2 m.
-
-Fuente:
-
-`https://www.infoclimat.fr/stations/metadonnees.php?id=000BR`
-
-Observaciones:
-
-`https://www.infoclimat.fr/observations-meteo/temps-reel/merens-les-vals/000BR.html`
-
-### Problema de licencia
-
-En la ficha examinada:
-
-```text
-Licence des données: non saisi
-```
-
-Por tanto:
-
-```text
-candidate_pending_license
-```
-
-hasta verificar presencia en API.
-
----
-
-# 9. Antigua estación Font-Romeu
-
-ID anterior:
-
-```text
-000RX
-```
-
-Datos:
-
-```text
-Altitud: 1788 m
-Inicio: 17/06/2020
-Red: StatIC / Météo Pyrénées
-```
-
-Esta estación fue sustituida/trasladada en 2026.
-
-Debe conservarse para histórico como una **serie distinta**.
-
-No fusionar directamente:
-
-```text
-000RX      1788 m
-STATIC0478 1952 m
-```
-
-aunque ambas tengan nombre Font-Romeu.
-
-La diferencia de ~164 m de altitud y de emplazamiento es meteorológicamente significativa.
-
----
-
-# 10. Deduplicación de estaciones
-
-## 10.1 No deduplicar por nombre
-
-Incorrecto:
-
-```python
-if station.name == other.name:
-    duplicate = True
-```
-
-## 10.2 Regla propuesta
-
-Crear una entidad física de estación separada del identificador del proveedor.
-
-Ejemplo:
-
-```text
-weather_station
-weather_station_source
-```
-
-### `weather_station`
-
-```text
-id
-canonical_name
-latitude
-longitude
-altitude_m
-country
-region
-active_from
-active_to
-```
-
-### `weather_station_source`
-
-```text
-station_id
-provider
-provider_station_id
-provider_station_name
-license
-source_priority
-active
-metadata_json
-```
-
-## 10.3 Detección de posibles duplicados
-
-Usar:
-
-```text
-distance <= 300 m
-AND altitude difference <= 30 m
-AND overlapping operational dates
-```
-
-como señal de revisión, no como fusión automática.
-
-Para montaña conviene ser conservador:
-
-- 300 m horizontales pueden ser importantes;
-- diferencias de altitud >30–50 m pueden representar otro microclima;
-- un traslado debe generar una nueva serie física.
-
-## 10.4 Prioridad de proveedor
-
-Si una misma estación física aparece en ambos:
-
-```text
-1. METEOFRANCE
-2. INFOCLIMAT
-```
-
-No descargar la réplica Infoclimat si ya se obtiene el dato oficial directamente.
-
----
-
-# 11. Modelo normalizado recomendado
-
-```python
-DailyWeatherObservation:
-    station_id: str
-    provider: str
-    provider_station_id: str
-
-    date: date
-
-    rain_mm: float | None
-
-    temp_min_c: float | None
-    temp_max_c: float | None
-    temp_mean_c: float | None
-
-    humidity_min_pct: float | None
-    humidity_max_pct: float | None
-    humidity_mean_pct: float | None
-
-    wind_mean_ms: float | None
-    wind_gust_ms: float | None
-    wind_direction_deg: float | None
-
-    source_timestamp: datetime | None
-
-    quality: dict | None
-    raw_payload: dict | None
-```
-
-No rellenar con `0` los valores ausentes.
-
-```text
-null != 0
-```
-
-especialmente para lluvia, viento y humedad.
-
----
+La API de Wunderground devolvió observaciones actuales de ambas estaciones el
+9 de septiembre de 2026. Por tanto, solicitar acceso a la API **Données
+d'observation** de Météo-France ya no es requisito de la primera entrega. Queda
+como posible redundancia oficial si la cobertura real de Wunderground resulta
+insuficiente. La API climatológica continúa siendo innecesaria.
 
-# 12. Mapeo Météo-France -> Rainmapper
+La red oficial inicial tendrá **dos estaciones configuradas**:
 
-```python
-METEOFRANCE_DAILY_MAPPING = {
-    "RR": "rain_mm",
+1. **Targasonne `66202001`**: serie completa; referencia del extremo Font-Romeu.
+2. **Formiguères `66082004`**: serie completa; referencia central y principal apoyo de Quérigut.
 
-    "TN": "temp_min_c",
-    "TX": "temp_max_c",
-    "TM": "temp_mean_c",
+Quedan como candidatas futuras, no como red inicial:
 
-    "UN": "humidity_min_pct",
-    "UX": "humidity_max_pct",
-    "UM": "humidity_mean_pct",
+3. **Mijanes `09193400`**.
+4. **Ascou-Pailhères `09023400`**.
+5. **Les Angles `66004401`**.
+6. **Font-Romeu-Galinera `66124402`**.
 
-    "FFM": "wind_mean_ms",
+Infoclimat queda **fuera del plan de implementación**. La API sólo permitió dos
+estaciones útiles, Osséja y Mérens-les-Vals, mientras que las dos localidades
+prioritarias ya están cubiertas por Wunderground. No compensa añadir un quinto
+proveedor, otro secreto y otra política de calidad para esa ganancia marginal.
 
-    # Preferencia para racha
-    "FXI3S": "wind_gust_ms",
-    "FXI": "wind_gust_ms_fallback",
+No se introducirá ahora un framework nuevo de proveedores ni una base separada de estaciones físicas. Rainmapper ya identifica de forma inequívoca cada serie mediante:
 
-    "DXI3S": "wind_direction_deg",
-    "DXI": "wind_direction_deg_fallback",
-}
-```
-
-Resolver precedencias después del parseo:
-
-```python
-wind_gust_ms = first_not_none(FXI3S, FXI)
-wind_direction_deg = (
-    DXI3S if FXI3S is not None and DXI3S is not None
-    else DXI
-)
-```
-
----
-
-# 13. Mapeo Infoclimat -> Rainmapper
-
-La API debe encapsularse detrás de un adaptador independiente.
-
-```python
-class InfoclimatProvider(WeatherProvider):
-    ...
-```
-
-El formato exacto de respuesta debe capturarse mediante una petición real con API key antes de fijar nombres de campos en código.
-
-No codificar el parser basándose en HTML de Infoclimat.
-
-El HTML se ha utilizado únicamente para validar que las estaciones miden realmente:
-
-```text
-temperatura
-precipitación
-viento
-racha
-humedad
-```
-
-La implementación productiva debe usar exclusivamente la API OpenData autorizada.
-
----
-
-# 14. Proveedores
-
-Interfaz propuesta:
-
-```python
-class WeatherProvider(ABC):
-
-    @abstractmethod
-    def list_stations(self) -> list[ProviderStation]:
-        ...
-
-    @abstractmethod
-    def fetch_daily(
-        self,
-        station_id: str,
-        start_date: date,
-        end_date: date,
-    ) -> list[DailyWeatherObservation]:
-        ...
-```
-
-Implementaciones:
-
-```text
-AemetProvider
-MeteocatProvider
-MeteoFranceProvider
-InfoclimatProvider
-```
-
----
-
-# 15. Configuración
-
-Ejemplo:
-
-```yaml
-weather_providers:
-
-  meteofrance:
-    enabled: true
-    api_key: "${METEOFRANCE_API_KEY}"
-    departments:
-      - "09"
-      - "66"
-
-  infoclimat:
-    enabled: true
-    api_key: "${INFOCLIMAT_API_KEY}"
-    usage: "non-commercial"
-```
-
-No almacenar tokens en repositorio.
-
----
-
-# 16. Catálogo inicial de estaciones
-
-Propuesta de configuración inicial:
-
-```yaml
-france_weather_stations:
-
-  - provider: meteofrance
-    id: "66082004"
-    name: "Formiguères"
-    altitude_m: 1495
-    enabled: true
-    priority: 100
-
-  - provider: meteofrance
-    id: "66004401"
-    name: "Les Angles"
-    altitude_m: 2108
-    enabled: true
-    priority: 80
-    notes: "Posible disponibilidad estacional/parcial"
-
-  - provider: meteofrance
-    id: "09239005"
-    name: "Quérigut"
-    altitude_m: 1430
-    enabled: false
-    status: "pending_api_verification"
-
-  - provider: infoclimat
-    id: "000EN"
-    name: "Osséja"
-    altitude_m: 1350
-    enabled: true
-    license: "CC BY-NC"
-    priority: 90
-
-  - provider: infoclimat
-    id: "STATIC0478"
-    name: "Font-Romeu-Odeillo-Via"
-    altitude_m: 1952
-    enabled: false
-    status: "pending_license_api_verification"
-    priority: 100
-
-  - provider: infoclimat
-    id: "000BR"
-    name: "Mérens-les-Vals"
-    altitude_m: 1070
-    enabled: false
-    status: "pending_license_api_verification"
-    priority: 70
-```
-
----
-
-# 17. Estrategia de descarga
-
-## 17.1 Incremental diario
-
-Guardar:
-
-```text
-last_successful_date
-```
-
-por estación y proveedor.
-
-Ejemplo:
-
-```python
-start = last_successful_date + timedelta(days=1)
-end = yesterday
-```
-
-No volver a descargar todo el histórico cada día.
-
-## 17.2 Ventana de revisión
-
-Los proveedores pueden corregir datos recientes.
-
-Recomendación:
-
-```text
-re-fetch últimos 7 días cada ejecución
-```
-
-y hacer upsert.
-
-## 17.3 Histórico
-
-Météo-France:
-
-- puede hacer backfill mediante la API climatológica o CSV oficiales;
-- para grandes históricos puede ser más eficiente usar los CSV comprimidos por departamento.
-
-Infoclimat:
-
-- trocear en intervalos máximos de 7 días;
-- respetar límites y términos de servicio.
-
----
-
-# 18. Persistencia e idempotencia
-
-Clave única:
-
-```text
-(provider, provider_station_id, date)
-```
-
-o, si los datos ya se consolidan por estación física:
-
-```text
-(station_source_id, date)
-```
-
-Usar UPSERT.
-
-Un segundo run del mismo día no debe crear filas duplicadas.
-
----
-
-# 19. Gestión de fallos
-
-El fallo de una estación no debe abortar todo el proceso.
-
-Ejemplo:
-
-```text
-Formiguères OK
-Les Angles no data
-Osséja timeout
-...
-```
-
-Resultado global:
-
-```text
-completed_with_errors
-```
-
-con logging por estación.
-
-Usar:
-
-- timeout HTTP;
-- reintentos exponenciales;
-- respeto de `429 Too Many Requests`;
-- no reintentar errores permanentes `401/403` indefinidamente.
-
----
-
-# 20. Validaciones de datos
-
-Aplicar validación básica:
-
-```text
-0 <= humidity <= 100
-
-rain >= 0
-
--50 <= temperature <= 55    # sanity check regional, configurable
-
-0 <= wind_direction < 360
-
-wind_speed >= 0
-```
-
-Las validaciones no deben eliminar silenciosamente datos: marcar anomalía y conservar raw payload cuando sea posible.
-
----
-
-# 21. Uso para el Mushroom Predictor
-
-La red francesa añade un rango altitudinal especialmente útil:
-
-```text
-Mérens-les-Vals      1070 m
-Osséja               1350 m
-Quérigut             1430 m   (pendiente)
-Formiguères          1495 m
-Font-Romeu           1952 m   (pendiente API)
-Les Angles           2108 m
-```
-
-Para interpolación de montaña no usar únicamente distancia horizontal.
-
-El selector/interpolador debería poder ponderar como mínimo:
-
-```text
-horizontal_distance
-altitude_difference
-```
-
-y posteriormente:
-
 ```text
-aspect/orientation
-terrain barriers
-vegetation
+(source, station_code, local_date)
 ```
-
-aprovechando el DEM ya existente en Rainmapper.
-
----
-
-# 22. Fases de implementación recomendadas
 
-## Fase 1 – Météo-France
+## 2. Encaje con el Rainmapper actual
 
-1. Añadir configuración y secreto.
-2. Implementar autenticación.
-3. Implementar catálogo de estaciones.
-4. Implementar `commande-station/quotidienne`.
-5. Implementar polling/descarga de `commande/fichier`.
-6. Parsear CSV.
-7. Mapear RR/T/Humidity/Wind.
-8. Conservar flags de calidad.
-9. Activar inicialmente Formiguères.
-10. Probar Les Angles.
-11. Consultar metadatos reales de Quérigut y decidir si se activa.
+### 2.1 Contrato meteorológico
 
-## Fase 2 – Infoclimat
+El contrato canónico se define en `rainmapper_core/weather_history_contract.py`:
 
-1. Crear API key para uso personal/no comercial.
-2. Implementar downloader con ventanas <=7 días.
-3. Probar Osséja (`000EN`).
-4. Verificar si `STATIC0478` aparece en la API.
-5. Verificar si `000BR` aparece en la API.
-6. No hacer scraping HTML.
-7. Guardar licencia por estación.
+- clave: `source`, `station_code`, `local_date`;
+- Parquet tipado y particionado por fuente/año;
+- catálogo de estaciones con coordenadas, altitud y fechas;
+- valores meteorológicos nulos representados como `null`, nunca como cero.
 
-## Fase 3 – deduplicación
+Las fuentes actuales son `aemet`, `meteocat`, `meteoclimatic` y `wunderground`. Añadir Francia implica extender de forma coherente:
 
-1. Importar catálogo MF.
-2. Importar catálogo StatIC.
-3. Comparar coordenadas + altitud.
-4. Marcar `same_physical_station`.
-5. Priorizar MF cuando haya solapamiento.
-6. Mantener traslados como estaciones físicas distintas.
+- `KNOWN_SOURCES`;
+- `DAILY_INCREMENTAL_FILES`;
+- `LIVE_CSV_FILES`;
+- metadatos del contrato IDW;
+- pruebas y cualquier enumeración cerrada de fuentes.
 
----
+El nuevo identificador será:
 
-# 23. Tests que Codex debe crear
-
-## Unit tests
-
-### Météo-France parser
-
-Casos:
-
-```text
-RR normal
-RR null
-TN/TX/TM
-UN/UX/UM
-FFM
-FXI3S presente
-FXI3S ausente -> usar FXI
-dirección asociada correcta
-flags Qxxx
-```
-
-### Infoclimat chunking
-
 ```text
-1 día       -> 1 request
-7 días      -> 1 request
-8 días      -> 2 requests
-31 días     -> 5 requests
+meteofrance
 ```
 
-### Deduplicación
+No se cambiarán los identificadores existentes.
 
-Casos:
+### 2.2 Flujo que debe reutilizarse
 
 ```text
-mismo nombre pero 164 m de diferencia de altitud -> NO fusionar
-mismo punto, mismo periodo, dos proveedores       -> candidato a duplicado
-mismo punto, periodos no solapados                 -> posible continuidad/traslado, revisar
+recurso oficial Météo-France
+→ descarga acotada y verificable
+→ parser/mapeo francés
+→ filas del contrato meteorológico canónico
+→ pending batch / live CSV MeteoFrance_incremental.csv
+→ weather-history particionado
+→ catálogo de estaciones
+→ selector e IDW existentes
 ```
-
-## Integration tests
-
-Con secrets presentes:
-
-```text
-Météo-France Formiguères: recuperar al menos un día
-Météo-France: validar RR/TN/TX
-Météo-France: validar humedad si existe
-Météo-France: validar viento si existe
-
-Infoclimat Osséja: recuperar observaciones
-```
-
-Los tests con API externa deben estar marcados para no ejecutarse siempre en CI.
-
----
-
-# 24. Criterios de aceptación
-
-La implementación puede considerarse terminada cuando:
 
-- [ ] existe `MeteoFranceProvider`;
-- [ ] existe `InfoclimatProvider`;
-- [ ] los tokens se leen de secretos/configuración;
-- [ ] Formiguères descarga datos diarios correctamente;
-- [ ] Rainmapper guarda lluvia, Tmin, Tmax, Tmedia;
-- [ ] Rainmapper guarda humedad min/max/media cuando existe;
-- [ ] Rainmapper guarda viento medio, racha y dirección cuando existe;
-- [ ] los `null` permanecen como `null`;
-- [ ] se conservan flags de calidad Météo-France;
-- [ ] Infoclimat respeta ventanas máximas de 7 días;
-- [ ] Osséja funciona como estación StatIC;
-- [ ] Font-Romeu sólo se activa tras verificar licencia/API;
-- [ ] Mérens sólo se activa tras verificar licencia/API;
-- [ ] no se duplica una estación Météo-France vía Infoclimat;
-- [ ] los traslados se mantienen como series físicas diferentes;
-- [ ] el proceso es incremental e idempotente;
-- [ ] el fallo de una estación no aborta todas las demás.
+Los CSV de proveedor son la cola viva acotada; el histórico particionado es el artefacto operativo persistido. No se creará otra base histórica francesa.
 
----
+### 2.3 Selección e interpolación
 
-# 25. Fuentes principales
+Rainmapper ya:
 
-## Météo-France / data.gouv.fr
+- combina estaciones de distintas fuentes;
+- limita la selección a 15 km;
+- pondera por distancia horizontal con IDW;
+- corrige temperatura según la diferencia entre altitud de estación y microárea;
+- excluye de la corrección térmica estaciones sin altitud;
+- conserva estaciones distintas aunque tengan nombres parecidos.
 
-API climatológica:
+Por tanto, no se añadirá otra ponderación vertical genérica. La altitud ya interviene donde existe una corrección física implementada: temperatura. Para lluvia y humedad se mantendrá el contrato actual hasta disponer de evidencia para cambiarlo.
 
-https://www.data.gouv.fr/dataservices/api-donnees-climatologiques
+## 3. Fuente primaria: CSV diarios de Météo-France
 
-Datos climatológicos diarios:
+Dataset oficial:
 
 https://www.data.gouv.fr/datasets/donnees-climatologiques-de-base-quotidiennes
 
-Estaciones complementarias:
+Metadatos de estaciones:
 
-https://www.data.gouv.fr/datasets/donnees-climatologiques-de-base-quotidiennes-stations-complementaires
+https://www.data.gouv.fr/datasets/informations-sur-les-stations-metadonnees
 
-Datos horarios:
+El conjunto diario ofrece recursos comprimidos por departamento y periodos. Para D09 y D66 se utilizarán los bloques necesarios de:
 
-https://www.data.gouv.fr/datasets/donnees-climatologiques-de-base-horaires
+```text
+RR-T-Vent
+autres-parametres
+```
 
-Guía de reutilización:
+Aquí **diario** significa que cada fila representa una estación y un día; no que Météo-France publique un fichero independiente por cada jornada. Cada recurso es una serie acumulada para un departamento y un intervalo de años.
 
-https://guides.data.gouv.fr/guides/reutiliser-des-donnees/prise-en-main-des-donnees-meteorologiques
+En la consulta del 8 de septiembre de 2026, los cuatro recursos recientes eran:
 
-Ejemplo técnico API (Météo-France/CNRM):
+| Departamento | Periodo | Bloque | Actualización |
+|---|---|---|---|
+| D09 | 2025–2026 | `RR-T-Vent` | diaria |
+| D09 | 2025–2026 | `autres-parametres` | diaria |
+| D66 | 2025–2026 | `RR-T-Vent` | diaria |
+| D66 | 2025–2026 | `autres-parametres` | diaria |
 
-https://github.com/mmandem/Meteo-France_API/blob/main/extrait_obs_BDCLIM_viaAPI_Meteo-France.py
+Los periodos antiguos son también series de resolución diaria, pero sus ficheros se actualizan con menor frecuencia. Para mantener Rainmapper se vuelve a descargar el recurso reciente y se hace upsert por estación y fecha; no se interpreta el fichero completo como un único valor acumulado.
 
-Ejemplo de respuesta diaria con `UN`, `UX`, `UM`:
+La descarga debe descubrir los recursos vigentes desde los metadatos del dataset; no debe fijar en código una URL que contenga un rango anual cambiante.
 
-https://rstudio-pubs-static.s3.amazonaws.com/1318486_62868950ab914f6b9b0c0ec646e228f8.html
+### Por qué no se usa primero la API de pedidos
 
-## Infoclimat
+Los ficheros departamentales:
+
+- no requieren secreto;
+- permiten reconstrucción reproducible;
+- reducen llamadas y estados asíncronos;
+- incluyen el histórico necesario para las observaciones de la zona;
+- son pequeños cuando se limita el trabajo a D09 y D66.
+
+La API climatológica queda como alternativa futura para consultas por estación o periodos concretos, no como dependencia de la primera entrega.
+
+## 4. APIs Météo-France
+
+### 4.1 Observaciones oficiales de tiempo real, sólo si hicieran falta
+
+API oficial:
+
+https://www.data.gouv.fr/dataservices/api-donnees-dobservation
+
+Documentación:
+
+https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639294/API%2BCibl%2Be%2BDonn%2Bes%2Bd%2BObservation
+
+Esta API de Météo-France:
+
+- requiere una cuenta y suscripción gratuita;
+- conserva las últimas 24 horas;
+- ofrece observaciones horarias y, según la estación, cada seis minutos;
+- actualiza las observaciones horarias aproximadamente en la hora redonda más diez minutos;
+- es síncrona y permite consultar una estación concreta.
+
+No se solicitará ni se integrará en la fase inicial. Wunderground ya proporciona
+el dato reciente de `IFORMI6` e `IFONTR8` mediante el código y las credenciales
+existentes. Sólo si esa cobertura falla de forma relevante se obtendrá un token
+y se consultará `/liste-stations` para confirmar cuáles de las estaciones
+oficiales forman parte de la red de tiempo real. La presencia en los CSV
+climatológicos no demuestra por sí sola que una estación esté disponible en
+esta API.
+
+Si se activa en el futuro, para MapLibre se guardará un estado de corta duración
+separado del histórico climatológico:
+
+```text
+source
+station_code
+observed_at
+temperature
+humidity
+rain
+wind
+quality/provenance
+```
+
+La capa debe mostrar la hora de la observación y su antigüedad. Un dato intradía nunca se escribirá como si fuera el resumen diario completo.
+
+El predictor actual no utiliza el día en curso: su corte deseado es `issue_date - 1 day` y, si ese día aún no está completo, retrocede al último día completo disponible. Por tanto:
+
+- el dato intradía de MapLibre no cambia las variables del predictor;
+- los CSV diarios siguen siendo la fuente principal de entrenamiento y predicción;
+- Wunderground puede aportar ayer mediante su resumen diario ya existente;
+- cuando llegue el dato climatológico oficial, éste debe sustituir el agregado provisional mediante el upsert normal.
+
+Si se reconsidera esta API, antes de elegir entre siete consultas por estación o
+paquetes horarios de D09/D66 se medirán tamaño y cardinalidad reales. No se
+transportará a HA un paquete departamental completo si resulta más costoso que
+consultar únicamente las estaciones seleccionadas.
+
+### 4.2 API climatológica, si se necesitara después
+
+Servicio oficial:
+
+https://www.data.gouv.fr/dataservices/api-donnees-climatologiques
+
+Base:
+
+```text
+https://public-api.meteofrance.fr/public/DPClim/v1/
+```
+
+La API climatológica usa un pedido asíncrono:
+
+```text
+/commande-station/quotidienne
+→ identificador de pedido
+→ /commande/fichier
+```
+
+La autenticación vigente utiliza:
+
+```http
+Authorization: Bearer <token>
+```
+
+No se enviará el token como parámetro `apikey`. El token nunca se guardará en el repositorio. La fecha final de un pedido diario debe seguir el formato y la semántica inclusiva descritos por el Swagger vigente; no se asumirá que `00:00:00Z` incluye el último día completo.
+
+Guía oficial:
+
+https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/1447788546/Guide%2Bde%2Bd%2Bmarrage%2Brapide%2Bd%2Bcouvrir%2Bles%2BAPIs%2Bde%2BM%2Bt%2Bo-France
+
+Límite publicado: 50 peticiones por minuto.
+
+## 5. Mapeo al contrato Rainmapper
+
+### 5.1 Identidad y fecha
+
+| Météo-France | Rainmapper |
+|---|---|
+| `NUM_POSTE` | `station_code` |
+| `NOM_USUEL` | `station_name` |
+| `AAAAMMJJ` | `local_date` en formato `YYYYMMDD` |
+| `LAT` | `lat` |
+| `LON` | `lon` |
+| `ALTI` | `altitude` |
+
+Las coordenadas y altitud deben contrastarse con el catálogo oficial. La clave de upsert será:
+
+```text
+("meteofrance", station_code, local_date)
+```
+
+### 5.2 Variables
+
+| Météo-France | Rainmapper | Regla |
+|---|---|---|
+| `RR` | `rain_mm` | mm; conservar `null` |
+| `TN` | `min_temp_celsius` | °C |
+| `TX` | `max_temp_celsius` | °C |
+| `UN` | `min_humidity_percent` | % |
+| `UX` | `max_humidity_percent` | % |
+| `FFM` | `wind_avg_kmh` | multiplicar m/s por 3,6 |
+| `FXI3S`, si existe; si no `FXI` | `wind_gust_kmh` | multiplicar m/s por 3,6 |
+| dirección asociada a la racha elegida | `wind_gust_direction_deg` | grados |
+
+El contrato operativo actual no guarda temperatura media ni humedad media como columnas independientes. `TM` y `UM` pueden conservarse en el artefacto raw/de auditoría, pero no justifican ampliar el contrato en esta entrega.
+
+La dirección media y la dirección de racha tienen columnas canónicas, aunque no todos los consumidores las cargan actualmente. La integración debe preservarlas en el histórico sin afirmar que ya son predictores.
+
+### 5.3 Nulos y precedencias
+
+- Un campo vacío o inválido se transforma en `null`.
+- `RR = 0` es lluvia observada de cero y debe conservarse.
+- Nunca se sustituye lluvia, viento o humedad ausente por cero.
+- `FXI3S` sólo gana a `FXI` si su valor es válido; su dirección debe proceder del mismo máximo elegido.
+- No se calculará `UM` como `(UN + UX) / 2`.
+
+## 6. Calidad y procedencia
+
+Météo-France acompaña muchas variables con `Qxxx`. Según la documentación diaria:
+
+```text
+0 = valor definitivamente validado o protegido
+1 = valor validado
+2 = valor dudoso y en verificación
+9 = valor filtrado que ha superado los primeros controles
+```
+
+Documento descriptivo oficial:
+
+https://static.data.gouv.fr/resources/donnees-climatologiques-de-base-quotidiennes/20260603-085232/climatologie-donnees-quotidiennes-descriptif-20260603.pdf
+
+Decisión para Rainmapper:
+
+1. El parser validará tipos y rangos y no aceptará silenciosamente valores imposibles.
+2. No se descartarán de forma general los valores con flag `9`.
+3. El fichero descargado, sus hashes, fecha de consulta y flags permanecerán en staging o evidencia de auditoría.
+4. El Parquet operativo seguirá siendo compacto; no contendrá un JSON raw ni un diccionario de calidad por cada fila.
+5. Cualquier política de exclusión basada en `Qxxx` requerirá una auditoría específica y pruebas antes de cambiar datos de entrenamiento o predicción.
+
+Validaciones mínimas:
+
+```text
+rain_mm >= 0
+0 <= humidity <= 100
+-50 <= temperature <= 55
+wind_speed >= 0
+0 <= wind_direction <= 360
+coordenadas y altitud presentes en catálogo
+```
+
+Un valor anómalo se rechaza del contrato operativo y queda explicado en el informe de ingestión; no se convierte en cero.
+
+## 7. Estaciones verificadas
+
+La disponibilidad indicada aquí procede de los CSV oficiales diarios D09 y D66 de 2025–2026 comprobados el 8 de septiembre de 2026. Debe volver a calcularse al importar, no codificarse como una capacidad eterna.
+
+### 7.1 Targasonne `66202001`
+
+Ficha oficial:
+
+https://donneespubliques.meteofrance.fr/metadonnees_publiques/fiches/fiche_66202001.pdf
+
+```text
+altitud: 1600 m
+papel: estación oficial principal del extremo Font-Romeu
+estado inicial: enabled
+```
+
+En la comprobación realizada ofrecía serie continua de lluvia, temperatura y humedad; el viento medio estaba prácticamente completo. Debe ser la primera prueba end-to-end.
+
+### 7.2 Formiguères `66082004`
+
+Ficha oficial:
+
+https://donneespubliques.meteofrance.fr/metadonnees_publiques/fiches/fiche_66082004.pdf
+
+```text
+altitud: 1495 m
+papel: estación oficial central y referencia principal para el sector Quérigut
+estado inicial: enabled
+```
+
+En la comprobación realizada ofrecía serie continua de lluvia, temperatura, humedad y viento.
+
+### 7.3 Railleu `66157001`
+
+```text
+altitud: 1366 m
+papel: tercera estación base para lluvia y temperatura
+estado inicial: excluded_outside_operational_scope
+```
+
+En los ficheros comprobados tenía la serie de lluvia y temperatura prácticamente
+completa, pero no humedad ni viento diarios. Se excluye por decisión de ámbito:
+queda demasiado lejos del corredor operativo y no se configurará como estación
+de Rainmapper.
+
+### 7.4 Red complementaria inicial
+
+Estas cuatro estaciones se han evaluado, pero no forman parte de la primera
+entrega porque mostraban periodos o variables incompletos:
+
+```text
+09193400  Mijanes
+09023400  Ascou-Pailhères
+66004401  Les Angles
+66124402  Font-Romeu-Galinera
+```
+
+No se activarán por nombre. El importador calculará por estación y periodo:
+
+- primera y última fecha;
+- días disponibles por variable;
+- porcentaje de cobertura;
+- coordenadas y altitud;
+- flags de calidad encontrados.
+
+Sólo se importará alguna como estación complementaria si una microárea futura
+demuestra un hueco. El selector actual ya omite un valor ausente para ese día y
+variable.
+
+Otras estaciones de alta montaña o más alejadas —Formiguère `66082400`, Capcir Nordique `66098400`, Puigmal-Nivôse `66067402`, Porte-Puymorens `66147402` y Saint-Pierre-dels-Forcats `66188401`— quedan fuera de la configuración inicial. Se reconsiderarán si una microárea o variable demuestra un hueco.
+
+### 7.5 Quérigut `09239005`
+
+No apareció en los ficheros regulares ni complementarios D09 de 2025–2026 comprobados. Estado:
+
+```text
+disabled_pending_official_data
+```
+
+No se utilizará hasta que una fuente oficial vigente demuestre datos suficientes. La zona de Quérigut sí está dentro de la fase inicial, pero se reconstruirá con las estaciones cercanas que realmente tienen datos.
+
+### 7.6 Wunderground ya operativo
+
+La generación canónica local activa del 8 de septiembre de 2026 contiene:
+
+| Estación | Lugar | Altitud del catálogo HA | Histórico canónico local | Días / cobertura |
+|---|---|---:|---|---:|
+| `IFORMI6` | Formiguères | 1640 m | 2025-09-01 → 2026-09-08 | 292 / 373 (78,3 %) |
+| `IFONTR8` | Font-Romeu-Odeillo-Via | 1953 m | 2022-11-04 → 2026-09-08 | 1.286 / 1.405 (91,5 %) |
+
+`IFORMI6` tiene un backfill aproximado de un año. Su hueco más largo es de 47
+días, entre el 3 de noviembre y el 21 de diciembre de 2025. `IFONTR8` tiene casi
+cuatro años; su hueco más largo es de 61 días, entre el 31 de julio y el 1 de
+octubre de 2023. Estos huecos impiden tratarlas como fuente única del histórico,
+pero no reducen su valor como cobertura local y reciente.
+
+Las dos estaciones respondieron también en la API de Wunderground el 9 de
+septiembre de 2026. Ambas están en el catálogo canónico local y `stations.txt`
+local ya incluye sus dos URLs. El CSV auxiliar local
+`estacions_wunderground.csv` todavía sólo contiene `IFONTR8`; no debe utilizarse
+ese snapshot auxiliar para concluir que falta el backfill de `IFORMI6`, porque el
+catálogo y las particiones canónicas sí lo contienen.
+
+## 8. Infoclimat/StatIC: evaluado y descartado para este corredor
 
 OpenData:
 
 https://www.infoclimat.fr/opendata/
 
-Font-Romeu metadata:
+Infoclimat exige clave, limita normalmente las peticiones a intervalos máximos
+de siete días y aplica licencia por estación. Las pruebas se conservan como
+evidencia de la evaluación, pero **no se implementará esta fuente** en el alcance
+actual. No se hará scraping de HTML.
 
-https://www.infoclimat.fr/stations/metadonnees.php?id=STATIC0478
+### Candidatas
 
-Font-Romeu observations:
+| Estación | ID probado | Resultado API 2026-09-08 | Decisión |
+|---|---|---|---|
+| Osséja | `000EN` | `OK`; datos actuales; CC BY-NC | No integrar: ganancia insuficiente |
+| Font-Romeu nueva | `STATIC0478` | `warning`; estación no autorizada | Desactivada |
+| Mérens-les-Vals | `000BR` | `OK`; datos actuales; CC BY-NC | No integrar: fuera del corredor piloto |
+| Font-Romeu anterior | `000RX` | `OK`; archivo accesible desde 2020-06-17 hasta 2026-05-26; CC BY | Sólo histórico; no fusionar con `STATIC0478` |
+| Formiguères | `07737` y `MF66082004` | ambos `warning`; estación no autorizada | Usar Météo-France directa |
+| Les Angles | `MF66004401` | `warning`; estación no autorizada | Usar Météo-France directa |
+| Quérigut | `MF09239005` | `warning`; estación no autorizada | Sin fuente Infoclimat confirmada |
 
-https://www.infoclimat.fr/observations-meteo/temps-reel/font-romeu-odeillo-via/STATIC0478.html
+Fichas:
 
-Osséja metadata:
+- https://www.infoclimat.fr/stations/metadonnees.php?id=000EN
+- https://www.infoclimat.fr/stations/metadonnees.php?id=STATIC0478
+- https://www.infoclimat.fr/stations/metadonnees.php?id=000BR
+- https://www.infoclimat.fr/stations/metadonnees.php?id=000RX
 
-https://www.infoclimat.fr/stations/metadonnees.php?id=000EN
+Aunque `STATIC0478` aparece con actividad reciente y licencia Etalab en el
+catálogo ampliado, la petición autenticada la rechazó. La presencia en catálogo
+no demuestra disponibilidad para una clave concreta. Las pruebas completas,
+incluida la diferencia entre sumar `pluie_1h` y usar el cierre `pluie_24h`, se
+conservan en `rainmapper_infoclimat_static_handoff.md` como informe de una opción
+descartada.
 
-Osséja observations:
+## 9. Duplicados y traslados
 
-https://www.infoclimat.fr/observations-meteo/temps-reel/osseja/000EN.html
+Rainmapper no deduplica por nombre y no debe empezar a hacerlo.
 
-Mérens-les-Vals metadata:
+La clave `(source, station_code)` permite conservar por separado:
 
-https://www.infoclimat.fr/stations/metadonnees.php?id=000BR
+- estaciones de nombres iguales;
+- traslados con códigos diferentes;
+- redes distintas.
 
-Mérens observations:
+Para la fase 1 se mantendrá una lista explícita de exclusiones o réplicas conocidas. Distancia, diferencia de altitud y solapamiento temporal pueden generar un informe de posibles duplicados, pero nunca una fusión automática.
 
-https://www.infoclimat.fr/observations-meteo/temps-reel/merens-les-vals/000BR.html
+No hace falta crear todavía tablas `weather_station` y `weather_station_source`. Esa abstracción sólo se reconsiderará si aparecen múltiples réplicas reales que no puedan gestionarse con la identidad actual.
 
-Formiguères:
+## 10. Descarga, actualización e idempotencia
 
-https://www.infoclimat.fr/observations-meteo/temps-reel/formigueres/07737.html
+### Météo-France
 
-Les Angles:
+1. Descubrir los recursos D09 y D66 vigentes del dataset oficial.
+2. Descargar únicamente los periodos necesarios para el histórico y la cola viva.
+3. Verificar que la respuesta es un CSV comprimido válido y registrar hash/tamaño.
+4. Unir `RR-T-Vent` y `autres-parametres` por `NUM_POSTE + AAAAMMJJ`.
+5. Filtrar las estaciones configuradas.
+6. Normalizar a filas Rainmapper.
+7. Colapsar por `(source, station_code, local_date)` haciendo que el valor nuevo no nulo gane.
+8. Capturar el pending batch antes de actualizar la cola viva, como exige el flujo particionado.
+9. Aplicar el lote de forma atómica y promocionar una generación coherente.
 
-https://www.infoclimat.fr/climatologie/annee/2026/test-mf-csv-les-angles/valeurs/MF66004401.html
+Las descargas recientes pueden solaparse con datos ya existentes: el upsert debe ser idempotente y permitir correcciones oficiales.
 
-Quérigut:
+### Wunderground existente
 
-https://www.infoclimat.fr/observations-meteo/temps-reel/test-mf-csv-querigut/MF09239005.html
+`IFORMI6` e `IFONTR8` seguirán el ciclo normal de actualización de
+Wunderground. No se creará una descarga francesa separada. Los huecos históricos
+se auditarán por estación y fecha; no se rellenarán inventando ceros ni copiando
+automáticamente otra estación.
 
----
+## 11. Cambios de código previstos
 
-# 26. Instrucción final para Codex
-
-Implementar la integración siguiendo este documento, pero **antes de activar una estación como producción**, consultar los metadatos reales obtenidos mediante la API correspondiente.
-
-No inferir disponibilidad de parámetros a partir del nombre de la estación.
-
-La disponibilidad debe ser dinámica:
-
-```python
-station.capabilities = {
-    "rain": bool,
-    "temperature": bool,
-    "humidity": bool,
-    "wind": bool,
-}
-```
-
-y derivarse de los parámetros realmente ofrecidos por la fuente.
-
-Especialmente:
+La implementación mínima debería concentrarse en:
 
 ```text
-Quérigut       -> verificar actividad actual en Météo-France
-Font-Romeu     -> verificar licencia/inclusión API Infoclimat
-Mérens-les-Vals-> verificar licencia/inclusión API Infoclimat
+rainmapper_core/sources/meteofrance/       parser y descarga oficial
+rainmapper_core/weather_history_contract.py
+rainmapper_core/mushroom_observation_context.py
+rainmapper_core/weather_live_csv.py
+rainmapper_core/mushroom_weather_idw.py
+tests dirigidos de parser, contrato, histórico e IDW
 ```
 
-La primera estación de referencia para validar end-to-end Météo-France debe ser:
+Antes de editar se debe buscar cualquier otra enumeración cerrada de fuentes. `weather_official_maintenance.py`, `weather_official_repair_state.py` y los scripts de reparación actuales sólo contemplan AEMET/Meteocat; no se ampliarán mecánicamente sin decidir si la nueva fuente participa realmente en ese flujo de reparación.
+
+No se crearán en la fase 1:
 
 ```text
-Formiguères / MF66082004 / 1495 m
+WeatherProvider ABC
+AemetProvider / MeteocatProvider reescritos
+base de estaciones físicas
+nuevo formato de almacenamiento
+conversión global de km/h a m/s
+raw_payload por fila operativa
 ```
 
-y para Infoclimat:
+## 12. Pruebas
 
-```text
-Osséja / 000EN / 1350 m
-```
+### Unitarias
+
+- parser de ambos bloques oficiales;
+- números con coma decimal, vacíos y valores anómalos;
+- join por estación/fecha sin multiplicar filas;
+- mapping de lluvia, temperatura, humedad, viento y racha;
+- conversión exacta m/s → km/h;
+- precedencia coherente de racha y dirección;
+- conservación de `RR = 0` y de `null`;
+- normalización a fuente `meteofrance`;
+- upsert idempotente y corrección de días ya existentes;
+- catálogo con coordenadas y altitud;
+- lectura filtrada por `(source, station_code)`;
+- IDW con estaciones españolas y francesas simultáneamente;
+- temperatura corregida por altitud;
+- rechazo de estaciones a más de 15 km.
+
+### Integración local
+
+- importar muestras fijas D09 y D66 sin red;
+- materializar un pending batch;
+- aplicarlo a una copia temporal de la cola viva y del histórico;
+- validar manifiestos, hashes, particiones y catálogo;
+- ejecutar reconstrucción meteorológica sobre las microáreas piloto;
+- repetir la importación y demostrar que no aparecen duplicados.
+
+Las pruebas de red serán opcionales y no formarán parte de la suite ordinaria.
+
+## 13. Fases
+
+### Fase 1 — Météo-France D66 y Wunderground existente
+
+1. Mantener `IFORMI6` e `IFONTR8` en la lista Wunderground y auditar su
+   actualización diaria.
+2. Crear microáreas piloto y calcular qué estaciones caen dentro de 15 km.
+3. Implementar el parser del recurso diario D66 de Météo-France.
+4. Añadir `meteofrance` al contrato histórico existente.
+5. Activar Targasonne y Formiguères como red oficial inicial.
+6. Importar el histórico necesario y generar catálogo.
+7. Reutilizar para MapLibre el dato reciente de Wunderground, mostrando fecha,
+   antigüedad y si el día está incompleto.
+8. Validar el circuito local meteorológico y la selección multifuente.
+
+### Fase 2 — completar cobertura
+
+1. Auditar huecos por microárea y variable.
+2. Probar estaciones oficiales parciales sólo si cubren un hueco.
+3. Si Wunderground no basta para la presentación reciente, evaluar entonces la
+   API oficial de observaciones de Météo-France.
+4. Extenderse hacia Haute-Ariège o Mérens únicamente cuando exista una microárea de ese ámbito.
+
+### Fase 3 — mejoras justificadas
+
+- evaluar flags `Qxxx` con datos reales;
+- automatizar descubrimiento/correcciones si el flujo manual inicial lo necesita;
+- reconsiderar una entidad física de estación sólo si los duplicados reales lo exigen.
+
+## 14. Criterios de aceptación
+
+- [ ] `meteofrance` está reconocido por todos los contratos necesarios y por sus pruebas.
+- [ ] El recurso D66 se descubre sin fijar nombres anuales cambiantes.
+- [ ] Targasonne y Formiguères se importan con fuente, código, coordenadas y altitud correctos.
+- [ ] Railleu y las candidatas D09 quedan fuera de la configuración inicial.
+- [ ] Los valores se normalizan al contrato actual; viento y racha quedan en km/h.
+- [ ] Los nulos siguen siendo nulos y `RR = 0` sigue siendo cero observado.
+- [ ] El histórico queda particionado y validado con clave `(source, station_code, local_date)`.
+- [ ] La actualización repetida es idempotente y acepta correcciones oficiales.
+- [ ] El catálogo permite seleccionar estaciones francesas con el filtro actual.
+- [ ] La reconstrucción respeta el radio de 15 km y la corrección térmica por altitud.
+- [ ] Una prueba combina aportaciones francesas y españolas sin colisiones.
+- [ ] Los flags y la procedencia quedan auditables sin inflar el payload operativo.
+- [ ] Wunderground aporta datos recientes de `IFORMI6` e `IFONTR8` mediante el flujo existente.
+- [ ] MapLibre distingue claramente observación intradía, acumulado parcial y día completo.
+- [ ] Ninguna observación intradía entra en el predictor como si fuera un día cerrado.
+- [ ] Infoclimat no se integra en el alcance actual.
+- [ ] Ningún secreto se guarda en el repositorio.
+
+La primera entrega termina cuando Rainmapper puede reconstruir el histórico de
+las microáreas del corredor **Quérigut–Font-Romeu con Targasonne y Formiguères**
+y, por el canal Wunderground existente, presentar en MapLibre las estaciones del
+corredor que estén disponibles en tiempo real.

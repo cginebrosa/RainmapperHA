@@ -7,9 +7,10 @@ antes de asumir que este estado sigue vigente.
 ## Estado comprobado del repositorio
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
-- La release HA `0.2.298` está publicada en GHCR; revalidar el commit de
-  `inicial`, HEAD y `origin/inicial` al comenzar la próxima sesión.
-- La fuente declara HA `0.2.298` y worker `1.1.1`; sus secuencias de versión son
+- La release HA `0.2.300` está publicada en GHCR. La compilación `0.2.299`
+  quedó superada por la corrección posterior de caché Wunderground y no debe
+  instalarse.
+- La fuente declara HA `0.2.300` y worker `1.1.1`; sus secuencias de versión son
   independientes.
 - `origin/inicial` se revalidó en
   `b9f36e7bf7e2f0c7e4da7ab9f8ccc3c30f91847a`; la rama local queda un commit por
@@ -19,27 +20,29 @@ antes de asumir que este estado sigue vigente.
   es dato del usuario y no debe editarse, restaurarse, borrarse ni incluirse en
   el commit. Los datos vivos del laboratorio están en `docker-data/`.
 
-## HA 0.2.298
+## HA 0.2.300 publicada
 
-- GHCR `0.2.298` y `latest` se revalidaron al cierre y comparten el índice
-  `sha256:0c0bb47d532146c9cfed16f02de277c27c917207a5765c032c44b9933e0f2785`.
+- GHCR `0.2.300` y `latest` se revalidaron al cierre y comparten el índice
+  `sha256:3f14ad18a5f74788b58e066970d4007ff8d753fdc79e4df1322d8527427feb62`.
   Contienen manifests `linux/amd64`
-  `sha256:18aaba6e48bfdaeb4d1ba7e482fd6acf8b9e4e4235fcb4d68b10df4b33ed133f`
+  `sha256:7ca9e30dc7462af83cc7b87aab26db9a409c4bba926ff752b26e5e835d59d391`
   y `linux/arm64`
-  `sha256:04a9bdee109704b57ce6e18c257775db6791ba8115533f409d12b2279526908f`.
-- HA local se ha reconstruido desde el worktree actual con la etiqueta de
+  `sha256:404db2c221e47a60f7985c083ff6c2c7d4b45815066dc06d674ed1617d95a5ba`.
+- HA local se reconstruyó desde el worktree actual con la etiqueta de
   desarrollo `rainmapperha:local-ha-ui`; su imagen efectiva es
-  `sha256:4464ab6d2b313d41ca62df32c81fd4bac5a453b527d6788aaa2e9f6a50673b87`.
-  Las huellas ejecutables relevantes coinciden con el workspace y la UI
-  responde 200.
-- HA real no se ha actualizado todavía a `0.2.298`.
+  `sha256:6bf473d9fa718e63a1113b9a47de4f14298978fb36d2e932532a1083850ef39d`.
+  Las huellas SHA-256 de `daily_api.py`, `rainmapper.py`, `web_server.py` y
+  `run.sh` coinciden exactamente entre workspace y contenedor; la UI responde
+  HTTP 200. El proceso efectivo declara modo mensual Wunderground `true` y
+  semanal `false`.
+- HA real no se ha actualizado todavía a `0.2.300`.
 
 ## Worker operativo
 
 - `rainmapper-worker` está activo y healthy con la imagen local privada
   `rainmapper-worker:1.1.1`; el worker no se publica en GHCR.
 - Imagen efectiva:
-  `sha256:dd4d13731754a2f662ce05fe176116f5c54d62090d607ac6a932d3b476abe435`.
+  `sha256:be86eda657b16b8b1d7bf63502e4a714961640012297c64c97265249952044e8`.
   Etiqueta, entorno y `/health` declaran `1.1.1`.
 - Identidad: `worker_1a9a232c20fe2ee2`, nombre `M1 Personal`. Ambos carriles
   están idle; caché GIS/dataset y caché Predictor figuran válidas.
@@ -53,19 +56,41 @@ antes de asumir que este estado sigue vigente.
   modificar asociaciones.
 - El runtime lógico está aislado por coordinador y reutiliza objetos físicos
   comunes por SHA-256. El CLI por `coordinator_id` continúa incompleto.
-- La caché GIS activa todavía es la versión anterior de 12 ficheros y
-  6.341.520.039 bytes. El nuevo inventario local contiene 13 ficheros y
-  6.424.592.573 bytes. La sincronización incremental compara los manifiestos,
-  reutiliza mediante enlaces los 12 ficheros iguales y transfiere únicamente
-  el DEM francés de 83.072.534 bytes; todavía no se ha activado ese nuevo
-  dataset en el worker.
-- El volumen persistente del worker ocupa 18.084.029.423 bytes. Una auditoría
-  por SHA-256 e inodo encontró 9.413.367.857 bytes de copias físicas repetidas:
+- La caché GIS activa ya contiene 13 ficheros y 6.424.592.573 bytes, incluido
+  el DEM francés. Su fingerprint vigente es
+  `sha256:7410f2e2482b77688027440fa047344bba65285fa2f9e812c07c65f769981574`.
+- Antes de la limpieza, el volumen persistente del worker ocupaba 18.084.029
+  KiB según `du`. Una auditoría por SHA-256 e inodo encontró 9.413.367.857
+  bytes de copias físicas repetidas:
   6.306.367.027 en una versión GIS inactiva y 3.107.000.830 en snapshots y
-  directorios de trabajos históricos. No se eliminó nada; hay que reconciliar
-  los trabajos con ambos coordinadores antes de una limpieza.
+  directorios de trabajos históricos. Tras confirmar el 2026-09-09 que las
+  colas de ambos coordinadores no tenían trabajos activos, se eliminaron 19
+  espacios de trabajo antiguos bajo `jobs/`, 58 espacios de trabajo legacy y
+  la versión GIS inactiva
+  `sha256:4aa3777e0f1c4d05c7788e464d87f4bcb952eaa40160701e49fda336445475f9`.
+  El volumen pasó de 18.084.029 KiB a 7.144.228 KiB: 10,43 GiB liberados.
+  Se conservó y validó en profundidad la versión GIS activa
+  `sha256:5b537ffebbb9c17ce380ee21257204465eb1e310a159a05a224d74b65c7fe729`,
+  además de los runtimes, precálculos y cachés operativas vigentes.
 
 ## Trabajo funcional cerrado
+
+### Caché Wunderground
+
+- Weather.com se comprobó sirviendo variantes divergentes según
+  `Accept-Encoding`: la variante `gzip` conservaba IOLVAN3 a las 01:44 con
+  0 mm, mientras `identity` y `deflate` devolvían lecturas de las 21:54/22:09
+  con 63,5 mm. `Vary: Accept-Encoding` confirmó que es caché del CDN, no una
+  caché local de Rainmapper.
+- Para intervalos que incluyen hoy, el cliente pide primero `identity`. Si el
+  último `epoch`/`obsTimeUtc` supera cuatro horas de antigüedad prueba también
+  `gzip` y `deflate`, conserva exclusivamente la respuesta con timestamp más
+  reciente y registra reintentos, recuperaciones o persistencia de datos
+  antiguos. En históricos no añade peticiones.
+- El modo mensual permanece predeterminado y el semanal queda disponible como
+  alternativa mutuamente excluyente. Un runner local dirigido a IOLVAN3 acabó
+  1/1, sin fallback ni errores, y persistió 63,5 mm para 2026-09-09 tanto en
+  `Wunderground_incremental.csv` como en `weather_daily.parquet`.
 
 ### GIS francés Font-Romeu–Quérigut
 
@@ -139,7 +164,7 @@ antes de asumir que este estado sigue vigente.
 - SQLite: 31.604.736 bytes y SHA-256
   `90a0cb8b8f01e01d797c32aeede4f6003411dd12e739d0130b201b8b7acda7bd`.
   Cubre del 8 al 14 de septiembre, 78 áreas, nueve especies y cinco versiones.
-- El smoke de release pasó 1.335 pruebas en `56,576 s`, además de sintaxis,
+- El smoke de release de la candidata 0.2.300 pasó 1.348 pruebas en `57,360 s`, además de sintaxis,
   fixtures y comprobaciones de histórico. Después solo cambiaron metadatos de
   versión, cache-busters, changelog y documentación.
 
@@ -147,18 +172,14 @@ antes de asumir que este estado sigue vigente.
 
 1. Revisar y aplicar desde la interfaz el GIS/DEM de las tres microáreas
    francesas. No sobrescribir silenciosamente el contexto persistido.
-2. Antes de publicar estos cambios, asignar las versiones HA y worker que
-   correspondan y completar la validación proporcional exigida por el flujo de
-   release. No lanzar entrenamiento ni precálculo solo para probar la copia del
-   DEM.
-3. Auditar de forma multiespecie las abstenciones por aplicabilidad. Separar
+2. Auditar de forma multiespecie las abstenciones por aplicabilidad. Separar
    tolerancia absoluta, desviación normalizada, tipo de variable y dirección de
    extrapolación. Caso inicial: Rovelló / Els Ports / 2026-09-07.
-4. Diseñar cómo mostrar una probabilidad calculada pero vetada como dato
+3. Diseñar cómo mostrar una probabilidad calculada pero vetada como dato
    diagnóstico, sin color de recomendación, ranking ni mensaje favorable.
-5. Medir en la Raspberry Pi 4 la publicación HA--worker por fases antes de
+4. Medir en la Raspberry Pi 4 la publicación HA--worker por fases antes de
    implementar streaming incremental o cambiar la política de `fsync`.
-6. Completar administración CLI por `coordinator_id` sin alterar otros
+5. Completar administración CLI por `coordinator_id` sin alterar otros
    coordinadores.
 
 ## Riesgos y dudas activas
