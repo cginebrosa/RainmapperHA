@@ -1,6 +1,6 @@
 # Active Context
 
-Ventana operativa de RainmapperHA al 9 de septiembre de 2026. No es
+Ventana operativa de RainmapperHA al 10 de septiembre de 2026. No es
 un histórico. Revalidar siempre repositorio, contenedores, datos y servicios
 antes de asumir que este estado sigue vigente.
 
@@ -12,11 +12,9 @@ antes de asumir que este estado sigue vigente.
   instalarse.
 - La fuente declara HA `0.2.300` y worker `1.1.1`; sus secuencias de versión son
   independientes.
-- `origin/inicial` se revalidó en
-  `b9f36e7bf7e2f0c7e4da7ab9f8ccc3c30f91847a`; la rama local queda un commit por
-  delante con la candidata GIS francesa y la reutilización incremental del
-  dataset por el worker. El worktree conserva documentos meteorológicos en
-  curso. También permanece modificado `mushroom-data/mushroom_observations.json`:
+- `HEAD` y `origin/inicial` se revalidaron en
+  `94710bf24d55f56e42c3cbd30bf1b5e9c3248579`. Solo permanece modificado
+  `mushroom-data/mushroom_observations.json`:
   es dato del usuario y no debe editarse, restaurarse, borrarse ni incluirse en
   el commit. Los datos vivos del laboratorio están en `docker-data/`.
 
@@ -35,7 +33,10 @@ antes de asumir que este estado sigue vigente.
   `run.sh` coinciden exactamente entre workspace y contenedor; la UI responde
   HTTP 200. El proceso efectivo declara modo mensual Wunderground `true` y
   semanal `false`.
-- HA real no se ha actualizado todavía a `0.2.300`.
+- El usuario confirmó la instalación de `0.2.300` en HA real. El primer runner
+  posterior completó la descarga Wunderground con la nueva instrumentación de
+  caché activa: 101 estaciones, dos respuestas antiguas tras probar
+  `identity`, `gzip` y `deflate`, y cinco fallbacks HTTP 204 al scraper.
 
 ## Worker operativo
 
@@ -151,19 +152,34 @@ antes de asumir que este estado sigue vigente.
   explican como tales.
 - Sigue siendo una aplicación aislable y no existe todavía enlace desde HA.
 
-### Entrenamiento y precálculo validados
+### Entrenamiento y precálculo validados en HA local
 
-- Entrenamiento base: `worker_job_9kf7flIQdeWwcfo2`, nueve especies.
-- Multiversión: `worker_job_YJB38dkADdODwIJF`, batch
-  `operational_20260908T141228Z`, 714/714 artefactos promovidos y cero fallos.
-- Precálculo: `worker_job_DlnlE-bWTd_F`, revisión deseada 44, 462 miembros.
-- Artefacto de precálculo:
-  `sha256:89b55ee5edabd9558e29e87f353f2bc64f364c021d7d1a2f5531ff7293d789a2`;
-  runtime fingerprint:
-  `sha256:79c6d9be5ceb81f503a932d96d7386a2051f709d909913ee592add4eb2357eb2`.
-- SQLite: 31.604.736 bytes y SHA-256
-  `90a0cb8b8f01e01d797c32aeede4f6003411dd12e739d0130b201b8b7acda7bd`.
-  Cubre del 8 al 14 de septiembre, 78 áreas, nueve especies y cinco versiones.
+- Reconstrucción: `worker_job_RobUm1YQrDSrbSow`, resultado verificado como
+  distinto. Entrenamiento base: `worker_job_Sh0LrML9gLOVTctP`, nueve especies,
+  resultado verificado. Multiversión: `worker_job_HQ8eMiiJ0qe0PE66`, batch
+  `operational_20260909T211842Z`, resultado verificado y promovido.
+- El primer precálculo iniciado después del entrenamiento,
+  `worker_job_oac7R5t9YSn9`, fue cancelado correctamente al quedar superado. Su
+  reemplazo `worker_job_w1SZanQRBW0H` terminó, se publicó y se activó: 551,698 s
+  de cálculo y 631,132 s totales en el worker.
+- Los runners programados posteriores solicitaron nuevos precálculos al
+  publicar su runtime y avanzaron la cobertura. El log del worker registra
+  ejecuciones iniciadas aproximadamente a las 00:17, 01:51, 05:07 y 08:07
+  CEST. La tabla de trabajos de HA local muestra solo el último precálculo
+  terminado porque, tras activar su reemplazo, el coordinador elimina del
+  historial los precálculos terminales ya superados.
+- El artefacto activo comprobado tras
+  `worker_job_fJQB65AUngtj` es
+  `sha256:c0b06a02d43948eb3810bfd08708dce2e1bc77f7cf9cebd911b7f9ad47b72ded`,
+  con runtime fingerprint
+  `sha256:2c73d71fd8d9c485a6f05c0e160e11ec13c79b40875c3bedffbbdfb6dee065d3`.
+  Su publicación está completa y cubre del 10 al 16 de septiembre: nueve
+  especies, cinco versiones, 79 parejas especie--área, 469 miembros y 158
+  grupos ejecutados. Tiene 553 predicciones base y ocupa 31.211.520 bytes.
+- El aumento de 157 a 158 grupos refleja una nueva pareja especie--área:
+  `boletus_edulis` pasó de 15 a 16 áreas. `cantharellus_cibarius_sl` mantiene
+  seis áreas; su alta previa explicaba el salto de 143 a 157 mediante ocho
+  grupos generales y seis grupos de área.
 - El smoke de release de la candidata 0.2.300 pasó 1.348 pruebas en `57,360 s`, además de sintaxis,
   fixtures y comprobaciones de histórico. Después solo cambiaron metadatos de
   versión, cache-busters, changelog y documentación.

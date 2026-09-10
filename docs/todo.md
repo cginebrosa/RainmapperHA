@@ -1,6 +1,6 @@
 # TODO
 
-Prioridades vivas al cierre del 8 de septiembre de 2026. El estado operativo y
+Prioridades vivas al cierre del 10 de septiembre de 2026. El estado operativo y
 la evidencia exacta están en `docs/active-context.md`; las decisiones duraderas,
 en `docs/decisions.md`.
 
@@ -57,6 +57,11 @@ en `docs/decisions.md`.
   conservar exactamente los dos destinos actuales.
 - [ ] Completar el CLI por `coordinator_id`: listar, seleccionar, cambiar URL,
   reemparejar, limpiar credenciales y olvidar un coordinador sin tocar los demás.
+- [ ] Hacer que `Trabajos recientes` conserve y muestre los precálculos
+  automáticos conforme a la política de retención ya establecida. La activación
+  de un reemplazo no debe borrar de la lista todos los precálculos terminales
+  anteriores y dejar visible únicamente el último; mantener acotados por
+  separado el historial ligero y los artefactos pesados.
 
 ## P1 — Predictor y ciencia aplazada
 
