@@ -2264,6 +2264,10 @@ class AuthDeviceLimitTests(unittest.TestCase):
             ) as record,
             mock.patch.object(
                 self.web_server.mushroom_worker_jobs,
+                "prune_superseded_terminal_jobs",
+            ) as prune_history,
+            mock.patch.object(
+                self.web_server.mushroom_worker_jobs,
                 "update_progress",
             ) as update_progress,
             mock.patch.object(
@@ -2300,6 +2304,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             "Verifying and activating SQLite in HA",
             update_progress.call_args.kwargs["phase"],
         )
+        prune_history.assert_not_called()
 
     def test_precompute_without_compatible_default_worker_persists_desire(self) -> None:
         identity = self.web_server.mushroom_predictor_precompute.ArtifactIdentity.create(

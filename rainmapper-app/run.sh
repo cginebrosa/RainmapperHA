@@ -159,6 +159,7 @@ MAX_THREADS_VALUE="$(option max_threads 3)"
 MAX_ATTEMPTS_VALUE="$(option max_attempts 3)"
 WUNDERGROUND_MONTHLY_API_VALUE="$(option wunderground_monthly_api true)"
 WUNDERGROUND_WEEKLY_API_VALUE="$(option wunderground_weekly_api false)"
+WUNDERGROUND_ENCODING_ORDER_VALUE="$(option wunderground_encoding_order gzip,identity,deflate)"
 WUNDERGROUND_FULL_LOG_VALUE="$(option wunderground_full_log false)"
 METEOCLIMATIC_PATTERN_VALUE="$(option meteoclimatic_pattern ESCAT)"
 LAST_RAINS_HISTORY_VALUE="$(option last_rains_history 30)"
@@ -224,6 +225,13 @@ if [ "$WUNDERGROUND_MONTHLY_API_VALUE" = "true" ] && [ "$WUNDERGROUND_WEEKLY_API
   echo "Invalid Wunderground configuration: wunderground_monthly_api and wunderground_weekly_api cannot both be enabled." >&2
   exit 2
 fi
+case "$WUNDERGROUND_ENCODING_ORDER_VALUE" in
+  gzip,identity,deflate|gzip,deflate,identity|identity,gzip,deflate|identity,deflate,gzip|deflate,gzip,identity|deflate,identity,gzip) ;;
+  *)
+    echo "Invalid Wunderground configuration: wunderground_encoding_order must contain identity, gzip and deflate exactly once." >&2
+    exit 2
+    ;;
+esac
 if [ "$WUNDERGROUND_WEEKLY_API_VALUE" = "true" ]; then
   WUNDERGROUND_API_MODE_VALUE="weekly (latest 7 calendar days)"
 elif [ "$WUNDERGROUND_MONTHLY_API_VALUE" = "true" ]; then
@@ -234,6 +242,7 @@ fi
 
 export RAINMAPPER_WUNDERGROUND_MONTHLY_API="$WUNDERGROUND_MONTHLY_API_VALUE"
 export RAINMAPPER_WUNDERGROUND_WEEKLY_API="$WUNDERGROUND_WEEKLY_API_VALUE"
+export RAINMAPPER_WUNDERGROUND_ENCODING_ORDER="$WUNDERGROUND_ENCODING_ORDER_VALUE"
 export RAINMAPPER_WUNDERGROUND_FULL_LOG="$WUNDERGROUND_FULL_LOG_VALUE"
 export RAINMAPPER_METEOCLIMATIC_PATTERN="$METEOCLIMATIC_PATTERN_VALUE"
 export RAINMAPPER_LAST_RAINS_HISTORY="$LAST_RAINS_HISTORY_VALUE"

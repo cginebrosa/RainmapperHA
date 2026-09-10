@@ -7,35 +7,35 @@ antes de asumir que este estado sigue vigente.
 ## Estado comprobado del repositorio
 
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
-- La release HA `0.2.300` está publicada en GHCR. La compilación `0.2.299`
-  quedó superada por la corrección posterior de caché Wunderground y no debe
-  instalarse.
-- La fuente declara HA `0.2.300` y worker `1.1.1`; sus secuencias de versión son
+- La release HA `0.2.301` está publicada en GHCR. Sustituye a `0.2.300` y añade
+  configuración del orden de variantes de caché Wunderground y retención del
+  historial ligero de precálculos automáticos.
+- La fuente declara HA `0.2.301` y worker `1.1.1`; sus secuencias de versión son
   independientes.
-- `HEAD` y `origin/inicial` se revalidaron en
-  `94710bf24d55f56e42c3cbd30bf1b5e9c3248579`. Solo permanece modificado
+- La base previa a esta release se revalidó en
+  `3b9155e6014973763a04daf00ae16803fd227998`. Tras el commit de release debe
+  revalidarse el HEAD publicado; debe permanecer fuera del commit
   `mushroom-data/mushroom_observations.json`:
   es dato del usuario y no debe editarse, restaurarse, borrarse ni incluirse en
   el commit. Los datos vivos del laboratorio están en `docker-data/`.
 
-## HA 0.2.300 publicada
+## HA 0.2.301 publicada
 
-- GHCR `0.2.300` y `latest` se revalidaron al cierre y comparten el índice
-  `sha256:3f14ad18a5f74788b58e066970d4007ff8d753fdc79e4df1322d8527427feb62`.
+- GHCR `0.2.301` y `latest` se revalidaron al cierre y comparten el índice
+  `sha256:bd89eb8635827e1f0403505bc06a6d9ce02e5797348e7ab44a9b88e73badc8ba`.
   Contienen manifests `linux/amd64`
-  `sha256:7ca9e30dc7462af83cc7b87aab26db9a409c4bba926ff752b26e5e835d59d391`
+  `sha256:3e7593f7c2ef89533d32f1c8875c94708a6761c50a2b8d2844c74858fcc3d80c`
   y `linux/arm64`
-  `sha256:404db2c221e47a60f7985c083ff6c2c7d4b45815066dc06d674ed1617d95a5ba`.
+  `sha256:927fdf03033a597df995f1f3d6628ad80021c596ec852764b7c01599994b5048`.
 - HA local se reconstruyó desde el worktree actual con la etiqueta de
   desarrollo `rainmapperha:local-ha-ui`; su imagen efectiva es
-  `sha256:6bf473d9fa718e63a1113b9a47de4f14298978fb36d2e932532a1083850ef39d`.
+  `sha256:aeffc10beb32bb11f8260b5cec18ff568e4f833abf2fcd068ade69cfbb9d5f50`.
   Las huellas SHA-256 de `daily_api.py`, `rainmapper.py`, `web_server.py` y
   `run.sh` coinciden exactamente entre workspace y contenedor; la UI responde
-  HTTP 200. El proceso efectivo declara modo mensual Wunderground `true` y
-  semanal `false`.
-- El usuario confirmó la instalación de `0.2.300` en HA real. El primer runner
-  posterior completó la descarga Wunderground con la nueva instrumentación de
-  caché activa: 101 estaciones, dos respuestas antiguas tras probar
+  HTTP 200.
+- El usuario confirmó anteriormente la instalación de `0.2.300` en HA real. El
+  primer runner posterior completó la descarga Wunderground con la nueva
+  instrumentación de caché activa: 101 estaciones, dos respuestas antiguas tras probar
   `identity`, `gzip` y `deflate`, y cinco fallbacks HTTP 204 al scraper.
 
 ## Worker operativo
@@ -43,7 +43,7 @@ antes de asumir que este estado sigue vigente.
 - `rainmapper-worker` está activo y healthy con la imagen local privada
   `rainmapper-worker:1.1.1`; el worker no se publica en GHCR.
 - Imagen efectiva:
-  `sha256:be86eda657b16b8b1d7bf63502e4a714961640012297c64c97265249952044e8`.
+  `sha256:3a2631dd3b9138f4821ef3901e0d11f057778b9e539350054d1923db17ccdb70`.
   Etiqueta, entorno y `/health` declaran `1.1.1`.
 - Identidad: `worker_1a9a232c20fe2ee2`, nombre `M1 Personal`. Ambos carriles
   están idle; caché GIS/dataset y caché Predictor figuran válidas.
@@ -83,13 +83,17 @@ antes de asumir que este estado sigue vigente.
   0 mm, mientras `identity` y `deflate` devolvían lecturas de las 21:54/22:09
   con 63,5 mm. `Vary: Accept-Encoding` confirmó que es caché del CDN, no una
   caché local de Rainmapper.
-- Para intervalos que incluyen hoy, el cliente pide primero `identity`. Si el
-  último `epoch`/`obsTimeUtc` supera cuatro horas de antigüedad prueba también
-  `gzip` y `deflate`, conserva exclusivamente la respuesta con timestamp más
-  reciente y registra reintentos, recuperaciones o persistencia de datos
-  antiguos. En históricos no añade peticiones.
+- Para intervalos que incluyen hoy, el cliente usa por defecto el orden
+  `gzip,identity,deflate`, configurable desde HA mediante una lista cerrada de
+  las seis permutaciones válidas. Si el último `epoch`/`obsTimeUtc` supera cuatro
+  horas de antigüedad prueba también las restantes variantes, conserva
+  exclusivamente la respuesta con timestamp más reciente y registra reintentos,
+  recuperaciones o persistencia de datos antiguos. En históricos no añade
+  peticiones.
 - El modo mensual permanece predeterminado y el semanal queda disponible como
-  alternativa mutuamente excluyente. Un runner local dirigido a IOLVAN3 acabó
+  alternativa mutuamente excluyente. HA valida al guardar el orden de encodings;
+  el arranque vuelve a validar tanto ese orden como la exclusión mutua de los
+  modos mensual y semanal. Un runner local dirigido a IOLVAN3 acabó
   1/1, sin fallback ni errores, y persistió 63,5 mm para 2026-09-09 tanto en
   `Wunderground_incremental.csv` como en `weather_daily.parquet`.
 
@@ -165,9 +169,10 @@ antes de asumir que este estado sigue vigente.
 - Los runners programados posteriores solicitaron nuevos precálculos al
   publicar su runtime y avanzaron la cobertura. El log del worker registra
   ejecuciones iniciadas aproximadamente a las 00:17, 01:51, 05:07 y 08:07
-  CEST. La tabla de trabajos de HA local muestra solo el último precálculo
-  terminado porque, tras activar su reemplazo, el coordinador elimina del
-  historial los precálculos terminales ya superados.
+  CEST. Desde 0.2.301, activar un reemplazo ya no elimina del historial los
+  precálculos terminales anteriores: permanecen en `Trabajos recientes` dentro
+  del límite global de 50 trabajos. La retención de artefactos pesados sigue
+  siendo independiente.
 - El artefacto activo comprobado tras
   `worker_job_fJQB65AUngtj` es
   `sha256:c0b06a02d43948eb3810bfd08708dce2e1bc77f7cf9cebd911b7f9ad47b72ded`,
@@ -180,28 +185,31 @@ antes de asumir que este estado sigue vigente.
   `boletus_edulis` pasó de 15 a 16 áreas. `cantharellus_cibarius_sl` mantiene
   seis áreas; su alta previa explicaba el salto de 143 a 157 mediante ocho
   grupos generales y seis grupos de área.
-- El smoke de release de la candidata 0.2.300 pasó 1.348 pruebas en `57,360 s`, además de sintaxis,
-  fixtures y comprobaciones de histórico. Después solo cambiaron metadatos de
-  versión, cache-busters, changelog y documentación.
+- El smoke final de la candidata 0.2.301 pasó 1.350 pruebas en `59,050 s`,
+  además de sintaxis, fixtures y comprobaciones de histórico. No se repitieron
+  entrenamiento ni precálculo: el cambio funcional está limitado al cliente
+  Wunderground y al historial ligero del coordinador y tiene pruebas dirigidas.
 
 ## Próximos pasos, por prioridad
 
-1. Revisar y aplicar desde la interfaz el GIS/DEM de las tres microáreas
-   francesas. No sobrescribir silenciosamente el contexto persistido.
-2. Auditar de forma multiespecie las abstenciones por aplicabilidad. Separar
+1. Instalar HA 0.2.301 en HA real y comprobar el siguiente runner, sin repetir
+   entrenamiento ni precálculo.
+2. Revisar y aplicar desde la interfaz el GIS/DEM de las microáreas francesas
+   que aún no lo tengan. No sobrescribir silenciosamente el contexto persistido.
+3. Auditar de forma multiespecie las abstenciones por aplicabilidad. Separar
    tolerancia absoluta, desviación normalizada, tipo de variable y dirección de
    extrapolación. Caso inicial: Rovelló / Els Ports / 2026-09-07.
-3. Diseñar cómo mostrar una probabilidad calculada pero vetada como dato
+4. Diseñar cómo mostrar una probabilidad calculada pero vetada como dato
    diagnóstico, sin color de recomendación, ranking ni mensaje favorable.
-4. Medir en la Raspberry Pi 4 la publicación HA--worker por fases antes de
+5. Medir en la Raspberry Pi 4 la publicación HA--worker por fases antes de
    implementar streaming incremental o cambiar la política de `fsync`.
-5. Completar administración CLI por `coordinator_id` sin alterar otros
+6. Completar administración CLI por `coordinator_id` sin alterar otros
    coordinadores.
 
 ## Riesgos y dudas activas
 
-- HA real no se ha comprobado mediante endpoint en este cierre; no asumir que
-  `0.2.298` está instalada hasta verificarla después de la actualización.
+- HA real sigue en `0.2.300` según la última confirmación del usuario; no asumir
+  `0.2.301` instalada hasta verificarla después de la actualización.
 - La aplicabilidad actual puede vetar por una desviación normalizada alta aunque
   la diferencia absoluta sea pequeña. No ampliar umbrales globalmente sin la
   auditoría multiespecie.

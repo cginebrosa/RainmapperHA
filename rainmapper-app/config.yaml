@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.300"
+version: "0.2.301"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -83,6 +83,7 @@ options:
   max_attempts: 3
   wunderground_monthly_api: true
   wunderground_weekly_api: false
+  wunderground_encoding_order: gzip,identity,deflate
   wunderground_full_log: false
   publish_to_www: false
   external_worker_connections_enabled: false
@@ -145,6 +146,7 @@ schema:
   max_attempts: int
   wunderground_monthly_api: bool
   wunderground_weekly_api: bool
+  wunderground_encoding_order: list(gzip,identity,deflate|gzip,deflate,identity|identity,gzip,deflate|identity,deflate,gzip|deflate,gzip,identity|deflate,identity,gzip)
   wunderground_full_log: bool
   publish_to_www: bool
   external_worker_connections_enabled: bool

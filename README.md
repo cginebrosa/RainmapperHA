@@ -60,6 +60,7 @@ Variables/opciones principales:
 - `max_attempts`: reintentos Wunderground.
 - `wunderground_monthly_api`: usa por defecto la API de observaciones diarias de Wunderground con el intervalo mensual legacy.
 - `wunderground_weekly_api`: conserva como alternativa una ventana de hoy y los seis dias anteriores, incluso si cruza de mes. No puede activarse a la vez que `wunderground_monthly_api`; con ambas desactivadas se usa el scraper HTML.
+- `wunderground_encoding_order`: orden validado de las variantes CDN. El valor predeterminado es `gzip,identity,deflate`; si una respuesta que incluye hoy está atrasada, se prueban las siguientes y se conserva la de timestamp más reciente.
 
 Para consultas que incluyen hoy, el cliente detecta por timestamp respuestas claramente antiguas del CDN de Weather.com y prueba las variantes `identity`, `gzip` y `deflate`, conservando siempre la observacion mas reciente. El resumen registra reintentos, recuperaciones y respuestas que siguen antiguas.
 - `wunderground_full_log`: log detallado por estacion.

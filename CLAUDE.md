@@ -355,6 +355,7 @@ Las opciones más relevantes al desarrollar (lista completa en `rainmapper-app/c
 | `external_worker_rebuilds_enabled` | false | Autoriza rebuilds externos |
 | `wunderground_weekly_api` | false | API diaria alternativa, ventana movil de siete dias |
 | `wunderground_monthly_api` | true | Consulta legacy predeterminada; incompatible con la semanal |
+| `wunderground_encoding_order` | gzip,identity,deflate | Orden preferido de variantes CDN; HA solo acepta permutaciones completas |
 | `max_threads` | 3 | Threads Wunderground — usar 1 si hay timeouts |
 
 ## Worker externo — reglas

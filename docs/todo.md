@@ -4,16 +4,15 @@ Prioridades vivas al cierre del 10 de septiembre de 2026. El estado operativo y
 la evidencia exacta están en `docs/active-context.md`; las decisiones duraderas,
 en `docs/decisions.md`.
 
-## P0 — Instalar y comprobar HA 0.2.297
+## P0 — Instalar y comprobar HA 0.2.301
 
-- [x] Publicar `0.2.297` y `latest` en GHCR con el mismo índice
+- [x] Publicar `0.2.301` y `latest` en GHCR con el mismo índice
   multi-arquitectura.
 - [x] Reconstruir y recrear HA local desde HEAD; imagen, contenedor y código
-  efectivo corresponden a 0.2.297 y la UI responde HTTP 200.
-- [ ] Verificar la versión instalada actualmente en HA real.
-- [ ] Si sigue en 0.2.296, instalar 0.2.297 y comprobar arranque, versión y uso
-  del precálculo ya existente. No repetir entrenamiento ni precálculo salvo que
-  aparezca una incompatibilidad real.
+  efectivo corresponden a 0.2.301 y la UI responde HTTP 200.
+- [ ] Instalar 0.2.301 en HA real y comprobar arranque, versión, validación de
+  configuración y siguiente runner. No repetir entrenamiento ni precálculo:
+  los artefactos vigentes siguen siendo compatibles.
 
 ## P0 — Revisar abstenciones por aplicabilidad
 
@@ -57,11 +56,12 @@ en `docs/decisions.md`.
   conservar exactamente los dos destinos actuales.
 - [ ] Completar el CLI por `coordinator_id`: listar, seleccionar, cambiar URL,
   reemparejar, limpiar credenciales y olvidar un coordinador sin tocar los demás.
-- [ ] Hacer que `Trabajos recientes` conserve y muestre los precálculos
+- [x] Hacer que `Trabajos recientes` conserve y muestre los precálculos
   automáticos conforme a la política de retención ya establecida. La activación
   de un reemplazo no debe borrar de la lista todos los precálculos terminales
-  anteriores y dejar visible únicamente el último; mantener acotados por
-  separado el historial ligero y los artefactos pesados.
+  anteriores y dejar visible únicamente el último. El historial ligero comparte
+  el límite global de 50 trabajos; los artefactos pesados mantienen su retención
+  separada.
 
 ## P1 — Predictor y ciencia aplazada
 

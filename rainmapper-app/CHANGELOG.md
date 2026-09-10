@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.301
+
+- Expose the preferred Wunderground `Accept-Encoding` retry order as a validated
+  Home Assistant option while keeping the monthly API mode as the default.
+- Validate the encoding permutation again at startup and log the effective
+  order used to escape stale Weather.com CDN responses.
+- Preserve superseded automatic precompute entries in the bounded 50-job recent
+  history instead of deleting all terminal predecessors after activation.
+
 ## 0.2.300
 
 - Add the French RGE ALTI DEM to GIS discovery and reuse unchanged GIS files

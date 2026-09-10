@@ -336,6 +336,7 @@ max_threads: 3
 max_attempts: 3
 wunderground_monthly_api: true
 wunderground_weekly_api: false
+wunderground_encoding_order: gzip,identity,deflate
 wunderground_full_log: false
 publish_to_www: false
 gmap_api_key: ""
@@ -394,7 +395,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius`, `maplibre_heatmap_intensity`: valores iniciales del heatmap MapLibre para dispositivos sin preferencias guardadas. Opacidad, radio e intensidad se expresan como porcentaje. El visor incluye una accion para restaurar esos defaults desde Settings > Heatmap.
 - `maplibre_estimated_field_enabled`, `maplibre_estimated_field_opacity`, `maplibre_estimated_field_radius`, `maplibre_estimated_field_quality`, `maplibre_estimated_field_smoothing`, `maplibre_estimated_field_altitude_correction`, `maplibre_estimated_field_dem_zoom`: valores iniciales de la capa experimental `IDW` para dispositivos sin preferencias guardadas. La correccion de altitud usa DEM externo Terrarium/Mapzen por celda y solo afecta a temperatura; no se aplica a lluvia, humedad ni viento.
 - `maplibre_estimated_field_radius_*_km`, `maplibre_estimated_field_max_radius_km`, `maplibre_estimated_field_grid_*_cell_km`, `maplibre_estimated_field_smoothing_*_power`, `maplibre_estimated_field_temperature_lapse_rate_c_per_100m`: parametros tecnicos de la interpolacion IDW. Se sirven en `/protected/maplibre/config.js` y se actualizan al reiniciar la app.
-- `max_threads`, `max_attempts`, `wunderground_weekly_api`, `wunderground_monthly_api`, `wunderground_full_log`: concurrencia, reintentos, alcance de la API y logging de Wunderground. El modo mensual es el predeterminado; semanal y mensual son mutuamente excluyentes y con ambos desactivados se usa el scraper HTML. Cuando una consulta incluye hoy, Rainmapper compara el timestamp UTC de la ultima observacion con la hora real y, si supera cuatro horas de antiguedad, prueba las variantes CDN `identity`, `gzip` y `deflate`. El resumen y la tarjeta de estado muestran reintentos, recuperaciones y respuestas que continuan antiguas.
+- `max_threads`, `max_attempts`, `wunderground_weekly_api`, `wunderground_monthly_api`, `wunderground_encoding_order`, `wunderground_full_log`: concurrencia, reintentos, alcance de la API, orden de variantes CDN y logging de Wunderground. El modo mensual es el predeterminado; semanal y mensual son mutuamente excluyentes y con ambos desactivados se usa el scraper HTML. `wunderground_encoding_order` permite escoger uno de los seis ordenes posibles de `gzip`, `identity` y `deflate`; Home Assistant rechaza otros valores al guardar y el runner vuelve a validarlo al arrancar. Cuando una consulta incluye hoy, Rainmapper compara el timestamp UTC de la ultima observacion con la hora real y, si supera cuatro horas de antiguedad, prueba las variantes en el orden configurado. El resumen y la tarjeta de estado muestran reintentos, recuperaciones y respuestas que continuan antiguas.
 - `publish_to_www`: activa la generacion/publicacion legacy en `/config/www` de Bokeh/Google Maps y Leaflet publico. Por defecto esta desactivado.
 - `gmap_api_key`: clave Google Maps.
 - `aemet_api_key`: clave AEMET OpenData.
@@ -558,9 +559,12 @@ La API devuelve observaciones diarias, pero Rainmapper permite elegir el alcance
 ```yaml
 wunderground_weekly_api: false
 wunderground_monthly_api: true
+wunderground_encoding_order: gzip,identity,deflate
 ```
 
 Para conservar la consulta legacy, intercambia los valores. No actives ambos modos a la vez: el runner rechazara la configuracion. Con ambos desactivados se usa directamente el scraper HTML. Los backfills administrativos mantienen siempre sus ventanas mensuales completas. Si una consulta API falla, Rainmapper escribe un log de fallback, usa el scraper HTML existente y muestra el contador `API fallback errors` en el resumen de Wunderground.
+
+`wunderground_encoding_order` fija que variante de cache de Weather.com se intenta primero y el orden de los reintentos cuando el timestamp recibido esta atrasado. Debe contener exactamente una vez `gzip`, `identity` y `deflate`; el valor predeterminado es `gzip,identity,deflate`. El selector de Home Assistant solo ofrece las seis permutaciones validas.
 
 `wunderground_full_log` activa log detallado por estacion:
 

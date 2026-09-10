@@ -7,12 +7,35 @@ import requests
 DEFAULT_API_KEY = "e1f10a1e78da46f5b10a1e78da96f525"
 API_URL = "https://api.weather.com/v2/pws/history/daily"
 INCH_TO_MM = 25.4
-CACHE_ENCODINGS = ("identity", "gzip", "deflate")
+SUPPORTED_CACHE_ENCODINGS = frozenset({"identity", "gzip", "deflate"})
+DEFAULT_CACHE_ENCODINGS = ("gzip", "identity", "deflate")
+CACHE_ENCODINGS_ENV = "RAINMAPPER_WUNDERGROUND_ENCODING_ORDER"
 CACHE_STALE_AFTER_HOURS = 4
 
 
 class WundergroundDailyApiError(Exception):
     pass
+
+
+def cache_encodings(value=None):
+    """Return one validated permutation of the supported CDN cache variants."""
+    raw = (
+        os.environ.get(CACHE_ENCODINGS_ENV, ",".join(DEFAULT_CACHE_ENCODINGS))
+        if value is None
+        else value
+    )
+    if isinstance(raw, str):
+        encodings = tuple(part.strip().lower() for part in raw.split(","))
+    else:
+        encodings = tuple(str(part).strip().lower() for part in raw)
+    if (
+        len(encodings) != len(SUPPORTED_CACHE_ENCODINGS)
+        or set(encodings) != SUPPORTED_CACHE_ENCODINGS
+    ):
+        raise WundergroundDailyApiError(
+            "Wunderground encoding order must contain identity, gzip and deflate exactly once"
+        )
+    return encodings
 
 
 def query_date_range(start_date: date, end_date: date, *, weekly: bool) -> tuple[date, date]:
@@ -119,6 +142,7 @@ def fetch_daily_observations(
     now_utc=None,
     today=None,
     stale_after_hours=CACHE_STALE_AFTER_HOURS,
+    encoding_order=None,
 ):
     """Fetch daily observations and escape stale CDN compression variants.
 
@@ -135,15 +159,16 @@ def fetch_daily_observations(
     current_date = today or date.today()
     requesting_today = start_date <= current_date <= end_date
     stale_cutoff = current_time.timestamp() - (float(stale_after_hours) * 3600)
+    ordered_encodings = cache_encodings(encoding_order)
 
     attempted_encodings = []
     retry_errors = []
     selected_observations = None
     selected_epoch = None
-    selected_encoding = CACHE_ENCODINGS[0]
+    selected_encoding = ordered_encodings[0]
     initial_epoch = None
 
-    for index, accept_encoding in enumerate(CACHE_ENCODINGS):
+    for index, accept_encoding in enumerate(ordered_encodings):
         if index > 0 and (not requesting_today or (selected_epoch is not None and selected_epoch >= stale_cutoff)):
             break
         try:

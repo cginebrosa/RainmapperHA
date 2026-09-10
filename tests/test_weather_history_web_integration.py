@@ -16,10 +16,20 @@ class WeatherHistoryWebIntegrationTests(unittest.TestCase):
 
         self.assertIn("wunderground_monthly_api: true", config)
         self.assertIn("wunderground_weekly_api: false", config)
+        self.assertIn("wunderground_encoding_order: gzip,identity,deflate", config)
+        self.assertIn(
+            "wunderground_encoding_order: list(gzip,identity,deflate|",
+            config,
+        )
         self.assertNotIn("wunderground_daily_api:", config)
         self.assertIn('--wunderground_monthly_api "$WUNDERGROUND_MONTHLY_API_VALUE"', script)
         self.assertIn('--wunderground_weekly_api "$WUNDERGROUND_WEEKLY_API_VALUE"', script)
         self.assertIn("cannot both be enabled", script)
+        self.assertIn(
+            'export RAINMAPPER_WUNDERGROUND_ENCODING_ORDER="$WUNDERGROUND_ENCODING_ORDER_VALUE"',
+            script,
+        )
+        self.assertIn("must contain identity, gzip and deflate exactly once", script)
 
     def test_shell_runner_wraps_and_drains_partitioned_updates(self):
         script = (ROOT / "rainmapper-app" / "run.sh").read_text(encoding="utf-8")

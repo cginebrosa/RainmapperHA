@@ -2743,6 +2743,7 @@ from rainmapper_core.sources.wunderground.Utils import Utils
 from rainmapper_core.sources.wunderground.daily_api import (
     WundergroundDailyApiError,
     build_monthly_rows,
+    cache_encodings,
     fetch_daily_observations,
     query_date_range,
     station_id_from_url,
@@ -2911,6 +2912,7 @@ def process_wunderground():                                         # FOR MULTIT
     try:
         if _create_wunderground:
             start_count(_legend='Start processing Wunderground...')
+            print(f'Wunderground cache encoding order: {", ".join(cache_encodings())}')
             # run processing
             global wunderground_header
             wunderground_header = True

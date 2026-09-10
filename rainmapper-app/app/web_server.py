@@ -15496,11 +15496,6 @@ def receive_mushroom_predictor_precompute_artifact(
                 claim_token=claim_token,
                 telemetry=publication_telemetry,
             )
-            mushroom_worker_jobs.prune_superseded_terminal_jobs(
-                mushroom_worker_jobs_path(),
-                job_types={mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE},
-                keep_job_ids={job_id},
-            )
     except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {

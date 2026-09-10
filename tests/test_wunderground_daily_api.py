@@ -2,7 +2,9 @@ import unittest
 from datetime import date, datetime, timezone
 
 from rainmapper_core.sources.wunderground.daily_api import (
+    WundergroundDailyApiError,
     build_monthly_rows,
+    cache_encodings,
     fetch_daily_observations,
     inch_to_mm,
     query_date_range,
@@ -41,6 +43,16 @@ def observation_at(utc_text):
 
 
 class WundergroundDailyApiTest(unittest.TestCase):
+    def test_cache_encoding_order_requires_one_complete_permutation(self):
+        self.assertEqual(
+            cache_encodings("deflate,gzip,identity"),
+            ("deflate", "gzip", "identity"),
+        )
+        with self.assertRaisesRegex(WundergroundDailyApiError, "exactly once"):
+            cache_encodings("gzip,gzip,identity")
+        with self.assertRaisesRegex(WundergroundDailyApiError, "exactly once"):
+            cache_encodings("gzip,,identity,deflate")
+
     def test_station_id_from_url_normalizes_case(self):
         self.assertEqual(
             station_id_from_url("https://www.wunderground.com/dashboard/pws/IORDiN1"),
@@ -62,7 +74,7 @@ class WundergroundDailyApiTest(unittest.TestCase):
             (date(2026, 8, 1), date(2026, 9, 3)),
         )
 
-    def test_fresh_identity_response_does_not_retry_cache_variants(self):
+    def test_fresh_preferred_response_does_not_retry_cache_variants(self):
         session = FakeSession([
             observation_at("2026-09-09T20:30:00Z"),
         ])
@@ -79,13 +91,13 @@ class WundergroundDailyApiTest(unittest.TestCase):
             today=date(2026, 9, 9),
         )
 
-        self.assertEqual(session.encodings, ["identity"])
+        self.assertEqual(session.encodings, ["gzip"])
         self.assertEqual(observations[-1]["obsTimeUtc"], "2026-09-09T20:30:00Z")
         self.assertFalse(diagnostics["cache_retry_attempted"])
         self.assertFalse(diagnostics["cache_recovered"])
         self.assertFalse(diagnostics["stale_after_retries"])
 
-    def test_stale_identity_response_uses_fresher_gzip_variant(self):
+    def test_stale_preferred_response_uses_fresher_second_variant(self):
         session = FakeSession([
             observation_at("2026-09-09T01:44:50Z"),
             observation_at("2026-09-09T21:00:00Z"),
@@ -103,11 +115,11 @@ class WundergroundDailyApiTest(unittest.TestCase):
             today=date(2026, 9, 9),
         )
 
-        self.assertEqual(session.encodings, ["identity", "gzip"])
+        self.assertEqual(session.encodings, ["gzip", "identity"])
         self.assertEqual(observations[-1]["obsTimeUtc"], "2026-09-09T21:00:00Z")
         self.assertTrue(diagnostics["cache_retry_attempted"])
         self.assertTrue(diagnostics["cache_recovered"])
-        self.assertEqual(diagnostics["selected_encoding"], "gzip")
+        self.assertEqual(diagnostics["selected_encoding"], "identity")
         self.assertFalse(diagnostics["stale_after_retries"])
 
     def test_all_old_variants_are_reported_and_newest_is_kept(self):
@@ -129,7 +141,7 @@ class WundergroundDailyApiTest(unittest.TestCase):
             today=date(2026, 9, 9),
         )
 
-        self.assertEqual(session.encodings, ["identity", "gzip", "deflate"])
+        self.assertEqual(session.encodings, ["gzip", "identity", "deflate"])
         self.assertEqual(observations[-1]["obsTimeUtc"], "2026-09-09T02:00:00Z")
         self.assertEqual(diagnostics["selected_encoding"], "deflate")
         self.assertTrue(diagnostics["stale_after_retries"])
@@ -151,8 +163,26 @@ class WundergroundDailyApiTest(unittest.TestCase):
             today=date(2026, 9, 10),
         )
 
-        self.assertEqual(session.encodings, ["identity"])
+        self.assertEqual(session.encodings, ["gzip"])
         self.assertFalse(diagnostics["stale_after_retries"])
+
+    def test_fetch_uses_explicit_configured_encoding_order(self):
+        session = FakeSession([
+            observation_at("2026-09-09T20:30:00Z"),
+        ])
+
+        fetch_daily_observations(
+            "IOLVAN3",
+            date(2026, 9, 1),
+            date(2026, 9, 9),
+            session=session,
+            api_key="test",
+            now_utc=datetime(2026, 9, 9, 22, 0, tzinfo=timezone.utc),
+            today=date(2026, 9, 9),
+            encoding_order=("deflate", "identity", "gzip"),
+        )
+
+        self.assertEqual(session.encodings, ["deflate"])
 
     def test_build_monthly_rows_maps_precipitation_and_weather_fields(self):
         rows = build_monthly_rows(
