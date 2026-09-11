@@ -24,7 +24,7 @@ import unicodedata
 from datetime import UTC, date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
@@ -775,6 +775,23 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .control-table tr:last-child td {{
       border-bottom: 0;
+    }}
+    .source-status-table {{
+      min-width: 940px;
+    }}
+    .source-status-table th,
+    .source-status-table td {{
+      padding-left: 10px;
+      padding-right: 10px;
+    }}
+    .source-status-table .numeric-cell,
+    .source-status-table .updated-cell,
+    .source-status-table .source-action-form button {{
+      white-space: nowrap;
+    }}
+    .source-status-table .numeric-cell {{
+      font-variant-numeric: tabular-nums;
+      width: 1%;
     }}
     .diagnostic-history-scroll {{
       max-height: 452px;
@@ -9814,14 +9831,16 @@ def source_status_class(status: str) -> str:
 def source_status_card(source: str, payload: dict, disabled: str = "") -> str:
     status = str(payload.get("status") or "Unknown")
     exit_code = payload.get("exit_code")
-    rows = payload.get("rows")
+    total_rows = payload.get("total_rows", payload.get("rows"))
+    updated_rows = payload.get("updated_rows")
     stations = payload.get("stations")
     duration = payload.get("duration_seconds")
     timings = payload.get("timings")
     message = str(payload.get("message") or "No source status yet.")
     updated_at = str(payload.get("updated_at") or "-")
     exit_text = "-" if exit_code is None else str(exit_code)
-    rows_text = "-" if rows is None else str(rows)
+    total_rows_text = "-" if total_rows is None else str(total_rows)
+    updated_rows_text = "-" if updated_rows is None else str(updated_rows)
     stations_text = "-" if stations is None else str(stations)
     duration_text = format_seconds_duration(duration)
     status_class = source_status_class(status)
@@ -9933,7 +9952,8 @@ def source_status_card(source: str, payload: dict, disabled: str = "") -> str:
       <div class="card source-card">
         <span class="label">{html.escape(source)}</span>
         <span class="value"><span class="{status_class}">{html.escape(status)}</span><span>exit {html.escape(exit_text)}</span></span>
-        <span class="label">Rows</span><span>{html.escape(rows_text)}</span>
+        <span class="label">Total rows</span><span>{html.escape(total_rows_text)}</span>
+        <span class="label">Updated rows</span><span>{html.escape(updated_rows_text)}</span>
         <span class="label">Stations</span><span>{html.escape(stations_text)}</span>
         <span class="label">Duration</span><span>{html.escape(duration_text)}</span>
         <span class="label">Updated</span><span>{html.escape(updated_at)}</span>
@@ -9984,7 +10004,10 @@ def source_status_table(payloads: list[tuple[str, dict]], disabled: str = "") ->
         status_class = source_status_class(status)
         exit_code = payload.get("exit_code")
         exit_text = "-" if exit_code is None else str(exit_code)
-        rows_text = "-" if payload.get("rows") is None else str(payload.get("rows"))
+        total_rows = payload.get("total_rows", payload.get("rows"))
+        updated_rows = payload.get("updated_rows")
+        total_rows_text = "-" if total_rows is None else str(total_rows)
+        updated_rows_text = "-" if updated_rows is None else str(updated_rows)
         stations_text = "-" if payload.get("stations") is None else str(payload.get("stations"))
         duration_text = format_seconds_duration(payload.get("duration_seconds"))
         updated_at = str(payload.get("updated_at") or "-")
@@ -9992,10 +10015,11 @@ def source_status_table(payloads: list[tuple[str, dict]], disabled: str = "") ->
             "<tr>"
             f"<td><strong>{html.escape(source)}</strong></td>"
             f'<td><span class="status-pill {status_class}">{html.escape(status)}</span><span class="meta">exit {html.escape(exit_text)}</span></td>'
-            f"<td>{html.escape(rows_text)}</td>"
-            f"<td>{html.escape(stations_text)}</td>"
-            f"<td>{html.escape(duration_text)}</td>"
-            f"<td>{html.escape(updated_at)}</td>"
+            f'<td class="numeric-cell">{html.escape(total_rows_text)}</td>'
+            f'<td class="numeric-cell">{html.escape(updated_rows_text)}</td>'
+            f'<td class="numeric-cell">{html.escape(stations_text)}</td>'
+            f'<td class="numeric-cell">{html.escape(duration_text)}</td>'
+            f'<td class="updated-cell">{html.escape(updated_at)}</td>'
             '<td>'
             f'<form class="source-action-form" method="post" action=""><input type="hidden" name="source_update" value="{html.escape(source)}"><button {disabled}>Update only</button></form>'
             "</td>"
@@ -10003,8 +10027,8 @@ def source_status_table(payloads: list[tuple[str, dict]], disabled: str = "") ->
         )
     return (
         '<div class="control-table-wrap">'
-        '<table class="control-table">'
-        "<thead><tr><th>Source</th><th>Status</th><th>Rows</th><th>Stations</th><th>Duration</th><th>Updated</th><th>Action</th></tr></thead>"
+        '<table class="control-table source-status-table">'
+        "<thead><tr><th>Source</th><th>Status</th><th>Total rows</th><th>Updated rows</th><th>Stations</th><th>Duration</th><th>Updated</th><th>Action</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody>"
         "</table>"
         "</div>"
@@ -11839,6 +11863,31 @@ def storage_reconciliation_apply_enabled() -> bool:
     return bool_env("RAINMAPPER_ML_STORAGE_RECONCILIATION_APPLY", False)
 
 
+def predictor_weekly_model_selection_enabled() -> bool:
+    """Select one aggregate reliability-ranked family per species/area/week."""
+    return bool_env("RAINMAPPER_PREDICTOR_WEEKLY_MODEL_SELECTION", False)
+
+
+def predictor_precompute_worker_is_compatible(
+    payload: Mapping[str, object],
+    *,
+    model_selection_policy: str | None = None,
+) -> bool:
+    capabilities = set(payload.get("capabilities") or [])
+    if mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY not in capabilities:
+        return False
+    policy = model_selection_policy or (
+        mushroom_predictor_precompute.WEEKLY_AGGREGATE_MODEL_SELECTION
+        if predictor_weekly_model_selection_enabled()
+        else mushroom_predictor_precompute.DAILY_MODEL_SELECTION
+    )
+    return not (
+        policy == mushroom_predictor_precompute.WEEKLY_AGGREGATE_MODEL_SELECTION
+        and mushroom_worker_registry.PREDICTOR_WEEKLY_MODEL_SELECTION_CAPABILITY
+        not in capabilities
+    )
+
+
 def mushroom_worker_supports(payload: object, capability: str) -> bool:
     worker = payload if isinstance(payload, dict) else {}
     capabilities = worker.get("capabilities", [])
@@ -12919,6 +12968,11 @@ def predictor_precompute_plan() -> tuple[
         area_ids_by_species=area_ids_by_species,
         operational_selections_by_species=None,
         operational_member_count=int(operational_member_count),
+        model_selection_policy=(
+            mushroom_predictor_precompute.WEEKLY_AGGREGATE_MODEL_SELECTION
+            if predictor_weekly_model_selection_enabled()
+            else mushroom_predictor_precompute.DAILY_MODEL_SELECTION
+        ),
     )
     return identity, None, runtime_manifest, area_ids_by_species
 
@@ -12994,8 +13048,7 @@ def predictor_precompute_summary() -> dict[str, object]:
         preferred_compatible = bool(
             preferred_worker_id
             and preferred_payload.get("paired")
-            and mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
-            in set(preferred_payload.get("capabilities") or [])
+            and predictor_precompute_worker_is_compatible(preferred_payload)
         )
         local_precompute_executor = bool(
             not preferred_worker_id and mushroom_local_ha_compute_enabled()
@@ -13311,8 +13364,7 @@ def preferred_mushroom_precompute_worker() -> tuple[str, dict[str, object], bool
     compatible = bool(
         preferred_worker_id
         and payload.get("paired")
-        and mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
-        in set(payload.get("capabilities") or [])
+        and predictor_precompute_worker_is_compatible(payload)
     )
     return preferred_worker_id, payload, compatible
 
@@ -13485,6 +13537,13 @@ def request_mushroom_predictor_precompute(
             runtime_manifest,
             area_ids_by_species,
         ) = _unpack_predictor_precompute_plan()
+        compatible = bool(
+            compatible
+            and predictor_precompute_worker_is_compatible(
+                payload,
+                model_selection_policy=identity.model_selection_policy,
+            )
+        )
         area_ids_by_species = (
             {
                 species_id: mushroom_predictor_ui.predictor_area_ids(species_id)
@@ -13680,6 +13739,19 @@ def reconcile_mushroom_predictor_precompute_desire(
     desired = mushroom_predictor_precompute_control.load_desired_state(desired_path)
     if desired is None or str(desired.get("worker_id", "")) not in {"", worker_id}:
         return None
+    desired_identity_payload = desired.get("identity")
+    desired_policy = (
+        mushroom_predictor_precompute.ArtifactIdentity.from_dict(
+            desired_identity_payload
+        ).model_selection_policy
+        if isinstance(desired_identity_payload, Mapping)
+        else mushroom_predictor_precompute.DAILY_MODEL_SELECTION
+    )
+    if not predictor_precompute_worker_is_compatible(
+        heartbeat,
+        model_selection_policy=desired_policy,
+    ):
+        return None
     if desired.get("terminal_status") == "cancelled":
         return None
     attempt_key = (
@@ -13789,6 +13861,19 @@ def schedule_mushroom_predictor_precompute_reconcile(
         )
         return False
     if desired is None or str(desired.get("worker_id", "")) not in {"", worker_id}:
+        return False
+    desired_identity_payload = desired.get("identity")
+    desired_policy = (
+        mushroom_predictor_precompute.ArtifactIdentity.from_dict(
+            desired_identity_payload
+        ).model_selection_policy
+        if isinstance(desired_identity_payload, Mapping)
+        else mushroom_predictor_precompute.DAILY_MODEL_SELECTION
+    )
+    if not predictor_precompute_worker_is_compatible(
+        heartbeat,
+        model_selection_policy=desired_policy,
+    ):
         return False
     attempt_key = (
         worker_id,
@@ -21236,6 +21321,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             prediction_timing["precompute_status"] = (
                                 predictor_precompute_status
                             )
+                            if (
+                                precompute_response_used
+                                and coordinator_precompute_lookup is not None
+                                and coordinator_precompute_lookup.reason == "weekly_selection_policy_outdated"
+                            ):
+                                prediction_timing["precompute_previous_weekly_policy"] = True
                             if (
                                 coordinator_precompute_lookup is not None
                                 and coordinator_precompute_lookup.artifact_mtime is not None

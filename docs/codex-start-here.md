@@ -37,54 +37,49 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al 2026-09-09
+## Estado general al 2026-09-11
 
-- Rama `inicial`; la fuente declara HA `0.2.298`. GHCR `0.2.298` y `latest`
-  comparten el índice multi-arquitectura
-  `sha256:0c0bb47d532146c9cfed16f02de277c27c917207a5765c032c44b9933e0f2785`,
-  con manifests `linux/amd64` y `linux/arm64`. HA local y el worker se
-  reconstruyeron desde el código funcional definitivo y completaron el circuito
-  de entrenamiento y precálculo antes del bump mecánico. HA real no se ha
-  actualizado todavía a `0.2.298`.
-- HA usa el último precálculo autocontenido durante una actualización, aunque
-  esté marcado como desactualizado. Las tres vistas del Predictor leen una
-  respuesta SQLite sellada e indexada y no reconstruyen ni revalidan cientos de
-  componentes en cada consulta.
-- El worker privado está healthy con la imagen local `rainmapper-worker:1.1.1`;
-  no se distribuye mediante GHCR. Mantiene la URL principal
-  autorizada `http://100.111.77.48:8100` y HA local como asociación adicional.
-  No cambiar ninguna sin autorización expresa para ese destino.
-- La candidata GIS francesa incorpora RGE ALTI 5 m para Font-Romeu y Quérigut.
-  El TIFF operativo local tiene SHA-256
-  `3e86d6c2ee4e3677dd895de369045b8f49c02a23902771692177b7a60256860f`;
-  la copia montada en `/Volumes/media` se verificó con el mismo hash, tamaño,
-  checksum y CRS EPSG:2154.
-- La separación de cachés de runtime por coordinador está implementada,
-  probada y ejercitada en el circuito local completo, con objetos físicos
-  compartidos por SHA-256.
-- También permanece modificado
-  `mushroom-data/mushroom_observations.json`. Es del usuario: no editarlo,
-  restaurarlo, borrarlo ni incluirlo ciegamente. Los datos vivos locales para
-  pruebas están en `docker-data/mushroom-data/`.
-- Se adoptó `knn_distance_beta_smoothed_v2` como único KNN de nuevos
-  entrenamientos. El KNN anterior solo se conserva para leer generaciones
-  históricas. `MOD_0001` sigue vigente: ecología y ventanas son diagnóstico y
-  no modifican la predicción.
-- El gate por especie para modelos con predicciones hold-out constantes está
-  entrenado y aplicado: ninguna de las 280 selecciones selladas ni de los 420
-  miembros del precálculo eligió una candidata constante.
-- Las especies que entran por primera vez en el entrenamiento reciben
-  decisiones V2--V4/V6 declaradas y seleccionan V5 únicamente con la partición
-  de entrenamiento. El catálogo resultante se transporta, verifica, instala y
-  reutiliza; los huecos parciales siguen fallando de forma cerrada.
-- El worker ofrece un Explorador de modelos de solo lectura en `/models`
-  (`http://127.0.0.1:8110/models` en local). Navegar selectores no abre bundles;
-  el modelo elegido solo se carga al pedir la inspección y después de verificar
-  su SHA-256. Todavía no existe enlace desde HA.
-- Queda abierta una revisión de aplicabilidad a partir de Rovelló / Els Ports /
-  2026-09-07: el modelo calculó `0,0016 %`, pero se abstuvo por humedad menos de
-  un punto fuera del mínimo aprendido y temperatura máxima superior al rango.
-  Solo está documentado; no se cambiaron reglas ni UI.
+- Rama `inicial`; HA `0.2.302` publicada para amd64/arm64 tras smoke completo
+  (1.384 tests). La última instalación real confirmada es `0.2.301`; pendiente
+  de que el usuario actualice. Consultar Git para el commit de la release.
+- `0.2.302` incluye continuidad semanal opcional, meteorología observada en el
+  Predictor, corrección del rango mensual Wunderground y contadores de filas.
+- Auditoría del contador de días secos cerrada: el usuario decide conservarlo.
+  No se cambian contratos, umbrales ni modelos por esa investigación.
+- HA local y el worker privado `1.1.1` ejecutan el mismo código modificado. El
+  worker está healthy e idle y conserva exactamente la URL principal
+  `http://100.111.77.48:8100` y HA local como asociación adicional. No cambiar
+  ninguna sin autorización expresa para ese destino.
+- La corrección semanal `lag_event` h1--h7 está implementada y reconstruida.
+  El usuario lanzó el precálculo y el resultado `weekly_lag_event_v2` ya está
+  activo (11--17 septiembre, 553 celdas y 469 miembros). Codex no lanzó trabajos.
+  La revisión final confirmó 61 familias constantes y seis fallback diarios.
+  No repetir entrenamiento ni
+  precálculo por iniciativa de Codex.
+- HA local incorpora el desplegable «Meteorología observada»: lluvia en barras,
+  temperatura/humedad en curvas cuando existen datos diarios y acumulados para
+  versiones anteriores. Conserva su estado al cambiar de fecha. No usa datos
+  actuales del mapa ni añade viento que no figure en la predicción guardada.
+- Se conserva el fallback diario auditado cuando falta una familia común. La
+  revisión del 11 de septiembre confirmó tres familias de retardo completas
+  para Aereus/Olvan; no es un caso de fallback. El plan está aceptado y las
+  pruebas previas al precálculo están registradas en la especificación semanal.
+- RGE ALTI Francia 5 m ya forma parte del dataset GIS y cubre las microáreas de
+  Font-Romeu y Quérigut. La caché del worker contiene 13 ficheros y 6,42 GB; una
+  limpieza auditada liberó 10,43 GiB sin retirar el dataset activo.
+- Wunderground dispone de modos mensual/semanal, detección por timestamp de
+  respuestas CDN antiguas y orden configurable de variantes
+  `Accept-Encoding`. Infoclimat se descartó como fuente nueva inicial;
+  Meteo-France permanece como diseño futuro.
+- Las especies nuevas reciben tuning inicial de forma automática. El
+  entrenamiento real con `cantharellus_cibarius_sl` y los precálculos
+  posteriores finalizaron correctamente; no repetirlos sin una causa nueva.
+- `mushroom-data/mushroom_observations.json` está modificado y pertenece al
+  usuario: no editarlo, restaurarlo, borrarlo ni incluirlo ciegamente. Los datos
+  vivos locales están en `docker-data/mushroom-data/`.
+- Sigue pendiente la auditoría multiespecie de aplicabilidad desde Rovelló /
+  Els Ports / 2026-09-07 y el diseño de una probabilidad vetada puramente
+  diagnóstica.
 - No borrar datos o artefactos, crear copias o mecanismos de reversión ad hoc,
   cambiar retención, lanzar trabajos, hacer build/publicación ni tocar HA real
   sin autorización explícita.
@@ -189,6 +184,8 @@ El estado exacto, la prueba siguiente y los riesgos están en
 - Contrato perfiles: `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
 - Observaciones/schema: `docs/mushrooms/mushroom-observations-schema-es.md`
 - GIS: `docs/mushrooms/gis-layer-inventory-es.md`
+- Fuentes y GIS para la expansión Font-Romeu--Quérigut:
+  `docs/mushrooms/france-sources/`
 - Labels: `docs/mushrooms/mushroom-labels-reference-es.md`
 - UI de parámetros: `docs/mushrooms/ui/profiles/mushroom-parameters-redesign-es.md`
 - UI de observaciones: `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`

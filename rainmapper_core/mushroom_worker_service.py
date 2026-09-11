@@ -366,6 +366,7 @@ def worker_status(
             mushroom_worker_registry.TERMINAL_JOB_CLEANUP_CAPABILITY,
             mushroom_worker_registry.PREDICTOR_CAPABILITY,
             mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY,
+            mushroom_worker_registry.PREDICTOR_WEEKLY_MODEL_SELECTION_CAPABILITY,
             mushroom_worker_registry.PREDICTOR_MULTIVERSION_CAPABILITY,
             mushroom_worker_registry.ML_MULTIVERSION_TRAINING_CAPABILITY,
             mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY,

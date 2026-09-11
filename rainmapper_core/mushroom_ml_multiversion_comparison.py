@@ -532,9 +532,180 @@ _CANDIDATE_IDENTITY_FIELDS = (
     "estimator_id",
 )
 
+_WEEKLY_CANDIDATE_FAMILY_FIELDS = (
+    "version_id",
+    "temporal_contract_id",
+    "profile_id",
+    "estimator_id",
+)
+
 
 def _candidate_identity(payload: Mapping[str, object]) -> tuple[object, ...]:
     return tuple(payload.get(field) for field in _CANDIDATE_IDENTITY_FIELDS)
+
+
+def _weekly_candidate_family(payload: object) -> tuple[object, ...] | None:
+    if not isinstance(payload, Mapping):
+        return None
+    family = tuple(payload.get(field) for field in _WEEKLY_CANDIDATE_FAMILY_FIELDS)
+    return family if all(value is not None and value != "" for value in family) else None
+
+
+def weekly_lag_candidate_matches_day(candidate: object, prediction_day: int) -> bool:
+    """A weekly anchor must be the sealed lag model for this exact day."""
+    return (
+        isinstance(candidate, Mapping)
+        and _weekly_candidate_family(candidate) is not None
+        and str(candidate.get("temporal_contract_id") or "").startswith("lag_event")
+        and prediction_day in range(1, 8)
+        and type(candidate.get("horizon_days")) is int
+        and candidate["horizon_days"] == prediction_day
+    )
+
+
+def validate_weekly_lag_resolution(
+    resolution: Mapping[str, object], prediction_day: int
+) -> None:
+    """Reject a broken weekly contract before retargeting or running models."""
+    audit = resolution.get("weekly_model_selection")
+    if not isinstance(audit, Mapping) or audit.get("status") == "daily_fallback":
+        return
+    chain = resolution.get("candidate_chain")
+    if (
+        resolution.get("selection_status") != "winner"
+        or not isinstance(chain, list)
+        or not chain
+        or not weekly_lag_candidate_matches_day(resolution.get("candidate"), prediction_day)
+        or any(
+            not isinstance(entry, Mapping)
+            or not weekly_lag_candidate_matches_day(entry.get("candidate"), prediction_day)
+            for entry in chain
+        )
+    ):
+        raise ValueError("Weekly selection requires exact lag_event horizons h1-h7.")
+
+
+def prioritize_weekly_resolutions_by_applicability(
+    resolutions_by_day: Mapping[int, Mapping[str, object]],
+    members_by_day: Mapping[int, Sequence[Mapping[str, object]]],
+) -> dict[int, dict[str, object]]:
+    """Prefer weekly coverage, then retain the pre-ranked evidence order.
+
+    The weekly aggregate step has already ordered common families by sealed
+    historical evidence.  Runtime predictions add the missing information:
+    how many forecast days each family actually passes the operational gate.
+    Only the best-covered family remains in every daily chain so a later
+    applicability veto becomes an abstention, never a switch of family.
+    """
+    transformed = {
+        int(day): copy.deepcopy(dict(resolution))
+        for day, resolution in resolutions_by_day.items()
+    }
+    weekly_rows = [
+        resolution
+        for resolution in transformed.values()
+        if isinstance(resolution.get("weekly_model_selection"), Mapping)
+    ]
+    if not weekly_rows or any(
+        (resolution.get("weekly_model_selection") or {}).get("status")
+        == "daily_fallback"
+        for resolution in weekly_rows
+    ):
+        return transformed
+
+    if set(transformed) != set(range(1, 8)) or len(weekly_rows) != 7:
+        raise ValueError("Weekly selection requires all seven prediction days.")
+    for day, resolution in transformed.items():
+        validate_weekly_lag_resolution(resolution, day)
+
+    entries_by_day: dict[int, dict[tuple[object, ...], dict[str, object]]] = {}
+    ordered_families: list[tuple[object, ...]] = []
+    for day, resolution in sorted(transformed.items()):
+        if resolution.get("selection_status") != "winner":
+            continue
+        chain = resolution.get("candidate_chain")
+        if not isinstance(chain, list) or not chain:
+            continue
+        family_entries: dict[tuple[object, ...], dict[str, object]] = {}
+        for raw_entry in chain:
+            if not isinstance(raw_entry, Mapping):
+                continue
+            family = _weekly_candidate_family(raw_entry.get("candidate"))
+            if family is None or family in family_entries:
+                continue
+            family_entries[family] = copy.deepcopy(dict(raw_entry))
+        if family_entries:
+            if not ordered_families:
+                ordered_families = list(family_entries)
+            entries_by_day[day] = family_entries
+    if not entries_by_day or not ordered_families:
+        return transformed
+
+    common_families = set.intersection(
+        *(set(entries) for entries in entries_by_day.values())
+    )
+    evidence_order = [family for family in ordered_families if family in common_families]
+    if not evidence_order:
+        raise ValueError("Weekly selection has no common lag_event family.")
+
+    coverage_by_family: dict[tuple[object, ...], int] = {}
+    for family in evidence_order:
+        applicable_days = 0
+        for day, entries in entries_by_day.items():
+            candidate = entries[family].get("candidate")
+            members = members_by_day.get(day, ())
+            materialized = next(
+                (
+                    member
+                    for member in members
+                    if isinstance(candidate, Mapping)
+                    and isinstance(member.get("model_ref"), Mapping)
+                    and _candidate_identity(member["model_ref"])
+                    == _candidate_identity(candidate)
+                ),
+                None,
+            )
+            if materialized is not None and not _operational_gate_failures(materialized):
+                applicable_days += 1
+        coverage_by_family[family] = applicable_days
+
+    # evidence_order is already the sealed aggregate-quality ranking, so max
+    # coverage followed by its original position implements the stated policy.
+    selected_family = min(
+        evidence_order,
+        key=lambda family: (-coverage_by_family[family], evidence_order.index(family)),
+    )
+    selected_coverage = coverage_by_family[selected_family]
+    for day, entries in entries_by_day.items():
+        selected_entry = entries[selected_family]
+        resolution = transformed[day]
+        resolution["candidate_chain"] = [copy.deepcopy(selected_entry)]
+        resolution["candidate"] = copy.deepcopy(selected_entry.get("candidate"))
+        if isinstance(selected_entry.get("evidence"), Mapping):
+            resolution["evidence"] = copy.deepcopy(selected_entry["evidence"])
+        if isinstance(selected_entry.get("evidence_by_scope"), Mapping):
+            resolution["evidence_by_scope"] = copy.deepcopy(
+                selected_entry["evidence_by_scope"]
+            )
+        audit = copy.deepcopy(dict(resolution.get("weekly_model_selection") or {}))
+        audit.update(
+            {
+                "status": "weekly_family",
+                "selected_family": dict(
+                    zip(_WEEKLY_CANDIDATE_FAMILY_FIELDS, selected_family)
+                ),
+                "selected_family_quality_rank": evidence_order.index(
+                    selected_family
+                )
+                + 1,
+                "applicable_prediction_days": selected_coverage,
+                "evaluated_prediction_days": len(entries_by_day),
+                "applicability_priority": "maximum_weekly_coverage_then_aggregate_evidence",
+                "runtime_veto_policy": "abstain_without_family_switch",
+            }
+        )
+        resolution["weekly_model_selection"] = audit
+    return transformed
 
 
 def reliability_candidate_selections(
@@ -636,8 +807,19 @@ def build_reliability_selected_operational_comparison(
         selected_rank = rank
         break
 
+    ranked_identities = {
+        _candidate_identity(candidate)
+        for entry in ranked_entries
+        if isinstance((candidate := entry.get("candidate")), Mapping)
+    }
+    ranked_members = [
+        member
+        for member in members
+        if isinstance((reference := member.get("model_ref")), Mapping)
+        and _candidate_identity(reference) in ranked_identities
+    ]
     comparison = build_selected_operational_comparison(
-        [selected_member] if selected_member is not None else members,
+        [selected_member] if selected_member is not None else ranked_members,
         season_phase=season_phase,
         phenology=phenology,
         selection_mode="multiversion",

@@ -1,7 +1,10 @@
 # Precálculo semanal distribuido del Predictor
 
-Estado: implementación original completada; evolución al selector fiable
-implementada y validada localmente con un SQLite nuevo.
+Estado al 11 de septiembre: corrección temporal semanal implementada en el
+worktree y plan aceptado por el usuario. Pasan 521 pruebas de los módulos
+afectados. La aceptación funcional con un SQLite nuevo sigue pendiente:
+el usuario ha pedido detenerse justo antes de lanzar el precálculo y lo
+lanzará personalmente. No publicar ni instalar una release HA.
 
 Nota de evolución: la selección fiable definida posteriormente en
 `mushroom-predictor-reliability-selection-spec-es.md` reemplaza, para la ruta
@@ -171,6 +174,7 @@ La identidad canónica incluirá como mínimo:
 - fecha de emisión, inicio y fin de cobertura;
 - lista ordenada de especies entrenadas;
 - versiones instaladas, generaciones instaladas y perfiles operativos;
+- política de selección diaria o semanal agregada;
 - contadores esperados de especies, áreas, días, versiones y miembros.
 
 Se distinguirán dos identificadores:
@@ -195,6 +199,278 @@ todas las alternativas instaladas; cambiar el puntero preferido no altera su
 identidad.
 No se introducirá una regla débil basada únicamente en la hora del runner o el
 `mtime` del SQLite.
+
+## Política opcional de continuidad semanal
+
+La opción HA `predictor_weekly_model_selection`, desactivada por defecto,
+decide cómo se ordenan los candidatos sellados al construir el precálculo:
+
+- `false` conserva la selección independiente existente para cada día;
+- `true` elige por pareja especie--área una familia común a los siete días.
+  Primero maximiza cuántos días supera la aplicabilidad operativa y, entre las
+  familias con la misma cobertura, usa la evidencia de fiabilidad agregada de
+  toda la semana. No cuenta simplemente cuántos días gana cada candidata ni
+  favorece el porcentaje de predicción más alto.
+
+La familia incluye versión, contrato temporal, perfil y estimador. El horizonte
+no forma parte de la familia: cada fecha conserva el horizonte que le
+corresponde. La familia elegida se mantiene toda la semana. La aplicabilidad
+sigue siendo una barrera diaria: si esa familia queda fuera de rango en una
+fecha, el resultado se abstiene y no cambia a otra familia. Nunca se publica
+una probabilidad vetada como recomendación.
+
+Si el catálogo fiable de una pareja especie--área no contiene ninguna familia
+común a los siete días, esa pareja vuelve de forma explícita a la selección
+diaria sellada y registra `daily_fallback` con el motivo
+`no_reliable_family_covering_week`. Esta excepción no invalida ni aborta el
+precálculo completo; el resto de parejas conserva la política semanal.
+
+La política forma parte de la identidad inmutable del artefacto. Cambiar la
+opción no exige entrenamiento, pero sí un nuevo precálculo. La capacidad
+original era `predictor_weekly_model_selection_v1`; la corrección temporal requiere ahora
+`predictor_weekly_model_selection_v2` y política `weekly_lag_event_v2` en la
+identidad. `weekly_aggregate` identifica el comportamiento anterior: puede
+leerse como desactualizado con aviso específico, pero no satisface una petición
+de la identidad nueva ni se admite para construir nuevos artefactos. Los
+artefactos históricos de política diaria conservan su identidad.
+
+### Incidencia del precálculo anterior: una familia semanal `fixed h7` usa cortes distintos
+
+La prueba local de continuidad semanal confirmó que una misma familia puede
+quedar elegida durante los siete días, pero descubrió un efecto temporal no
+deseado cuando esa familia pertenece al contrato `fixed_gap_7d`.
+
+Caso reproducido en el SQLite activo local, emitido para el 10--16 de septiembre
+de 2026:
+
+- `boletus_aereus / olvan` usa en las siete fechas la familia
+  `biology_v6_windowed_smooth_hierarchical`, contrato
+  `fixed_gap_7d_biology_v6_smooth_hierarchical_v2`, perfil
+  `smooth_window_30d_plus_physical_state` y estimador
+  `smooth_shared_logistic_v1`;
+- las siete filas tienen `horizon_days = 7`;
+- para el 13 de septiembre la interfaz muestra como última lluvia significativa
+  el 17 de agosto, porque el corte meteorológico de `fixed h7` es el 6 de
+  septiembre y, por tanto, todavía no puede ver los 56,1 mm del 9 de septiembre;
+- para el 16 de septiembre el corte es el 9 de septiembre y la misma familia sí
+  ve esa lluvia.
+
+No es una pérdida de datos ni un fallo del IDW. Es la semántica vigente de
+`operational_selections`: un contrato `fixed_gap_` exige siempre horizonte 7,
+mientras que un contrato de retardo usa el horizonte correspondiente al día de
+predicción. El resultado es coherente con el entrenamiento de `fixed h7`, pero
+es inadecuado como ancla de continuidad semanal: dentro de una misma franja, un
+día cercano puede ignorar meteorología ya conocida que otro día posterior sí
+utiliza.
+
+### Corrección temporal implementada
+
+Cuando `predictor_weekly_model_selection` esté activo, la familia común semanal
+se elige únicamente entre contratos `lag_event`:
+
+1. Mantener constantes durante la semana versión, perfil y estimador, además de
+   la familia de contrato `lag_event`.
+2. Conservar el horizonte natural de cada fecha, `h1` a `h7`. Con fecha de
+   emisión 10 de septiembre, los siete horizontes comparten como último día
+   meteorológico completo el 9 de septiembre.
+3. Ordenar las familias de retardo primero por cobertura de aplicabilidad de los
+   siete días y después por la evidencia fiable agregada, como hace ya el
+   selector semanal.
+4. Mantener la familia ganadora toda la semana. Si queda vetada en una fecha,
+   abstenerse ese día sin cambiar de familia y sin convertir la probabilidad
+   vetada en recomendación.
+5. Conservar `fixed h7` en el catálogo, en el detalle técnico y en el modo de
+   selección diaria. No alimentarlo con un corte más reciente ni presentarlo
+   como un `hN`: eso cambiaría el significado con el que fue entrenado.
+
+Los contratos `lag_event` h1--h7 ya están presentes en las generaciones
+operativas, por lo que esta corrección no requiere entrenamiento. Sí requiere
+generar un nuevo precálculo después de reconstruir HA local y worker desde el
+mismo código. El selector ya está corregido; el precálculo lo lanzará el usuario.
+
+Se conserva el `daily_fallback` auditado ya acordado cuando no existe una
+familia fiable común: la aclaración del usuario del 11 de septiembre mantiene
+esa política y no autoriza sustituirla por abstención semanal completa. Al
+restringir el agregado a `lag_event`, la ausencia de una familia de retardo
+completa debe derivar a esa selección diaria, con motivo explícito. En ese
+caso puede ganar `fixed h7` conforme al contrato diario, pero la pareja no debe
+presentarse como una semana con familia y corte comunes. Esta excepción
+conserva las limitaciones temporales del modo diario; no debe confundirse con
+la corrección de una pareja que sí tiene familias de retardo completas.
+
+Puntos cubiertos por la implementación:
+
+- filtrar las familias candidatas del agregado semanal antes de
+  `weekly_aggregate_resolution_index`, sin alterar la selección diaria sellada;
+- impedir que `prioritize_weekly_resolutions_by_applicability` vuelva a admitir
+  como ancla una familia `fixed_gap_`;
+- persistir en la auditoría la política temporal semanal, el corte meteorológico
+  común y los horizontes h1--h7;
+- añadir una regresión con una lluvia entre los cortes del 13 y el 16 de
+  septiembre que demuestre que ambos resultados semanales usan el último corte
+  común disponible;
+- comprobar también cobertura, abstención sin cambio de familia y el caso sin
+  familia `lag_event` común.
+
+La validación proporcional será: pruebas dirigidas del selector y del
+precálculo; reconstrucción de HA local y worker preservando sus coordinadores;
+un único precálculo local; e inspección de `Aereus/Olvan` y de una pareja con
+veto. No hace falta repetir entrenamiento ni la suite completa salvo que el
+cambio final amplíe el alcance.
+
+### Revisión del 11 de septiembre y plan aceptado
+
+El problema, en términos de la pantalla: los siete días deben poder usar la
+lluvia que ya conocíamos al emitir la semana. Para la semana del 10--16 de
+septiembre, la lluvia del día 9 debe tener seis días de antigüedad al predecir
+el 15 y siete al predecir el 16. No debe aparecer de golpe solo el día 16.
+Esto afecta a los datos que alimentan el modelo, no solo a la frase de la UI.
+
+Evidencia revalidada mediante lecturas locales, sin ejecutar predicciones ni
+entrenamiento:
+
+- `docker-media/rainmapper/predictor_precompute/active.sqlite3`, consultado en
+  modo de solo lectura, conserva `artifact_id`
+  `sha256:99bf7d11fad9bfd14836f09dd81b785730042b1eed2a6f8f323994ffbebccdae`,
+  publicación `complete`, política `weekly_aggregate` y ventana 10--16/09/2026.
+- Sus siete miembros de `boletus_aereus/olvan` son V6w de 30 días, contrato
+  `fixed_gap_7d_biology_v6_smooth_hierarchical_v2`, estimador
+  `smooth_shared_logistic_v1` y horizonte 7. El miembro del 15 conserva lluvia
+  significativa del 17/08; el del 16 conserva la del 09/09, 56,06639958758446 mm.
+- El corte se obtiene del código actual como `target_date - horizon_days`:
+  el 15 usa el 08/09 y el 16 usa el 09/09. No hay un campo de corte explícito
+  en los metadatos de esos miembros V6w; esas fechas se derivan de la fórmula,
+  no de un campo SQLite inexistente.
+- El catálogo `quality-catalog.json.gz` del batch
+  `operational_20260909T184116Z`, bajo
+  `docker-media/rainmapper/mushroom-derived/ml_models/batches/`, coincide con
+  el SHA-256 declarado en su manifiesto. Entre las versiones representadas
+  por el SQLite tiene tres familias fiables de retardo comunes a los siete
+  días para Aereus/Olvan: V6w de 30, 60 y 90 días, todas con
+  `smooth_shared_logistic_v1`. Sus tres archivos de modelo existen y el
+  manifiesto declara soporte h1--h7. No se ha calculado cuál ganará tras
+  aplicar los controles diarios de aplicabilidad.
+
+Revisión del conjunto: se cruzaron las 79 parejas especie/área de `coverage`
+del SQLite con las cadenas selladas del catálogo, usando primero la resolución
+del área y, si no existe, la de especie, como hace
+`operational_reliability_selections_from_catalog`. Se limitaron los candidatos
+a las cinco versiones representadas en el SQLite y se exigió hN en cada día N.
+
+| Especie | Parejas con familia de retardo completa | Parejas que necesitarían fallback diario | Parejas ya sin ganador los siete días |
+| --- | ---: | ---: | ---: |
+| `amanita_caesarea` | 8 | 0 | 0 |
+| `boletus_aereus` | 8 | 0 | 0 |
+| `boletus_edulis` | 16 | 0 | 0 |
+| `boletus_pinophilus` | 12 | 0 | 0 |
+| `cantharellus_cibarius_sl` | 0 | 6 | 0 |
+| `hygrophorus_latitabundus` | 0 | 0 | 4 |
+| `hygrophorus_marzuolus` | 0 | 0 | 4 |
+| `lactarius_deliciosus` | 17 | 0 | 0 |
+| `morchella_elata_complex` | 0 | 0 | 4 |
+| **Total** | **61** | **6** | **12** |
+
+Son conteos de cobertura del catálogo, no resultados de un precálculo nuevo:
+la aplicabilidad diaria todavía puede reducir los días publicables. Las seis
+parejas de Cantharellus son `la_masella`, `olvan`, `riu_de_cerdanya`,
+`salteguet`, `santa_maria_de_merles` y `selva_del_camp`. El SQLite actual
+contiene 126 miembros fijos y 343 de retardo; por tanto la revisión no se limita
+a Aereus/Olvan. Las doce parejas sin ganador conservan sus abstenciones
+existentes; no son una política nueva de abstención semanal. El usuario aclaró
+que están fuera de temporada y se revalidó contra
+`species_context.season_phase_by_date`: las tres especies tienen
+`out_of_season` en las siete fechas del SQLite activo.
+
+El criterio será genérico para todas las especies, áreas, versiones operativas
+y futuras fechas de emisión. Cada pareja puede elegir una familia distinta;
+lo común es la fecha hasta la que se conoce la meteorología, no la lluvia de
+lugares distintos ni un modelo único para todas las especies. Ningún filtro o
+excepción debe depender del nombre Aereus, Olvan, V6w ni de septiembre de 2026.
+
+Plan aceptado; implementación y pruebas completadas, precálculo pendiente:
+
+1. **Seleccionar familias completas de retardo.** En
+   `weekly_aggregate_resolution_index`, admitir únicamente contratos
+   `lag_event` de versiones operativas con el candidato exacto hN en cada día
+   N=1..7. Mantener versión, contrato, perfil y estimador constantes. El código
+   actual intersecta las cadenas de las filas `winner`; la revisión debe
+   exigir los siete días antes de declarar una familia completa, sin ignorar
+   silenciosamente un día sin candidato fiable. La falta de familia completa
+   conduce al fallback diario acordado, conservando sus abstenciones previas.
+2. **Dar a toda la semana el mismo último día de datos.** Con emisión I,
+   objetivo I+N-1 y horizonte N, el corte será siempre I-1. Filtrar antes de
+   preparar meteorología y ejecutar inferencias; en
+   `mushroom_predictor_service.py` validar los horizontes de los candidatos
+   sellados del modo semanal antes de cualquier retargeteo. No transformar
+   un modelo `fixed h7` en un modelo de retardo. En
+   `prioritize_weekly_resolutions_by_applicability`, impedir también que una
+   familia fija o incompleta vuelva a entrar como ancla semanal.
+3. **Conservar la regla de elección.** Primero elegir la familia que permita
+   publicar más días válidos y después desempatar con la evidencia ya sellada.
+   Si la ganadora no es aplicable un día, solo ese día se abstiene y la familia
+   se mantiene. No elegir por la probabilidad más alta ni cambiar umbrales.
+4. **Identificar el resultado y sus excepciones.** Persistir de forma compacta
+   la regla temporal, fecha común de corte y horizontes efectivos. Identificar
+   el fallback diario y su motivo en las vistas ordinarias con texto sencillo
+   en los tres idiomas; en él no declarar un corte común que no existe. Separar
+   en la identidad científica y negociación de capacidad del worker la nueva
+   semántica semanal de la antigua: un SQLite o worker que aún permita anclas
+   fijas no puede satisfacer silenciosamente la política corregida. Conservar
+   la identidad y comportamiento del modo diario. Si se permite leer un
+   artefacto anterior, mostrar que usa la política anterior y requiere
+   actualización. No basta con modificar una etiqueta o forzar un recálculo
+   conservando una identidad que confunda ambos comportamientos.
+5. **Probar y revisar en local.** Añadir regresiones dirigidas para lluvia del
+   día 9 presente en las entradas h1--h7, antigüedades seis/siete para el 15/16,
+   exclusión de familias fijas aunque tengan mejor puntuación, horizonte
+   incorrecto, familia incompleta, fallback diario intacto y veto de un día
+   sin cambio de familia. Cubrir distintas especies, áreas, contratos/versiones
+   y emisiones que crucen mes/año; comprobar que la elección de una pareja no
+   afecta a otra y conservar las abstenciones ya selladas. Comprobar también
+   identidad/capacidad, compactación
+   de auditoría y equivalencia de la semana, especie y consulta por fecha.
+   Después de aceptar el plan, reconstruir HA local y worker desde el mismo
+   código preservando exactamente sus dos asociaciones; verificar las huellas
+   dentro de ambos contenedores; ejecutar un único precálculo local y auditar
+   todas las parejas y sus siete días: identidad de familia, corte, horizonte,
+   abstenciones y excepciones. Revisar además visualmente ejemplos de semana
+   completa, veto diario y fallback, incluido Aereus/Olvan. No entrenar.
+
+La probabilidad de cada fecha puede cambiar al elegir otro modelo y darle la
+meteorología correspondiente; no se promete un porcentaje ni que suba por haber
+llovido. El criterio de aceptación es que use la información temporal correcta
+y respete las reglas de selección y aplicabilidad.
+
+La implementación filtra antes del cálculo, valida el horizonte exacto antes
+del retargeteo y añade `common_weather_cutoff`/`horizon_days` a la auditoría
+semanal y `cutoff_date` a los metadatos V5/V6. La selección diaria permanece
+intacta. Los avisos de fallback y de precálculo anterior existen en inglés,
+español y catalán; se muestran también en las vistas compactas.
+
+HA local y worker se reconstruyeron y recrearon con las imágenes
+`sha256:99377fb336adf959abfea0fd8c8d463528e83eb46c7d837d9269e64fe2df59f0`
+y `sha256:2367842bd216ac2aa8b253377f56e346622b53a2f591e2bbe96aaf04571ede2a`.
+HA responde HTTP 200 y el worker `1.1.1` está healthy, con ambos carriles idle y
+capacidad v2 anunciada. Pasan seis pruebas temporales dentro de cada uno.
+Coinciden con el worktree 142 ficheros Python de HA, su arranque y labels, y los
+76 ficheros Python empaquetados en el worker. Sus configuraciones persistidas
+de coordinador conservaron exactamente los SHA-256
+`5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10`
+y `22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0`.
+
+Comprobación ejecutada: 521 pruebas en `test_mushroom_weekly_lag_selection`,
+`test_mushroom_predictor_precompute`, `test_mushroom_ml_multiversion_comparison`,
+`test_mushroom_predictor_service`, `test_mushroom_ml_runtime_features`,
+`test_mushroom_worker_service`, `test_mushroom_worker_packaging` y
+`test_web_server_auth`. La prueba SQLite sintética cubre lectura en consulta,
+semana y recomendador; no ejecuta el precálculo operativo. La auditoría de solo
+lectura del catálogo mediante el selector corregido comprobó las 553 celdas y
+reprodujo las 61/6/12 parejas anteriores.
+
+El usuario autorizó implementación, pruebas y reconstrucción local, con parada
+expresa antes de lanzar el precálculo: lo ejecutará él. Cualquier publicación o
+instalación de HA requiere después validación local y autorización expresa de
+release. El JSON de observaciones y las URLs de coordinadores siguen protegidos.
 
 Antes de usar un artefacto se comprobarán su identidad, esquema, cobertura y
 estado de publicación. El digest SHA-256 completo se verificará al cruzar la

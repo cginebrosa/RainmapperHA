@@ -47,6 +47,28 @@ def query_date_range(start_date: date, end_date: date, *, weekly: bool) -> tuple
     return start_date, end_date
 
 
+def monthly_query_date_range(
+    start_date: date,
+    end_date: date,
+    *,
+    explicit_dates: bool,
+) -> tuple[date, date]:
+    """Return full calendar-month coverage for a normal monthly refresh.
+
+    Explicit backfill dates remain authoritative. During the first seven days
+    of a normal run, the previous month is also refreshed so late corrections
+    can still replace the accumulated history.
+    """
+    if start_date > end_date:
+        raise ValueError("Wunderground start date must not be after end date")
+    if explicit_dates:
+        return start_date, end_date
+    first_day = end_date.replace(day=1)
+    if end_date.day <= 7:
+        first_day = (first_day - timedelta(days=1)).replace(day=1)
+    return first_day, end_date
+
+
 def station_id_from_url(weather_station_url: str) -> str:
     return weather_station_url.rstrip("/").split("/")[-1].upper()
 

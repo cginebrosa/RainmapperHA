@@ -31,6 +31,17 @@ class WeatherHistoryWebIntegrationTests(unittest.TestCase):
         )
         self.assertIn("must contain identity, gzip and deflate exactly once", script)
 
+    def test_predictor_weekly_model_selection_is_opt_in_and_exported(self):
+        config = (ROOT / "rainmapper-app" / "config.yaml").read_text(encoding="utf-8")
+        script = (ROOT / "rainmapper-app" / "run.sh").read_text(encoding="utf-8")
+
+        self.assertIn("predictor_weekly_model_selection: false", config)
+        self.assertIn("predictor_weekly_model_selection: bool", config)
+        self.assertIn(
+            'export RAINMAPPER_PREDICTOR_WEEKLY_MODEL_SELECTION="$PREDICTOR_WEEKLY_MODEL_SELECTION_VALUE"',
+            script,
+        )
+
     def test_shell_runner_wraps_and_drains_partitioned_updates(self):
         script = (ROOT / "rainmapper-app" / "run.sh").read_text(encoding="utf-8")
         self.assertIn("rainmapper_core.weather_history_run_lock", script)

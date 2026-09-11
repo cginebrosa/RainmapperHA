@@ -458,6 +458,18 @@ class PredictorService:
         operational_resolution_index: Mapping[tuple[str, str, int], object] | None = None,
     ) -> int:
         """Batch weekly inference while retaining the normal response assembly."""
+        if not selections and isinstance(operational_resolution_index, Mapping):
+            weekly_days = set()
+            for current_date in target_dates:
+                day = (current_date - issue_date).days + 1
+                resolution = operational_resolution_index.get((species_id, area_id, day))
+                if isinstance(resolution, Mapping):
+                    mushroom_ml_multiversion_comparison.validate_weekly_lag_resolution(resolution, day)
+                    audit = resolution.get("weekly_model_selection")
+                    if isinstance(audit, Mapping) and audit.get("status") != "daily_fallback":
+                        weekly_days.add(day)
+            if weekly_days and weekly_days != set(range(1, 8)):
+                raise PredictorContractError("Weekly selection requires all seven prediction days.")
         if self.version_registry_path is None or not self.version_registry_path.is_file():
             return 0
         try:
@@ -848,6 +860,7 @@ class PredictorService:
             species_id: str,
             current_area: str,
             current_date: date,
+            materialized_comparison: Mapping[str, object] | None = None,
         ) -> dict[str, Any]:
             selections = normalized["multiversion_selection"]
             sealed_resolution = None
@@ -858,6 +871,9 @@ class PredictorService:
                     (species_id, current_area, prediction_day)
                 )
                 if isinstance(candidate_resolution, Mapping):
+                    mushroom_ml_multiversion_comparison.validate_weekly_lag_resolution(
+                        candidate_resolution, prediction_day
+                    )
                     sealed_resolution = candidate_resolution
                     if candidate_resolution.get("selection_status") == "abstain":
                         return {
@@ -876,17 +892,21 @@ class PredictorService:
                 raise PredictorContractError(
                     "Predictor requires the installed operational model selection."
                 )
-            comparison = multiversion_comparison_for(
-                species_id=species_id,
-                current_area=current_area,
-                current_date=current_date,
-                selections=(
-                    mushroom_ml_multiversion_comparison.retarget_operational_selections(
-                        selections,
-                        target_date=current_date,
-                        issue_date=min(request_issue_date, current_date),
-                    )
-                ),
+            comparison = (
+                copy.deepcopy(dict(materialized_comparison))
+                if isinstance(materialized_comparison, Mapping)
+                else multiversion_comparison_for(
+                    species_id=species_id,
+                    current_area=current_area,
+                    current_date=current_date,
+                    selections=(
+                        mushroom_ml_multiversion_comparison.retarget_operational_selections(
+                            selections,
+                            target_date=current_date,
+                            issue_date=min(request_issue_date, current_date),
+                        )
+                    ),
+                )
             )
             if sealed_resolution is not None:
                 members = comparison.get("members")
@@ -1080,10 +1100,75 @@ class PredictorService:
                         ),
                     ),
                 )
+                weekly_materialized: dict[str, dict[str, Any]] = {}
+                resolution_index = context.get("operational_resolution_index")
+                if (
+                    not normalized["multiversion_selection"]
+                    and isinstance(resolution_index, Mapping)
+                ):
+                    resolutions_by_day: dict[int, Mapping[str, object]] = {}
+                    for current_date in comparison_dates:
+                        prediction_day = (current_date - request_issue_date).days + 1
+                        resolution = resolution_index.get(
+                            (selected_species, area_id, prediction_day)
+                        )
+                        weekly_selection = (
+                            resolution.get("weekly_model_selection")
+                            if isinstance(resolution, Mapping)
+                            else None
+                        )
+                        if isinstance(weekly_selection, Mapping):
+                            resolutions_by_day[prediction_day] = resolution
+                    if resolutions_by_day and not any(
+                        (resolution.get("weekly_model_selection") or {}).get("status")
+                        == "daily_fallback"
+                        for resolution in resolutions_by_day.values()
+                    ):
+                        members_by_day: dict[
+                            int, list[Mapping[str, object]]
+                        ] = {}
+                        for current_date in comparison_dates:
+                            prediction_day = (
+                                current_date - request_issue_date
+                            ).days + 1
+                            resolution = resolutions_by_day.get(prediction_day)
+                            if resolution is None:
+                                continue
+                            selections = mushroom_ml_multiversion_comparison.reliability_candidate_selections(
+                                resolution
+                            )
+                            materialized = multiversion_comparison_for(
+                                species_id=selected_species,
+                                current_area=area_id,
+                                current_date=current_date,
+                                selections=mushroom_ml_multiversion_comparison.retarget_operational_selections(
+                                    selections,
+                                    target_date=current_date,
+                                    issue_date=min(request_issue_date, current_date),
+                                ),
+                            )
+                            weekly_materialized[current_date.isoformat()] = materialized
+                            members = materialized.get("members")
+                            members_by_day[prediction_day] = (
+                                list(members) if isinstance(members, list) else []
+                            )
+                        resolved_by_day = mushroom_ml_multiversion_comparison.prioritize_weekly_resolutions_by_applicability(
+                            resolutions_by_day,
+                            members_by_day,
+                        )
+                        updated_index = dict(resolution_index)
+                        for prediction_day, resolution in resolved_by_day.items():
+                            updated_index[
+                                (selected_species, area_id, prediction_day)
+                            ] = resolution
+                        context["operational_resolution_index"] = updated_index
                 multiversion_comparisons = {
                     current_date.isoformat(): (
                         selected_comparison_for(
-                            selected_species, area_id, current_date
+                            selected_species,
+                            area_id,
+                            current_date,
+                            weekly_materialized.get(current_date.isoformat()),
                         )
                         if normalized["multiversion_selection"]
                         or isinstance(

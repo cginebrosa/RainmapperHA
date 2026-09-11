@@ -8,6 +8,7 @@ import sqlite3
 import tempfile
 import unittest
 import zlib
+from dataclasses import replace
 from collections.abc import Mapping
 from datetime import date, timedelta
 from pathlib import Path
@@ -16,6 +17,9 @@ from unittest import mock
 from rainmapper_core import mushroom_ml_multiversion_comparison
 from rainmapper_core.mushroom_predictor_precompute import (
     ARTIFACT_SCHEMA_VERSION,
+    DAILY_MODEL_SELECTION,
+    LEGACY_WEEKLY_MODEL_SELECTION,
+    WEEKLY_AGGREGATE_MODEL_SELECTION,
     ArtifactIdentity,
     ArtifactReader,
     BasePredictionRow,
@@ -32,6 +36,7 @@ from rainmapper_core.mushroom_predictor_precompute import (
     resolve_with_fallback,
     scientific_response_payload,
     validate_artifact,
+    weekly_aggregate_resolution_index,
     write_artifact,
 )
 from rainmapper_core.mushroom_predictor_service import (
@@ -65,6 +70,165 @@ class PredictorPrecomputeArtifactTests(unittest.TestCase):
 
             self.assertEqual(cleanup_staging_directory(staging), 3)
             self.assertEqual(list(staging.iterdir()), [])
+
+    def test_weekly_selection_policy_changes_identity_without_breaking_daily_ids(self) -> None:
+        daily = self.identity()
+        restored = ArtifactIdentity.from_dict(daily.as_dict())
+        weekly = ArtifactIdentity.create(
+            runtime_fingerprint=self.runtime_a,
+            issue_date=self.issue_date,
+            trained_species_ids=["boletus_edulis"],
+            installed_versions=list(daily.installed_versions),
+            expected_counts=dict(daily.expected_counts),
+            model_selection_policy=WEEKLY_AGGREGATE_MODEL_SELECTION,
+        )
+
+        self.assertEqual(restored.model_selection_policy, DAILY_MODEL_SELECTION)
+        self.assertNotIn("model_selection_policy", daily.as_dict())
+        self.assertEqual(
+            weekly.as_dict()["model_selection_policy"],
+            WEEKLY_AGGREGATE_MODEL_SELECTION,
+        )
+        self.assertNotEqual(daily.artifact_id, weekly.artifact_id)
+        old_weekly = replace(weekly, model_selection_policy=LEGACY_WEEKLY_MODEL_SELECTION)
+        self.assertNotEqual(old_weekly.artifact_id, weekly.artifact_id)
+        self.assertEqual(ArtifactIdentity.from_dict(old_weekly.as_dict()), old_weekly)
+
+    def test_old_weekly_artifact_is_never_reported_as_current(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "old-week.sqlite3"
+            old = replace(self.identity(), model_selection_policy=LEGACY_WEEKLY_MODEL_SELECTION)
+            identity, stored, _ = self.write_fixture(path, old)
+            result = lookup_active_artifact(path, runtime_fingerprint=identity.runtime_fingerprint, request=stored.request)
+            self.assertTrue(result.hit)
+            self.assertTrue(result.stale)
+            self.assertEqual(result.reason, "weekly_selection_policy_outdated")
+            self.assertEqual(result.artifact_id, old.artifact_id)
+            current = replace(old, model_selection_policy=WEEKLY_AGGREGATE_MODEL_SELECTION)
+            self.assertFalse(lookup_artifact(path, identity=current, request=stored.request).hit)
+
+    def test_weekly_aggregate_uses_one_family_and_preserves_daily_horizons(self) -> None:
+        resolutions = {}
+        for day in range(1, 8):
+            candidates = []
+            for estimator_id, wilson in (
+                ("random_forest", 0.62),
+                ("extra_trees", 0.78),
+            ):
+                candidates.append(
+                    {
+                        "candidate": {
+                            "version_id": "biology_v6_windowed_smooth",
+                            "temporal_contract_id": "lag_event_biology_v6",
+                            "profile_id": "smooth_window_30d_plus_physical_state",
+                            "estimator_id": estimator_id,
+                            "horizon_days": day,
+                        },
+                        "evidence": {
+                            "wilson_lower_95_observations": wilson,
+                            "favorable_precision": 0.9,
+                            "favorable_call_count": 10,
+                            "favorable_recall": 0.8,
+                            "uncertain_count": 1,
+                            "brier_score": 0.2,
+                            "expected_calibration_error": 0.1,
+                            "roc_auc": 0.75,
+                        },
+                        "evidence_by_scope": {"species": {"observation_count": 30}},
+                    }
+                )
+            if day % 2 == 0:
+                candidates.reverse()
+            resolutions[("boletus_edulis", "guils", day)] = {
+                "selection_status": "winner",
+                "candidate": copy.deepcopy(candidates[0]["candidate"]),
+                "candidate_chain": candidates,
+                "evidence": copy.deepcopy(candidates[0]["evidence"]),
+                "evidence_by_scope": copy.deepcopy(
+                    candidates[0]["evidence_by_scope"]
+                ),
+            }
+
+        selected = weekly_aggregate_resolution_index(resolutions)
+
+        self.assertEqual(
+            [
+                selected[("boletus_edulis", "guils", day)]["candidate"][
+                    "estimator_id"
+                ]
+                for day in range(1, 8)
+            ],
+            ["extra_trees"] * 7,
+        )
+        self.assertEqual(
+            [
+                selected[("boletus_edulis", "guils", day)]["candidate"][
+                    "horizon_days"
+                ]
+                for day in range(1, 8)
+            ],
+            list(range(1, 8)),
+        )
+        self.assertEqual(
+            [
+                len(
+                    selected[("boletus_edulis", "guils", day)][
+                        "candidate_chain"
+                    ]
+                )
+                for day in range(1, 8)
+            ],
+            [2] * 7,
+        )
+        audit = selected[("boletus_edulis", "guils", 1)][
+            "weekly_model_selection"
+        ]
+        self.assertEqual(audit["policy"], WEEKLY_AGGREGATE_MODEL_SELECTION)
+        self.assertEqual(
+            audit["aggregate_quality_preferred_evidence"]["prediction_days"],
+            7,
+        )
+
+    def test_weekly_aggregate_falls_back_per_day_without_a_common_family(self) -> None:
+        resolutions = {}
+        for day in range(1, 8):
+            estimator_id = "random_forest" if day % 2 else "extra_trees"
+            candidate = {
+                "version_id": "biology_v6_windowed_smooth",
+                "temporal_contract_id": "lag_event_biology_v6",
+                "profile_id": "smooth_window_30d_plus_physical_state",
+                "estimator_id": estimator_id,
+                "horizon_days": day,
+            }
+            resolutions[("cantharellus_cibarius_sl", "la_masella", day)] = {
+                "selection_status": "winner",
+                "candidate": copy.deepcopy(candidate),
+                "candidate_chain": [
+                    {
+                        "candidate": copy.deepcopy(candidate),
+                        "evidence": {"wilson_lower_95_observations": 0.6},
+                    }
+                ],
+                "evidence": {"wilson_lower_95_observations": 0.6},
+            }
+
+        selected = weekly_aggregate_resolution_index(resolutions)
+
+        self.assertEqual(
+            [
+                selected[("cantharellus_cibarius_sl", "la_masella", day)][
+                    "candidate"
+                ]["estimator_id"]
+                for day in range(1, 8)
+            ],
+            ["random_forest", "extra_trees", "random_forest", "extra_trees", "random_forest", "extra_trees", "random_forest"],
+        )
+        for day in range(1, 8):
+            audit = selected[("cantharellus_cibarius_sl", "la_masella", day)][
+                "weekly_model_selection"
+            ]
+            self.assertEqual(audit["status"], "daily_fallback")
+            self.assertEqual(audit["reason"], "no_reliable_lag_family_covering_week")
 
     def test_scoped_staging_cleanup_does_not_remove_another_job(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -1382,6 +1546,52 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
 class WeeklyPrecomputeBatchTests(unittest.TestCase):
     runtime = "sha256:" + "c" * 64
     issue_date = date(2026, 8, 30)
+
+    def test_weekly_lag_policy_and_cutoff_survive_sqlite_and_all_views(self) -> None:
+        selections = self.sealed_selections()
+        for row in selections:
+            row["evidence"]["wilson_lower_95_observations"] = .65
+            fixed = {**row["candidate"], "temporal_contract_id": "fixed_gap_7d_biology_v4", "horizon_days": 7}
+            row["candidate_chain"] = [
+                {"candidate": fixed, "evidence": {"wilson_lower_95_observations": .99}},
+                {"candidate": copy.deepcopy(row["candidate"]), "evidence": copy.deepcopy(row["evidence"])},
+            ]
+        identity = replace(self.identity(), model_selection_policy=WEEKLY_AGGREGATE_MODEL_SELECTION)
+        class WeeklyService(self.FakeService):
+            def execute(self, request, *, progress=None, shared_context=None):
+                response = super().execute(request, progress=progress, shared_context=shared_context)
+                sp = response["data"]["species"]["boletus_edulis"]
+                for comparisons in (
+                    sp.get("multiversion_comparisons", {}),
+                    sp.get("model_comparisons", {}).get("montseny", {}),
+                ):
+                    for day, payload in comparisons.items():
+                        offset = (date.fromisoformat(day) - self.owner.issue_date).days + 1
+                        resolution = copy.deepcopy(shared_context["operational_resolution_index"][("boletus_edulis", "montseny", offset)])
+                        payload["reliability_selection"] = resolution
+                        if "operational_comparison" in payload:
+                            payload["operational_comparison"]["reliability_selection"] = resolution
+                return response
+        service = WeeklyService(self)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "weekly.sqlite3"
+            build_weekly_artifact(path, identity=identity, predictor_service=service, operational_selections=selections)
+            with sqlite3.connect(path) as connection:
+                members = connection.execute("select target_date,temporal_contract_id,horizon_days from operational_members order by target_date").fetchall()
+                self.assertEqual([row[2] for row in members], list(range(1, 8)))
+                self.assertTrue(all(row[1].startswith("lag_event") for row in members))
+                self.assertEqual(connection.execute("pragma freelist_count").fetchone()[0], 0)
+            for view in ("query", "week", "recommender"):
+                request = next(row for row in service.calls if row["view"] == view and (view != "query" or row["area_id"]))
+                hit = lookup_active_artifact(path, runtime_fingerprint=self.runtime, request=request)
+                self.assertTrue(hit.hit, (view, hit.reason))
+                self.assertFalse(hit.stale)
+                sp = hit.response["data"]["species"]["boletus_edulis"]
+                comparisons = sp["multiversion_comparisons"] if view == "query" else sp["model_comparisons"]["montseny"]
+                for payload in comparisons.values():
+                    audit = payload["reliability_selection"]["weekly_model_selection"]
+                    self.assertEqual(audit["policy"], WEEKLY_AGGREGATE_MODEL_SELECTION)
+                    self.assertEqual(audit["common_weather_cutoff"], "2026-08-29")
 
     class FakePredictor:
         def areas_with_species_observations(self):

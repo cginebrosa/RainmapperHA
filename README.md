@@ -58,7 +58,7 @@ Variables/opciones principales:
 - `meteocat_max_attempts`: reintentos de peticiones Meteocat/Socrata; por defecto `3`.
 - `max_threads`: threads Wunderground; por defecto/recomendado `3` en HA tras validacion operativa. Usar `1` si se quiere una configuracion conservadora ante timeouts o carga.
 - `max_attempts`: reintentos Wunderground.
-- `wunderground_monthly_api`: usa por defecto la API de observaciones diarias de Wunderground con el intervalo mensual legacy.
+- `wunderground_monthly_api`: usa por defecto la API de observaciones diarias de Wunderground para refrescar el mes natural actual; durante los días 1--7 también refresca el mes anterior.
 - `wunderground_weekly_api`: conserva como alternativa una ventana de hoy y los seis dias anteriores, incluso si cruza de mes. No puede activarse a la vez que `wunderground_monthly_api`; con ambas desactivadas se usa el scraper HTML.
 - `wunderground_encoding_order`: orden validado de las variantes CDN. El valor predeterminado es `gzip,identity,deflate`; si una respuesta que incluye hoy está atrasada, se prueban las siguientes y se conserva la de timestamp más reciente.
 

@@ -2745,6 +2745,7 @@ from rainmapper_core.sources.wunderground.daily_api import (
     build_monthly_rows,
     cache_encodings,
     fetch_daily_observations,
+    monthly_query_date_range,
     query_date_range,
     station_id_from_url,
 )
@@ -2841,6 +2842,15 @@ def cached_wunderground_station_metadata(weather_station_url):
 
 
 def wunderground_api_range():
+    explicit_dates = bool(
+        _wunderground_local_start_date and _wunderground_local_end_date
+    )
+    if _wunderground_monthly_api:
+        return monthly_query_date_range(
+            START_DATE,
+            END_DATE,
+            explicit_dates=explicit_dates,
+        )
     return query_date_range(
         START_DATE,
         END_DATE,

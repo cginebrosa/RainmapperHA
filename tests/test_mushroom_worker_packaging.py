@@ -213,6 +213,7 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn('RAINMAPPER_WORKER_API_ENABLED: "true"', compose)
         self.assertIn('RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED: "true"', compose)
         self.assertIn('RAINMAPPER_MUSHROOM_REBUILD_PIPELINE: "shared"', compose)
+        self.assertIn('GMAP_API_KEY: ${GMAP_API_KEY:-}', compose)
         self.assertIn("name: rainmapper-local-compute", compose)
         self.assertIn("docker network create rainmapper-local-compute", start)
         self.assertIn("UI URL for your browser", start)

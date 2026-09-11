@@ -1,6 +1,173 @@
 # Decisions
 
-## 2026-09-08 - [VIGENTE][RELEASE] HA 0.2.298 y alta automática de especies
+## 2026-09-11 - [VIGENTE][RELEASE] HA 0.2.302 publicada
+
+- Publicación autorizada por el usuario tras aceptar la UI local y cerrar la
+  auditoría del contador con la decisión de conservarlo sin cambios.
+- Tags GHCR `0.2.302` y `latest` verificados con el mismo índice
+  `sha256:cb6b54e9b32727521567ccaedb18dcdaf509a9be6ed710acb0d43a42da058e4e`;
+  plataformas `linux/amd64` y `linux/arm64`. Script de publicación terminado
+  con código 0. Instalación en HA real pendiente de confirmación del usuario.
+- Incluye continuidad semanal opcional lag h1–h7 con corte común y fallback
+  diario auditado; meteorología observada y presentación compacta; intervalo
+  mensual Wunderground corregido y contadores de filas totales/actualizadas.
+- Smoke completo: 1.384 tests correctos en 57,548 s. Comparación del código
+  efectivo: 144 Python de HA y 76 del worker, sin diferencias. Precálculo
+  persistido completo: 553 celdas, 61 parejas con familia semanal constante,
+  seis con fallback diario y doce sin miembros fuera de temporada.
+- Sin entrenamiento ni precálculo nuevo. Worker local conserva `1.1.1`,
+  anuncia capacidad semanal v2 y mantiene ambas URL y huellas de configuración.
+  No se publica worker en GHCR. Observaciones del usuario excluidas del commit.
+- La opción semanal está desactivada por defecto. Su activación requiere un
+  worker que anuncie `predictor_weekly_model_selection_v2`.
+
+## 2026-09-11 - [VIGENTE][PREDICTOR] Meteorología observada desde los datos guardados
+
+- El usuario aprueba mostrar el periodo meteorológico y la suma de lluvia del
+  resultado seleccionado, con desplegable «Meteorología observada»: barras de
+  lluvia y curvas de temperatura/humedad mínimas y máximas, según los datos que
+  realmente conserva cada versión. La última lluvia positiva se muestra solo
+  cuando existe detalle diario; no se confunde con un evento de al menos 5 mm.
+- Versiones con acumulados muestran sus periodos y estadísticas disponibles,
+  sin reconstruir días ficticios. Los huecos no equivalen a cero y cortan las
+  curvas. No se consulta el tiempo actual del mapa ni se añade viento externo.
+- Se mantiene abierto/cerrado al cambiar de fecha mediante `sessionStorage`.
+  El registro de listeners pertenece a cada raíz documental, no a `window`:
+  las tarjetas semanales sustituyen el documento con `document.open/write`.
+  Se verificó el controlador real con tres clics sucesivos, conservando el
+  estado elegido y la interacción del gráfico; una navegación completa de
+  navegador no sustituye esa prueba.
+  Se eliminan la leyenda verde/gris/rayado, la instrucción de tocar/señalar y
+  la línea «Última lluvia de al menos 5 mm» de la tarjeta, según las correcciones
+  expresas del usuario. Los valores aparecen al interactuar con el gráfico.
+- Es solo presentación: no modifica modelos, probabilidades, precálculo ni
+  contrato de transporte. Se validaron 341 tests, interacción/navegación en
+  Chrome móvil y los 469 resultados persistidos de cinco versiones.
+- El usuario ya lanzó el precálculo: revisión 54 activa, política
+  `weekly_lag_event_v2`, 553 celdas y 469 miembros del 11 al 17 de septiembre.
+  Codex no lanzó trabajos. Queda completar la auditoría detallada del selector
+  antes de una eventual release, que sigue sin autorización.
+
+## 2026-09-11 - [VIGENTE][PREDICTOR] Semana de retardo h1--h7 con corte común; el usuario lanza el precálculo
+
+- El precálculo local confirmó que una única familia puede mantenerse durante
+  la semana, pero también que una familia `fixed_gap_7d` aplica a cada fecha su
+  propio corte `fecha - 7`.
+- En `boletus_aereus/olvan`, el 13 de septiembre corta el día 6 e ignora los
+  56,1 mm del día 9, mientras el 16 de septiembre corta el día 9 y sí los ve.
+  No falta meteorología: es la semántica correcta del contrato fijo, pero no
+  sirve como ancla temporal de una semana emitida de una vez.
+- La corrección aceptada e implementada restringe el agregado semanal a una familia
+  `lag_event`, mantener versión/perfil/estimador y usar horizontes h1--h7 sobre
+  el mismo último día meteorológico completo. `fixed h7` seguirá disponible en
+  selección diaria y detalle técnico.
+- No se autoriza retargetear `fixed h7` con datos recientes: equivaldría a
+  cambiar su contrato de entrenamiento.
+- Se conserva la decisión vigente de `daily_fallback` auditado si no existe
+  familia común. La aclaración del usuario del 11 de septiembre descarta
+  reabrirla como requisito de esta corrección: no se propone abstención semanal
+  completa. El fallback diario puede usar `fixed h7` con su corte original,
+  pero debe identificarse como excepción sin continuidad ni corte común.
+- Revisión de solo lectura del 11 de septiembre: el catálogo sellado local de
+  `operational_20260909T184116Z` contiene tres familias `lag_event` comunes para
+  Aereus/Olvan, V6w de 30/60/90 días con `smooth_shared_logistic_v1`. Los tres
+  artefactos existen y el manifiesto declara h1--h7. Este caso no necesita
+  fallback. El plan detallado fue aceptado; pasan 521 pruebas y seis regresiones
+  adicionales dentro de cada contenedor reconstruido.
+- Se usa política `weekly_lag_event_v2` y capacidad de worker
+  `predictor_weekly_model_selection_v2`. El artefacto semanal anterior se
+  conserva y se muestra desactualizado con aviso específico; no satisface la
+  identidad nueva. Los artefactos diarios conservan su identidad.
+- El usuario autoriza implementación, pruebas y reconstrucción de HA local y
+  worker, pero ordena detenerse justo antes de lanzar el precálculo: lo lanzará
+  él. La validación del nuevo SQLite y cualquier release siguen pendientes.
+  No entrenar ni publicar por esta autorización.
+- El diagnóstico y la propuesta completa están en
+  `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`.
+
+## 2026-09-10 - [VIGENTE][PREDICTOR] La continuidad semanal es opcional, prioriza cobertura y no cambia de familia ante un veto
+
+- `predictor_weekly_model_selection=false` conserva selección independiente por
+  día. Con `true`, cada pareja especie--área usa una familia común durante los
+  siete días.
+- La selección maximiza primero los días que superan aplicabilidad y desempata
+  con evidencia fiable agregada. No optimiza la probabilidad predicha ni cuenta
+  simplemente victorias diarias.
+- Un veto posterior produce abstención en ese día sin saltar a otra familia.
+  Si no existe familia común, la implementación actual usa `daily_fallback` y
+  lo deja auditado sin abortar el resto del precálculo.
+- La política forma parte de la identidad del SQLite. Cambiarla no requiere
+  entrenamiento, pero sí otro precálculo. El worker debe anunciar
+  `predictor_weekly_model_selection_v1`.
+- Esta decisión está implementada y validada en HA local/worker, pero continúa
+  sólo en el worktree posterior a `0.2.301`. La corrección temporal y la
+  evolución de capacidad del 11 de septiembre están descritas en la decisión
+  anterior; requieren un nuevo precálculo antes de aceptar una release.
+
+## 2026-09-10 - [VIGENTE][WUNDERGROUND] Modos mensual/semanal separados y defensa frente a variantes CDN antiguas
+
+- Los modos API mensual y semanal son mutuamente excluyentes. El mensual es el
+  predeterminado; el semanal conserva hoy y los seis días naturales anteriores.
+  Un backfill administrativo con fechas explícitas prevalece sobre ambos.
+- La semántica mensual acordada es día 1--hoy y, durante los días 1--7, también
+  el mes anterior completo. Esta última corrección está en el worktree y aún no
+  forma parte de HA real `0.2.301`.
+- Cuando el intervalo incluye hoy, el cliente detecta antigüedad mediante el
+  timestamp real de observación, prueba variantes de `Accept-Encoding` y guarda
+  sólo la respuesta más reciente. Si todas son antiguas, lo registra; el
+  scraper HTML permanece como fallback final.
+- El orden de `gzip`, `identity` y `deflate` es configurable mediante una
+  permutación cerrada validada al guardar y al arrancar. No se declara un
+  encoding permanentemente correcto: Weather.com puede cambiar qué variante
+  de caché está fresca.
+
+## 2026-09-10 - [VIGENTE][OBSERVABILIDAD] Total y actualización son contadores distintos; los precálculos recientes comparten límite ligero
+
+- `total_rows` representa las filas conservadas tras archivar y `updated_rows`
+  las filas aportadas por el lote pendiente. `rows` se mantiene como alias
+  compatible del total.
+- Los contadores ya calculados por el archivador se publican en
+  `source_status.json`; el panel no debe volver a recorrer los CSV para
+  obtenerlos.
+- Al activar un precálculo nuevo no se eliminan de `Trabajos recientes` todos
+  los automáticos terminales anteriores. Comparten la retención ligera global
+  de 50 trabajos; la retención de SQLite y otros artefactos pesados es otra
+  política.
+- La retención ligera está publicada en `0.2.301`; las dos columnas de filas
+  están implementadas y probadas en local, pendientes de release.
+
+## 2026-09-09 - [VIGENTE][GIS] RGE ALTI Francia es el cuarto fallback DEM y el worker reutiliza el dataset por contenido
+
+- La cadena operativa es Catalunya 5 m, Andorra 5 m, IGN MDT25 de
+  Puertomingalvo y RGE ALTI Francia 5 m. La primera muestra válida decide.
+- El TIFF francés definitivo usa EPSG:2154 y SHA-256
+  `3e86d6c2ee4e3677dd895de369045b8f49c02a23902771692177b7a60256860f`.
+  HA local obtuvo muestras válidas de altitud, pendiente y orientación en las
+  microáreas francesas probadas.
+- El snapshot incluye el DEM francés sólo si existe. Al cambiar la generación,
+  el worker enlaza objetos GIS idénticos por SHA-256 y descarga únicamente los
+  ausentes; una nueva identidad lógica no implica duplicar físicamente todos
+  los ficheros.
+- Infoclimat no se incorpora como fuente nueva inicial porque su cobertura útil
+  en Font-Romeu--Quérigut no justifica otra integración. Meteo-France queda como
+  diseño pendiente de decidir frente a la cobertura Wunderground existente.
+
+## 2026-09-10 - [VIGENTE][RELEASE] HA 0.2.301 publicada e instalada
+
+- HA `0.2.301` reemplaza a `0.2.300` y `0.2.298`. Los tags GHCR `0.2.301` y
+  `latest` comparten el índice
+  `sha256:bd89eb8635827e1f0403505bc06a6d9ce02e5797348e7ab44a9b88e73badc8ba`
+  con manifests `linux/amd64` y `linux/arm64`.
+- Añade el orden configurable de variantes de caché Wunderground y conserva el
+  historial ligero de precálculos automáticos anteriores.
+- El panel y el log de HA real mostraron `0.2.301`; el usuario confirmó runner,
+  entrenamiento y precálculo posteriores correctos.
+- El worker sigue una secuencia independiente y permanece en `1.1.1`; no se
+  publica mediante GHCR.
+- Los cambios posteriores de selección semanal, contadores de filas y rango
+  mensual están sólo en el worktree/local y no forman parte de esta release.
+
+## 2026-09-08 - [REEMPLAZADA][RELEASE] HA 0.2.298 y alta automática de especies
 
 - GHCR `0.2.298` y `latest` comparten el índice
   `sha256:0c0bb47d532146c9cfed16f02de277c27c917207a5765c032c44b9933e0f2785`
@@ -16,6 +183,8 @@
   forma implícita: fallan cerradas y requieren una decisión explícita.
 - El circuito local terminó con 714/714 ajustes, nueve especies y precálculo
   activo de 462 miembros. El smoke de release pasó 1.335 pruebas.
+- La release fue reemplazada por `0.2.300` y después `0.2.301`; la decisión de
+  alta automática y persistencia del catálogo de tuning continúa vigente.
 
 ## 2026-09-08 - [REEMPLAZADA][RELEASE] HA 0.2.297 y worker local 1.1.0
 

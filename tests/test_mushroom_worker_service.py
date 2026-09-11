@@ -968,6 +968,7 @@ class MushroomWorkerServiceTests(unittest.TestCase):
         self.assertIn("weather_parquet_v1", result["capabilities"])
         self.assertIn("partitioned_weather_history_v1", result["capabilities"])
         self.assertIn("terminal_job_cleanup_v1", result["capabilities"])
+        self.assertIn("predictor_weekly_model_selection_v2", result["capabilities"])
         self.assertIn("predictor_multiversion_v2", result["capabilities"])
         self.assertIn("ml_multiversion_training_v2", result["capabilities"])
         self.assertNotIn("predictor_multiversion_v1", result["capabilities"])

@@ -3,6 +3,7 @@
   "timezone": "Europe/Madrid",
   "ui_language": "es",
   "schedule_enabled": false,
+  "predictor_weekly_model_selection": true,
   "scheduled_action": "all",
   "publish_to_www": false,
   "nototals": true,
@@ -12,8 +13,10 @@
   "months_interval": 1,
   "backfill_pause_seconds": 10,
   "backfill_station_filter": "",
-  "create_meteoclimatic": false,
-  "create_meteocat": false,
+  "partitioned_weather_history": true,
+  "meteoclimatic_pattern": "ESCAT, ESARA, ESCLM, ESNAF, ESEUS, ESPVA",
+  "create_meteoclimatic": true,
+  "create_meteocat": true,
   "create_wunderground": true,
   "create_aemet": true
 }

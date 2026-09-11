@@ -37,6 +37,48 @@ def load_web_server_module():
 
 
 class AuthDeviceLimitTests(unittest.TestCase):
+    def test_weekly_precompute_requires_worker_policy_capability(self) -> None:
+        base_capability = (
+            self.web_server.mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY
+        )
+        weekly_capability = (
+            self.web_server.mushroom_worker_registry.PREDICTOR_WEEKLY_MODEL_SELECTION_CAPABILITY
+        )
+        weekly_policy = (
+            self.web_server.mushroom_predictor_precompute.WEEKLY_AGGREGATE_MODEL_SELECTION
+        )
+
+        self.assertFalse(
+            self.web_server.predictor_precompute_worker_is_compatible(
+                {"capabilities": [base_capability]},
+                model_selection_policy=weekly_policy,
+            )
+        )
+        self.assertTrue(
+            self.web_server.predictor_precompute_worker_is_compatible(
+                {"capabilities": [base_capability, weekly_capability]},
+                model_selection_policy=weekly_policy,
+            )
+        )
+        self.assertFalse(
+            self.web_server.predictor_precompute_worker_is_compatible(
+                {"capabilities": [base_capability, "predictor_weekly_model_selection_v1"]},
+                model_selection_policy=weekly_policy,
+            )
+        )
+
+    def test_weekly_fallback_and_previous_policy_are_visible_without_statistics(self) -> None:
+        ui = self.web_server.mushroom_predictor_ui
+        comparison = {"reliability_selection": {"weekly_model_selection": {"status": "daily_fallback"}}}
+        with mock.patch.object(ui, "_lbl", side_effect=lambda key: key):
+            self.assertIn("ui.predictor_weekly_daily_fallback", ui._compact_deciding_reliability_html(comparison))
+            self.assertNotIn("pred-weekly-fallback", ui._compact_deciding_reliability_html({}))
+            token = ui._prediction_timing.set({"precompute_status": "outdated_used", "precompute_previous_weekly_policy": True})
+            try:
+                self.assertIn("ui.predictor_precompute_previous_weekly_policy", ui._precompute_status_badge())
+            finally:
+                ui._prediction_timing.reset(token)
+
     def setUp(self) -> None:
         local_compute = mock.patch.dict(
             os.environ, {"RAINMAPPER_LOCAL_HA_COMPUTE_ENABLED": "true"}
@@ -4917,9 +4959,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("ui.predictor_consensus_gap", rendered)
         self.assertIn("LR/RF", rendered)
         self.assertNotIn("ui.predictor_consensus_unavailable", rendered)
-        self.assertIn("ui.predictor_significant_rain_event", rendered)
-        self.assertIn("11/08/2026 · 12.4 mm IDW · hace 11 días · umbral ≥ 5 mm", rendered)
-        self.assertIn("ui.predictor_help_significant_rain_event", rendered)
+        self.assertNotIn("ui.predictor_significant_rain_event", rendered)
+        self.assertNotIn("11/08/2026 · 12.4 mm IDW · hace 11 días · umbral ≥ 5 mm", rendered)
+        self.assertNotIn("ui.predictor_help_significant_rain_event", rendered)
         self.assertIn("ui.predictor_advisory_fruiting_timing", rendered)
         self.assertIn("ui.predictor_interpretation_timing_optimal", rendered)
         self.assertIn("ui.predictor_help_advisory_fruiting_timing", rendered)
@@ -5277,6 +5319,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('class="source-alert"', html)
         self.assertIn('name="source_update" value="AEMET"', html)
         self.assertIn("Update only", html)
+        self.assertIn("Total rows", html)
+        self.assertIn("22774", html)
+        self.assertIn("Updated rows", html)
 
         ok_html = self.web_server.source_status_card(
             "AEMET",
@@ -5290,6 +5335,28 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertNotIn("AEMET 429 in last 24h", ok_html)
         self.assertNotIn("Consecutive AEMET 429 runs", ok_html)
+
+    def test_source_status_table_shows_compact_total_and_run_counts(self) -> None:
+        html = self.web_server.source_status_table(
+            [
+                (
+                    "AEMET",
+                    {
+                        "status": "OK",
+                        "rows": 6658,
+                        "total_rows": 145603,
+                        "updated_rows": 6658,
+                        "stations": 838,
+                    },
+                )
+            ]
+        )
+
+        self.assertIn('class="control-table source-status-table"', html)
+        self.assertIn("Total rows", html)
+        self.assertIn("Updated rows", html)
+        self.assertIn("145603", html)
+        self.assertIn("6658", html)
 
     def test_aemet_source_card_shows_aemet_timing_breakdown(self) -> None:
         html = self.web_server.source_status_card(

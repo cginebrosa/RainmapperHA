@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.302
+
+- Add optional weekly Predictor selection using one `lag_event` family with
+  horizons h1–h7 and a common weather cutoff; expose audited daily fallback
+  when no complete family is available and require worker capability v2.
+- Show observed model-input weather with daily rainfall bars, temperature and
+  humidity charts, accessible tables, and persistent expansion across dates.
+- Compact the prediction card and ignore traces below 0.01 mm when displaying
+  the latest rain date, without changing model inputs or the dry-day counter.
+- Correct normal Wunderground monthly refreshes to cover the calendar month
+  and include the preceding month during its first seven days.
+- Show total and updated source row counts using existing archive counters.
+
 ## 0.2.301
 
 - Expose the preferred Wunderground `Accept-Encoding` retry order as a validated

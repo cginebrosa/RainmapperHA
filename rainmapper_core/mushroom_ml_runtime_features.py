@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Mapping
 
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
@@ -165,6 +165,7 @@ def build_runtime_features(
                 "area_id": area_id,
                 "target_date": target_date.isoformat(),
                 "horizon_days": model_ref.horizon_days,
+                "cutoff_date": (target_date - timedelta(days=model_ref.horizon_days)).isoformat(),
                 "diagnostic_weather_summary": raw.diagnostic_weather_summary(area_series),
             },
         }

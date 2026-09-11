@@ -45,6 +45,9 @@ Contenido esperado:
 - `stations.txt`: lista de estaciones Wunderground que quieres descargar.
 - `ignore_stations_tomap.txt`: lista opcional de estaciones que no deben aparecer en los GeoJSON usados por Leaflet/MapLibre.
 - `Data/source_status.json`: ultimo estado de actualizacion por fuente.
+  Cuando el histórico particionado cierra los lotes pendientes, añade el total
+  retenido en el CSV vivo y las filas procesadas en esa ejecución usando los
+  contadores del propio archivador, sin volver a recorrer los CSV.
 - `users.json`: usuarios manuales para el visor MapLibre protegido. Si no existe, la app lo crea copiando `/app/users.example.json`.
 - `devices.json`: dispositivos autorizados. Si no existe, la app lo crea como JSON vacio.
 
@@ -286,6 +289,7 @@ timezone: Europe/Madrid
 schedule_enabled: true
 external_worker_connections_enabled: false
 external_worker_rebuilds_enabled: false
+predictor_weekly_model_selection: false
 ml_storage_reconciliation_apply: false
 schedule_time: "23:50"
 schedule_days: all
@@ -375,6 +379,15 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
   Permite que los workers emparejados ejecuten el mantenimiento operativo
   completo y que HA autopromocione conjuntamente sus salidas verificadas.
   Mantenerla desactivada si solo se quiere diagnosticar la conectividad.
+- `predictor_weekly_model_selection`: si se activa, cada pareja especie--area
+  usa en el precalculo una familia de modelo elegida primero por el numero de
+  dias aplicables y despues por su fiabilidad agregada. La familia no cambia
+  dentro de la semana: un veto diario produce abstencion. Se elige entre
+  familias de retardo con modelos para uno a siete dias; todos usan la
+  meteorologia hasta el dia anterior a la emision. Si no hay una familia
+  completa, se conserva la seleccion diaria y se muestra esa excepcion.
+  Cambiarla no requiere entrenamiento, pero si un nuevo precalculo. Un calculo
+  semanal anterior a esta correccion muestra un aviso hasta actualizarlo.
 - `ml_storage_reconciliation_apply`: aplica la política auditada de retención
   al arrancar Rainmapper y en los puntos terminales del ciclo de vida. Su valor
   predeterminado es `false`: genera el informe `dry-run`, pero no elimina nada.
@@ -395,7 +408,7 @@ Estas son las opciones declaradas en `rainmapper-app/config.yaml`:
 - `maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius`, `maplibre_heatmap_intensity`: valores iniciales del heatmap MapLibre para dispositivos sin preferencias guardadas. Opacidad, radio e intensidad se expresan como porcentaje. El visor incluye una accion para restaurar esos defaults desde Settings > Heatmap.
 - `maplibre_estimated_field_enabled`, `maplibre_estimated_field_opacity`, `maplibre_estimated_field_radius`, `maplibre_estimated_field_quality`, `maplibre_estimated_field_smoothing`, `maplibre_estimated_field_altitude_correction`, `maplibre_estimated_field_dem_zoom`: valores iniciales de la capa experimental `IDW` para dispositivos sin preferencias guardadas. La correccion de altitud usa DEM externo Terrarium/Mapzen por celda y solo afecta a temperatura; no se aplica a lluvia, humedad ni viento.
 - `maplibre_estimated_field_radius_*_km`, `maplibre_estimated_field_max_radius_km`, `maplibre_estimated_field_grid_*_cell_km`, `maplibre_estimated_field_smoothing_*_power`, `maplibre_estimated_field_temperature_lapse_rate_c_per_100m`: parametros tecnicos de la interpolacion IDW. Se sirven en `/protected/maplibre/config.js` y se actualizan al reiniciar la app.
-- `max_threads`, `max_attempts`, `wunderground_weekly_api`, `wunderground_monthly_api`, `wunderground_encoding_order`, `wunderground_full_log`: concurrencia, reintentos, alcance de la API, orden de variantes CDN y logging de Wunderground. El modo mensual es el predeterminado; semanal y mensual son mutuamente excluyentes y con ambos desactivados se usa el scraper HTML. `wunderground_encoding_order` permite escoger uno de los seis ordenes posibles de `gzip`, `identity` y `deflate`; Home Assistant rechaza otros valores al guardar y el runner vuelve a validarlo al arrancar. Cuando una consulta incluye hoy, Rainmapper compara el timestamp UTC de la ultima observacion con la hora real y, si supera cuatro horas de antiguedad, prueba las variantes en el orden configurado. El resumen y la tarjeta de estado muestran reintentos, recuperaciones y respuestas que continuan antiguas.
+- `max_threads`, `max_attempts`, `wunderground_weekly_api`, `wunderground_monthly_api`, `wunderground_encoding_order`, `wunderground_full_log`: concurrencia, reintentos, alcance de la API, orden de variantes CDN y logging de Wunderground. El modo mensual es el predeterminado: refresca el mes natural actual y, durante los dias 1--7, tambien el mes anterior completo. El modo semanal solicita hoy y los seis dias anteriores aunque cruce de mes. Semanal y mensual son mutuamente excluyentes y con ambos desactivados se usa el scraper HTML. Las fechas locales explicitas de un backfill prevalecen sobre estas ventanas ordinarias. `wunderground_encoding_order` permite escoger uno de los seis ordenes posibles de `gzip`, `identity` y `deflate`; Home Assistant rechaza otros valores al guardar y el runner vuelve a validarlo al arrancar. Cuando una consulta incluye hoy, Rainmapper compara el timestamp UTC de la ultima observacion con la hora real y, si supera cuatro horas de antiguedad, prueba las variantes en el orden configurado. El resumen y la tarjeta de estado muestran reintentos, recuperaciones y respuestas que continuan antiguas.
 - `publish_to_www`: activa la generacion/publicacion legacy en `/config/www` de Bokeh/Google Maps y Leaflet publico. Por defecto esta desactivado.
 - `gmap_api_key`: clave Google Maps.
 - `aemet_api_key`: clave AEMET OpenData.

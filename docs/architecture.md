@@ -100,7 +100,7 @@ Hay varios entry points segun entorno:
 - Ruta: `rainmapper_core/rainmapper.py`; entrypoint `python -m rainmapper_core.rainmapper`.
 - Responsabilidad: descarga Meteocat, Meteoclimatic, Wunderground y AEMET opcional; actualiza historicos; escribe estado por fuente; metricas Wunderground.
 - Dependencias: pandas, requests, BeautifulSoup, googlemaps y helpers de fuente en `rainmapper_core/sources/`.
-- Relacion: alimenta `rainmapper_core.bokeh_maps` y `rainmapper_core.geojson`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global. Wunderground usa API diaria JSON como fuente primaria y scraper HTML como fallback; el estado de fuente expone `API fallback errors`.
+- Relacion: alimenta `rainmapper_core.bokeh_maps` y `rainmapper_core.geojson`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global. Wunderground usa la API JSON `history/daily` como fuente primaria y el scraper HTML como fallback. La API admite modos mensual y semanal mutuamente excluyentes; cuando una consulta incluye hoy, el cliente compara por timestamp variantes CDN separadas por `Accept-Encoding` y conserva exclusivamente la respuesta mas reciente.
 
 ### Autocuración oficial de huecos
 
@@ -353,12 +353,14 @@ Hay varios entry points segun entorno:
   validación estricta por hash bruto.
 - `mushroom_ml_biology_v3_evaluation.py` compara cualquier número de versiones
   sobre filas y particiones idénticas. `lag_event` ajusta un modelo por
-  especie+contrato+estimador; los horizontes 1/2/3/7 filtran las probabilidades
+  especie+contrato+estimador; los horizontes 1..7 filtran las probabilidades
   del mismo hold-out y nunca provocan reentrenamiento.
-- El GIS de elevación usa una cadena determinista: DEM ICGC Catalunya 5 m como
-  principal y MDE oficial de Andorra 5 m como fallback ante ausencia/`NoData`.
-  El derivado andorrano operativo está en metros y con EPSG:27563 embebido; se
-  manifiesta junto al resto del dataset GIS y el worker lo reutiliza por hash.
+- El GIS de elevación usa una cadena determinista: DEM ICGC Catalunya 5 m,
+  MDE oficial de Andorra 5 m, IGN MDT25 de Puertomingalvo y RGE ALTI Francia
+  5 m. Cada fuente actúa como fallback ante ausencia/`NoData` de las anteriores.
+  El derivado andorrano operativo está en metros y con EPSG:27563 embebido; el
+  francés usa EPSG:2154. Ambos se manifiestan con el resto del dataset GIS y el
+  worker reutiliza por SHA-256 los objetos que no cambian.
   Las únicas raíces operativas son `mushroom-GIS/` en el laboratorio y
   `/media/rainmapper/mushroom-GIS/` en HA (más los fallbacks explícitos del
   resolver). `mushroom-GIS-HA` no es una capa arquitectónica ni un staging.
@@ -494,6 +496,17 @@ Hay varios entry points segun entorno:
   silenciosamente sobre la RPi4. La navegación no solicita reconstrucciones:
   por ahora el precálculo se lanza manualmente o de forma asíncrona al acabar el
   runner meteorológico.
+  La opción `predictor_weekly_model_selection` incorpora una política alternativa
+  en la identidad del artefacto: una familia común por especie/área, máxima
+  cobertura de aplicabilidad y evidencia agregada como desempate. El worker debe
+  anunciar `predictor_weekly_model_selection_v2`. La política
+  `weekly_lag_event_v2` admite solo familias de retardo completas h1--h7, con
+  corte común en el día anterior a la emisión. Un veto diario abstiene sin
+  cambiar de familia. Sin familia completa se conserva el fallback diario
+  explícito. Los SQLite `weekly_aggregate` anteriores se leen como
+  desactualizados, con aviso de la regla temporal antigua. La implementación
+  y su validación local previa al precálculo están en
+  `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`.
 
 ### Flujo de setas v0
 - Rutas principales:
@@ -601,7 +614,7 @@ Persistencia por CSV:
 - CSV preparados para mapas en `Tomap/01_Tomap_Last_day.csv`, `02_Tomap_Last_week.csv`, etc.
 - Ultimos registros en `Tomap/LastXX_rains.csv`; por defecto `Last30_rains.csv`, configurable con `RAINMAPPER_LAST_RAINS_HISTORY` o la opcion HA `last_rains_history`.
 - Metricas Wunderground en `Data/metricas_wunderground.csv`.
-- Estado de fuentes en `Data/source_status.json`, con entradas para Meteoclimatic, Meteocat, Wunderground y AEMET. Estados actuales: `OK`, `DISABLED`, `STALE`, `NOK` y `PENDING`. `STALE` indica que la fuente fallo pero se reutilizo incremental previo. El payload puede incluir `duration_seconds`, `started_at`, `finished_at`, `rows`, `stations` y `timings`; los subtiempos actuales se usan especialmente para Meteocat.
+- Estado de fuentes en `Data/source_status.json`, con entradas para Meteoclimatic, Meteocat, Wunderground y AEMET. Estados actuales: `OK`, `DISABLED`, `STALE`, `NOK` y `PENDING`. `STALE` indica que la fuente fallo pero se reutilizo incremental previo. El payload puede incluir `duration_seconds`, `started_at`, `finished_at`, `rows`, `total_rows`, `updated_rows`, `stations` y `timings`; `rows` es alias compatible de `total_rows`, mientras `updated_rows` cuenta las filas aportadas por el lote archivado. Los subtiempos actuales se usan especialmente para Meteocat.
 - GeoJSON generados en `PublicData/*.geojson`. MapLibre protegido los consume desde `/protected/maplibre/data/*` para exigir login. Leaflet recibe copia publica en `/local/rainmapper-leaflet/data` solo cuando `publish_to_www=true`.
 
 Campos relevantes detectados o usados:

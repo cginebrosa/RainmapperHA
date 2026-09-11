@@ -37,6 +37,7 @@ from rainmapper_core.mushroom_prediction_interpretation import (
 )
 
 import mushroom_profiles_ui
+import mushroom_predictor_weather_ui
 
 
 # Module-level predictor cache — lazy-loaded, survives across requests
@@ -835,6 +836,8 @@ def _precompute_status_badge() -> str:
     if label_key is None:
         return ""
     label = _lbl(label_key)
+    if timing.get("precompute_previous_weekly_policy"):
+        label = _lbl("ui.predictor_precompute_previous_weekly_policy")
     generated_at = str(timing.get("precompute_generated_at") or "").strip()
     if status == "outdated_used" and generated_at:
         label = label.replace("{datetime}", generated_at)
@@ -1654,6 +1657,29 @@ def _compact_conservative_reliability(
 def _compact_deciding_reliability_html(
     comparison: dict[str, Any] | None,
 ) -> str:
+    return _weekly_selection_notice(comparison) + _compact_deciding_reliability_evidence_html(comparison)
+
+
+def _weekly_selection_notice(comparison: dict[str, Any] | None) -> str:
+    if not isinstance(comparison, dict):
+        return ""
+    selection = comparison.get("reliability_selection") or {}
+    audit = selection.get("weekly_model_selection") if isinstance(selection, dict) else None
+    if not isinstance(audit, dict) or audit.get("status") != "daily_fallback":
+        return ""
+    return (
+        '<span class="pred-weekly-fallback">'
+        + _tooltip_text_block(
+            _lbl("ui.predictor_weekly_daily_fallback"),
+            "ui.predictor_help_weekly_daily_fallback",
+        )
+        + '</span> '
+    )
+
+
+def _compact_deciding_reliability_evidence_html(
+    comparison: dict[str, Any] | None,
+) -> str:
     full_evidence = _compact_conservative_reliability(comparison)
     if not full_evidence or not isinstance(comparison, dict):
         return ""
@@ -1962,31 +1988,6 @@ def _render_interpretation_card(
         if statistical_details
         else ""
     )
-    rain_event_rows: list[str] = []
-    for event in interpretation.get("significant_rain_events") or []:
-        if not isinstance(event, dict):
-            continue
-        try:
-            event_day = date.fromisoformat(str(event["date"]))
-            amount = float(event["amount_mm"])
-            days_since = int(event["days_since_target"])
-            threshold = float(event["threshold_mm"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        event_value = _lbl("ui.predictor_significant_rain_event_value").format(
-            date=f"{event_day.day:02d}/{event_day.month:02d}/{event_day.year}",
-            amount=f"{amount:.1f}",
-            days=days_since,
-            threshold=f"{threshold:g}",
-        )
-        rain_event_rows.append(f"<span>{html.escape(event_value)}</span>")
-    rain_event_html = (
-        '<div class="pred-interpretation-meta pred-rain-event-summary">'
-        f'{_tooltip_label_key("ui.predictor_significant_rain_event", "ui.predictor_help_significant_rain_event")}: '
-        f'{"".join(rain_event_rows)}</div>'
-        if rain_event_rows
-        else ""
-    )
     fruiting_timing_html = (
         '<div class="pred-interpretation-meta pred-fruiting-timing-summary">'
         f'{_tooltip_label_key("ui.predictor_advisory_fruiting_timing", "ui.predictor_help_advisory_fruiting_timing")}: '
@@ -2242,15 +2243,15 @@ def _render_interpretation_card(
     <span class="pred-result-date">{html.escape(target_date.strftime("%-d %b %Y"))}</span>
   </div>
   <div class="pred-interpretation-title">{html.escape(_interpretation_label(interpretation))}</div>
-  {range_html}
-  {winners_html}
+  <div class="pred-probability-model-row">{range_html}{winners_html}</div>
   {fallback_html}
+  {_weekly_selection_notice(comparison)}
   {reliability_html}
   {abstentions_html}
-  {rain_event_html}
   {fruiting_timing_html}
   {ecological_details_html}
   {technical_summary_html}
+  {mushroom_predictor_weather_ui.render_weather(comparison, target_date, _lbl)}
 </section>
 """
 
@@ -2870,10 +2871,8 @@ def _render_query_result(
     except Exception:
         pass
 
-    week_caption = _lbl("ui.predictor_multiversion_week_context")
     week_strip = (
         '<div class="pred-week-reference">'
-        f'<small>{html.escape(week_caption)}</small>'
         f'<div class="pred-week-strip">{week_cells}</div></div>'
         if week_cells
         else ""
@@ -3918,6 +3917,7 @@ def _render_page_inner(
     return f"""
 <style>
 {_CSS}
+{mushroom_predictor_weather_ui.CSS}
 </style>
 <div class="pred-page">
   <div class="pred-back">
@@ -3931,6 +3931,7 @@ def _render_page_inner(
   {tabs}
   {content}
 </div>
+{mushroom_predictor_weather_ui.SCRIPT}
 """
 
 
@@ -4264,6 +4265,9 @@ _CSS = """
 .pred-interpretation-title { font-size: 1.8rem; font-weight: 800; color: #e8eef2; }
 .pred-interpretation-range { display: flex; align-items: baseline; gap: 0.65rem; margin-top: 0.45rem; color: #9aa8b2; }
 .pred-interpretation-range strong { font-size: 1.65rem; color: #e8eef2; }
+.pred-probability-model-row { display:flex; flex-wrap:wrap; align-items:center; gap:.45rem 1.5rem; margin-top:.45rem; }
+.pred-probability-model-row .pred-interpretation-range,
+.pred-probability-model-row .pred-selected-models { margin-top:0; }
 .pred-selected-models { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 0.65rem; margin-top: 0.65rem; color: #aebbc4; }
 .pred-selected-model { display: inline-flex; align-items: baseline; gap: 0.3rem; padding: 0.3rem 0.55rem; border: 1px solid #526570; border-radius: 999px; background: #131c22; color: #dfe8ed; }
 .pred-selected-model strong { color: #fff; }

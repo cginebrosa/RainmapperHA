@@ -7,6 +7,7 @@ from rainmapper_core.sources.wunderground.daily_api import (
     cache_encodings,
     fetch_daily_observations,
     inch_to_mm,
+    monthly_query_date_range,
     query_date_range,
     station_id_from_url,
 )
@@ -72,6 +73,36 @@ class WundergroundDailyApiTest(unittest.TestCase):
         self.assertEqual(
             query_date_range(date(2026, 8, 1), date(2026, 9, 3), weekly=False),
             (date(2026, 8, 1), date(2026, 9, 3)),
+        )
+
+    def test_monthly_refresh_uses_current_calendar_month_after_first_week(self):
+        self.assertEqual(
+            monthly_query_date_range(
+                date(2026, 9, 3),
+                date(2026, 9, 10),
+                explicit_dates=False,
+            ),
+            (date(2026, 9, 1), date(2026, 9, 10)),
+        )
+
+    def test_monthly_refresh_also_revisits_previous_month_during_first_week(self):
+        self.assertEqual(
+            monthly_query_date_range(
+                date(2026, 8, 29),
+                date(2026, 9, 4),
+                explicit_dates=False,
+            ),
+            (date(2026, 8, 1), date(2026, 9, 4)),
+        )
+
+    def test_monthly_backfill_preserves_explicit_dates(self):
+        self.assertEqual(
+            monthly_query_date_range(
+                date(2025, 2, 12),
+                date(2025, 4, 18),
+                explicit_dates=True,
+            ),
+            (date(2025, 2, 12), date(2025, 4, 18)),
         )
 
     def test_fresh_preferred_response_does_not_retry_cache_variants(self):

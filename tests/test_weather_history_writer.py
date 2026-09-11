@@ -374,6 +374,42 @@ class WeatherHistoryWriterTests(unittest.TestCase):
             repaired = next(csv.DictReader(handle))
         self.assertEqual(repaired["rain_mm"], "3")
 
+    def test_archive_cli_publishes_total_and_updated_source_rows(self):
+        pending = self._pending([self.row("meteocat", "A", "20260101", 3.0)])
+        csv_path = self.data_dir / "Meteocat_incremental.csv"
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        row = self.row("meteocat", "A", "20260101", 9.0)
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(row))
+            writer.writeheader()
+            writer.writerow(row)
+        status_path = self.data_dir / "source_status.json"
+        status_path.write_text(
+            json.dumps(
+                {
+                    "generated_at": "2026-01-02T12:00:00",
+                    "sources": {
+                        "Meteocat": {"status": "OK", "rows": 999},
+                        "AEMET": {"status": "OK", "rows": 50},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with mock.patch.dict(
+            "os.environ", {"RAINMAPPER_WEATHER_REFERENCE_DAY": "2026-01-02"}, clear=False
+        ):
+            report = archive_and_close_pending(self.data_dir)
+
+        self.assertEqual(report["acknowledged_batch_ids"], [pending.batch_id])
+        self.assertEqual(report["source_status"]["sources"], ["Meteocat"])
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        self.assertEqual(status["sources"]["Meteocat"]["rows"], 1)
+        self.assertEqual(status["sources"]["Meteocat"]["total_rows"], 1)
+        self.assertEqual(status["sources"]["Meteocat"]["updated_rows"], 1)
+        self.assertEqual(status["sources"]["AEMET"]["rows"], 50)
+
     def test_generation_prune_keeps_current_previous_and_active_lease(self):
         initial = resolve_weather_generation(self.data_dir)
         initial_partition = next(

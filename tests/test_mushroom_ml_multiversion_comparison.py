@@ -339,6 +339,157 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         )
         self.assertEqual(restored_active, active)
 
+    def test_weekly_selection_prioritizes_full_applicability_coverage(self) -> None:
+        resolutions = {}
+        members_by_day = {}
+        for day in range(1, 8):
+            candidates = []
+            members = []
+            for estimator_id, wilson in (("quality_first", 0.8), ("full_week", 0.7)):
+                reference = {
+                    "version_id": "biology_v6",
+                    "temporal_contract_id": "lag_event_biology_v6",
+                    "profile_id": "smooth_window_30d",
+                    "estimator_id": estimator_id,
+                    "horizon_days": day,
+                }
+                candidates.append(
+                    {
+                        "candidate": copy.deepcopy(reference),
+                        "evidence": {
+                            "wilson_lower_95_observations": wilson,
+                        },
+                    }
+                )
+                members.append(
+                    {
+                        "model_ref": copy.deepcopy(reference),
+                        "available": True,
+                        "prediction": {
+                            "probability": 0.6,
+                            "applicability": {
+                                "status": (
+                                    "outside_domain"
+                                    if estimator_id == "quality_first" and day == 7
+                                    else "within_observed_range"
+                                )
+                            },
+                        },
+                        "evaluation": {
+                            "evidence": "better_than_prevalence",
+                            "brier_score": 0.1,
+                            "prevalence_brier_score": 0.25,
+                            "brier_delta_vs_prevalence": 0.15,
+                            "roc_auc": 0.8,
+                        },
+                    }
+                )
+            resolutions[day] = {
+                "selection_status": "winner",
+                "candidate": copy.deepcopy(candidates[0]["candidate"]),
+                "candidate_chain": candidates,
+                "weekly_model_selection": {
+                    "policy": "weekly_aggregate",
+                    "family_count": 2,
+                },
+            }
+            members_by_day[day] = members
+
+        selected = comparison.prioritize_weekly_resolutions_by_applicability(
+            resolutions,
+            members_by_day,
+        )
+
+        self.assertEqual(
+            [selected[day]["candidate"]["estimator_id"] for day in range(1, 8)],
+            ["full_week"] * 7,
+        )
+        self.assertEqual(
+            [len(selected[day]["candidate_chain"]) for day in range(1, 8)],
+            [1] * 7,
+        )
+        audit = selected[1]["weekly_model_selection"]
+        self.assertEqual(audit["applicable_prediction_days"], 7)
+        self.assertEqual(audit["evaluated_prediction_days"], 7)
+        self.assertEqual(audit["selected_family"]["estimator_id"], "full_week")
+        self.assertEqual(audit["selected_family_quality_rank"], 2)
+        self.assertEqual(
+            audit["runtime_veto_policy"],
+            "abstain_without_family_switch",
+        )
+
+    def test_weekly_selection_abstains_instead_of_switching_family(self) -> None:
+        resolutions = {}
+        members_by_day = {}
+        for day in range(1, 8):
+            entries = []
+            members = []
+            for estimator_id in ("best_coverage", "other_family"):
+                reference = {
+                    "version_id": "biology_v6",
+                    "temporal_contract_id": "lag_event_biology_v6",
+                    "profile_id": "smooth_window_30d",
+                    "estimator_id": estimator_id,
+                    "horizon_days": day,
+                }
+                entries.append({"candidate": copy.deepcopy(reference)})
+                outside = (
+                    estimator_id == "best_coverage" and day == 7
+                ) or (
+                    estimator_id == "other_family" and day in {1, 2}
+                )
+                members.append(
+                    {
+                        "model_ref": copy.deepcopy(reference),
+                        "available": True,
+                        "prediction": {
+                            "probability": 0.6,
+                            "applicability": {
+                                "status": (
+                                    "outside_domain"
+                                    if outside
+                                    else "within_observed_range"
+                                )
+                            },
+                        },
+                        "evaluation": {
+                            "evidence": "better_than_prevalence",
+                            "brier_score": 0.1,
+                            "prevalence_brier_score": 0.25,
+                            "brier_delta_vs_prevalence": 0.15,
+                            "roc_auc": 0.8,
+                        },
+                    }
+                )
+            resolutions[day] = {
+                "selection_status": "winner",
+                "candidate": copy.deepcopy(entries[0]["candidate"]),
+                "candidate_chain": entries,
+                "weekly_model_selection": {"policy": "weekly_aggregate"},
+            }
+            members_by_day[day] = members
+
+        selected = comparison.prioritize_weekly_resolutions_by_applicability(
+            resolutions,
+            members_by_day,
+        )
+        result, active = comparison.build_reliability_selected_operational_comparison(
+            members_by_day[7],
+            selected[7],
+            season_phase="in_season",
+        )
+
+        self.assertEqual(
+            selected[7]["candidate"]["estimator_id"], "best_coverage"
+        )
+        self.assertEqual(
+            selected[7]["weekly_model_selection"]["applicable_prediction_days"],
+            6,
+        )
+        self.assertEqual(active["runtime_selection_status"], "abstain")
+        self.assertIsNone(result["reliability_fallback_rank"])
+        self.assertEqual(result["selected_winners"], [])
+
     def test_selected_operational_comparison_abstains_when_brier_is_worse_than_prevalence(self) -> None:
         member = {
             "model_ref": {

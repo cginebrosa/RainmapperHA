@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import os
 import queue
 import sqlite3
@@ -37,6 +38,14 @@ ARTIFACT_KIND = "rainmapper_mushroom_predictor_precompute"
 SQLITE_USER_VERSION = 6
 PRECOMPUTED_VIEWS = {"recommender", "week", "query"}
 _EXPECTED_COUNT_KEYS = ("species", "areas", "days", "versions", "members")
+DAILY_MODEL_SELECTION = "daily"
+LEGACY_WEEKLY_MODEL_SELECTION = "weekly_aggregate"
+WEEKLY_AGGREGATE_MODEL_SELECTION = "weekly_lag_event_v2"
+MODEL_SELECTION_POLICIES = {
+    DAILY_MODEL_SELECTION,
+    WEEKLY_AGGREGATE_MODEL_SELECTION,
+    LEGACY_WEEKLY_MODEL_SELECTION,
+}
 _REQUIRED_TABLES = {
     "metadata",
     "species_context",
@@ -140,6 +149,7 @@ class ArtifactIdentity:
     trained_species_ids: tuple[str, ...]
     installed_versions: tuple[RuntimeVersionIdentity, ...]
     expected_counts: tuple[tuple[str, int], ...]
+    model_selection_policy: str = DAILY_MODEL_SELECTION
     predictor_contract_versions: tuple[str, ...] = (PREDICTOR_SCHEMA_VERSION,)
     schema_version: str = ARTIFACT_SCHEMA_VERSION
     kind: str = ARTIFACT_KIND
@@ -153,6 +163,7 @@ class ArtifactIdentity:
         trained_species_ids: Iterable[object],
         installed_versions: Iterable[RuntimeVersionIdentity],
         expected_counts: Mapping[str, object],
+        model_selection_policy: object = DAILY_MODEL_SELECTION,
         predictor_contract_versions: Iterable[object] = (PREDICTOR_SCHEMA_VERSION,),
     ) -> "ArtifactIdentity":
         issue = _iso_date(issue_date, "issue_date")
@@ -190,6 +201,9 @@ class ArtifactIdentity:
             raise PrecomputeContractError("Expected species count does not match identity.")
         if dict(counts)["versions"] != len(versions):
             raise PrecomputeContractError("Expected versions count does not match identity.")
+        selection_policy = str(model_selection_policy or "").strip()
+        if selection_policy not in MODEL_SELECTION_POLICIES:
+            raise PrecomputeContractError("Predictor model selection policy is invalid.")
         return cls(
             runtime_fingerprint=fingerprint,
             issue_date=issue.isoformat(),
@@ -198,6 +212,7 @@ class ArtifactIdentity:
             trained_species_ids=species,
             installed_versions=versions,
             expected_counts=tuple(counts),
+            model_selection_policy=selection_policy,
             predictor_contract_versions=contracts,
         )
 
@@ -230,6 +245,9 @@ class ArtifactIdentity:
             trained_species_ids=payload.get("trained_species_ids", []),
             installed_versions=versions,
             expected_counts=raw_counts,
+            model_selection_policy=payload.get(
+                "model_selection_policy", DAILY_MODEL_SELECTION
+            ),
             predictor_contract_versions=payload.get("predictor_contract_versions", []),
         )
         if payload.get("coverage_start") != identity.coverage_start or payload.get("coverage_end") != identity.coverage_end:
@@ -241,7 +259,7 @@ class ArtifactIdentity:
         return _canonical_sha256(self.as_dict())
 
     def as_dict(self) -> dict[str, object]:
-        return {
+        payload = {
             "schema_version": self.schema_version,
             "kind": self.kind,
             "predictor_contract_versions": list(self.predictor_contract_versions),
@@ -253,6 +271,11 @@ class ArtifactIdentity:
             "installed_versions": [row.as_dict() for row in self.installed_versions],
             "expected_counts": dict(self.expected_counts),
         }
+        # Omitting the historical default keeps existing daily artifacts and
+        # desired-state identities valid after this optional policy is added.
+        if self.model_selection_policy != DAILY_MODEL_SELECTION:
+            payload["model_selection_policy"] = self.model_selection_policy
+        return payload
 
 
 @dataclass(frozen=True, order=True)
@@ -409,6 +432,7 @@ def plan_artifact_identity(
         | None
     ),
     operational_member_count: int | None = None,
+    model_selection_policy: str = DAILY_MODEL_SELECTION,
 ) -> ArtifactIdentity:
     """Build the immutable identity without executing a prediction in HA."""
     species = tuple(sorted({str(value) for value in trained_species_ids if str(value)}))
@@ -474,6 +498,7 @@ def plan_artifact_identity(
             "versions": len(installed_versions),
             "members": member_count,
         },
+        model_selection_policy=model_selection_policy,
     )
 
 
@@ -512,6 +537,195 @@ def _sealed_resolution_index(
             raise PrecomputeContractError("Sealed reliability status is invalid.")
         indexed[key] = row
     return indexed
+
+
+_WEEKLY_FAMILY_FIELDS = (
+    "version_id",
+    "temporal_contract_id",
+    "profile_id",
+    "estimator_id",
+)
+_WEEKLY_AGGREGATE_FIELDS = (
+    "wilson_lower_95_observations",
+    "favorable_precision",
+    "favorable_call_count",
+    "favorable_recall",
+    "uncertain_count",
+    "brier_score",
+    "expected_calibration_error",
+    "roc_auc",
+)
+
+
+def _weekly_family_key(candidate: object) -> tuple[str, ...] | None:
+    if not isinstance(candidate, Mapping):
+        return None
+    family = tuple(str(candidate.get(field) or "").strip() for field in _WEEKLY_FAMILY_FIELDS)
+    return family if all(family) else None
+
+
+def _weekly_evidence_number(entry: Mapping[str, object], field: str) -> float | None:
+    evidence = entry.get("evidence")
+    evidence = evidence if isinstance(evidence, Mapping) else {}
+    value = evidence.get(field)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def _weekly_family_aggregate(
+    entries: Sequence[Mapping[str, object]],
+) -> dict[str, float | int | None]:
+    aggregate: dict[str, float | int | None] = {"prediction_days": len(entries)}
+    for field in _WEEKLY_AGGREGATE_FIELDS:
+        values = [
+            value
+            for entry in entries
+            if (value := _weekly_evidence_number(entry, field)) is not None
+        ]
+        aggregate[field] = round(sum(values) / len(values), 12) if values else None
+    return aggregate
+
+
+def _weekly_family_rank(
+    family: tuple[str, ...],
+    aggregate: Mapping[str, float | int | None],
+) -> tuple[object, ...]:
+    def descending(field: str, *, missing: float = -1.0) -> float:
+        value = aggregate.get(field)
+        return -float(value) if isinstance(value, (int, float)) else -missing
+
+    def ascending(field: str) -> float:
+        value = aggregate.get(field)
+        return float(value) if isinstance(value, (int, float)) else math.inf
+
+    return (
+        descending("wilson_lower_95_observations"),
+        descending("favorable_precision"),
+        descending("favorable_call_count", missing=0.0),
+        descending("favorable_recall"),
+        ascending("uncertain_count"),
+        ascending("brier_score"),
+        ascending("expected_calibration_error"),
+        descending("roc_auc"),
+        family,
+    )
+
+
+def weekly_aggregate_resolution_index(
+    resolutions: Mapping[tuple[str, str, int], Mapping[str, object]],
+    *,
+    issue_date: date | None = None,
+    installed_version_ids: Iterable[str] | None = None,
+) -> dict[tuple[str, str, int], dict[str, object]]:
+    """Use one evidence-ranked model family per species/area for the week.
+
+    Horizon is deliberately excluded from the family identity: lag contracts
+    retain the horizon required by each prediction day. Aggregate evidence
+    establishes the quality order; runtime coverage is resolved after the
+    seven daily predictions have materialized.
+    """
+    transformed = {key: copy.deepcopy(dict(row)) for key, row in resolutions.items()}
+    installed = set(installed_version_ids) if installed_version_ids is not None else None
+    grouped: dict[tuple[str, str], list[tuple[int, dict[str, object]]]] = {}
+    for (species_id, area_id, prediction_day), row in transformed.items():
+        grouped.setdefault((species_id, area_id), []).append((prediction_day, row))
+
+    for (species_id, area_id), day_rows in grouped.items():
+        if {day for day, _row in day_rows} != set(range(1, 8)):
+            raise PrecomputeContractError(
+                "Weekly aggregate selection requires all seven prediction days."
+            )
+        winners = [
+            (day, row)
+            for day, row in sorted(day_rows)
+            if row.get("selection_status") == "winner"
+        ]
+        if not winners:
+            continue
+
+        entries_by_day: dict[int, dict[tuple[str, ...], dict[str, object]]] = {}
+        for day, row in sorted(day_rows):
+            if row.get("selection_status") != "winner":
+                entries_by_day[day] = {}
+                continue
+            chain = row.get("candidate_chain")
+            if not isinstance(chain, list) or not chain:
+                raise PrecomputeContractError(
+                    "Weekly aggregate selection requires the sealed candidate chain."
+                )
+            family_entries: dict[tuple[str, ...], dict[str, object]] = {}
+            for raw_entry in chain:
+                if not isinstance(raw_entry, Mapping):
+                    continue
+                if not mushroom_ml_multiversion_comparison.weekly_lag_candidate_matches_day(
+                    raw_entry.get("candidate"), day
+                ):
+                    continue
+                if installed is not None and raw_entry["candidate"]["version_id"] not in installed:
+                    continue
+                family = _weekly_family_key(raw_entry.get("candidate"))
+                if family is not None and family not in family_entries:
+                    family_entries[family] = copy.deepcopy(dict(raw_entry))
+            entries_by_day[day] = family_entries
+
+        common_families = set.intersection(
+            *(set(entries) for entries in entries_by_day.values())
+        )
+        if not common_families:
+            for _day, row in day_rows:
+                row["weekly_model_selection"] = {
+                    "policy": WEEKLY_AGGREGATE_MODEL_SELECTION,
+                    "status": "daily_fallback",
+                    "reason": "no_reliable_lag_family_covering_week",
+                }
+            continue
+
+        aggregates = {
+            family: _weekly_family_aggregate(
+                [entries_by_day[day][family] for day, _row in winners]
+            )
+            for family in common_families
+        }
+        if any(
+            aggregate.get("wilson_lower_95_observations") is None
+            for aggregate in aggregates.values()
+        ):
+            raise PrecomputeContractError(
+                "Weekly aggregate selection requires a conservative score for every family."
+            )
+        ranked_families = sorted(
+            common_families,
+            key=lambda family: _weekly_family_rank(family, aggregates[family]),
+        )
+        preferred_family = ranked_families[0]
+        preferred_payload = dict(zip(_WEEKLY_FAMILY_FIELDS, preferred_family))
+
+        for day, row in winners:
+            ranked_entries = [entries_by_day[day][family] for family in ranked_families]
+            preferred_entry = ranked_entries[0]
+            row["candidate_chain"] = ranked_entries
+            row["candidate"] = copy.deepcopy(preferred_entry["candidate"])
+            row["evidence"] = copy.deepcopy(preferred_entry.get("evidence"))
+            row["evidence_by_scope"] = copy.deepcopy(
+                preferred_entry.get("evidence_by_scope")
+            )
+            row.pop("stability", None)
+            row["weekly_model_selection"] = {
+                "policy": WEEKLY_AGGREGATE_MODEL_SELECTION,
+                "temporal_policy": "lag_event_common_cutoff_h1_h7",
+                "horizon_days": day,
+                **({"common_weather_cutoff": (issue_date - timedelta(days=1)).isoformat()}
+                   if issue_date is not None else {}),
+                "aggregate_quality_preferred_family": preferred_payload,
+                "family_count": len(ranked_families),
+                "aggregate_quality_preferred_evidence": aggregates[
+                    preferred_family
+                ],
+            }
+
+    return transformed
 
 
 def _request_key(request: Mapping[str, object]) -> str:
@@ -2496,7 +2710,8 @@ def lookup_active_artifact(
             validate_context=False,
         ) as reader:
             identity = reader.identity
-            stale = identity.runtime_fingerprint != runtime_fingerprint
+            old_weekly_policy = identity.model_selection_policy == LEGACY_WEEKLY_MODEL_SELECTION
+            stale = old_weekly_policy or identity.runtime_fingerprint != runtime_fingerprint
             lookup_request = normalized
             sealed_query = reader.lookup_sealed_query_response(normalized)
             if normalized["view"] in {"recommender", "week"} and normalized[
@@ -2543,7 +2758,8 @@ def lookup_active_artifact(
         return LookupResult(
             result.hit,
             result.response,
-            "identity_mismatch" if stale and result.hit else result.reason,
+            ("weekly_selection_policy_outdated" if old_weekly_policy else "identity_mismatch")
+            if stale and result.hit else result.reason,
             result.artifact_id,
             result.rows_read,
             stale=stale,
@@ -2722,8 +2938,21 @@ def build_weekly_artifact(
     scientific selection or interpretation rules.
     """
     issue = date.fromisoformat(identity.issue_date)
+    if identity.model_selection_policy == LEGACY_WEEKLY_MODEL_SELECTION:
+        raise PrecomputeContractError("The previous weekly selection policy must be updated.")
     days = [issue + timedelta(days=offset) for offset in range(7)]
     sealed_resolutions = _sealed_resolution_index(operational_selections)
+    if identity.model_selection_policy == WEEKLY_AGGREGATE_MODEL_SELECTION and sealed_resolutions is None:
+        raise PrecomputeContractError("Weekly lag selection requires sealed reliability candidates.")
+    if (
+        sealed_resolutions is not None
+        and identity.model_selection_policy == WEEKLY_AGGREGATE_MODEL_SELECTION
+    ):
+        sealed_resolutions = weekly_aggregate_resolution_index(
+            sealed_resolutions,
+            issue_date=issue,
+            installed_version_ids=[version.version_id for version in identity.installed_versions],
+        )
     area_map: dict[str, tuple[str, ...]] = {}
     species_context: dict[str, dict[str, object]] = {}
     for species_id in identity.trained_species_ids:

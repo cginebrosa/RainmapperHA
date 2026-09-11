@@ -5,11 +5,25 @@ Fecha de revisión: 5 de septiembre de 2026
 Estado: diseño documentado y primera batería ejecutada en copias aisladas; sin
 cambios en modelos operativos ni precálculo.
 
+Actualización 11/09: el usuario autorizó ampliar la prueba a umbrales diarios
+1–5 mm y lluvia acumulada. La ejecución está terminada; ver
+[plan y resultados de la nueva auditoría](../../../reports/mushroom-dry-spell-threshold-audit-2026-09-11.md).
+Las decisiones del 05/09 siguientes se conservan como antecedente. La nueva
+evidencia no activa ni modifica por sí sola los contratos operativos.
+
+Ampliación posterior autorizada el mismo día: [comparación con el selector
+diario y semanal](../../../reports/mushroom-dry-spell-selector-audit-2026-09-11.md).
+La retirada no mejora de forma estable: semanal +0,43 % de reducción de error
+en 2025–2026 y −8,28 % en 2023–2024, con pérdida de 49 escenarios de ocho
+observaciones en el segundo examen. La recomendación tras esa prueba es
+conservar el contador mientras el usuario decide; no confundir la mejora
+descriptiva de la primera batería con una mejora operativa demostrada.
+
 ## 1. Objetivo y alcance
 
 Este documento revisa cómo representa Rainmapper una racha de días secos y define la batería de pruebas necesaria para decidir si esa variable ayuda realmente a predecir fructificaciones.
 
-No es una revisión de literatura científica ni convierte los criterios de Sporas.io en *ground truth*. Es una revisión técnica basada en el código y los artefactos actuales. Las hipótesis ecológicas que aparecen aquí deben tratarse como preguntas que el modelo ha de contrastar con las observaciones de Rainmapper.
+Las secciones 1–12 son una revisión técnica, no una revisión de literatura científica, y no convierten los criterios de Sporas.io en *ground truth*. La sección 13 añade fuentes bibliográficas comprobadas el 11/09/2026. Las hipótesis ecológicas deben contrastarse con las observaciones de Rainmapper.
 
 Este diseño respeta `MOD_0001`: los cálculos ecológicos continúan disponibles como diagnóstico, pero no vetan ni modifican probabilidades.
 
@@ -403,6 +417,38 @@ usarla, pero no aporta una mejora relevante.
 
 ### 9.4 Resultado de las ablaciones hídricas
 
+#### Magnitud de la mejora al retirar el contador (relectura 11/09)
+
+Contar mejoras/empeoramientos no basta: al retirar el contador la media sí
+mejora en los dos cortes evaluados. Los valores siguientes se recalcularon
+desde `D0_current` y `D2_no_dry_spell` del JSON persistido; menor Brier es mejor.
+
+| Agrupación | Brier medio actual | Sin contador | Cambio medio | Mejora media entre los 19 que mejoran | Empeoramiento medio entre los 8 que empeoran |
+|---|---:|---:|---:|---:|---:|
+| 7 días | 0,267245 | 0,263614 | -0,003631 | -0,006819 | +0,002576 |
+| 14 días | 0,282568 | 0,278844 | -0,003724 | -0,008056 | +0,005168 |
+
+En la agrupación principal de 14 días, supone una reducción del error medio
+de aproximadamente 1,32 %. No son puntos porcentuales de acierto. La mejora
+mayor es Edulis/V2 RF, de 0,378106 a 0,338019 (−0,040087). Los tres mayores
+retrocesos son Ou de reig/V4 KNN (+0,013079), Ou de reig/V2 logística
+(+0,011105) y Aereus/V2 RF (+0,007917); los otros cinco van de +0,000419 a
++0,002912. El peor retroceso del corte de 7 días es +0,005903.
+
+Por tanto, los ocho retrocesos no anulan la mejora media. La cautela se debe
+a que se promedian por igual 30 configuraciones/especie sobre observaciones
+compartidas: esto no es una evaluación del selector operativo completo ni
+una confirmación independiente de que todas las predicciones futuras mejoren.
+El resultado sí favorece investigar contratos sin contador.
+
+La batería comparó `P > 0`, `P >= 1 mm` y eliminación del contador; no probó
+un umbral de 0,1 mm ni de 2, 3, 4 o 5 mm. No permite descartar esos valores
+ni afirmar que el contador sea inútil con cualquier definición. Una ampliación
+debe escoger entre candidatos mediante grupos internos de entrenamiento y
+evaluar la elección contra el control y la ausencia de contador en datos
+independientes. No escoger el mejor umbral consultando repetidamente la misma
+prueba externa. Esta posibilidad no autoriza ejecutar una batería nueva.
+
 La falta de utilidad estable del contador no significa que la información
 hídrica sea inútil:
 
@@ -468,3 +514,80 @@ La ejecución deberá documentar para cada resultado las revisiones de entrada, 
 9. Ningún resultado de esta batería modifica directamente una predicción ni un
    artefacto operativo: cualquier adopción posterior requerirá autorización,
    contrato nuevo, entrenamiento y validación independiente.
+
+## 13. Ampliación bibliográfica: trazas IDW, día seco y suelo forestal
+
+Fecha: 11/09/2026. Investigación documental; sin cambiar cálculos ni ejecutar
+entrenamiento o precálculo. La propuesta conversacional de 0,01 mm para el
+contador se retira: no tenía fundamento ecológico y omitía el antecedente de
+esta revisión. El criterio visual de «última lluvia» es independiente.
+
+### Bibliografía local consultada
+
+Se buscaron definiciones y umbrales en las revisiones Markdown de `literature`
+y en el texto extraíble de los cinco PDFs de `fruiting-phenology`. El escaneo
+`Marc_EstevezSpecies.pdf` no ofreció texto útil; no se considera revisado por
+esta búsqueda textual.
+
+- **Karavani et al. 2018**, [PDF local](../fruiting-phenology/karavani2018-mushroom-productivity.pdf),
+  páginas PDF 16–20, especialmente p. 17, líneas del manuscrito 135–140:
+  advierte expresamente que la interpolación puede atribuir lluvia a una parcela
+  donde no cayó y omitir episodios locales. Estudia lluvia, número de días
+  lluviosos y humedad del suelo, con agregación mensual para productividad.
+  En los pasajes metodológicos revisados no define un umbral diario transferible
+  para romper una racha seca forestal.
+- **Preprint de porcini**, [PDF local](../fruiting-phenology/boletus-biorxiv.pdf),
+  p. 9: el intervalo de 1–4 mm corresponde a medias diarias sobre ventanas de
+  35 días. No es un umbral de lluvia de un día ni de penetración en el suelo.
+- No se localizó en esta búsqueda una regla universal, validada por especie,
+  que convierta milímetros de precipitación en ruptura de sequedad del suelo.
+
+### Qué respalda el umbral de 1 mm
+
+[Climdex, definición CDD](https://www.climdex.org/learn/indices/), corroborada
+por [Environment and Climate Change Canada](https://climate-scenarios.canada.ca/?page=climdex-indices),
+define los días secos con precipitación diaria **< 1 mm** y los húmedos con
+**≥ 1 mm**. CDD mide la racha máxima en un periodo; nuestro contador termina
+en el corte meteorológico. Adoptar la misma clasificación diaria sería una
+adaptación, no calcular el índice CDD completo. Tampoco prueba un umbral de
+fructificación o de recarga del suelo. Aplicarlo a una estimación IDW sigue
+produciendo un diagnóstico estimado, no una observación de humedad del suelo.
+
+### Intercepción forestal y la regla «10 mm → 1 cm»
+
+[Acharya et al. 2020, HESS](https://hess.copernicus.org/articles/24/1859/2020/)
+estudia la retención y evaporación de lluvia por copas, sotobosque y hojarasca
+en 34 rodales de Florida. La variabilidad entre parcelas respalda considerar
+la estructura forestal y sus pérdidas, pero no trasladar una cantidad fija a
+todos los bosques de Rainmapper. No toda lluvia pequeña queda necesariamente
+retenida: el reparto depende del lugar y del episodio.
+
+La [FAO, lluvia y evapotranspiración](https://www.fao.org/4/R4082E/r4082e05.htm)
+explica que **10 mm de lluvia son 10 litros por metro cuadrado**, equivalentes
+a una lámina libre de agua de 1 cm. Eso no equivale a la profundidad de suelo
+humedecido. La [FAO, suelo y agua](https://www.fao.org/4/R4082E/r4082e03.htm)
+distingue la cantidad almacenada, la profundidad y la humedad volumétrica;
+la entrada de agua depende de textura, estructura y humedad previa.
+
+Ejemplo dimensional ilustrativo, no estimación de nuestras áreas: si entran
+10 mm netos y se reparten uniformemente elevando la humedad del 10 al 20 %,
+alcanzan para una capa de 100 mm (10 cm), porque 100 × 0,10 = 10 mm.
+La lluvia bruta, las pérdidas y el movimiento real del agua impiden convertir
+ese ejemplo en una regla universal.
+
+### Consecuencia para Rainmapper
+
+- 1 mm tiene respaldo como clasificación meteorológica; no demuestra recarga
+  del sustrato donde fructifican las setas.
+- Conservar cantidades continuas y separar racha meteorológica de estado
+  hídrico. El balance actual en `mushroom_soil_water_state.py` suma la lluvia
+  al almacenamiento y no tiene intercepción forestal calibrada; no presentarlo
+  como medida directa de agua que atraviesa las copas y la hojarasca.
+- Se releyó el resultado experimental del 05/09, SHA256
+  `04285d119816fa04c75dd854a08f3e3428aace227a4d1ba228b9f299bfdacea1`.
+  Agrupando por `id` de variante (`D1_p1`, `D2_no_dry_spell`) se reproducen las
+  cuatro filas de la tabla 9.3. No agrupar solo por `definition`: varias
+  ablaciones comparten D1 y la eliminación del contador conserva D0 en ese campo.
+- Se mantiene la decisión de la sección 9.5: no cambiar modelos entrenados;
+  cualquier contrato futuro debe contrastar el contador de 1 mm y su eliminación
+  con nueva evidencia independiente. Esta investigación no autoriza cambios.

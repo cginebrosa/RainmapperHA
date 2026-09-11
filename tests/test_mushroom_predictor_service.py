@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -308,6 +309,123 @@ class PredictorServiceTests(TestCase):
                 comparison_payload["operational_comparison"][
                     "reliability_candidate_exclusions"
                 ][0]["reasons"],
+            )
+
+    def test_area_week_prefers_full_coverage_before_weekly_quality(self) -> None:
+        with TemporaryDirectory() as temporary:
+            service = PredictorService(
+                models_dir=Path(temporary),
+                weather_data_dir=Path(temporary),
+                features_artifact_path=Path(temporary) / "features.json",
+                known_sites_path=Path(temporary) / "sites.json",
+                runtime_fingerprint="sha256:test",
+            )
+            predictor = Mock()
+            predictor.areas_with_species_observations.return_value = ["area_one"]
+            predictor.week_window.return_value = [
+                prediction(
+                    "boletus", "area_one", date(2026, 8, 9) + timedelta(days=offset)
+                )
+                for offset in range(7)
+            ]
+            predictor.season_phase.return_value = "in_season"
+            service.predictor = Mock(return_value=predictor)
+            service.prewarm_multiversion_week = Mock(return_value=14)
+
+            def compared(**kwargs: object) -> dict[str, object]:
+                target_date = kwargs["target_date"]
+                prediction_day = (target_date - date(2026, 8, 9)).days + 1
+                members = []
+                for reference in kwargs["selections"]:
+                    estimator_id = reference["estimator_id"]
+                    members.append(
+                        {
+                            "model_ref": dict(reference),
+                            "available": True,
+                            "prediction": {
+                                "probability": 0.7,
+                                "applicability": {
+                                    "status": (
+                                        "outside_domain"
+                                        if estimator_id == "quality_first"
+                                        and prediction_day == 7
+                                        else "within_observed_range"
+                                    )
+                                },
+                            },
+                            "evaluation": {
+                                "evidence": "better_than_prevalence",
+                                "brier_score": 0.1,
+                                "prevalence_brier_score": 0.25,
+                                "brier_delta_vs_prevalence": 0.15,
+                                "roc_auc": 0.8,
+                            },
+                        }
+                    )
+                return {
+                    "available": True,
+                    "members": members,
+                    "runtime_metrics": {"versions": {}, "phase_seconds": {}},
+                }
+
+            service.multiversion_compare = Mock(side_effect=compared)
+            resolutions = {}
+            for day in range(1, 8):
+                candidates = [
+                    {
+                        "candidate": {
+                            "version_id": "biology_v6",
+                            "temporal_contract_id": "lag_event_biology_v6",
+                            "profile_id": "smooth_window_30d",
+                            "estimator_id": estimator_id,
+                            "horizon_days": day,
+                        },
+                        "evidence": {
+                            "wilson_lower_95_observations": wilson,
+                        },
+                    }
+                    for estimator_id, wilson in (
+                        ("quality_first", 0.8),
+                        ("full_week", 0.7),
+                    )
+                ]
+                resolutions[("boletus", "area_one", day)] = {
+                    "species_id": "boletus",
+                    "area_id": "area_one",
+                    "prediction_day": day,
+                    "selection_status": "winner",
+                    "selection_scope": "area",
+                    "candidate": copy.deepcopy(candidates[0]["candidate"]),
+                    "candidate_chain": candidates,
+                    "weekly_model_selection": {
+                        "policy": "weekly_aggregate",
+                        "family_count": 2,
+                    },
+                }
+
+            response = service.execute(
+                self.request(
+                    area_id="area_one",
+                    issue_date="2026-08-09",
+                    multiversion_selection=[],
+                ),
+                shared_context={"operational_resolution_index": resolutions},
+            )
+
+        self.assertEqual(service.multiversion_compare.call_count, 7)
+        comparisons = response["data"]["species"]["boletus"][
+            "multiversion_comparisons"
+        ]
+        for payload in comparisons.values():
+            self.assertEqual(
+                payload["members"][0]["model_ref"]["estimator_id"],
+                "full_week",
+            )
+            weekly = payload["reliability_selection"]["weekly_model_selection"]
+            self.assertEqual(weekly["applicable_prediction_days"], 7)
+            self.assertEqual(
+                weekly["runtime_veto_policy"],
+                "abstain_without_family_switch",
             )
 
     def test_query_response_can_be_rendered_through_prepared_adapter(self) -> None:
