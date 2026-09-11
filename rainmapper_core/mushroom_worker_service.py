@@ -26,6 +26,7 @@ from urllib.parse import urlencode, urlsplit
 
 from rainmapper_core import mushroom_worker_dataset_cache
 from rainmapper_core import mushroom_worker_config
+from rainmapper_core.mushroom_worker_completion import JobUpdateRejected, PrecomputeCompletion
 from rainmapper_core import mushroom_worker_transport
 from rainmapper_core import mushroom_worker_results
 from rainmapper_core import mushroom_worker_jobs
@@ -874,10 +875,7 @@ def update_job(
                     detail = str(error_payload.get("error", "") or "")
             except (UnicodeDecodeError, json.JSONDecodeError):
                 detail = raw_error.decode("utf-8", errors="replace").strip()
-        suffix = f": {detail[:1000]}" if detail else ""
-        raise ValueError(
-            f"HA rejected the worker job {action} request with HTTP {exc.code}{suffix}"
-        ) from exc
+        raise JobUpdateRejected(action, exc.code, detail) from exc
     if len(raw) > 65536:
         raise ValueError("Worker job response is too large.")
     result = json.loads(raw.decode("utf-8"))
@@ -1166,6 +1164,12 @@ def serve(
     cleaned_job_ids_pending: dict[str, set[str]] = {
         str(row["coordinator_id"]): set() for row in coordinators
     }
+    completions = {
+        str(row["coordinator_id"]): PrecomputeCompletion(
+            coordinator_precompute_root(worker_data_dir, row)
+        )
+        for row in coordinators
+    }
     predictor_services: dict[str, PredictorService] = {}
     predictor_services_lock = threading.RLock()
     server = ThreadingHTTPServer(
@@ -1237,20 +1241,28 @@ def serve(
 
             def job_update(action: str, payload: dict[str, Any]) -> dict[str, Any]:
                 nonlocal finish_acknowledged, job_succeeded
+                completion = (
+                    completions[coordinator_id]
+                    if action == "finish" and job.get("job_type") == "worker_predictor_precompute_v1"
+                    else None
+                )
+                if completion is not None:
+                    payload = completion.remember(payload)
+
+                def send(update_action: str, update_payload: dict[str, Any]) -> dict[str, Any]:
+                    return update_job(
+                        ha_url, update_action, update_payload, token=token,
+                        timeout=_job_update_timeout(update_action, str(job.get("job_type", ""))),
+                    )
+
                 result = retry_transient(
-                    lambda: update_job(
-                        ha_url,
-                        action,
-                        payload,
-                        token=token,
-                        timeout=_job_update_timeout(action, str(job.get("job_type", ""))),
-                    ),
+                    lambda: completion.deliver(send) if completion is not None else send(action, payload),
                     retry_seconds=job_retry_seconds,
                     stop_event=stop_event,
                 )
                 if action == "finish":
-                    finish_acknowledged = True
-                    job_succeeded = payload.get("status") == "complete"
+                    finish_acknowledged = not result.get("finish_superseded")
+                    job_succeeded = finish_acknowledged and result.get("job", {}).get("status", payload.get("status")) == "complete"
                 return result
 
             def with_transport_retry(operation: Callable[[], _T]) -> _T:
@@ -2509,7 +2521,7 @@ def serve(
                                 "worker_id": identity["worker_id"],
                                 "claim_token": claim_token,
                                 "status": "cancelled" if isinstance(exc, InterruptedError) else "failed",
-                                "error": str(exc),
+                                "error": str(exc)[:1000],
                             },
                         )
                     except Exception:
@@ -2597,6 +2609,7 @@ def serve(
             last_errors = {
                 str(row["coordinator_id"]): "" for row in coordinators
             }
+            last_completion_errors = {str(row["coordinator_id"]): "" for row in coordinators}
             empty_claim_polls = {
                 (str(row["coordinator_id"]), lane): 0
                 for row in coordinators
@@ -2611,6 +2624,7 @@ def serve(
             last_status_error = ""
             while not stop_event.is_set():
                 reachable_coordinator_ids: set[str] = set()
+                completion_blocked_ids: set[str] = set()
                 with runtime_lock:
                     lanes = {
                         lane: dict(runtime_state.get(lane, {}))
@@ -2762,16 +2776,81 @@ def serve(
                             )
                         last_errors[coordinator_id] = error
 
+                for coordinator in coordinators:
+                    coordinator_id = str(coordinator["coordinator_id"])
+                    if coordinator_id not in reachable_coordinator_ids:
+                        continue
+                    coordinator_url = str(coordinator["rainmapper_url"])
+                    coordinator_token = str(coordinator.get("token", ""))
+                    storage_coordinator_id = coordinator_storage_id(coordinator)
+                    try:
+                        # Retry a durable final notice only after the job thread has
+                        # released the lane. No calculation or artifact upload here.
+                        completion = completions[coordinator_id]
+                        pending = completion.pending()
+                        background_thread = active_job_threads["background"]
+                        own_thread_active = (
+                            background_thread is not None and background_thread.is_alive()
+                            and lanes["background"].get("coordinator_id") == coordinator_id
+                        )
+                        if pending is not None and not own_thread_active:
+                            completion_blocked_ids.add(coordinator_id)
+                            result = completion.deliver(
+                                lambda action, payload: update_job(
+                                    coordinator_url, action, payload,
+                                    token=coordinator_token, timeout=3.0,
+                                )
+                            )
+                            if result is not None:
+                                if not result.get("finish_superseded"):
+                                    mushroom_worker_transport.discard_worker_job(
+                                        worker_data_dir.resolve(), pending["job_id"],
+                                        coordinator_id=storage_coordinator_id,
+                                    )
+                                    with runtime_lock:
+                                        cleaned_job_ids_pending[coordinator_id].add(pending["job_id"])
+                                print(json.dumps({
+                                    "status": "job_finish_superseded" if result.get("finish_superseded") else "job_finish_acknowledged",
+                                    "service": "rainmapper-worker",
+                                    "coordinator_id": coordinator_id,
+                                    "job_id": pending["job_id"],
+                                }), flush=True)
+                                completion_blocked_ids.discard(coordinator_id)
+                        last_completion_errors[coordinator_id] = ""
+                    except Exception as exc:
+                        completion_blocked_ids.add(coordinator_id)
+                        error = str(exc)
+                        if error != last_completion_errors[coordinator_id]:
+                            print(json.dumps({
+                                "status": "job_finish_pending",
+                                "service": "rainmapper-worker",
+                                "coordinator_id": coordinator_id,
+                                "error": error,
+                            }), flush=True)
+                        last_completion_errors[coordinator_id] = error
+
                 for lane in ("foreground", "background"):
                     active_thread = active_job_threads[lane]
                     if active_thread is not None and active_thread.is_alive():
                         continue
+                    if lane == "background":
+                        # The previous thread can finish between the heartbeat
+                        # snapshot and this claim. Recheck its durable notice.
+                        for pending_coordinator_id, completion in completions.items():
+                            try:
+                                if completion.pending() is not None:
+                                    completion_blocked_ids.add(pending_coordinator_id)
+                            except (OSError, ValueError, KeyError, TypeError):
+                                completion_blocked_ids.add(pending_coordinator_id)
                     with runtime_lock:
                         affinity_id = next_coordinator_affinity[lane]
                         next_coordinator_affinity[lane] = ""
                     claim_result = claim_job_round_robin(
                         coordinators,
-                        reachable_coordinator_ids=reachable_coordinator_ids,
+                        reachable_coordinator_ids=(
+                            reachable_coordinator_ids - completion_blocked_ids
+                            if lane == "background" else reachable_coordinator_ids
+                        ),
                         start_index=next_coordinator_index[lane],
                         lane=lane,
                         worker_id=identity["worker_id"],

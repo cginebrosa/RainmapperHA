@@ -39,17 +39,24 @@ está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temático
 
 ## Estado general al 2026-09-11
 
-- Rama `inicial`; HA `0.2.302` publicada para amd64/arm64 tras smoke completo
-  (1.384 tests). La última instalación real confirmada es `0.2.301`; pendiente
-  de que el usuario actualice. Consultar Git para el commit de la release.
+- Rama `inicial`; HA `0.2.303` publicada para amd64/arm64 tras smoke completo
+  (1.395 tests). Última instalación real comprobada: `0.2.302`, en su
+  diagnóstico persistido. Consultar Git para el commit de la release.
 - `0.2.302` incluye continuidad semanal opcional, meteorología observada en el
   Predictor, corrección del rango mensual Wunderground y contadores de filas.
 - Auditoría del contador de días secos cerrada: el usuario decide conservarlo.
   No se cambian contratos, umbrales ni modelos por esa investigación.
-- HA local y el worker privado `1.1.1` ejecutan el mismo código modificado. El
+- HA local y el worker privado `1.1.1` ejecutan el código validado para `0.2.303`. El
   worker está healthy e idle y conserva exactamente la URL principal
   `http://100.111.77.48:8100` y HA local como asociación adicional. No cambiar
   ninguna sin autorización expresa para ese destino.
+- Tras la release se corrigió en el worktree la pérdida del aviso final de
+  precálculo cuando falla la comunicación: 160 pruebas de workers correctas;
+  posteriormente reconstruida e instalada en el worker privado por petición
+  del usuario. HA `0.2.303` está publicada con los ajustes de presentación;
+  consultar `active-context.md`. El usuario abandonó el trabajo afectado;
+  no recuperarlo ni lanzar otro por iniciativa de Codex.
+  Véase `docs/reports/mushroom-precompute-lost-finish-2026-09-11.md`.
 - La corrección semanal `lag_event` h1--h7 está implementada y reconstruida.
   El usuario lanzó el precálculo y el resultado `weekly_lag_event_v2` ya está
   activo (11--17 septiembre, 553 celdas y 469 miembros). Codex no lanzó trabajos.

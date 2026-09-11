@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.303
+
+- Widen the Predictor to a responsive 1600 px maximum while retaining margins
+  within the space available beside the Home Assistant sidebar.
+- Preserve the result's technical-details expansion independently of observed
+  weather when navigating between weekly day cards.
+- Persist precompute completion notices in rebuilt workers and retry them
+  after coordinator outages, respecting cancellation and operator abandonment.
+
 ## 0.2.302
 
 - Add optional weekly Predictor selection using one `lag_event` family with

@@ -17,6 +17,100 @@ from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_precompute_failed_finish_survives_service_restart_and_blocks_new_background_claims(self):
+        failed_delivery = threading.Event()
+        delivered = threading.Event()
+        allow_delivery = threading.Event()
+        requests = []
+        claimed = False
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802
+                nonlocal claimed
+                payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))) or b"{}")
+                requests.append((self.path, payload))
+                code = 200
+                if self.path.endswith("/heartbeat"):
+                    response = {"ok": True}
+                elif self.path.endswith("/jobs/claim"):
+                    job = None
+                    if payload.get("lane") == "background" and not claimed:
+                        claimed = True
+                        # Missing runtime metadata deliberately fails preparation;
+                        # only the final notification is under test, no calculation.
+                        job = {"job_id": "worker_job_pendingfinish", "job_type": "worker_predictor_precompute_v1", "claim_token": "claim-secret"}
+                    response = {"ok": True, "job": job}
+                elif self.path.endswith("/jobs/start"):
+                    response = {"ok": True, "job": {}}
+                elif self.path.endswith("/jobs/finish"):
+                    if allow_delivery.is_set():
+                        response = {"ok": True, "job": {"status": payload["status"]}}
+                        delivered.set()
+                    else:
+                        code = 503
+                        response = {"ok": False, "error": "temporary receiver outage"}
+                        failed_delivery.set()
+                else:
+                    code = 404
+                    response = {"ok": False, "error": "test has no runtime"}
+                body = json.dumps(response).encode()
+                self.send_response(code)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        process = None
+        try:
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                mushroom_worker_service.mushroom_worker_config.save_coordinator_config(
+                    root, rainmapper_url=f"http://127.0.0.1:{server.server_port}", token="p" * 40,
+                )
+                command = [
+                    sys.executable, str(Path(__file__).resolve().parents[1] / "scripts/run-mushroom-worker-service.py"),
+                    "--host", "127.0.0.1", "--port", "0", "--worker-data-dir", str(root),
+                    "--heartbeat-interval", "1",
+                ]
+
+                def launch():
+                    return subprocess.Popen(command, env={**os.environ, "RAINMAPPER_WORKER_JOB_RETRY_SECONDS": "0"}, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+                process = launch()
+                self.assertTrue(failed_delivery.wait(8))
+                notice = root / "predictor_precompute/pending-finish.json"
+                self.assertEqual(json.loads(notice.read_text())["status"], "failed")
+                deadline = time.monotonic() + 5
+                while sum(path.endswith("/jobs/finish") for path, _ in requests) < 2 and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                self.assertGreaterEqual(sum(path.endswith("/jobs/finish") for path, _ in requests), 2)
+                self.assertEqual(sum(path.endswith("/jobs/claim") and p.get("lane") == "background" for path, p in requests), 1)
+                process.terminate()
+                output, _ = process.communicate(timeout=8)
+                self.assertEqual(process.returncode, 0, output)
+                process = None
+                self.assertTrue(notice.exists())
+                allow_delivery.set()
+                process = launch()
+                self.assertTrue(delivered.wait(8))
+                deadline = time.monotonic() + 3
+                while notice.exists() and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                self.assertFalse(notice.exists())
+                finishes = [p for path, p in requests if path.endswith("/jobs/finish")]
+                self.assertTrue(all(p == finishes[0] for p in finishes))
+        finally:
+            if process is not None:
+                process.terminate()
+                output, _ = process.communicate(timeout=8)
+                self.assertEqual(process.returncode, 0, output)
+            server.shutdown()
+            server.server_close()
+
     def test_quiet_process_drains_stderr_and_keeps_only_a_bounded_tail(self) -> None:
         process, stderr_capture = mushroom_worker_service._start_quiet_process(
             [

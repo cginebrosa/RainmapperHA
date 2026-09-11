@@ -3940,7 +3940,7 @@ def _render_page_inner(
 # ---------------------------------------------------------------------------
 
 _CSS = """
-.pred-page { max-width: 1280px; margin: 0 auto; padding: 0 1.25rem 3rem; }
+.pred-page { max-width: 1600px; min-width: 0; margin: 0 auto; padding: 0 1.25rem 3rem; }
 .pred-page h1 { margin-bottom: 0.65rem; font-size: 2rem; }
 .pred-back { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
 .pred-back a { color: #9aa8b2; font-size: 0.98rem; text-decoration: none; }

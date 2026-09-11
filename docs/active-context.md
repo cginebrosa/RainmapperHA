@@ -4,6 +4,34 @@ Ventana operativa de RainmapperHA al 11 de septiembre de 2026. No es un
 histórico. Revalidar siempre repositorio, contenedores, datos y servicios antes
 de asumir que este estado sigue vigente.
 
+## Release HA 0.2.303 publicada
+
+- El usuario acepta el ancho final del Predictor y la persistencia del detalle
+  técnico, espera a que terminen runner/precálculo y autoriza reconstruir el
+  worker y publicar HA. No se crea una copia/worktree de release aparte.
+- Worker privado `1.1.1` reconstruido/recreado con el aviso final persistente.
+  Se mantienen sus dos asociaciones y sus huellas exactas; ambos carriles idle
+  y cachés válidas después del arranque. No se publica otra versión de worker.
+- La imagen nueva pasó 50 pruebas aisladas (10 del aviso y 40 del servicio),
+  con red externa deshabilitada y sin montar datos operativos. Incluyen
+  respuesta perdida, reinicio, cancelación, abandono y reentrega. No se lanzó
+  entrenamiento ni precálculo operativo desde Codex.
+- HA local y worker ejecutan el código candidato: 145 y 77 ficheros Python
+  respectivamente, sin diferencias con el worktree. No se repitió el build de
+  HA local después del bump mecánico; el código ya había sido aceptado allí.
+- Smoke completo: 1.395 tests correctos, 62,506 s. El primer intento detectó
+  una aserción que aún exigía 1.280 px; actualizada a los 1.600 aceptados, se
+  repitió el smoke completo y terminó con código 0.
+- Build multiarch terminado con código 0. GHCR verificado: `0.2.303` y
+  `latest` comparten el índice
+  `sha256:4b70a512bca003f859e27379cd143cd5fb62fc6955d5f4632dfb50cce9ee97cf`,
+  con manifests `linux/amd64` y `linux/arm64` y sus attestations.
+  Código, pruebas, bump, changelog y documentación se cierran en un único
+  commit `Release Home Assistant 0.2.303`. Instalación por el usuario pendiente;
+  la última versión comprobada en HA real es `0.2.302`.
+- Observaciones del usuario excluidas de la release y sin modificaciones de
+  Codex: SHA-256 `f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0`.
+
 ## Release HA 0.2.302 publicada
 
 - El usuario autoriza publicar HA el 11/09/2026 después de decidir mantener el
@@ -29,27 +57,71 @@ de asumir que este estado sigue vigente.
   `Release Home Assistant 0.2.302`. Se excluye expresamente el JSON de
   observaciones del usuario, con SHA-256
   `f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0`.
-- Pendiente de que el usuario instale y confirme HA real. No confundir la
-  publicación con una instalación. No repetir smoke, builds ni trabajos por
-  cerrar documentación o publicar el commit.
+- HA real `0.2.302` confirmada posteriormente mediante su `runtime_state.json`
+  montado por el usuario. No repetir smoke, builds ni trabajos por cerrar
+  documentación o publicar el commit.
 
 ## Estado operativo comprobado
 
+- Incidencia posterior a la publicación, 11/09/2026: el precálculo de HA real
+  `worker_job_5ryH9BEsc60-` fue reclamado por el worker principal a las
+  01:46:36 UTC. El cálculo terminó en 236,864562 s; al entregar el resultado
+  falló con `[Errno 111] Connection refused` a las 01:53:59 UTC. El hilo se
+  liberó con `finish_acknowledged=false`; `/health` confirma ambos carriles
+  idle mientras la captura de HA sigue mostrando `running`. No interpretar
+  ese progreso como cálculo activo. Los logs registran además timeouts y
+  conexiones restauradas con el coordinador principal; no se ha determinado
+  la causa de la indisponibilidad de HA.
+- El resultado permanece en el worker, sin modificar:
+  `/var/lib/rainmapper-worker/predictor_precompute/staging/worker_job_5ryH9BEsc60-.sqlite3`,
+  27.369.472 bytes, publicación `complete`, política `weekly_lag_event_v2`,
+  567 celdas y 483 miembros. Su identidad coincide con la captura de HA:
+  `sha256:1bae9bbfcc72b67568f377a592ced3f0dffe99d2cdbcbc15105184b661e48543`.
+  Se validó también con el validador completo nativo; no se reenvió ni activó
+  el resultado, no se reinició ningún servicio ni se lanzó otro trabajo.
+- Con `share` y `media` montados por el usuario se confirma: HA conserva ese
+  trabajo en `running`, revisión deseada 112 e identidad coincidente; sigue
+  activa la revisión 111. `runtime_state.json` confirma HA `0.2.302`, último
+  arranque 01:45:44 UTC, anterior al trabajo. Los diagnósticos disponibles no
+  explican el rechazo de conexiones posterior; no atribuirlo a OOM o reinicios
+  sin evidencia adicional.
+- El SQLite del worker pasó `validate_artifact(full=True)` con identidad
+  esperada. SHA-256 del archivo:
+  `sha256:cd3732619efa09bccff340aa7ee2b28857b8c5d63c9903207d11a16f5510aa4e`.
+- El usuario abandonó el trabajo: JSON de HA confirmado en `cancelled`, fase
+  `Abandoned`, final `2026-09-11T02:09:56+00:00`. Se descarta la recuperación
+  puntual y su pregunta de conectividad; no ejecutar el helper temporal con
+  `--apply` ni recuperar este trabajo.
+- Corrección local de la notificación final perdida: aviso pequeño y persistente
+  por coordinador, reentregado al volver la conexión, respetando cancelación,
+  abandono e idempotencia. Diez pruebas nuevas del aviso y una del servicio
+  reiniciado; 160 pruebas de workers correctas (15,609 s). Posteriormente instalada en el worker privado por petición expresa del
+  usuario; véase la validación de `0.2.303` arriba.
+  [Incidencia, alcance y validación](reports/mushroom-precompute-lost-finish-2026-09-11.md).
+- El usuario repitió el precálculo antes de instalar la corrección:
+  `worker_job_T83NizH1i5bM` finalizó `complete` a las 02:32:17 UTC, revisión
+  113 activa en HA, `finish_acknowledged=true` en worker. Cálculo 252,558316 s,
+  publicación HA 57,095007 s, activación worker 10,047821 s; total del hilo
+  323,942985 s. Otro timeout de heartbeat durante publicación se recuperó
+  antes del cierre. Esto no determina la causa del corte anterior ni valida
+  la corrección entonces sin instalar. Codex solo supervisó logs y metadatos.
+
 - Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
-- Base previa de esta release: `46c9215656897b6598dfb72af87388aff7245a61`
-  (`0.2.301`). Consultar Git para la identidad del commit final `0.2.302`.
-- HA `0.2.302` publicada en GHCR; última instalación real confirmada por el
-  usuario: `0.2.301`. La instalación de `0.2.302` sigue pendiente de confirmación.
+- Base previa de esta release: `e3db62b4a2c3b6ff10d8fff59b18ff0fb166dfca`
+  (`0.2.302`). Consultar Git para la identidad del commit final `0.2.303`.
+- HA `0.2.302` publicada en GHCR e instalada, confirmado mediante el diagnóstico
+  persistido de HA real montado por el usuario.
 - `mushroom-data/mushroom_observations.json` también está modificado, pero es
   dato del usuario: no editarlo, restaurarlo, borrarlo ni incluirlo ciegamente
   en ningún commit. Los datos vivos del laboratorio están en `docker-data/`.
 - HA local está activo en `127.0.0.1:8101` con imagen
-  `rainmapperha:local-ha-ui`, ID
-  `sha256:8f29de0a4e8506d501dc4d97be0efa13b532b7bdd80d7e2349f23347cf67fe6a`.
-  La UI responde y las huellas de los módulos modificados coinciden con el
-  worktree.
+  `rainmapperha:local-ha-ui`; consultar Docker para el ID tras las
+  reconstrucciones de presentación posteriores a la release.
+  Reconstruida para probar el ancho del Predictor. Incluye el core actual,
+  y worker posteriormente reconstruido desde el mismo código: la corrección
+  de sus notificaciones ya está instalada en el servicio local.
 - El worker privado está healthy e idle con `rainmapper-worker:1.1.1`, imagen
-  `sha256:2367842bd216ac2aa8b253377f56e346622b53a2f591e2bbe96aaf04571ede2a`.
+  `sha256:16b8f6cc81db3a823d33ae8c444527efc7b85b32d724a42d15dea3ecce90fd28`.
   Sus carriles foreground/background están idle y las huellas de los tres
   módulos del selector coinciden con HA local y el worktree.
 - Asociaciones persistidas del worker, revalidadas sin exponer tokens:
@@ -62,7 +134,7 @@ de asumir que este estado sigue vigente.
   fingerprint
   `sha256:7410f2e2482b77688027440fa047344bba65285fa2f9e812c07c65f769981574`.
   La caché Predictor está válida con fingerprint
-  `sha256:ad96514103ee64fc9302419a67ac662f5bc1f2270fa8c1a547178cb9282fd002`.
+  `sha256:f0bb15bfad80b4dd7de48e929b403b52ff6ffd7808f557ca75da7e26011dff86`.
 
 ## Cambios de 0.2.302 validados localmente
 
@@ -138,6 +210,30 @@ de asumir que este estado sigue vigente.
 
 ### Meteorología observada en el Predictor
 
+- Corrección posterior: «Detalle técnico del resultado» conserva también su
+  estado abierto/cerrado al navegar con las tarjetas semanales. El controlador
+  existente guarda `.pred-summary-technical` en una clave propia de
+  `sessionStorage`, independiente de meteorología, y restaura ambos después de
+  cada `document.open/write`. Probado en Chrome con el controlador real de
+  tarjetas y respuestas simuladas: cuatro navegaciones con estados
+  meteorología/técnico `abierto/abierto`, `cerrado/abierto`, `abierto/cerrado`,
+  `abierto/abierto`; tooltips meteorológicos funcionales. Ocho pruebas Python
+  de meteorología correctas. HA local reconstruido, respuesta HTTP con el
+  script nuevo y módulo efectivo idéntico al worktree (SHA-256
+  `3a0ffee9b844ec4128ac4af3610d6bedfead7bcc58c868f867be384e480026f6`).
+  Esta UI y el worker se incluyen en la validación posterior de `0.2.303`.
+- Ajuste posterior a `0.2.302`: `.pred-page` pasa de 1.280 a un máximo de
+  1.600 px. La primera prueba sin límite interior resultó demasiado ancha al
+  usuario; se modera a 1.600 y se conserva la reducción al espacio disponible
+  junto al menú de HA, sin reservar una segunda barra lateral dentro de la UI.
+  HA local reconstruido/recreado y servido con el CSS definitivo; SHA-256 del
+  módulo efectivo idéntico al worktree:
+  `043fc2f5e08b848b4f3aaf66391311d137c39f952608f9c5cd13bba9f16a9276`.
+  Chrome con HTML servido por HA local y el CSS candidato: sin desbordamientos
+  a 1.920/1.856/1.664/1.440/1.184/768/390 px disponibles. Incluye simulación de
+  64/256 px ocupados por una barra lateral; no es una prueba del frontend real
+  de HA. Sin precálculo nuevo por este ajuste visual; el worker se actualizó
+  después, al preparar la release con autorización expresa.
 - Cambio de presentación en `mushroom_predictor_weather_ui.py`, invocado por
   la tarjeta existente y empaquetado en el Dockerfile HA. No cambia inferencia,
   worker, contratos, artefactos ni probabilidades; no necesita precálculo nuevo.
@@ -238,7 +334,8 @@ de asumir que este estado sigue vigente.
 - HA `0.2.300`: DEM francés, sincronización GIS incremental, modos API
   Wunderground y defensa frente a variantes CDN antiguas.
 - HA `0.2.301`: orden configurable de encodings y retención de precálculos
-  automáticos en trabajos recientes. Es la release instalada en HA real.
+  automáticos en trabajos recientes. Posteriormente reemplazada en HA real por
+  `0.2.302`.
 - El entrenamiento y los precálculos posteriores terminaron correctamente
   según confirmación del usuario. La nueva ejecución semanal local fue sólo para
   validar el cambio posterior del worktree.
@@ -274,9 +371,9 @@ de asumir que este estado sigue vigente.
    precálculo ni se publicó HA. Su ventaja descriptiva no se reprodujo de forma
    estable en la comparación ampliada del selector. No sustituir el contador
    ni eliminarlo de los contratos actuales por iniciativa de Codex.
-1. El usuario debe instalar HA `0.2.302` y confirmar el resultado. La opción
-   semanal sigue desactivada por defecto; requiere activación explícita y un
-   worker con capacidad `predictor_weekly_model_selection_v2`.
+1. El usuario puede instalar HA `0.2.303`, publicada y verificada; el worker
+   privado ya está reconstruido con la corrección. No recuperar el trabajo abandonado
+   ni lanzar otro precálculo desde Codex.
 2. La UI local fue aceptada por el usuario. La lectura final del precálculo
    confirmó 61 familias semanales constantes, seis fallback diarios y doce
    parejas sin miembros fuera de temporada. No repetir entrenamiento ni
@@ -315,8 +412,9 @@ de asumir que este estado sigue vigente.
   los intervalos incluyen ausencia de diferencia y aparece pérdida de cobertura.
   No se ha modificado ningún cálculo operativo ni lanzado entrenamiento/precálculo
   operativo.
-- Los cambios de `0.2.302` están publicados y validados localmente; no
-  atribuirlos a HA real hasta que el usuario confirme la instalación.
+- Los cambios de `0.2.302` están publicados e instalados. La corrección posterior
+  de la notificación final ya está instalada en el worker privado; HA `0.2.303`
+  está publicada, pendiente de instalación por el usuario.
 - Elegir una identidad de modelo constante no garantiza coherencia temporal si
   el contrato semanal es `fixed h7`.
 - El fallback diario acordado resuelve ausencia de familia común, pero puede

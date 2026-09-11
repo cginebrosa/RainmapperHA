@@ -286,14 +286,19 @@ CSS = """
 
 SCRIPT = """<script>
 (() => {
-  const stateKey = 'rainmapper.predictor.observedWeatherOpen';
+  const detailStates = [
+    ['.pred-weather-details', 'rainmapper.predictor.observedWeatherOpen'],
+    ['.pred-summary-technical', 'rainmapper.predictor.summaryTechnicalOpen'],
+  ];
   try {
-    const saved = sessionStorage.getItem(stateKey);
-    if (saved !== null) {
-      document.querySelectorAll('.pred-weather-details').forEach(details => {
-        details.open = saved === 'true';
-      });
-    }
+    detailStates.forEach(([selector, stateKey]) => {
+      const saved = sessionStorage.getItem(stateKey);
+      if (saved !== null) {
+        document.querySelectorAll(selector).forEach(details => {
+          details.open = saved === 'true';
+        });
+      }
+    });
   } catch (_) { /* Charts also work when browser storage is unavailable. */ }
   // Weekly cards use document.open/write: the window survives, its document
   // listeners do not. Bind once per rendered root, not once per window.
@@ -301,8 +306,9 @@ SCRIPT = """<script>
   if (root.dataset.predictionWeatherBound === 'true') return;
   root.dataset.predictionWeatherBound = 'true';
   document.addEventListener('toggle', event => {
-    if (!event.target.matches('.pred-weather-details')) return;
-    try { sessionStorage.setItem(stateKey, String(event.target.open)); } catch (_) {}
+    const state = detailStates.find(([selector]) => event.target.matches(selector));
+    if (!state) return;
+    try { sessionStorage.setItem(state[1], String(event.target.open)); } catch (_) {}
   }, true);
   const hide = () => document.querySelectorAll('.pred-weather-readout:not([hidden])').forEach(output => {
     output.hidden = true;

@@ -360,7 +360,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
     def test_predictor_typography_is_readable_and_tables_remain_responsive(self) -> None:
         css = self.web_server.mushroom_predictor_ui._CSS
 
-        self.assertIn("max-width: 1280px", css)
+        self.assertIn("max-width: 1600px", css)
         self.assertIn(".pred-tooltip {", css)
         self.assertIn(".pred-week-table {", css)
         self.assertIn("font-size: 1rem", css)

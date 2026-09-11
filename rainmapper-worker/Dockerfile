@@ -85,6 +85,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_worker_registry.py \
      rainmapper_core/mushroom_worker_jobs.py \
      rainmapper_core/mushroom_worker_service.py \
+     rainmapper_core/mushroom_worker_completion.py \
      rainmapper_core/mushroom_worker_transport.py \
      rainmapper_core/mushroom_worker_results.py \
      rainmapper_core/mushroom_performance_telemetry.py \
@@ -146,6 +147,7 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_worker_registry.py \
         /app/rainmapper_core/mushroom_worker_jobs.py \
         /app/rainmapper_core/mushroom_worker_service.py \
+        /app/rainmapper_core/mushroom_worker_completion.py \
         /app/rainmapper_core/mushroom_worker_transport.py \
         /app/rainmapper_core/mushroom_worker_results.py \
         /app/rainmapper_core/mushroom_performance_telemetry.py \

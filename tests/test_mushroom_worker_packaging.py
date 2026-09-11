@@ -21,6 +21,7 @@ class MushroomWorkerPackagingTests(unittest.TestCase):
         self.assertIn("mushroom_worker_config.py", dockerfile)
         self.assertIn("mushroom_worker_registry.py", dockerfile)
         self.assertIn("mushroom_worker_service.py", dockerfile)
+        self.assertIn("mushroom_worker_completion.py", dockerfile)
         self.assertIn("mushroom_ml_experiments.py", dockerfile)
         self.assertIn("mushroom_ml_experiment_trainer.py", dockerfile)
         self.assertIn("mushroom_ml_probability_calibration.py", dockerfile)
