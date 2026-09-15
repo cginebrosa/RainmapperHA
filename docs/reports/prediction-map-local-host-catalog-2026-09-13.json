@@ -1,0 +1,2543 @@
+{
+  "date": "2026-09-13",
+  "catalog": "docker-data/mushroom-data/mushroom_reference_catalogs.json",
+  "catalog_stamp": {
+    "size": 59275,
+    "mtime_ns": 1789251402013539266
+  },
+  "host_count": 31,
+  "source": "mushroom-map-GIS/mfe25/source/mfe_catalunia/MFE_51.dbf",
+  "source_stamp": {
+    "size": 991909602,
+    "mtime_ns": 1789144830637872408
+  },
+  "source_records": 238096,
+  "dictionary": "mushroom-map-GIS/mfe25/source/mfe_catalunia/MaximaActualidadMFE25_50_Dic2021_dd.xlsx",
+  "summary": {
+    "exact": 17,
+    "specific_missing_genus_exists": 24,
+    "missing": 59
+  },
+  "tree_entries": [
+    {
+      "code": "24",
+      "mfe_name": "Pinus halepensis",
+      "polygon_count": 32661,
+      "slot_count": 33541,
+      "status": "exact",
+      "exact_ids": [
+        "host_pinus_halepensis"
+      ],
+      "alias_ids": [
+        "host_pinus_halepensis"
+      ],
+      "genus_candidates": [
+        "host_pinus_spp"
+      ],
+      "dictionary_name": "Pinus halepensis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "45",
+      "mfe_name": "Quercus ilex",
+      "polygon_count": 25254,
+      "slot_count": 25392,
+      "status": "exact",
+      "exact_ids": [
+        "host_quercus_ilex"
+      ],
+      "alias_ids": [
+        "host_quercus_ilex"
+      ],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus ilex ",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "243",
+      "mfe_name": "Quercus humilis (Q. Pubescens)",
+      "polygon_count": 14315,
+      "slot_count": 14570,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus pubescens (Q. humilis)",
+      "dictionary_disagrees": true,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "21",
+      "mfe_name": "Pinus sylvestris",
+      "polygon_count": 11744,
+      "slot_count": 11751,
+      "status": "exact",
+      "exact_ids": [
+        "host_pinus_sylvestris"
+      ],
+      "alias_ids": [
+        "host_pinus_sylvestris"
+      ],
+      "genus_candidates": [
+        "host_pinus_spp"
+      ],
+      "dictionary_name": "Pinus sylvestris",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "25",
+      "mfe_name": "Pinus nigra",
+      "polygon_count": 9714,
+      "slot_count": 9741,
+      "status": "exact",
+      "exact_ids": [
+        "host_pinus_nigra"
+      ],
+      "alias_ids": [
+        "host_pinus_nigra"
+      ],
+      "genus_candidates": [
+        "host_pinus_spp"
+      ],
+      "dictionary_name": "Pinus nigra",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "237",
+      "mfe_name": "Juniperus oxycedrus",
+      "polygon_count": 7597,
+      "slot_count": 7597,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_juniperus_spp"
+      ],
+      "dictionary_name": "Juniperus oxycedrus",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "44",
+      "mfe_name": "Quercus faginea",
+      "polygon_count": 6485,
+      "slot_count": 6505,
+      "status": "exact",
+      "exact_ids": [
+        "host_quercus_faginea"
+      ],
+      "alias_ids": [
+        "host_quercus_faginea"
+      ],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus faginea",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "22",
+      "mfe_name": "Pinus uncinata",
+      "polygon_count": 5110,
+      "slot_count": 5115,
+      "status": "exact",
+      "exact_ids": [
+        "host_pinus_uncinata"
+      ],
+      "alias_ids": [
+        "host_pinus_uncinata"
+      ],
+      "genus_candidates": [
+        "host_pinus_spp"
+      ],
+      "dictionary_name": "Pinus uncinata",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "23",
+      "mfe_name": "Pinus pinea",
+      "polygon_count": 4733,
+      "slot_count": 4738,
+      "status": "exact",
+      "exact_ids": [
+        "host_pinus_pinea"
+      ],
+      "alias_ids": [
+        "host_pinus_pinea"
+      ],
+      "genus_candidates": [
+        "host_pinus_spp"
+      ],
+      "dictionary_name": "Pinus pinea",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "46",
+      "mfe_name": "Quercus suber",
+      "polygon_count": 2683,
+      "slot_count": 2692,
+      "status": "exact",
+      "exact_ids": [
+        "host_quercus_suber"
+      ],
+      "alias_ids": [
+        "host_quercus_suber"
+      ],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus suber",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "58",
+      "mfe_name": "Populus nigra",
+      "polygon_count": 2527,
+      "slot_count": 2530,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_populus_spp"
+      ],
+      "dictionary_name": "Populus nigra",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "71",
+      "mfe_name": "Fagus sylvatica",
+      "polygon_count": 1923,
+      "slot_count": 1923,
+      "status": "exact",
+      "exact_ids": [
+        "host_fagus_sylvatica"
+      ],
+      "alias_ids": [
+        "host_fagus_sylvatica"
+      ],
+      "genus_candidates": [],
+      "dictionary_name": "Fagus sylvatica",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "68",
+      "mfe_name": "Arbutus unedo",
+      "polygon_count": 1803,
+      "slot_count": 1803,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Arbutus unedo ",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "66",
+      "mfe_name": "Olea europaea",
+      "polygon_count": 1712,
+      "slot_count": 1712,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Olea europaea",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "42",
+      "mfe_name": "Quercus petraea",
+      "polygon_count": 1652,
+      "slot_count": 1655,
+      "status": "exact",
+      "exact_ids": [
+        "host_quercus_petraea"
+      ],
+      "alias_ids": [
+        "host_quercus_petraea"
+      ],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus petraea",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "255",
+      "mfe_name": "Fraxinus excelsior",
+      "polygon_count": 1495,
+      "slot_count": 1495,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_fraxinus_spp"
+      ],
+      "dictionary_name": "Fraxinus excelsior",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "258",
+      "mfe_name": "Populus x canadensis",
+      "polygon_count": 1257,
+      "slot_count": 1309,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_populus_spp"
+      ],
+      "dictionary_name": "Populus x canadensis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "26",
+      "mfe_name": "Pinus pinaster",
+      "polygon_count": 1208,
+      "slot_count": 1209,
+      "status": "exact",
+      "exact_ids": [
+        "host_pinus_pinaster"
+      ],
+      "alias_ids": [
+        "host_pinus_pinaster"
+      ],
+      "genus_candidates": [
+        "host_pinus_spp"
+      ],
+      "dictionary_name": "Pinus pinaster",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "72",
+      "mfe_name": "Castanea sativa",
+      "polygon_count": 1136,
+      "slot_count": 1137,
+      "status": "exact",
+      "exact_ids": [
+        "host_castanea_sativa"
+      ],
+      "alias_ids": [
+        "host_castanea_sativa"
+      ],
+      "genus_candidates": [],
+      "dictionary_name": "Castanea sativa",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "373",
+      "mfe_name": "Betula pendula",
+      "polygon_count": 1134,
+      "slot_count": 1134,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_betula_spp"
+      ],
+      "dictionary_name": "Betula pendula",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "74",
+      "mfe_name": "Corylus avellana",
+      "polygon_count": 1130,
+      "slot_count": 1131,
+      "status": "exact",
+      "exact_ids": [
+        "host_corylus_avellana"
+      ],
+      "alias_ids": [
+        "host_corylus_avellana"
+      ],
+      "genus_candidates": [],
+      "dictionary_name": "Corylus avellana",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "57",
+      "mfe_name": "Salix spp.",
+      "polygon_count": 1081,
+      "slot_count": 1081,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Salix spp.",
+      "dictionary_disagrees": false,
+      "entry_kind": "genus"
+    },
+    {
+      "code": "79",
+      "mfe_name": "Platanus hispanica",
+      "polygon_count": 1068,
+      "slot_count": 1071,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Platanus hispanica",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "39",
+      "mfe_name": "Juniperus phoenicea",
+      "polygon_count": 966,
+      "slot_count": 966,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_juniperus_spp"
+      ],
+      "dictionary_name": "Juniperus phoenicea",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "31",
+      "mfe_name": "Abies alba",
+      "polygon_count": 886,
+      "slot_count": 886,
+      "status": "exact",
+      "exact_ids": [
+        "host_abies_alba"
+      ],
+      "alias_ids": [
+        "host_abies_alba"
+      ],
+      "genus_candidates": [
+        "host_abies_spp"
+      ],
+      "dictionary_name": "Abies alba",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "54",
+      "mfe_name": "Alnus glutinosa",
+      "polygon_count": 678,
+      "slot_count": 678,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Alnus glutinosa",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "50",
+      "mfe_name": "Mezcla de árboles de ribera",
+      "polygon_count": 660,
+      "slot_count": 660,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Mezcla de árboles de ribera",
+      "dictionary_disagrees": false,
+      "entry_kind": "mixed_or_unspecified"
+    },
+    {
+      "code": "37",
+      "mfe_name": "Juniperus communis",
+      "polygon_count": 632,
+      "slot_count": 632,
+      "status": "exact",
+      "exact_ids": [
+        "host_juniperus_communis"
+      ],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_juniperus_spp"
+      ],
+      "dictionary_name": "Juniperus communis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "55",
+      "mfe_name": "Fraxinus angustifolia",
+      "polygon_count": 571,
+      "slot_count": 572,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_fraxinus_spp"
+      ],
+      "dictionary_name": "Fraxinus angustifolia",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "73",
+      "mfe_name": "Betula spp.",
+      "polygon_count": 536,
+      "slot_count": 536,
+      "status": "exact",
+      "exact_ids": [
+        "host_betula_spp"
+      ],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_betula_spp"
+      ],
+      "dictionary_name": "Betula spp.",
+      "dictionary_disagrees": false,
+      "entry_kind": "genus"
+    },
+    {
+      "code": "99",
+      "mfe_name": "Otras frondosas",
+      "polygon_count": 468,
+      "slot_count": 468,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Otras frondosas",
+      "dictionary_disagrees": false,
+      "entry_kind": "mixed_or_unspecified"
+    },
+    {
+      "code": "51",
+      "mfe_name": "Populus alba",
+      "polygon_count": 424,
+      "slot_count": 425,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_populus_spp"
+      ],
+      "dictionary_name": "Populus alba",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "28",
+      "mfe_name": "Pinus radiata",
+      "polygon_count": 415,
+      "slot_count": 420,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_pinus_spp"
+      ],
+      "dictionary_name": "Pinus radiata",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "67",
+      "mfe_name": "Ceratonia siliqua",
+      "polygon_count": 348,
+      "slot_count": 348,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Ceratonia siliqua",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "92",
+      "mfe_name": "Robinia pseudoacacia",
+      "polygon_count": 329,
+      "slot_count": 330,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Robinia pseudacacia",
+      "dictionary_disagrees": true,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "56",
+      "mfe_name": "Ulmus minor",
+      "polygon_count": 205,
+      "slot_count": 205,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_ulmus_spp"
+      ],
+      "dictionary_name": "Ulmus minor",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "52",
+      "mfe_name": "Populus tremula",
+      "polygon_count": 194,
+      "slot_count": 194,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_populus_spp"
+      ],
+      "dictionary_name": "Populus tremula",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "34",
+      "mfe_name": "Pseudotsuga menziesii",
+      "polygon_count": 194,
+      "slot_count": 195,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_pseudotsuga_spp"
+      ],
+      "dictionary_name": "Pseudotsuga menziesii",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "257",
+      "mfe_name": "Salix alba",
+      "polygon_count": 175,
+      "slot_count": 175,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Salix alba",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "276",
+      "mfe_name": "Acer monspessulanum",
+      "polygon_count": 140,
+      "slot_count": 140,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Acer monspessulanum",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "76",
+      "mfe_name": "Acer campestre",
+      "polygon_count": 122,
+      "slot_count": 122,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Acer campestre",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "273",
+      "mfe_name": "Betula alba",
+      "polygon_count": 102,
+      "slot_count": 102,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_betula_spp"
+      ],
+      "dictionary_name": "Betula alba",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "95",
+      "mfe_name": "Prunus spp.",
+      "polygon_count": 87,
+      "slot_count": 87,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Prunus spp.",
+      "dictionary_disagrees": false,
+      "entry_kind": "genus"
+    },
+    {
+      "code": "62",
+      "mfe_name": "Eucalyptus camaldulensis",
+      "polygon_count": 82,
+      "slot_count": 82,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Eucalyptus camaldulensis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "41",
+      "mfe_name": "Quercus robur",
+      "polygon_count": 82,
+      "slot_count": 82,
+      "status": "exact",
+      "exact_ids": [
+        "host_quercus_robur"
+      ],
+      "alias_ids": [
+        "host_quercus_robur"
+      ],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus robur",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "43",
+      "mfe_name": "Quercus pyrenaica",
+      "polygon_count": 76,
+      "slot_count": 79,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus pyrenaica",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "476",
+      "mfe_name": "Acer opalus",
+      "polygon_count": 59,
+      "slot_count": 59,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Acer opalus",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "53",
+      "mfe_name": "Tamarix spp.",
+      "polygon_count": 56,
+      "slot_count": 56,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Tamarix spp.",
+      "dictionary_disagrees": false,
+      "entry_kind": "genus"
+    },
+    {
+      "code": "63",
+      "mfe_name": "Otros eucaliptos",
+      "polygon_count": 51,
+      "slot_count": 51,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Otros eucaliptos",
+      "dictionary_disagrees": false,
+      "entry_kind": "mixed_or_unspecified"
+    },
+    {
+      "code": "215",
+      "mfe_name": "Crataegus monogyna",
+      "polygon_count": 46,
+      "slot_count": 46,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Crataegus monogyna",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "30",
+      "mfe_name": "Mezcla de coníferas",
+      "polygon_count": 46,
+      "slot_count": 46,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Mezcla de coníferas",
+      "dictionary_disagrees": false,
+      "entry_kind": "mixed_or_unspecified"
+    },
+    {
+      "code": "13",
+      "mfe_name": "Celtis australis",
+      "polygon_count": 44,
+      "slot_count": 44,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Celtis australis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "61",
+      "mfe_name": "Eucalyptus globulus",
+      "polygon_count": 40,
+      "slot_count": 40,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Eucalyptus globulus",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "378",
+      "mfe_name": "Sorbus aucuparia",
+      "polygon_count": 40,
+      "slot_count": 40,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Sorbus aucuparia",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "36",
+      "mfe_name": "Cupressus sempervirens",
+      "polygon_count": 33,
+      "slot_count": 33,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Cupressus sempervirens",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "357",
+      "mfe_name": "Salix atrocinerea",
+      "polygon_count": 33,
+      "slot_count": 33,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Salix atrocinerea",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "17",
+      "mfe_name": "Cedrus atlantica",
+      "polygon_count": 33,
+      "slot_count": 33,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Cedrus atlantica",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "236",
+      "mfe_name": "Cupressus arizonica",
+      "polygon_count": 32,
+      "slot_count": 32,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Cupressus arizonica",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "47",
+      "mfe_name": "Quercus canariensis",
+      "polygon_count": 30,
+      "slot_count": 30,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus canariensis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "33",
+      "mfe_name": "Picea abies",
+      "polygon_count": 26,
+      "slot_count": 26,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_picea_spp"
+      ],
+      "dictionary_name": "Picea abies",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "278",
+      "mfe_name": "Sorbus aria",
+      "polygon_count": 23,
+      "slot_count": 23,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Sorbus aria",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "8",
+      "mfe_name": "Phillyrea latifolia",
+      "polygon_count": 21,
+      "slot_count": 21,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Phillyrea latifolia",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "657",
+      "mfe_name": "Salix caprea",
+      "polygon_count": 20,
+      "slot_count": 20,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Salix caprea",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "395",
+      "mfe_name": "Prunus avium",
+      "polygon_count": 20,
+      "slot_count": 20,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Prunus avium",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "75",
+      "mfe_name": "Juglans regia",
+      "polygon_count": 18,
+      "slot_count": 18,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Juglans regia",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "757",
+      "mfe_name": "Salix elaeagnos",
+      "polygon_count": 17,
+      "slot_count": 17,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Salix elaeagnos",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "377",
+      "mfe_name": "Tilia platyphyllos",
+      "polygon_count": 16,
+      "slot_count": 16,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Tilia platyphyllos",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "78",
+      "mfe_name": "Sorbus spp.",
+      "polygon_count": 15,
+      "slot_count": 15,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Sorbus spp.",
+      "dictionary_disagrees": false,
+      "entry_kind": "genus"
+    },
+    {
+      "code": "38",
+      "mfe_name": "Juniperus thurifera",
+      "polygon_count": 13,
+      "slot_count": 13,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_juniperus_spp"
+      ],
+      "dictionary_name": "Juniperus thurifera",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "356",
+      "mfe_name": "Ulmus pumila",
+      "polygon_count": 12,
+      "slot_count": 12,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_ulmus_spp"
+      ],
+      "dictionary_name": "Ulmus pumila",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "65",
+      "mfe_name": "Ilex aquifolium",
+      "polygon_count": 11,
+      "slot_count": 11,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Ilex aquifolium",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "11",
+      "mfe_name": "Ailanthus altissima",
+      "polygon_count": 11,
+      "slot_count": 11,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Ailanthus altissima",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "77",
+      "mfe_name": "Tilia spp.",
+      "polygon_count": 10,
+      "slot_count": 10,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Tilia spp.",
+      "dictionary_disagrees": false,
+      "entry_kind": "genus"
+    },
+    {
+      "code": "97",
+      "mfe_name": "Sambucus nigra",
+      "polygon_count": 10,
+      "slot_count": 10,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Sambucus nigra",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "27",
+      "mfe_name": "Pinus canariensis",
+      "polygon_count": 7,
+      "slot_count": 8,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_pinus_spp"
+      ],
+      "dictionary_name": "Pinus canariensis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "376",
+      "mfe_name": "Acer negundo",
+      "polygon_count": 6,
+      "slot_count": 6,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Acer negundo",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "69",
+      "mfe_name": "Phoenix spp.",
+      "polygon_count": 6,
+      "slot_count": 6,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Phoenix spp.",
+      "dictionary_disagrees": false,
+      "entry_kind": "genus"
+    },
+    {
+      "code": "299",
+      "mfe_name": "Ficus carica",
+      "polygon_count": 6,
+      "slot_count": 6,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Ficus carica",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "599",
+      "mfe_name": "Morus nigra",
+      "polygon_count": 4,
+      "slot_count": 4,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": null,
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "277",
+      "mfe_name": "Tilia cordata",
+      "polygon_count": 4,
+      "slot_count": 4,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Tilia cordata",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "676",
+      "mfe_name": "Acer platanoides",
+      "polygon_count": 4,
+      "slot_count": 4,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Acer platanoides",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "16",
+      "mfe_name": "Pyrus spp.",
+      "polygon_count": 3,
+      "slot_count": 3,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Pyrus spp.",
+      "dictionary_disagrees": false,
+      "entry_kind": "genus"
+    },
+    {
+      "code": "499",
+      "mfe_name": "Morus alba",
+      "polygon_count": 3,
+      "slot_count": 3,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Morus alba",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "857",
+      "mfe_name": "Salix fragilis",
+      "polygon_count": 3,
+      "slot_count": 3,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Salix fragilis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "578",
+      "mfe_name": "Sorbus torminalis",
+      "polygon_count": 3,
+      "slot_count": 3,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Sorbus torminalis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "19",
+      "mfe_name": "Otra Coniferas",
+      "polygon_count": 3,
+      "slot_count": 4,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Otras coníferas",
+      "dictionary_disagrees": true,
+      "entry_kind": "mixed_or_unspecified"
+    },
+    {
+      "code": "217",
+      "mfe_name": "Cedrus deodara",
+      "polygon_count": 3,
+      "slot_count": 3,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Cedrus deodara",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "275",
+      "mfe_name": "Juglans nigra",
+      "polygon_count": 2,
+      "slot_count": 2,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Juglans nigra",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "60",
+      "mfe_name": "Mezcla de eucaliptos",
+      "polygon_count": 2,
+      "slot_count": 2,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Mezcla de eucaliptos",
+      "dictionary_disagrees": false,
+      "entry_kind": "mixed_or_unspecified"
+    },
+    {
+      "code": "15",
+      "mfe_name": "Crataegus spp.",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Crataegus spp.",
+      "dictionary_disagrees": false,
+      "entry_kind": "genus"
+    },
+    {
+      "code": "94",
+      "mfe_name": "Laurus nobilis",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Laurus nobilis",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "478",
+      "mfe_name": "Sorbus domestica",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Sorbus domestica",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "235",
+      "mfe_name": "Larix decidua",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Larix decidua",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "12",
+      "mfe_name": "Malus sylvestris",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Malus sylvestris",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "576",
+      "mfe_name": "Acer pseudoplatanus",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Acer pseudoplatanus",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "48",
+      "mfe_name": "Quercus rubra",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus rubra",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "256",
+      "mfe_name": "Ulmus glabra",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_ulmus_spp"
+      ],
+      "dictionary_name": "Ulmus glabra",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "436",
+      "mfe_name": "Cupressus macrocarpa",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "missing",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [],
+      "dictionary_name": "Cupressus macrocarpa",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "244",
+      "mfe_name": "Quercus lusitanica",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_quercus_spp"
+      ],
+      "dictionary_name": "Quercus lusitanica",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    },
+    {
+      "code": "32",
+      "mfe_name": "Abies pinsapo",
+      "polygon_count": 1,
+      "slot_count": 1,
+      "status": "specific_missing_genus_exists",
+      "exact_ids": [],
+      "alias_ids": [],
+      "genus_candidates": [
+        "host_abies_spp"
+      ],
+      "dictionary_name": "Abies pinsapo",
+      "dictionary_disagrees": false,
+      "entry_kind": "specific_name"
+    }
+  ],
+  "catalog_issues": {
+    "missing_common_names": [
+      {
+        "id": "host_juniperus_spp",
+        "languages": [
+          "es",
+          "ca",
+          "en"
+        ]
+      }
+    ],
+    "missing_parents": [],
+    "duplicate_scientific_names": {},
+    "null_parent_taxa": [
+      "host_betula_spp",
+      "host_cistus_spp",
+      "host_populus_spp",
+      "host_fraxinus_spp",
+      "host_ulmus_spp",
+      "host_corylus_avellana",
+      "host_juniperus_spp"
+    ]
+  },
+  "official_dictionary_entries": [
+    {
+      "code": "7",
+      "name": "Acacia spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "11",
+      "name": "Ailanthus altissima",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "92",
+      "name": "Robinia pseudacacia",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "207",
+      "name": "Acacia melanoxylon",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "292",
+      "name": "Sophora japonica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "307",
+      "name": "Acacia dealbata",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "392",
+      "name": "Gleditsia triacanthos",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "13",
+      "name": "Celtis australis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "14",
+      "name": "Taxus baccata",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "17",
+      "name": "Cedrus atlantica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "19",
+      "name": "Otras coníferas",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "29",
+      "name": "Otros pinos",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "36",
+      "name": "Cupressus sempervirens",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "217",
+      "name": "Cedrus deodara",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "236",
+      "name": "Cupressus arizonica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "317",
+      "name": "Cedrus libani",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "336",
+      "name": "Cupressus lusitanica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "436",
+      "name": "Cupressus macrocarpa",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "21",
+      "name": "Pinus sylvestris",
+      "exact_ids": [
+        "host_pinus_sylvestris"
+      ],
+      "alias_ids": [
+        "host_pinus_sylvestris"
+      ]
+    },
+    {
+      "code": "22",
+      "name": "Pinus uncinata",
+      "exact_ids": [
+        "host_pinus_uncinata"
+      ],
+      "alias_ids": [
+        "host_pinus_uncinata"
+      ]
+    },
+    {
+      "code": "23",
+      "name": "Pinus pinea",
+      "exact_ids": [
+        "host_pinus_pinea"
+      ],
+      "alias_ids": [
+        "host_pinus_pinea"
+      ]
+    },
+    {
+      "code": "24",
+      "name": "Pinus halepensis",
+      "exact_ids": [
+        "host_pinus_halepensis"
+      ],
+      "alias_ids": [
+        "host_pinus_halepensis"
+      ]
+    },
+    {
+      "code": "25",
+      "name": "Pinus nigra",
+      "exact_ids": [
+        "host_pinus_nigra"
+      ],
+      "alias_ids": [
+        "host_pinus_nigra"
+      ]
+    },
+    {
+      "code": "26",
+      "name": "Pinus pinaster",
+      "exact_ids": [
+        "host_pinus_pinaster"
+      ],
+      "alias_ids": [
+        "host_pinus_pinaster"
+      ]
+    },
+    {
+      "code": "27",
+      "name": "Pinus canariensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "28",
+      "name": "Pinus radiata",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "18",
+      "name": "Chamaecyparis lawsoniana",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "30",
+      "name": "Mezcla de coníferas",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "33",
+      "name": "Picea abies",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "34",
+      "name": "Pseudotsuga menziesii",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "35",
+      "name": "Larix spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "235",
+      "name": "Larix decidua",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "335",
+      "name": "Larix leptolepis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "435",
+      "name": "Larix x eurolepis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "319",
+      "name": "Thuja spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "31",
+      "name": "Abies alba",
+      "exact_ids": [
+        "host_abies_alba"
+      ],
+      "alias_ids": [
+        "host_abies_alba"
+      ]
+    },
+    {
+      "code": "32",
+      "name": "Abies pinsapo",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "37",
+      "name": "Juniperus communis",
+      "exact_ids": [
+        "host_juniperus_communis"
+      ],
+      "alias_ids": []
+    },
+    {
+      "code": "237",
+      "name": "Juniperus oxycedrus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "38",
+      "name": "Juniperus thurifera",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "39",
+      "name": "Juniperus phoenicea",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "41",
+      "name": "Quercus robur",
+      "exact_ids": [
+        "host_quercus_robur"
+      ],
+      "alias_ids": [
+        "host_quercus_robur"
+      ]
+    },
+    {
+      "code": "42",
+      "name": "Quercus petraea",
+      "exact_ids": [
+        "host_quercus_petraea"
+      ],
+      "alias_ids": [
+        "host_quercus_petraea"
+      ]
+    },
+    {
+      "code": "43",
+      "name": "Quercus pyrenaica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "44",
+      "name": "Quercus faginea",
+      "exact_ids": [
+        "host_quercus_faginea"
+      ],
+      "alias_ids": [
+        "host_quercus_faginea"
+      ]
+    },
+    {
+      "code": "244",
+      "name": "Quercus lusitanica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "45",
+      "name": "Quercus ilex ",
+      "exact_ids": [
+        "host_quercus_ilex"
+      ],
+      "alias_ids": [
+        "host_quercus_ilex"
+      ]
+    },
+    {
+      "code": "46",
+      "name": "Quercus suber",
+      "exact_ids": [
+        "host_quercus_suber"
+      ],
+      "alias_ids": [
+        "host_quercus_suber"
+      ]
+    },
+    {
+      "code": "47",
+      "name": "Quercus canariensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "48",
+      "name": "Quercus rubra",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "50",
+      "name": "Mezcla de árboles de ribera",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "51",
+      "name": "Populus alba",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "53",
+      "name": "Tamarix spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "54",
+      "name": "Alnus glutinosa",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "57",
+      "name": "Salix spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "59",
+      "name": "Otros árboles ripícolas",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "257",
+      "name": "Salix alba",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "357",
+      "name": "Salix atrocinerea",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "457",
+      "name": "Salix babylonica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "557",
+      "name": "Salix cantabrica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "657",
+      "name": "Salix caprea",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "757",
+      "name": "Salix elaeagnos",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "857",
+      "name": "Salix fragilis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "957",
+      "name": "Salix purpurea",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "55",
+      "name": "Fraxinus angustifolia",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "255",
+      "name": "Fraxinus excelsior",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "56",
+      "name": "Ulmus minor",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "256",
+      "name": "Ulmus glabra",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "356",
+      "name": "Ulmus pumila",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "58",
+      "name": "Populus nigra",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "60",
+      "name": "Mezcla de eucaliptos",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "61",
+      "name": "Eucalyptus globulus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "62",
+      "name": "Eucalyptus camaldulensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "63",
+      "name": "Otros eucaliptos",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "64",
+      "name": "Eucalyptus nitens",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "264",
+      "name": "Eucalyptus viminalis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "364",
+      "name": "Eucalyptus gomphocephalus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "65",
+      "name": "Ilex aquifolium",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "66",
+      "name": "Olea europaea",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "67",
+      "name": "Ceratonia siliqua",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "68",
+      "name": "Arbutus unedo ",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "70",
+      "name": "Mezcla de frondosas de gran porte",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "75",
+      "name": "Juglans regia",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "77",
+      "name": "Tilia spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "275",
+      "name": "Juglans nigra",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "277",
+      "name": "Tilia cordata",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "377",
+      "name": "Tilia platyphyllos",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "71",
+      "name": "Fagus sylvatica",
+      "exact_ids": [
+        "host_fagus_sylvatica"
+      ],
+      "alias_ids": [
+        "host_fagus_sylvatica"
+      ]
+    },
+    {
+      "code": "72",
+      "name": "Castanea sativa",
+      "exact_ids": [
+        "host_castanea_sativa"
+      ],
+      "alias_ids": [
+        "host_castanea_sativa"
+      ]
+    },
+    {
+      "code": "73",
+      "name": "Betula spp.",
+      "exact_ids": [
+        "host_betula_spp"
+      ],
+      "alias_ids": []
+    },
+    {
+      "code": "273",
+      "name": "Betula alba",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "373",
+      "name": "Betula pendula",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "74",
+      "name": "Corylus avellana",
+      "exact_ids": [
+        "host_corylus_avellana"
+      ],
+      "alias_ids": [
+        "host_corylus_avellana"
+      ]
+    },
+    {
+      "code": "1",
+      "name": "Heberdenia bahamensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "80",
+      "name": "Laurisilva",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "82",
+      "name": "Ilex canariensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "84",
+      "name": "Persea indica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "86",
+      "name": "Picconia excelsa",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "87",
+      "name": "Ocotea phoetens",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "89",
+      "name": "Otras laurisilvas",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "253",
+      "name": "Tamarix canariensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "268",
+      "name": "Arbutus canariensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "293",
+      "name": "Pistacia atlantica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "294",
+      "name": "Laurus azorica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "858",
+      "name": "Salix canariensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "81",
+      "name": "Myrica faya",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "83",
+      "name": "Erica arborea",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "283",
+      "name": "Erica scoparia",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "93",
+      "name": "Pistacia terebinthus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "94",
+      "name": "Laurus nobilis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "2",
+      "name": "Amelanchier ovalis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "3",
+      "name": "Frangula alnus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "4",
+      "name": "Rhamnus alaternus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "5",
+      "name": "Euonymus europaeus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "6",
+      "name": "Myrtus communis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "8",
+      "name": "Phillyrea latifolia",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "9",
+      "name": "Cornus sanguinea",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "12",
+      "name": "Malus sylvestris",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "15",
+      "name": "Crataegus spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "16",
+      "name": "Pyrus spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "40",
+      "name": "Quercus",
+      "exact_ids": [],
+      "alias_ids": [
+        "host_quercus_spp"
+      ]
+    },
+    {
+      "code": "49",
+      "name": "Otros quercus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "52",
+      "name": "Populus tremula",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "76",
+      "name": "Acer campestre",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "78",
+      "name": "Sorbus spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "90",
+      "name": "Mezcla de pequeñas frondosas",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "95",
+      "name": "Prunus spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "96",
+      "name": "Rhus coriaria",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "97",
+      "name": "Sambucus nigra",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "98",
+      "name": "Carpinus betulus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "99",
+      "name": "Otras frondosas",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "215",
+      "name": "Crataegus monogyna",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "276",
+      "name": "Acer monspessulanum",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "278",
+      "name": "Sorbus aria",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "291",
+      "name": "Buxus balearica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "295",
+      "name": "Prunus spinosa",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "297",
+      "name": "Sambucus racemosa",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "299",
+      "name": "Ficus carica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "315",
+      "name": "Crataegus laevigata",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "355",
+      "name": "Fraxinus ornus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "376",
+      "name": "Acer negundo",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "378",
+      "name": "Sorbus aucuparia",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "395",
+      "name": "Prunus avium",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "399",
+      "name": "Morus spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "415",
+      "name": "Crataegus lacinata",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "476",
+      "name": "Acer opalus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "478",
+      "name": "Sorbus domestica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "499",
+      "name": "Morus alba",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "576",
+      "name": "Acer pseudoplatanus",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "578",
+      "name": "Sorbus torminalis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "676",
+      "name": "Acer platanoides",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "219",
+      "name": "Tetraclinis articulata",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "238",
+      "name": "Juniperus turbinata",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "243",
+      "name": "Quercus pubescens (Q. humilis)",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "79",
+      "name": "Platanus hispanica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "258",
+      "name": "Populus x canadensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "69",
+      "name": "Phoenix spp.",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "469",
+      "name": "Phoenix canariensis",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "495",
+      "name": "Prunus lusitanica",
+      "exact_ids": [],
+      "alias_ids": []
+    },
+    {
+      "code": "888",
+      "name": "Especies sin identificar",
+      "exact_ids": [],
+      "alias_ids": []
+    }
+  ],
+  "scope": "Read-only inventory of local host catalog vs Catalunya DBF slots 1-3 and bundled MFE dictionary. Counts are polygon mentions, not area, abundance or confirmed mushroom host relationships.",
+  "working_authority": {
+    "path": "docker-data/mushroom-data/mushroom_reference_catalogs.json",
+    "decision": "User confirms local catalog is the working source for later promotion to repo and real HA after corrections and validation; no promotion performed."
+  },
+  "review_notes": [
+    "Current reader resolves scientific_name only, ignoring gis_aliases; adding a synonym only as an alias will not yet translate its label.",
+    "Exact generic Fraxinus spp. does not make Fraxinus excelsior an exact entry, though it supplies a possible parent.",
+    "MFE dictionary code 243 names Quercus pubescens (Q. humilis); DBF names Quercus humilis (Q. Pubescens). Keep one reviewed taxon with variants, not two invented hosts.",
+    "MFE dictionary code 92 spells Robinia pseudacacia, DBF Robinia pseudoacacia; botanical spelling needs review, do not inherit dictionary blindly.",
+    "Code 599 Morus nigra appears in DBF but is absent from this dictionary edition.",
+    "A vegetation taxon in MFE is not evidence of a mushroom-host association. No species affinities changed."
+  ],
+  "priority_reference_checks": [
+    {
+      "mfe_code": "255",
+      "proposed_es_label": "Fresno",
+      "source": "https://www.miteco.gob.es/es/parques-nacionales-oapn/red-parques-nacionales/parques-nacionales/picos-europa/visita-virtual/flora/fresno.html",
+      "evidence": "Primary page retrieved: heading Fresno (Fraxinus excelsior).",
+      "status": "proposal_not_applied"
+    },
+    {
+      "mfe_code": "243",
+      "proposed_es_label": "Roble pubescente",
+      "source": "https://herbarivirtual.uib.es/en/catalunya/208/especie/roble",
+      "evidence": "Search excerpt of university herbarium supports Quercus humilis / Roble pubescente; full-page retrieval timed out. Local official MFE dictionary also relates pubescens/humilis; finalize taxonomic record and language variants before applying.",
+      "status": "proposal_not_applied"
+    }
+  ]
+}

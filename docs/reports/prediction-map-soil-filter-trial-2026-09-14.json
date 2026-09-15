@@ -1,0 +1,168 @@
+{
+  "scope": "Local preview trial; only aereus policy enabled; no other species exclusions activated",
+  "profile_backup": "docker-data/mushroom-data/backups/mushroom_profiles.20260913T201813685161Z.soil-filter.keep.json",
+  "policy": {
+    "accepted_soil_ids": [
+      "soil_siliceous"
+    ],
+    "excluded_soil_ids": [],
+    "ph_conflict": "estimated_interval_overlap",
+    "review_ref": "docs/mushrooms/prediction-map-species-ph-proposal-es.md#15-prueba-local-del-filtro-combinado"
+  },
+  "checks": [
+    {
+      "point": {
+        "lat": 41.22694,
+        "lon": 1.09095
+      },
+      "start_date": "2026-09-13",
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 7.2,
+        "lower": 6.7,
+        "upper": 7.8,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 41.22694,
+          "lon": 1.09095
+        }
+      },
+      "changed_ecological_rows": [
+        "boletus_aereus"
+      ],
+      "aereus": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "compatible",
+        "daily_statuses": [
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible"
+        ],
+        "reasons": [
+          "soil_accepted",
+          "hosts_match",
+          "altitude_match",
+          "ph_conflict_soil_supported",
+          "soil_preference_match"
+        ],
+        "matched_host_ids": [
+          "host_quercus_humilis",
+          "host_quercus_ilex"
+        ]
+      },
+      "probability_day_0": 0.488947,
+      "response_bytes": 17862
+    },
+    {
+      "point": {
+        "lat": 41.23675,
+        "lon": 1.13555
+      },
+      "start_date": "2026-09-13",
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 7.5,
+        "lower": 6.6,
+        "upper": 8.1,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 41.23675,
+          "lon": 1.13555
+        }
+      },
+      "changed_ecological_rows": [
+        "boletus_aereus"
+      ],
+      "aereus": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "compatible",
+        "daily_statuses": [
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible"
+        ],
+        "reasons": [
+          "soil_accepted",
+          "hosts_match",
+          "altitude_match",
+          "ph_conflict_soil_supported",
+          "soil_preference_match"
+        ],
+        "matched_host_ids": [
+          "host_quercus_faginea",
+          "host_quercus_ilex"
+        ]
+      },
+      "probability_day_0": 0.44878,
+      "response_bytes": 17856
+    }
+  ],
+  "tests": {
+    "ecology": 26,
+    "prediction_contract": 12,
+    "shared_prediction": 7,
+    "data_validator": 14
+  },
+  "preserved": "Other 20 profiles, all numeric pH bounds, GIS mappings/catalogs and observations unchanged",
+  "source_sha256": {
+    "docker-data/mushroom-data/mushroom_profiles.json": "4b6c400e32ed1b1ef5bea6f5a1ccdea48325e452740e1b279f869d6d7e3c902d",
+    "rainmapper_core/mushroom_map_ecology.py": "47ec40b78c98c93f887527037bceb5c06abda3e1c7489db03ee3770e227d6adf"
+  },
+  "browser": {
+    "point": [
+      41.23675,
+      1.13555
+    ],
+    "header": "pH estimado≈ 7.5",
+    "aereus_visible_text": "Aereus44 %Boletus aereusAdmitida por sustrato compatible; pH estimado discrepante.",
+    "openlandmap_values": [
+      "7.5",
+      "6.6",
+      "8.1"
+    ],
+    "date_selection": "Browser default local day; API checks explicitly use 2026-09-13",
+    "soilgrids_values": [
+      "0–5 cm",
+      "7.6",
+      "5.1",
+      "8.3"
+    ],
+    "external_tiles_blocked": true
+  }
+}

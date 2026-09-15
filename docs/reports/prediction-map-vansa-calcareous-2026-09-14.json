@@ -1,0 +1,387 @@
+{
+  "checked_at": "2026-09-13T23:06:15.413641+00:00",
+  "point": {
+    "lat": 42.27588,
+    "lon": 1.5246
+  },
+  "date": "2026-09-14",
+  "source": "POST http://127.0.0.1:65517/api/mushrooms/prediction-map/queries",
+  "user_report": "El usuario considera que edulis, pinophilus y cibarius no aparecen en este lugar por ser calcáreo. No equivale a medición de pH ni ausencia universal demostrada.",
+  "geology": {
+    "source_id": "icgc_geologia_50000",
+    "edition": "2024-12",
+    "field": "Codi",
+    "status": "available",
+    "feature_id": 35896,
+    "code": "PPcm",
+    "label": "Lutites vermelles amb intercalacions de calcàries micrítiques",
+    "mapping_status": "not_evaluated"
+  },
+  "trees": {
+    "source_id": "mfe25",
+    "exhaustive": false,
+    "status": "available",
+    "items": [
+      {
+        "label": "Pino Rojo",
+        "scientific_name": "Pinus sylvestris",
+        "code": "21",
+        "host_id": "host_pinus_sylvestris"
+      }
+    ],
+    "polygon_id": "2464069",
+    "formation": "Pinar de pino albar (Pinus sylvestris)",
+    "catalog_revision": "5e5dee67bdf044772c5c"
+  },
+  "terrain": {
+    "status": "available",
+    "data_mode": "geographic_sources",
+    "elevation": {
+      "status": "available",
+      "value_m": 1663.7,
+      "resolution_m": 5,
+      "source_id": "dem_5m"
+    },
+    "ph": {
+      "status": "available",
+      "resolution_m": 250,
+      "source_id": "soilgrids_2_phh2o",
+      "depths": [
+        {
+          "depth_cm": [
+            0,
+            5
+          ],
+          "status": "available",
+          "lower": 4.2,
+          "median": 6.1,
+          "upper": 8
+        },
+        {
+          "depth_cm": [
+            5,
+            15
+          ],
+          "status": "available",
+          "lower": 4.3,
+          "median": 6.2,
+          "upper": 8.1
+        },
+        {
+          "depth_cm": [
+            15,
+            30
+          ],
+          "status": "available",
+          "lower": 4.3,
+          "median": 6.3,
+          "upper": 8.1
+        }
+      ]
+    },
+    "ph_openlandmap": {
+      "status": "available",
+      "source_id": "openlandmap_soildb_ph",
+      "edition": "v20250204",
+      "period": "2020-2022",
+      "depth_cm": [
+        0,
+        30
+      ],
+      "interval_probability": 0.68,
+      "revision": "e3d5c75beeaa4a44c192",
+      "estimate": 6.3,
+      "lower": 5.2,
+      "upper": 7.3,
+      "estimate_resolution_m": 30,
+      "interval_resolution_m": 120,
+      "lookup": {
+        "method": "point",
+        "distance_m": 0,
+        "lat": 42.27588,
+        "lon": 1.5246
+      }
+    }
+  },
+  "mapped_context": {
+    "habitats": [],
+    "soil_tendencies": [
+      {
+        "id": "soil_calcareous",
+        "label": {
+          "es": "Calizo",
+          "ca": "Calcari",
+          "en": "Calcareous"
+        }
+      }
+    ],
+    "lithologies": [
+      {
+        "id": "lith_fine_clastic",
+        "label": {
+          "es": "Clástico fino",
+          "ca": "Clàstic fi",
+          "en": "Fine clastic"
+        }
+      },
+      {
+        "id": "lith_limestone",
+        "label": {
+          "es": "Caliza",
+          "ca": "Calcària",
+          "en": "Limestone"
+        }
+      }
+    ]
+  },
+  "policy": "broad_species_windows_v4",
+  "species": [
+    {
+      "species_id": "boletus_edulis",
+      "name": "Edulis",
+      "scientific_name": "Boletus edulis",
+      "status": "compatible",
+      "daily_statuses": [
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible"
+      ],
+      "reasons": [
+        "hosts_match",
+        "altitude_match",
+        "ph_match"
+      ],
+      "matched_host_ids": [
+        "host_pinus_sylvestris"
+      ]
+    },
+    {
+      "species_id": "boletus_pinophilus",
+      "name": "Pinícola",
+      "scientific_name": "Boletus pinophilus",
+      "status": "compatible",
+      "daily_statuses": [
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible"
+      ],
+      "reasons": [
+        "hosts_match",
+        "altitude_match",
+        "ph_match"
+      ],
+      "matched_host_ids": [
+        "host_pinus_sylvestris"
+      ]
+    },
+    {
+      "species_id": "cantharellus_cibarius_sl",
+      "name": "Rossinyol",
+      "scientific_name": "Cantharellus cibarius",
+      "status": "compatible",
+      "daily_statuses": [
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible"
+      ],
+      "reasons": [
+        "hosts_match",
+        "altitude_match",
+        "ph_match"
+      ],
+      "matched_host_ids": [
+        "host_pinus_sylvestris"
+      ]
+    }
+  ],
+  "probabilities": {
+    "boletus_edulis": 0.586985,
+    "boletus_pinophilus": 0.424468,
+    "cantharellus_cibarius_sl": null
+  },
+  "current_profile_rules": {
+    "boletus_edulis": {
+      "ph_min": 3.5,
+      "ph_max": 7.5,
+      "soil_filter": null,
+      "soil_affinities": [
+        {
+          "id": "soil_acidic",
+          "relationship": "primary",
+          "affinity": 0.8,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "soil_siliceous",
+          "relationship": "primary",
+          "affinity": 0.75,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        }
+      ],
+      "lithology_affinities": [
+        {
+          "id": "lith_siliceous_substrate",
+          "relationship": "preferred",
+          "affinity": 0.75
+        },
+        {
+          "id": "lith_acidic_metamorphic",
+          "relationship": "preferred",
+          "affinity": 0.7
+        },
+        {
+          "id": "lith_decalcified_soil",
+          "relationship": "preferred",
+          "affinity": 0.6
+        },
+        {
+          "id": "lith_granite",
+          "relationship": "secondary",
+          "affinity": 0.55
+        },
+        {
+          "id": "lith_schist",
+          "relationship": "secondary",
+          "affinity": 0.55
+        }
+      ]
+    },
+    "boletus_pinophilus": {
+      "ph_min": 3.5,
+      "ph_max": 6.8,
+      "soil_filter": null,
+      "soil_affinities": [
+        {
+          "id": "soil_acidic",
+          "relationship": "primary",
+          "affinity": 1,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "soil_siliceous",
+          "relationship": "primary",
+          "affinity": 0.9,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        }
+      ],
+      "lithology_affinities": [
+        {
+          "id": "lith_granite",
+          "relationship": "preferred",
+          "affinity": 0.9
+        },
+        {
+          "id": "lith_schist",
+          "relationship": "preferred",
+          "affinity": 0.8
+        },
+        {
+          "id": "lith_sandstone",
+          "relationship": "preferred",
+          "affinity": 0.75
+        },
+        {
+          "id": "lith_siliceous_substrate",
+          "relationship": "preferred",
+          "affinity": 0.9
+        },
+        {
+          "id": "lith_limestone",
+          "relationship": "avoid",
+          "affinity": -0.6
+        }
+      ]
+    },
+    "cantharellus_cibarius_sl": {
+      "ph_min": 3.5,
+      "ph_max": 7.5,
+      "soil_filter": null,
+      "soil_affinities": [
+        {
+          "id": "soil_siliceous",
+          "relationship": "primary",
+          "affinity": 0.9,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "soil_acidic",
+          "relationship": "primary",
+          "affinity": 0.95,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "soil_moist",
+          "relationship": "primary",
+          "affinity": 0.85,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        }
+      ],
+      "lithology_affinities": [
+        {
+          "id": "lith_granite",
+          "relationship": "preferred",
+          "affinity": 0.85
+        },
+        {
+          "id": "lith_schist",
+          "relationship": "preferred",
+          "affinity": 0.75
+        },
+        {
+          "id": "lith_sandstone",
+          "relationship": "preferred",
+          "affinity": 0.75
+        },
+        {
+          "id": "lith_quartzite",
+          "relationship": "preferred",
+          "affinity": 0.7
+        },
+        {
+          "id": "lith_siliceous_substrate",
+          "relationship": "preferred",
+          "affinity": 0.95
+        },
+        {
+          "id": "lith_limestone",
+          "relationship": "avoid",
+          "affinity": -0.65
+        }
+      ]
+    }
+  },
+  "finding": "PPcm contiene caliza y el mapping la reconoce. Las tres especies cumplen los controles actuales; su afinidad silícea no impone un requisito y no tienen soil_filter. La geología no está siendo ignorada por el lector: carece de veto operativo para estas fichas.",
+  "limits": "La cartografía describe lutitas con intercalaciones calizas, no un análisis del suelo del setal. Ambas fuentes estiman pH ácido (OpenLandMap 6.3; SoilGrids 6.1 superficial). No se ha demostrado cuál dato o criterio falla en campo.",
+  "changes": "Diagnóstico y documentación únicamente; sin cambios en fichas, mappings, pH, motor ni probabilidades.",
+  "sha256": {
+    "docker-data/mushroom-data/mushroom_profiles.json": "aead9e4d27d3b1788b75275a6d53e3939b7cff67c16b8c4292052b52f806f72e",
+    "/private/tmp/rainmapper-vansa-point-20260914.json": "de740e11f63c8b294e7e17bfcc41d3e7336b24a9c3c80d988592d469b364a168",
+    "rainmapper_core/mushroom_map_ecology.py": "324752f4d055c00eaa26209711cdd8f84c3e7d602ce5c7f53884bd57170a5974"
+  }
+}

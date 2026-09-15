@@ -1,4 +1,552 @@
 {
+  "ui.prediction_map_calendar_timezone": {
+    "es": "Zona horaria de la predicción",
+    "ca": "Zona horària de la predicció",
+    "en": "Prediction time zone"
+  },
+  "ui.prediction_map_calendar_timezone_help": {
+    "es": "Define la fecha inicial y qué días meteorológicos han terminado. HA y el worker usan la misma zona en cada consulta, independientemente del navegador. Se guarda para este dispositivo al cerrar los parámetros; los informes abiertos conservan su zona original.",
+    "ca": "Defineix la data inicial i quins dies meteorològics han acabat. HA i el worker fan servir la mateixa zona a cada consulta, independentment del navegador. Es desa per a aquest dispositiu en tancar els paràmetres; els informes oberts conserven la seva zona original.",
+    "en": "Sets the initial date and which weather days have ended. HA and the worker use the same time zone for each query, independently of the browser. Saved for this device when settings close; open reports keep their original time zone."
+  },
+  "ui.affinity_add_row": {
+    "es": "Añadir fila",
+    "ca": "Afegir fila",
+    "en": "Add row"
+  },
+  "ui.affinity_rows_help": {
+    "es": "Selecciona un elemento del catálogo para añadirlo. «-» elimina solo esa fila al guardar; las demás se conservan.",
+    "ca": "Selecciona un element del catàleg per afegir-lo. «-» elimina només aquesta fila en desar; les altres es conserven.",
+    "en": "Select a catalog entry to add it. “-” removes only that row when saving; the other rows are kept."
+  },
+  "ui.prediction_map_worker_busy": {
+    "es": "El worker está conectado, pero está ocupado con otro trabajo. Vuelve a intentarlo cuando termine.",
+    "ca": "El worker està connectat, però està ocupat amb una altra feina. Torna-ho a provar quan acabi.",
+    "en": "The worker is connected but busy with another job. Try again when it finishes."
+  },
+  "ui.soil_help_support_title": {"es":"Si Silíceo ya está en Soil Affinities, ¿por qué repetirlo?", "ca":"Si Silici ja és a Soil Affinities, per què repetir-lo?", "en":"If Siliceous is already in Soil Affinities, why select it again?"},
+  "ui.soil_help_support": {
+    "es":"Son dos usos del mismo dato. Silíceo en Soil Affinities describe una preferencia; en el filtro territorial esa preferencia no permite saltarse el límite de pH. Silíceo en Suelos de apoyo autoriza expresamente a usarlo como respaldo para la excepción, si está activada y cumple las demás condiciones. No hace falta ponerlo en ambos para que la especie aparezca en suelo silíceo con pH válido. La segunda selección hace falta para permitir esa excepción. Se separan para no convertir automáticamente una preferencia en permiso para admitir un pH fuera del rango.",
+    "ca":"Són dos usos de la mateixa dada. Silici a Soil Affinities descriu una preferència; al filtre territorial aquesta preferència no permet saltar-se el límit de pH. Silici a Sòls de suport autoritza expressament a usar-lo com a suport per a l'excepció, si està activada i compleix la resta de condicions. No cal posar-lo als dos llocs perquè l'espècie aparegui en sòl silici amb pH vàlid. La segona selecció cal per permetre aquesta excepció. Se separen per no convertir automàticament una preferència en permís per admetre un pH fora del rang.",
+    "en":"These are two uses of the same data. Siliceous in Soil Affinities describes a preference; in the territorial filter that preference cannot override the pH bound. Siliceous in Supporting soils explicitly authorizes its use to support the exception, if enabled and all other conditions are met. It need not be in both lists for the species to appear on siliceous soil with valid pH. The second selection is needed to allow that exception. This separation prevents a preference from automatically becoming permission to admit out-of-range pH."
+  },
+  "ui.soil_help_open": {
+    "es": "Ayuda: cómo funcionan el suelo y el pH",
+    "ca": "Ajuda: com funcionen el sòl i el pH",
+    "en": "Help: how soil and pH rules work"
+  },
+  "ui.soil_help_ph": {
+    "es": "El mínimo y el máximo definen el rango de la especie. En la configuración actual del mapa se compara con la estimación de OpenLandMap; SoilGrids se muestra como comparación. Dentro del rango supera el control; fuera queda incompatible salvo la excepción descrita abajo. Si falta el pH y hay límites, queda con información insuficiente. Un límite vacío significa no definido, no cero. Estos límites siguen funcionando con la regla conjunta desactivada.",
+    "ca": "El mínim i el màxim defineixen el rang de l'espècie. En la configuració actual del mapa es compara amb l'estimació d'OpenLandMap; SoilGrids es mostra com a comparació. Dins del rang supera el control; fora queda incompatible llevat de l'excepció descrita a sota. Si falta el pH i hi ha límits, queda amb informació insuficient. Un límit buit significa no definit, no zero. Aquests límits continuen funcionant amb la regla conjunta desactivada.",
+    "en": "Minimum and maximum define the species range. The current map configuration compares it with the OpenLandMap estimate; SoilGrids is shown for comparison. A value inside the range passes; one outside is incompatible unless the exception below applies. Missing pH with defined bounds means insufficient information. A blank bound means undefined, not zero. These bounds still apply when the joint rule is disabled."
+  },
+  "ui.soil_help_enabled": {
+    "es": "Activa este bloque para esta especie. En No, no se aplican sus exigencias ni excepciones; siguen funcionando pH, hospedadores o hábitat, altitud y temporada. No es un interruptor que desactive todos los filtros del mapa.",
+    "ca": "Activa aquest bloc per a aquesta espècie. En No, no s'apliquen les seves exigències ni excepcions; continuen funcionant pH, hostes o hàbitat, altitud i temporada. No desactiva tots els filtres del mapa.",
+    "en": "Enables this block for this species. No disables its requirements and exceptions; pH, hosts or habitat, elevation and season still apply. This does not disable all map filters."
+  },
+  "ui.soil_help_require_soil_context": {
+    "es": "En Sí, si los mappings GIS no aportan ninguna categoría de suelo, la especie queda con información insuficiente aunque cumpla todo lo demás. En No, la falta de suelo por sí sola no la bloquea. Exige alguna categoría, no necesariamente resolver calizo frente a silíceo. Una litología como conglomerado o brecha no basta si el mapping no aporta una categoría de suelo. No se deduce descalcificación ni se crea una categoría de suelo a partir del pH estimado.",
+    "ca": "En Sí, si els mappings GIS no aporten cap categoria de sòl, l'espècie queda amb informació insuficient encara que compleixi la resta. En No, la manca de sòl per si sola no la bloqueja. Exigeix alguna categoria, no necessàriament resoldre calcari o silici. Una litologia com conglomerat o bretxa no basta si el mapping no aporta una categoria de sòl. No es dedueix descalcificació ni es crea una categoria de sòl a partir del pH estimat.",
+    "en": "Yes means that if GIS mappings provide no soil category, the species has insufficient information even when everything else matches. No means missing soil alone does not block it. Any soil category is sufficient; this does not specifically require distinguishing calcareous from siliceous soil. A lithology such as conglomerate or breccia is insufficient without a mapped soil category. Estimated pH does not establish decalcification or create a soil category."
+  },
+  "ui.soil_help_accepted_soil_ids": {
+    "es": "Son suelos que aportan evidencia favorable. No son los únicos permitidos: encontrar otro suelo no excluye automáticamente la especie y puede dar una admisión condicionada si supera los demás controles. Coincidir con un suelo de apoyo tampoco basta para admitirla. Además, estos suelos pueden permitir la excepción de pH, cuando está activada y se cumplen sus demás condiciones.",
+    "ca": "Són sòls que aporten evidència favorable. No són els únics permesos: trobar un altre sòl no exclou automàticament l'espècie i pot donar una admissió condicionada si supera els altres controls. Coincidir amb un sòl de suport tampoc basta per admetre-la. A més, poden permetre l'excepció de pH, quan està activada i es compleixen les altres condicions.",
+    "en": "These soils provide supporting evidence. They are not the only permitted soils: another soil does not automatically exclude the species and may lead to conditional admission if other checks pass. Matching supporting soil alone does not ensure admission. Supporting soils can also enable the pH exception when it is enabled and all its other conditions are met."
+  },
+  "ui.soil_help_conditional_soil_ids": {
+    "es": "Si se identifica uno de estos suelos y el pH está dentro del rango, la admisión se señala como condicionada. Por sí solos no permiten rescatar un pH fuera del rango: esa es la función de los suelos de apoyo junto con la excepción. Marcar Calizo aquí no demuestra descalcificación ni lo convierte en un suelo excluido. Tampoco evita un fallo en hospedadores, altitud o temporada.",
+    "ca": "Si s'identifica un d'aquests sòls i el pH és dins del rang, l'admissió s'indica com a condicionada. Per si sols no permeten rescatar un pH fora del rang: aquesta és la funció dels sòls de suport amb l'excepció. Marcar Calcari aquí no demostra descalcificació ni el converteix en un sòl exclòs. Tampoc evita un incompliment d'hostes, altitud o temporada.",
+    "en": "When one of these soils is identified and pH is within range, admission is marked conditional. These soils alone cannot rescue an out-of-range pH: that requires supporting soil and the exception. Selecting Calcareous here neither proves decalcification nor excludes that soil. Host, elevation and season checks still apply."
+  },
+  "ui.soil_help_excluded_soil_ids": {
+    "es": "Estos sí producen exclusión al detectarse. Si una unidad mezcla un suelo excluido y otro de apoyo, el resultado es información insuficiente: no sabemos cuál corresponde exactamente al setal. No se puede guardar el mismo tipo a la vez como excluido y de apoyo, ni como excluido y condicionado. Un incumplimiento de otro control puede mantener el resultado incompatible.",
+    "ca": "Aquests sí que produeixen exclusió quan es detecten. Si una unitat barreja un sòl exclòs i un de suport, el resultat és informació insuficient: no sabem quin correspon exactament a l'erol. No es pot desar el mateix tipus com a exclòs i de suport, ni com a exclòs i condicionat. Un incompliment d'un altre control pot mantenir el resultat incompatible.",
+    "en": "These soils cause exclusion when detected. A mapped unit mixing an excluded soil with supporting soil means insufficient information: their exact position at the site is unknown. The same soil cannot be saved as both excluded and supporting, or excluded and conditional. Failure of another check can still make the result incompatible."
+  },
+  "ui.soil_help_ph_conflict": {
+    "es": "No admitir excepciones mantiene el rechazo del pH fuera del rango. La opción de solapamiento exige todo lo siguiente: suelo de apoyo identificado; ningún suelo excluido ni bloqueador; estimación OpenLandMap con intervalo válido; e intervalo que se solape con el rango de la ficha. No sustituye un pH ausente ni permite saltarse los demás filtros.",
+    "ca": "No admetre excepcions manté el rebuig del pH fora del rang. L'opció de solapament exigeix tot això: sòl de suport identificat; cap sòl exclòs ni bloquejador; estimació OpenLandMap amb interval vàlid; i interval que se solapi amb el rang de la fitxa. No substitueix un pH absent ni permet saltar-se els altres filtres.",
+    "en": "Allow no exceptions rejects out-of-range pH. Interval overlap requires all of the following: identified supporting soil; no excluded or blocking soils; an OpenLandMap estimate with a valid interval; and overlap between that interval and the species range. It cannot replace missing pH or bypass other filters."
+  },
+  "ui.soil_help_ph_override_blocked_soil_ids": {
+    "es": "Impiden usar la excepción si aparecen en el punto. No equivalen a suelos excluidos: con pH dentro del rango este control no los veta. Por ejemplo, Calizo puede figurar como condicionado y como bloqueador: admite pH dentro del rango, pero no permite rescatar un valor fuera de él.",
+    "ca": "Impedeixen usar l'excepció si apareixen al punt. No equivalen a sòls exclosos: amb pH dins del rang aquest control no els veta. Per exemple, Calcari pot figurar com a condicionat i bloquejador: admet pH dins del rang, però no permet rescatar un valor fora del rang.",
+    "en": "These soils prevent the exception when present. They are not excluded soils: this control does not reject them when pH is within range. For example, Calcareous can be both conditional and blocking: in-range pH is allowed, but an out-of-range value cannot be rescued."
+  },
+  "ui.soil_help_review_ref": {
+    "es": "Registra el documento o evidencia que justifica la configuración. Es obligatoria para guardar una regla activa y no modifica el cálculo por sí misma.",
+    "ca": "Registra el document o evidència que justifica la configuració. És obligatòria per desar una regla activa i no modifica el càlcul per si mateixa.",
+    "en": "Records the document or evidence supporting the configuration. Required when saving an active rule; it does not itself change the calculation."
+  },
+  "ui.soil_help_example_title": {"es":"Ejemplo de excepción de pH", "ca":"Exemple d'excepció de pH", "en":"pH exception example"},
+  "ui.soil_help_example": {
+    "es": "Ejemplo hipotético: máximo de ficha 6,8, estimación 7,0 e intervalo 6,4–7,6. Con suelo de apoyo, excepción activada y sin bloqueos, puede admitirse de forma condicionada. No amplía el máximo de la ficha ni afirma que el pH real sea 6,4: reconoce incertidumbre. No demuestra descalcificación.",
+    "ca": "Exemple hipotètic: màxim de fitxa 6,8, estimació 7,0 i interval 6,4–7,6. Amb sòl de suport, excepció activada i sense bloquejos, es pot admetre de manera condicionada. No amplia el màxim de la fitxa ni afirma que el pH real sigui 6,4: reconeix incertesa. No demostra descalcificació.",
+    "en": "Hypothetical example: species maximum 6.8, estimate 7.0 and interval 6.4–7.6. With supporting soil, the exception enabled and no blockers, conditional admission is possible. This neither raises the species maximum nor establishes that actual pH is 6.4: it acknowledges uncertainty. It does not prove decalcification."
+  },
+  "ui.soil_help_affinities_title": {"es":"Diferencia con Soil Affinities y Litología", "ca":"Diferència amb Soil Affinities i Litologia", "en":"Difference from Soil Affinities and Lithology"},
+  "ui.soil_help_affinities": {
+    "es": "Las afinidades de debajo describen tipo, relación, procedencia y valor. En el filtro territorial una coincidencia positiva puede indicar preferencia, pero no obliga a pertenecer a esas preferencias. Un valor 0,85 no es un 85 % de probabilidad. Evitar en Litología no se convierte automáticamente en prohibición. Los vetos explícitos se configuran arriba, en Suelos excluidos.",
+    "ca": "Les afinitats de sota descriuen tipus, relació, procedència i valor. Al filtre territorial una coincidència positiva pot indicar preferència, però no obliga a pertànyer a aquestes preferències. Un valor 0,85 no és un 85 % de probabilitat. Evitar a Litologia no es converteix automàticament en prohibició. Els vetos explícits es configuren a dalt, a Sòls exclosos.",
+    "en": "The affinities below describe type, relationship, origin and value. In the territorial filter, a positive match may indicate preference without requiring that preference to be met. A value of 0.85 is not an 85% probability. Avoid under Lithology is not an automatic prohibition. Explicit exclusions are configured above under Excluded soils."
+  },
+  "ui.soil_help_comparison_title": {"es":"Por qué puede aparecer ou de reig y no aereus", "ca":"Per què pot aparèixer ou de reig i no aereus", "en":"Why ou de reig may appear while aereus does not"},
+  "ui.soil_help_comparison": {
+    "es": "Caso comprobado el 14/09/2026 en 42.02746, 1.73187: ambos cumplían hospedadores, altitud, pH 6,4 y temporada principal. El mapping identificaba brechas y conglomerados, pero no una categoría de suelo. Aereus exigía suelo identificado y quedó con información insuficiente; ou de reig no tenía esa exigencia. Es una diferencia de reglas, no evidencia de ausencia. Con esos datos, poner solo Exigir tipo de suelo identificado en No para aereus elimina ese bloqueo y conserva los demás controles. El ejemplo describe aquella configuración, no fija los valores de las fichas actuales.",
+    "ca": "Cas comprovat el 14/09/2026 a 42.02746, 1.73187: tots dos complien hostes, altitud, pH 6,4 i temporada principal. El mapping identificava bretxes i conglomerats, però no una categoria de sòl. Aereus exigia sòl identificat i va quedar amb informació insuficient; ou de reig no tenia aquesta exigència. És una diferència de regles, no evidència d'absència. Amb aquestes dades, posar només Exigir tipus de sòl identificat en No per a aereus elimina aquest bloqueig i conserva la resta. L'exemple descriu aquella configuració, no fixa els valors de les fitxes actuals.",
+    "en": "Case checked on 14 September 2026 at 42.02746, 1.73187: both passed hosts, elevation, pH 6.4 and main season. The mapping identified breccias and conglomerates but no soil category. Aereus required identified soil and had insufficient information; ou de reig had no such requirement. This is a difference in rules, not evidence of absence. With those data, setting only Require identified soil type to No for aereus removes that block and preserves other checks. This example describes that configuration, not fixed values for current profiles."
+  },
+  "ui.soil_help_save_title": {"es":"Guardar y resultado en el mapa", "ca":"Desar i resultat al mapa", "en":"Saving and map results"},
+  "ui.soil_help_save": {
+    "es": "Abrir esta ayuda no cambia ni guarda nada. Los ajustes se aplican al pulsar Guardar perfil de especie. Poner Aplicar regla en No y guardar elimina la regla de la ficha; conserva pH y afinidades. Consulta de nuevo el punto para evaluar los cambios. Incompatible y con información insuficiente son resultados distintos, aunque ninguno aparece entre las compatibles. Las descartadas no invocan modelos; las compatibles sin modelo permanecen al final con Sin probabilidad calculada, que no significa cero. La fecha filtra las temporadas principal y secundaria y el predictor calcula la probabilidad temporal.",
+    "ca": "Obrir aquesta ajuda no canvia ni desa res. Els ajustos s'apliquen en prémer Desar perfil d'espècie. Posar Aplicar regla en No i desar elimina la regla de la fitxa; conserva pH i afinitats. Consulta de nou el punt per avaluar els canvis. Incompatible i amb informació insuficient són resultats diferents, tot i que cap apareix entre les compatibles. Les descartades no invoquen models; les compatibles sense model queden al final amb Sense probabilitat calculada, que no significa zero. La data filtra les temporades principal i secundària i el predictor calcula la probabilitat temporal.",
+    "en": "Opening this help changes and saves nothing. Settings apply when you press Save species profile. Setting Apply rule to No and saving removes the rule while preserving pH bounds and affinities. Query the point again to evaluate changes. Incompatible and insufficient information are different outcomes, although neither appears among compatible species. Rejected species do not invoke models; compatible species without a model remain last with No probability calculated, which is not zero. The date filters main and secondary seasons, and the predictor calculates temporal probability."
+  },
+  "ui.species_soil_ph": {
+    "es": "pH del suelo",
+    "ca": "pH del sòl",
+    "en": "Soil pH"
+  },
+  "ui.species_ph_min": {
+    "es": "pH mínimo",
+    "ca": "pH mínim",
+    "en": "Minimum pH"
+  },
+  "ui.species_ph_max": {
+    "es": "pH máximo",
+    "ca": "pH màxim",
+    "en": "Maximum pH"
+  },
+  "ui.species_ph_help": {
+    "es": "Ventana amplia de la especie, revisable más adelante. Deja vacío un límite desconocido; no significa cero.",
+    "ca": "Finestra àmplia de l’espècie, revisable més endavant. Deixa buit un límit desconegut; no significa zero.",
+    "en": "Broad species window, subject to later review. Leave an unknown bound empty; it does not mean zero."
+  },
+  "ui.prediction_map_settings": {
+    "en": "Prediction",
+    "es": "Predicción",
+    "ca": "Predicció"
+  },
+  "ui.prediction_map_execution": {
+    "en": "Run on",
+    "es": "Ejecutar en",
+    "ca": "Executar a"
+  },
+  "ui.prediction_map_execution_local": {
+    "en": "Local server",
+    "es": "Servidor local",
+    "ca": "Servidor local"
+  },
+  "ui.prediction_map_execution_worker": {
+    "en": "Worker",
+    "es": "Worker",
+    "ca": "Worker"
+  },
+  "ui.prediction_map_execution_help": {
+    "en": "Local uses the server hosting this map. Worker sends the query to a prepared worker. Applies to new queries; never switches automatically.",
+    "es": "Local utiliza el servidor que sirve este mapa. Worker envía la consulta a un worker preparado. Se aplica a consultas nuevas; no cambia automáticamente de opción.",
+    "ca": "Local utilitza el servidor que serveix aquest mapa. Worker envia la consulta a un worker preparat. S'aplica a consultes noves; no canvia automàticament d'opció."
+  },
+  "ui.prediction_map_executor_unavailable": {
+    "en": "The selected executor is not available. Choose another option in Prediction settings or try again later.",
+    "es": "El ejecutor elegido no está disponible. Elige otra opción en los parámetros de Predicción o inténtalo más tarde.",
+    "ca": "L'executor escollit no està disponible. Tria una altra opció als paràmetres de Predicció o torna-ho a provar més tard."
+  },
+  "ui.prediction_map_query_time": {
+    "en": "Query time",
+    "es": "Tiempo de consulta",
+    "ca": "Temps de consulta"
+  },
+  "ui.prediction_map_compute_time": {
+    "en": "Calculation",
+    "es": "Cálculo",
+    "ca": "Càlcul"
+  },
+  "ui.prediction_map_waiting_worker": {
+    "en": "Waiting for worker…",
+    "es": "Esperando al worker…",
+    "ca": "Esperant el worker…"
+  },
+  "ui.prediction_map_mode": {
+    "en": "Prediction mode",
+    "es": "Modo predicción",
+    "ca": "Mode predicció"
+  },
+  "ui.prediction_map_simulation": {
+    "en": "Prototype · simulated prediction, not a real forecast",
+    "es": "Prototipo · predicción simulada, no es una predicción real",
+    "ca": "Prototip · predicció simulada, no és una predicció real"
+  },
+  "ui.prediction_map_terrain_real": {
+    "en": "Terrain from map data; species curves remain simulated.",
+    "es": "Terreno de fuentes cartográficas; las curvas por especies siguen siendo simuladas.",
+    "ca": "Terreny de fonts cartogràfiques; les corbes per espècies continuen sent simulades."
+  },
+  "ui.prediction_map_land_vegetation": {
+    "es": "Cubierta del suelo",
+    "ca": "Coberta del sòl",
+    "en": "Land cover"
+  },
+  "ui.prediction_map_land_geology": {
+    "es": "Unidad geológica",
+    "ca": "Unitat geològica",
+    "en": "Geological unit"
+  },
+  "ui.prediction_map_land_code": {
+    "es": "Código",
+    "ca": "Codi",
+    "en": "Code"
+  },
+  "ui.prediction_map_land_ambiguous": {
+    "es": "Punto en un límite o solapamiento; identificación ambigua.",
+    "ca": "Punt en un límit o solapament; identificació ambigua.",
+    "en": "Boundary or overlap; ambiguous identification."
+  },
+  "ui.prediction_map_land_resource_limit": {
+    "es": "Consulta no disponible por el tamaño de la geometría.",
+    "ca": "Consulta no disponible per la mida de la geometria.",
+    "en": "Lookup unavailable due to geometry size."
+  },
+  "ui.prediction_map_land_no_data": {
+    "es": "Sin cobertura de esta capa en el punto.",
+    "ca": "Sense cobertura d’aquesta capa al punt.",
+    "en": "No coverage from this layer at the point."
+  },
+  "ui.prediction_map_land_not_connected": {
+    "es": "Capa todavía no conectada.",
+    "ca": "Capa encara no connectada.",
+    "en": "Layer not connected yet."
+  },
+  "ui.prediction_map_land_unavailable": {
+    "es": "No se ha podido consultar esta capa.",
+    "ca": "No s’ha pogut consultar aquesta capa.",
+    "en": "This layer could not be queried."
+  },
+  "ui.prediction_map_land_descriptive": {
+    "es": "Descripción cartográfica. La identificación de hospedadores y la compatibilidad por especie siguen pendientes.",
+    "ca": "Descripció cartogràfica. La identificació d’hostes i la compatibilitat per espècie continuen pendents.",
+    "en": "Map description. Host identification and species compatibility are still pending."
+  },
+  "ui.prediction_map_terrain_no_data": {
+    "en": "No data for one or more values at this point.",
+    "es": "Sin datos para uno o varios valores en este punto.",
+    "ca": "Sense dades per a un o diversos valors en aquest punt."
+  },
+  "ui.prediction_map_terrain_unavailable": {
+    "en": "The terrain data could not be read.",
+    "es": "No se han podido leer los datos del terreno.",
+    "ca": "No s'han pogut llegir les dades del terreny."
+  },
+  "ui.prediction_map_altitude": {
+    "en": "Altitude",
+    "es": "Altitud",
+    "ca": "Altitud"
+  },
+  "ui.prediction_map_soil_ph": {
+    "en": "Soil pH",
+    "es": "pH del suelo",
+    "ca": "pH del sòl"
+  },
+  "ui.prediction_map_surface_ph": {
+    "en": "pH · 0–5 cm",
+    "es": "pH · 0–5 cm",
+    "ca": "pH · 0–5 cm"
+  },
+  "ui.prediction_map_trees": {
+    "en": "Mapped trees",
+    "es": "Arbolado cartografiado",
+    "ca": "Arbrat cartografiat"
+  },
+  "ui.prediction_map_trees_pending": {
+    "en": "Pending",
+    "es": "Pendiente",
+    "ca": "Pendent"
+  },
+  "ui.prediction_map_trees_no_data": {
+    "en": "No data",
+    "es": "Sin datos",
+    "ca": "Sense dades"
+  },
+  "ui.prediction_map_depth": {
+    "en": "Depth",
+    "es": "Profundidad",
+    "ca": "Profunditat"
+  },
+  "ui.prediction_map_median": {
+    "en": "Median",
+    "es": "Mediana",
+    "ca": "Mediana"
+  },
+  "ui.prediction_map_interval": {
+    "en": "Estimated range",
+    "es": "Intervalo estimado",
+    "ca": "Interval estimat"
+  },
+  "ui.prediction_map_resolution": {
+    "en": "Resolution",
+    "es": "Resolución",
+    "ca": "Resolució"
+  },
+  "ui.prediction_map_source_dem_icgc": {
+    "en": "ICGC · terrain elevation model",
+    "es": "ICGC · modelo de elevaciones del terreno",
+    "ca": "ICGC · model d'elevacions del terreny"
+  },
+  "ui.prediction_map_source_dem_andorra": {
+    "en": "Andorra · terrain elevation model",
+    "es": "Andorra · modelo de elevaciones del terreno",
+    "ca": "Andorra · model d'elevacions del terreny"
+  },
+  "ui.prediction_map_source_dem_france": {
+    "en": "IGN France · RGE ALTI",
+    "es": "IGN Francia · RGE ALTI",
+    "ca": "IGN França · RGE ALTI"
+  },
+  "ui.prediction_map_source_dem_ign": {
+    "en": "IGN Spain · MDT25",
+    "es": "IGN España · MDT25",
+    "ca": "IGN Espanya · MDT25"
+  },
+  "ui.prediction_map_ph_source": {
+    "en": "ISRIC · SoilGrids · 250 m · CC BY 4.0",
+    "es": "ISRIC · SoilGrids · 250 m · CC BY 4.0",
+    "ca": "ISRIC · SoilGrids · 250 m · CC BY 4.0"
+  },
+  "ui.prediction_map_ph_estimate": {
+    "en": "Estimated pH, not a field measurement. Range: Q0.05–Q0.95.",
+    "es": "pH estimado, no medido sobre el terreno. Intervalo: Q0.05–Q0.95.",
+    "ca": "pH estimat, no mesurat sobre el terreny. Interval: Q0.05–Q0.95."
+  },
+  "ui.prediction_map_calculating": {
+    "en": "Calculating prediction…",
+    "es": "Calculando predicción…",
+    "ca": "Calculant predicció…"
+  },
+  "ui.prediction_map_cancel": {
+    "en": "Cancel",
+    "es": "Cancelar",
+    "ca": "Cancel·lar"
+  },
+  "ui.prediction_map_close": {
+    "en": "Close",
+    "es": "Cerrar",
+    "ca": "Tancar"
+  },
+  "ui.prediction_map_error": {
+    "en": "The query could not be completed",
+    "es": "No se ha podido completar la consulta",
+    "ca": "No s'ha pogut completar la consulta"
+  },
+  "ui.prediction_map_retry": {
+    "en": "Close and select a point to try again.",
+    "es": "Cierra y selecciona un punto para reintentar.",
+    "ca": "Tanca i selecciona un punt per tornar-ho a provar."
+  },
+  "ui.prediction_map_result": {
+    "en": "Prediction by species · 7 days",
+    "es": "Predicción por especies · 7 días",
+    "ca": "Predicció per espècies · 7 dies"
+  },
+  "ui.prediction_map_chart": {
+    "en": "Simulated daily probabilities; values in the species list",
+    "es": "Probabilidades diarias simuladas; valores en la lista de especies",
+    "ca": "Probabilitats diàries simulades; valors a la llista d'espècies"
+  },
+  "ui.prediction_map_date": {
+    "en": "Date",
+    "es": "Fecha",
+    "ca": "Data"
+  },
+  "ui.prediction_map_peak": {
+    "en": "Daily maximum",
+    "es": "Máximo diario",
+    "ca": "Màxim diari"
+  },
+  "ui.prediction_map_weekly_peak": {
+    "en": "Weekly maximum",
+    "es": "Máximo semanal",
+    "ca": "Màxim setmanal"
+  },
+  "ui.soil_filter_title": {
+    "es": "Regla conjunta de suelo y pH del mapa",
+    "ca": "Regla conjunta de sòl i pH del mapa",
+    "en": "Map soil and pH rule"
+  },
+  "ui.soil_filter_help": {
+    "es": "Esta regla sí interviene en el filtro del mapa. Exigir suelo identificado deja la especie sin evaluar cuando falta ese dato, aunque encajen pH, árboles y altitud. Los suelos de apoyo no son una lista exhaustiva; solo los excluidos implican un veto. Las afinidades de debajo y «Evitar» en Litología no son prohibiciones automáticas. Sin regla activa se mantienen los demás filtros. Activar o modificar la regla requiere una referencia que la justifique.",
+    "ca": "Aquesta regla intervé en el filtre del mapa. Exigir sòl identificat deixa l'espècie sense avaluar quan falta aquesta dada, encara que encaixin pH, arbres i altitud. Els sòls de suport no són una llista exhaustiva; només els exclosos impliquen un veto. Les afinitats de sota i «Evitar» a Litologia no són prohibicions automàtiques. Sense regla activa es mantenen els altres filtres. Activar o modificar la regla requereix una referència que la justifiqui.",
+    "en": "This rule affects the map filter. Requiring identified soil leaves the species unevaluated when that information is missing, even if pH, trees and elevation match. Supporting soils are not an exhaustive list; only excluded soils impose a veto. Affinities below and Avoid under Lithology are not automatic exclusions. Other filters remain active without this rule. Enabling or editing the rule requires a supporting reference."
+  },
+  "ui.soil_filter_enabled": {
+    "es": "Aplicar regla conjunta de suelo/pH", "ca": "Aplicar regla conjunta de sòl/pH", "en": "Apply joint soil/pH rule"
+  },
+  "ui.soil_filter_require_soil_context": {
+    "es": "Exigir tipo de suelo identificado", "ca": "Exigir tipus de sòl identificat", "en": "Require identified soil type"
+  },
+  "ui.soil_filter_ph_conflict": {
+    "es": "Si el pH estimado queda fuera del rango", "ca": "Si el pH estimat queda fora del rang", "en": "When estimated pH falls outside the range"
+  },
+  "ui.soil_filter_ph_strict": {
+    "es": "No admitir excepciones", "ca": "No admetre excepcions", "en": "Allow no exceptions"
+  },
+  "ui.soil_filter_ph_overlap": {
+    "es": "Admitir solapamiento del intervalo con suelo de apoyo", "ca": "Admetre solapament de l'interval amb sòl de suport", "en": "Allow interval overlap with supporting soil"
+  },
+  "ui.soil_filter_accepted_soil_ids": {
+    "es": "Suelos de apoyo (lista no exhaustiva)", "ca": "Sòls de suport (llista no exhaustiva)", "en": "Supporting soils (non-exhaustive)"
+  },
+  "ui.soil_filter_conditional_soil_ids": {
+    "es": "Suelos con admisión condicionada al pH", "ca": "Sòls amb admissió condicionada al pH", "en": "Soils with admission conditional on pH"
+  },
+  "ui.soil_filter_excluded_soil_ids": {
+    "es": "Suelos excluidos explícitamente", "ca": "Sòls exclosos explícitament", "en": "Explicitly excluded soils"
+  },
+  "ui.soil_filter_ph_override_blocked_soil_ids": {
+    "es": "Suelos que bloquean la excepción de pH", "ca": "Sòls que bloquegen l'excepció de pH", "en": "Soils blocking the pH exception"
+  },
+  "ui.soil_filter_review_ref": {
+    "es": "Referencia que justifica la regla", "ca": "Referència que justifica la regla", "en": "Supporting reference for the rule"
+  },
+  "ui.species_map_display_name": {
+    "es": "Nombre en el mapa (vacío: primer nombre común)", "ca": "Nom al mapa (buit: primer nom comú)", "en": "Map name (blank: first common name)"
+  },
+  "ui.prediction_map_weekly_chart": {
+    "en": "Calculated probabilities by species over seven days; select a date to view its values",
+    "es": "Probabilidades calculadas por especie durante siete días; selecciona una fecha para ver sus valores",
+    "ca": "Probabilitats calculades per espècie durant set dies; selecciona una data per veure els valors"
+  },
+  "ui.prediction_map_no_model": {
+    "en": "No applicable model",
+    "es": "Sin modelo aplicable",
+    "ca": "Sense model aplicable"
+  },
+  "ui.prediction_map_terrain": {
+    "en": "Terrain",
+    "es": "Terreno",
+    "ca": "Terreny"
+  },
+  "ui.prediction_map_weather": {
+    "en": "Observed weather",
+    "es": "Meteorología observada",
+    "ca": "Meteorologia observada"
+  },
+  "ui.prediction_map_weather_unavailable": {
+    "en": "Weather history could not be read.",
+    "es": "No se ha podido leer el histórico meteorológico.",
+    "ca": "No s'ha pogut llegir l'històric meteorològic."
+  },
+  "ui.prediction_map_weather_no_data": {
+    "en": "No usable data in this period.",
+    "es": "Sin datos utilizables en este periodo.",
+    "ca": "Sense dades utilitzables en aquest període."
+  },
+  "ui.prediction_map_weather_method": {
+    "en": "Estimated from observed stations within {radius} km, through the previous complete day. Temperature adjusted for altitude.",
+    "es": "Estimación desde estaciones observadas a menos de {radius} km, hasta el último día completo. Temperatura ajustada por altitud.",
+    "ca": "Estimació des d'estacions observades a menys de {radius} km, fins a l'últim dia complet. Temperatura ajustada per altitud."
+  },
+  "ui.prediction_map_weather_period": {
+    "en": "History period",
+    "es": "Periodo del histórico",
+    "ca": "Període de l'històric"
+  },
+  "ui.prediction_map_weather_days": {
+    "en": "{days} days",
+    "es": "{days} días",
+    "ca": "{days} dies"
+  },
+  "ui.prediction_map_weather_rain_sum": {
+    "en": "Rainfall sum for available days: {amount} mm · {available}/{days} days with data",
+    "es": "Suma de lluvia disponible: {amount} mm · {available}/{days} días con datos",
+    "ca": "Suma de pluja disponible: {amount} mm · {available}/{days} dies amb dades"
+  },
+  "ui.prediction_map_rain": {
+    "en": "Rainfall",
+    "es": "Lluvia",
+    "ca": "Pluja"
+  },
+  "ui.prediction_map_temperature": {
+    "en": "Temperature",
+    "es": "Temperatura",
+    "ca": "Temperatura"
+  },
+  "ui.prediction_map_humidity": {
+    "en": "Humidity",
+    "es": "Humedad",
+    "ca": "Humitat"
+  },
+  "ui.prediction_map_minimum": {
+    "en": "Minimum",
+    "es": "Mínima",
+    "ca": "Mínima"
+  },
+  "ui.prediction_map_maximum": {
+    "en": "Maximum",
+    "es": "Máxima",
+    "ca": "Màxima"
+  },
+  "ui.prediction_map_wind": {
+    "en": "Wind",
+    "es": "Viento",
+    "ca": "Vent"
+  },
+  "ui.prediction_map_wind_average": {
+    "en": "Daily average",
+    "es": "Media diaria",
+    "ca": "Mitjana diària"
+  },
+  "ui.prediction_map_wind_gust": {
+    "en": "Gust",
+    "es": "Racha",
+    "ca": "Ratxa"
+  },
+  "ui.prediction_map_wind_station": {
+    "en": "Observed at {name}, {distance} km from the point; not wind interpolated at the point.",
+    "es": "Observado en {name}, a {distance} km del punto; no es viento interpolado en el punto.",
+    "ca": "Observat a {name}, a {distance} km del punt; no és vent interpolat al punt."
+  },
+  "ui.prediction_map_weather_sources": {
+    "en": "Sources: {sources} · {count} nearby stations; daily contributions vary.",
+    "es": "Fuentes: {sources} · {count} estaciones cercanas; las aportaciones varían por día.",
+    "ca": "Fonts: {sources} · {count} estacions properes; les aportacions varien per dia."
+  },
+  "ui.prediction_map_weather_gaps": {
+    "en": "Gaps and dashes mean missing data, not zero. These are observations, not a weather forecast.",
+    "es": "Los huecos y guiones indican ausencia de datos, no cero. Son observaciones, no previsión meteorológica.",
+    "ca": "Els buits i guions indiquen absència de dades, no zero. Són observacions, no previsió meteorològica."
+  },
+  "ui.prediction_map_weather_imputed": {
+    "en": "Current rainfall policy treated {count} repeated station-day values as zero.",
+    "es": "La política de lluvia actual ha tratado como cero {count} valores repetidos de estación y día.",
+    "ca": "La política de pluja actual ha tractat com a zero {count} valors repetits d'estació i dia."
+  },
+  "ui.prediction_map_weather_records": {
+    "en": "Daily records",
+    "es": "Registros diarios",
+    "ca": "Registres diaris"
+  },
+  "ui.prediction_map_not_connected": {
+    "en": "Real data is not connected in this prototype.",
+    "es": "Los datos reales todavía no están conectados en este prototipo.",
+    "ca": "Les dades reals encara no estan connectades en aquest prototip."
+  },
+  "ui.prediction_map_demo_a": {
+    "en": "Example species A",
+    "es": "Especie de ejemplo A",
+    "ca": "Espècie d'exemple A"
+  },
+  "ui.prediction_map_demo_b": {
+    "en": "Example species B",
+    "es": "Especie de ejemplo B",
+    "ca": "Espècie d'exemple B"
+  },
+  "ui.prediction_map_demo_c": {
+    "en": "Example species C",
+    "es": "Especie de ejemplo C",
+    "ca": "Espècie d'exemple C"
+  },
   "rain_7d_min_mm": {
     "en": "7d min rain",
     "es": "Lluvia min 7d",
@@ -3270,9 +3818,9 @@
     "ca": "De tots els casos reservats realment desfavorables, percentatge i fracció detectats com a desfavorables. Els resultats incerts compten com a no trobats."
   },
   "ui.predictor_reliability": {
-    "en": "Model reliability",
-    "es": "Fiabilidad del modelo",
-    "ca": "Fiabilitat del model"
+    "en": "Reliability when recommending an outing",
+    "es": "Fiabilidad cuando recomienda salir",
+    "ca": "Fiabilitat quan recomana sortir"
   },
   "ui.predictor_actual": {
     "en": "Actual",
@@ -4679,56 +5227,256 @@
     "es": "Consenso estadístico entre familias de modelos elegibles",
     "ca": "Consens estadístic entre famílies de models elegibles"
   },
-  "ui.predictor_consensus_high": {"en": "high", "es": "alto", "ca": "alt"},
-  "ui.predictor_consensus_moderate": {"en": "moderate", "es": "moderado", "ca": "moderat"},
-  "ui.predictor_consensus_low": {"en": "low", "es": "bajo", "ca": "baix"},
-  "ui.predictor_consensus_unavailable": {"en": "not available", "es": "no disponible", "ca": "no disponible"},
-  "ui.predictor_consensus_window": {"en": "Window h{horizon}", "es": "Ventana h{horizon}", "ca": "Finestra h{horizon}"},
-  "ui.predictor_consensus_delay": {"en": "Delay h{horizon}", "es": "Retardo h{horizon}", "ca": "Retard h{horizon}"},
-  "ui.predictor_consensus_single_family": {"en": "no comparison · {count} eligible family", "es": "sin contraste · {count} familia válida", "ca": "sense contrast · {count} família vàlida"},
-  "ui.predictor_consensus_gap": {"en": "maximum gap {points} pp", "es": "separación máxima {points} pp", "ca": "separació màxima {points} pp"},
-  "ui.predictor_consensus_gap_decimal": {"en": "maximum gap {points} pp", "es": "separación máxima {points} pp", "ca": "separació màxima {points} pp"},
-  "ui.predictor_consensus_contrast_coverage": {"en": "contrast {measured}/{total} scenarios", "es": "contraste {measured}/{total} escenarios", "ca": "contrast {measured}/{total} escenaris"},
-  "ui.predictor_internal_agreement": {"en": "Internal variant agreement", "es": "Acuerdo interno entre variantes", "ca": "Acord intern entre variants"},
-  "ui.predictor_method_family_logistic": {"en": "logistic models", "es": "modelos logísticos", "ca": "models logístics"},
-  "ui.predictor_method_family_bagged_trees": {"en": "bagged trees", "es": "árboles agregados", "ca": "arbres agregats"},
-  "ui.predictor_method_family_boosting": {"en": "boosting", "es": "boosting", "ca": "boosting"},
-  "ui.predictor_method_family_distance": {"en": "distance models", "es": "modelos por distancia", "ca": "models per distància"},
-  "ui.predictor_method_family_kernel": {"en": "kernel models", "es": "modelos de kernel", "ca": "models de kernel"},
-  "ui.predictor_scenario_evidence": {"en": "Out-of-sample evidence by scenario", "es": "Evidencia fuera de muestra por escenario", "ca": "Evidència fora de mostra per escenari"},
-  "ui.predictor_scenario_brier_gain": {"en": "Brier improvement +{value}", "es": "mejora Brier +{value}", "ca": "millora Brier +{value}"},
-  "ui.predictor_scenario_holdout": {"en": "hold-out {count}", "es": "hold-out {count}", "ca": "hold-out {count}"},
-  "ui.predictor_scenario_applicability_within_observed_range": {"en": "within observed range", "es": "dentro del rango observado", "ca": "dins del rang observat"},
-  "ui.predictor_scenario_applicability_caution": {"en": "extrapolation warning", "es": "advertencia de extrapolación", "ca": "advertiment d'extrapolació"},
-  "ui.predictor_abstention_title": {"en": "Operational abstentions", "es": "Abstenciones operativas", "ca": "Abstencions operatives"},
-  "ui.predictor_abstention_compact": {"en": "Abstention: {reasons}", "es": "Abstención: {reasons}", "ca": "Abstenció: {reasons}"},
-  "ui.predictor_abstention_no_eligible": {"en": "no eligible model", "es": "ningún modelo elegible", "ca": "cap model elegible"},
-  "ui.predictor_abstention_applicability": {"en": "applicability", "es": "aplicabilidad", "ca": "aplicabilitat"},
-  "ui.predictor_abstention_constant_model": {"en": "constant model", "es": "modelo constante", "ca": "model constant"},
-  "ui.predictor_abstention_brier": {"en": "Brier does not beat prevalence", "es": "Brier no mejora la prevalencia", "ca": "Brier no millora la prevalença"},
-  "ui.predictor_abstention_auc_below_minimum": {"en": "ROC-AUC below 0.55", "es": "ROC-AUC inferior a 0,55", "ca": "ROC-AUC inferior a 0,55"},
-  "ui.predictor_abstention_auc_unavailable": {"en": "ROC-AUC unavailable", "es": "ROC-AUC sin métrica", "ca": "ROC-AUC sense mètrica"},
-  "ui.predictor_abstention_model_unavailable": {"en": "model unavailable", "es": "modelo no disponible", "ca": "model no disponible"},
-  "ui.predictor_abstention_invalid_probability": {"en": "invalid probability", "es": "probabilidad inválida", "ca": "probabilitat invàlida"},
-  "ui.predictor_ecological_compatibility": {"en": "Ecological compatibility", "es": "Compatibilidad ecológica", "ca": "Compatibilitat ecològica"},
-  "ui.predictor_ecological_compatibility_compatible": {"en": "compatible", "es": "compatible", "ca": "compatible"},
-  "ui.predictor_ecological_compatibility_incompatible": {"en": "incompatible", "es": "incompatible", "ca": "incompatible"},
-  "ui.predictor_ecological_compatibility_unknown": {"en": "not determined", "es": "no determinada", "ca": "no determinada"},
-  "ui.predictor_ecological_compatibility_out_of_season": {"en": "out of season", "es": "fuera de temporada", "ca": "fora de temporada"},
-  "ui.predictor_ecological_evidence": {"en": "Ecological compatibility reliability", "es": "Fiabilidad de la compatibilidad ecológica", "ca": "Fiabilitat de la compatibilitat ecològica"},
-  "ui.predictor_ecological_evidence_high": {"en": "high", "es": "alta", "ca": "alta"},
-  "ui.predictor_ecological_evidence_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
-  "ui.predictor_ecological_evidence_low": {"en": "low", "es": "baja", "ca": "baixa"},
-  "ui.predictor_ecological_evidence_unavailable": {"en": "not available", "es": "no disponible", "ca": "no disponible"},
-  "ui.predictor_statistical_support": {"en": "Operational model statistical reliability", "es": "Fiabilidad estadística del modelo operativo", "ca": "Fiabilitat estadística del model operatiu"},
-  "ui.predictor_statistical_support_unavailable": {"en": "not validated", "es": "no validada", "ca": "no validada"},
-  "ui.predictor_statistical_support_limited": {"en": "limited", "es": "limitada", "ca": "limitada"},
-  "ui.predictor_statistical_support_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
-  "ui.predictor_statistical_support_strong": {"en": "strong", "es": "fuerte", "ca": "forta"},
-  "ui.predictor_statistical_reliability_high": {"en": "high", "es": "alta", "ca": "alta"},
-  "ui.predictor_statistical_reliability_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
-  "ui.predictor_statistical_reliability_limited": {"en": "limited", "es": "limitada", "ca": "limitada"},
-  "ui.predictor_statistical_reliability_unavailable": {"en": "not available", "es": "no disponible", "ca": "no disponible"},
+  "ui.predictor_consensus_high": {
+    "en": "high",
+    "es": "alto",
+    "ca": "alt"
+  },
+  "ui.predictor_consensus_moderate": {
+    "en": "moderate",
+    "es": "moderado",
+    "ca": "moderat"
+  },
+  "ui.predictor_consensus_low": {
+    "en": "low",
+    "es": "bajo",
+    "ca": "baix"
+  },
+  "ui.predictor_consensus_unavailable": {
+    "en": "not available",
+    "es": "no disponible",
+    "ca": "no disponible"
+  },
+  "ui.predictor_consensus_window": {
+    "en": "Window h{horizon}",
+    "es": "Ventana h{horizon}",
+    "ca": "Finestra h{horizon}"
+  },
+  "ui.predictor_consensus_delay": {
+    "en": "Delay h{horizon}",
+    "es": "Retardo h{horizon}",
+    "ca": "Retard h{horizon}"
+  },
+  "ui.predictor_consensus_single_family": {
+    "en": "no comparison · {count} eligible family",
+    "es": "sin contraste · {count} familia válida",
+    "ca": "sense contrast · {count} família vàlida"
+  },
+  "ui.predictor_consensus_gap": {
+    "en": "maximum gap {points} pp",
+    "es": "separación máxima {points} pp",
+    "ca": "separació màxima {points} pp"
+  },
+  "ui.predictor_consensus_gap_decimal": {
+    "en": "maximum gap {points} pp",
+    "es": "separación máxima {points} pp",
+    "ca": "separació màxima {points} pp"
+  },
+  "ui.predictor_consensus_contrast_coverage": {
+    "en": "contrast {measured}/{total} scenarios",
+    "es": "contraste {measured}/{total} escenarios",
+    "ca": "contrast {measured}/{total} escenaris"
+  },
+  "ui.predictor_internal_agreement": {
+    "en": "Internal variant agreement",
+    "es": "Acuerdo interno entre variantes",
+    "ca": "Acord intern entre variants"
+  },
+  "ui.predictor_method_family_logistic": {
+    "en": "logistic models",
+    "es": "modelos logísticos",
+    "ca": "models logístics"
+  },
+  "ui.predictor_method_family_bagged_trees": {
+    "en": "bagged trees",
+    "es": "árboles agregados",
+    "ca": "arbres agregats"
+  },
+  "ui.predictor_method_family_boosting": {
+    "en": "boosting",
+    "es": "boosting",
+    "ca": "boosting"
+  },
+  "ui.predictor_method_family_distance": {
+    "en": "distance models",
+    "es": "modelos por distancia",
+    "ca": "models per distància"
+  },
+  "ui.predictor_method_family_kernel": {
+    "en": "kernel models",
+    "es": "modelos de kernel",
+    "ca": "models de kernel"
+  },
+  "ui.predictor_scenario_evidence": {
+    "en": "Out-of-sample evidence by scenario",
+    "es": "Evidencia fuera de muestra por escenario",
+    "ca": "Evidència fora de mostra per escenari"
+  },
+  "ui.predictor_scenario_brier_gain": {
+    "en": "Brier improvement +{value}",
+    "es": "mejora Brier +{value}",
+    "ca": "millora Brier +{value}"
+  },
+  "ui.predictor_scenario_holdout": {
+    "en": "hold-out {count}",
+    "es": "hold-out {count}",
+    "ca": "hold-out {count}"
+  },
+  "ui.predictor_scenario_applicability_within_observed_range": {
+    "en": "within observed range",
+    "es": "dentro del rango observado",
+    "ca": "dins del rang observat"
+  },
+  "ui.predictor_scenario_applicability_caution": {
+    "en": "extrapolation warning",
+    "es": "advertencia de extrapolación",
+    "ca": "advertiment d'extrapolació"
+  },
+  "ui.predictor_abstention_title": {
+    "en": "Operational abstentions",
+    "es": "Abstenciones operativas",
+    "ca": "Abstencions operatives"
+  },
+  "ui.predictor_abstention_compact": {
+    "en": "Abstention: {reasons}",
+    "es": "Abstención: {reasons}",
+    "ca": "Abstenció: {reasons}"
+  },
+  "ui.predictor_abstention_no_eligible": {
+    "en": "no eligible model",
+    "es": "ningún modelo elegible",
+    "ca": "cap model elegible"
+  },
+  "ui.predictor_abstention_applicability": {
+    "en": "applicability",
+    "es": "aplicabilidad",
+    "ca": "aplicabilitat"
+  },
+  "ui.predictor_abstention_constant_model": {
+    "en": "constant model",
+    "es": "modelo constante",
+    "ca": "model constant"
+  },
+  "ui.predictor_abstention_brier": {
+    "en": "Brier does not beat prevalence",
+    "es": "Brier no mejora la prevalencia",
+    "ca": "Brier no millora la prevalença"
+  },
+  "ui.predictor_abstention_auc_below_minimum": {
+    "en": "ROC-AUC below 0.55",
+    "es": "ROC-AUC inferior a 0,55",
+    "ca": "ROC-AUC inferior a 0,55"
+  },
+  "ui.predictor_abstention_auc_unavailable": {
+    "en": "ROC-AUC unavailable",
+    "es": "ROC-AUC sin métrica",
+    "ca": "ROC-AUC sense mètrica"
+  },
+  "ui.predictor_abstention_model_unavailable": {
+    "en": "model unavailable",
+    "es": "modelo no disponible",
+    "ca": "model no disponible"
+  },
+  "ui.predictor_abstention_invalid_probability": {
+    "en": "invalid probability",
+    "es": "probabilidad inválida",
+    "ca": "probabilitat invàlida"
+  },
+  "ui.predictor_ecological_compatibility": {
+    "en": "Ecological compatibility",
+    "es": "Compatibilidad ecológica",
+    "ca": "Compatibilitat ecològica"
+  },
+  "ui.predictor_ecological_compatibility_compatible": {
+    "en": "compatible",
+    "es": "compatible",
+    "ca": "compatible"
+  },
+  "ui.predictor_ecological_compatibility_incompatible": {
+    "en": "incompatible",
+    "es": "incompatible",
+    "ca": "incompatible"
+  },
+  "ui.predictor_ecological_compatibility_unknown": {
+    "en": "not determined",
+    "es": "no determinada",
+    "ca": "no determinada"
+  },
+  "ui.predictor_ecological_compatibility_out_of_season": {
+    "en": "out of season",
+    "es": "fuera de temporada",
+    "ca": "fora de temporada"
+  },
+  "ui.predictor_ecological_evidence": {
+    "en": "Ecological compatibility reliability",
+    "es": "Fiabilidad de la compatibilidad ecológica",
+    "ca": "Fiabilitat de la compatibilitat ecològica"
+  },
+  "ui.predictor_ecological_evidence_high": {
+    "en": "high",
+    "es": "alta",
+    "ca": "alta"
+  },
+  "ui.predictor_ecological_evidence_moderate": {
+    "en": "moderate",
+    "es": "moderada",
+    "ca": "moderada"
+  },
+  "ui.predictor_ecological_evidence_low": {
+    "en": "low",
+    "es": "baja",
+    "ca": "baixa"
+  },
+  "ui.predictor_ecological_evidence_unavailable": {
+    "en": "not available",
+    "es": "no disponible",
+    "ca": "no disponible"
+  },
+  "ui.predictor_statistical_support": {
+    "en": "Operational model statistical reliability",
+    "es": "Fiabilidad estadística del modelo operativo",
+    "ca": "Fiabilitat estadística del model operatiu"
+  },
+  "ui.predictor_statistical_support_unavailable": {
+    "en": "not validated",
+    "es": "no validada",
+    "ca": "no validada"
+  },
+  "ui.predictor_statistical_support_limited": {
+    "en": "limited",
+    "es": "limitada",
+    "ca": "limitada"
+  },
+  "ui.predictor_statistical_support_moderate": {
+    "en": "moderate",
+    "es": "moderada",
+    "ca": "moderada"
+  },
+  "ui.predictor_statistical_support_strong": {
+    "en": "strong",
+    "es": "fuerte",
+    "ca": "forta"
+  },
+  "ui.predictor_statistical_reliability_high": {
+    "en": "high",
+    "es": "alta",
+    "ca": "alta"
+  },
+  "ui.predictor_statistical_reliability_moderate": {
+    "en": "moderate",
+    "es": "moderada",
+    "ca": "moderada"
+  },
+  "ui.predictor_statistical_reliability_limited": {
+    "en": "limited",
+    "es": "limitada",
+    "ca": "limitada"
+  },
+  "ui.predictor_statistical_reliability_unavailable": {
+    "en": "not available",
+    "es": "no disponible",
+    "ca": "no disponible"
+  },
   "ui.predictor_help_reference_range": {
     "en": "Range formed by the lowest-Brier validated estimator selected independently for each active profile and weather contract. It is a comparison score, not a calibrated probability.",
     "es": "Rango formado por el estimador validado con menor Brier, elegido de forma independiente para cada perfil activo y contrato meteorológico. Es un score comparativo, no una probabilidad calibrada.",
@@ -4764,16 +5512,56 @@
     "es": "Cada contrato meteorológico selecciona su modelo sombra validado con menor Brier. Los nombres y el rango reúnen esos ganadores por contrato; se muestran para evaluarlos y todavía no cambian el dictamen ni el ranking.",
     "ca": "Cada contracte meteorològic selecciona el seu model ombra validat amb menor Brier. Els noms i el rang reuneixen aquests guanyadors per contracte; es mostren per avaluar-los i encara no canvien el dictamen ni el rànquing."
   },
-  "ui.predictor_experimental_signal": {"en": "Experimental signal (best Brier per contract)", "es": "Señal experimental (mejor Brier por contrato)", "ca": "Senyal experimental (millor Brier per contracte)"},
-  "ui.predictor_experimental_signal_favorable": {"en": "favorable", "es": "favorable", "ca": "favorable"},
-  "ui.predictor_experimental_signal_unfavorable": {"en": "unfavorable", "es": "desfavorable", "ca": "desfavorable"},
-  "ui.predictor_experimental_signal_uncertain": {"en": "uncertain", "es": "incierta", "ca": "incerta"},
-  "ui.predictor_experimental_signal_mixed": {"en": "conflicting", "es": "contradictoria", "ca": "contradictòria"},
-  "ui.predictor_experimental_ood_short": {"en": "out-of-domain caution", "es": "cautela fuera de dominio", "ca": "cautela fora de domini"},
-  "ui.predictor_confidence": {"en": "Confidence", "es": "Confianza", "ca": "Confiança"},
-  "ui.predictor_confidence_high": {"en": "high", "es": "alta", "ca": "alta"},
-  "ui.predictor_confidence_moderate": {"en": "moderate", "es": "moderada", "ca": "moderada"},
-  "ui.predictor_confidence_low": {"en": "low", "es": "baja", "ca": "baixa"},
+  "ui.predictor_experimental_signal": {
+    "en": "Experimental signal (best Brier per contract)",
+    "es": "Señal experimental (mejor Brier por contrato)",
+    "ca": "Senyal experimental (millor Brier per contracte)"
+  },
+  "ui.predictor_experimental_signal_favorable": {
+    "en": "favorable",
+    "es": "favorable",
+    "ca": "favorable"
+  },
+  "ui.predictor_experimental_signal_unfavorable": {
+    "en": "unfavorable",
+    "es": "desfavorable",
+    "ca": "desfavorable"
+  },
+  "ui.predictor_experimental_signal_uncertain": {
+    "en": "uncertain",
+    "es": "incierta",
+    "ca": "incerta"
+  },
+  "ui.predictor_experimental_signal_mixed": {
+    "en": "conflicting",
+    "es": "contradictoria",
+    "ca": "contradictòria"
+  },
+  "ui.predictor_experimental_ood_short": {
+    "en": "out-of-domain caution",
+    "es": "cautela fuera de dominio",
+    "ca": "cautela fora de domini"
+  },
+  "ui.predictor_confidence": {
+    "en": "Confidence",
+    "es": "Confianza",
+    "ca": "Confiança"
+  },
+  "ui.predictor_confidence_high": {
+    "en": "high",
+    "es": "alta",
+    "ca": "alta"
+  },
+  "ui.predictor_confidence_moderate": {
+    "en": "moderate",
+    "es": "moderada",
+    "ca": "moderada"
+  },
+  "ui.predictor_confidence_low": {
+    "en": "low",
+    "es": "baja",
+    "ca": "baixa"
+  },
   "ui.predictor_interpretation_weather_recent_event": {
     "en": "A recent significant rain event has been detected.",
     "es": "Se ha detectado un episodio reciente de lluvia significativa.",
@@ -4799,13 +5587,41 @@
     "es": "Comparación diagnóstica entre los días transcurridos desde el último episodio de al menos 5 mm y los intervalos de fructificación tras lluvia configurados para la especie. No la aprende el modelo y no modifica la probabilidad, el veredicto ni la selección del modelo.",
     "ca": "Comparació diagnòstica entre els dies transcorreguts des de l'últim episodi d'almenys 5 mm i els intervals de fructificació després de pluja configurats per a l'espècie. No l'aprèn el model i no modifica la probabilitat, el veredicte ni la selecció del model."
   },
-  "ui.predictor_interpretation_timing_early": {"en": "The biological timing is still early.", "es": "El momento biológico todavía es temprano.", "ca": "El moment biològic encara és primerenc."},
-  "ui.predictor_interpretation_timing_entering": {"en": "The delay is entering the expected fruiting window.", "es": "El retraso está entrando en la ventana esperada de fructificación.", "ca": "El retard està entrant a la finestra esperada de fructificació."},
-  "ui.predictor_interpretation_timing_optimal": {"en": "The delay lies within the species optimal fruiting window.", "es": "El retraso se encuentra dentro de la ventana óptima de fructificación de la especie.", "ca": "El retard es troba dins de la finestra òptima de fructificació de l'espècie."},
-  "ui.predictor_interpretation_timing_late": {"en": "The fruiting window is becoming late.", "es": "La ventana de fructificación empieza a quedar atrás.", "ca": "La finestra de fructificació comença a quedar enrere."},
-  "ui.predictor_interpretation_timing_expired": {"en": "The detected event lies beyond the expected fruiting window.", "es": "El episodio detectado queda más allá de la ventana esperada de fructificación.", "ca": "L'episodi detectat queda més enllà de la finestra esperada de fructificació."},
-  "ui.predictor_interpretation_timing_entering_optimal": {"en": "The models place the target between entry and the optimal fruiting window.", "es": "Los modelos sitúan la fecha entre la entrada y la ventana óptima de fructificación.", "ca": "Els models situen la data entre l'entrada i la finestra òptima de fructificació."},
-  "ui.predictor_interpretation_timing_mixed": {"en": "The two weather cutoffs give different fruiting timings.", "es": "Los dos cortes meteorológicos sitúan la fructificación en momentos distintos.", "ca": "Els dos talls meteorològics situen la fructificació en moments diferents."},
+  "ui.predictor_interpretation_timing_early": {
+    "en": "The biological timing is still early.",
+    "es": "El momento biológico todavía es temprano.",
+    "ca": "El moment biològic encara és primerenc."
+  },
+  "ui.predictor_interpretation_timing_entering": {
+    "en": "The delay is entering the expected fruiting window.",
+    "es": "El retraso está entrando en la ventana esperada de fructificación.",
+    "ca": "El retard està entrant a la finestra esperada de fructificació."
+  },
+  "ui.predictor_interpretation_timing_optimal": {
+    "en": "The delay lies within the species optimal fruiting window.",
+    "es": "El retraso se encuentra dentro de la ventana óptima de fructificación de la especie.",
+    "ca": "El retard es troba dins de la finestra òptima de fructificació de l'espècie."
+  },
+  "ui.predictor_interpretation_timing_late": {
+    "en": "The fruiting window is becoming late.",
+    "es": "La ventana de fructificación empieza a quedar atrás.",
+    "ca": "La finestra de fructificació comença a quedar enrere."
+  },
+  "ui.predictor_interpretation_timing_expired": {
+    "en": "The detected event lies beyond the expected fruiting window.",
+    "es": "El episodio detectado queda más allá de la ventana esperada de fructificación.",
+    "ca": "L'episodi detectat queda més enllà de la finestra esperada de fructificació."
+  },
+  "ui.predictor_interpretation_timing_entering_optimal": {
+    "en": "The models place the target between entry and the optimal fruiting window.",
+    "es": "Los modelos sitúan la fecha entre la entrada y la ventana óptima de fructificación.",
+    "ca": "Els models situen la data entre l'entrada i la finestra òptima de fructificació."
+  },
+  "ui.predictor_interpretation_timing_mixed": {
+    "en": "The two weather cutoffs give different fruiting timings.",
+    "es": "Los dos cortes meteorológicos sitúan la fructificación en momentos distintos.",
+    "ca": "Els dos talls meteorològics situen la fructificació en moments diferents."
+  },
   "ui.predictor_interpretation_disagreement": {
     "en": "Validated estimators differ by at least 20 points in one profile and contract, so statistical consensus is low.",
     "es": "Los estimadores validados difieren al menos 20 puntos en algún perfil y contrato, por lo que el consenso estadístico es bajo.",
@@ -4916,53 +5732,241 @@
     "es": "Este episodio conocido se incluyó en el ajuste final, por lo que estos scores no son una comprobación histórica independiente.",
     "ca": "Aquest episodi conegut es va incloure en l'ajust final, de manera que aquests scores no són una comprovació històrica independent."
   },
-  "ui.predictor_probability_source": {"en": "Score source", "es": "Origen de los scores", "ca": "Origen dels scores"},
-  "ui.predictor_probability_source_production_fit": {"en": "final fit", "es": "ajuste final", "ca": "ajust final"},
-  "ui.predictor_probability_source_production_fit_includes_episode": {"en": "final fit including this episode", "es": "ajuste final que incluye este episodio", "ca": "ajust final que inclou aquest episodi"},
-  "ui.predictor_probability_source_held_out_evaluation": {"en": "held-out evaluation", "es": "evaluación fuera de muestra", "ca": "avaluació fora de mostra"},
-  "ui.predictor_observed_result": {"en": "Observed result", "es": "Resultado observado", "ca": "Resultat observat"},
-  "ui.predictor_out_of_domain_features": {"en": "Out-of-domain variables", "es": "Variables fuera de dominio", "ca": "Variables fora de domini"},
-  "ui.predictor_training_range": {"en": "training", "es": "entrenamiento", "ca": "entrenament"},
-  "ui.predictor_out_of_domain_delta": {"en": "Δ", "es": "Δ", "ca": "Δ"},
-  "ui.predictor_out_of_domain_severe": {"en": "severe extrapolation", "es": "extrapolación severa", "ca": "extrapolació severa"},
-  "ui.predictor_feature_horizon_days": {"en": "Forecast horizon", "es": "Horizonte de predicción", "ca": "Horitzó de predicció"},
-  "ui.predictor_feature_target_month_sin": {"en": "Monthly seasonality (sine)", "es": "Estacionalidad mensual (seno)", "ca": "Estacionalitat mensual (sinus)"},
-  "ui.predictor_feature_target_month_cos": {"en": "Monthly seasonality (cosine)", "es": "Estacionalidad mensual (coseno)", "ca": "Estacionalitat mensual (cosinus)"},
-  "ui.predictor_feature_gis_altitude": {"en": "GIS altitude", "es": "Altitud GIS", "ca": "Altitud GIS"},
-  "ui.predictor_feature_rain_0_3d": {"en": "Rain 0–3 days", "es": "Lluvia 0–3 días", "ca": "Pluja 0–3 dies"},
-  "ui.predictor_feature_rain_4_7d": {"en": "Rain 4–7 days", "es": "Lluvia 4–7 días", "ca": "Pluja 4–7 dies"},
-  "ui.predictor_feature_rain_8_14d": {"en": "Rain 8–14 days", "es": "Lluvia 8–14 días", "ca": "Pluja 8–14 dies"},
-  "ui.predictor_feature_rain_15_21d": {"en": "Rain 15–21 days", "es": "Lluvia 15–21 días", "ca": "Pluja 15–21 dies"},
-  "ui.predictor_feature_days_since_rain": {"en": "Days since rain >2 mm", "es": "Días desde lluvia >2 mm", "ca": "Dies des de pluja >2 mm"},
-  "ui.predictor_feature_days_since_significant_rain": {"en": "Days since significant rain", "es": "Días desde lluvia significativa", "ca": "Dies des de pluja significativa"},
-  "ui.predictor_feature_significant_rain_found": {"en": "Significant rain found in 90 days", "es": "Lluvia significativa encontrada en 90 días", "ca": "Pluja significativa trobada en 90 dies"},
-  "ui.predictor_feature_rain_observed_21": {"en": "Observed rain days (21 days)", "es": "Días de lluvia observados (21 días)", "ca": "Dies de pluja observats (21 dies)"},
-  "ui.predictor_feature_rain_missing_21": {"en": "Missing rain days (21 days)", "es": "Días de lluvia ausentes (21 días)", "ca": "Dies de pluja absents (21 dies)"},
-  "ui.predictor_feature_rain_suppressed_21": {"en": "Suppressed rain days (21 days)", "es": "Días de lluvia suprimidos (21 días)", "ca": "Dies de pluja suprimits (21 dies)"},
-  "ui.predictor_feature_rain_observed_90": {"en": "Observed rain days (90 days)", "es": "Días de lluvia observados (90 días)", "ca": "Dies de pluja observats (90 dies)"},
-  "ui.predictor_feature_rain_missing_90": {"en": "Missing rain days (90 days)", "es": "Días de lluvia ausentes (90 días)", "ca": "Dies de pluja absents (90 dies)"},
-  "ui.predictor_feature_rain_suppressed_90": {"en": "Suppressed rain days (90 days)", "es": "Días de lluvia suprimidos (90 días)", "ca": "Dies de pluja suprimits (90 dies)"},
-  "ui.predictor_feature_dry_spell": {"en": "Dry spell at cutoff", "es": "Racha seca en el corte", "ca": "Ratxa seca al tall"},
-  "ui.predictor_feature_dry_spell_censored": {"en": "Dry spell limited by history", "es": "Racha seca limitada por el histórico", "ca": "Ratxa seca limitada per l'històric"},
-  "ui.predictor_feature_heat_stress": {"en": "Heat-stress streak at cutoff", "es": "Racha de estrés térmico en el corte", "ca": "Ratxa d'estrès tèrmic al tall"},
-  "ui.predictor_feature_heat_stress_censored": {"en": "Heat-stress streak limited by history", "es": "Racha de estrés térmico limitada por el histórico", "ca": "Ratxa d'estrès tèrmic limitada per l'històric"},
-  "ui.predictor_feature_temp_after_rain": {"en": "Mean temperature after significant rain", "es": "Temperatura media tras lluvia significativa", "ca": "Temperatura mitjana després de pluja significativa"},
-  "ui.predictor_feature_temp_max_cutoff_7d": {"en": "Corrected mean maximum temperature (7 days)", "es": "Temperatura máxima media corregida (7 días)", "ca": "Temperatura màxima mitjana corregida (7 dies)"},
-  "ui.predictor_feature_temp_mean_cutoff_7d": {"en": "Corrected mean temperature (7 days)", "es": "Temperatura media corregida (7 días)", "ca": "Temperatura mitjana corregida (7 dies)"},
-  "ui.predictor_feature_humidity_after_rain": {"en": "Mean humidity after significant rain", "es": "Humedad media tras lluvia significativa", "ca": "Humitat mitjana després de pluja significativa"},
-  "ui.predictor_feature_temp_coverage_after_rain": {"en": "Temperature coverage after rain", "es": "Cobertura de temperatura tras lluvia", "ca": "Cobertura de temperatura després de pluja"},
-  "ui.predictor_feature_humidity_coverage_after_rain": {"en": "Humidity coverage after rain", "es": "Cobertura de humedad tras lluvia", "ca": "Cobertura d'humitat després de pluja"},
-  "ui.predictor_validation_brier": {"en": "Validation Brier", "es": "Brier de validación", "ca": "Brier de validació"},
-  "ui.predictor_validation_auc": {"en": "Validation ROC-AUC", "es": "ROC-AUC de validación", "ca": "ROC-AUC de validació"},
-  "ui.predictor_validation_baseline": {"en": "baseline", "es": "base", "ca": "base"},
-  "ui.predictor_help_probability_source": {"en": "Indicates whether the displayed score comes from the final fitted model or from a held-out evaluation that did not train on that episode.", "es": "Indica si el score mostrado procede del ajuste final o de una evaluación reservada que no entrenó con ese episodio.", "ca": "Indica si el score mostrat procedeix de l'ajust final o d'una avaluació reservada que no va entrenar amb aquell episodi."},
-  "ui.predictor_help_observed_result": {"en": "Actual field result recorded for this historical episode.", "es": "Resultado real de campo registrado para este episodio histórico.", "ca": "Resultat real de camp registrat per a aquest episodi històric."},
-  "ui.predictor_help_brier": {"en": "Mean squared error of probabilistic predictions; lower is better. The baseline is the error obtained by always predicting the species prevalence.", "es": "Error cuadrático medio de las predicciones probabilísticas; cuanto menor, mejor. La base es el error de predecir siempre la prevalencia de la especie.", "ca": "Error quadràtic mitjà de les prediccions probabilístiques; com més baix, millor. La base és l'error de predir sempre la prevalença de l'espècie."},
-  "ui.predictor_help_brier_delta": {"en": "Difference between the prevalence baseline Brier and the estimator Brier (baseline − model). A positive value means that the estimator reduces error versus always predicting prevalence; higher is better. A negative value means that it performs worse than the baseline.", "es": "Diferencia entre el Brier base de prevalencia y el Brier del estimador (base − modelo). Un valor positivo indica que el estimador reduce el error frente a predecir siempre la prevalencia; cuanto mayor, mejor. Un valor negativo indica que empeora la base.", "ca": "Diferència entre el Brier base de prevalença i el Brier de l'estimador (base − model). Un valor positiu indica que l'estimador redueix l'error respecte de predir sempre la prevalença; com més alt, millor. Un valor negatiu indica que empitjora la base."},
-  "ui.predictor_help_prevalence_evidence": {"en": "Categorical summary of the preceding comparison on the hold-out sample: ‘improves’ when the estimator Brier is lower than the prevalence baseline, ‘does not improve’ otherwise, and ‘not evaluated’ when there is not enough information.", "es": "Resumen categórico de la comparación anterior en la muestra hold-out: «mejora» cuando el Brier del estimador es menor que la base de prevalencia, «no mejora» en caso contrario y «sin evaluación» cuando no hay información suficiente.", "ca": "Resum categòric de la comparació anterior a la mostra hold-out: «millora» quan el Brier de l'estimador és menor que la base de prevalença, «no millora» en cas contrari i «sense avaluació» quan no hi ha prou informació."},
-  "ui.predictor_help_roc_auc": {"en": "Ability to rank favorable episodes above unfavorable ones; 0.5 is random and 1.0 is perfect. It does not measure probability calibration.", "es": "Capacidad de ordenar episodios favorables por encima de los desfavorables; 0,5 equivale al azar y 1,0 es perfecto. No mide la calibración de la probabilidad.", "ca": "Capacitat d'ordenar episodis favorables per sobre dels desfavorables; 0,5 equival a l'atzar i 1,0 és perfecte. No mesura el calibratge de la probabilitat."},
-  "ui.predictor_help_holdout_sample": {"en": "Number of observations reserved outside training to evaluate this estimator for the species and contract.", "es": "Número de observaciones reservadas fuera del entrenamiento para evaluar este estimador en la especie y el contrato.", "ca": "Nombre d'observacions reservades fora de l'entrenament per avaluar aquest estimador en l'espècie i el contracte."},
-  "ui.predictor_help_temporal_validation": {"en": "Chronological check that trains on one time segment and evaluates on another. It may be unavailable when either segment contains only one class.", "es": "Comprobación cronológica que entrena con un tramo temporal y evalúa con otro. Puede no estar disponible si alguno contiene una sola clase.", "ca": "Comprovació cronològica que entrena amb un tram temporal i avalua amb un altre. Pot no estar disponible si algun conté una sola classe."},
+  "ui.predictor_probability_source": {
+    "en": "Score source",
+    "es": "Origen de los scores",
+    "ca": "Origen dels scores"
+  },
+  "ui.predictor_probability_source_production_fit": {
+    "en": "final fit",
+    "es": "ajuste final",
+    "ca": "ajust final"
+  },
+  "ui.predictor_probability_source_production_fit_includes_episode": {
+    "en": "final fit including this episode",
+    "es": "ajuste final que incluye este episodio",
+    "ca": "ajust final que inclou aquest episodi"
+  },
+  "ui.predictor_probability_source_held_out_evaluation": {
+    "en": "held-out evaluation",
+    "es": "evaluación fuera de muestra",
+    "ca": "avaluació fora de mostra"
+  },
+  "ui.predictor_observed_result": {
+    "en": "Observed result",
+    "es": "Resultado observado",
+    "ca": "Resultat observat"
+  },
+  "ui.predictor_out_of_domain_features": {
+    "en": "Out-of-domain variables",
+    "es": "Variables fuera de dominio",
+    "ca": "Variables fora de domini"
+  },
+  "ui.predictor_training_range": {
+    "en": "training",
+    "es": "entrenamiento",
+    "ca": "entrenament"
+  },
+  "ui.predictor_out_of_domain_delta": {
+    "en": "Δ",
+    "es": "Δ",
+    "ca": "Δ"
+  },
+  "ui.predictor_out_of_domain_severe": {
+    "en": "severe extrapolation",
+    "es": "extrapolación severa",
+    "ca": "extrapolació severa"
+  },
+  "ui.predictor_feature_horizon_days": {
+    "en": "Forecast horizon",
+    "es": "Horizonte de predicción",
+    "ca": "Horitzó de predicció"
+  },
+  "ui.predictor_feature_target_month_sin": {
+    "en": "Monthly seasonality (sine)",
+    "es": "Estacionalidad mensual (seno)",
+    "ca": "Estacionalitat mensual (sinus)"
+  },
+  "ui.predictor_feature_target_month_cos": {
+    "en": "Monthly seasonality (cosine)",
+    "es": "Estacionalidad mensual (coseno)",
+    "ca": "Estacionalitat mensual (cosinus)"
+  },
+  "ui.predictor_feature_gis_altitude": {
+    "en": "GIS altitude",
+    "es": "Altitud GIS",
+    "ca": "Altitud GIS"
+  },
+  "ui.predictor_feature_rain_0_3d": {
+    "en": "Rain 0–3 days",
+    "es": "Lluvia 0–3 días",
+    "ca": "Pluja 0–3 dies"
+  },
+  "ui.predictor_feature_rain_4_7d": {
+    "en": "Rain 4–7 days",
+    "es": "Lluvia 4–7 días",
+    "ca": "Pluja 4–7 dies"
+  },
+  "ui.predictor_feature_rain_8_14d": {
+    "en": "Rain 8–14 days",
+    "es": "Lluvia 8–14 días",
+    "ca": "Pluja 8–14 dies"
+  },
+  "ui.predictor_feature_rain_15_21d": {
+    "en": "Rain 15–21 days",
+    "es": "Lluvia 15–21 días",
+    "ca": "Pluja 15–21 dies"
+  },
+  "ui.predictor_feature_days_since_rain": {
+    "en": "Days since rain >2 mm",
+    "es": "Días desde lluvia >2 mm",
+    "ca": "Dies des de pluja >2 mm"
+  },
+  "ui.predictor_feature_days_since_significant_rain": {
+    "en": "Days since significant rain",
+    "es": "Días desde lluvia significativa",
+    "ca": "Dies des de pluja significativa"
+  },
+  "ui.predictor_feature_significant_rain_found": {
+    "en": "Significant rain found in 90 days",
+    "es": "Lluvia significativa encontrada en 90 días",
+    "ca": "Pluja significativa trobada en 90 dies"
+  },
+  "ui.predictor_feature_rain_observed_21": {
+    "en": "Observed rain days (21 days)",
+    "es": "Días de lluvia observados (21 días)",
+    "ca": "Dies de pluja observats (21 dies)"
+  },
+  "ui.predictor_feature_rain_missing_21": {
+    "en": "Missing rain days (21 days)",
+    "es": "Días de lluvia ausentes (21 días)",
+    "ca": "Dies de pluja absents (21 dies)"
+  },
+  "ui.predictor_feature_rain_suppressed_21": {
+    "en": "Suppressed rain days (21 days)",
+    "es": "Días de lluvia suprimidos (21 días)",
+    "ca": "Dies de pluja suprimits (21 dies)"
+  },
+  "ui.predictor_feature_rain_observed_90": {
+    "en": "Observed rain days (90 days)",
+    "es": "Días de lluvia observados (90 días)",
+    "ca": "Dies de pluja observats (90 dies)"
+  },
+  "ui.predictor_feature_rain_missing_90": {
+    "en": "Missing rain days (90 days)",
+    "es": "Días de lluvia ausentes (90 días)",
+    "ca": "Dies de pluja absents (90 dies)"
+  },
+  "ui.predictor_feature_rain_suppressed_90": {
+    "en": "Suppressed rain days (90 days)",
+    "es": "Días de lluvia suprimidos (90 días)",
+    "ca": "Dies de pluja suprimits (90 dies)"
+  },
+  "ui.predictor_feature_dry_spell": {
+    "en": "Dry spell at cutoff",
+    "es": "Racha seca en el corte",
+    "ca": "Ratxa seca al tall"
+  },
+  "ui.predictor_feature_dry_spell_censored": {
+    "en": "Dry spell limited by history",
+    "es": "Racha seca limitada por el histórico",
+    "ca": "Ratxa seca limitada per l'històric"
+  },
+  "ui.predictor_feature_heat_stress": {
+    "en": "Heat-stress streak at cutoff",
+    "es": "Racha de estrés térmico en el corte",
+    "ca": "Ratxa d'estrès tèrmic al tall"
+  },
+  "ui.predictor_feature_heat_stress_censored": {
+    "en": "Heat-stress streak limited by history",
+    "es": "Racha de estrés térmico limitada por el histórico",
+    "ca": "Ratxa d'estrès tèrmic limitada per l'històric"
+  },
+  "ui.predictor_feature_temp_after_rain": {
+    "en": "Mean temperature after significant rain",
+    "es": "Temperatura media tras lluvia significativa",
+    "ca": "Temperatura mitjana després de pluja significativa"
+  },
+  "ui.predictor_feature_temp_max_cutoff_7d": {
+    "en": "Corrected mean maximum temperature (7 days)",
+    "es": "Temperatura máxima media corregida (7 días)",
+    "ca": "Temperatura màxima mitjana corregida (7 dies)"
+  },
+  "ui.predictor_feature_temp_mean_cutoff_7d": {
+    "en": "Corrected mean temperature (7 days)",
+    "es": "Temperatura media corregida (7 días)",
+    "ca": "Temperatura mitjana corregida (7 dies)"
+  },
+  "ui.predictor_feature_humidity_after_rain": {
+    "en": "Mean humidity after significant rain",
+    "es": "Humedad media tras lluvia significativa",
+    "ca": "Humitat mitjana després de pluja significativa"
+  },
+  "ui.predictor_feature_temp_coverage_after_rain": {
+    "en": "Temperature coverage after rain",
+    "es": "Cobertura de temperatura tras lluvia",
+    "ca": "Cobertura de temperatura després de pluja"
+  },
+  "ui.predictor_feature_humidity_coverage_after_rain": {
+    "en": "Humidity coverage after rain",
+    "es": "Cobertura de humedad tras lluvia",
+    "ca": "Cobertura d'humitat després de pluja"
+  },
+  "ui.predictor_validation_brier": {
+    "en": "Validation Brier",
+    "es": "Brier de validación",
+    "ca": "Brier de validació"
+  },
+  "ui.predictor_validation_auc": {
+    "en": "Validation ROC-AUC",
+    "es": "ROC-AUC de validación",
+    "ca": "ROC-AUC de validació"
+  },
+  "ui.predictor_validation_baseline": {
+    "en": "baseline",
+    "es": "base",
+    "ca": "base"
+  },
+  "ui.predictor_help_probability_source": {
+    "en": "Indicates whether the displayed score comes from the final fitted model or from a held-out evaluation that did not train on that episode.",
+    "es": "Indica si el score mostrado procede del ajuste final o de una evaluación reservada que no entrenó con ese episodio.",
+    "ca": "Indica si el score mostrat procedeix de l'ajust final o d'una avaluació reservada que no va entrenar amb aquell episodi."
+  },
+  "ui.predictor_help_observed_result": {
+    "en": "Actual field result recorded for this historical episode.",
+    "es": "Resultado real de campo registrado para este episodio histórico.",
+    "ca": "Resultat real de camp registrat per a aquest episodi històric."
+  },
+  "ui.predictor_help_brier": {
+    "en": "Mean squared error of probabilistic predictions; lower is better. The baseline is the error obtained by always predicting the species prevalence.",
+    "es": "Error cuadrático medio de las predicciones probabilísticas; cuanto menor, mejor. La base es el error de predecir siempre la prevalencia de la especie.",
+    "ca": "Error quadràtic mitjà de les prediccions probabilístiques; com més baix, millor. La base és l'error de predir sempre la prevalença de l'espècie."
+  },
+  "ui.predictor_help_brier_delta": {
+    "en": "Difference between the prevalence baseline Brier and the estimator Brier (baseline − model). A positive value means that the estimator reduces error versus always predicting prevalence; higher is better. A negative value means that it performs worse than the baseline.",
+    "es": "Diferencia entre el Brier base de prevalencia y el Brier del estimador (base − modelo). Un valor positivo indica que el estimador reduce el error frente a predecir siempre la prevalencia; cuanto mayor, mejor. Un valor negativo indica que empeora la base.",
+    "ca": "Diferència entre el Brier base de prevalença i el Brier de l'estimador (base − model). Un valor positiu indica que l'estimador redueix l'error respecte de predir sempre la prevalença; com més alt, millor. Un valor negatiu indica que empitjora la base."
+  },
+  "ui.predictor_help_prevalence_evidence": {
+    "en": "Categorical summary of the preceding comparison on the hold-out sample: ‘improves’ when the estimator Brier is lower than the prevalence baseline, ‘does not improve’ otherwise, and ‘not evaluated’ when there is not enough information.",
+    "es": "Resumen categórico de la comparación anterior en la muestra hold-out: «mejora» cuando el Brier del estimador es menor que la base de prevalencia, «no mejora» en caso contrario y «sin evaluación» cuando no hay información suficiente.",
+    "ca": "Resum categòric de la comparació anterior a la mostra hold-out: «millora» quan el Brier de l'estimador és menor que la base de prevalença, «no millora» en cas contrari i «sense avaluació» quan no hi ha prou informació."
+  },
+  "ui.predictor_help_roc_auc": {
+    "en": "Ability to rank favorable episodes above unfavorable ones; 0.5 is random and 1.0 is perfect. It does not measure probability calibration.",
+    "es": "Capacidad de ordenar episodios favorables por encima de los desfavorables; 0,5 equivale al azar y 1,0 es perfecto. No mide la calibración de la probabilidad.",
+    "ca": "Capacitat d'ordenar episodis favorables per sobre dels desfavorables; 0,5 equival a l'atzar i 1,0 és perfecte. No mesura el calibratge de la probabilitat."
+  },
+  "ui.predictor_help_holdout_sample": {
+    "en": "Number of observations reserved outside training to evaluate this estimator for the species and contract.",
+    "es": "Número de observaciones reservadas fuera del entrenamiento para evaluar este estimador en la especie y el contrato.",
+    "ca": "Nombre d'observacions reservades fora de l'entrenament per avaluar aquest estimador en l'espècie i el contracte."
+  },
+  "ui.predictor_help_temporal_validation": {
+    "en": "Chronological check that trains on one time segment and evaluates on another. It may be unavailable when either segment contains only one class.",
+    "es": "Comprobación cronológica que entrena con un tramo temporal y evalúa con otro. Puede no estar disponible si alguno contiene una sola clase.",
+    "ca": "Comprovació cronològica que entrena amb un tram temporal i avalua amb un altre. Pot no estar disponible si algun conté una sola classe."
+  },
   "ui.predictor_model": {
     "en": "Model",
     "es": "Modelo",
@@ -5013,9 +6017,21 @@
     "es": "Distancia",
     "ca": "Distància"
   },
-  "ui.predictor_station_altitude": {"en": "Station altitude", "es": "Altitud de estación", "ca": "Altitud de l'estació"},
-  "ui.predictor_area_representative_altitude": {"en": "Representative area altitude", "es": "Altitud representativa del área", "ca": "Altitud representativa de l'àrea"},
-  "ui.predictor_temperature_altitude_correction": {"en": "Temperature altitude correction", "es": "Corrección térmica por altitud", "ca": "Correcció tèrmica per altitud"},
+  "ui.predictor_station_altitude": {
+    "en": "Station altitude",
+    "es": "Altitud de estación",
+    "ca": "Altitud de l'estació"
+  },
+  "ui.predictor_area_representative_altitude": {
+    "en": "Representative area altitude",
+    "es": "Altitud representativa del área",
+    "ca": "Altitud representativa de l'àrea"
+  },
+  "ui.predictor_temperature_altitude_correction": {
+    "en": "Temperature altitude correction",
+    "es": "Corrección térmica por altitud",
+    "ca": "Correcció tèrmica per altitud"
+  },
   "ui.predictor_horizon": {
     "en": "Horizon",
     "es": "Horizonte",
@@ -5076,115 +6092,526 @@
     "es": "No disponible: el tramo cronológico de entrenamiento o prueba contiene una sola clase",
     "ca": "No disponible: el tram cronològic d'entrenament o prova conté una sola classe"
   },
-  "ui.predictor_help_station": {"en": "Weather station selected for this contract after checking distance and data quality.", "es": "Estación meteorológica elegida para este contrato después de comprobar distancia y calidad de datos.", "ca": "Estació meteorològica triada per a aquest contracte després de comprovar distància i qualitat de dades."},
-  "ui.predictor_help_station_distance": {"en": "Distance from the area centroid to the selected weather station.", "es": "Distancia desde el centroide del área hasta la estación meteorológica elegida.", "ca": "Distància des del centroide de l'àrea fins a l'estació meteorològica triada."},
-  "ui.predictor_help_station_altitude": {"en": "Altitude recorded in the weather-station catalogue for the selected station.", "es": "Altitud registrada en el catálogo meteorológico para la estación elegida.", "ca": "Altitud registrada al catàleg meteorològic per a l'estació triada."},
-  "ui.predictor_help_area_representative_altitude": {"en": "Mean of the materialized DEM mean altitudes of every microarea belonging to the area. It is not the DEM value at the coordinate centroid and is not queried live.", "es": "Media de las altitudes DEM medias materializadas de todas las microáreas del área. No es el valor DEM del centroide de coordenadas ni se consulta en vivo.", "ca": "Mitjana de les altituds DEM mitjanes materialitzades de totes les microàrees de l'àrea. No és el valor DEM del centroide de coordenades ni es consulta en viu."},
-  "ui.predictor_help_temperature_altitude_correction": {"en": "Offset added to every station temperature before training or predicting: (station altitude − representative area altitude) × 0.65 °C per 100 m. Raw station readings are preserved.", "es": "Ajuste añadido a cada temperatura de estación antes de entrenar o predecir: (altitud de estación − altitud representativa del área) × 0,65 °C por 100 m. Las lecturas originales se conservan.", "ca": "Ajust afegit a cada temperatura d'estació abans d'entrenar o predir: (altitud de l'estació − altitud representativa de l'àrea) × 0,65 °C per 100 m. Les lectures originals es conserven."},
-  "ui.predictor_help_horizon": {"en": "Days between the weather cutoff and the target fruiting date.", "es": "Días entre el corte meteorológico y la fecha objetivo de florada.", "ca": "Dies entre el tall meteorològic i la data objectiu de florida."},
-  "ui.predictor_help_station_quality": {"en": "Observed days available for rain in 21/90 days and for temperature and humidity in 21 days.", "es": "Días observados disponibles de lluvia en 21/90 días y de temperatura y humedad en 21 días.", "ca": "Dies observats disponibles de pluja en 21/90 dies i de temperatura i humitat en 21 dies."},
-  "ui.predictor_help_coverage": {"en": "Number of weather days available to build the displayed features.", "es": "Número de días meteorológicos disponibles para construir las variables mostradas.", "ca": "Nombre de dies meteorològics disponibles per construir les variables mostrades."},
-  "ui.predictor_help_station_jump": {"en": "A nearer station was rejected because it did not meet the data-quality contract; the next acceptable station within the allowed radius was used.", "es": "Se descartó una estación más cercana porque no cumplía el contrato de calidad; se usó la siguiente estación aceptable dentro del radio permitido.", "ca": "Es va descartar una estació més propera perquè no complia el contracte de qualitat; es va usar la següent estació acceptable dins del radi permès."},
-  "ui.predictor_help_rain_bands": {"en": "Accumulated observed rain split into four age bands before the weather cutoff. This preserves when the rain occurred, not only the total.", "es": "Lluvia observada acumulada, separada en cuatro franjas anteriores al corte. Conserva cuándo llovió, no solo el total.", "ca": "Pluja observada acumulada, separada en quatre franges anteriors al tall. Conserva quan va ploure, no només el total."},
-  "ui.predictor_help_days_since_rain": {"en": "Days since the most recent observed day above 2 mm, capped at the 90-day search limit.", "es": "Días desde el último día observado con más de 2 mm, limitado al máximo de búsqueda de 90 días.", "ca": "Dies des de l'últim dia observat amb més de 2 mm, limitat al màxim de cerca de 90 dies."},
-  "ui.predictor_help_days_since_significant_rain": {"en": "Days since the most recent rain event that meets the significant-event rule, capped at 90 days.", "es": "Días desde el último episodio que cumple la regla de lluvia significativa, limitado a 90 días.", "ca": "Dies des de l'últim episodi que compleix la regla de pluja significativa, limitat a 90 dies."},
-  "ui.predictor_weather_title": {"en":"Weather included in the model inputs","es":"Tiempo incluido en los datos del modelo","ca":"Temps inclòs en les dades del model"},
-  "ui.predictor_weather_bands_title": {"en":"Weather summaries included in the prediction","es":"Resúmenes meteorológicos incluidos en la predicción","ca":"Resums meteorològics inclosos en la predicció"},
-  "ui.predictor_weather_total": {"en":"Rainfall total: {amount}","es":"Lluvia acumulada: {amount}","ca":"Pluja acumulada: {amount}"},
-  "ui.predictor_weather_available_total": {"en":"Sum of available rainfall: {amount}","es":"Suma de lluvia disponible: {amount}","ca":"Suma de pluja disponible: {amount}"},
-  "ui.predictor_weather_latest": {"en":"Latest recorded rain: {date} · {amount} mm","es":"Última lluvia registrada: {date} · {amount} mm","ca":"Última pluja registrada: {date} · {amount} mm"},
-  "ui.predictor_weather_no_rain": {"en":"No rain in this period","es":"Sin lluvia en este periodo","ca":"Sense pluja en aquest període"},
-  "ui.predictor_weather_no_rain_data": {"en":"No rain recorded in the available readings","es":"Sin lluvia registrada en las lecturas disponibles","ca":"Sense pluja registrada en les lectures disponibles"},
-  "ui.predictor_weather_expand": {"en":"Observed weather","es":"Meteorología observada","ca":"Meteorologia observada"},
-  "ui.predictor_weather_daily_note": {"en":"Daily area estimates saved with this prediction. Light rain is included too. These charts show input values, not how much each day affects the probability. Missing readings are not zero rainfall.","es":"Estimaciones diarias del área guardadas con esta predicción. También incluyen la lluvia débil. Los gráficos muestran los datos de entrada, no cuánto influye cada día en la probabilidad. Los datos ausentes no son días sin lluvia.","ca":"Estimacions diàries de l'àrea desades amb aquesta predicció. També inclouen la pluja feble. Els gràfics mostren les dades d'entrada, no quant influeix cada dia en la probabilitat. Les dades absents no són dies sense pluja."},
-  "ui.predictor_weather_bands_note": {"en":"This model saves rainfall totals by period. Each bar represents the whole period shown when selected; a daily breakdown and the latest rainy day cannot be recovered from these totals.","es":"Este modelo guarda acumulados de lluvia por periodos. Cada barra representa el periodo completo que aparece al seleccionarla; estos totales no permiten recuperar el detalle diario ni el último día de lluvia.","ca":"Aquest model desa acumulats de pluja per períodes. Cada barra representa el període complet que apareix en seleccionar-la; aquests totals no permeten recuperar el detall diari ni l'últim dia de pluja."},
-  "ui.predictor_weather_missing": {"en":"Missing values: {count}. The sum includes only available values.","es":"Valores ausentes: {count}. La suma incluye solo los valores disponibles.","ca":"Valors absents: {count}. La suma inclou només els valors disponibles."},
-  "ui.predictor_weather_missing_value": {"en":"No data","es":"Sin datos","ca":"Sense dades"},
-  "ui.predictor_weather_rain": {"en":"Rainfall","es":"Lluvia","ca":"Pluja"},
-  "ui.predictor_weather_temperature": {"en":"Temperature","es":"Temperatura","ca":"Temperatura"},
-  "ui.predictor_weather_humidity": {"en":"Humidity","es":"Humedad","ca":"Humitat"},
-  "ui.predictor_weather_values": {"en":"View values in a table","es":"Ver valores en tabla","ca":"Veure valors en taula"},
-  "ui.predictor_weather_date": {"en":"Date / period","es":"Fecha / periodo","ca":"Data / període"},
-  "ui.predictor_weather_range": {"en":"{date} · min {low} {unit} · max {high} {unit}","es":"{date} · mín {low} {unit} · máx {high} {unit}","ca":"{date} · mín {low} {unit} · màx {high} {unit}"},
-  "ui.predictor_weather_minimum": {"en":"Minimum","es":"Mínima","ca":"Mínima"},
-  "ui.predictor_weather_maximum": {"en":"Maximum","es":"Máxima","ca":"Màxima"},
-  "ui.predictor_weather_mean": {"en":"Mean","es":"Media","ca":"Mitjana"},
-  "ui.predictor_weather_mean_max": {"en":"Mean of maxima","es":"Media de máximas","ca":"Mitjana de màximes"},
-  "ui.predictor_weather_mean_min": {"en":"Mean of minima","es":"Media de mínimas","ca":"Mitjana de mínimes"},
-  "ui.predictor_weather_measure": {"en":"Measure","es":"Medida","ca":"Mesura"},
-  "ui.predictor_weather_after_event": {"en":"After the last rain of at least 5 mm","es":"Después de la última lluvia de al menos 5 mm","ca":"Després de l'última pluja d'almenys 5 mm"},
-  "ui.predictor_significant_rain_event": {"en": "Last rain of at least 5 mm", "es": "Última lluvia de al menos 5 mm", "ca": "Última pluja d'almenys 5 mm"},
-  "ui.predictor_significant_rain_event_value": {"en": "{date} · {amount} mm area IDW · {days} days ago · threshold ≥ {threshold} mm", "es": "{date} · {amount} mm IDW del área · hace {days} días · umbral ≥ {threshold} mm", "ca": "{date} · {amount} mm IDW de l'àrea · fa {days} dies · llindar ≥ {threshold} mm"},
-  "ui.predictor_help_significant_rain_event": {"en": "The most recent daily area-IDW rain value of at least 5 mm available at the model's weather cutoff. It is not the 14-day accumulation or necessarily the nearest station's reading.", "es": "Último valor diario de lluvia IDW del área de al menos 5 mm disponible en el corte meteorológico del modelo. No es el acumulado de 14 días ni necesariamente la lectura de la estación más cercana.", "ca": "Últim valor diari de pluja IDW de l'àrea d'almenys 5 mm disponible al tall meteorològic del model. No és l'acumulat de 14 dies ni necessàriament la lectura de l'estació més propera."},
-  "ui.predictor_help_rain_coverage": {"en": "Observed / missing / explicitly suppressed rain days. Missing or suppressed rain contributes 0 mm, while coverage remains visible.", "es": "Días de lluvia observados / ausentes / descartados explícitamente. Los ausentes o descartados aportan 0 mm, pero la cobertura permanece visible.", "ca": "Dies de pluja observats / absents / descartats explícitament. Els absents o descartats aporten 0 mm, però la cobertura continua visible."},
-  "ui.predictor_help_post_rain_coverage": {"en": "Temperature and humidity days observed after the selected significant rain event.", "es": "Días de temperatura y humedad observados después del episodio de lluvia significativa elegido.", "ca": "Dies de temperatura i humitat observats després de l'episodi de pluja significativa triat."},
-  "ui.predictor_help_weather_gaps": {"en": "Warnings about incomplete or suspect weather inputs used by this result.", "es": "Avisos sobre entradas meteorológicas incompletas o sospechosas utilizadas por este resultado.", "ca": "Avisos sobre entrades meteorològiques incompletes o sospitoses utilitzades per aquest resultat."},
-  "ui.predictor_help_out_of_domain": {"en": "Variables outside the range seen during training. The current value is the input being predicted; training is the minimum–maximum range learned by that model; Δ is the signed physical distance to the exceeded limit (+ above the maximum, − below the minimum); and σ is the distance from the learned mean in standard deviations. Rainfall excursions remain warnings and cannot reject a prediction by themselves; severe excursions in other variables may exclude estimators.", "es": "Variables fuera del rango visto durante el entrenamiento. El valor actual es la entrada que se está prediciendo; entrenamiento es el rango mínimo–máximo aprendido por ese modelo; Δ es la distancia física con signo hasta el límite rebasado (+ por encima del máximo, − por debajo del mínimo); y σ es la distancia respecto a la media aprendida en desviaciones estándar. Las desviaciones de lluvia se mantienen como advertencia y no pueden descartar por sí solas una predicción; las desviaciones severas de otras variables sí pueden excluir estimadores.", "ca": "Variables fora del rang vist durant l'entrenament. El valor actual és l'entrada que s'està predient; entrenament és el rang mínim–màxim après per aquell model; Δ és la distància física amb signe fins al límit superat (+ per sobre del màxim, − per sota del mínim); i σ és la distància respecte de la mitjana apresa en desviacions estàndard. Les desviacions de pluja es mantenen com a advertiment i no poden descartar per si soles una predicció; les desviacions severes d'altres variables sí que poden excloure estimadors."},
-  "ui.predictor_active_version_role": {"en": "This view uses the preferred operational version shown above.", "es": "Esta vista utiliza la versión operativa preferida indicada arriba.", "ca": "Aquesta vista utilitza la versió operativa preferida indicada a dalt."},
-  "ui.predictor_multiversion_card_role": {"en": "This card chooses independently for each temporal scenario among every installed operational version.", "es": "Esta tarjeta elige de forma independiente para cada escenario temporal entre todas las versiones operativas instaladas.", "ca": "Aquesta targeta tria de manera independent per a cada escenari temporal entre totes les versions operatives instal·lades."},
-  "ui.predictor_selected_models": {"en": "Selected models", "es": "Modelos elegidos", "ca": "Models triats"},
-  "ui.predictor_selected_model": {"en": "Selected model", "es": "Modelo seleccionado", "ca": "Model seleccionat"},
-  "ui.predictor_applicability_fallback": {"en": "Applicability fallback", "es": "Fallback por aplicabilidad", "ca": "Fallback per aplicabilitat"},
-  "ui.predictor_applicability_fallback_value": {"en": "{skipped} higher-ranked candidate(s) were discarded; reliable candidate #{position} was used", "es": "se descartaron {skipped} candidatos mejor clasificados; se usó el candidato fiable nº {position}", "ca": "es van descartar {skipped} candidats més ben classificats; es va usar el candidat fiable núm. {position}"},
+  "ui.predictor_help_station": {
+    "en": "Weather station selected for this contract after checking distance and data quality.",
+    "es": "Estación meteorológica elegida para este contrato después de comprobar distancia y calidad de datos.",
+    "ca": "Estació meteorològica triada per a aquest contracte després de comprovar distància i qualitat de dades."
+  },
+  "ui.predictor_help_station_distance": {
+    "en": "Distance from the area centroid to the selected weather station.",
+    "es": "Distancia desde el centroide del área hasta la estación meteorológica elegida.",
+    "ca": "Distància des del centroide de l'àrea fins a l'estació meteorològica triada."
+  },
+  "ui.predictor_help_station_altitude": {
+    "en": "Altitude recorded in the weather-station catalogue for the selected station.",
+    "es": "Altitud registrada en el catálogo meteorológico para la estación elegida.",
+    "ca": "Altitud registrada al catàleg meteorològic per a l'estació triada."
+  },
+  "ui.predictor_help_area_representative_altitude": {
+    "en": "Mean of the materialized DEM mean altitudes of every microarea belonging to the area. It is not the DEM value at the coordinate centroid and is not queried live.",
+    "es": "Media de las altitudes DEM medias materializadas de todas las microáreas del área. No es el valor DEM del centroide de coordenadas ni se consulta en vivo.",
+    "ca": "Mitjana de les altituds DEM mitjanes materialitzades de totes les microàrees de l'àrea. No és el valor DEM del centroide de coordenades ni es consulta en viu."
+  },
+  "ui.predictor_help_temperature_altitude_correction": {
+    "en": "Offset added to every station temperature before training or predicting: (station altitude − representative area altitude) × 0.65 °C per 100 m. Raw station readings are preserved.",
+    "es": "Ajuste añadido a cada temperatura de estación antes de entrenar o predecir: (altitud de estación − altitud representativa del área) × 0,65 °C por 100 m. Las lecturas originales se conservan.",
+    "ca": "Ajust afegit a cada temperatura d'estació abans d'entrenar o predir: (altitud de l'estació − altitud representativa de l'àrea) × 0,65 °C per 100 m. Les lectures originals es conserven."
+  },
+  "ui.predictor_help_horizon": {
+    "en": "Days between the weather cutoff and the target fruiting date.",
+    "es": "Días entre el corte meteorológico y la fecha objetivo de florada.",
+    "ca": "Dies entre el tall meteorològic i la data objectiu de florida."
+  },
+  "ui.predictor_help_station_quality": {
+    "en": "Observed days available for rain in 21/90 days and for temperature and humidity in 21 days.",
+    "es": "Días observados disponibles de lluvia en 21/90 días y de temperatura y humedad en 21 días.",
+    "ca": "Dies observats disponibles de pluja en 21/90 dies i de temperatura i humitat en 21 dies."
+  },
+  "ui.predictor_help_coverage": {
+    "en": "Number of weather days available to build the displayed features.",
+    "es": "Número de días meteorológicos disponibles para construir las variables mostradas.",
+    "ca": "Nombre de dies meteorològics disponibles per construir les variables mostrades."
+  },
+  "ui.predictor_help_station_jump": {
+    "en": "A nearer station was rejected because it did not meet the data-quality contract; the next acceptable station within the allowed radius was used.",
+    "es": "Se descartó una estación más cercana porque no cumplía el contrato de calidad; se usó la siguiente estación aceptable dentro del radio permitido.",
+    "ca": "Es va descartar una estació més propera perquè no complia el contracte de qualitat; es va usar la següent estació acceptable dins del radi permès."
+  },
+  "ui.predictor_help_rain_bands": {
+    "en": "Accumulated observed rain split into four age bands before the weather cutoff. This preserves when the rain occurred, not only the total.",
+    "es": "Lluvia observada acumulada, separada en cuatro franjas anteriores al corte. Conserva cuándo llovió, no solo el total.",
+    "ca": "Pluja observada acumulada, separada en quatre franges anteriors al tall. Conserva quan va ploure, no només el total."
+  },
+  "ui.predictor_help_days_since_rain": {
+    "en": "Days since the most recent observed day above 2 mm, capped at the 90-day search limit.",
+    "es": "Días desde el último día observado con más de 2 mm, limitado al máximo de búsqueda de 90 días.",
+    "ca": "Dies des de l'últim dia observat amb més de 2 mm, limitat al màxim de cerca de 90 dies."
+  },
+  "ui.predictor_help_days_since_significant_rain": {
+    "en": "Days since the most recent rain event that meets the significant-event rule, capped at 90 days.",
+    "es": "Días desde el último episodio que cumple la regla de lluvia significativa, limitado a 90 días.",
+    "ca": "Dies des de l'últim episodi que compleix la regla de pluja significativa, limitat a 90 dies."
+  },
+  "ui.predictor_weather_title": {
+    "en": "Weather included in the model inputs",
+    "es": "Tiempo incluido en los datos del modelo",
+    "ca": "Temps inclòs en les dades del model"
+  },
+  "ui.predictor_weather_bands_title": {
+    "en": "Weather summaries included in the prediction",
+    "es": "Resúmenes meteorológicos incluidos en la predicción",
+    "ca": "Resums meteorològics inclosos en la predicció"
+  },
+  "ui.predictor_weather_total": {
+    "en": "Rainfall total: {amount}",
+    "es": "Lluvia acumulada: {amount}",
+    "ca": "Pluja acumulada: {amount}"
+  },
+  "ui.predictor_weather_available_total": {
+    "en": "Sum of available rainfall: {amount}",
+    "es": "Suma de lluvia disponible: {amount}",
+    "ca": "Suma de pluja disponible: {amount}"
+  },
+  "ui.predictor_weather_latest": {
+    "en": "Latest recorded rain: {date} · {amount} mm",
+    "es": "Última lluvia registrada: {date} · {amount} mm",
+    "ca": "Última pluja registrada: {date} · {amount} mm"
+  },
+  "ui.predictor_weather_no_rain": {
+    "en": "No rain in this period",
+    "es": "Sin lluvia en este periodo",
+    "ca": "Sense pluja en aquest període"
+  },
+  "ui.predictor_weather_no_rain_data": {
+    "en": "No rain recorded in the available readings",
+    "es": "Sin lluvia registrada en las lecturas disponibles",
+    "ca": "Sense pluja registrada en les lectures disponibles"
+  },
+  "ui.predictor_weather_expand": {
+    "en": "Observed weather",
+    "es": "Meteorología observada",
+    "ca": "Meteorologia observada"
+  },
+  "ui.predictor_weather_daily_note": {
+    "en": "Daily area estimates saved with this prediction. Light rain is included too. These charts show input values, not how much each day affects the probability. Missing readings are not zero rainfall.",
+    "es": "Estimaciones diarias del área guardadas con esta predicción. También incluyen la lluvia débil. Los gráficos muestran los datos de entrada, no cuánto influye cada día en la probabilidad. Los datos ausentes no son días sin lluvia.",
+    "ca": "Estimacions diàries de l'àrea desades amb aquesta predicció. També inclouen la pluja feble. Els gràfics mostren les dades d'entrada, no quant influeix cada dia en la probabilitat. Les dades absents no són dies sense pluja."
+  },
+  "ui.predictor_weather_bands_note": {
+    "en": "This model saves rainfall totals by period. Each bar represents the whole period shown when selected; a daily breakdown and the latest rainy day cannot be recovered from these totals.",
+    "es": "Este modelo guarda acumulados de lluvia por periodos. Cada barra representa el periodo completo que aparece al seleccionarla; estos totales no permiten recuperar el detalle diario ni el último día de lluvia.",
+    "ca": "Aquest model desa acumulats de pluja per períodes. Cada barra representa el període complet que apareix en seleccionar-la; aquests totals no permeten recuperar el detall diari ni l'últim dia de pluja."
+  },
+  "ui.predictor_weather_missing": {
+    "en": "Missing values: {count}. The sum includes only available values.",
+    "es": "Valores ausentes: {count}. La suma incluye solo los valores disponibles.",
+    "ca": "Valors absents: {count}. La suma inclou només els valors disponibles."
+  },
+  "ui.predictor_weather_missing_value": {
+    "en": "No data",
+    "es": "Sin datos",
+    "ca": "Sense dades"
+  },
+  "ui.predictor_weather_rain": {
+    "en": "Rainfall",
+    "es": "Lluvia",
+    "ca": "Pluja"
+  },
+  "ui.predictor_weather_temperature": {
+    "en": "Temperature",
+    "es": "Temperatura",
+    "ca": "Temperatura"
+  },
+  "ui.predictor_weather_humidity": {
+    "en": "Humidity",
+    "es": "Humedad",
+    "ca": "Humitat"
+  },
+  "ui.predictor_weather_values": {
+    "en": "View values in a table",
+    "es": "Ver valores en tabla",
+    "ca": "Veure valors en taula"
+  },
+  "ui.predictor_weather_date": {
+    "en": "Date / period",
+    "es": "Fecha / periodo",
+    "ca": "Data / període"
+  },
+  "ui.predictor_weather_range": {
+    "en": "{date} · min {low} {unit} · max {high} {unit}",
+    "es": "{date} · mín {low} {unit} · máx {high} {unit}",
+    "ca": "{date} · mín {low} {unit} · màx {high} {unit}"
+  },
+  "ui.predictor_weather_minimum": {
+    "en": "Minimum",
+    "es": "Mínima",
+    "ca": "Mínima"
+  },
+  "ui.predictor_weather_maximum": {
+    "en": "Maximum",
+    "es": "Máxima",
+    "ca": "Màxima"
+  },
+  "ui.predictor_weather_mean": {
+    "en": "Mean",
+    "es": "Media",
+    "ca": "Mitjana"
+  },
+  "ui.predictor_weather_mean_max": {
+    "en": "Mean of maxima",
+    "es": "Media de máximas",
+    "ca": "Mitjana de màximes"
+  },
+  "ui.predictor_weather_mean_min": {
+    "en": "Mean of minima",
+    "es": "Media de mínimas",
+    "ca": "Mitjana de mínimes"
+  },
+  "ui.predictor_weather_measure": {
+    "en": "Measure",
+    "es": "Medida",
+    "ca": "Mesura"
+  },
+  "ui.predictor_weather_after_event": {
+    "en": "After the last rain of at least 5 mm",
+    "es": "Después de la última lluvia de al menos 5 mm",
+    "ca": "Després de l'última pluja d'almenys 5 mm"
+  },
+  "ui.predictor_significant_rain_event": {
+    "en": "Last rain of at least 5 mm",
+    "es": "Última lluvia de al menos 5 mm",
+    "ca": "Última pluja d'almenys 5 mm"
+  },
+  "ui.predictor_significant_rain_event_value": {
+    "en": "{date} · {amount} mm area IDW · {days} days ago · threshold ≥ {threshold} mm",
+    "es": "{date} · {amount} mm IDW del área · hace {days} días · umbral ≥ {threshold} mm",
+    "ca": "{date} · {amount} mm IDW de l'àrea · fa {days} dies · llindar ≥ {threshold} mm"
+  },
+  "ui.predictor_help_significant_rain_event": {
+    "en": "The most recent daily area-IDW rain value of at least 5 mm available at the model's weather cutoff. It is not the 14-day accumulation or necessarily the nearest station's reading.",
+    "es": "Último valor diario de lluvia IDW del área de al menos 5 mm disponible en el corte meteorológico del modelo. No es el acumulado de 14 días ni necesariamente la lectura de la estación más cercana.",
+    "ca": "Últim valor diari de pluja IDW de l'àrea d'almenys 5 mm disponible al tall meteorològic del model. No és l'acumulat de 14 dies ni necessàriament la lectura de l'estació més propera."
+  },
+  "ui.predictor_help_rain_coverage": {
+    "en": "Observed / missing / explicitly suppressed rain days. Missing or suppressed rain contributes 0 mm, while coverage remains visible.",
+    "es": "Días de lluvia observados / ausentes / descartados explícitamente. Los ausentes o descartados aportan 0 mm, pero la cobertura permanece visible.",
+    "ca": "Dies de pluja observats / absents / descartats explícitament. Els absents o descartats aporten 0 mm, però la cobertura continua visible."
+  },
+  "ui.predictor_help_post_rain_coverage": {
+    "en": "Temperature and humidity days observed after the selected significant rain event.",
+    "es": "Días de temperatura y humedad observados después del episodio de lluvia significativa elegido.",
+    "ca": "Dies de temperatura i humitat observats després de l'episodi de pluja significativa triat."
+  },
+  "ui.predictor_help_weather_gaps": {
+    "en": "Warnings about incomplete or suspect weather inputs used by this result.",
+    "es": "Avisos sobre entradas meteorológicas incompletas o sospechosas utilizadas por este resultado.",
+    "ca": "Avisos sobre entrades meteorològiques incompletes o sospitoses utilitzades per aquest resultat."
+  },
+  "ui.predictor_help_out_of_domain": {
+    "en": "Variables outside the range seen during training. The current value is the input being predicted; training is the minimum–maximum range learned by that model; Δ is the signed physical distance to the exceeded limit (+ above the maximum, − below the minimum); and σ is the distance from the learned mean in standard deviations. Rainfall excursions remain warnings and cannot reject a prediction by themselves; severe excursions in other variables may exclude estimators.",
+    "es": "Variables fuera del rango visto durante el entrenamiento. El valor actual es la entrada que se está prediciendo; entrenamiento es el rango mínimo–máximo aprendido por ese modelo; Δ es la distancia física con signo hasta el límite rebasado (+ por encima del máximo, − por debajo del mínimo); y σ es la distancia respecto a la media aprendida en desviaciones estándar. Las desviaciones de lluvia se mantienen como advertencia y no pueden descartar por sí solas una predicción; las desviaciones severas de otras variables sí pueden excluir estimadores.",
+    "ca": "Variables fora del rang vist durant l'entrenament. El valor actual és l'entrada que s'està predient; entrenament és el rang mínim–màxim après per aquell model; Δ és la distància física amb signe fins al límit superat (+ per sobre del màxim, − per sota del mínim); i σ és la distància respecte de la mitjana apresa en desviacions estàndard. Les desviacions de pluja es mantenen com a advertiment i no poden descartar per si soles una predicció; les desviacions severes d'altres variables sí que poden excloure estimadors."
+  },
+  "ui.predictor_active_version_role": {
+    "en": "This view uses the preferred operational version shown above.",
+    "es": "Esta vista utiliza la versión operativa preferida indicada arriba.",
+    "ca": "Aquesta vista utilitza la versió operativa preferida indicada a dalt."
+  },
+  "ui.predictor_multiversion_card_role": {
+    "en": "This card chooses independently for each temporal scenario among every installed operational version.",
+    "es": "Esta tarjeta elige de forma independiente para cada escenario temporal entre todas las versiones operativas instaladas.",
+    "ca": "Aquesta targeta tria de manera independent per a cada escenari temporal entre totes les versions operatives instal·lades."
+  },
+  "ui.predictor_selected_models": {
+    "en": "Selected models",
+    "es": "Modelos elegidos",
+    "ca": "Models triats"
+  },
+  "ui.predictor_selected_model": {
+    "en": "Selected model",
+    "es": "Modelo seleccionado",
+    "ca": "Model seleccionat"
+  },
+  "ui.predictor_applicability_fallback": {
+    "en": "Applicability fallback",
+    "es": "Fallback por aplicabilidad",
+    "ca": "Fallback per aplicabilitat"
+  },
+  "ui.predictor_applicability_fallback_value": {
+    "en": "{skipped} higher-ranked candidate(s) were discarded; reliable candidate #{position} was used",
+    "es": "se descartaron {skipped} candidatos mejor clasificados; se usó el candidato fiable nº {position}",
+    "ca": "es van descartar {skipped} candidats més ben classificats; es va usar el candidat fiable núm. {position}"
+  },
   "ui.predictor_help_applicability_fallback": {
     "en": "The training publication fixes the reliability order. If a higher-ranked candidate cannot be applied to the current features, Rainmapper uses the first later candidate that remains within the accepted domain. It never chooses by today's highest probability.",
     "es": "La publicación de entrenamiento fija el orden de fiabilidad. Si un candidato mejor clasificado no puede aplicarse a las features actuales, Rainmapper usa el primer candidato posterior que permanece dentro del dominio admitido. Nunca elige por el porcentaje más alto de hoy.",
     "ca": "La publicació d'entrenament fixa l'ordre de fiabilitat. Si un candidat més ben classificat no es pot aplicar a les features actuals, Rainmapper usa el primer candidat posterior que roman dins del domini admès. Mai tria pel percentatge més alt d'avui."
   },
-  "ui.predictor_estimated_probability": {"en": "Estimated probability", "es": "Probabilidad estimada", "ca": "Probabilitat estimada"},
-  "ui.predictor_statistical_signal_before_veto": {"en": "Statistical signal before the ecological veto", "es": "Señal estadística previa al veto ecológico", "ca": "Senyal estadístic previ al veto ecològic"},
-  "ui.predictor_statistical_signal_vetoed_compact": {"en": "Signal {probability} · ecological veto", "es": "Señal {probability} · veto ecológico", "ca": "Senyal {probability} · veto ecològic"},
-  "ui.predictor_final_result": {"en": "Final result", "es": "Resultado final", "ca": "Resultat final"},
-  "ui.predictor_ecological_veto_result": {"en": "ruled out due to ecological incompatibility", "es": "descartado por incompatibilidad ecológica", "ca": "descartat per incompatibilitat ecològica"},
-  "ui.predictor_deciding_evidence": {"en": "Evidence used for the decision", "es": "Evidencia que decide", "ca": "Evidència que decideix"},
-  "ui.predictor_reference_evidence": {"en": "Additional reference", "es": "Referencia adicional", "ca": "Referència addicional"},
-  "ui.predictor_summary_technical_details": {"en": "Technical details of the result", "es": "Detalle técnico del resultado", "ca": "Detall tècnic del resultat"},
-  "ui.predictor_selected_range": {"en": "Range of the models selected from the included versions", "es": "Rango de los modelos elegidos entre las versiones incluidas", "ca": "Rang dels models triats entre les versions incloses"},
-  "ui.predictor_reliability": {"en": "Reliability when recommending an outing", "es": "Fiabilidad cuando recomienda salir", "ca": "Fiabilitat quan recomana sortir"},
-  "ui.predictor_observed_outing_accuracy": {"en": "Observed accuracy when recommending an outing", "es": "Acierto observado al recomendar salir", "ca": "Encert observat en recomanar sortir"},
-  "ui.predictor_conservative_reliability": {"en": "Conservative lower bound (95%)", "es": "Límite conservador (95 %)", "ca": "Límit conservador (95 %)"},
-  "ui.predictor_conservative_reliability_compact": {"en": "Observed accuracy {observed} · {correct}/{calls} · 95% lower bound {reliability}", "es": "Acierto observado {observed} · {correct}/{calls} · límite 95 % {reliability}", "ca": "Encert observat {observed} · {correct}/{calls} · límit 95 % {reliability}"},
-  "ui.predictor_area_evidence": {"en": "Area evidence", "es": "Evidencia del área", "ca": "Evidència de l'àrea"},
-  "ui.predictor_species_evidence": {"en": "Species-wide evidence", "es": "Evidencia global de la especie", "ca": "Evidència global de l'espècie"},
-  "ui.predictor_scope_reliability_compact": {"en": "{scope}: observed accuracy {observed} · {correct}/{calls} · 95% lower bound {reliability} · {observations} obs. · {fruitings} fruitings{eligibility}", "es": "{scope}: acierto observado {observed} · {correct}/{calls} · límite 95 % {reliability} · {observations} obs. · {fruitings} floradas{eligibility}", "ca": "{scope}: encert observat {observed} · {correct}/{calls} · límit 95 % {reliability} · {observations} obs. · {fruitings} florades{eligibility}"},
-  "ui.predictor_scope_reliability_summary": {"en": "{scope}: observed {observed} ({correct}/{calls}) · 95% lower bound {reliability} · {observations} obs. · {fruitings} fruitings{eligibility}", "es": "{scope}: acierto {observed} ({correct}/{calls}) · límite 95 % {reliability} · {observations} obs. · {fruitings} floradas{eligibility}", "ca": "{scope}: encert {observed} ({correct}/{calls}) · límit 95 % {reliability} · {observations} obs. · {fruitings} florades{eligibility}"},
-  "ui.predictor_deciding_reliability_compact": {"en": "Decision evidence — {scope}: {observed} ({correct}/{calls}) · 95% minimum {reliability} · {fruitings} fruitings", "es": "Evidencia decisiva — {scope}: {observed} ({correct}/{calls}) · mínimo 95 % {reliability} · {fruitings} floradas", "ca": "Evidència decisiva — {scope}: {observed} ({correct}/{calls}) · mínim 95 % {reliability} · {fruitings} florades"},
-  "ui.predictor_area_scope_short": {"en": "Area", "es": "Área", "ca": "Àrea"},
-  "ui.predictor_species_scope_short": {"en": "Species", "es": "Especie", "ca": "Espècie"},
-  "ui.predictor_scope_evidence_unavailable": {"en": "{scope}: unavailable", "es": "{scope}: no disponible", "ca": "{scope}: no disponible"},
-  "ui.predictor_evidence_unavailable": {"en": "Unavailable", "es": "No disponible", "ca": "No disponible"},
-  "ui.predictor_scope_evidence_not_eligible": {"en": "insufficient to decide in this scope", "es": "insuficiente para decidir en este ámbito", "ca": "insuficient per decidir en aquest àmbit"},
-  "ui.predictor_selection_source": {"en": "Selection source", "es": "Origen de la selección", "ca": "Origen de la selecció"},
-  "ui.predictor_selected_by_area_evidence": {"en": "Selected by area evidence", "es": "Elegido por la evidencia del área", "ca": "Triat per l'evidència de l'àrea"},
-  "ui.predictor_selected_by_species_fallback": {"en": "Selected using the species-wide fallback", "es": "Elegido mediante fallback de la especie", "ca": "Triat mitjançant el fallback de l'espècie"},
-  "ui.predictor_selected_by_area_evidence_short": {"en": "Decision: area", "es": "Decide: área", "ca": "Decideix: àrea"},
-  "ui.predictor_selected_by_species_fallback_short": {"en": "Decision: species fallback", "es": "Decide: fallback de especie", "ca": "Decideix: fallback d'espècie"},
-  "ui.predictor_evidence": {"en": "Evidence", "es": "Evidencia", "ca": "Evidència"},
-  "ui.predictor_week_evidence_note": {"en": "Each result shows its probability, selected model, area and species-wide evidence, and which scope determined the selection.", "es": "Cada resultado muestra su probabilidad, el modelo elegido, la evidencia del área y de la especie, y cuál de los dos ámbitos decidió la selección.", "ca": "Cada resultat mostra la probabilitat, el model triat, l'evidència de l'àrea i de l'espècie, i quin dels dos àmbits va decidir la selecció."},
-  "ui.predictor_test_observations": {"en": "Test observations", "es": "Observaciones de prueba", "ca": "Observacions de prova"},
-  "ui.predictor_test_fruiting_groups": {"en": "Test fruitings", "es": "Floradas de prueba", "ca": "Florades de prova"},
-  "ui.predictor_help_prediction_probability": {"en": "Model estimate for this species, area and date. If an ecological veto is shown, this is the statistical signal before that veto, not the final probability.", "es": "Estimación del modelo para esta especie, área y fecha. Si aparece un veto ecológico, es la señal estadística anterior al veto, no la probabilidad final.", "ca": "Estimació del model per a aquesta espècie, àrea i data. Si apareix un veto ecològic, és el senyal estadístic anterior al veto, no la probabilitat final."},
-  "ui.predictor_help_observed_outing_accuracy": {"en": "Share of held-out cases that were favorable among those where this candidate recommended an outing. The fraction shows correct recommendations / outing recommendations.", "es": "Proporción de casos reservados que fueron favorables entre aquellos en los que este candidato recomendó salir. La fracción muestra recomendaciones acertadas / recomendaciones de salir.", "ca": "Proporció de casos reservats que van ser favorables entre aquells en què aquest candidat va recomanar sortir. La fracció mostra recomanacions encertades / recomanacions de sortir."},
-  "ui.predictor_help_conservative_reliability": {"en": "Cautious 95% lower bound for the observed outing accuracy. It reduces the apparent strength of results based on few recommendations; it is not the observed accuracy.", "es": "Límite inferior prudente al 95 % del acierto observado al recomendar salir. Reduce la fuerza aparente de resultados con pocas recomendaciones; no es el acierto observado.", "ca": "Límit inferior prudent al 95 % de l'encert observat en recomanar sortir. Redueix la força aparent dels resultats amb poques recomanacions; no és l'encert observat."},
-  "ui.predictor_help_test_observations": {"en": "Observations reserved for evaluation and excluded from this model's training data.", "es": "Observaciones reservadas para evaluar y excluidas de los datos con los que se entrenó este modelo.", "ca": "Observacions reservades per avaluar i excloses de les dades amb què es va entrenar aquest model."},
-  "ui.predictor_help_test_fruiting_groups": {"en": "Independent fruiting episodes represented in the test observations. Related observations from one fruiting stay together in either training or testing.", "es": "Episodios de florada representados en las observaciones de prueba. Las observaciones relacionadas de una florada permanecen juntas en entrenamiento o prueba.", "ca": "Episodis de florida representats en les observacions de prova. Les observacions relacionades d'una florida romanen juntes en entrenament o prova."},
-  "ui.predictor_help_area_evidence": {"en": "Performance of this exact candidate in the selected area. It is used only when it has enough valid evidence to win the selection.", "es": "Rendimiento de este candidato exacto en el área seleccionada. Solo decide cuando dispone de evidencia válida suficiente para ganar la selección.", "ca": "Rendiment d'aquest candidat exacte a l'àrea seleccionada. Només decideix quan disposa d'evidència vàlida suficient per guanyar la selecció."},
-  "ui.predictor_help_species_evidence": {"en": "Performance of this exact candidate for the species across all evaluated areas. It can decide when the selected area's evidence is unavailable or weaker.", "es": "Rendimiento de este candidato exacto para la especie en todas las áreas evaluadas. Puede decidir cuando la evidencia del área no está disponible o es más débil.", "ca": "Rendiment d'aquest candidat exacte per a l'espècie en totes les àrees avaluades. Pot decidir quan l'evidència de l'àrea no està disponible o és més feble."},
-  "ui.predictor_help_selection_source": {"en": "Indicates whether area-specific evidence or the species-wide fallback selected the candidate shown.", "es": "Indica si el candidato mostrado fue seleccionado por la evidencia específica del área o mediante el respaldo global de la especie.", "ca": "Indica si el candidat mostrat va ser seleccionat per l'evidència específica de l'àrea o mitjançant el suport global de l'espècie."},
-  "ui.predictor_help_selected_model": {"en": "Candidate selected automatically from every installed operational version for this species, area and date.", "es": "Candidato seleccionado automáticamente entre todas las versiones operativas instaladas para esta especie, área y fecha.", "ca": "Candidat seleccionat automàticament entre totes les versions operatives instal·lades per a aquesta espècie, àrea i data."},
-  "ui.predictor_help_ecological_veto": {"en": "The ecological layer can override a high statistical signal when the weather event is incompatible with the species' fruiting window.", "es": "La capa ecológica puede anular una señal estadística alta cuando el episodio meteorológico no es compatible con la ventana de fructificación de la especie.", "ca": "La capa ecològica pot anul·lar un senyal estadístic alt quan l'episodi meteorològic no és compatible amb la finestra de fructificació de l'espècie."},
-  "ui.predictor_help_reliability_result": {"en": "Observed accuracy is correct outing recommendations / outing recommendations in held-out data. The 95% lower bound is a cautious minimum adjusted for sample size. Observations were excluded from training, and fruitings group related observations.", "es": "El acierto observado es recomendaciones de salir acertadas / recomendaciones de salir en datos reservados. El límite del 95 % es un mínimo prudente ajustado al tamaño de la muestra. Las observaciones no participaron en el entrenamiento y las floradas agrupan observaciones relacionadas.", "ca": "L'encert observat és recomanacions de sortir encertades / recomanacions de sortir en dades reservades. El límit del 95 % és un mínim prudent ajustat a la mida de la mostra. Les observacions no van participar en l'entrenament i les florades agrupen observacions relacionades."},
-  "ui.predictor_selected_model_unvalidated": {"en": "not validated", "es": "sin validación", "ca": "sense validació"},
-  "ui.predictor_selected_model_caution": {"en": "extrapolation warning", "es": "advertencia de extrapolación", "ca": "advertiment d'extrapolació"},
-  "ui.predictor_auc_gate_rule": {"en": "Selection requires Brier better than prevalence and ROC-AUC ≥ {threshold}. A lower AUC cannot reliably rank the most favorable cases, even when probability calibration improves.", "es": "La selección exige un Brier mejor que la prevalencia y ROC-AUC ≥ {threshold}. Un AUC inferior no permite ordenar con fiabilidad los casos más favorables, aunque mejore la calibración probabilística.", "ca": "La selecció exigeix un Brier millor que la prevalença i ROC-AUC ≥ {threshold}. Un AUC inferior no permet ordenar amb fiabilitat els casos més favorables, encara que millori el calibratge probabilístic."},
-  "ui.predictor_preferred_week_context": {"en": "The seven-day strip uses the same selector within the preferred operational version: {version}.", "es": "La franja de siete días usa el mismo selector dentro de la versión operativa preferida: {version}.", "ca": "La franja de set dies usa el mateix selector dins de la versió operativa preferida: {version}."},
-  "ui.predictor_multiversion_week_context": {"en": "The seven-day strip uses every installed operational version and the same selector as the summary.", "es": "La franja de siete días usa todas las versiones operativas instaladas y el mismo selector que el resumen.", "ca": "La franja de set dies usa totes les versions operatives instal·lades i el mateix selector que el resum."},
-  "ui.predictor_preferred_badge": {"en": "Preferred operational version", "es": "Versión operativa preferida", "ca": "Versió operativa preferida"},
-  "ui.predictor_job_duration": {"en": "Prediction job: {seconds} s", "es": "Trabajo de predicción: {seconds} s", "ca": "Treball de predicció: {seconds} s"},
-  "ui.predictor_backend_duration": {"en": "calculation {seconds} s", "es": "cálculo {seconds} s", "ca": "càlcul {seconds} s"},
-  "ui.predictor_result_cache_hit": {"en": "reused result", "es": "resultado reutilizado", "ca": "resultat reutilitzat"},
-  "ui.predictor_result_cache_miss": {"en": "new calculation", "es": "cálculo nuevo", "ca": "càlcul nou"},
-  "ui.predictor_preferred_short": {"en": "Preferred", "es": "Preferida", "ca": "Preferida"},
+  "ui.predictor_estimated_probability": {
+    "en": "Estimated probability",
+    "es": "Probabilidad estimada",
+    "ca": "Probabilitat estimada"
+  },
+  "ui.predictor_statistical_signal_before_veto": {
+    "en": "Statistical signal before the ecological veto",
+    "es": "Señal estadística previa al veto ecológico",
+    "ca": "Senyal estadístic previ al veto ecològic"
+  },
+  "ui.predictor_statistical_signal_vetoed_compact": {
+    "en": "Signal {probability} · ecological veto",
+    "es": "Señal {probability} · veto ecológico",
+    "ca": "Senyal {probability} · veto ecològic"
+  },
+  "ui.predictor_final_result": {
+    "en": "Final result",
+    "es": "Resultado final",
+    "ca": "Resultat final"
+  },
+  "ui.predictor_ecological_veto_result": {
+    "en": "ruled out due to ecological incompatibility",
+    "es": "descartado por incompatibilidad ecológica",
+    "ca": "descartat per incompatibilitat ecològica"
+  },
+  "ui.predictor_deciding_evidence": {
+    "en": "Evidence used for the decision",
+    "es": "Evidencia que decide",
+    "ca": "Evidència que decideix"
+  },
+  "ui.predictor_reference_evidence": {
+    "en": "Additional reference",
+    "es": "Referencia adicional",
+    "ca": "Referència addicional"
+  },
+  "ui.predictor_summary_technical_details": {
+    "en": "Technical details of the result",
+    "es": "Detalle técnico del resultado",
+    "ca": "Detall tècnic del resultat"
+  },
+  "ui.predictor_selected_range": {
+    "en": "Range of the models selected from the included versions",
+    "es": "Rango de los modelos elegidos entre las versiones incluidas",
+    "ca": "Rang dels models triats entre les versions incloses"
+  },
+  "ui.predictor_observed_outing_accuracy": {
+    "en": "Observed accuracy when recommending an outing",
+    "es": "Acierto observado al recomendar salir",
+    "ca": "Encert observat en recomanar sortir"
+  },
+  "ui.predictor_conservative_reliability": {
+    "en": "Conservative lower bound (95%)",
+    "es": "Límite conservador (95 %)",
+    "ca": "Límit conservador (95 %)"
+  },
+  "ui.predictor_conservative_reliability_compact": {
+    "en": "Observed accuracy {observed} · {correct}/{calls} · 95% lower bound {reliability}",
+    "es": "Acierto observado {observed} · {correct}/{calls} · límite 95 % {reliability}",
+    "ca": "Encert observat {observed} · {correct}/{calls} · límit 95 % {reliability}"
+  },
+  "ui.predictor_area_evidence": {
+    "en": "Area evidence",
+    "es": "Evidencia del área",
+    "ca": "Evidència de l'àrea"
+  },
+  "ui.predictor_species_evidence": {
+    "en": "Species-wide evidence",
+    "es": "Evidencia global de la especie",
+    "ca": "Evidència global de l'espècie"
+  },
+  "ui.predictor_scope_reliability_compact": {
+    "en": "{scope}: observed accuracy {observed} · {correct}/{calls} · 95% lower bound {reliability} · {observations} obs. · {fruitings} fruitings{eligibility}",
+    "es": "{scope}: acierto observado {observed} · {correct}/{calls} · límite 95 % {reliability} · {observations} obs. · {fruitings} floradas{eligibility}",
+    "ca": "{scope}: encert observat {observed} · {correct}/{calls} · límit 95 % {reliability} · {observations} obs. · {fruitings} florades{eligibility}"
+  },
+  "ui.predictor_scope_reliability_summary": {
+    "en": "{scope}: observed {observed} ({correct}/{calls}) · 95% lower bound {reliability} · {observations} obs. · {fruitings} fruitings{eligibility}",
+    "es": "{scope}: acierto {observed} ({correct}/{calls}) · límite 95 % {reliability} · {observations} obs. · {fruitings} floradas{eligibility}",
+    "ca": "{scope}: encert {observed} ({correct}/{calls}) · límit 95 % {reliability} · {observations} obs. · {fruitings} florades{eligibility}"
+  },
+  "ui.predictor_deciding_reliability_compact": {
+    "en": "Decision evidence — {scope}: {observed} ({correct}/{calls}) · 95% minimum {reliability} · {fruitings} fruitings",
+    "es": "Evidencia decisiva — {scope}: {observed} ({correct}/{calls}) · mínimo 95 % {reliability} · {fruitings} floradas",
+    "ca": "Evidència decisiva — {scope}: {observed} ({correct}/{calls}) · mínim 95 % {reliability} · {fruitings} florades"
+  },
+  "ui.predictor_area_scope_short": {
+    "en": "Area",
+    "es": "Área",
+    "ca": "Àrea"
+  },
+  "ui.predictor_species_scope_short": {
+    "en": "Species",
+    "es": "Especie",
+    "ca": "Espècie"
+  },
+  "ui.predictor_scope_evidence_unavailable": {
+    "en": "{scope}: unavailable",
+    "es": "{scope}: no disponible",
+    "ca": "{scope}: no disponible"
+  },
+  "ui.predictor_evidence_unavailable": {
+    "en": "Unavailable",
+    "es": "No disponible",
+    "ca": "No disponible"
+  },
+  "ui.predictor_scope_evidence_not_eligible": {
+    "en": "insufficient to decide in this scope",
+    "es": "insuficiente para decidir en este ámbito",
+    "ca": "insuficient per decidir en aquest àmbit"
+  },
+  "ui.predictor_selection_source": {
+    "en": "Selection source",
+    "es": "Origen de la selección",
+    "ca": "Origen de la selecció"
+  },
+  "ui.predictor_selected_by_area_evidence": {
+    "en": "Selected by area evidence",
+    "es": "Elegido por la evidencia del área",
+    "ca": "Triat per l'evidència de l'àrea"
+  },
+  "ui.predictor_selected_by_species_fallback": {
+    "en": "Selected using the species-wide fallback",
+    "es": "Elegido mediante fallback de la especie",
+    "ca": "Triat mitjançant el fallback de l'espècie"
+  },
+  "ui.predictor_selected_by_area_evidence_short": {
+    "en": "Decision: area",
+    "es": "Decide: área",
+    "ca": "Decideix: àrea"
+  },
+  "ui.predictor_selected_by_species_fallback_short": {
+    "en": "Decision: species fallback",
+    "es": "Decide: fallback de especie",
+    "ca": "Decideix: fallback d'espècie"
+  },
+  "ui.predictor_evidence": {
+    "en": "Evidence",
+    "es": "Evidencia",
+    "ca": "Evidència"
+  },
+  "ui.predictor_week_evidence_note": {
+    "en": "Each result shows its probability, selected model, area and species-wide evidence, and which scope determined the selection.",
+    "es": "Cada resultado muestra su probabilidad, el modelo elegido, la evidencia del área y de la especie, y cuál de los dos ámbitos decidió la selección.",
+    "ca": "Cada resultat mostra la probabilitat, el model triat, l'evidència de l'àrea i de l'espècie, i quin dels dos àmbits va decidir la selecció."
+  },
+  "ui.predictor_test_observations": {
+    "en": "Test observations",
+    "es": "Observaciones de prueba",
+    "ca": "Observacions de prova"
+  },
+  "ui.predictor_test_fruiting_groups": {
+    "en": "Test fruitings",
+    "es": "Floradas de prueba",
+    "ca": "Florades de prova"
+  },
+  "ui.predictor_help_prediction_probability": {
+    "en": "Model estimate for this species, area and date. If an ecological veto is shown, this is the statistical signal before that veto, not the final probability.",
+    "es": "Estimación del modelo para esta especie, área y fecha. Si aparece un veto ecológico, es la señal estadística anterior al veto, no la probabilidad final.",
+    "ca": "Estimació del model per a aquesta espècie, àrea i data. Si apareix un veto ecològic, és el senyal estadístic anterior al veto, no la probabilitat final."
+  },
+  "ui.predictor_help_observed_outing_accuracy": {
+    "en": "Share of held-out cases that were favorable among those where this candidate recommended an outing. The fraction shows correct recommendations / outing recommendations.",
+    "es": "Proporción de casos reservados que fueron favorables entre aquellos en los que este candidato recomendó salir. La fracción muestra recomendaciones acertadas / recomendaciones de salir.",
+    "ca": "Proporció de casos reservats que van ser favorables entre aquells en què aquest candidat va recomanar sortir. La fracció mostra recomanacions encertades / recomanacions de sortir."
+  },
+  "ui.predictor_help_conservative_reliability": {
+    "en": "Cautious 95% lower bound for the observed outing accuracy. It reduces the apparent strength of results based on few recommendations; it is not the observed accuracy.",
+    "es": "Límite inferior prudente al 95 % del acierto observado al recomendar salir. Reduce la fuerza aparente de resultados con pocas recomendaciones; no es el acierto observado.",
+    "ca": "Límit inferior prudent al 95 % de l'encert observat en recomanar sortir. Redueix la força aparent dels resultats amb poques recomanacions; no és l'encert observat."
+  },
+  "ui.predictor_help_test_observations": {
+    "en": "Observations reserved for evaluation and excluded from this model's training data.",
+    "es": "Observaciones reservadas para evaluar y excluidas de los datos con los que se entrenó este modelo.",
+    "ca": "Observacions reservades per avaluar i excloses de les dades amb què es va entrenar aquest model."
+  },
+  "ui.predictor_help_test_fruiting_groups": {
+    "en": "Independent fruiting episodes represented in the test observations. Related observations from one fruiting stay together in either training or testing.",
+    "es": "Episodios de florada representados en las observaciones de prueba. Las observaciones relacionadas de una florada permanecen juntas en entrenamiento o prueba.",
+    "ca": "Episodis de florida representats en les observacions de prova. Les observacions relacionades d'una florida romanen juntes en entrenament o prova."
+  },
+  "ui.predictor_help_area_evidence": {
+    "en": "Performance of this exact candidate in the selected area. It is used only when it has enough valid evidence to win the selection.",
+    "es": "Rendimiento de este candidato exacto en el área seleccionada. Solo decide cuando dispone de evidencia válida suficiente para ganar la selección.",
+    "ca": "Rendiment d'aquest candidat exacte a l'àrea seleccionada. Només decideix quan disposa d'evidència vàlida suficient per guanyar la selecció."
+  },
+  "ui.predictor_help_species_evidence": {
+    "en": "Performance of this exact candidate for the species across all evaluated areas. It can decide when the selected area's evidence is unavailable or weaker.",
+    "es": "Rendimiento de este candidato exacto para la especie en todas las áreas evaluadas. Puede decidir cuando la evidencia del área no está disponible o es más débil.",
+    "ca": "Rendiment d'aquest candidat exacte per a l'espècie en totes les àrees avaluades. Pot decidir quan l'evidència de l'àrea no està disponible o és més feble."
+  },
+  "ui.predictor_help_selection_source": {
+    "en": "Indicates whether area-specific evidence or the species-wide fallback selected the candidate shown.",
+    "es": "Indica si el candidato mostrado fue seleccionado por la evidencia específica del área o mediante el respaldo global de la especie.",
+    "ca": "Indica si el candidat mostrat va ser seleccionat per l'evidència específica de l'àrea o mitjançant el suport global de l'espècie."
+  },
+  "ui.predictor_help_selected_model": {
+    "en": "Candidate selected automatically from every installed operational version for this species, area and date.",
+    "es": "Candidato seleccionado automáticamente entre todas las versiones operativas instaladas para esta especie, área y fecha.",
+    "ca": "Candidat seleccionat automàticament entre totes les versions operatives instal·lades per a aquesta espècie, àrea i data."
+  },
+  "ui.predictor_help_ecological_veto": {
+    "en": "The ecological layer can override a high statistical signal when the weather event is incompatible with the species' fruiting window.",
+    "es": "La capa ecológica puede anular una señal estadística alta cuando el episodio meteorológico no es compatible con la ventana de fructificación de la especie.",
+    "ca": "La capa ecològica pot anul·lar un senyal estadístic alt quan l'episodi meteorològic no és compatible amb la finestra de fructificació de l'espècie."
+  },
+  "ui.predictor_help_reliability_result": {
+    "en": "Observed accuracy is correct outing recommendations / outing recommendations in held-out data. The 95% lower bound is a cautious minimum adjusted for sample size. Observations were excluded from training, and fruitings group related observations.",
+    "es": "El acierto observado es recomendaciones de salir acertadas / recomendaciones de salir en datos reservados. El límite del 95 % es un mínimo prudente ajustado al tamaño de la muestra. Las observaciones no participaron en el entrenamiento y las floradas agrupan observaciones relacionadas.",
+    "ca": "L'encert observat és recomanacions de sortir encertades / recomanacions de sortir en dades reservades. El límit del 95 % és un mínim prudent ajustat a la mida de la mostra. Les observacions no van participar en l'entrenament i les florades agrupen observacions relacionades."
+  },
+  "ui.predictor_selected_model_unvalidated": {
+    "en": "not validated",
+    "es": "sin validación",
+    "ca": "sense validació"
+  },
+  "ui.predictor_selected_model_caution": {
+    "en": "extrapolation warning",
+    "es": "advertencia de extrapolación",
+    "ca": "advertiment d'extrapolació"
+  },
+  "ui.predictor_auc_gate_rule": {
+    "en": "Selection requires Brier better than prevalence and ROC-AUC ≥ {threshold}. A lower AUC cannot reliably rank the most favorable cases, even when probability calibration improves.",
+    "es": "La selección exige un Brier mejor que la prevalencia y ROC-AUC ≥ {threshold}. Un AUC inferior no permite ordenar con fiabilidad los casos más favorables, aunque mejore la calibración probabilística.",
+    "ca": "La selecció exigeix un Brier millor que la prevalença i ROC-AUC ≥ {threshold}. Un AUC inferior no permet ordenar amb fiabilitat els casos més favorables, encara que millori el calibratge probabilístic."
+  },
+  "ui.predictor_preferred_week_context": {
+    "en": "The seven-day strip uses the same selector within the preferred operational version: {version}.",
+    "es": "La franja de siete días usa el mismo selector dentro de la versión operativa preferida: {version}.",
+    "ca": "La franja de set dies usa el mateix selector dins de la versió operativa preferida: {version}."
+  },
+  "ui.predictor_multiversion_week_context": {
+    "en": "The seven-day strip uses every installed operational version and the same selector as the summary.",
+    "es": "La franja de siete días usa todas las versiones operativas instaladas y el mismo selector que el resumen.",
+    "ca": "La franja de set dies usa totes les versions operatives instal·lades i el mateix selector que el resum."
+  },
+  "ui.predictor_preferred_badge": {
+    "en": "Preferred operational version",
+    "es": "Versión operativa preferida",
+    "ca": "Versió operativa preferida"
+  },
+  "ui.predictor_job_duration": {
+    "en": "Prediction job: {seconds} s",
+    "es": "Trabajo de predicción: {seconds} s",
+    "ca": "Treball de predicció: {seconds} s"
+  },
+  "ui.predictor_backend_duration": {
+    "en": "calculation {seconds} s",
+    "es": "cálculo {seconds} s",
+    "ca": "càlcul {seconds} s"
+  },
+  "ui.predictor_result_cache_hit": {
+    "en": "reused result",
+    "es": "resultado reutilizado",
+    "ca": "resultat reutilitzat"
+  },
+  "ui.predictor_result_cache_miss": {
+    "en": "new calculation",
+    "es": "cálculo nuevo",
+    "ca": "càlcul nou"
+  },
+  "ui.predictor_preferred_short": {
+    "en": "Preferred",
+    "es": "Preferida",
+    "ca": "Preferida"
+  },
   "ui.predictor_preferred_title": {
     "en": "Preferred Predictor version",
     "es": "Versión preferida del Predictor",
@@ -5414,5 +6841,210 @@
     "en": "SoilGrids reconciliation finished; preparing worker inputs.",
     "es": "La reconciliación SoilGrids ha terminado; preparando las entradas del worker.",
     "ca": "La reconciliació SoilGrids ha acabat; preparant les entrades del worker."
+  },
+  "ui.prediction_map_ecology_prototype": {
+    "es": "Prototipo · predicción pendiente, sin porcentajes calculados",
+    "ca": "Prototip · predicció pendent, sense percentatges calculats",
+    "en": "Prototype · prediction pending, no calculated probabilities"
+  },
+  "ui.prediction_map_prediction_pending": {
+    "es": "Predicción pendiente",
+    "ca": "Predicció pendent",
+    "en": "Prediction pending"
+  },
+  "ui.prediction_map_ecology_unavailable": {
+    "es": "No se puede evaluar la compatibilidad con los datos disponibles.",
+    "ca": "No es pot avaluar la compatibilitat amb les dades disponibles.",
+    "en": "Compatibility cannot be evaluated with the available data."
+  },
+  "ui.prediction_map_ecology_hosts_missing": {
+    "es": "Sin predicciones: falta información de hospedadores en este punto.",
+    "ca": "Sense prediccions: falta informació d’hostes en aquest punt.",
+    "en": "No predictions: host information is missing at this point."
+  },
+  "ui.prediction_map_ecology_candidates": {
+    "es": "Especies compatibles con el lugar y la temporada seleccionada. Predicción pendiente.",
+    "ca": "Espècies compatibles amb el lloc i la temporada seleccionada. Predicció pendent.",
+    "en": "Species compatible with the location and selected season. Prediction pending."
+  },
+  "ui.prediction_map_ecology_none": {
+    "es": "Sin especies compatibles con el lugar y la temporada seleccionada con los datos disponibles.",
+    "ca": "Sense espècies compatibles amb el lloc i la temporada seleccionada amb les dades disponibles.",
+    "en": "No species compatible with the location and selected season with the available data."
+  },
+  "ui.prediction_map_ecology_terrain_real": {
+    "es": "Terreno de fuentes cartográficas. La compatibilidad no es una predicción de fructificación.",
+    "ca": "Terreny de fonts cartogràfiques. La compatibilitat no és una predicció de fructificació.",
+    "en": "Terrain from map data. Compatibility is not a fruiting prediction."
+  },
+  "ui.prediction_map_ecology_land_note": {
+    "es": "Cada ficha necesita terreno compatible: hospedadores identificados cuando los requiere, o un entorno como prado o ribera cuando lo admite. Los huecos cartográficos no demuestran ausencia física.",
+    "ca": "Cada fitxa necessita terreny compatible: hostes identificats quan els requereix, o un entorn com prat o ribera quan l’admet. Els buits cartogràfics no demostren absència física.",
+    "en": "Each profile requires compatible terrain: identified hosts when needed, or an environment such as meadow or riparian woodland when accepted. Map gaps do not establish physical absence."
+  },
+  "ui.prediction_map_ecology_terrain_missing": {
+    "es": "Sin predicciones: falta información de terreno compatible en este punto.",
+    "ca": "Sense prediccions: falta informació de terreny compatible en aquest punt.",
+    "en": "No predictions: compatible terrain information is missing at this point."
+  },
+  "ui.prediction_map_terrain_context_no_data": {
+    "es": "Sin información de vegetación compatible",
+    "ca": "Sense informació de vegetació compatible",
+    "en": "No compatible vegetation information"
+  },
+  "ui.prediction_map_terrain_materials": {
+    "es": "Materiales identificados en la unidad geológica",
+    "ca": "Materials identificats a la unitat geològica",
+    "en": "Materials identified in the geological unit"
+  },
+  "ui.prediction_map_soil_tendencies": {
+    "es": "Posibles tipos de suelo",
+    "ca": "Possibles tipus de sòl",
+    "en": "Possible soil types"
+  },
+  "ui.prediction_map_soil_tendencies_help": {
+    "es": "Tendencias deducidas de los materiales cartografiados; pueden coexistir. Se combinan con el pH según la ficha de cada especie. No son mediciones del suelo.",
+    "ca": "Tendències deduïdes dels materials cartografiats; poden coexistir. Es combinen amb el pH segons la fitxa de cada espècie. No són mesures del sòl.",
+    "en": "Tendencies inferred from mapped materials; several may coexist. Combined with pH according to each species profile. These are not soil measurements."
+  },
+  "ui.prediction_map_soil_ph_supported": {
+    "es": "Admisión condicionada: sustrato silíceo e intervalo de pH solapado; la media estimada queda fuera del rango.",
+    "ca": "Admissió condicionada: substrat silici i interval de pH solapat; la mitjana estimada queda fora del rang.",
+    "en": "Conditional admission: siliceous substrate and overlapping pH interval; the estimated mean is outside the range."
+  },
+  "ui.prediction_map_ph_estimated": {
+    "en": "Estimated pH",
+    "es": "pH estimado",
+    "ca": "pH estimat"
+  },
+  "ui.prediction_map_ph_lower": {
+    "en": "Minimum",
+    "es": "Mínimo",
+    "ca": "Mínim"
+  },
+  "ui.prediction_map_ph_upper": {
+    "en": "Maximum",
+    "es": "Máximo",
+    "ca": "Màxim"
+  },
+  "ui.prediction_map_ph_openlandmap_source": {
+    "en": "OpenLandMap · estimated pH",
+    "es": "OpenLandMap · pH estimado",
+    "ca": "OpenLandMap · pH estimat"
+  },
+  "ui.prediction_map_ph_soilgrids_source": {
+    "en": "SoilGrids · comparison",
+    "es": "SoilGrids · comparación",
+    "ca": "SoilGrids · comparació"
+  },
+  "ui.prediction_map_ph_nearby": {
+    "en": "Nearby pixel",
+    "es": "Píxel cercano",
+    "ca": "Píxel proper"
+  },
+  "ui.prediction_map_ph_openlandmap_details": {
+    "en": "Depth: 0–30 cm · 2020–2022. Mean: 30 m; 68% uncertainty bounds: 120 m. OpenGeoHub · CC BY 4.0.",
+    "es": "Profundidad: 0–30 cm · 2020–2022. Media: 30 m; límites de incertidumbre del 68 %: 120 m. OpenGeoHub · CC BY 4.0.",
+    "ca": "Profunditat: 0–30 cm · 2020–2022. Mitjana: 30 m; límits d’incertesa del 68 %: 120 m. OpenGeoHub · CC BY 4.0."
+  },
+  "ui.prediction_map_ph_comparison_help": {
+    "en": "Estimated values, not measurements at this site. Minimum/maximum describe model uncertainty. The sources use different depths and uncertainty intervals.",
+    "es": "Son estimaciones, no mediciones del setal. Mínimo y máximo expresan la incertidumbre del modelo. Las fuentes usan profundidades e intervalos de incertidumbre distintos.",
+    "ca": "Són estimacions, no mesures del setal. Mínim i màxim expressen la incertesa del model. Les fonts usen profunditats i intervals d’incertesa diferents."
+  },
+  "ui.prediction_map_prediction_uncalculated": {
+    "es": "Sin probabilidad calculada",
+    "ca": "Sense probabilitat calculada",
+    "en": "No probability calculated"
+  },
+  "ui.prediction_map_prediction_experimental": {
+    "es": "Predicción experimental · pendiente de validación en setales",
+    "ca": "Predicció experimental · pendent de validació en erols",
+    "en": "Experimental prediction · pending field validation"
+  },
+  "ui.prediction_map_ecology_calculated": {
+    "es": "Especies compatibles con el lugar y la temporada seleccionada. Las que no tienen cálculo aparecen al final.",
+    "ca": "Espècies compatibles amb el lloc i la temporada seleccionada. Les que no tenen càlcul apareixen al final.",
+    "en": "Species compatible with the location and selected season. Those without a calculation appear last."
+  },
+  "ui.prediction_map_soil_ph_conditional": {
+    "es": "Admisión condicionada: componente calcáreo y pH admitido. No se ha confirmado descalcificación del suelo superficial.",
+    "ca": "Admissió condicionada: component calcari i pH admès. No s’ha confirmat descalcificació del sòl superficial.",
+    "en": "Conditional admission: calcareous component and accepted pH. Surface soil decalcification has not been confirmed."
+  },
+  "ui.prediction_map_soil_not_listed": {
+    "es": "Sustrato fuera de las preferencias revisadas; no supone una prohibición. Compatibilidad condicionada.",
+    "ca": "Substrat fora de les preferències revisades; no suposa una prohibició. Compatibilitat condicionada.",
+    "en": "Substrate outside reviewed preferences; this is not a prohibition. Conditional compatibility."
+  },
+  "ui.prediction_map_ecology_exclusions": {
+    "es": "Especies descartadas o con información insuficiente",
+    "ca": "Espècies descartades o amb informació insuficient",
+    "en": "Excluded species or insufficient information"
+  },
+  "ui.prediction_map_reason_ph_outside": {
+    "es": "pH fuera del rango de la ficha, sin excepción aplicable.",
+    "ca": "pH fora del rang de la fitxa, sense excepció aplicable.",
+    "en": "pH outside the profile range, with no applicable exception."
+  },
+  "ui.prediction_map_reason_ph_unknown": {
+    "es": "Falta pH válido.",
+    "ca": "Falta pH vàlid.",
+    "en": "Valid pH is missing."
+  },
+  "ui.prediction_map_reason_ph_overlap": {
+    "es": "El intervalo de pH no permite resolver la compatibilidad.",
+    "ca": "L’interval de pH no permet resoldre la compatibilitat.",
+    "en": "The pH interval does not resolve compatibility."
+  },
+  "ui.prediction_map_reason_soil_excluded": {
+    "es": "Suelo excluido expresamente por la ficha.",
+    "ca": "Sòl exclòs expressament per la fitxa.",
+    "en": "Soil explicitly excluded by the profile."
+  },
+  "ui.prediction_map_reason_soil_mixed_conflict": {
+    "es": "Mezcla de suelos admitidos y excluidos; falta resolver el suelo del punto.",
+    "ca": "Barreja de sòls admesos i exclosos; falta resoldre el sòl del punt.",
+    "en": "Mixture of accepted and excluded soils; the soil at the point is unresolved."
+  },
+  "ui.prediction_map_reason_soil_unresolved": {
+    "es": "Composición del suelo sin resolver.",
+    "ca": "Composició del sòl sense resoldre.",
+    "en": "Soil composition is unresolved."
+  },
+  "ui.prediction_map_reason_hosts_unknown": {
+    "es": "Falta un hospedador compatible identificado.",
+    "ca": "Falta un hoste compatible identificat.",
+    "en": "An identified compatible host is missing."
+  },
+  "ui.prediction_map_reason_habitat_unknown": {
+    "es": "Falta hábitat compatible identificado.",
+    "ca": "Falta hàbitat compatible identificat.",
+    "en": "An identified compatible habitat is missing."
+  },
+  "ui.prediction_map_reason_altitude_outside": {
+    "es": "Altitud fuera del rango de la ficha.",
+    "ca": "Altitud fora del rang de la fitxa.",
+    "en": "Elevation outside the profile range."
+  },
+  "ui.prediction_map_reason_altitude_unknown": {
+    "es": "Falta altitud válida.",
+    "ca": "Falta altitud vàlida.",
+    "en": "Valid elevation is missing."
+  },
+  "ui.prediction_map_reason_terrain_context_missing": {
+    "es": "Falta información de hospedadores o hábitat.",
+    "ca": "Falta informació d’hostes o hàbitat.",
+    "en": "Host or habitat information is missing."
+  },
+  "ui.prediction_map_season_main": {
+    "es": "Temporada principal",
+    "ca": "Temporada principal",
+    "en": "Main season"
+  },
+  "ui.prediction_map_season_secondary": {
+    "es": "Temporada secundaria",
+    "ca": "Temporada secundària",
+    "en": "Secondary season"
   }
 }

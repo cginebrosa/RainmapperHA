@@ -1,0 +1,7 @@
+# Overlay on docker-compose.worker.yml. Preserve identity, volumes and coordinators.
+services:
+  rainmapper-worker:
+    environment:
+      RAINMAPPER_PREDICTION_MAP_CONFIG: /point-config/worker.json
+    volumes:
+      - ../docker-data/prediction-map:/point-config:ro

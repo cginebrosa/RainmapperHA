@@ -1,0 +1,244 @@
+{
+  "date": "2026-09-15",
+  "scope": "local acceptance and cleanup; HA real copies only",
+  "ha_map_copy": {
+    "source": "/Volumes/media/rainmapper/prediction-map/generations/local-20260914",
+    "destination": "/Volumes/media/rainmapper/geography/imports/local-20260914",
+    "files": 3510,
+    "bytes": 14538214301,
+    "source_hashes_match_manifest": true,
+    "destination_hashes_match_manifest": true,
+    "originals_preserved": true,
+    "manifest_identical": true,
+    "activated": false,
+    "elapsed_seconds": 4115.6
+  },
+  "ha_legacy_delta": {
+    "source": "/Volumes/media/rainmapper/mushroom-GIS",
+    "destination": "/Volumes/media/rainmapper/geography/imports/legacy-gis-20260915",
+    "files": 1432,
+    "verified_bytes": 6820316846,
+    "copied_bytes": 1084029490,
+    "reused_bytes": 5736287356,
+    "fingerprint": "sha256:7410f2e2482b77688027440fa047344bba65285fa2f9e812c07c65f769981574",
+    "originals_preserved": true,
+    "activated": false,
+    "hashes_verified_on_mac": true,
+    "shared_source": "/Volumes/media/rainmapper/geography/imports/local-20260914"
+  },
+  "cleanup": {
+    "worker": {
+      "applied": true,
+      "released_allocated_bytes": 5457006592,
+      "before_allocated_bytes": 20891095040,
+      "after_allocated_bytes": 15434088448,
+      "dataset_aliases_replaced": 5,
+      "legacy_map_cache_removed": true,
+      "dataset_current_preserved": true
+    },
+    "ha_local": {
+      "applied": true,
+      "removed_paths": [
+        "/media/rainmapper/prediction-map",
+        "/media/rainmapper/geography-import-verified"
+      ],
+      "before_allocated_bytes": 15864336384,
+      "after_allocated_bytes": 15860326400,
+      "released_allocated_bytes": 4009984,
+      "active_pointers_preserved": true
+    },
+    "ha_real": {
+      "deleted_files": 0,
+      "originals_preserved": true
+    }
+  },
+  "jobs": [
+    {
+      "job_id": "worker_job_LgJhCCcM7EApUkQW",
+      "job_type": "worker_candidate_rebuild",
+      "status": "complete",
+      "phase": "Promoted to live model",
+      "progress": null,
+      "error": "",
+      "triggered_by_job_id": null,
+      "created_at": "2026-09-15T15:52:03+00:00",
+      "updated_at": null,
+      "started_at": "2026-09-15T15:52:05+00:00",
+      "finished_at": "2026-09-15T15:53:45+00:00",
+      "profile_keys": [],
+      "promoted_at": null,
+      "promotion_status": "promoted",
+      "promotion_error": "",
+      "artifact_id": null,
+      "runtime_fingerprint": null,
+      "result": {
+        "verification_status": "verified",
+        "snapshot_id": "sha256:ff57cbc60790f88cd7aef73a6263879505dc9c3ff739d59017749ecad454db40",
+        "job_spec_id": "sha256:1e09d5fa8339e27a238de94cc4f09193ca8194f4aa13f33efc64dab8814d3af5",
+        "dataset_fingerprint": "sha256:7410f2e2482b77688027440fa047344bba65285fa2f9e812c07c65f769981574",
+        "input_file_count": 52,
+        "input_size_bytes": 52797930,
+        "result_manifest_id": "sha256:8030ade9f517ba03bb35873242766f3466934671db61fdaffa1563294903b5c9",
+        "comparison_status": "equivalent",
+        "verified_artifacts": 9
+      }
+    },
+    {
+      "job_id": "worker_job_pWYYqdQC-5zbvIL-",
+      "job_type": "worker_ml_train_v0",
+      "status": "complete",
+      "phase": "Promoted to live model",
+      "progress": null,
+      "error": "",
+      "triggered_by_job_id": "worker_job_LgJhCCcM7EApUkQW",
+      "created_at": "2026-09-15T15:53:45+00:00",
+      "updated_at": null,
+      "started_at": "2026-09-15T15:53:47+00:00",
+      "finished_at": "2026-09-15T15:54:07+00:00",
+      "profile_keys": [],
+      "promoted_at": null,
+      "promotion_status": "promoted",
+      "promotion_error": "",
+      "artifact_id": null,
+      "runtime_fingerprint": null,
+      "result": {
+        "verification_status": "verified",
+        "trained_species": [
+          "amanita_caesarea",
+          "boletus_aereus",
+          "boletus_edulis",
+          "boletus_pinophilus",
+          "cantharellus_cibarius_sl",
+          "hygrophorus_latitabundus",
+          "hygrophorus_marzuolus",
+          "lactarius_deliciosus",
+          "morchella_elata_complex"
+        ],
+        "trained_species_count": 9,
+        "result_manifest_id": "sha256:14c68a9a7abcd0fb32be7a7d269669af9eddec3f2323457f0902b2c24e1cc113",
+        "operational_scope_id": "sha256:bbb27e0be0a94e47f95672ddc2bf407c89bbfa65c7d9ff290d8ccc7587791a15"
+      }
+    },
+    {
+      "job_id": "worker_job_02EHfOum0FTDkHlr",
+      "job_type": "worker_ml_multiversion_v1",
+      "status": "complete",
+      "phase": "Operational generation training completed",
+      "progress": null,
+      "error": "",
+      "triggered_by_job_id": "worker_job_pWYYqdQC-5zbvIL-",
+      "created_at": "2026-09-15T15:54:07+00:00",
+      "updated_at": null,
+      "started_at": "2026-09-15T15:54:08+00:00",
+      "finished_at": "2026-09-15T16:03:06+00:00",
+      "profile_keys": [
+        "altitude_v2/common_idw",
+        "biology_v3/core",
+        "biology_v3/common_idw_plus_physical_state",
+        "biology_v4/extended_weather",
+        "biology_v4/climatic_balance",
+        "biology_v5_windowed_raw_weather/raw_window_30d_plus_physical_state",
+        "biology_v5_windowed_raw_weather/raw_window_60d_plus_physical_state",
+        "biology_v5_windowed_raw_weather/raw_window_90d_plus_physical_state",
+        "biology_v6_windowed_smooth_hierarchical/smooth_window_30d_plus_physical_state",
+        "biology_v6_windowed_smooth_hierarchical/smooth_window_60d_plus_physical_state",
+        "biology_v6_windowed_smooth_hierarchical/smooth_window_90d_plus_physical_state"
+      ],
+      "promoted_at": null,
+      "promotion_status": null,
+      "promotion_error": null,
+      "artifact_id": null,
+      "runtime_fingerprint": null,
+      "result": {
+        "verification_status": "verified",
+        "batch_id": "operational_20260915T155407Z",
+        "snapshot_id": "sha256:3a3a137c225423791f3a40f0d630fafa4eaf3c58d779286f6de49898296edaee",
+        "planned_fit_count": 714,
+        "successful_fit_count": 714,
+        "failed_fit_count": 0,
+        "job_purpose": "operational",
+        "operational_candidate_trained": true,
+        "operational_scope_id": "sha256:bbb27e0be0a94e47f95672ddc2bf407c89bbfa65c7d9ff290d8ccc7587791a15",
+        "operational_plan_id": "sha256:d75b746ec2d673d5fb294d689bf2924093769dbbf19e36497a5ff6a5a8af62c8"
+      }
+    },
+    {
+      "job_id": "worker_job_iBsgsN1mbH8o",
+      "job_type": "worker_predictor_precompute_v1",
+      "status": "complete",
+      "phase": "Predictor precompute completed",
+      "progress": null,
+      "error": "",
+      "triggered_by_job_id": null,
+      "created_at": "2026-09-15T16:05:35+00:00",
+      "updated_at": null,
+      "started_at": "2026-09-15T16:05:40+00:00",
+      "finished_at": "2026-09-15T16:10:28+00:00",
+      "profile_keys": null,
+      "promoted_at": null,
+      "promotion_status": null,
+      "promotion_error": null,
+      "artifact_id": "sha256:10f4970577de69e50d779befaf0e83a5a7223ad6a2bca65e0428ac9484c79f32",
+      "runtime_fingerprint": null,
+      "result": {
+        "publication_receipt": {
+          "schema_version": "1.0",
+          "receipt_id": "sha256:b05a69a3357537bcce099ada2e75b5cfcb2cc17827e4401810f3eddcabc4413d",
+          "desired_revision": 63,
+          "artifact_id": "sha256:10f4970577de69e50d779befaf0e83a5a7223ad6a2bca65e0428ac9484c79f32",
+          "file_sha256": "sha256:8a1118737bf4378310fd394373812eb5895f015650e9d89231e9b2648167fcd3",
+          "size_bytes": 27602944
+        },
+        "worker_activation": "active"
+      }
+    }
+  ],
+  "effective_code": {
+    "ha": {
+      "image": "rainmapperha:local-ha-ui",
+      "image_id": "sha256:1e76275bc1215b60b8b93be586e8e2f65fc4610a047a5e06beac08479243cad4",
+      "file_count": 197,
+      "differences": []
+    },
+    "worker": {
+      "image": "rainmapper-worker:1.1.2",
+      "image_id": "sha256:715273f5c8bb82a7ac9da4da32bdddd0e7a6f4be45fe3bb4c9341a24ed4c4593",
+      "file_count": 106,
+      "differences": []
+    }
+  },
+  "after_cleanup": {
+    "map_queries": 6,
+    "scientific_differences": [],
+    "basic_user_allowed": true,
+    "unauthenticated_status": 401,
+    "invalid_coordinate_status": 400,
+    "local_and_worker_cancelled": true,
+    "model_batch": "operational_20260915T155407Z",
+    "geography_sync": {
+      "files": 3510,
+      "transferred_bytes": 0,
+      "hashed_bytes": 0,
+      "metadata_bytes": 0
+    },
+    "valid_object_receipts": {
+      "ha": 3416,
+      "worker": 3352
+    },
+    "precompute_artifact_exists": true,
+    "precompute_artifact_bytes": 27602944,
+    "coordinator_config_hashes_unchanged": true
+  },
+  "tests": {
+    "smoke_tests": 1594,
+    "smoke_skips": 48,
+    "offline_importer_directed_after_last_change": 6,
+    "gis_points_identical": 4
+  },
+  "limits": [
+    "No HA real code installed or activated.",
+    "HA real original folders preserved; no remote deletion.",
+    "Native HA import/publication still pending.",
+    "Local acceptance does not replace an iPhone / RPi4 performance check."
+  ]
+}

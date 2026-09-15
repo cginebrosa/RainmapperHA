@@ -1,0 +1,372 @@
+{
+  "review_id": "icgc-substrates-2026-09-14",
+  "status": "reviewed_provisional",
+  "source_id": "icgc_geologia_50000",
+  "edition": "2024-12",
+  "field": "Codi",
+  "source_path": "mushroom-map-GIS/icgc-geologia-50000/source/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+  "legend_check": "1055 pares DISTINCT Codi/Descripcio actuales iguales a revisión previa; sin lectura de geometrías.",
+  "source_vocabulary": "https://app.icgc.cat/web/es/mapageol_atles_vocabllegenda_v2.php",
+  "policy": [
+    "Exact code mappings only; no runtime text parsing.",
+    "Rock composition and soil reaction remain separate; geological acidity is not soil pH.",
+    "Mixed materials retained without invented proportions; unknown composition is not neutral soil.",
+    "Alluvial origin, peat and fossil coal do not prove current moisture, humus or habitat.",
+    "Scientific field validation not established; species affinities are not automatic exclusion rules."
+  ],
+  "previous_files_sha256": {
+    "mushroom_reference_catalogs.json": "2d462c0d815ad89437f9c30b73f3316994a629de3269aece1ed6ac16128795c8",
+    "mushroom_gis_mappings.json": "bf6f92a06d1cc7e7829a8d7aff0d87e4b490cd3a8f1fb11cbab8336a37029c47",
+    "mushroom_profiles.json": "4b6c400e32ed1b1ef5bea6f5a1ccdea48325e452740e1b279f869d6d7e3c902d"
+  },
+  "counts": {
+    "other_identified_material": 77,
+    "calcareous": 364,
+    "indeterminate_composition": 392,
+    "siliceous": 150,
+    "mixed": 58,
+    "gypsiferous": 14
+  },
+  "accepted_codes": 1046,
+  "unresolved_codes": [
+    "CK",
+    "Dlva",
+    "Fd",
+    "Glpm",
+    "Org",
+    "Pze",
+    "bf",
+    "ff",
+    "mr_EÇOr"
+  ],
+  "geology_mapping_groups": 192,
+  "reviewed_units": 1055,
+  "geode": "next_phase_not_reviewed",
+  "review_notes": [
+    "1055 descripciones revisadas; equivalencias operativas de materiales, no validación de suelo en campo.",
+    "9 decisiones sin equivalencia de material suficientemente segura. Un material identificado puede tener composición edáfica indeterminada.",
+    "Catálogo local ampliado y mappings exactos; sin clasificación por texto en runtime ni pH inferido."
+  ],
+  "backups": {
+    "mushroom_reference_catalogs.json": "docker-data/mushroom-data/backups/mushroom_reference_catalogs.20260913T224213651843Z.icgc-substrates.keep.json",
+    "mushroom_gis_mappings.json": "docker-data/mushroom-data/backups/mushroom_gis_mappings.20260913T224213651843Z.icgc-substrates.keep.json",
+    "mushroom_profiles.json": "docker-data/mushroom-data/backups/mushroom_profiles.20260913T224213651843Z.icgc-substrates.keep.json"
+  },
+  "applied_files_sha256": {
+    "mushroom_reference_catalogs.json": "5e5dee67bdf044772c5cbc687208e5e10060b5c8b39ac9b48b6d64cc27df39e5",
+    "mushroom_gis_mappings.json": "0b2745a711e3cdf5a342cdf24f330c88e65919fb1d79144bf730ab145837eac5",
+    "mushroom_profiles.json": "aead9e4d27d3b1788b75275a6d53e3939b7cff67c16b8c4292052b52f806f72e"
+  },
+  "detailed_review": "docker-data/mushroom-data/gis-mapping-reviews/icgc-substrates-2026-09-14.json",
+  "runtime_files_bytes": {
+    "mushroom_reference_catalogs.json": 109129,
+    "mushroom_gis_mappings.json": 136712,
+    "mushroom_profiles.json": 198139
+  },
+  "new_lithology_types": 14,
+  "species_review_document": "docs/mushrooms/prediction-map-substrate-species-review-es.md",
+  "species_reviewed": 21,
+  "applied_species_changes": {
+    "boletus_aereus": {
+      "ph_override_blocked_soil_ids": [
+        "soil_calcareous",
+        "soil_gypsiferous"
+      ]
+    }
+  },
+  "preserved": [
+    "21 pH ranges",
+    "all host/altitude/season/affinity fields",
+    "other 20 profiles byte-equivalent as parsed JSON",
+    "non-geology mappings",
+    "GIS sources",
+    "observations",
+    "models",
+    "coordinator URLs"
+  ],
+  "validation": {
+    "ecology_tests": 27,
+    "local_mapping_tests": 7,
+    "data_validator_tests": 14,
+    "contract_tests": 12,
+    "shared_prediction_tests": 7,
+    "staged_data_validation_errors": 0,
+    "all_1055_decisions_match_compiled_runtime": true,
+    "preview": "passed_after_restart_same_port_and_sources",
+    "browser": {
+      "passed": true,
+      "point": {
+        "lat": 41.22071,
+        "lon": 1.07009
+      },
+      "asserted": [
+        "Granito and Granodiorita visible",
+        "OpenLandMap mean 6.9 and bounds 6.0–7.7",
+        "SoilGrids comparison",
+        "aereus 47% and soil/pH notice",
+        "depth absent from header"
+      ]
+    }
+  },
+  "point_checks": [
+    {
+      "name": "Ggd sin hosts",
+      "point": {
+        "lat": 41.22012,
+        "lon": 1.06989
+      },
+      "date": "2026-09-14",
+      "policy": "broad_species_windows_v4",
+      "revision": "77040ee7650eb22765d3",
+      "aereus": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "unknown",
+        "daily_statuses": [
+          "unknown",
+          "unknown",
+          "unknown",
+          "unknown",
+          "unknown",
+          "unknown",
+          "unknown"
+        ],
+        "reasons": [
+          "terrain_context_missing"
+        ],
+        "matched_host_ids": []
+      },
+      "probability": null,
+      "mapped_context": {
+        "habitats": [],
+        "soil_tendencies": [
+          {
+            "id": "soil_siliceous",
+            "label": {
+              "es": "Silíceo",
+              "ca": "Silici",
+              "en": "Siliceous"
+            }
+          }
+        ],
+        "lithologies": [
+          {
+            "id": "lith_granite",
+            "label": {
+              "es": "Granito",
+              "ca": "Granit",
+              "en": "Granite"
+            }
+          },
+          {
+            "id": "lith_granodiorite",
+            "label": {
+              "es": "Granodiorita",
+              "ca": "Granodiorita",
+              "en": "Granodiorite"
+            }
+          }
+        ]
+      },
+      "response_bytes": 12876
+    },
+    {
+      "name": "Ggd con hosts",
+      "point": {
+        "lat": 41.22071,
+        "lon": 1.07009
+      },
+      "date": "2026-09-14",
+      "policy": "broad_species_windows_v4",
+      "revision": "77040ee7650eb22765d3",
+      "aereus": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "compatible",
+        "daily_statuses": [
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible"
+        ],
+        "reasons": [
+          "soil_accepted",
+          "hosts_match",
+          "altitude_match",
+          "ph_conflict_soil_supported",
+          "soil_preference_match",
+          "lithology_preference_match"
+        ],
+        "matched_host_ids": [
+          "host_quercus_faginea",
+          "host_quercus_ilex"
+        ]
+      },
+      "probability": 0.472049,
+      "mapped_context": {
+        "habitats": [],
+        "soil_tendencies": [
+          {
+            "id": "soil_siliceous",
+            "label": {
+              "es": "Silíceo",
+              "ca": "Silici",
+              "en": "Siliceous"
+            }
+          }
+        ],
+        "lithologies": [
+          {
+            "id": "lith_granite",
+            "label": {
+              "es": "Granito",
+              "ca": "Granit",
+              "en": "Granite"
+            }
+          },
+          {
+            "id": "lith_granodiorite",
+            "label": {
+              "es": "Granodiorita",
+              "ca": "Granodiorita",
+              "en": "Granodiorite"
+            }
+          }
+        ]
+      },
+      "response_bytes": 17984
+    },
+    {
+      "name": "Selva 1",
+      "point": {
+        "lat": 41.22694,
+        "lon": 1.09095
+      },
+      "date": "2026-09-14",
+      "policy": "broad_species_windows_v4",
+      "revision": "77040ee7650eb22765d3",
+      "aereus": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "compatible",
+        "daily_statuses": [
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible"
+        ],
+        "reasons": [
+          "soil_accepted",
+          "hosts_match",
+          "altitude_match",
+          "ph_conflict_soil_supported",
+          "soil_preference_match"
+        ],
+        "matched_host_ids": [
+          "host_quercus_humilis",
+          "host_quercus_ilex"
+        ]
+      },
+      "probability": 0.47089,
+      "mapped_context": {
+        "habitats": [],
+        "soil_tendencies": [
+          {
+            "id": "soil_siliceous",
+            "label": {
+              "es": "Silíceo",
+              "ca": "Silici",
+              "en": "Siliceous"
+            }
+          }
+        ],
+        "lithologies": [
+          {
+            "id": "lith_slate",
+            "label": {
+              "es": "Pizarra",
+              "ca": "Pissarra",
+              "en": "Slate"
+            }
+          }
+        ]
+      },
+      "response_bytes": 17845
+    },
+    {
+      "name": "Selva 2",
+      "point": {
+        "lat": 41.23675,
+        "lon": 1.13555
+      },
+      "date": "2026-09-14",
+      "policy": "broad_species_windows_v4",
+      "revision": "77040ee7650eb22765d3",
+      "aereus": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "compatible",
+        "daily_statuses": [
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible"
+        ],
+        "reasons": [
+          "soil_accepted",
+          "hosts_match",
+          "altitude_match",
+          "ph_conflict_soil_supported",
+          "soil_preference_match"
+        ],
+        "matched_host_ids": [
+          "host_quercus_faginea",
+          "host_quercus_ilex"
+        ]
+      },
+      "probability": 0.439118,
+      "mapped_context": {
+        "habitats": [],
+        "soil_tendencies": [
+          {
+            "id": "soil_siliceous",
+            "label": {
+              "es": "Silíceo",
+              "ca": "Silici",
+              "en": "Siliceous"
+            }
+          }
+        ],
+        "lithologies": [
+          {
+            "id": "lith_slate",
+            "label": {
+              "es": "Pizarra",
+              "ca": "Pissarra",
+              "en": "Slate"
+            }
+          }
+        ]
+      },
+      "response_bytes": 17862
+    }
+  ],
+  "code_sha256": {
+    "rainmapper_core/mushroom_map_ecology.py": "324752f4d055c00eaa26209711cdd8f84c3e7d602ce5c7f53884bd57170a5974",
+    "tests/test_mushroom_map_ecology.py": "184baf199d867c211eba0fba6311eb18192536ceb6d4adc5512a2f280958a293",
+    "tests/test_mushroom_map_local_mappings.py": "fb91422b473839835474fccbc2f3754711f02604c1db9ce6224cf15dbb1f1f82"
+  }
+}

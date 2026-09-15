@@ -1,0 +1,1105 @@
+{
+  "date": "2026-09-13",
+  "catalog": "docker-data/mushroom-data/mushroom_reference_catalogs.json",
+  "hosts_before": 31,
+  "hosts_after": 114,
+  "added_ids": [
+    "host_quercus_humilis",
+    "host_juniperus_oxycedrus",
+    "host_populus_nigra",
+    "host_arbutus_unedo",
+    "host_olea_europaea",
+    "host_fraxinus_excelsior",
+    "host_populus_x_canadensis",
+    "host_betula_pendula",
+    "host_salix_spp",
+    "host_platanus_x_hispanica",
+    "host_juniperus_phoenicea",
+    "host_alnus_glutinosa",
+    "host_mixed_riparian_trees",
+    "host_fraxinus_angustifolia",
+    "host_other_broadleaved_trees",
+    "host_populus_alba",
+    "host_pinus_radiata",
+    "host_ceratonia_siliqua",
+    "host_robinia_pseudoacacia",
+    "host_ulmus_minor",
+    "host_populus_tremula",
+    "host_pseudotsuga_menziesii",
+    "host_salix_alba",
+    "host_acer_monspessulanum",
+    "host_acer_campestre",
+    "host_betula_alba",
+    "host_prunus_spp",
+    "host_eucalyptus_camaldulensis",
+    "host_quercus_pyrenaica",
+    "host_acer_opalus",
+    "host_tamarix_spp",
+    "host_other_eucalypts",
+    "host_crataegus_monogyna",
+    "host_mixed_conifers",
+    "host_celtis_australis",
+    "host_eucalyptus_globulus",
+    "host_sorbus_aucuparia",
+    "host_cupressus_sempervirens",
+    "host_salix_atrocinerea",
+    "host_cedrus_atlantica",
+    "host_cupressus_arizonica",
+    "host_quercus_canariensis",
+    "host_picea_abies",
+    "host_sorbus_aria",
+    "host_phillyrea_latifolia",
+    "host_salix_caprea",
+    "host_prunus_avium",
+    "host_juglans_regia",
+    "host_salix_elaeagnos",
+    "host_tilia_platyphyllos",
+    "host_sorbus_spp",
+    "host_juniperus_thurifera",
+    "host_ulmus_pumila",
+    "host_ilex_aquifolium",
+    "host_ailanthus_altissima",
+    "host_tilia_spp",
+    "host_sambucus_nigra",
+    "host_pinus_canariensis",
+    "host_acer_negundo",
+    "host_phoenix_spp",
+    "host_ficus_carica",
+    "host_morus_nigra",
+    "host_tilia_cordata",
+    "host_acer_platanoides",
+    "host_pyrus_spp",
+    "host_morus_alba",
+    "host_salix_fragilis",
+    "host_sorbus_torminalis",
+    "host_other_conifers",
+    "host_cedrus_deodara",
+    "host_juglans_nigra",
+    "host_mixed_eucalypts",
+    "host_crataegus_spp",
+    "host_laurus_nobilis",
+    "host_sorbus_domestica",
+    "host_larix_decidua",
+    "host_malus_sylvestris",
+    "host_acer_pseudoplatanus",
+    "host_quercus_rubra",
+    "host_ulmus_glabra",
+    "host_cupressus_macrocarpa",
+    "host_quercus_lusitanica",
+    "host_abies_pinsapo"
+  ],
+  "existing_entry_changes": [
+    {
+      "id": "host_pinus_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Pinus",
+          "pino",
+          "pi",
+          "pine",
+          "pinar",
+          "pineda"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Pinus",
+          "pino",
+          "pi",
+          "pine",
+          "pinar",
+          "pineda",
+          "Pinus spp."
+        ]
+      }
+    },
+    {
+      "id": "host_abies_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Abies",
+          "abeto",
+          "avet",
+          "fir"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Abies",
+          "abeto",
+          "avet",
+          "fir",
+          "Abies spp."
+        ]
+      }
+    },
+    {
+      "id": "host_picea_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Picea",
+          "picea",
+          "spruce"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Picea",
+          "picea",
+          "spruce",
+          "Picea spp."
+        ]
+      }
+    },
+    {
+      "id": "host_pseudotsuga_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Pseudotsuga",
+          "Douglas fir",
+          "Douglas-fir"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Pseudotsuga",
+          "Douglas fir",
+          "Douglas-fir",
+          "Pseudotsuga spp."
+        ]
+      }
+    },
+    {
+      "id": "host_quercus_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Quercus",
+          "roble",
+          "roure",
+          "encina",
+          "alzina",
+          "alcornoque",
+          "surera",
+          "oak"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Quercus",
+          "roble",
+          "roure",
+          "encina",
+          "alzina",
+          "alcornoque",
+          "surera",
+          "oak",
+          "Quercus spp."
+        ]
+      }
+    },
+    {
+      "id": "host_betula_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Betula",
+          "abedul",
+          "bedoll",
+          "birch"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Betula",
+          "abedul",
+          "bedoll",
+          "birch",
+          "Betula spp."
+        ]
+      }
+    },
+    {
+      "id": "host_cistus_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Cistus",
+          "jara",
+          "estepa",
+          "rockrose"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Cistus",
+          "jara",
+          "estepa",
+          "rockrose",
+          "Cistus spp."
+        ]
+      }
+    },
+    {
+      "id": "host_populus_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Populus",
+          "álamo",
+          "chopo",
+          "pollancre",
+          "poplar"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Populus",
+          "álamo",
+          "chopo",
+          "pollancre",
+          "poplar",
+          "Populus spp."
+        ]
+      }
+    },
+    {
+      "id": "host_fraxinus_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Fraxinus",
+          "fresno",
+          "freixe",
+          "ash"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Fraxinus",
+          "fresno",
+          "freixe",
+          "ash",
+          "Fraxinus spp."
+        ]
+      }
+    },
+    {
+      "id": "host_ulmus_spp",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "Ulmus",
+          "olmo",
+          "om",
+          "elm"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "Ulmus",
+          "olmo",
+          "om",
+          "elm",
+          "Ulmus spp."
+        ]
+      }
+    },
+    {
+      "id": "host_juniperus_communis",
+      "fields": [
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [
+          "enebro común",
+          "enebro",
+          "ginebre",
+          "ginebre comú",
+          "common juniper"
+        ]
+      },
+      "after": {
+        "gis_aliases": [
+          "enebro común",
+          "enebro",
+          "ginebre",
+          "ginebre comú",
+          "common juniper",
+          "Juniperus Communis"
+        ]
+      }
+    },
+    {
+      "id": "host_juniperus_spp",
+      "fields": [
+        "common_names",
+        "gis_aliases"
+      ],
+      "before": {
+        "gis_aliases": [],
+        "common_names": {
+          "es": [],
+          "ca": [],
+          "en": []
+        }
+      },
+      "after": {
+        "gis_aliases": [
+          "Juniperus spp."
+        ],
+        "common_names": {
+          "es": [
+            "Enebros y sabinas"
+          ],
+          "ca": [
+            "Ginebres i savines"
+          ],
+          "en": [
+            "Junipers"
+          ]
+        }
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "code": "24",
+      "mfe_name": "Pinus halepensis",
+      "host_id": "host_pinus_halepensis",
+      "label": "Pino carrasco"
+    },
+    {
+      "code": "45",
+      "mfe_name": "Quercus ilex",
+      "host_id": "host_quercus_ilex",
+      "label": "Encina"
+    },
+    {
+      "code": "243",
+      "mfe_name": "Quercus humilis (Q. Pubescens)",
+      "host_id": "host_quercus_humilis",
+      "label": "Roble pubescente"
+    },
+    {
+      "code": "21",
+      "mfe_name": "Pinus sylvestris",
+      "host_id": "host_pinus_sylvestris",
+      "label": "Pino Rojo"
+    },
+    {
+      "code": "25",
+      "mfe_name": "Pinus nigra",
+      "host_id": "host_pinus_nigra",
+      "label": "Pino laricio"
+    },
+    {
+      "code": "237",
+      "mfe_name": "Juniperus oxycedrus",
+      "host_id": "host_juniperus_oxycedrus",
+      "label": "Enebro de la miera"
+    },
+    {
+      "code": "44",
+      "mfe_name": "Quercus faginea",
+      "host_id": "host_quercus_faginea",
+      "label": "quejigo"
+    },
+    {
+      "code": "22",
+      "mfe_name": "Pinus uncinata",
+      "host_id": "host_pinus_uncinata",
+      "label": "Pino negro"
+    },
+    {
+      "code": "23",
+      "mfe_name": "Pinus pinea",
+      "host_id": "host_pinus_pinea",
+      "label": "Pino piñonero"
+    },
+    {
+      "code": "46",
+      "mfe_name": "Quercus suber",
+      "host_id": "host_quercus_suber",
+      "label": "Alcornoque"
+    },
+    {
+      "code": "58",
+      "mfe_name": "Populus nigra",
+      "host_id": "host_populus_nigra",
+      "label": "Chopo negro"
+    },
+    {
+      "code": "71",
+      "mfe_name": "Fagus sylvatica",
+      "host_id": "host_fagus_sylvatica",
+      "label": "Haya"
+    },
+    {
+      "code": "68",
+      "mfe_name": "Arbutus unedo",
+      "host_id": "host_arbutus_unedo",
+      "label": "Madroño"
+    },
+    {
+      "code": "66",
+      "mfe_name": "Olea europaea",
+      "host_id": "host_olea_europaea",
+      "label": "Olivo / acebuche"
+    },
+    {
+      "code": "42",
+      "mfe_name": "Quercus petraea",
+      "host_id": "host_quercus_petraea",
+      "label": "Roble albar"
+    },
+    {
+      "code": "255",
+      "mfe_name": "Fraxinus excelsior",
+      "host_id": "host_fraxinus_excelsior",
+      "label": "Fresno de hoja ancha"
+    },
+    {
+      "code": "258",
+      "mfe_name": "Populus x canadensis",
+      "host_id": "host_populus_x_canadensis",
+      "label": "Chopo híbrido"
+    },
+    {
+      "code": "26",
+      "mfe_name": "Pinus pinaster",
+      "host_id": "host_pinus_pinaster",
+      "label": "Pino resinero"
+    },
+    {
+      "code": "72",
+      "mfe_name": "Castanea sativa",
+      "host_id": "host_castanea_sativa",
+      "label": "Castaño"
+    },
+    {
+      "code": "373",
+      "mfe_name": "Betula pendula",
+      "host_id": "host_betula_pendula",
+      "label": "Abedul péndulo"
+    },
+    {
+      "code": "74",
+      "mfe_name": "Corylus avellana",
+      "host_id": "host_corylus_avellana",
+      "label": "avellano"
+    },
+    {
+      "code": "57",
+      "mfe_name": "Salix spp.",
+      "host_id": "host_salix_spp",
+      "label": "Sauces"
+    },
+    {
+      "code": "79",
+      "mfe_name": "Platanus hispanica",
+      "host_id": "host_platanus_x_hispanica",
+      "label": "Plátano de sombra"
+    },
+    {
+      "code": "39",
+      "mfe_name": "Juniperus phoenicea",
+      "host_id": "host_juniperus_phoenicea",
+      "label": "Sabina negral"
+    },
+    {
+      "code": "31",
+      "mfe_name": "Abies alba",
+      "host_id": "host_abies_alba",
+      "label": "Abeto blanco"
+    },
+    {
+      "code": "54",
+      "mfe_name": "Alnus glutinosa",
+      "host_id": "host_alnus_glutinosa",
+      "label": "Aliso"
+    },
+    {
+      "code": "50",
+      "mfe_name": "Mezcla de árboles de ribera",
+      "host_id": "host_mixed_riparian_trees",
+      "label": "Mezcla de árboles de ribera"
+    },
+    {
+      "code": "37",
+      "mfe_name": "Juniperus communis",
+      "host_id": "host_juniperus_communis",
+      "label": "Enebro"
+    },
+    {
+      "code": "55",
+      "mfe_name": "Fraxinus angustifolia",
+      "host_id": "host_fraxinus_angustifolia",
+      "label": "Fresno de hoja estrecha"
+    },
+    {
+      "code": "73",
+      "mfe_name": "Betula spp.",
+      "host_id": "host_betula_spp",
+      "label": "abedules"
+    },
+    {
+      "code": "99",
+      "mfe_name": "Otras frondosas",
+      "host_id": "host_other_broadleaved_trees",
+      "label": "Otras frondosas"
+    },
+    {
+      "code": "51",
+      "mfe_name": "Populus alba",
+      "host_id": "host_populus_alba",
+      "label": "Álamo blanco"
+    },
+    {
+      "code": "28",
+      "mfe_name": "Pinus radiata",
+      "host_id": "host_pinus_radiata",
+      "label": "Pino radiata"
+    },
+    {
+      "code": "67",
+      "mfe_name": "Ceratonia siliqua",
+      "host_id": "host_ceratonia_siliqua",
+      "label": "Algarrobo"
+    },
+    {
+      "code": "92",
+      "mfe_name": "Robinia pseudoacacia",
+      "host_id": "host_robinia_pseudoacacia",
+      "label": "Falsa acacia"
+    },
+    {
+      "code": "56",
+      "mfe_name": "Ulmus minor",
+      "host_id": "host_ulmus_minor",
+      "label": "Olmo común"
+    },
+    {
+      "code": "52",
+      "mfe_name": "Populus tremula",
+      "host_id": "host_populus_tremula",
+      "label": "Álamo temblón"
+    },
+    {
+      "code": "34",
+      "mfe_name": "Pseudotsuga menziesii",
+      "host_id": "host_pseudotsuga_menziesii",
+      "label": "Abeto de Douglas"
+    },
+    {
+      "code": "257",
+      "mfe_name": "Salix alba",
+      "host_id": "host_salix_alba",
+      "label": "Sauce blanco"
+    },
+    {
+      "code": "276",
+      "mfe_name": "Acer monspessulanum",
+      "host_id": "host_acer_monspessulanum",
+      "label": "Arce de Montpellier"
+    },
+    {
+      "code": "76",
+      "mfe_name": "Acer campestre",
+      "host_id": "host_acer_campestre",
+      "label": "Arce campestre"
+    },
+    {
+      "code": "273",
+      "mfe_name": "Betula alba",
+      "host_id": "host_betula_alba",
+      "label": "Abedul pubescente (MFE: B. alba)"
+    },
+    {
+      "code": "95",
+      "mfe_name": "Prunus spp.",
+      "host_id": "host_prunus_spp",
+      "label": "Prunos"
+    },
+    {
+      "code": "62",
+      "mfe_name": "Eucalyptus camaldulensis",
+      "host_id": "host_eucalyptus_camaldulensis",
+      "label": "Eucalipto rojo"
+    },
+    {
+      "code": "41",
+      "mfe_name": "Quercus robur",
+      "host_id": "host_quercus_robur",
+      "label": "roble común"
+    },
+    {
+      "code": "43",
+      "mfe_name": "Quercus pyrenaica",
+      "host_id": "host_quercus_pyrenaica",
+      "label": "Rebollo"
+    },
+    {
+      "code": "476",
+      "mfe_name": "Acer opalus",
+      "host_id": "host_acer_opalus",
+      "label": "Arce ópalo"
+    },
+    {
+      "code": "53",
+      "mfe_name": "Tamarix spp.",
+      "host_id": "host_tamarix_spp",
+      "label": "Tarajes"
+    },
+    {
+      "code": "63",
+      "mfe_name": "Otros eucaliptos",
+      "host_id": "host_other_eucalypts",
+      "label": "Otros eucaliptos"
+    },
+    {
+      "code": "215",
+      "mfe_name": "Crataegus monogyna",
+      "host_id": "host_crataegus_monogyna",
+      "label": "Espino blanco"
+    },
+    {
+      "code": "30",
+      "mfe_name": "Mezcla de coníferas",
+      "host_id": "host_mixed_conifers",
+      "label": "Mezcla de coníferas"
+    },
+    {
+      "code": "13",
+      "mfe_name": "Celtis australis",
+      "host_id": "host_celtis_australis",
+      "label": "Almez"
+    },
+    {
+      "code": "61",
+      "mfe_name": "Eucalyptus globulus",
+      "host_id": "host_eucalyptus_globulus",
+      "label": "Eucalipto azul"
+    },
+    {
+      "code": "378",
+      "mfe_name": "Sorbus aucuparia",
+      "host_id": "host_sorbus_aucuparia",
+      "label": "Serbal de los cazadores"
+    },
+    {
+      "code": "36",
+      "mfe_name": "Cupressus sempervirens",
+      "host_id": "host_cupressus_sempervirens",
+      "label": "Ciprés común"
+    },
+    {
+      "code": "357",
+      "mfe_name": "Salix atrocinerea",
+      "host_id": "host_salix_atrocinerea",
+      "label": "Bardaguera"
+    },
+    {
+      "code": "17",
+      "mfe_name": "Cedrus atlantica",
+      "host_id": "host_cedrus_atlantica",
+      "label": "Cedro del Atlas"
+    },
+    {
+      "code": "236",
+      "mfe_name": "Cupressus arizonica",
+      "host_id": "host_cupressus_arizonica",
+      "label": "Ciprés de Arizona"
+    },
+    {
+      "code": "47",
+      "mfe_name": "Quercus canariensis",
+      "host_id": "host_quercus_canariensis",
+      "label": "Quejigo andaluz"
+    },
+    {
+      "code": "33",
+      "mfe_name": "Picea abies",
+      "host_id": "host_picea_abies",
+      "label": "Pícea común"
+    },
+    {
+      "code": "278",
+      "mfe_name": "Sorbus aria",
+      "host_id": "host_sorbus_aria",
+      "label": "Mostajo"
+    },
+    {
+      "code": "8",
+      "mfe_name": "Phillyrea latifolia",
+      "host_id": "host_phillyrea_latifolia",
+      "label": "Labiérnago"
+    },
+    {
+      "code": "657",
+      "mfe_name": "Salix caprea",
+      "host_id": "host_salix_caprea",
+      "label": "Sauce cabruno"
+    },
+    {
+      "code": "395",
+      "mfe_name": "Prunus avium",
+      "host_id": "host_prunus_avium",
+      "label": "Cerezo silvestre"
+    },
+    {
+      "code": "75",
+      "mfe_name": "Juglans regia",
+      "host_id": "host_juglans_regia",
+      "label": "Nogal común"
+    },
+    {
+      "code": "757",
+      "mfe_name": "Salix elaeagnos",
+      "host_id": "host_salix_elaeagnos",
+      "label": "Sarga"
+    },
+    {
+      "code": "377",
+      "mfe_name": "Tilia platyphyllos",
+      "host_id": "host_tilia_platyphyllos",
+      "label": "Tilo de hoja grande"
+    },
+    {
+      "code": "78",
+      "mfe_name": "Sorbus spp.",
+      "host_id": "host_sorbus_spp",
+      "label": "Serbales y mostajos"
+    },
+    {
+      "code": "38",
+      "mfe_name": "Juniperus thurifera",
+      "host_id": "host_juniperus_thurifera",
+      "label": "Sabina albar"
+    },
+    {
+      "code": "356",
+      "mfe_name": "Ulmus pumila",
+      "host_id": "host_ulmus_pumila",
+      "label": "Olmo de Siberia"
+    },
+    {
+      "code": "65",
+      "mfe_name": "Ilex aquifolium",
+      "host_id": "host_ilex_aquifolium",
+      "label": "Acebo"
+    },
+    {
+      "code": "11",
+      "mfe_name": "Ailanthus altissima",
+      "host_id": "host_ailanthus_altissima",
+      "label": "Ailanto"
+    },
+    {
+      "code": "77",
+      "mfe_name": "Tilia spp.",
+      "host_id": "host_tilia_spp",
+      "label": "Tilos"
+    },
+    {
+      "code": "97",
+      "mfe_name": "Sambucus nigra",
+      "host_id": "host_sambucus_nigra",
+      "label": "Saúco negro"
+    },
+    {
+      "code": "27",
+      "mfe_name": "Pinus canariensis",
+      "host_id": "host_pinus_canariensis",
+      "label": "Pino canario"
+    },
+    {
+      "code": "376",
+      "mfe_name": "Acer negundo",
+      "host_id": "host_acer_negundo",
+      "label": "Arce negundo"
+    },
+    {
+      "code": "69",
+      "mfe_name": "Phoenix spp.",
+      "host_id": "host_phoenix_spp",
+      "label": "Palmeras (Phoenix)"
+    },
+    {
+      "code": "299",
+      "mfe_name": "Ficus carica",
+      "host_id": "host_ficus_carica",
+      "label": "Higuera"
+    },
+    {
+      "code": "599",
+      "mfe_name": "Morus nigra",
+      "host_id": "host_morus_nigra",
+      "label": "Morera negra"
+    },
+    {
+      "code": "277",
+      "mfe_name": "Tilia cordata",
+      "host_id": "host_tilia_cordata",
+      "label": "Tilo de hoja pequeña"
+    },
+    {
+      "code": "676",
+      "mfe_name": "Acer platanoides",
+      "host_id": "host_acer_platanoides",
+      "label": "Arce real"
+    },
+    {
+      "code": "16",
+      "mfe_name": "Pyrus spp.",
+      "host_id": "host_pyrus_spp",
+      "label": "Perales silvestres"
+    },
+    {
+      "code": "499",
+      "mfe_name": "Morus alba",
+      "host_id": "host_morus_alba",
+      "label": "Morera blanca"
+    },
+    {
+      "code": "857",
+      "mfe_name": "Salix fragilis",
+      "host_id": "host_salix_fragilis",
+      "label": "Mimbrera (Salix fragilis)"
+    },
+    {
+      "code": "578",
+      "mfe_name": "Sorbus torminalis",
+      "host_id": "host_sorbus_torminalis",
+      "label": "Serbal silvestre"
+    },
+    {
+      "code": "19",
+      "mfe_name": "Otra Coniferas",
+      "host_id": "host_other_conifers",
+      "label": "Otras coníferas"
+    },
+    {
+      "code": "217",
+      "mfe_name": "Cedrus deodara",
+      "host_id": "host_cedrus_deodara",
+      "label": "Cedro del Himalaya"
+    },
+    {
+      "code": "275",
+      "mfe_name": "Juglans nigra",
+      "host_id": "host_juglans_nigra",
+      "label": "Nogal negro"
+    },
+    {
+      "code": "60",
+      "mfe_name": "Mezcla de eucaliptos",
+      "host_id": "host_mixed_eucalypts",
+      "label": "Mezcla de eucaliptos"
+    },
+    {
+      "code": "15",
+      "mfe_name": "Crataegus spp.",
+      "host_id": "host_crataegus_spp",
+      "label": "Espinos (Crataegus)"
+    },
+    {
+      "code": "94",
+      "mfe_name": "Laurus nobilis",
+      "host_id": "host_laurus_nobilis",
+      "label": "Laurel"
+    },
+    {
+      "code": "478",
+      "mfe_name": "Sorbus domestica",
+      "host_id": "host_sorbus_domestica",
+      "label": "Serbal común"
+    },
+    {
+      "code": "235",
+      "mfe_name": "Larix decidua",
+      "host_id": "host_larix_decidua",
+      "label": "Alerce europeo"
+    },
+    {
+      "code": "12",
+      "mfe_name": "Malus sylvestris",
+      "host_id": "host_malus_sylvestris",
+      "label": "Manzano silvestre"
+    },
+    {
+      "code": "576",
+      "mfe_name": "Acer pseudoplatanus",
+      "host_id": "host_acer_pseudoplatanus",
+      "label": "Arce blanco"
+    },
+    {
+      "code": "48",
+      "mfe_name": "Quercus rubra",
+      "host_id": "host_quercus_rubra",
+      "label": "Roble rojo americano"
+    },
+    {
+      "code": "256",
+      "mfe_name": "Ulmus glabra",
+      "host_id": "host_ulmus_glabra",
+      "label": "Olmo montano"
+    },
+    {
+      "code": "436",
+      "mfe_name": "Cupressus macrocarpa",
+      "host_id": "host_cupressus_macrocarpa",
+      "label": "Ciprés de Monterrey"
+    },
+    {
+      "code": "244",
+      "mfe_name": "Quercus lusitanica",
+      "host_id": "host_quercus_lusitanica",
+      "label": "Quejigueta"
+    },
+    {
+      "code": "32",
+      "mfe_name": "Abies pinsapo",
+      "host_id": "host_abies_pinsapo",
+      "label": "Pinsapo"
+    }
+  ],
+  "backup": "docker-data/mushroom-data/backups/mushroom_reference_catalogs-before-host-completion-20260913-004548-771848.json",
+  "sources": [
+    "https://www.miteco.gob.es/es/biodiversidad/temas/inventarios-nacionales/mapa-forestal-espana/especies_arboreas.html",
+    "https://www.kew.org/plants/london-plane",
+    "https://patrimonicultural.diba.cat/element/roure-dancosa"
+  ],
+  "notes": [
+    "100 MFE Catalunya code/name records resolved; not a national completeness claim.",
+    "69 source-specific taxa including hybrids, 8 genera, 6 functional mixture/other groups added.",
+    "ES/CA/EN display labels are editable nomenclature, not validated mushroom-host relations.",
+    "Quercus humilis/pubescens variants share one entry; source spelling remains in GIS evidence.",
+    "Betula alba code 273 retained as MFE taxon concept, not merged with Betula pendula; modern taxonomic review pending.",
+    "Salix fragilis retained as source concept; author/hybrid taxonomic interpretation pending.",
+    "Repo seed, HA real, mushroom profiles and observations not modified."
+  ],
+  "validation": {
+    "reader_tests": 10,
+    "reader_name_coverage": 100,
+    "catalog_errors": 0,
+    "catalog_warnings_before": 10,
+    "catalog_warnings_after": 93,
+    "new_warnings": "83 new IDs not referenced yet by mushroom profiles or GIS mappings",
+    "http_queries": [
+      {
+        "name": "lles",
+        "point": {
+          "lat": 42.38715,
+          "lon": 1.69054
+        },
+        "trees": {
+          "source_id": "mfe25",
+          "exhaustive": false,
+          "status": "available",
+          "items": [
+            {
+              "label": "Roble pubescente",
+              "scientific_name": "Quercus humilis (Q. Pubescens)",
+              "code": "243"
+            },
+            {
+              "label": "Pino Rojo",
+              "scientific_name": "Pinus sylvestris",
+              "code": "21"
+            },
+            {
+              "label": "Fresno de hoja ancha",
+              "scientific_name": "Fraxinus excelsior",
+              "code": "255"
+            }
+          ],
+          "polygon_id": "2133193",
+          "formation": "Robledales de roble pubescente (Quercus humilis)"
+        }
+      },
+      {
+        "name": "ger",
+        "point": {
+          "lat": 42.46291,
+          "lon": 1.82695
+        },
+        "trees": {
+          "source_id": "mfe25",
+          "exhaustive": false,
+          "status": "available",
+          "items": [
+            {
+              "label": "Pino negro",
+              "scientific_name": "Pinus uncinata",
+              "code": "22"
+            },
+            {
+              "label": "Enebro",
+              "scientific_name": "Juniperus communis",
+              "code": "37"
+            }
+          ],
+          "polygon_id": "2100670",
+          "formation": "Pinar de pino negro (Pinus uncinata)"
+        }
+      },
+      {
+        "name": "olvan",
+        "point": {
+          "lat": 42.06397,
+          "lon": 1.93668
+        },
+        "trees": {
+          "source_id": "mfe25",
+          "exhaustive": false,
+          "status": "available",
+          "items": [
+            {
+              "label": "Encina",
+              "scientific_name": "Quercus ilex",
+              "code": "45"
+            },
+            {
+              "label": "quejigo",
+              "scientific_name": "Quercus faginea",
+              "code": "44"
+            },
+            {
+              "label": "Roble pubescente",
+              "scientific_name": "Quercus humilis (Q. Pubescens)",
+              "code": "243"
+            }
+          ],
+          "polygon_id": "2188313",
+          "formation": "Encinares (Quercus ilex)"
+        }
+      }
+    ],
+    "preview_session": 25987
+  }
+}

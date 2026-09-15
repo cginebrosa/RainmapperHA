@@ -1,0 +1,885 @@
+{
+  "schema_version": "mushroom_species_ph_proposal_v1",
+  "status": "proposal_not_applied",
+  "prepared_at": "2026-09-13T16:45:39.733220+00:00",
+  "policy": "provisional_broad_ph_windows_v1",
+  "importable_as_profiles": false,
+  "operational_files_modified": false,
+  "authority": "Local working catalog and profiles, not repository seeds",
+  "input_sha256": {
+    "docker-data/mushroom-data/mushroom_profiles.json": "110a6ba701ee6e46479b8917bf69297332b4558feacf0168aae30dc407097170",
+    "docker-data/mushroom-data/mushroom_reference_catalogs.json": "395e7004c46659b1bcf396f08433de1cfd8d585bc461a224a071cd98e8648b90",
+    "docker-data/mushroom-data/mushroom_observations.json": "7ce058bce2b28ca30ec613e2cc66ee0045f140895e54d930d812af9d5ab85227",
+    "docker-data/mushroom-data/mushroom_gis_mappings.json": "aec5d3e353ec0afb8fe6ba9dd04421a9acb907b6f30366448a50fea02e74ae06"
+  },
+  "range_classes": {
+    "A": {
+      "ph_min": 3.5,
+      "ph_max": 6.8,
+      "catalog_ids": [
+        "soil_acidic",
+        "soil_slightly_acidic"
+      ],
+      "meaning": "Ácido amplio; unión de clases cualitativas, no tolerancia medida."
+    },
+    "AN": {
+      "ph_min": 3.5,
+      "ph_max": 7.5,
+      "catalog_ids": [
+        "soil_acidic",
+        "soil_slightly_acidic",
+        "soil_neutral"
+      ],
+      "meaning": "Ácido a neutro; envolvente provisional de clases."
+    },
+    "NB": {
+      "ph_min": 6.5,
+      "ph_max": 8.8,
+      "catalog_ids": [
+        "soil_neutral",
+        "soil_basic"
+      ],
+      "meaning": "Neutro a básico; margen neutro añadido a preferencia por bases."
+    },
+    "AMPLIO": {
+      "ph_min": 3.5,
+      "ph_max": 8.8,
+      "catalog_ids": [
+        "soil_acidic",
+        "soil_slightly_acidic",
+        "soil_neutral",
+        "soil_basic"
+      ],
+      "meaning": "Cobertura de comparación ante tolerancia, mezcla o incertidumbre. No activar exclusión."
+    },
+    "TRUFA": {
+      "ph_min": 7.1,
+      "ph_max": 8.9,
+      "catalog_ids": [],
+      "meaning": "CTFC: 7,1–8,85 en truferas naturales; máximo redondeado hacia fuera a una décima."
+    }
+  },
+  "sources": {
+    "edulis_jaral": {
+      "title": "Mediavilla et al. (2019), Effect of forest fire prevention treatments on bacterial communities associated with productive Boletus edulis sites",
+      "url": "https://doi.org/10.1111/1751-7915.13395",
+      "kind": "primary_field_study",
+      "locator": "Materials and methods / Study site",
+      "finding": "Jaral productivo de Zamora con pH 5,0–5,5; contexto regional, no nicho completo.",
+      "ph_method": "No establecido en el pasaje consultado",
+      "soil_depth_cm": null
+    },
+    "edulis_chestnut": {
+      "title": "Artificial intelligence unveils key interactions between soil properties and climate factors on Boletus edulis and B. reticulatus mycelium in chestnut orchards of different ages (2023)",
+      "url": "https://www.frontiersin.org/journals/soil-science/articles/10.3389/fsoil.2023.1159793/full",
+      "kind": "primary_field_study",
+      "locator": "Results / Soil characterization",
+      "finding": "pH 4,7–5,0 de castañares; estudio de micelio, no de límites de fructificación.",
+      "ph_method": "No establecido en el pasaje consultado",
+      "soil_depth_cm": null
+    },
+    "calocybe_museum": {
+      "title": "Natural History Museum, University of Oslo: Calocybe gambosa",
+      "url": "https://www.nhm2.uio.no/botanisk/bot-mus/sopp/fakta/fakt-4.htm",
+      "kind": "institutional_species_account",
+      "locator": "Ecology",
+      "finding": "Relación con alto Ca; sin min/max de pH. Ca no se convierte en pH medido.",
+      "ph_method": null,
+      "soil_depth_cm": null
+    },
+    "robin": {
+      "title": "Viveros ROBIN, Un huerto de setas de éxito",
+      "url": "https://www.robinpepinieres.com/es/page/49-un-huerto-de-setas-de-exito",
+      "kind": "first_party_cultivation_guidance",
+      "locator": "Topografía de conveniencia; Cada hongo comestible tiene su terreno favorito",
+      "finding": "Preferencia caliza de sanguifluus y, en otro apartado con deliciosus, amplitud ácido a básico descarbonatado. Sin cifras; se conserva discrepancia.",
+      "ph_method": null,
+      "soil_depth_cm": null
+    },
+    "vinosus": {
+      "title": "Castaño et al. (2016), Soil drying procedure affects the DNA quantification of Lactarius vinosus but does not change the fungal community composition",
+      "url": "https://doi.org/10.1007/s00572-016-0714-3",
+      "readable_author_copy": "https://www.researchgate.net/publication/304070496_Soil_drying_procedure_affects_the_DNA_quantification_of_Lactarius_vinosus_but_does_not_change_the_fungal_community_composition",
+      "kind": "primary_field_study",
+      "locator": "Table 1 in author-uploaded full text",
+      "finding": "Doce parcelas con pH 6,5–7,0 y producción media positiva de vinosus 2008–2014. No nicho completo.",
+      "ph_method": "No establecido en el texto consultado",
+      "soil_depth_cm": null
+    },
+    "ctfc": {
+      "title": "Fischer, Oliach, Bonet y Colinas (2017), Best Practices for Cultivation of Truffles, CTFC",
+      "url": "https://trumap.ctfc.cat/wp-content/uploads/2016/03/TRUMAP_Truffles_Handbook_ENG.pdf",
+      "kind": "research_institution_handbook",
+      "locator": "Página impresa 15 / PDF índice 14: Acidity or alkalinity; tabla 1b página impresa 18",
+      "finding": "7,1–8,85 en truferas naturales; 7,5–8,5 recomendado para cultivo.",
+      "observed_range": [
+        7.1,
+        8.85
+      ],
+      "cultivation_recommended_range": [
+        7.5,
+        8.5
+      ],
+      "ph_method": "Agua explícito para subconjunto productivo 7,9 ± 0,3; no establecido para todos los extremos citados",
+      "soil_depth_cm": null
+    }
+  },
+  "species": [
+    {
+      "species_id": "amanita_caesarea",
+      "scientific_name": "Amanita caesarea",
+      "common_name": "Ou de reig",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 7.5,
+      "range_class": "AN",
+      "numeric_bounds_confidence": "baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Preferencias ácida y neutra en ficha local; envolvente de ambas. No usar pH 6–7 de cultivo micelial como límite de campo.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/amanita_caesarea_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.1"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "boletus_aereus",
+      "scientific_name": "Boletus aereus",
+      "common_name": "Aereus",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 6.8,
+      "range_class": "A",
+      "numeric_bounds_confidence": "baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Preferencia ácida local. Máximo 6,8 aproximado por clase; no copiar límites de edulis.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/boletus_aereus_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.2"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "boletus_edulis",
+      "scientific_name": "Boletus edulis",
+      "common_name": "Edulis",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 7.5,
+      "range_class": "AN",
+      "numeric_bounds_confidence": "baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Síntesis local: ácido a neutro. Estudios de jarales/castañares confirman contextos ácidos, no extremos de tolerancia. No reducir al intervalo de las parcelas.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/boletus_edulis_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.3"
+        },
+        {
+          "source_id": "edulis_jaral"
+        },
+        {
+          "source_id": "edulis_chestnut"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "boletus_pinophilus",
+      "scientific_name": "Boletus pinophilus",
+      "common_name": "Pinícola",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 6.8,
+      "range_class": "A",
+      "numeric_bounds_confidence": "baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Preferencia ácida. Caliza acidificada no implica pH superficial básico. No convertir el pH de una comunidad de pinar en nicho de la especie.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/boletus_pinophilus_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.4"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "calocybe_gambosa",
+      "scientific_name": "Calocybe gambosa",
+      "common_name": "Moixernó",
+      "proposed_ph_min": 6.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "NB",
+      "numeric_bounds_confidence": "baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Preferencia por bases; añadir margen neutro es una decisión operativa. El pH alterado por el corro no es requisito previo.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/calocybe_gambosa_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.5"
+        },
+        {
+          "source_id": "calocybe_museum"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "cantharellus_cibarius_sl",
+      "scientific_name": "Cantharellus cibarius",
+      "common_name": "Rossinyol",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 7.5,
+      "range_class": "AN",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Tendencia ácida; ampliación hasta neutro por alcance s.l. e incertidumbre taxonómica. Es una decisión provisional, no tolerancia demostrada de todo el complejo.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/cantharellus_cibarius_sensu_lato_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.6"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "cantharellus_lutescens",
+      "scientific_name": "Cantharellus lutescens",
+      "common_name": "Camagroc",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Fuentes con contextos ácidos y pinares calcáreos. No vetar por pH; humedad/musgo y hospedadores aportan más contexto.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/cantharellus_lutescens_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.7"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "craterellus_cornucopioides",
+      "scientific_name": "Craterellus cornucopioides",
+      "common_name": "Trompeta negra",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Fuentes divergentes ácido/neutro y básico. Cobertura sin veto.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/craterellus_cornucopioides_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.8"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "hygrophorus_latitabundus",
+      "scientific_name": "Hygrophorus latitabundus",
+      "common_name": "Llanega negra",
+      "proposed_ph_min": 6.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "NB",
+      "numeric_bounds_confidence": "baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Preferencia por bases. Tramo 6,5–7,2 añadido como margen operativo, no como evidencia de producción.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/hygrophorus_latitabundus_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.9"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "hygrophorus_marzuolus",
+      "scientific_name": "Hygrophorus marzuolus",
+      "common_name": "Marçot",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 6.8,
+      "range_class": "A",
+      "numeric_bounds_confidence": "baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Preferencia ácida y suelos descarbonatados. Extremos de clases, no de experimentos de fructificación.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/hygrophorus_marzuolus_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.10"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "lactarius_deliciosus",
+      "scientific_name": "Lactarius deliciosus",
+      "common_name": "Rovelló",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Conflicto entre preferencias ácidas y poco ácidas/calizas; la fuente técnica de cultivo describe amplitud. No transferir modelos de Lactarius agregado.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/lactarius_deliciosus_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.11"
+        },
+        {
+          "source_id": "robin"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "lactarius_salmonicolor_quieticolor_group",
+      "scientific_name": "Lactarius salmonicolor / quieticolor",
+      "common_name": "Rovelló d'avet",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Unión del componente ácido de quieticolor y neutro/básico de salmonicolor de R12. Conservar una ficha y sus observaciones.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/lactarius_salmonicolor_quieticolor_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.12"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "lactarius_sanguifluus",
+      "scientific_name": "Lactarius sanguifluus",
+      "common_name": "Rovelló de sang",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Marc/local favorecen bases; la fuente técnica de cultivo incluye ácido a básico. Ventana amplia por discrepancia; conservar preferencia caliza como información.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/lactarius_sanguifluus_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.13"
+        },
+        {
+          "source_id": "robin"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "lactarius_vinosus",
+      "scientific_name": "Lactarius vinosus",
+      "common_name": "Vinader",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 7.5,
+      "range_class": "AN",
+      "numeric_bounds_confidence": "baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Preferencia ácida con margen neutro; tabla de Castaño registra producción a pH 6,5–7,0. No copiar la afinidad negativa contradictoria de soil_acidic.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/lactarius_vinosus_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.14"
+        },
+        {
+          "source_id": "vinosus"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "lepista_nuda",
+      "scientific_name": "Lepista nuda",
+      "common_name": "Lepista nuda",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Prioridad local: materia orgánica y humedad. Cobertura técnica; sin evidencia para veto de pH.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/lepista_nuda_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.15"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "macrolepiota_procera",
+      "scientific_name": "Macrolepiota procera",
+      "common_name": "Macrolepiota procera",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Sin extremos comparables de campo. Cobertura; no trasladar sustratos de cultivo al suelo del punto.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/macrolepiota_procera_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.16"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "marasmius_oreades",
+      "scientific_name": "Marasmius oreades",
+      "common_name": "Marasmius oreades",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "El corro modifica el suelo; no deducir requisitos previos a partir de ese efecto. Cobertura sin veto.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/marasmius_oreades_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.17"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "morchella_elata_complex",
+      "scientific_name": "Morchella elata complex",
+      "common_name": "Múrgola negra",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Complejo heterogéneo. No importar límites de esculenta o de otra especie cultivada. Cobertura sin veto.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/morchella_elata_complex_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.18"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "russula_virescens",
+      "scientific_name": "Russula virescens",
+      "common_name": "Llora verda",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 6.8,
+      "range_class": "A",
+      "numeric_bounds_confidence": "baja",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Preferencia ácida de la ficha europea. Números aproximados de clase, sin transferir resultados de taxones asiáticos.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/russula_virescens_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.19"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "tricholoma_terreum",
+      "scientific_name": "Tricholoma terreum",
+      "common_name": "Fredolic",
+      "proposed_ph_min": 3.5,
+      "proposed_ph_max": 8.8,
+      "range_class": "AMPLIO",
+      "numeric_bounds_confidence": "muy baja",
+      "recommended_use": "context_only",
+      "biological_exclusion_limits": false,
+      "rationale_es": "Preferencia caliza con presencia sobre silíceos; la roca no determina pH. Sin extremos comparables, evitar veto.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/tricholoma_terreum_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.20"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    },
+    {
+      "species_id": "tuber_melanosporum",
+      "scientific_name": "Tuber melanosporum",
+      "common_name": "Tófona Negra",
+      "proposed_ph_min": 7.1,
+      "proposed_ph_max": 8.9,
+      "range_class": "TRUFA",
+      "numeric_bounds_confidence": "media",
+      "recommended_use": "provisional_screening",
+      "biological_exclusion_limits": false,
+      "rationale_es": "CTFC: 7,1–8,85 en truferas naturales; propuesta 7,1–8,9. Separado de 7,5–8,5 recomendado para cultivo. No sustituye carbonatos ni horizonte adecuado.",
+      "source_refs": [
+        {
+          "path": "docs/mushrooms/literature/prediction/tuber_melanosporum_revision_bibliografica_rainmapper.md"
+        },
+        {
+          "path": "docs/mushrooms/prediction-map-species-literature-review-es.md",
+          "section": "4.21"
+        },
+        {
+          "source_id": "ctfc"
+        }
+      ],
+      "current_ph_min": null,
+      "current_ph_max": null
+    }
+  ],
+  "comparison_policy": {
+    "soilgrids_depth_cm": [
+      0,
+      5
+    ],
+    "contained": "compatible for this dimension only",
+    "disjoint": "outside provisional window; not proven biological absence",
+    "overlap": "unknown; existing UI omits non-compatible species",
+    "missing": "unknown",
+    "context_only": "Do not activate as ph_min/ph_max vetoes. Keep range as documented coverage; existing two-field filter alone cannot express this distinction.",
+    "method_depth_caveat": "0–5 cm is a point-screening convention, not a validated horizon for every species. No conversion from KCl/CaCl2; truffle requires explicit depth qualification."
+  },
+  "merles_example": {
+    "point": {
+      "lat": 42.01347,
+      "lon": 1.9705
+    },
+    "median": 7.6,
+    "interval": [
+      5.0,
+      8.3
+    ],
+    "expected_edulis": "unknown/ph_overlap",
+    "expected_pinophilus": "unknown/ph_overlap",
+    "interpretation": "Would leave confirmed-compatible list; does not establish absence. Hosts/altitude review remains separate."
+  },
+  "validation": {
+    "species_coverage": 21,
+    "local_classes_verified": true,
+    "source_refs_verified": true,
+    "operational_input_hashes_unchanged": true,
+    "isolated_profile_copy_only": true,
+    "existing_ecology_engine_replay_cases": [
+      {
+        "case": "merles_observed",
+        "species": [
+          {
+            "species_id": "boletus_edulis",
+            "name": "Edulis",
+            "scientific_name": "Boletus edulis",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_overlap"
+            ],
+            "matched_host_ids": [
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "boletus_pinophilus",
+            "name": "Pinícola",
+            "scientific_name": "Boletus pinophilus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_overlap",
+              "lithology_preference_match"
+            ],
+            "matched_host_ids": [
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          }
+        ]
+      },
+      {
+        "case": "contained",
+        "species": [
+          {
+            "species_id": "boletus_edulis",
+            "name": "Edulis",
+            "scientific_name": "Boletus edulis",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_match"
+            ],
+            "matched_host_ids": [
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "boletus_pinophilus",
+            "name": "Pinícola",
+            "scientific_name": "Boletus pinophilus",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_match",
+              "lithology_preference_match"
+            ],
+            "matched_host_ids": [
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          }
+        ]
+      },
+      {
+        "case": "disjoint",
+        "species": [
+          {
+            "species_id": "boletus_edulis",
+            "name": "Edulis",
+            "scientific_name": "Boletus edulis",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_outside"
+            ],
+            "matched_host_ids": [
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "boletus_pinophilus",
+            "name": "Pinícola",
+            "scientific_name": "Boletus pinophilus",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_outside",
+              "lithology_preference_match"
+            ],
+            "matched_host_ids": [
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          }
+        ]
+      },
+      {
+        "case": "missing",
+        "species": [
+          {
+            "species_id": "boletus_edulis",
+            "name": "Edulis",
+            "scientific_name": "Boletus edulis",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unknown"
+            ],
+            "matched_host_ids": [
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "boletus_pinophilus",
+            "name": "Pinícola",
+            "scientific_name": "Boletus pinophilus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unknown",
+              "lithology_preference_match"
+            ],
+            "matched_host_ids": [
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          }
+        ]
+      }
+    ],
+    "warning": "Replay validates implementation behavior with proposed numbers, not biological accuracy."
+  }
+}

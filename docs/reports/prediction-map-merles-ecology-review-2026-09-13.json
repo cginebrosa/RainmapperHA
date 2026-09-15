@@ -1,0 +1,513 @@
+{
+  "checked_at": "2026-09-13T16:28:59.114839+00:00",
+  "point": {
+    "lat": 42.01347,
+    "lon": 1.9705
+  },
+  "date": "2026-09-13",
+  "user_observation": "User knows the site and questions edulis and pinophilus compatibility; no confirmed absence inferred.",
+  "method": "POST existing local preview /api/mushrooms/prediction-map/queries; read local profiles and EcologyReader implementation",
+  "geography": {
+    "location": {
+      "status": "available",
+      "source": "IGN",
+      "edition": "2026-08-10",
+      "name": "Santa Maria de Merlès",
+      "national_code": "34090808255"
+    },
+    "terrain": {
+      "status": "available",
+      "data_mode": "geographic_sources",
+      "elevation": {
+        "status": "available",
+        "value_m": 623.2,
+        "resolution_m": 5,
+        "source_id": "dem_5m"
+      },
+      "ph": {
+        "status": "available",
+        "resolution_m": 250,
+        "source_id": "soilgrids_2_phh2o",
+        "depths": [
+          {
+            "depth_cm": [
+              0,
+              5
+            ],
+            "status": "available",
+            "lower": 5,
+            "median": 7.6,
+            "upper": 8.3
+          },
+          {
+            "depth_cm": [
+              5,
+              15
+            ],
+            "status": "available",
+            "lower": 5.2,
+            "median": 7.7,
+            "upper": 8.3
+          },
+          {
+            "depth_cm": [
+              15,
+              30
+            ],
+            "status": "available",
+            "lower": 5,
+            "median": 7.7,
+            "upper": 8.4
+          }
+        ]
+      }
+    },
+    "land_context": {
+      "trees": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "available",
+        "items": [
+          {
+            "label": "Roble pubescente",
+            "scientific_name": "Quercus humilis (Q. Pubescens)",
+            "code": "243",
+            "host_id": "host_quercus_humilis"
+          },
+          {
+            "label": "Encina",
+            "scientific_name": "Quercus ilex",
+            "code": "45",
+            "host_id": "host_quercus_ilex"
+          }
+        ],
+        "polygon_id": "2198127",
+        "formation": "Robledales de roble pubescente (Quercus humilis)",
+        "catalog_revision": "395e7004c46659b1bcf3"
+      },
+      "vegetation": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 428627,
+        "code": "222",
+        "label": "Boscos densos de caducifolis, planifolis",
+        "mapping_status": "not_evaluated"
+      },
+      "geology": {
+        "source_id": "icgc_geologia_50000",
+        "edition": "2024-12",
+        "field": "Codi",
+        "status": "available",
+        "feature_id": 22373,
+        "code": "POmlg",
+        "label": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+        "mapping_status": "not_evaluated"
+      }
+    }
+  },
+  "ecology": {
+    "status": "available",
+    "policy": "broad_species_windows_v2",
+    "revision": "0d1b00cfde6455814575",
+    "dates": [
+      "2026-09-13",
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18",
+      "2026-09-19"
+    ],
+    "mapping_states": {
+      "vegetation": "accepted",
+      "geology": "accepted"
+    },
+    "mapped_context": {
+      "habitats": [
+        {
+          "id": "forest_deciduous_broadleaf",
+          "label": {
+            "es": "Bosque caducifolio",
+            "ca": "Bosc caducifoli",
+            "en": "Deciduous broadleaf forest"
+          }
+        }
+      ],
+      "soil_tendencies": [
+        {
+          "id": "soil_calcareous",
+          "label": {
+            "es": "Calizo",
+            "ca": "Calcari",
+            "en": "Calcareous"
+          }
+        },
+        {
+          "id": "soil_sandy",
+          "label": {
+            "es": "Arenoso",
+            "ca": "Sorrenc",
+            "en": "Sandy"
+          }
+        }
+      ],
+      "lithologies": [
+        {
+          "id": "lith_calcareous_marl",
+          "label": {
+            "es": "Marga caliza",
+            "ca": "Marga calcària",
+            "en": "Calcareous marl"
+          }
+        },
+        {
+          "id": "lith_conglomerate_breccia",
+          "label": {
+            "es": "Conglomerado o brecha",
+            "ca": "Conglomerat o bretxa",
+            "en": "Conglomerate or breccia"
+          }
+        },
+        {
+          "id": "lith_fine_clastic",
+          "label": {
+            "es": "Clástico fino",
+            "ca": "Clàstic fi",
+            "en": "Fine clastic"
+          }
+        },
+        {
+          "id": "lith_sandstone",
+          "label": {
+            "es": "Arenisca",
+            "ca": "Gres",
+            "en": "Sandstone"
+          }
+        }
+      ]
+    },
+    "abstention_reason": null
+  },
+  "species": [
+    {
+      "species_id": "boletus_edulis",
+      "name": "Edulis",
+      "scientific_name": "Boletus edulis",
+      "status": "compatible",
+      "daily_statuses": [
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible"
+      ],
+      "reasons": [
+        "hosts_match",
+        "altitude_match",
+        "ph_unbounded"
+      ],
+      "matched_host_ids": [
+        "host_quercus_humilis",
+        "host_quercus_ilex"
+      ]
+    },
+    {
+      "species_id": "boletus_pinophilus",
+      "name": "Pinícola",
+      "scientific_name": "Boletus pinophilus",
+      "status": "compatible",
+      "daily_statuses": [
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible"
+      ],
+      "reasons": [
+        "hosts_match",
+        "altitude_match",
+        "ph_unbounded",
+        "lithology_preference_match"
+      ],
+      "matched_host_ids": [
+        "host_quercus_humilis",
+        "host_quercus_ilex"
+      ]
+    }
+  ],
+  "profile_evidence": [
+    {
+      "species_id": "boletus_edulis",
+      "host_affinities": [
+        {
+          "id": "host_pinus_uncinata",
+          "relationship": "primary",
+          "affinity": 0,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "host_pinus_sylvestris",
+          "relationship": "primary",
+          "affinity": 0,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "host_abies_alba",
+          "relationship": "primary",
+          "affinity": 0,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "host_fagus_sylvatica",
+          "relationship": "primary",
+          "affinity": 0.95,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "host_betula_spp",
+          "relationship": "primary",
+          "affinity": 0.8,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "host_pinus_spp",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_sporas"
+          ]
+        },
+        {
+          "id": "host_quercus_spp",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_sporas"
+          ]
+        },
+        {
+          "id": "host_quercus_pyrenaica",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_sporas"
+          ]
+        },
+        {
+          "id": "host_castanea_sativa",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_sporas"
+          ]
+        },
+        {
+          "id": "host_cistus_spp",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_sporas"
+          ]
+        }
+      ],
+      "ph_min": null,
+      "ph_max": null,
+      "topography": {
+        "altitude_min_m": 600,
+        "altitude_optimal_min_m": 1000,
+        "altitude_optimal_max_m": 1800,
+        "altitude_max_m": 2200,
+        "preferred_aspect_ids": [
+          "aspect_N",
+          "aspect_NE",
+          "aspect_E",
+          "aspect_NW"
+        ],
+        "aspect_notes": "In warm periods, fresher and shaded slopes are preferred; autumn fruiting can extend to broader aspects."
+      },
+      "phenology": {
+        "main_months": [
+          8,
+          9,
+          10
+        ],
+        "secondary_months": [
+          5,
+          6,
+          7,
+          11,
+          12
+        ],
+        "season_pattern_ids": [
+          "season_summer",
+          "season_summer_possible",
+          "season_autumn_main"
+        ],
+        "fruiting_delay_after_rain_days": {
+          "min": 6,
+          "optimal_min": 8,
+          "optimal_max": 16,
+          "max": 24
+        }
+      }
+    },
+    {
+      "species_id": "boletus_pinophilus",
+      "host_affinities": [
+        {
+          "id": "host_pinus_sylvestris",
+          "relationship": "primary",
+          "affinity": 1,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "host_pinus_uncinata",
+          "relationship": "primary",
+          "affinity": 0.95,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "host_abies_alba",
+          "relationship": "primary",
+          "affinity": 0.55,
+          "source_ids": [
+            "literature_marc_estevez"
+          ]
+        },
+        {
+          "id": "host_fagus_sylvatica",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_sporas"
+          ]
+        },
+        {
+          "id": "host_quercus_spp",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_sporas"
+          ]
+        },
+        {
+          "id": "host_castanea_sativa",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_sporas"
+          ]
+        },
+        {
+          "id": "host_picea_spp",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_review_20260913"
+          ]
+        },
+        {
+          "id": "host_abies_spp",
+          "relationship": "secondary",
+          "affinity": 0,
+          "v0_placeholder": true,
+          "source_ids": [
+            "literature_review_20260913"
+          ]
+        }
+      ],
+      "ph_min": null,
+      "ph_max": null,
+      "topography": {
+        "altitude_min_m": 600,
+        "altitude_optimal_min_m": 1200,
+        "altitude_optimal_max_m": 1700,
+        "altitude_max_m": 2300,
+        "preferred_aspect_ids": [
+          "aspect_N",
+          "aspect_NE",
+          "aspect_E",
+          "aspect_NW"
+        ],
+        "aspect_notes": "Fresher aspects preferred in warm periods; more open or warm sites can work early in the season or at high altitude."
+      },
+      "phenology": {
+        "main_months": [
+          6,
+          7,
+          8,
+          9
+        ],
+        "secondary_months": [
+          4,
+          5,
+          10,
+          11,
+          12
+        ],
+        "season_pattern_ids": [
+          "season_late_spring_possible",
+          "season_summer",
+          "season_autumn"
+        ],
+        "fruiting_delay_after_rain_days": {
+          "min": 5,
+          "optimal_min": 7,
+          "optimal_max": 15,
+          "max": 21
+        }
+      }
+    }
+  ],
+  "finding": "Broad Quercus secondary association admits both mapped Quercus species; altitude 623.2 passes minimum 600; September passes; no pH bounds; substrate preferences do not veto.",
+  "pending_review": "Review host evidence and how to express sufficient ecological context in editable profiles; do not invent species pH thresholds or infer absence from one report.",
+  "code_or_data_changed": false,
+  "followup_review": {
+    "user_questions": [
+      "Tree and altitude compatibility also questioned",
+      "Local species pH bounds still empty"
+    ],
+    "local_ph_verified": {
+      "total_profiles": 21,
+      "profiles_with_both_bounds_null": 21
+    },
+    "host_mapping_issue": "Local Sporas synthesis says robledales/melojares (edulis) and robles (pinophilus); this was represented as broad host_quercus_spp, whose catalog descendants include encina and roble pubescente. That representation broadens the wording of the source. Species-specific applicability at the observed site remains unverified.",
+    "altitude_source": "Local Sporas synthesis gives lower envelope 600 m for both; pinophilus text separately describes habitual core around 1000-1800/2000 m. Current filter uses the broad envelope without regional conditioning.",
+    "sources": [
+      "docs/mushrooms/literature/sporas_especies_informe_rainmapper.md:582",
+      "docs/mushrooms/literature/sporas_especies_informe_rainmapper.md:650",
+      "docker-data/mushroom-data/mushroom_reference_catalogs.json",
+      "docker-data/mushroom-data/mushroom_profiles.json"
+    ],
+    "no_numeric_ph_limits_inferred": true
+  }
+}

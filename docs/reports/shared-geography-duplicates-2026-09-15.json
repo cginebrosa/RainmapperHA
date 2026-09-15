@@ -1,0 +1,327 @@
+{
+  "method": "Remote manifests and previously verified SHA256; current directory listing/stat inspection, no asset rehash. Original totals from inventories, with current largest-file stat checks per source family. Read-only HA audit.",
+  "canonical": {
+    "files": 3581,
+    "bytes": 15622243791
+  },
+  "soilgrids": {
+    "mushroom-GIS/soilgrids/": {
+      "files": 1414,
+      "bytes": 395714887
+    },
+    "mushroom-map-GIS/soilgrids-shared/": {
+      "files": 601,
+      "bytes": 401256253
+    }
+  },
+  "cross_soilgrids_duplicate_hashes": 0,
+  "shared_soilgrids_references": 1355,
+  "duplicate_groups": [
+    {
+      "bytes_each": 957,
+      "copies": 3,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/phh2o_0-5cm_Q0.95/x158-158_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/phh2o_15-30cm_Q0.95/x158-158_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/phh2o_5-15cm_Q0.95/x158-158_y86-86.tif"
+      ]
+    },
+    {
+      "bytes_each": 957,
+      "copies": 2,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/phh2o_15-30cm_Q0.5/x158-158_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/phh2o_5-15cm_Q0.5/x158-158_y86-86.tif"
+      ]
+    },
+    {
+      "bytes_each": 957,
+      "copies": 2,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.05/x158-158_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.05/x158-158_y86-86.tif"
+      ]
+    },
+    {
+      "bytes_each": 946,
+      "copies": 53,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_100-200cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_100-200cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_100-200cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_15-30cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_15-30cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_15-30cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_30-60cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_30-60cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_30-60cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_60-100cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_60-100cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_60-100cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_0-5cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_0-5cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_0-5cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_0-5cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_0-5cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_100-200cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_100-200cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_100-200cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_15-30cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_15-30cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_15-30cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_30-60cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_30-60cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_30-60cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_5-15cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_5-15cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_5-15cm_Q0.95/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_60-100cm_Q0.05/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_60-100cm_Q0.5/x160-160_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_60-100cm_Q0.95/x160-160_y86-86.tif"
+      ]
+    },
+    {
+      "bytes_each": 946,
+      "copies": 53,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_100-200cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_100-200cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_100-200cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_15-30cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_15-30cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_15-30cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_30-60cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_30-60cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_30-60cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_60-100cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_60-100cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_60-100cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_0-5cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_0-5cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_0-5cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_0-5cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_0-5cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_100-200cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_100-200cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_100-200cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_15-30cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_15-30cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_15-30cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_30-60cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_30-60cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_30-60cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_5-15cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_5-15cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_5-15cm_Q0.95/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_60-100cm_Q0.05/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_60-100cm_Q0.5/x164-164_y83-83.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_60-100cm_Q0.95/x164-164_y83-83.tif"
+      ]
+    },
+    {
+      "bytes_each": 2830,
+      "copies": 53,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_0-5cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_100-200cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_100-200cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_100-200cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_15-30cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_15-30cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_15-30cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_30-60cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_30-60cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_30-60cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_5-15cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_60-100cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_60-100cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0010_60-100cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_0-5cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_0-5cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_0-5cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_0-5cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_0-5cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_100-200cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_100-200cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_100-200cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_15-30cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_15-30cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_15-30cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_30-60cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_30-60cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_30-60cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_5-15cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_5-15cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_5-15cm_Q0.95/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_60-100cm_Q0.05/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_60-100cm_Q0.5/x165-165_y81-84.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv1500_60-100cm_Q0.95/x165-165_y81-84.tif"
+      ]
+    },
+    {
+      "bytes_each": 956,
+      "copies": 3,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_0-5cm_Q0.05/x158-158_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.05/x158-158_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_5-15cm_Q0.05/x158-158_y86-86.tif"
+      ]
+    },
+    {
+      "bytes_each": 956,
+      "copies": 2,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_100-200cm_Q0.05/x158-158_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.05/x158-158_y86-86.tif"
+      ]
+    },
+    {
+      "bytes_each": 957,
+      "copies": 2,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_15-30cm_Q0.5/x158-158_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.5/x158-158_y86-86.tif"
+      ]
+    },
+    {
+      "bytes_each": 959,
+      "copies": 2,
+      "paths": [
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_30-60cm_Q0.95/x158-158_y86-86.tif",
+        "mushroom-map-GIS/soilgrids-shared/source/wv0033_60-100cm_Q0.95/x158-158_y86-86.tif"
+      ]
+    }
+  ],
+  "redundant_small_file_bytes": 254156,
+  "originals": [
+    {
+      "root": "mushroom-GIS",
+      "inventory_files": 1432,
+      "inventory_bytes": 6820316846,
+      "current_largest_family_samples": [
+        {
+          "path": "mushroom-GIS/dem-ign-mtn50-592/extracted/PNOA_MDT25_ETRS89_HU30_0592_LID.tif",
+          "expected_bytes": 3736503,
+          "actual_bytes": 3736503
+        },
+        {
+          "path": "mushroom-GIS/dem-andorra/extracted/rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif",
+          "expected_bytes": 31416509,
+          "actual_bytes": 31416509
+        },
+        {
+          "path": "mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "expected_bytes": 5127260482,
+          "actual_bytes": 5127260482
+        },
+        {
+          "path": "mushroom-GIS/soilgrids/raw-wcs/soilgrids_2.0_wcs_snapshot_v1/bulk/wv0033_5-15cm_Q0.05/x160-165_y82-86.tif",
+          "expected_bytes": 4084743,
+          "actual_bytes": 4084743
+        },
+        {
+          "path": "mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.dbf",
+          "expected_bytes": 492893570,
+          "actual_bytes": 492893570
+        },
+        {
+          "path": "mushroom-GIS/dem-france-rge-alti-5m/extracted/rainmapper-dem-france-rge-alti-5m.tif",
+          "expected_bytes": 83072534,
+          "actual_bytes": 83072534
+        },
+        {
+          "path": "mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "expected_bytes": 293679104,
+          "actual_bytes": 293679104
+        }
+      ]
+    },
+    {
+      "root": "prediction-map/generations/local-20260914",
+      "inventory_files": 3510,
+      "inventory_bytes": 14538214301,
+      "current_largest_family_samples": [
+        {
+          "path": "prediction-map/generations/local-20260914/mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "expected_bytes": 5127260482,
+          "actual_bytes": 5127260482
+        },
+        {
+          "path": "prediction-map/generations/local-20260914/mushroom-map-GIS/icgc-cobertes-2024/source/cobertes-sol-v1r0-2024.gpkg",
+          "expected_bytes": 1694642176,
+          "actual_bytes": 1694642176
+        }
+      ]
+    }
+  ],
+  "imports": {
+    "files": 3,
+    "bytes": 1182315
+  },
+  "canonical_generations": {
+    "files": 1,
+    "bytes": 807785
+  },
+  "remote_files_modified": false
+}

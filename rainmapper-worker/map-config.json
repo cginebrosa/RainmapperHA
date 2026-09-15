@@ -1,0 +1,8 @@
+{
+  "all_coordinators": true,
+  "private_runtime": true,
+  "geography_runtime": true,
+  "geography_python": "/usr/bin/python3",
+  "weather_python": "/usr/local/bin/python",
+  "model_python": "/usr/local/bin/python"
+}

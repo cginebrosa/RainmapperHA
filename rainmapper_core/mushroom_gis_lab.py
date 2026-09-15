@@ -61,6 +61,10 @@ def gis_root(configured_root: Path | None = None) -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_GIS_ROOT", "").strip()
     if configured:
         return Path(configured)
+    for shared in (Path('/media/rainmapper/geography/mushroom-GIS'),
+                   Path('/media/rainmapper/geography/datasets/mushroom_gis_v0/current')):
+        if (shared / 'geography-dataset.json').is_file():
+            return shared
     media_copy = Path("/media/rainmapper/mushroom-GIS")
     if media_copy.exists():
         return media_copy

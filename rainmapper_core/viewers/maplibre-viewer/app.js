@@ -791,6 +791,7 @@ async function validateStoredSession() {
         canUseHeatmap: payload.user.can_use_heatmap === true,
         canUseLayerMetrics: payload.user.can_use_layer_metrics === true,
         canUseEstimatedField: payload.user.can_use_estimated_field === true,
+        canUsePredictionMap: payload.user.can_use_prediction_map === true,
       });
     }
   } else {
@@ -857,6 +858,7 @@ function saveAuthenticatedPayload(payload) {
     canUseHeatmap: payload.can_use_heatmap === true,
     canUseLayerMetrics: payload.can_use_layer_metrics === true,
     canUseEstimatedField: payload.can_use_estimated_field === true,
+    canUsePredictionMap: payload.can_use_prediction_map === true,
   });
 }
 

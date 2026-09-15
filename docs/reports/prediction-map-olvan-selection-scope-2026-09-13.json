@@ -1,0 +1,114 @@
+{
+  "date": "2026-09-13",
+  "request": {
+    "point": {
+      "lat": 42.06282,
+      "lon": 1.93765
+    },
+    "start_date": "2026-09-13",
+    "horizon_days": 7,
+    "species_ids": [
+      "boletus_aereus",
+      "amanita_caesarea"
+    ]
+  },
+  "experiment": "Diagnostic only: keep exact point inputs, weather generation, artifacts and weekly policy; substitute original Olvan sealed resolution chain for species chain in temporary runtime memory. No change to operational selection or persisted data.",
+  "original_provenance": {
+    "engine": "existing_python_predictor",
+    "scientifically_validated": false,
+    "selection_scope": "species",
+    "point_validation": "not_established",
+    "model_revision": "ac802efe85f6be611b19",
+    "batch_id": "operational_20260909T184116Z",
+    "weather_generation": "20260913T171307152718Z-c1fbe31a5cf7",
+    "soil_context_hash": "091abf86c986ddd2e88ef99b81a09874aea7bc35c0a6ab8547cd3516d5563ea9"
+  },
+  "rows": [
+    {
+      "species_id": "boletus_aereus",
+      "species_probabilities": [
+        0.335248,
+        0.344782,
+        0.354427,
+        0.364177,
+        0.374025,
+        0.383965,
+        0.393988
+      ],
+      "olvan_evidence_same_point_probabilities": [
+        0.363608,
+        0.371268,
+        0.37898,
+        0.386739,
+        0.394542,
+        0.402388,
+        0.410272
+      ],
+      "species_candidate": {
+        "version_id": "biology_v6_windowed_smooth_hierarchical",
+        "profile_id": "smooth_window_30d_plus_physical_state",
+        "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+        "temporal_family": "lag",
+        "horizon_days": 1,
+        "estimator_id": "smooth_shared_logistic_v1"
+      },
+      "olvan_candidate": {
+        "version_id": "biology_v6_windowed_smooth_hierarchical",
+        "profile_id": "smooth_window_60d_plus_physical_state",
+        "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+        "temporal_family": "lag",
+        "horizon_days": 1,
+        "estimator_id": "smooth_shared_logistic_v1"
+      },
+      "common_weather_cutoff": "2026-09-12"
+    },
+    {
+      "species_id": "amanita_caesarea",
+      "species_probabilities": [
+        0.33223,
+        0.346105,
+        0.360218,
+        0.374548,
+        0.389072,
+        0.403767,
+        0.418607
+      ],
+      "olvan_evidence_same_point_probabilities": [
+        0.33223,
+        0.346105,
+        0.360218,
+        0.374548,
+        0.389072,
+        0.403767,
+        0.418607
+      ],
+      "species_candidate": {
+        "version_id": "biology_v6_windowed_smooth_hierarchical",
+        "profile_id": "smooth_window_60d_plus_physical_state",
+        "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+        "temporal_family": "lag",
+        "horizon_days": 1,
+        "estimator_id": "smooth_partial_pooling_logistic_v1"
+      },
+      "olvan_candidate": {
+        "version_id": "biology_v6_windowed_smooth_hierarchical",
+        "profile_id": "smooth_window_60d_plus_physical_state",
+        "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+        "temporal_family": "lag",
+        "horizon_days": 1,
+        "estimator_id": "smooth_partial_pooling_logistic_v1"
+      },
+      "common_weather_cutoff": "2026-09-12"
+    }
+  ],
+  "user_screenshot": {
+    "area": "Olvan",
+    "start_date": "2026-09-13",
+    "aereus_percent": 38,
+    "amanita_caesarea_percent": 33,
+    "precomputed": true
+  },
+  "finding": "Species-only selection in map is confirmed. Olvan evidence chooses 60d instead of 30d for aereus and raises the same-point result from 33.5248% to 36.3608%. Caesarea selection and all seven probabilities are unchanged.",
+  "remaining_difference": "The rest of the gap to the displayed 38% has not been isolated. The screenshot is a precomputed area result, not the exact point calculation. No claim of identical area/point inputs or generations.",
+  "pending": "Discuss using the known-area evidence chain when a point belongs unambiguously to a known area, keeping point inputs and original selection/fallback/veto policy. Outside known areas retain species evidence. Not implemented in this diagnostic."
+}

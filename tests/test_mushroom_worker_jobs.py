@@ -37,6 +37,55 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             ],
         }
 
+    def test_rebuild_and_training_share_background_with_precompute_not_predictor(self):
+        for kind in ("rebuild", "train", "operational", "benchmark"):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as temporary:
+                path = Path(temporary) / "jobs.json"
+                job_id = "worker_job_heavy1234"
+                common = dict(worker_id="worker_aaaaaaaa", worker_display_name="Worker A", job_id=job_id)
+                if kind == "rebuild":
+                    mushroom_worker_jobs.create_candidate_rebuild(path, **common, input_bundle={
+                        "job_id": job_id, "job_spec_id": "sha256:" + "a" * 64,
+                        "snapshot_id": "sha256:" + "b" * 64,
+                        "input_file_count": 7, "input_size_bytes": 1234,
+                    })
+                elif kind == "train":
+                    mushroom_worker_jobs.create_ml_train_job(path, **common, input_bundle={
+                        "job_id": job_id, "features_digest": "sha256:" + "c" * 64,
+                        "job_spec_id": "sha256:" + "d" * 64,
+                    }, triggered_by_job_id="worker_job_previous123")
+                else:
+                    mushroom_worker_jobs.create_ml_multiversion_job(path, **common, input_bundle={
+                        "job_id": job_id, "bundle_digest": "sha256:" + "a" * 64,
+                        "files": [{"path": "job_spec.json", "size_bytes": 1, "sha256": "b" * 64}],
+                    }, profile_keys=["biology_v3/core"], job_purpose=kind,
+                        triggered_by_job_id="worker_job_previous123" if kind == "operational" else "")
+                self.assertIsNone(mushroom_worker_jobs.claim_next(path, worker_id="worker_aaaaaaaa"))
+                claimed = mushroom_worker_jobs.claim_next(path, worker_id="worker_aaaaaaaa", lane="background")
+                self.assertEqual(claimed["job_id"], job_id)
+                self.assertEqual(claimed["lane"], "background")
+                mushroom_worker_jobs.start_job(path, job_id=job_id, worker_id="worker_aaaaaaaa", claim_token=claimed["claim_token"])
+                online = mushroom_worker_jobs.create_predictor_job(
+                    path, worker_id="worker_aaaaaaaa", worker_display_name="Worker A",
+                    request=self.predictor_request(), runtime_manifest=self.predictor_manifest(),
+                    job_id="worker_job_online123",
+                )
+                online_claim = mushroom_worker_jobs.claim_next(path, worker_id="worker_aaaaaaaa", lane="foreground")
+                self.assertEqual(online["job_id"], online_claim["job_id"])
+                self.assertEqual("running", mushroom_worker_jobs.get_job(path, job_id=job_id)["status"])
+                precompute = mushroom_worker_jobs.create_predictor_precompute_job(
+                    path, worker_id="worker_aaaaaaaa", worker_display_name="Worker A",
+                    identity=self.precompute_identity().as_dict(), runtime_manifest=self.predictor_manifest(),
+                    operational_selections=[], desired_revision=1, job_id="worker_job_week1234",
+                )
+                self.assertEqual("queued", precompute["status"])
+                self.assertIsNone(mushroom_worker_jobs.claim_next(path, worker_id="worker_aaaaaaaa", lane="foreground"))
+                # A failed chain step releases background without moving weekly work online.
+                mushroom_worker_jobs.finish_job(path, job_id=job_id, worker_id="worker_aaaaaaaa",
+                    claim_token=claimed["claim_token"], status="failed", error="fixture failure")
+                next_background = mushroom_worker_jobs.claim_next(path, worker_id="worker_aaaaaaaa", lane="background")
+                self.assertEqual(precompute["job_id"], next_background["job_id"])
+
     def test_precompute_latest_wins_and_lanes_are_independent(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "jobs.json"
@@ -780,7 +829,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "after the job has finished"):
                 mushroom_worker_jobs.request_candidate_discard(path, job_id=job_id)
             mushroom_worker_jobs.claim_next(
-                path,
+                path, lane="background",
                 worker_id="worker_aaaaaaaa",
                 claim_token="claim-secret",
             )
@@ -950,7 +999,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             self.assertEqual(created["phase"], "Reconciling GIS and SoilGrids")
             self.assertIsNone(
                 mushroom_worker_jobs.claim_next(
-                    path,
+                    path, lane="background",
                     worker_id="worker_aaaaaaaa",
                     claim_token="claim-secret",
                 )
@@ -998,7 +1047,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             self.assertEqual(queued["status"], "queued")
             self.assertEqual(queued["preparation_telemetry"]["duration_ms"], 12)
             claimed = mushroom_worker_jobs.claim_next(
-                path,
+                path, lane="background",
                 worker_id="worker_aaaaaaaa",
                 claim_token="claim-secret",
             )
@@ -1024,7 +1073,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 job_id="worker_job_candidate123",
             )
             claimed = mushroom_worker_jobs.claim_next(
-                path,
+                path, lane="background",
                 worker_id="worker_aaaaaaaa",
                 claim_token="claim-secret",
             )
@@ -1421,7 +1470,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 job_id=rebuild_id,
             )
             mushroom_worker_jobs.claim_next(
-                path, worker_id="worker_aaaaaaaa", claim_token="rebuild-secret"
+                path, lane="background", worker_id="worker_aaaaaaaa", claim_token="rebuild-secret"
             )
             mushroom_worker_jobs.start_job(
                 path,
@@ -1454,7 +1503,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 triggered_by_job_id=rebuild_id,
             )
             mushroom_worker_jobs.claim_next(
-                path, worker_id="worker_aaaaaaaa", claim_token="training-secret"
+                path, lane="background", worker_id="worker_aaaaaaaa", claim_token="training-secret"
             )
             mushroom_worker_jobs.start_job(
                 path,
@@ -1497,7 +1546,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
                 profile_keys=["biology_v3/core"],
             )
             mushroom_worker_jobs.claim_next(
-                path, worker_id="worker_aaaaaaaa", claim_token="retry-secret"
+                path, lane="background", worker_id="worker_aaaaaaaa", claim_token="retry-secret"
             )
             mushroom_worker_jobs.start_job(
                 path,
@@ -1568,7 +1617,7 @@ class MushroomWorkerJobsTests(unittest.TestCase):
             self.assertEqual(preparing["status"], "preparing")
             self.assertEqual(preparing["overall_percent"], 1)
             self.assertIsNone(
-                mushroom_worker_jobs.claim_next(path, worker_id="worker_aaaaaaaa")
+                mushroom_worker_jobs.claim_next(path, lane="background", worker_id="worker_aaaaaaaa")
             )
 
             queued = mushroom_worker_jobs.finalize_ml_multiversion_preparation(

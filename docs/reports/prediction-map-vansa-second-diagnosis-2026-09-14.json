@@ -1,0 +1,272 @@
+{
+  "point": {
+    "lat": 42.29077,
+    "lon": 1.53842
+  },
+  "date": "2026-09-14",
+  "endpoint": "http://127.0.0.1:65517/api/mushrooms/prediction-map/queries",
+  "location": {
+    "status": "available",
+    "source": "IGN",
+    "edition": "2026-08-10",
+    "name": "la Vansa i Fórnols",
+    "national_code": "34092525909"
+  },
+  "terrain": {
+    "elevation": {
+      "status": "available",
+      "value_m": 1784,
+      "resolution_m": 5,
+      "source_id": "dem_5m"
+    },
+    "ph_openlandmap": {
+      "status": "available",
+      "source_id": "openlandmap_soildb_ph",
+      "edition": "v20250204",
+      "period": "2020-2022",
+      "depth_cm": [
+        0,
+        30
+      ],
+      "interval_probability": 0.68,
+      "revision": "e3d5c75beeaa4a44c192",
+      "estimate": 6.4,
+      "lower": 5.4,
+      "upper": 7.3,
+      "estimate_resolution_m": 30,
+      "interval_resolution_m": 120,
+      "lookup": {
+        "method": "point",
+        "distance_m": 0,
+        "lat": 42.29077,
+        "lon": 1.53842
+      }
+    }
+  },
+  "land_context": {
+    "trees": {
+      "source_id": "mfe25",
+      "exhaustive": false,
+      "status": "available",
+      "items": [
+        {
+          "label": "Pino Rojo",
+          "scientific_name": "Pinus sylvestris",
+          "code": "21",
+          "host_id": "host_pinus_sylvestris"
+        }
+      ],
+      "polygon_id": "2464069",
+      "formation": "Pinar de pino albar (Pinus sylvestris)",
+      "catalog_revision": "5e5dee67bdf044772c5c"
+    },
+    "vegetation": {
+      "source_id": "icgc_cobertes_2024",
+      "edition": "2024",
+      "field": "nivell_2",
+      "status": "available",
+      "feature_id": 833019,
+      "code": "225",
+      "label": "Boscos clars d'aciculifolis",
+      "mapping_status": "not_evaluated"
+    },
+    "geology": {
+      "source_id": "icgc_geologia_50000",
+      "edition": "2024-12",
+      "field": "Codi",
+      "status": "available",
+      "feature_id": 42816,
+      "code": "Tk",
+      "label": "Margues i calcàries margoses. Fàcies Keuper",
+      "mapping_status": "not_evaluated"
+    }
+  },
+  "mapped_context": {
+    "habitats": [],
+    "soil_tendencies": [
+      {
+        "id": "soil_calcareous",
+        "label": {
+          "es": "Calizo",
+          "ca": "Calcari",
+          "en": "Calcareous"
+        }
+      }
+    ],
+    "lithologies": [
+      {
+        "id": "lith_calcareous_marl",
+        "label": {
+          "es": "Marga caliza",
+          "ca": "Marga calcària",
+          "en": "Calcareous marl"
+        }
+      },
+      {
+        "id": "lith_limestone",
+        "label": {
+          "es": "Caliza",
+          "ca": "Calcària",
+          "en": "Limestone"
+        }
+      }
+    ]
+  },
+  "ecology": [
+    {
+      "species_id": "boletus_edulis",
+      "name": "Edulis",
+      "scientific_name": "Boletus edulis",
+      "status": "compatible",
+      "daily_statuses": [
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible"
+      ],
+      "admission": "conditional",
+      "soil_filter_review_ref": "docs/mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5",
+      "reasons": [
+        "soil_not_listed",
+        "hosts_match",
+        "altitude_match",
+        "ph_match",
+        "soil_ph_conditional"
+      ],
+      "matched_host_ids": [
+        "host_pinus_sylvestris"
+      ]
+    },
+    {
+      "species_id": "boletus_pinophilus",
+      "name": "Pinícola",
+      "scientific_name": "Boletus pinophilus",
+      "status": "compatible",
+      "daily_statuses": [
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible"
+      ],
+      "admission": "conditional",
+      "soil_filter_review_ref": "docs/mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5",
+      "reasons": [
+        "soil_not_listed",
+        "hosts_match",
+        "altitude_match",
+        "ph_match",
+        "soil_ph_conditional"
+      ],
+      "matched_host_ids": [
+        "host_pinus_sylvestris"
+      ]
+    },
+    {
+      "species_id": "cantharellus_cibarius_sl",
+      "name": "Rossinyol",
+      "scientific_name": "Cantharellus cibarius",
+      "status": "compatible",
+      "daily_statuses": [
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible"
+      ],
+      "admission": "conditional",
+      "soil_filter_review_ref": "docs/mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5",
+      "reasons": [
+        "soil_not_listed",
+        "hosts_match",
+        "altitude_match",
+        "ph_match",
+        "soil_ph_conditional"
+      ],
+      "matched_host_ids": [
+        "host_pinus_sylvestris"
+      ]
+    }
+  ],
+  "prediction": [
+    {
+      "species_id": "boletus_edulis",
+      "label_key": "boletus_edulis",
+      "status": "available",
+      "probabilities": [
+        0.606589,
+        0.616665,
+        0.626627,
+        0.636468,
+        0.646182,
+        0.655764,
+        0.665207
+      ],
+      "reasons": [
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated"
+      ]
+    },
+    {
+      "species_id": "boletus_pinophilus",
+      "label_key": "boletus_pinophilus",
+      "status": "available",
+      "probabilities": [
+        0.278388,
+        0.277451,
+        0.277045,
+        0.278815,
+        0.265758,
+        0.25664,
+        0.257046
+      ],
+      "reasons": [
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated"
+      ]
+    },
+    {
+      "species_id": "cantharellus_cibarius_sl",
+      "label_key": "cantharellus_cibarius_sl",
+      "status": "available",
+      "probabilities": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "model_abstained",
+        "model_abstained",
+        "model_abstained",
+        "model_abstained",
+        "model_abstained",
+        "model_abstained",
+        "model_abstained"
+      ]
+    }
+  ],
+  "finding": "Current v5 admits these profiles conditionally on mapped calcareous substrate and accepted estimated pH. Hosts, altitude and September satisfy the local profiles. Neither measured surface carbonates nor verified decalcification are supplied. Predictions reproduce screenshot rounding (edulis 61%, pinophilus 28%).",
+  "open_design_question": "Whether unresolved surface soil compatibility should abstain before models rather than allow conditional inference; do not substitute a universal biological veto for limestone.",
+  "changes": "Diagnostic only; no rule or profile edits."
+}

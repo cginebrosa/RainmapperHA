@@ -1,0 +1,47 @@
+{
+  "date": "2026-09-15",
+  "scope": "Local coordinator and existing worker; no HA real release",
+  "background_job_types": [
+    "worker_candidate_rebuild",
+    "worker_ml_train_v0",
+    "worker_ml_multiversion_v1",
+    "worker_predictor_precompute_v1"
+  ],
+  "promotion": "Unchanged: HA verifies and promotes the linked generation after multiversion completion",
+  "validation": {
+    "queue_tests": 41,
+    "worker_service_tests": 41,
+    "api_tests": 343,
+    "smoke_tests": 1565,
+    "smoke_skipped": 48,
+    "smoke_passed": true,
+    "service_fixture": "Real HTTP scheduling, stubbed scientific execution and transport; rebuild and base training retain background coordinator affinity",
+    "real_scientific_jobs_launched": 0
+  },
+  "deployment": {
+    "ha": {
+      "image": "rainmapperha:local-ha-ui",
+      "image_id": "sha256:5f9ca98c96c96e2243b6027e361a0a1984d136a07cbe5a7c1f15c6a748fbcf31",
+      "verified_files": 193,
+      "image_source_differences": [],
+      "container_source_differences": []
+    },
+    "worker": {
+      "image": "rainmapper-worker:1.1.1",
+      "image_id": "sha256:f50218c89829da07bcd7f4659a3f3f35293b86c713b3c19e45e35806274c6dfc",
+      "verified_files": 101,
+      "image_source_differences": [],
+      "container_source_differences": []
+    }
+  },
+  "coordinator_config_sha256": {
+    "coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+    "additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+  },
+  "coordinators_unchanged_before_and_after": true,
+  "limitations": [
+    "An old HA coordinator still assigns heavy jobs to foreground until it is upgraded.",
+    "Complete local scientific acceptance and explicit approval are still required before HA real release.",
+    "No new live map parity run: the previous map behavior is covered by the current smoke and source parity checks."
+  ]
+}

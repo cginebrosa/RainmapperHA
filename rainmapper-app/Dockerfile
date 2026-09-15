@@ -1,18 +1,19 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.303" \
+LABEL io.hass.version="0.2.304" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.303
+ENV RAINMAPPER_APP_VERSION=0.2.304
 
 WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         gdal-bin \
+        python3-gdal \
         ffmpeg \
         libimage-exiftool-perl \
     && rm -rf /var/lib/apt/lists/*
@@ -32,6 +33,8 @@ COPY mushroom-data/mushroom_profiles.json \
      /app/mushroom-data/
 COPY rainmapper-app/defaults/mushroom_observations.json /app/mushroom-data/mushroom_observations.json
 COPY scripts/validate-mushroom-data.py /app/scripts/validate-mushroom-data.py
+COPY scripts/prediction-map-local-geography.py scripts/prediction-map-local-weather.py scripts/prediction-map-local-model.py /app/scripts/
+COPY scripts/manage-prediction-map-volume.py scripts/manage-shared-geography.py /app/scripts/
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
 COPY scripts/run-mushroom-ml-train-job.py /app/scripts/run-mushroom-ml-train-job.py
 COPY scripts/run-mushroom-ml-multiversion-job.py /app/scripts/run-mushroom-ml-multiversion-job.py
@@ -49,6 +52,7 @@ COPY rainmapper-app/app/mushroom_known_sites_ui.py /app/mushroom_known_sites_ui.
 COPY rainmapper-app/app/mushroom_profiles_ui.py /app/mushroom_profiles_ui.py
 COPY rainmapper-app/app/mushroom_predictor_ui.py /app/mushroom_predictor_ui.py
 COPY rainmapper-app/app/mushroom_predictor_weather_ui.py /app/mushroom_predictor_weather_ui.py
+COPY rainmapper-app/app/mushroom_prediction_map_ui.py /app/mushroom_prediction_map_ui.py
 COPY rainmapper-app/app/mushroom_workers_ui.py /app/mushroom_workers_ui.py
 COPY rainmapper-app/run.sh /run.sh
 RUN chmod +x /run.sh

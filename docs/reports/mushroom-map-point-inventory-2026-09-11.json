@@ -1,0 +1,121 @@
+{
+  "date": "2026-09-11",
+  "scope": "Local laboratory inventory, not HA real. Read-only source inspection; no prediction or training.",
+  "head": "fce06dd24507a17071755763cb24fb7da1a4ce85",
+  "files": [
+    {
+      "path": "docker-data/mushroom-data/mushroom_observations.json",
+      "bytes": 995392,
+      "sha256": "72782f3497398b7fc16ccf73be291f000aa7f769d8d883e893f28577196f5acd"
+    },
+    {
+      "path": "docker-data/mushroom-data/mushroom_profiles.json",
+      "bytes": 147941,
+      "sha256": "3acd48011ef357974ff0d1c741a792b02cb39442226b3884f81ad02afa40b046"
+    },
+    {
+      "path": "docker-data/mushroom-data/mushroom_known_sites.json",
+      "bytes": 1822727,
+      "sha256": "6c3d24dc668a3c59f3f1b7f941b17a3ac30a80ff428d3e4e6c754e8324f01aa3"
+    },
+    {
+      "path": "mushroom-GIS/soilgrids/manifest.json",
+      "bytes": 1384621,
+      "sha256": "4ef9ecf186ecbe9ac017ea9ba61f14a1c5bb31a0763fcbe072aba0b6bcba7a22"
+    },
+    {
+      "path": "mushroom-data/mushroom_observations.json",
+      "bytes": 931813,
+      "sha256": "f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0"
+    }
+  ],
+  "counts": {
+    "profiles": 21,
+    "areas": 34,
+    "microareas": 66,
+    "observations": 470,
+    "initial_eligible": 427
+  },
+  "initial_eligibility": "validation_status == valid AND calibration_use == include AND flush_abundance != pending; not proof of weather eligibility or independent episodes",
+  "observations_by_species": {
+    "amanita_caesarea": 77,
+    "boletus_aereus": 77,
+    "boletus_edulis": 57,
+    "boletus_pinophilus": 83,
+    "cantharellus_cibarius_sl": 19,
+    "cantharellus_lutescens": 3,
+    "craterellus_cornucopioides": 4,
+    "hygrophorus_latitabundus": 11,
+    "hygrophorus_marzuolus": 39,
+    "lactarius_deliciosus": 56,
+    "lactarius_salmonicolor_quieticolor_group": 1,
+    "lactarius_sanguifluus": 7,
+    "lactarius_vinosus": 2,
+    "macrolepiota_procera": 1,
+    "morchella_elata_complex": 19,
+    "russula_virescens": 9,
+    "tricholoma_terreum": 5
+  },
+  "initial_eligible_by_species": {
+    "amanita_caesarea": 74,
+    "boletus_aereus": 77,
+    "boletus_edulis": 57,
+    "boletus_pinophilus": 83,
+    "cantharellus_cibarius_sl": 14,
+    "cantharellus_lutescens": 3,
+    "craterellus_cornucopioides": 1,
+    "hygrophorus_latitabundus": 11,
+    "hygrophorus_marzuolus": 25,
+    "lactarius_deliciosus": 52,
+    "lactarius_sanguifluus": 3,
+    "lactarius_vinosus": 1,
+    "macrolepiota_procera": 1,
+    "morchella_elata_complex": 17,
+    "russula_virescens": 4,
+    "tricholoma_terreum": 4
+  },
+  "field_context_nonempty": {
+    "observed_host_ids": 398,
+    "observed_forest_type_ids": 378,
+    "observed_soil_tendency_ids": 384,
+    "observed_aspect_ids": 380
+  },
+  "locations": {
+    "with_coordinates": 470,
+    "with_precision_m": 0
+  },
+  "gis_probes": {
+    "method": "Three earlier read-only calls to rainmapper_core.mushroom_gis_lab.reconstruct_observation in rainmapper-local-rainmapper-ha-ui-1; no mappings supplied, no persisted rows, no inference. Summarized results, not a full coverage audit.",
+    "results": [
+      {
+        "lat": 42.0641,
+        "lon": 1.9387,
+        "coordinate_source": "Publicly visible coordinate in user supplied Sporas screenshot",
+        "vegetation": "MVC50 coverage; LLVA=25; LLVA_Subst=Carbonatat",
+        "geology": "POmlg",
+        "altitude_m": 726.05,
+        "dem_source": "dem_5m"
+      },
+      {
+        "lat": 42.574,
+        "lon": 2.098,
+        "coordinate_source": "Chosen control in France",
+        "vegetation": "no_coverage_at_point",
+        "geology": "no_coverage_at_point",
+        "altitude_m": 1535.4,
+        "dem_source": "dem_france_rge_alti_5m"
+      },
+      {
+        "lat": 39.47,
+        "lon": -0.475,
+        "coordinate_source": "Chosen control outside Catalunya",
+        "vegetation": "no_coverage_at_point",
+        "geology": "no_coverage_at_point",
+        "altitude_m": null,
+        "dem_status": "query_error",
+        "caveat": "Query failure does not prove geographic absence of DEM coverage"
+      }
+    ]
+  },
+  "restrictions": "No user observation locations exported; first probe only uses the coordinate visible in user's reference. Protected observations JSON unchanged by this analysis."
+}

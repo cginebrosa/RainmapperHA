@@ -1,0 +1,109 @@
+{
+  "date": "2026-09-14",
+  "policy": "territorial_and_seasonal_windows_v6",
+  "decision": "Visible candidates require territorial compatibility and main/secondary season for the selected date; out-of-season/unknown phases hidden. Visible rows show the seasonal phase.",
+  "implementation": {
+    "territorial_status": "independent of date",
+    "daily_season_phases": "separate shared Predictor classification, at most 32 species x 7 days",
+    "outside_season": "no model invocation or visible candidate",
+    "month_boundary": "only in-season days materialized; null outside season",
+    "source": "local profile phenology, no month edits",
+    "preview": "same URL and arguments; synthetic authentication"
+  },
+  "tests": {
+    "python": 106,
+    "python_result": "OK",
+    "python_command": "RAINMAPPER_TEST_LOCAL_MUSHROOM_DATA=docker-data/mushroom-data .venv/bin/python -m unittest tests.test_mushroom_map_ecology tests.test_mushroom_map_model_runtime tests.test_mushroom_prediction_map tests.test_mushroom_map_prediction tests.test_mushroom_map_local_mappings tests.test_mushroom_ml_predictor_cache",
+    "browser_result": "OK",
+    "browser_screenshots": "/var/folders/42/w270zmtn6q17nw__20m8kvsm0000gn/T/prediction-map-browser-AS77CZ"
+  },
+  "live_api": {
+    "point": {
+      "lat": 42.17076,
+      "lon": 1.84548
+    },
+    "date": "2026-09-14",
+    "endpoint": "http://127.0.0.1:65517/api/mushrooms/prediction-map/queries",
+    "seasonality": {
+      "hygrophorus_marzuolus": [
+        "out_of_season",
+        "out_of_season",
+        "out_of_season",
+        "out_of_season",
+        "out_of_season",
+        "out_of_season",
+        "out_of_season"
+      ],
+      "tricholoma_terreum": [
+        "secondary",
+        "secondary",
+        "secondary",
+        "secondary",
+        "secondary",
+        "secondary",
+        "secondary"
+      ],
+      "boletus_edulis": [
+        "main",
+        "main",
+        "main",
+        "main",
+        "main",
+        "main",
+        "main"
+      ]
+    },
+    "models": [
+      {
+        "species_id": "boletus_edulis",
+        "label_key": "boletus_edulis",
+        "status": "available",
+        "probabilities": [
+          0.38372,
+          0.393799,
+          0.403955,
+          0.414178,
+          0.424461,
+          0.434795,
+          0.445172
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      },
+      {
+        "species_id": "tricholoma_terreum",
+        "label_key": "tricholoma_terreum",
+        "status": "no_model",
+        "probabilities": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "reasons": [
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable"
+        ]
+      }
+    ],
+    "response_bytes": 22704
+  },
+  "local_profile_catalog_mapping_hashes_unchanged_from_v5": true,
+  "scientific_validation": false,
+  "scope": "no training, precompute, builds HA, GIS/profile/mapping/observation edits or coordinator changes"
+}

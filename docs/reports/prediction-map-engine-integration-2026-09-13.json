@@ -1,0 +1,1130 @@
+{
+  "date": "2026-09-13",
+  "status": "implemented_and_active_in_local_preview_only",
+  "scope": [
+    "Separate Rovello entries by existing species_id, no grouped model or observations",
+    "Existing Python inference and sealed species evidence on point inputs",
+    "Compatible species sorted descending by selected-day probability; nulls last",
+    "Area-preserving in-memory MFE candidate repair"
+  ],
+  "local_profiles": {
+    "path": "docker-data/mushroom-data/mushroom_profiles.json",
+    "backup": "docker-data/mushroom-data/backups/mushroom_profiles.20260913T182117725988Z.keep.json",
+    "edits_by_this_increment": "metadata.map_display_name on four existing Lactarius profiles only",
+    "concurrent_edits_preserved": {
+      "boletus_edulis.altitude_min_m": [
+        600,
+        900
+      ],
+      "boletus_pinophilus.altitude_min_m": [
+        600,
+        1100
+      ]
+    }
+  },
+  "preserved_sha256": {
+    "mushroom_reference_catalogs.json": "2d462c0d815ad89437f9c30b73f3316994a629de3269aece1ed6ac16128795c8",
+    "mushroom_gis_mappings.json": "aec5d3e353ec0afb8fe6ba9dd04421a9acb907b6f30366448a50fea02e74ae06",
+    "mushroom_observations.json": "7ce058bce2b28ca30ec613e2cc66ee0045f140895e54d930d812af9d5ab85227"
+  },
+  "model_registry": "docker-data/mushroom-data/mushroom_ml_version_registry.json",
+  "models_root": "docker-media/rainmapper/mushroom-derived/ml_models",
+  "terrain_index": "mushroom-map-GIS/terrain-index/point-inputs-2026-09-12.sqlite",
+  "resource_policy": {
+    "quality_projection": "Keep sealed species resolutions and entries; discard area arrays while streaming original hash-verified catalog",
+    "compressed_quality_limit_bytes": 16777216,
+    "quality_projection_limit_bytes": 12582912,
+    "point_species_limit": 32,
+    "geometry_repair_cache_entries": 8,
+    "geometry_limit_bytes": 2097152,
+    "no_performance_benchmark": true
+  },
+  "point_executor_checks_before_forest_fix": [
+    {
+      "point": {
+        "lat": 42.0622,
+        "lon": 1.93614
+      },
+      "dates": [
+        "2026-09-13",
+        "2026-09-14",
+        "2026-09-15",
+        "2026-09-16",
+        "2026-09-17",
+        "2026-09-18",
+        "2026-09-19"
+      ],
+      "data_mode": "prediction",
+      "provenance": {
+        "engine": "existing_python_predictor",
+        "scientifically_validated": false,
+        "selection_scope": "species",
+        "point_validation": "not_established",
+        "model_revision": "ac802efe85f6be611b19",
+        "batch_id": "operational_20260909T184116Z",
+        "weather_generation": "20260913T171307152718Z-c1fbe31a5cf7",
+        "soil_context_hash": "5e2ee162626303ff4023a52babedd3f458f4895d1cdc50600d64b6b78334d3a9"
+      },
+      "species": [
+        {
+          "species_id": "amanita_caesarea",
+          "status": "available",
+          "probabilities": [
+            0.330317,
+            0.344153,
+            0.35823,
+            0.372527,
+            0.387022,
+            0.40169,
+            0.416507
+          ],
+          "reasons": [
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated"
+          ]
+        },
+        {
+          "species_id": "boletus_aereus",
+          "status": "available",
+          "probabilities": [
+            0.334517,
+            0.34404,
+            0.353676,
+            0.363417,
+            0.373257,
+            0.383189,
+            0.393204
+          ],
+          "reasons": [
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated"
+          ]
+        },
+        {
+          "species_id": "cantharellus_cibarius_sl",
+          "status": "available",
+          "probabilities": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "reasons": [
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained"
+          ]
+        },
+        {
+          "species_id": "craterellus_cornucopioides",
+          "status": "no_model",
+          "probabilities": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "reasons": [
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable"
+          ]
+        },
+        {
+          "species_id": "lepista_nuda",
+          "status": "no_model",
+          "probabilities": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "reasons": [
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable"
+          ]
+        },
+        {
+          "species_id": "macrolepiota_procera",
+          "status": "no_model",
+          "probabilities": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "reasons": [
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable"
+          ]
+        },
+        {
+          "species_id": "russula_virescens",
+          "status": "no_model",
+          "probabilities": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "reasons": [
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable"
+          ]
+        }
+      ]
+    },
+    {
+      "point": {
+        "lat": 42.46291,
+        "lon": 1.82695
+      },
+      "dates": [
+        "2026-09-13",
+        "2026-09-14",
+        "2026-09-15",
+        "2026-09-16",
+        "2026-09-17",
+        "2026-09-18",
+        "2026-09-19"
+      ],
+      "data_mode": "prediction",
+      "provenance": {
+        "engine": "existing_python_predictor",
+        "scientifically_validated": false,
+        "selection_scope": "species",
+        "point_validation": "not_established",
+        "model_revision": "ac802efe85f6be611b19",
+        "batch_id": "operational_20260909T184116Z",
+        "weather_generation": "20260913T171307152718Z-c1fbe31a5cf7",
+        "soil_context_hash": "284fc0843571c67eb6708e959fc03b8bab4d6ce79e5fb1d6501bf7cfc33c1626"
+      },
+      "species": [
+        {
+          "species_id": "boletus_edulis",
+          "status": "available",
+          "probabilities": [
+            0.661027,
+            0.67048,
+            0.679784,
+            0.688933,
+            0.697924,
+            0.706752,
+            0.715416
+          ],
+          "reasons": [
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated"
+          ]
+        },
+        {
+          "species_id": "boletus_pinophilus",
+          "status": "available",
+          "probabilities": [
+            0.380673,
+            0.380673,
+            0.380673,
+            0.380673,
+            0.380673,
+            0.380673,
+            0.384719
+          ],
+          "reasons": [
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated"
+          ]
+        },
+        {
+          "species_id": "cantharellus_cibarius_sl",
+          "status": "available",
+          "probabilities": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "reasons": [
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained"
+          ]
+        },
+        {
+          "species_id": "lactarius_salmonicolor_quieticolor_group",
+          "status": "no_model",
+          "probabilities": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "reasons": [
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable"
+          ]
+        }
+      ]
+    }
+  ],
+  "forest_correction": {
+    "source_fid": 237242,
+    "reason_before": "invalid_geometry",
+    "method": "GDAL MakeValid in memory only, polygon validity and unchanged area within existing preparation tolerance",
+    "source_and_index_rewritten": false,
+    "points": [
+      {
+        "name": "Fogars encinar",
+        "request": {
+          "contract": "prediction_map_point_v1",
+          "request_id": "forest_check_0",
+          "point": {
+            "lat": 41.75621,
+            "lon": 2.40315
+          },
+          "start_date": "2026-09-13",
+          "horizon_days": 7,
+          "history_days": 30,
+          "species_ids": [],
+          "execution": "local"
+        },
+        "response_bytes": 16122,
+        "trees": {
+          "source_id": "mfe25",
+          "exhaustive": false,
+          "status": "available",
+          "items": [
+            {
+              "label": "Encina",
+              "scientific_name": "Quercus ilex",
+              "code": "45",
+              "host_id": "host_quercus_ilex"
+            }
+          ],
+          "polygon_id": "2468967",
+          "formation": "Encinares (Quercus ilex)",
+          "catalog_revision": "2d462c0d815ad89437f9"
+        },
+        "ecology_edulis": {
+          "species_id": "boletus_edulis",
+          "name": "Edulis",
+          "scientific_name": "Boletus edulis",
+          "status": "incompatible",
+          "daily_statuses": [
+            "incompatible",
+            "incompatible",
+            "incompatible",
+            "incompatible",
+            "incompatible",
+            "incompatible",
+            "incompatible"
+          ],
+          "reasons": [
+            "hosts_match",
+            "altitude_outside",
+            "ph_match",
+            "soil_preference_match"
+          ],
+          "matched_host_ids": [
+            "host_quercus_ilex"
+          ]
+        },
+        "prediction": {
+          "point": {
+            "lat": 41.75621,
+            "lon": 2.40315
+          },
+          "dates": [
+            "2026-09-13",
+            "2026-09-14",
+            "2026-09-15",
+            "2026-09-16",
+            "2026-09-17",
+            "2026-09-18",
+            "2026-09-19"
+          ],
+          "data_mode": "prediction",
+          "provenance": {
+            "engine": "existing_python_predictor",
+            "scientifically_validated": false,
+            "selection_scope": "species",
+            "point_validation": "not_established",
+            "model_revision": "ac802efe85f6be611b19",
+            "batch_id": "operational_20260909T184116Z",
+            "weather_generation": "20260913T171307152718Z-c1fbe31a5cf7",
+            "soil_context_hash": "9baca1e4599eb815e94bf59f1a8d22b62d92768650fe55fba14c374e6eaa9ebd"
+          },
+          "species": [
+            {
+              "species_id": "amanita_caesarea",
+              "status": "available",
+              "probabilities": [
+                0.02507,
+                0.026629,
+                0.028278,
+                0.030022,
+                0.031867,
+                0.033818,
+                0.035879
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated"
+              ]
+            },
+            {
+              "species_id": "boletus_aereus",
+              "status": "available",
+              "probabilities": [
+                0.236326,
+                0.244079,
+                0.251991,
+                0.260058,
+                0.268279,
+                0.27665,
+                0.285169
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated"
+              ]
+            },
+            {
+              "species_id": "cantharellus_cibarius_sl",
+              "status": "available",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained"
+              ]
+            },
+            {
+              "species_id": "craterellus_cornucopioides",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "russula_virescens",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "Arbucies",
+        "request": {
+          "contract": "prediction_map_point_v1",
+          "request_id": "forest_check_1",
+          "point": {
+            "lat": 41.79996,
+            "lon": 2.48872
+          },
+          "start_date": "2026-09-13",
+          "horizon_days": 7,
+          "history_days": 30,
+          "species_ids": [],
+          "execution": "local"
+        },
+        "response_bytes": 16951,
+        "trees": {
+          "source_id": "mfe25",
+          "exhaustive": false,
+          "status": "available",
+          "items": [
+            {
+              "label": "Haya",
+              "scientific_name": "Fagus sylvatica",
+              "code": "71",
+              "host_id": "host_fagus_sylvatica"
+            },
+            {
+              "label": "Castaño",
+              "scientific_name": "Castanea sativa",
+              "code": "72",
+              "host_id": "host_castanea_sativa"
+            }
+          ],
+          "polygon_id": "2240445",
+          "formation": "Hayedos (Fagus sylvatica)",
+          "catalog_revision": "2d462c0d815ad89437f9"
+        },
+        "ecology_edulis": {
+          "species_id": "boletus_edulis",
+          "name": "Edulis",
+          "scientific_name": "Boletus edulis",
+          "status": "incompatible",
+          "daily_statuses": [
+            "incompatible",
+            "incompatible",
+            "incompatible",
+            "incompatible",
+            "incompatible",
+            "incompatible",
+            "incompatible"
+          ],
+          "reasons": [
+            "hosts_match",
+            "altitude_outside",
+            "ph_match"
+          ],
+          "matched_host_ids": [
+            "host_castanea_sativa",
+            "host_fagus_sylvatica"
+          ]
+        },
+        "prediction": {
+          "point": {
+            "lat": 41.79996,
+            "lon": 2.48872
+          },
+          "dates": [
+            "2026-09-13",
+            "2026-09-14",
+            "2026-09-15",
+            "2026-09-16",
+            "2026-09-17",
+            "2026-09-18",
+            "2026-09-19"
+          ],
+          "data_mode": "prediction",
+          "provenance": {
+            "engine": "existing_python_predictor",
+            "scientifically_validated": false,
+            "selection_scope": "species",
+            "point_validation": "not_established",
+            "model_revision": "ac802efe85f6be611b19",
+            "batch_id": "operational_20260909T184116Z",
+            "weather_generation": "20260913T171307152718Z-c1fbe31a5cf7",
+            "soil_context_hash": "0dfc9a0c351a6a50291b6e95d04c8b5c727eb453c9cbf0af8d9aed850a5a5ac4"
+          },
+          "species": [
+            {
+              "species_id": "amanita_caesarea",
+              "status": "available",
+              "probabilities": [
+                0.09626,
+                0.101782,
+                0.107571,
+                0.113636,
+                0.119983,
+                0.126621,
+                0.133557
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated"
+              ]
+            },
+            {
+              "species_id": "boletus_aereus",
+              "status": "available",
+              "probabilities": [
+                0.339742,
+                0.349336,
+                0.359038,
+                0.368843,
+                0.378742,
+                0.388729,
+                0.398796
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated"
+              ]
+            },
+            {
+              "species_id": "cantharellus_cibarius_sl",
+              "status": "available",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained"
+              ]
+            },
+            {
+              "species_id": "cantharellus_lutescens",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "craterellus_cornucopioides",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "lepista_nuda",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "macrolepiota_procera",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "russula_virescens",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "Fogars edulis",
+        "request": {
+          "contract": "prediction_map_point_v1",
+          "request_id": "forest_check_2",
+          "point": {
+            "lat": 41.77528,
+            "lon": 2.4648
+          },
+          "start_date": "2026-09-13",
+          "horizon_days": 7,
+          "history_days": 30,
+          "species_ids": [],
+          "execution": "local"
+        },
+        "response_bytes": 16671,
+        "trees": {
+          "source_id": "mfe25",
+          "exhaustive": false,
+          "status": "available",
+          "items": [
+            {
+              "label": "Haya",
+              "scientific_name": "Fagus sylvatica",
+              "code": "71",
+              "host_id": "host_fagus_sylvatica"
+            }
+          ],
+          "polygon_id": "2468941",
+          "formation": "Hayedos (Fagus sylvatica)",
+          "catalog_revision": "2d462c0d815ad89437f9"
+        },
+        "ecology_edulis": {
+          "species_id": "boletus_edulis",
+          "name": "Edulis",
+          "scientific_name": "Boletus edulis",
+          "status": "compatible",
+          "daily_statuses": [
+            "compatible",
+            "compatible",
+            "compatible",
+            "compatible",
+            "compatible",
+            "compatible",
+            "compatible"
+          ],
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match"
+          ],
+          "matched_host_ids": [
+            "host_fagus_sylvatica"
+          ]
+        },
+        "prediction": {
+          "point": {
+            "lat": 41.77528,
+            "lon": 2.4648
+          },
+          "dates": [
+            "2026-09-13",
+            "2026-09-14",
+            "2026-09-15",
+            "2026-09-16",
+            "2026-09-17",
+            "2026-09-18",
+            "2026-09-19"
+          ],
+          "data_mode": "prediction",
+          "provenance": {
+            "engine": "existing_python_predictor",
+            "scientifically_validated": false,
+            "selection_scope": "species",
+            "point_validation": "not_established",
+            "model_revision": "ac802efe85f6be611b19",
+            "batch_id": "operational_20260909T184116Z",
+            "weather_generation": "20260913T171307152718Z-c1fbe31a5cf7",
+            "soil_context_hash": "af44e71c682616369662355876e4aa4710e60364e95c60fee025ea36c09ebabd"
+          },
+          "species": [
+            {
+              "species_id": "boletus_edulis",
+              "status": "available",
+              "probabilities": [
+                0.333862,
+                0.343376,
+                0.353003,
+                0.362736,
+                0.372568,
+                0.382493,
+                0.392502
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated"
+              ]
+            },
+            {
+              "species_id": "boletus_pinophilus",
+              "status": "available",
+              "probabilities": [
+                0.03411,
+                0.034835,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained"
+              ]
+            },
+            {
+              "species_id": "cantharellus_cibarius_sl",
+              "status": "available",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained"
+              ]
+            },
+            {
+              "species_id": "cantharellus_lutescens",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "craterellus_cornucopioides",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "lepista_nuda",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "macrolepiota_procera",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "russula_virescens",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "main_targeted_initial": {
+      "tests": 58,
+      "passed_inside_sandbox": 57,
+      "loopback_test": "Passed separately with network permission; initial PermissionError was sandbox binding restriction"
+    },
+    "additional_executor_and_broker_tests": 2,
+    "final_contract_weekly_runtime_group": 26,
+    "existing_predictor_multiversion_weather_tests": 82,
+    "gdal_ph_terrain_tests": 21,
+    "final_gdal_forest_tests": 12,
+    "browser": "Desktop/mobile, original weather route, point cancellation/errors, real-mode ordering including zero and null, daily reorder; passed",
+    "worker_static_import_closure": {
+      "modules": 45,
+      "missing": []
+    },
+    "preview_api": "Three points after forest correction, real mode and contract validation passed"
+  },
+  "not_performed": [
+    "HA or worker image build/deployment",
+    "Runners",
+    "Training",
+    "Precompute",
+    "New downloads or source/index rebuild",
+    "Real authentication in preview",
+    "Coordinator URL changes"
+  ],
+  "remaining": [
+    "Validate predictions against known sites and maintain local species profiles",
+    "Remote volume/configuration and equivalent container acceptance before enabling worker/HA",
+    "Compare results and resource use across executors after the same inputs and artifacts are available",
+    "Scientific transfer validation for new points; not established by these functional checks"
+  ],
+  "point_executor_config": {
+    "geography_python": "/opt/homebrew/bin/python3",
+    "weather_python": "/Users/carlosginebrosa/Developer/RainmapperHA/.venv/bin/python",
+    "model_python": "/Users/carlosginebrosa/Developer/RainmapperHA/.venv/bin/python",
+    "terrain_index": "mushroom-map-GIS/terrain-index/point-inputs-2026-09-12.sqlite",
+    "soil_root": "mushroom-map-GIS/soilgrids-shared",
+    "dem_root": "mushroom-map-GIS/ign-mdt25",
+    "regional_root": "mushroom-GIS",
+    "municipalities": "mushroom-map-GIS/ign-municipios/prepared/municipalities-2026-08-10.gpkg",
+    "municipalities_edition": "2026-08-10",
+    "land_cover": "mushroom-map-GIS/icgc-cobertes-2024/source/cobertes-sol-v1r0-2024.gpkg",
+    "geology": "mushroom-map-GIS/icgc-geologia-50000/source/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+    "land_cover_parts": "mushroom-map-GIS/icgc-cobertes-2024/prepared/oversized-parts-2026-09-12.gpkg",
+    "forest_index": "mushroom-map-GIS/mfe25/prepared/catalunya-point-index-v2-2026-09-13.sqlite",
+    "forest_catalogs": "docker-data/mushroom-data/mushroom_reference_catalogs.json",
+    "profiles": "docker-data/mushroom-data/mushroom_profiles.json",
+    "ecology_catalogs": "docker-data/mushroom-data/mushroom_reference_catalogs.json",
+    "gis_mappings": "docker-data/mushroom-data/mushroom_gis_mappings.json",
+    "openlandmap_ph": "mushroom-map-GIS/openlandmap-ph/spain-v20250204/manifest.json",
+    "ecology_ph_source": "openlandmap",
+    "weather_data": "docker-data/Data",
+    "weather_stations": "docker-data/stations.txt",
+    "models_root": "docker-media/rainmapper/mushroom-derived/ml_models",
+    "model_registry": "docker-data/mushroom-data/mushroom_ml_version_registry.json"
+  }
+}

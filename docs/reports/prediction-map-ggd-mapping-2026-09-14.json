@@ -1,0 +1,206 @@
+{
+  "mapping_review": "docker-data/mushroom-data/gis-mapping-reviews/icgc-ggd-2026-09-14.json",
+  "backup": "docker-data/mushroom-data/backups/mushroom_gis_mappings.20260913T221023235066Z.ggd.keep.json",
+  "scope": "One exact source-edition-field-code mapping added; source GIS, host lookup, profiles, numeric pH and other mappings preserved",
+  "checks": [
+    {
+      "point": {
+        "lat": 41.22012,
+        "lon": 1.06989
+      },
+      "date": "2026-09-14",
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 6.8,
+        "lower": 6,
+        "upper": 7.7,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 41.22012,
+          "lon": 1.06989
+        }
+      },
+      "trees": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "no_trees_recorded",
+        "items": [],
+        "polygon_id": "2325877",
+        "formation": "No arbolado",
+        "catalog_revision": "2d462c0d815ad89437f9"
+      },
+      "mapped_context": {
+        "habitats": [],
+        "soil_tendencies": [
+          {
+            "id": "soil_siliceous",
+            "label": {
+              "es": "Silíceo",
+              "ca": "Silici",
+              "en": "Siliceous"
+            }
+          }
+        ],
+        "lithologies": [
+          {
+            "id": "lith_siliceous_substrate",
+            "label": {
+              "es": "Sustrato silíceo",
+              "ca": "Substrat silici",
+              "en": "Siliceous substrate"
+            }
+          }
+        ]
+      },
+      "aereus": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "unknown",
+        "daily_statuses": [
+          "unknown",
+          "unknown",
+          "unknown",
+          "unknown",
+          "unknown",
+          "unknown",
+          "unknown"
+        ],
+        "reasons": [
+          "terrain_context_missing"
+        ],
+        "matched_host_ids": []
+      },
+      "probabilities": null
+    },
+    {
+      "point": {
+        "lat": 41.22071,
+        "lon": 1.07009
+      },
+      "date": "2026-09-14",
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 6.9,
+        "lower": 6,
+        "upper": 7.7,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 41.22071,
+          "lon": 1.07009
+        }
+      },
+      "trees": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "available",
+        "items": [
+          {
+            "label": "Pino carrasco",
+            "scientific_name": "Pinus halepensis",
+            "code": "24",
+            "host_id": "host_pinus_halepensis"
+          },
+          {
+            "label": "Encina",
+            "scientific_name": "Quercus ilex",
+            "code": "45",
+            "host_id": "host_quercus_ilex"
+          },
+          {
+            "label": "Quejigo",
+            "scientific_name": "Quercus faginea",
+            "code": "44",
+            "host_id": "host_quercus_faginea"
+          }
+        ],
+        "polygon_id": "2326361",
+        "formation": "Pinar de pino carrasco (Pinus halepensis)",
+        "catalog_revision": "2d462c0d815ad89437f9"
+      },
+      "mapped_context": {
+        "habitats": [],
+        "soil_tendencies": [
+          {
+            "id": "soil_siliceous",
+            "label": {
+              "es": "Silíceo",
+              "ca": "Silici",
+              "en": "Siliceous"
+            }
+          }
+        ],
+        "lithologies": [
+          {
+            "id": "lith_siliceous_substrate",
+            "label": {
+              "es": "Sustrato silíceo",
+              "ca": "Substrat silici",
+              "en": "Siliceous substrate"
+            }
+          }
+        ]
+      },
+      "aereus": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "compatible",
+        "daily_statuses": [
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible",
+          "compatible"
+        ],
+        "reasons": [
+          "soil_accepted",
+          "hosts_match",
+          "altitude_match",
+          "ph_conflict_soil_supported",
+          "soil_preference_match",
+          "lithology_preference_match"
+        ],
+        "matched_host_ids": [
+          "host_quercus_faginea",
+          "host_quercus_ilex"
+        ]
+      },
+      "probabilities": [
+        0.472049,
+        0.482632,
+        0.493215,
+        0.503788,
+        0.514342,
+        0.524869,
+        0.535359
+      ]
+    }
+  ]
+}

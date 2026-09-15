@@ -6119,7 +6119,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('name="view" value="v0"', page)
         self.assertIn("Aparcado para v0", page)
         self.assertIn("feature_disturbed_soil", page)
-        self.assertNotIn("soil_humus_rich", page)
+        # It may be offered by the catalog for a new row, but is not an active affinity.
+        self.assertNotIn('value="soil_humus_rich" selected', page)
         self.assertNotIn('id="profile-tab-weather"', page)
         self.assertNotIn('id="profile-tab-scoring"', page)
         self.assertNotIn('id="profile-tab-json"', page)
@@ -10914,9 +10915,15 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "worker_12345678",
                 profile_keys=["altitude_v2/common_idw"],
             )
-            claim_status, claimed = self.web_server.claim_mushroom_worker_job(
-                {"worker_id": "worker_12345678"}
+            online_status, online = self.web_server.claim_mushroom_worker_job(
+                {"worker_id": "worker_12345678", "lane": "foreground"}
             )
+            self.assertEqual(online_status, 200)
+            self.assertIsNone(online["job"])
+            claim_status, claimed = self.web_server.claim_mushroom_worker_job(
+                {"worker_id": "worker_12345678", "lane": "background"}
+            )
+            self.assertEqual(claimed["job"]["lane"], "background")
             claim_token = claimed["job"]["claim_token"]
             job_id = created["job"]["job_id"]
             start_status, _started = self.web_server.start_claimed_mushroom_worker_job(
@@ -11908,6 +11915,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         claimed = self.web_server.mushroom_worker_jobs.claim_next(
             jobs_path,
+            lane="background",
             worker_id="worker_aaaaaaaa",
             claim_token="claim-secret",
         )
@@ -12085,6 +12093,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         claimed = self.web_server.mushroom_worker_jobs.claim_next(
             jobs_path,
+            lane="background",
             worker_id="worker_aaaaaaaa",
             claim_token="training-secret",
         )
@@ -12705,6 +12714,116 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertNotIn('action="/mushrooms/profiles"', source)
         self.assertEqual("?group=host_taxa&id=host_foo", self.web_server.catalog_query_url("host_taxa", "host_foo"))
 
+    def test_species_ph_persists_clears_and_rejects_invalid_ranges(self) -> None:
+        with mock.patch.dict(os.environ, {
+            "RAINMAPPER_MUSHROOM_DEFAULTS_DIR": str(ROOT_DIR / "mushroom-data"),
+            "RAINMAPPER_MUSHROOM_DATA_DIR": str(Path(self.temp_dir.name) / "ph-data"),
+        }):
+            store = self.web_server.default_store()
+            store.ensure_seeded()
+            original = store.load("profiles")["species_profiles"][0]
+            handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+
+            def save(**fields):
+                handler.handle_mushroom_profiles_post({
+                    "profile_action": ["save_profile_form"],
+                    "species_id": [original["species_id"]],
+                    **{key: [value] for key, value in fields.items()},
+                })
+                return store.load("profiles")["species_profiles"][0]
+
+            updated = save(ph_min="4,5", ph_max="8")
+            self.assertEqual((4.5, 8), (updated["ecology"]["ph_min"], updated["ecology"]["ph_max"]))
+            for key in ("phenology", "topography", "weather_model", "scoring_weights"):
+                self.assertEqual(original[key], updated[key])
+            unchanged = save(ph_min="9", ph_max="5")
+            self.assertEqual(updated, unchanged)
+            cleared = save(ph_min="")
+            self.assertIsNone(cleared["ecology"]["ph_min"])
+            self.assertEqual(8, cleared["ecology"]["ph_max"])
+            other_edit = save(scientific_name=original["scientific_name"])
+            self.assertEqual(cleared["ecology"], other_edit["ecology"])
+
+    def test_species_ph_controls_in_both_ecology_views(self) -> None:
+        spec = importlib.util.spec_from_file_location("mushroom_profiles_ui_ph_test", MUSHROOM_PROFILES_UI_PATH)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        catalogs = json.loads((ROOT_DIR / "mushroom-data/mushroom_reference_catalogs.json").read_text())
+        for view in ("v0", "enriched"):
+            with self.subTest(view=view):
+                rendered = module.render_ecology_affinity_tabs({"ph_min": None, "ph_max": 8.5}, catalogs, view)
+                self.assertEqual(1, rendered.count('name="ph_min"'))
+                self.assertEqual(1, rendered.count('name="ph_max"'))
+                self.assertIn('value="8.5"', rendered)
+                self.assertNotIn('value="None"', rendered)
+
+    def test_species_soil_rule_controls_show_local_values_in_both_views(self) -> None:
+        module = self.web_server.mushroom_profiles_ui
+        local = ROOT_DIR / "docker-data" / "mushroom-data"
+        catalogs = json.loads((local / "mushroom_reference_catalogs.json").read_text())["catalogs"]
+        profiles = json.loads((local / "mushroom_profiles.json").read_text())["species_profiles"]
+        profile = next(row for row in profiles if row["species_id"] == "boletus_aereus")
+        for view in ("v0", "enriched"):
+            rendered = module.render_ecology_affinity_tabs(profile["ecology"], catalogs, view)
+            for field in profile["ecology"]["soil_filter"]:
+                self.assertIn(f'name="soil_filter_{field}"', rendered)
+            self.assertIn('name="soil_filter_require_soil_context"><option value="false"', rendered)
+            self.assertIn('<option value="true" selected>', rendered)
+            self.assertIn('name="soil_filter_accepted_soil_ids" value="soil_siliceous" checked', rendered)
+            self.assertIn('name="soil_filter_conditional_soil_ids" value="soil_calcareous" checked', rendered)
+            self.assertIn('name="soil_filter_review_ref"', rendered)
+            self.assertIn('<details class="profile-soil-help"', rendered)
+            for key in ('open', 'accepted_soil_ids', 'example', 'support'):
+                label = module.ui_label('ui.soil_help_' + key)
+                self.assertNotIn('missing label:', label)
+                self.assertIn(module.html.escape(label), rendered)
+        escaped = module.render_soil_filter_controls({"soil_filter":{"review_ref":'<script>"'}}, catalogs)
+        self.assertNotIn('<script>', escaped)
+        self.assertIn('&lt;script&gt;&quot;', escaped)
+
+    def test_species_soil_rule_form_saves_and_validates_without_changing_other_data(self) -> None:
+        local = ROOT_DIR / "docker-data" / "mushroom-data"
+        with mock.patch.dict(os.environ, {
+            "RAINMAPPER_MUSHROOM_DEFAULTS_DIR": str(local),
+            "RAINMAPPER_MUSHROOM_DATA_DIR": str(Path(self.temp_dir.name) / "soil-form-data"),
+        }):
+            store = self.web_server.default_store()
+            store.ensure_seeded()
+            initial = store.load("profiles")
+            original = next(p for p in initial["species_profiles"] if p["species_id"] == "boletus_aereus")
+            handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+
+            def save(**fields):
+                handler.handle_mushroom_profiles_post({"profile_action":["save_profile_form"],
+                    "species_id":[original["species_id"]],
+                    **{key: value if isinstance(value,list) else [value] for key,value in fields.items()}})
+                return next(p for p in store.load("profiles")["species_profiles"] if p["species_id"] == original["species_id"])
+
+            updated = save(soil_filter_enabled="true", soil_filter_require_soil_context="false")
+            expected_rule = dict(original["ecology"]["soil_filter"], require_soil_context=False)
+            self.assertEqual(expected_rule, updated["ecology"]["soil_filter"])
+            for key in original:
+                if key not in ("ecology", "metadata"):
+                    self.assertEqual(original[key], updated[key])
+            for key in original["ecology"]:
+                if key != "soil_filter": self.assertEqual(original["ecology"][key], updated["ecology"][key])
+            for invalid in ({"soil_filter_excluded_soil_ids":["soil_siliceous"]},
+                            {"soil_filter_accepted_soil_ids":["nonexistent_soil"]},
+                            {"soil_filter_ph_conflict":"unsupported"},
+                            {"soil_filter_require_soil_context":"maybe"},
+                            {"soil_filter_review_ref":""}):
+                self.assertEqual(updated, save(soil_filter_enabled="true", **invalid))
+            cleared = save(soil_filter_enabled="true", soil_filter_conditional_soil_ids=[""])
+            self.assertEqual([], cleared["ecology"]["soil_filter"]["conditional_soil_ids"])
+            self.assertEqual(cleared["ecology"], save(map_display_name="Aereus de prueba")["ecology"])
+            self.assertEqual("Aereus de prueba", save()["metadata"]["map_display_name"])
+            self.assertNotIn("map_display_name", save(map_display_name="")["metadata"])
+            self.assertNotIn("soil_filter", save(soil_filter_enabled="false")["ecology"])
+            self.assertNotIn("soil_filter", save()["ecology"])
+            before_others = [p for p in initial["species_profiles"] if p["species_id"] != original["species_id"]]
+            after_others = [p for p in store.load("profiles")["species_profiles"] if p["species_id"] != original["species_id"]]
+            self.assertEqual(before_others, after_others)
+
     def test_profile_form_preserves_species_id_and_updates_general_fields(self) -> None:
         profile = {
             "species_id": "boletus_test",
@@ -12887,8 +13006,45 @@ class AuthDeviceLimitTests(unittest.TestCase):
             catalogs,
         )
 
-        self.assertEqual(1, html.count('<option value="host_pinus_spp"'))
+        # The template contains the complete catalog; live rows hide used IDs.
+        self.assertEqual(1, html.split('<template>')[0].count('<option value="host_pinus_spp"'))
         self.assertGreaterEqual(html.count('value="host_quercus_spp"'), 2)
+
+    def test_affinity_save_keeps_rows_after_blank_ids_and_sparse_indices(self) -> None:
+        from urllib.parse import parse_qs, urlencode
+        module = self.web_server
+        for field in module.PROFILE_AFFINITY_GROUPS:
+            for blank_index in (0, 1, 3):
+                with self.subTest(field=field, blank=blank_index):
+                    previous = [{"id": f"entry_{i}", "affinity": 0, "relationship": "primary",
+                                 "source_ids": ["source_test"], "notes": f"Note {i}"} for i in range(4)]
+                    parked = {"id": "parked", "v0_active": False, "notes": "Keep me"}
+                    existing = {"ecology": {field: previous + [parked]}, "scientific_name": "Keep name"}
+                    form = {"view": "v0", field + "_present": "true"}
+                    for i in range(4):
+                        form.update({f"{field}_{i}_id": "" if i == blank_index else f"entry_{i}",
+                                     f"{field}_{i}_original_id": f"entry_{i}",
+                                     f"{field}_{i}_affinity": "0", f"{field}_{i}_relationship": "primary"})
+                    # Same default blank-dropping decoder as the actual HTTP handler.
+                    updated = module.profile_from_form(existing, parse_qs(urlencode(form)))
+                    self.assertEqual([row for i, row in enumerate(previous) if i != blank_index] + [parked], updated["ecology"][field])
+                    self.assertEqual("Keep name", updated["scientific_name"])
+                    self.assertEqual(5, len(existing["ecology"][field]))
+                    added = module.profile_from_form(existing, {"view": ["enriched"], field + "_17_id": ["new"], field + "_17_affinity": ["0"]})
+                    self.assertEqual([{"id": "new", "affinity": 0}], added["ecology"][field])
+                    cleared = module.profile_from_form(existing, {"view": ["v0"], field + "_present": ["true"]})
+                    self.assertEqual([parked], cleared["ecology"][field])
+
+    def test_affinity_editors_offer_add_rows_in_both_views(self) -> None:
+        module = self.web_server
+        for field in module.PROFILE_AFFINITY_GROUPS:
+            for view in ("v0", "enriched"):
+                with self.subTest(field=field, view=view):
+                    rendered = module.render_profile_affinity_rows(field, [], {}, view)
+                    self.assertIn('data-affinity-add', rendered)
+                    self.assertIn(f'name="{field}_present"', rendered)
+                    self.assertIn(f'name="{field}_0_id"', rendered)
+                    self.assertIn(f'name="{field}___row___id"', rendered)
 
     def test_mushroom_profiles_post_blocks_duplicate_affinities(self) -> None:
         data_dir = Path(self.temp_dir.name)
@@ -13635,6 +13791,29 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertFalse(response["can_use_layer_metrics"])
         self.assertFalse(response["can_use_estimated_field"])
 
+    def test_prediction_permission_persists_for_all_roles_and_revokes_existing_session(self):
+        for role in ("free", "basic", "pro", "admin"):
+            username = "prediction-" + role
+            self.web_server.create_user(username, "Test", "", "secret", role, "true", "2")
+            self.assertFalse(self.web_server.user_auth_payload(self.web_server.read_users()[username])["can_use_prediction_map"])
+            self.web_server.update_user(username, "Test", "", role, "true", "2", "true", "false", "true", "true")
+            user = self.web_server.read_users()[username]
+            self.assertEqual(user["can_use_prediction_map"], "true")
+            page = self.web_server.render_user_card(username, user, [])
+            self.assertIn('name="can_use_prediction_map" type="checkbox" value="true" checked', page)
+            status, payload = self.login(username, "secret", "permission-" + role)
+            self.assertEqual(status, 200)
+            self.assertTrue(payload["can_use_prediction_map"])
+            token, device = payload["session_token"], payload["device_id"]
+            self.assertTrue(self.web_server.authenticate_session(token, device)[1]["can_use_prediction_map"])
+            self.web_server.update_user(username, "Test", "", role, "true", "2", "true", "false", "true", "false")
+            ok, current = self.web_server.authenticate_session(token, device)
+            self.assertTrue(ok)
+            self.assertFalse(current["can_use_prediction_map"])
+            self.assertTrue(current["can_use_heatmap"])
+            self.assertFalse(current["can_use_layer_metrics"])
+            self.assertTrue(current["can_use_estimated_field"])
+
     def test_admin_user_creation_enables_maplibre_feature_permissions_by_default(self) -> None:
         message = self.web_server.create_user(
             "admin2",
@@ -13870,7 +14049,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('id="users-list"', page)
         self.assertIn('class="user-card"', page)
         self.assertIn('data-username="diego"', page)
-        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics no estimated field current 1 1', page)
+        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics no estimated field no prediction current 1 1', page)
         self.assertIn('data-device-search="device-mobile diego diego@example.com Mobile Safari Test Agent', page)
         self.assertIn("data-user-toggle", page)
         self.assertIn('aria-expanded="false"', page)
@@ -14004,6 +14183,41 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertFalse(ok)
         self.assertEqual(settings, {})
+
+    def test_prediction_execution_uses_device_storage_and_survives_weather_save(self) -> None:
+        self.web_server.write_devices({
+            "device-a": {"username":"alice","settings":{"period":"21d.geojson"}},
+            "device-b": {"username":"alice","settings":{"period":"07d.geojson"}},
+        })
+        ok, saved = self.web_server.update_device_settings("device-a", {
+            "period":"30d.geojson", "heatmap_opacity":0.6, "prediction_execution":"worker"})
+        self.assertTrue(ok)
+        self.assertEqual(saved["prediction_execution"],"worker")
+        self.assertEqual(saved["heatmap_opacity"],0.6)
+        self.assertEqual(self.web_server.settings_for_device("device-a")["prediction_execution"],"worker")
+        self.assertNotIn("prediction_execution",self.web_server.settings_for_device("device-b"))
+        self.web_server.update_device_settings("device-a",{"period":"07d.geojson"})
+        after_weather = self.web_server.settings_for_device("device-a")
+        self.assertEqual(after_weather["period"],"07d.geojson")
+        self.assertEqual(after_weather["prediction_execution"],"worker")
+        self.web_server.update_device_settings("device-a",{"prediction_execution":"automatic"})
+        self.assertEqual(self.web_server.settings_for_device("device-a")["prediction_execution"],"worker")
+        self.web_server.update_device_settings("device-a",{"prediction_execution":"local"})
+        self.assertEqual(self.web_server.settings_for_device("device-a")["prediction_execution"],"local")
+        self.assertNotIn("prediction_execution",self.web_server.sanitize_device_settings({"prediction_execution":True}))
+
+    def test_prediction_timezone_uses_device_storage_and_survives_weather_save(self) -> None:
+        self.web_server.write_devices({'device-a':{'username':'alice','settings':{}},
+                                       'device-b':{'username':'alice','settings':{}}})
+        ok,saved=self.web_server.update_device_settings('device-a',{'prediction_timezone':'Atlantic/Canary'})
+        self.assertTrue(ok)
+        self.assertEqual(saved['prediction_timezone'],'Atlantic/Canary')
+        self.assertNotIn('prediction_timezone',self.web_server.settings_for_device('device-b'))
+        for payload in ({'period':'07d.geojson'},{'prediction_timezone':'Not/AZone'}):
+            self.web_server.update_device_settings('device-a',payload)
+            self.assertEqual(self.web_server.settings_for_device('device-a')['prediction_timezone'],'Atlantic/Canary')
+        for invalid in (None,True,'/etc/passwd','../UTC'):
+            self.assertNotIn('prediction_timezone',self.web_server.sanitize_device_settings({'prediction_timezone':invalid}))
 
     def test_users_page_does_not_auto_refresh(self) -> None:
         page = self.web_server.html_page("Users", "<h1>Users</h1>", auto_refresh=False).decode("utf-8")

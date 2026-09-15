@@ -1,0 +1,203 @@
+{
+  "date": "2026-09-13",
+  "checks": [
+    {
+      "point": {
+        "lat": 41.22694,
+        "lon": 1.09095
+      },
+      "geology": {
+        "source_id": "icgc_geologia_50000",
+        "edition": "2024-12",
+        "field": "Codi",
+        "status": "available",
+        "feature_id": 51495,
+        "code": "mc_Capg",
+        "label": "Pissarres pigallades. Roques de la unitat Capg afectades pel metamorfisme de contacte varisc",
+        "mapping_status": "not_evaluated"
+      },
+      "mapped_context": {
+        "habitats": [],
+        "soil_tendencies": [
+          {
+            "id": "soil_siliceous",
+            "label": {
+              "es": "Silíceo",
+              "ca": "Silici",
+              "en": "Siliceous"
+            }
+          }
+        ],
+        "lithologies": [
+          {
+            "id": "lith_slate",
+            "label": {
+              "es": "Pizarra",
+              "ca": "Pissarra",
+              "en": "Slate"
+            }
+          }
+        ]
+      },
+      "species": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "incompatible",
+        "daily_statuses": [
+          "incompatible",
+          "incompatible",
+          "incompatible",
+          "incompatible",
+          "incompatible",
+          "incompatible",
+          "incompatible"
+        ],
+        "reasons": [
+          "hosts_match",
+          "altitude_match",
+          "ph_outside",
+          "soil_preference_match"
+        ],
+        "matched_host_ids": [
+          "host_quercus_humilis",
+          "host_quercus_ilex"
+        ]
+      },
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 7.2,
+        "lower": 6.7,
+        "upper": 7.8,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 41.22694,
+          "lon": 1.09095
+        }
+      }
+    },
+    {
+      "point": {
+        "lat": 41.23675,
+        "lon": 1.13555
+      },
+      "geology": {
+        "source_id": "icgc_geologia_50000",
+        "edition": "2024-12",
+        "field": "Codi",
+        "status": "available",
+        "feature_id": 51495,
+        "code": "mc_Capg",
+        "label": "Pissarres pigallades. Roques de la unitat Capg afectades pel metamorfisme de contacte varisc",
+        "mapping_status": "not_evaluated"
+      },
+      "mapped_context": {
+        "habitats": [],
+        "soil_tendencies": [
+          {
+            "id": "soil_siliceous",
+            "label": {
+              "es": "Silíceo",
+              "ca": "Silici",
+              "en": "Siliceous"
+            }
+          }
+        ],
+        "lithologies": [
+          {
+            "id": "lith_slate",
+            "label": {
+              "es": "Pizarra",
+              "ca": "Pissarra",
+              "en": "Slate"
+            }
+          }
+        ]
+      },
+      "species": {
+        "species_id": "boletus_aereus",
+        "name": "Aereus",
+        "scientific_name": "Boletus aereus",
+        "status": "incompatible",
+        "daily_statuses": [
+          "incompatible",
+          "incompatible",
+          "incompatible",
+          "incompatible",
+          "incompatible",
+          "incompatible",
+          "incompatible"
+        ],
+        "reasons": [
+          "hosts_match",
+          "altitude_match",
+          "ph_outside",
+          "soil_preference_match"
+        ],
+        "matched_host_ids": [
+          "host_quercus_faginea",
+          "host_quercus_ilex"
+        ]
+      },
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 7.5,
+        "lower": 6.6,
+        "upper": 8.1,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 41.23675,
+          "lon": 1.13555
+        }
+      }
+    }
+  ],
+  "mapping_verified": {
+    "code": "mc_Capg",
+    "lithology": "lith_slate",
+    "soil_tendency": "soil_siliceous",
+    "review_status": "accepted",
+    "confidence": "medium"
+  },
+  "profile_verified": {
+    "species_id": "boletus_aereus",
+    "primary_soil_preferences": [
+      "soil_siliceous",
+      "soil_acidic"
+    ],
+    "ph_bounds": [
+      3.5,
+      6.8
+    ]
+  },
+  "current_rule": "Matching substrate only adds soil_preference_match. The mean pH outside profile bounds still excludes the species.",
+  "user_decision": "Do not globally raise maximum pH to 7.5. Prior assistant suggestion withdrawn.",
+  "interpretation": "Substrate compatibility supports investigating the two user-reported occurrences, but does not establish acidic pH. Both raster uncertainty intervals overlap the upper portion of the species provisional window.",
+  "proposal_not_implemented": "Review joint use of matching substrate, required hosts and overlapping pH uncertainty for conditional compatibility, retaining original estimates and species bounds. No blanket siliceous-soil override.",
+  "soil_ph_reference": "https://www.nrcs.usda.gov/sites/default/files/2022-10/Soil%20PH.pdf",
+  "profiles_or_code_changed": false
+}

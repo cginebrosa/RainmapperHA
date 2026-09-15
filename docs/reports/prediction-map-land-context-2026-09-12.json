@@ -1,0 +1,144 @@
+{
+  "date": "2026-09-12",
+  "environment": "Mac M1 / Homebrew Python GDAL; no RPi4 extrapolation",
+  "scope": "four read-only point controls; descriptive values, no ecological inference",
+  "sources": {
+    "vegetation": {
+      "path": "mushroom-map-GIS/icgc-cobertes-2024/source/cobertes-sol-v1r0-2024.gpkg",
+      "bytes": 1694642176
+    },
+    "geology": {
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+      "bytes": 293679104
+    }
+  },
+  "controls": [
+    {
+      "name": "Ripoll",
+      "point": {
+        "lat": 42.17826,
+        "lon": 2.20633
+      },
+      "first_ms": 12.311,
+      "cached_ms": 0.038,
+      "result_bytes": 370,
+      "land_context": {
+        "vegetation": {
+          "source_id": "icgc_cobertes_2024",
+          "edition": "2024",
+          "field": "nivell_2",
+          "status": "resource_limit"
+        },
+        "geology": {
+          "source_id": "icgc_geologia_50000",
+          "edition": "2024-12",
+          "field": "Codi",
+          "status": "available",
+          "feature_id": 33000,
+          "code": "PEcgc",
+          "label": "Conglomerats i gresos grisos. Part superior de la Formació Coubet - Cal Bernat",
+          "mapping_status": "not_evaluated"
+        }
+      }
+    },
+    {
+      "name": "Selva control",
+      "point": {
+        "lat": 41.235,
+        "lon": 1.12
+      },
+      "first_ms": 7.578,
+      "cached_ms": 0.02,
+      "result_bytes": 385,
+      "land_context": {
+        "vegetation": {
+          "source_id": "icgc_cobertes_2024",
+          "edition": "2024",
+          "field": "nivell_2",
+          "status": "resource_limit"
+        },
+        "geology": {
+          "source_id": "icgc_geologia_50000",
+          "edition": "2024-12",
+          "field": "Codi",
+          "status": "available",
+          "feature_id": 51495,
+          "code": "mc_Capg",
+          "label": "Pissarres pigallades. Roques de la unitat Capg afectades pel metamorfisme de contacte varisc",
+          "mapping_status": "not_evaluated"
+        }
+      }
+    },
+    {
+      "name": "Pallars control",
+      "point": {
+        "lat": 42.6,
+        "lon": 1.1
+      },
+      "first_ms": 24.255,
+      "cached_ms": 0.036,
+      "result_bytes": 457,
+      "land_context": {
+        "vegetation": {
+          "source_id": "icgc_cobertes_2024",
+          "edition": "2024",
+          "field": "nivell_2",
+          "status": "available",
+          "feature_id": 363247,
+          "code": "221",
+          "label": "Boscos densos d'aciculifolis",
+          "mapping_status": "not_evaluated"
+        },
+        "geology": {
+          "source_id": "icgc_geologia_50000",
+          "edition": "2024-12",
+          "field": "Codi",
+          "status": "available",
+          "feature_id": 60594,
+          "code": "EÇOrgl",
+          "label": "Alternança centimètrica de gresos i lutites. Formació Jújols",
+          "mapping_status": "not_evaluated"
+        }
+      }
+    },
+    {
+      "name": "Font-Romeu",
+      "point": {
+        "lat": 42.5284314,
+        "lon": 2.0095071
+      },
+      "first_ms": 0.126,
+      "cached_ms": 0.011,
+      "result_bytes": 212,
+      "land_context": {
+        "vegetation": {
+          "source_id": "icgc_cobertes_2024",
+          "edition": "2024",
+          "field": "nivell_2",
+          "status": "not_covered"
+        },
+        "geology": {
+          "source_id": "icgc_geologia_50000",
+          "edition": "2024-12",
+          "field": "Codi",
+          "status": "not_covered"
+        }
+      }
+    }
+  ],
+  "peak_process_rss_bytes": 88948736,
+  "limits": {
+    "candidate_count_per_layer": 64,
+    "single_geometry_bytes": 2097152,
+    "sum_geometry_bytes": 8388608,
+    "cached_points_per_layer": 64,
+    "sqlite_cache_bytes_per_layer": 2097152
+  },
+  "limitations": [
+    "OS cache not cold",
+    "GDAL total process RSS includes library overhead",
+    "ICGC road network polygon id 1475533 has 14069397-byte geometry and exceeds reader limit; prepare spatial subdivision before wider cover acceptance",
+    "No MFE25 hosts, GEODE fallback or reviewed catalog mappings connected",
+    "No original raster/cache modified; no full layer scan, download or ML jobs"
+  ]
+}

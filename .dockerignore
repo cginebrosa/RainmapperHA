@@ -14,9 +14,11 @@ MERGED_*.csv
 
 # Local Docker runtime data
 docker-data
+docker-media
 docker-empty-test
 tmp
 mushroom-GIS
+mushroom-map-GIS
 
 # Project data generated or reconstructed at runtime
 Data

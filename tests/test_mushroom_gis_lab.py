@@ -160,6 +160,13 @@ class MushroomGisLabTests(unittest.TestCase):
                 with patch("rainmapper_core.mushroom_paths.share_root", return_value=share_root):
                     self.assertEqual(mushroom_gis_lab.gis_root(), media_root)
 
+    def test_gis_root_prefers_explicitly_published_shared_dataset(self):
+        shared = Path('/media/rainmapper/geography/datasets/mushroom_gis_v0/current')
+        with patch.dict('os.environ', {'RAINMAPPER_MUSHROOM_GIS_ROOT': ''}), patch.object(
+                Path, 'is_file', lambda path: path == shared/'geography-dataset.json'):
+            self.assertEqual(mushroom_gis_lab.gis_root(), shared)
+            self.assertEqual(mushroom_gis_lab.gis_root(Path('/custom')), Path('/custom'))
+
     def test_default_output_path_accepts_explicit_reconstruction_path(self):
         configured_path = "/share/rainmapper/mushroom-data/custom/reconstruction.json"
 

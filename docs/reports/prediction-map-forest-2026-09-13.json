@@ -1,0 +1,245 @@
+{
+  "queries": [
+    {
+      "point": [
+        42.06397,
+        1.93668
+      ],
+      "result": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "available",
+        "items": [
+          {
+            "label": "Encina",
+            "scientific_name": "Quercus ilex",
+            "code": "45"
+          },
+          {
+            "label": "quejigo",
+            "scientific_name": "Quercus faginea",
+            "code": "44"
+          },
+          {
+            "label": "Quercus humilis (Q. Pubescens)",
+            "scientific_name": "Quercus humilis (Q. Pubescens)",
+            "code": "243"
+          }
+        ],
+        "polygon_id": "2188313",
+        "formation": "Encinares (Quercus ilex)"
+      },
+      "ms": 30.586
+    },
+    {
+      "point": [
+        42.06241,
+        1.93416
+      ],
+      "result": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "available",
+        "items": [
+          {
+            "label": "quejigo",
+            "scientific_name": "Quercus faginea",
+            "code": "44"
+          },
+          {
+            "label": "Encina",
+            "scientific_name": "Quercus ilex",
+            "code": "45"
+          },
+          {
+            "label": "Quercus humilis (Q. Pubescens)",
+            "scientific_name": "Quercus humilis (Q. Pubescens)",
+            "code": "243"
+          }
+        ],
+        "polygon_id": "2189364",
+        "formation": "Quejigares (Quercus faginea)"
+      },
+      "ms": 27.757
+    },
+    {
+      "point": [
+        42.17826,
+        2.20633
+      ],
+      "result": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "available",
+        "items": [
+          {
+            "label": "Haya",
+            "scientific_name": "Fagus sylvatica",
+            "code": "71"
+          },
+          {
+            "label": "Pino Rojo",
+            "scientific_name": "Pinus sylvestris",
+            "code": "21"
+          },
+          {
+            "label": "Quercus humilis (Q. Pubescens)",
+            "scientific_name": "Quercus humilis (Q. Pubescens)",
+            "code": "243"
+          }
+        ],
+        "polygon_id": "2168718",
+        "formation": "Mezcla de coníferas y frondosas autóctonas en la región biogeográfica Mediterránea"
+      },
+      "ms": 32.179
+    },
+    {
+      "point": [
+        42.505,
+        2.04
+      ],
+      "result": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "not_covered"
+      },
+      "ms": 0.166
+    },
+    {
+      "point": [
+        42.06397,
+        1.93668
+      ],
+      "result": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "available",
+        "items": [
+          {
+            "label": "Encina",
+            "scientific_name": "Quercus ilex",
+            "code": "45"
+          },
+          {
+            "label": "quejigo",
+            "scientific_name": "Quercus faginea",
+            "code": "44"
+          },
+          {
+            "label": "Quercus humilis (Q. Pubescens)",
+            "scientific_name": "Quercus humilis (Q. Pubescens)",
+            "code": "243"
+          }
+        ],
+        "polygon_id": "2188313",
+        "formation": "Encinares (Quercus ilex)"
+      },
+      "ms": 0.044
+    }
+  ],
+  "peak_rss_bytes": 92323840,
+  "index_bytes": 23818240,
+  "metadata": {
+    "format": "prediction_map_forest_v2",
+    "source": "../source/mfe_catalunia/MFE_51.shp",
+    "stamps": {
+      ".shp": [
+        620644208,
+        1789144832219230870
+      ],
+      ".shx": [
+        1904868,
+        1789144832225766648
+      ],
+      ".dbf": [
+        991909602,
+        1789144830637872408
+      ],
+      ".prj": [
+        404,
+        1789144830638409622
+      ]
+    },
+    "record_count": 238096,
+    "part_count": 87,
+    "repaired_fids": [
+      236558
+    ]
+  },
+  "scope": "M1 resident forest reader only, OS cache not cleared; no full prediction",
+  "original_geometry_parity": [
+    {
+      "point": [
+        42.06397,
+        1.93668
+      ],
+      "original_polygon_ids": [
+        "2188313"
+      ],
+      "matches_indexed_reader": true
+    },
+    {
+      "point": [
+        42.06241,
+        1.93416
+      ],
+      "original_polygon_ids": [
+        "2189364"
+      ],
+      "matches_indexed_reader": true
+    },
+    {
+      "point": [
+        42.17826,
+        2.20633
+      ],
+      "original_polygon_ids": [
+        "2168718"
+      ],
+      "matches_indexed_reader": true
+    },
+    {
+      "point": [
+        42.505,
+        2.04
+      ],
+      "original_polygon_ids": [],
+      "matches_indexed_reader": true
+    }
+  ],
+  "preview_http": {
+    "point": {
+      "lat": 42.06241,
+      "lon": 1.93416
+    },
+    "trees": {
+      "source_id": "mfe25",
+      "exhaustive": false,
+      "status": "available",
+      "items": [
+        {
+          "label": "quejigo",
+          "scientific_name": "Quercus faginea",
+          "code": "44"
+        },
+        {
+          "label": "Encina",
+          "scientific_name": "Quercus ilex",
+          "code": "45"
+        },
+        {
+          "label": "Quercus humilis (Q. Pubescens)",
+          "scientific_name": "Quercus humilis (Q. Pubescens)",
+          "code": "243"
+        }
+      ],
+      "polygon_id": "2189364",
+      "formation": "Quejigares (Quercus faginea)"
+    },
+    "response_bytes": 10363,
+    "execution": {
+      "mode": "local",
+      "compute_ms": 116.37799999999697
+    }
+  }
+}

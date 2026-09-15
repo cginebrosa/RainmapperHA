@@ -1,0 +1,110 @@
+{
+  "point": {
+    "lat": 41.22694,
+    "lon": 1.09095
+  },
+  "date": "2026-09-13",
+  "species": {
+    "species_id": "boletus_aereus",
+    "name": "Aereus",
+    "scientific_name": "Boletus aereus",
+    "status": "incompatible",
+    "daily_statuses": [
+      "incompatible",
+      "incompatible",
+      "incompatible",
+      "incompatible",
+      "incompatible",
+      "incompatible",
+      "incompatible"
+    ],
+    "reasons": [
+      "hosts_match",
+      "altitude_match",
+      "ph_outside",
+      "soil_preference_match"
+    ],
+    "matched_host_ids": [
+      "host_quercus_humilis",
+      "host_quercus_ilex"
+    ]
+  },
+  "trees": {
+    "source_id": "mfe25",
+    "exhaustive": false,
+    "status": "available",
+    "items": [
+      {
+        "label": "Roble pubescente",
+        "scientific_name": "Quercus humilis (Q. Pubescens)",
+        "code": "243",
+        "host_id": "host_quercus_humilis"
+      },
+      {
+        "label": "Encina",
+        "scientific_name": "Quercus ilex",
+        "code": "45",
+        "host_id": "host_quercus_ilex"
+      },
+      {
+        "label": "Pino carrasco",
+        "scientific_name": "Pinus halepensis",
+        "code": "24",
+        "host_id": "host_pinus_halepensis"
+      }
+    ],
+    "polygon_id": "2421198",
+    "formation": "Bosques mixtos de frondosas autóctonas en region biogeográfica mediterranea",
+    "catalog_revision": "2d462c0d815ad89437f9"
+  },
+  "elevation": {
+    "status": "available",
+    "value_m": 415.4,
+    "resolution_m": 5.0,
+    "source_id": "dem_5m"
+  },
+  "ph": {
+    "status": "available",
+    "source_id": "openlandmap_soildb_ph",
+    "edition": "v20250204",
+    "period": "2020-2022",
+    "depth_cm": [
+      0,
+      30
+    ],
+    "interval_probability": 0.68,
+    "revision": "e3d5c75beeaa4a44c192",
+    "estimate": 7.2,
+    "lower": 6.7,
+    "upper": 7.8,
+    "estimate_resolution_m": 30,
+    "interval_resolution_m": 120,
+    "lookup": {
+      "method": "point",
+      "distance_m": 0,
+      "lat": 41.22694,
+      "lon": 1.09095
+    }
+  },
+  "profile_path": "docker-data/mushroom-data/mushroom_profiles.json",
+  "profile_ph_bounds": [
+    3.5,
+    6.8
+  ],
+  "profile_altitude_bounds_m": [
+    100,
+    1200
+  ],
+  "profile_months": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "finding": "Only pH excludes the species: OpenLandMap estimate 7.2 exceeds provisional profile maximum 6.8; hosts, altitude and season match.",
+  "user_field_report": "Aereus fruits abundantly at this site according to the user.",
+  "interpretation": "Discrepancy between provisional pH filtering and user field evidence; this check cannot distinguish inaccurate raster estimate from too-restrictive species bounds.",
+  "profiles_modified": false
+}

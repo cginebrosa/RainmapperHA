@@ -34,6 +34,7 @@ from typing import Any
 from rainmapper_core import mushroom_observation_context as ctx
 from rainmapper_core import mushroom_paths
 from rainmapper_core import runtime_diagnostics
+from rainmapper_core.mushroom_phenology import season_phase_for_months
 from rainmapper_core.mushroom_prediction_interpretation import (
     FAVORABLE_THRESHOLD,
     UNFAVORABLE_THRESHOLD,
@@ -483,13 +484,7 @@ class MushroomMLPredictor:
     def season_phase(self, target_date: date) -> str:
         """Return main, secondary, out_of_season, or unknown for one date."""
         self._ensure_species_phenology()
-        if target_date.month in self._main_months:
-            return "main"
-        if target_date.month in self._secondary_months:
-            return "secondary"
-        if self._main_months or self._secondary_months:
-            return "out_of_season"
-        return "unknown"
+        return season_phase_for_months(target_date, self._main_months, self._secondary_months)
 
     def _ensure_weather_stations(
         self,

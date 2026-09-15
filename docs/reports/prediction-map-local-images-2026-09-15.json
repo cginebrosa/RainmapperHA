@@ -1,0 +1,1013 @@
+{
+  "date": "2026-09-15",
+  "scope": "Local reproducible images; no HA release/publication",
+  "images": {
+    "ha": {
+      "image": "rainmapperha:local-ha-ui",
+      "image_id": "sha256:e3ee023d47336d5c4a0528c2a218fd1916e7c178acb8bfda713fc9f955184b93",
+      "file_count": 192,
+      "differences": [],
+      "files": {
+        "/app/requirements.txt": "603ed8793fba64ba26e31e110a8b5a0e804f3f242f6a8d18fc0fdcc1e3b918a5",
+        "/app/stations.example.txt": "b7f9f73e1b2f02a55ac32d57bfe3af40d54fd33032752d6992c3520b7388ff1d",
+        "/app/users.example.json": "ee3f5b6c23fd2493e03185fed40a3615f175b2161d89051ba72c87a4bce76b1c",
+        "/app/mushroom-data/mushroom_profiles.json": "93518e8c1df226df9cb528b6519268cc019eb86aa31aa466c1f8f01c4fca2698",
+        "/app/mushroom-data/mushroom_reference_catalogs.json": "849a32954345f5cc76074602922a3bc98d7333961ba12d5c4cec248457adca86",
+        "/app/mushroom-data/mushroom_gis_mappings.json": "891e0d4dea7a083faa77c8cfd203d7bf33b55e77895429966aaa5ec24aba6799",
+        "/app/mushroom-data/mushroom_known_sites.json": "3bb2ea058330c40f71dff04d9e8e7096b1ae4efc6944772c1019f0a19d1b97b0",
+        "/app/mushroom-data/mushroom_labels.json": "2dc8ef07222ac077b5dfef90bdbf80d747c4d3e70ede8777c6f5db162b01ac1e",
+        "/app/mushroom-data/mushroom_ml_version_registry.json": "cc3ba8906a79d73a8a05f0a6e3b014ba5702b5f1eac7b55e554e9ccf9284cc94",
+        "/app/mushroom-data/mushroom_observations.json": "67722c502f98bba396ef3d770e0e34289fb2a7d5436a3f9bf18c8e9c62960730",
+        "/app/scripts/validate-mushroom-data.py": "70bc96d94106bac9f40ac09788ce7b00d3659e91854552cd6dc76705ff83cc3e",
+        "/app/scripts/prediction-map-local-geography.py": "cc3b2f29c5b2b635ca3702719c50694aebd3edd2457fbb019cd13cf211e87e06",
+        "/app/scripts/prediction-map-local-weather.py": "47c177e319ec75a0df567645255ed1e8ecbf18740e43635fb166c9c1e6b37e20",
+        "/app/scripts/prediction-map-local-model.py": "209ee928f9edd7d54287dd37c4007fe1062508f6236c6776fb333be374e4dad6",
+        "/app/scripts/manage-prediction-map-volume.py": "8ee62753ba5938170af091bc5df093bb2932d6b7549f4ed17fc51d7cc712fc45",
+        "/app/scripts/run-mushroom-rebuild-job.py": "717c0c44aea8d5860fccaf9874b76d7933668c51ffe59e1020b302bc9c01f645",
+        "/app/scripts/run-mushroom-ml-train-job.py": "fd3ba296466501ec4c7cc4619726caa2c98e5a7d03518bcf8e7438335bceb4d8",
+        "/app/scripts/run-mushroom-ml-multiversion-job.py": "890fd6a0322ff19c1ed1c05d57ff266f3d9d85cdf7fe1eca93d9f3c29e5b9bdd",
+        "/app/scripts/prepare-mushroom-ml-multiversion-inputs.py": "d82c57c1fd1a40bb5ff1f48a844728584ef201cdb165878b0c48a9d7bdda263a",
+        "/app/scripts/build-biology-v3-benchmark.py": "f617a1e372e94539c24a1d26dfed14bd81d1c04c710875e820c96cee2889f4d3",
+        "/app/scripts/build-biology-v4-benchmark.py": "b7c5709d1286ee101838203810fdcda0dacda306b696aa567b2f32e939636295",
+        "/app/scripts/build-biology-v5-raw-benchmark.py": "9bd17c7ce32bee9b65b36a70857f9aa5e22fe54b232d72dfb5c6eafbdfbb87e9",
+        "/app/scripts/evaluate-biology-v5-raw-benchmark.py": "54c9062310919538d16d297c4b92af955965683d2f577fbc5472690b922db5f5",
+        "/app/scripts/evaluate-biology-v6-smooth-hierarchical.py": "99155e8c52ad2c015a5826cc03c421f5b6fd832f304c7b1d22fa782d5f3ab7fc",
+        "/app/rainmapper_core/__init__.py": "bd1401e7012a76d00026afa8aa1177f9a661f0561e3ed6129010d7712872691c",
+        "/app/rainmapper_core/atomic_io.py": "e2936a98eb4434734fb2d7cd35bfbcea432db1e3403d2cd90f09b4da49e8238c",
+        "/app/rainmapper_core/bokeh_maps.py": "621712aceccd8dbccd6d3bde8a24e7a9bc24f6844c75a1bd36456ce1c81ab026",
+        "/app/rainmapper_core/config/__init__.py": "fd0a898a6a5be07d46ec6554acf33c9aed56b5b3b5c785cab3c4c92879aae119",
+        "/app/rainmapper_core/config/config.py": "a8a9797a158f1434e9bf7b7d92ad6e16b11c23d4a8ff556117063629edeb68b1",
+        "/app/rainmapper_core/config/config_wunderground.py": "e8493b88d515c5541be4bfa1bbe22149e2142ab5292908a1f894f41aaa519f1c",
+        "/app/rainmapper_core/config/const.py": "e8cafa5140e88853aa9c547b77cead98f9de4c534fb6b5cbde9ee063f22700c0",
+        "/app/rainmapper_core/create_aemet.py": "cfe5e1900ed66274174cb87d716c681eb352472bf8df346929b4a1bf8a30f4af",
+        "/app/rainmapper_core/geocoding.py": "f385cbbb1b88956bd4f9486216db20cadb7a97e92ae273b68f1e52d2ae2025e0",
+        "/app/rainmapper_core/geojson.py": "8482d87535b8e80915646ffb33e833dd6790801ec70f15191e585db11318f6dc",
+        "/app/rainmapper_core/incremental_upsert.py": "9ad85d51a978bc0c90eda176d1dceafd9ef809bd03d44e2601e84a31f640aacb",
+        "/app/rainmapper_core/meteocat_daily.py": "2fd3c2c93542a205478d80e0a4fa6b32b674c859852ea3d96e8d29e21c29a4b5",
+        "/app/rainmapper_core/meteoclimatic_history.py": "85bbfc05332a57d366b5dd051f295a5e48a3a904f2f9972e13901593258ce63d",
+        "/app/rainmapper_core/mushroom_climatic_water_balance.py": "7de75259337d3b5f195702a34edfccb9dfed747630c1ca1662e212c20a4bc260",
+        "/app/rainmapper_core/mushroom_derived_storage.py": "b6d8db008677bf543cb73d71530f8cd40b88f7f0aa6f3c87b609a9b6352b4214",
+        "/app/rainmapper_core/mushroom_gis_lab.py": "a8d287fca3393508e07bebc8f562637fb1fa7c47c61b0f9ea27dede0cda123c6",
+        "/app/rainmapper_core/mushroom_known_sites.py": "2cf692674da8741f60001d39d7a65acb3d37c6cb1d8bf7f8dd52d8ef350aa0f4",
+        "/app/rainmapper_core/mushroom_learned_model.py": "6f40929da4c30fedb50bbd8c3a4d851fdaf972bc9c1123c1319f1c97c151be16",
+        "/app/rainmapper_core/mushroom_local_full_update.py": "1daba1ece994f4249955fe7649c43e31e40a0c72595a90b6473d233e9c884167",
+        "/app/rainmapper_core/mushroom_map_ecology.py": "52a9cf05e38024f4eddec8af74326f263ab048fd37d57500ed7a6aa8a0fc5b18",
+        "/app/rainmapper_core/mushroom_map_execution.py": "4fbd0f1765484bb6f79f0f0083d8ceb91c72797e3dd87712af3b158845fe8075",
+        "/app/rainmapper_core/mushroom_map_forest.py": "6e0274e5537df4728780799dd4e374d62676003dc4a7dd6c6d7bd534395504c8",
+        "/app/rainmapper_core/mushroom_map_land.py": "5f50598dbf6ef7d35626c83b58d94b8214d1b7573d72c7de6555c8a79d7e305a",
+        "/app/rainmapper_core/mushroom_map_land_parts.py": "7040899d24d70fa41d490a8c5b97d4b07b6ba80223374386eace8106fa5319b8",
+        "/app/rainmapper_core/mushroom_map_model_runtime.py": "a467e00b8e76b77d9a25c1d676786c44f94572d4fdf9c7151e4d08a92e69d274",
+        "/app/rainmapper_core/mushroom_map_municipalities.py": "9d54f431d9bada8254bd551f4fa0fc2ed990e193ab8a226ff20ab2d2eee9c2b6",
+        "/app/rainmapper_core/mushroom_map_ph.py": "cf412b0555e444ac638c2cab108bd81140e5d330f05996e4c2d248aa0f8466b4",
+        "/app/rainmapper_core/mushroom_map_prediction.py": "39cdab0e140f9483e80ef035b346480b389696d8d756178a9d29d9e6f525113c",
+        "/app/rainmapper_core/mushroom_map_queries.py": "eadf165eaa708e9e3844a82241fd2535178eef887114b1e80e420910b1a6d578",
+        "/app/rainmapper_core/mushroom_map_terrain.py": "ef1cbe1bac41299b6e4c523f0ec18aa117566c04c1974d152eb3e991fd8ee55f",
+        "/app/rainmapper_core/mushroom_map_volume.py": "8871b202b4adc2024e304d48af0a86c7d5e270312a4c40ee8c0a777f70e2214c",
+        "/app/rainmapper_core/mushroom_map_weather.py": "644f36cbf00ba409abac2438c88ee779e6d9bf32c07f99357412d0875a7a9316",
+        "/app/rainmapper_core/mushroom_map_worker.py": "d701bf05419d95b4dbf5ef7a63850940832fb16233ce9187d60a2c545f54e221",
+        "/app/rainmapper_core/mushroom_ml_area_weather_runtime.py": "542e2fd30f6a5df90f69c28b12e6f8b4b49d093629fcdcc156c1d8b9277346d6",
+        "/app/rainmapper_core/mushroom_ml_benchmark_reports.py": "7d317c71821ac584293617a4cc5560aa8f2922204fa86f32205cc25f5f8a0ef5",
+        "/app/rainmapper_core/mushroom_ml_biology_v3.py": "b560a680daf8e0b9913d17207b09d178890e898ae3b7e7c5f2be549fba0a212d",
+        "/app/rainmapper_core/mushroom_ml_biology_v3_evaluation.py": "feb59c57064877ae5697aef3f07dc78140a7cc8f27e28e976d8b7efd4da97efb",
+        "/app/rainmapper_core/mushroom_ml_biology_v3_physical.py": "e2f2fb5dbe3fe5f35634eaf12c433ec803361f9079a6732c286574a61509d209",
+        "/app/rainmapper_core/mushroom_ml_biology_v4.py": "41a411384f8674ce959276de3402579f2f0fd773261adfba29b6e5ba0e38fa3d",
+        "/app/rainmapper_core/mushroom_ml_biology_v4_continuity.py": "13ce197cefdde388ec16f0dc19eb3eacc783cc4d45417da618d7a1bc997860fc",
+        "/app/rainmapper_core/mushroom_ml_comparison.py": "61590a65773afd4e9315db38dbb3913c11e4a2f79e1c166d8083b20dc08fd2c7",
+        "/app/rainmapper_core/mushroom_ml_error_analysis.py": "da125f00ac6e38299ef60b0d9a16db5e1e5c624d1c1701c1bae7408d82326f52",
+        "/app/rainmapper_core/mushroom_ml_experiment_trainer.py": "70cb2d05371ef651cb5b04b2b69504405df9ea1d19bd8460f46b599d3c273dce",
+        "/app/rainmapper_core/mushroom_ml_experiments.py": "43cdedf49f40b5acf0caf1c42e2de01ee2ea698f43ff73ba693e30dfa00a9580",
+        "/app/rainmapper_core/mushroom_ml_holdout.py": "c9d897c0f3a5d114bfde83f5ac44bf2f58cf8aaab701afe50c5c2790611e7ad4",
+        "/app/rainmapper_core/mushroom_ml_hydric_ablation.py": "8ce21999093601428900370de9e4e6770b36c262d25435ebccf54b0bfc1c2ced",
+        "/app/rainmapper_core/mushroom_ml_input_identity.py": "164adc5dc884555fd002a27243cb8919fc637d75bc6cfd730e85c656be8ae014",
+        "/app/rainmapper_core/mushroom_ml_model_catalog.py": "60d893979af7c80a0fd0ec73c667e2017a6bfbc79ecd93d328e021b01ab34374",
+        "/app/rainmapper_core/mushroom_ml_multiversion_comparison.py": "16c5aa4b9b6ed903491a905712170920370cf294806e704a160bf85136bc77ae",
+        "/app/rainmapper_core/mushroom_ml_multiversion_plan.py": "62520a45c52fc7c7c3d74bb3207d7507487a2b1f10dd2d9fb0910be3598bdec3",
+        "/app/rainmapper_core/mushroom_ml_multiversion_transport.py": "7a9963691a9aaa9a0bb03b546a5c282126085815186c216fd866786903f9f996",
+        "/app/rainmapper_core/mushroom_ml_predictor.py": "efa01518499badbc1b5636bf44c01103395b1adfacc5cd9300e93b80b257178b",
+        "/app/rainmapper_core/mushroom_ml_probability_calibration.py": "5c746e64e18c83aeb18af0afa3507741904ac1cfadf9a80f64012b7dfa342d69",
+        "/app/rainmapper_core/mushroom_ml_quality_catalog.py": "1a4c778cb2c449d85f0fa483477f83c3a261cb3bd40a98ffccdf265067c24488",
+        "/app/rainmapper_core/mushroom_ml_raw_weather.py": "11341513b73a5b8cde8f781c303a64b230096acaa146aaf50d21dcfd414851e0",
+        "/app/rainmapper_core/mushroom_ml_reliability_audit.py": "d1f3122b6e150ec894239fe7d4116627c2d0b717ce59cdc47703496f91f731a8",
+        "/app/rainmapper_core/mushroom_ml_runtime_features.py": "c894f1f9995f5361466a09a01cbc13758aaa7391dbfd72cc6e3675e92f8b7614",
+        "/app/rainmapper_core/mushroom_ml_runtime_inference.py": "c75ee66c1b4ec5beb37c025fe9982633e54b26c3142ccce9515870c2fc44e3f2",
+        "/app/rainmapper_core/mushroom_ml_runtime_trainer.py": "e9f86c37cf495fb02ac6e8073b94b1d21aaa0253c6e46f091a81c6c70075ab59",
+        "/app/rainmapper_core/mushroom_ml_smooth_hierarchical.py": "4ee519de38510d824060ea1968cbb351bb81c25185b6685b541d4f6a47b85d8c",
+        "/app/rainmapper_core/mushroom_ml_sparse_group.py": "8c9072bf8224b002e82de5751520afecd3b024397a3412b0c2a65d7c80d9d025",
+        "/app/rainmapper_core/mushroom_ml_storage_reconciler.py": "445b56fca7f8108b2bff6b7bffac1e462a574439ce30a51540e8621c61e550dd",
+        "/app/rainmapper_core/mushroom_ml_trainer.py": "d3bfa7ffbf420bfab1d5b5e0809fa8c37886a4ecae129196c80e9242c8f5b12b",
+        "/app/rainmapper_core/mushroom_ml_training_freshness.py": "69fc56931866f47575f2436ed647c5206bc699211d5a202f9f91c315f6511911",
+        "/app/rainmapper_core/mushroom_ml_tuning_catalog.py": "9837d1006db252e270d6b99da1ad858c99fc0f6130e2e980ac20f9ef6112a0f7",
+        "/app/rainmapper_core/mushroom_ml_version_registry.py": "576b343faedb656b864f4809f80c6f0c4019ea861bde38e336f07622be9c831a",
+        "/app/rainmapper_core/mushroom_ml_weather_workspace.py": "8bf2d6604a28b8a89329f5a3ebab91bb64ff61d4d7b223a30ebc22c2fc4e2160",
+        "/app/rainmapper_core/mushroom_model_explorer.py": "d7ab43d79dda4638ef594092bc7700072d2eef057e80c35c2fcdd4cc7deb2da9",
+        "/app/rainmapper_core/mushroom_model_state.py": "c1747372e8934944046b45e0e310768daa4c5696ff5f03d60b6b88e75a307b9a",
+        "/app/rainmapper_core/mushroom_observation_context.py": "36bf47dd723e4b60c1e7879e9443d9a5ab0f659a91a1ece51803c725b18344e2",
+        "/app/rainmapper_core/mushroom_observation_features.py": "b3c2f1d64051c43cc6a22de0ef48c3548a169b9826a16b07c7cec3c96c04a437",
+        "/app/rainmapper_core/mushroom_observations.py": "e4fbaf8abb042b34aa05e9fd6d8c6d59408f48127b77e78cd0f8b0e94185bc0c",
+        "/app/rainmapper_core/mushroom_operational_training_scope.py": "241807eada7d85e821146c2344032b48a9a0cdb478636a45bebe71a500698715",
+        "/app/rainmapper_core/mushroom_paths.py": "fa56d098f7ea5a2af6f9493ae0192be59a03a45d4677de3272e6b024957ae413",
+        "/app/rainmapper_core/mushroom_performance_telemetry.py": "45fffe10b86378ed0228464eb7e88cdafdd33fabbff55078da0794c8819f63db",
+        "/app/rainmapper_core/mushroom_phenology.py": "5c9c91595c1960c945b6df02f65af912566c1793da2cd95dd8d76aaf7041339b",
+        "/app/rainmapper_core/mushroom_prediction_interpretation.py": "dcebdda1da6fddd154b261b3949bc9ab7c9958b141a00b22f203ce6cd83c8475",
+        "/app/rainmapper_core/mushroom_prediction_map.py": "9bd251969e6fc1891ed634988e7dc5cb5989154c479515f66e44764ff4879a7f",
+        "/app/rainmapper_core/mushroom_predictor_precompute.py": "68163cff73b28c4f11f0f7a9c29042da9a173bdff710824a1d371f84abc628eb",
+        "/app/rainmapper_core/mushroom_predictor_precompute_control.py": "5664d791a8a31efb0b0005f81f3bb4cdb01cae35281854fa50e5b6f9970dc1b4",
+        "/app/rainmapper_core/mushroom_predictor_runtime.py": "b32e3d1dddb7cf74d4e0d558fa337698e7df296f38009e1de8f54d8c3ec3eff6",
+        "/app/rainmapper_core/mushroom_predictor_service.py": "e5cb9a41ac7dafb9fceb1b9a803fd17494f9be695f34068f941fea8c0373d123",
+        "/app/rainmapper_core/mushroom_predictor_stats.py": "3017fc25357764a2818b0ae64d86489ab2251afd133f9d51c0b84a8c40aeed05",
+        "/app/rainmapper_core/mushroom_profile_v0.py": "b8515fdd103eafa67ca1a1bb46886e9de2815ed1a8030054236baf931f6722d9",
+        "/app/rainmapper_core/mushroom_rebuild_comparison.py": "4e1ad152d6be01be450c8760bedb39388396fe52e35b3242336759fe50f84cf6",
+        "/app/rainmapper_core/mushroom_rebuild_contracts.py": "6b80af78f7345b9f144936b7b85b14914854d0c91433b2af0d1c6abc22ebc426",
+        "/app/rainmapper_core/mushroom_rebuild_pipeline.py": "97719660c1832ce3f1b16199312969aeacced141068d9193efadbc07073b842e",
+        "/app/rainmapper_core/mushroom_rebuild_snapshot.py": "835eaab45b6277bcba4dbfe3a8878a98719fd9ea08cedf59dc3bc5100088185f",
+        "/app/rainmapper_core/mushroom_soil_water_state.py": "1d34153d1875f8841185b7a2b28d3f74cda19e67ecbaf0915e5a5cacee1733fa",
+        "/app/rainmapper_core/mushroom_soilgrids.py": "497739c8da4a6e51a2ee41172d2afb56eaa37904cec585a83e452b01bd6a1160",
+        "/app/rainmapper_core/mushroom_soilgrids_reconciler.py": "2e86b58338098148d272fc5c8c363bfba6f55f263023312be47078fb7b837707",
+        "/app/rainmapper_core/mushroom_storage_reconciler.py": "c42b28267c3fa975057824628ececeaedd349453d02cdb3e87158477bba04688",
+        "/app/rainmapper_core/mushroom_store.py": "0834cc76ca23a2148f057f8c3f77513d45b17db68df8f47527838dbbe3f7865a",
+        "/app/rainmapper_core/mushroom_validation.py": "3129433275f53f93998b6cc11fb2b1a76f7f6a48b58566ef3ca660a927482e51",
+        "/app/rainmapper_core/mushroom_weather_idw.py": "9b667c995a599ef65cae56eaeac2ec0a2bd5810b1dcd3b0e93c4ea590503b224",
+        "/app/rainmapper_core/mushroom_worker_auth.py": "f334d8912acee8cb4132e59ae6830f5c10ee0b4ac4f7cd0076585da74457d856",
+        "/app/rainmapper_core/mushroom_worker_completion.py": "630f903a645c333b9eba1394d3696252b457147af986190e48f6e91ef24a71f0",
+        "/app/rainmapper_core/mushroom_worker_config.py": "22be1d5f3fdda6c2fe0bb7d61261c370b8f577274ae33d969a1ee7ba81d0c6a4",
+        "/app/rainmapper_core/mushroom_worker_dataset_cache.py": "00906abd8c41eb0f42e226c609582c81b8f1b82c2533f226d294c2e25e7d1198",
+        "/app/rainmapper_core/mushroom_worker_jobs.py": "a98199bdb435698bd63d9b059241918f91de15771c25158edcd48d06df425773",
+        "/app/rainmapper_core/mushroom_worker_registry.py": "535a5f6c0f63b56d7a55854b7ee83673d6ec9fe3a97041367dc4aff56da03dfd",
+        "/app/rainmapper_core/mushroom_worker_results.py": "3e46ec3e59b07d888ed470ece522a867ff2cc0d3a1e846f00be633b00aa56dd4",
+        "/app/rainmapper_core/mushroom_worker_service.py": "0280c549c999b7742fbc0c17a31d661cb0f356b367c7b6de4f99e9014ff2ea3f",
+        "/app/rainmapper_core/mushroom_worker_transport.py": "e8b83236e8b9a8a037bbf00523154f144a6bf5ef24bf44e11b17cf5799fd5b49",
+        "/app/rainmapper_core/rainmapper.py": "80c76bfcac8ca33a14ccaa76c0e9a77e4ccef89bf668c456d259e53dea70ea15",
+        "/app/rainmapper_core/runtime_diagnostics.py": "96e14e09b49270128ae56af32ccfa5ec88251db5ef21c96528146d10923da3ee",
+        "/app/rainmapper_core/sources/__init__.py": "630d87735248ea9bcafbddcafcbf8d0e0e0135a3264e32ce8705d00969757dba",
+        "/app/rainmapper_core/sources/meteoclimatic_local/__init__.py": "ae412427d9b4b505051733156c5045a8dae440ffe7f019549b9e9b2851e787bb",
+        "/app/rainmapper_core/sources/meteoclimatic_local/client.py": "f6cd2f9cb4690c709df10ca30f9a6017bc0c124d2382c842e02b332ac637b6ff",
+        "/app/rainmapper_core/sources/meteoclimatic_local/exceptions.py": "3dcb8e368024c769072af922caa7a61fcf2a8851ed84977ec7e1ed1f8729128b",
+        "/app/rainmapper_core/sources/meteoclimatic_local/feed.py": "be376e5e57c47d0edcc5c72123c666331213aba2a618fdd43288349a81d4851c",
+        "/app/rainmapper_core/sources/meteoclimatic_local/observation.py": "1bf15ec35e17b5da4ae3ed7354fcbaddaa4a1b133cc6176b75e8d0ce02f7b28f",
+        "/app/rainmapper_core/sources/meteoclimatic_local/station.py": "fed72414fb9c4426279e504d378a1de66b2a4c47750926e0e1e5341f48e1d55c",
+        "/app/rainmapper_core/sources/meteoclimatic_local/weather.py": "e72ec8dc6862f95b173ee4eead03b8fa353d2ad931b373e6147c48f6814f6144",
+        "/app/rainmapper_core/sources/sodapy_local/__init__.py": "04253bc01ef3698246a56cba7d4aac880709271fd74d59e72e79267b9168b7ef",
+        "/app/rainmapper_core/sources/sodapy_local/constants.py": "2f1d570d27c10a0893e6b0fd8c8123afa80d5ece7922f839b563fc9e8463b064",
+        "/app/rainmapper_core/sources/sodapy_local/socrata.py": "c6ccecae02b0c75dbcd8ca5069c920b8087733d0839d887d431eaaafbc4cc708",
+        "/app/rainmapper_core/sources/sodapy_local/utils.py": "78f6a26d3d20493b0679d1c077bcc5e7859b04165268789ca26dfb58d84a3a9d",
+        "/app/rainmapper_core/sources/sodapy_local/version.py": "f94819a15e641b937adf53caac882a36a9b5c3051b2f04375015118282352a42",
+        "/app/rainmapper_core/sources/wunderground/Parser.py": "11d140d277e13df0631fd8d316abdbba6c64b82f6f198b9a8ef1bc904ed55eb4",
+        "/app/rainmapper_core/sources/wunderground/UnitConverter.py": "12c7e426c585337ff267921447c4340afe0038643085d6da873e9a8e1c91c5d2",
+        "/app/rainmapper_core/sources/wunderground/Utils.py": "09a2feac3a81732f23aa95200bc3cca75106513fb586b9b0b8fef8dd69efab2b",
+        "/app/rainmapper_core/sources/wunderground/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/app/rainmapper_core/sources/wunderground/daily_api.py": "2657ceb514827f9ab5e528e9120d5d6b0b1c35e47b008ed7eed7e8ce5e53935c",
+        "/app/rainmapper_core/sources/wunderground/parseStationData.py": "e7ed356e0ab0e34b1690e864d779ff40ccd8d42f027773baade453b945b1bd59",
+        "/app/rainmapper_core/tomap.py": "11beee83156573cd4abe8dabae24a455f1fe3c19bc36507aec8323c569efbe37",
+        "/app/rainmapper_core/viewers/leaflet-viewer/app.js": "926d0437e3b894835158095a37607e4c1392270f8a4290d9523506b8811dc108",
+        "/app/rainmapper_core/viewers/leaflet-viewer/config.js": "6fe224435dc76419e0900abdd54627de168f6e308ebd7443fee1825b1273bbb6",
+        "/app/rainmapper_core/viewers/leaflet-viewer/index.html": "bb8fdd559403ed7ea9ad218b999ef69489c5631a8b8c5f614bf57a533b16b667",
+        "/app/rainmapper_core/viewers/leaflet-viewer/style.css": "4d653b780b824caaff428befe6842412375c59f7b6f74f4fae5fd69683c5b9cb",
+        "/app/rainmapper_core/viewers/maplibre-viewer/app.js": "048c937ef1d120de15f10aa2a97e75474c5204c915dc1d8fbe8f6953bdbe0059",
+        "/app/rainmapper_core/viewers/maplibre-viewer/config.js": "6fe224435dc76419e0900abdd54627de168f6e308ebd7443fee1825b1273bbb6",
+        "/app/rainmapper_core/viewers/maplibre-viewer/index.html": "4615581de1019d9f165766cb085afbc87e85999da0d277c1186f0f1960e618b9",
+        "/app/rainmapper_core/viewers/maplibre-viewer/style.css": "d64c92c62365b35be1a126154095116fd8199e6e746ffd3b8337e17d80b06cb7",
+        "/app/rainmapper_core/viewers/maplibre-viewer/translations.json": "8f10c9b7996448142155e07c558f51ed77fbad5c94ac025452d76230b02f55e4",
+        "/app/rainmapper_core/viewers/prediction-map/prediction-bootstrap.js": "345472a7a64c8b8def1760903e9d71750c48f4ad514f01ebb5990a01523f141a",
+        "/app/rainmapper_core/viewers/prediction-map/prediction-mode.css": "88829fec6af92169100429ccf22d680e2abd61e865a41dfe32ad53dab7d49518",
+        "/app/rainmapper_core/viewers/prediction-map/prediction-mode.js": "46990c9defb825312d52633be6f40a904fde69bd9675187028eea59bce1445b0",
+        "/app/rainmapper_core/viewers/prediction-map/prediction-weather.js": "e7861a187ace1c2beac0bfe024091fba4fd422d6bf5a86363017e6a019494001",
+        "/app/rainmapper_core/weather_coordinate_policy.json": "f6f2d9e49842b96faa6b491e61b1e3b49bbaf0945db35af4c77bdf8181608793",
+        "/app/rainmapper_core/weather_coordinate_policy.py": "6b7a0997c1e5610c06bd83398a7956358b653aa75e1e99447a2d4c8ace442b89",
+        "/app/rainmapper_core/weather_history.py": "8857ccb813b14b8f04844dab493d026ec3ff26c5d188843354e9daa705ccf28e",
+        "/app/rainmapper_core/weather_history_archive.py": "e6ca5bff81bddd0504ce591fbe3ecb641c108c5def2619f64fc8d36a91b9ba69",
+        "/app/rainmapper_core/weather_history_capture.py": "3ad03509ab46fe6334a36f35b6197ed2e53a4b60a6e0f6267bfe08a4b3e77e75",
+        "/app/rainmapper_core/weather_history_catalog_repair.py": "3969825b9c60c0c3109f485223d6ae2f4ed4a942dfb62e82a5618f37d2611d28",
+        "/app/rainmapper_core/weather_history_contract.py": "714c68a3ec87535970097b6867a249f363bef5aa09f1c8b4f28a156b6216a6e1",
+        "/app/rainmapper_core/weather_history_dataset.py": "e0b87c3deddddcc00df5bbd257f3b4cf180d0172ccf6b9391eea778d30559123",
+        "/app/rainmapper_core/weather_history_pending.py": "0490c37076414ad9d377c05490180f434873f7610590d9a741583f531b090153",
+        "/app/rainmapper_core/weather_history_pipeline.py": "6abcfc57ef04b55e9d6d6ec8d164bfa53c430136becc698ccf71e60e2040e49c",
+        "/app/rainmapper_core/weather_history_rebase.py": "2d20614eba88e95baee70b0df0de16da17555611e9bf05bddc7c36da73256bb7",
+        "/app/rainmapper_core/weather_history_run_lock.py": "c6181fec131af4424bce02ce6c49afb65515d2ce09dead445806f0affe26adda",
+        "/app/rainmapper_core/weather_history_writer.py": "c33aeaea367d7d86906b1fc5e1b033d2d3d7ecc2b2974742ab373521e6778183",
+        "/app/rainmapper_core/weather_live_csv.py": "c4699d9db9e13b8539becab014f719b8256d40b9639eba9bb3e6d6b4a0b22041",
+        "/app/rainmapper_core/weather_official_backfill.py": "393249f68ce144992bafcca0b6221a2a9111882baac3fee01ebc908cff193029",
+        "/app/rainmapper_core/weather_official_maintenance.py": "b9e307fc64c936e773ddf9e89cbea927d5d6f226b53c88828860b531ea745039",
+        "/app/rainmapper_core/weather_official_repair_state.py": "b952be88dbce3b2e7cf2100e54858038c0d799aa57f8d5c9f266c264960d8db9",
+        "/app/rainmapper_core/wind.py": "d2f05f9711d15610fa37b52908a5aa304e0acf0bc134969554e88d460e09f30c",
+        "/app/rainmapper_core/wunderground_metrics.py": "1e19cb90e7983f8d95c31181c6d991bfb59b8f03205cea4d017374ea587efee5",
+        "/app/web_server.py": "7557a392ea76abbe89ad6bc95db29feedcd4242e2014f08a8bcc253f7d6f1491",
+        "/app/mushroom_catalogs_ui.py": "15f8b0cc02565fd5aae828b3a9250cc797428df056989da587d508193a443403",
+        "/app/mushroom_gis_mappings_ui.py": "0072547eafd3ee7cb736875b850b93c1a7cdb1988f89d7b650dd6e9df961fa67",
+        "/app/mushroom_known_sites_ui.py": "2136585cd8acbb8c92b8e88a001c9088026b6cd455e333c9493cbeff836ef4ab",
+        "/app/mushroom_profiles_ui.py": "257db9eb663b434ff889d69fccaee28cd6d16de172b8a7a494f07e91741f8192",
+        "/app/mushroom_predictor_ui.py": "043fc2f5e08b848b4f3aaf66391311d137c39f952608f9c5cd13bba9f16a9276",
+        "/app/mushroom_predictor_weather_ui.py": "3a0ffee9b844ec4128ac4af3610d6bedfead7bcc58c868f867be384e480026f6",
+        "/app/mushroom_prediction_map_ui.py": "6a70b9d0fdf0904f48730e643142216f19bb7cc0ce4878d4baf022986667bbdc",
+        "/app/mushroom_workers_ui.py": "c6c0e867d9a46338edf2bb1724cf3c020bdcc91ea0b4cf510ff2c9e62084b135",
+        "/run.sh": "9c122f013090fe175d6d2cada3ded9dc236bb4125d8f9d94cfc6e6d3e17f69a4"
+      }
+    },
+    "worker": {
+      "image": "rainmapper-worker:1.1.1",
+      "image_id": "sha256:f44daf53eb88ba6ff21d0d2b9240e474f5ad224977605d03dd37eccfeaeaefe4",
+      "file_count": 100,
+      "differences": [],
+      "files": {
+        "/app/rainmapper_core/__init__.py": "bd1401e7012a76d00026afa8aa1177f9a661f0561e3ed6129010d7712872691c",
+        "/app/rainmapper_core/mushroom_prediction_map.py": "9bd251969e6fc1891ed634988e7dc5cb5989154c479515f66e44764ff4879a7f",
+        "/app/rainmapper_core/mushroom_map_municipalities.py": "9d54f431d9bada8254bd551f4fa0fc2ed990e193ab8a226ff20ab2d2eee9c2b6",
+        "/app/rainmapper_core/mushroom_map_terrain.py": "ef1cbe1bac41299b6e4c523f0ec18aa117566c04c1974d152eb3e991fd8ee55f",
+        "/app/rainmapper_core/mushroom_map_land.py": "5f50598dbf6ef7d35626c83b58d94b8214d1b7573d72c7de6555c8a79d7e305a",
+        "/app/rainmapper_core/mushroom_map_forest.py": "6e0274e5537df4728780799dd4e374d62676003dc4a7dd6c6d7bd534395504c8",
+        "/app/rainmapper_core/mushroom_map_ecology.py": "52a9cf05e38024f4eddec8af74326f263ab048fd37d57500ed7a6aa8a0fc5b18",
+        "/app/rainmapper_core/mushroom_phenology.py": "5c9c91595c1960c945b6df02f65af912566c1793da2cd95dd8d76aaf7041339b",
+        "/app/rainmapper_core/mushroom_map_ph.py": "cf412b0555e444ac638c2cab108bd81140e5d330f05996e4c2d248aa0f8466b4",
+        "/app/rainmapper_core/mushroom_map_prediction.py": "39cdab0e140f9483e80ef035b346480b389696d8d756178a9d29d9e6f525113c",
+        "/app/rainmapper_core/mushroom_map_model_runtime.py": "a467e00b8e76b77d9a25c1d676786c44f94572d4fdf9c7151e4d08a92e69d274",
+        "/app/rainmapper_core/mushroom_soilgrids.py": "497739c8da4a6e51a2ee41172d2afb56eaa37904cec585a83e452b01bd6a1160",
+        "/app/rainmapper_core/mushroom_map_land_parts.py": "7040899d24d70fa41d490a8c5b97d4b07b6ba80223374386eace8106fa5319b8",
+        "/app/rainmapper_core/mushroom_map_weather.py": "644f36cbf00ba409abac2438c88ee779e6d9bf32c07f99357412d0875a7a9316",
+        "/app/rainmapper_core/mushroom_map_execution.py": "4fbd0f1765484bb6f79f0f0083d8ceb91c72797e3dd87712af3b158845fe8075",
+        "/app/rainmapper_core/mushroom_map_queries.py": "eadf165eaa708e9e3844a82241fd2535178eef887114b1e80e420910b1a6d578",
+        "/app/rainmapper_core/mushroom_map_worker.py": "d701bf05419d95b4dbf5ef7a63850940832fb16233ce9187d60a2c545f54e221",
+        "/app/rainmapper_core/mushroom_map_volume.py": "8871b202b4adc2024e304d48af0a86c7d5e270312a4c40ee8c0a777f70e2214c",
+        "/app/rainmapper_core/mushroom_gis_lab.py": "a8d287fca3393508e07bebc8f562637fb1fa7c47c61b0f9ea27dede0cda123c6",
+        "/app/rainmapper_core/mushroom_known_sites.py": "2cf692674da8741f60001d39d7a65acb3d37c6cb1d8bf7f8dd52d8ef350aa0f4",
+        "/app/rainmapper_core/mushroom_learned_model.py": "6f40929da4c30fedb50bbd8c3a4d851fdaf972bc9c1123c1319f1c97c151be16",
+        "/app/rainmapper_core/mushroom_ml_biology_v3.py": "b560a680daf8e0b9913d17207b09d178890e898ae3b7e7c5f2be549fba0a212d",
+        "/app/rainmapper_core/mushroom_ml_biology_v3_evaluation.py": "feb59c57064877ae5697aef3f07dc78140a7cc8f27e28e976d8b7efd4da97efb",
+        "/app/rainmapper_core/mushroom_ml_biology_v3_physical.py": "e2f2fb5dbe3fe5f35634eaf12c433ec803361f9079a6732c286574a61509d209",
+        "/app/rainmapper_core/mushroom_ml_biology_v4.py": "41a411384f8674ce959276de3402579f2f0fd773261adfba29b6e5ba0e38fa3d",
+        "/app/rainmapper_core/mushroom_ml_benchmark_reports.py": "7d317c71821ac584293617a4cc5560aa8f2922204fa86f32205cc25f5f8a0ef5",
+        "/app/rainmapper_core/mushroom_ml_raw_weather.py": "11341513b73a5b8cde8f781c303a64b230096acaa146aaf50d21dcfd414851e0",
+        "/app/rainmapper_core/mushroom_ml_smooth_hierarchical.py": "4ee519de38510d824060ea1968cbb351bb81c25185b6685b541d4f6a47b85d8c",
+        "/app/rainmapper_core/mushroom_ml_sparse_group.py": "8c9072bf8224b002e82de5751520afecd3b024397a3412b0c2a65d7c80d9d025",
+        "/app/rainmapper_core/mushroom_ml_holdout.py": "c9d897c0f3a5d114bfde83f5ac44bf2f58cf8aaab701afe50c5c2790611e7ad4",
+        "/app/rainmapper_core/mushroom_ml_input_identity.py": "164adc5dc884555fd002a27243cb8919fc637d75bc6cfd730e85c656be8ae014",
+        "/app/rainmapper_core/mushroom_ml_version_registry.py": "576b343faedb656b864f4809f80c6f0c4019ea861bde38e336f07622be9c831a",
+        "/app/rainmapper_core/mushroom_ml_model_catalog.py": "60d893979af7c80a0fd0ec73c667e2017a6bfbc79ecd93d328e021b01ab34374",
+        "/app/rainmapper_core/mushroom_ml_tuning_catalog.py": "9837d1006db252e270d6b99da1ad858c99fc0f6130e2e980ac20f9ef6112a0f7",
+        "/app/rainmapper_core/mushroom_operational_training_scope.py": "241807eada7d85e821146c2344032b48a9a0cdb478636a45bebe71a500698715",
+        "/app/rainmapper_core/mushroom_ml_weather_workspace.py": "8bf2d6604a28b8a89329f5a3ebab91bb64ff61d4d7b223a30ebc22c2fc4e2160",
+        "/app/rainmapper_core/mushroom_ml_multiversion_plan.py": "62520a45c52fc7c7c3d74bb3207d7507487a2b1f10dd2d9fb0910be3598bdec3",
+        "/app/rainmapper_core/mushroom_ml_multiversion_transport.py": "7a9963691a9aaa9a0bb03b546a5c282126085815186c216fd866786903f9f996",
+        "/app/rainmapper_core/mushroom_ml_runtime_trainer.py": "e9f86c37cf495fb02ac6e8073b94b1d21aaa0253c6e46f091a81c6c70075ab59",
+        "/app/rainmapper_core/mushroom_ml_runtime_inference.py": "c75ee66c1b4ec5beb37c025fe9982633e54b26c3142ccce9515870c2fc44e3f2",
+        "/app/rainmapper_core/mushroom_ml_runtime_features.py": "c894f1f9995f5361466a09a01cbc13758aaa7391dbfd72cc6e3675e92f8b7614",
+        "/app/rainmapper_core/mushroom_model_explorer.py": "d7ab43d79dda4638ef594092bc7700072d2eef057e80c35c2fcdd4cc7deb2da9",
+        "/app/rainmapper_core/mushroom_ml_area_weather_runtime.py": "542e2fd30f6a5df90f69c28b12e6f8b4b49d093629fcdcc156c1d8b9277346d6",
+        "/app/rainmapper_core/mushroom_ml_multiversion_comparison.py": "16c5aa4b9b6ed903491a905712170920370cf294806e704a160bf85136bc77ae",
+        "/app/rainmapper_core/mushroom_ml_probability_calibration.py": "5c746e64e18c83aeb18af0afa3507741904ac1cfadf9a80f64012b7dfa342d69",
+        "/app/rainmapper_core/mushroom_ml_quality_catalog.py": "1a4c778cb2c449d85f0fa483477f83c3a261cb3bd40a98ffccdf265067c24488",
+        "/app/rainmapper_core/mushroom_ml_reliability_audit.py": "d1f3122b6e150ec894239fe7d4116627c2d0b717ce59cdc47703496f91f731a8",
+        "/app/rainmapper_core/mushroom_climatic_water_balance.py": "7de75259337d3b5f195702a34edfccb9dfed747630c1ca1662e212c20a4bc260",
+        "/app/rainmapper_core/mushroom_soil_water_state.py": "1d34153d1875f8841185b7a2b28d3f74cda19e67ecbaf0915e5a5cacee1733fa",
+        "/app/rainmapper_core/mushroom_observation_context.py": "36bf47dd723e4b60c1e7879e9443d9a5ab0f659a91a1ece51803c725b18344e2",
+        "/app/rainmapper_core/mushroom_observation_features.py": "b3c2f1d64051c43cc6a22de0ef48c3548a169b9826a16b07c7cec3c96c04a437",
+        "/app/rainmapper_core/mushroom_observations.py": "e4fbaf8abb042b34aa05e9fd6d8c6d59408f48127b77e78cd0f8b0e94185bc0c",
+        "/app/rainmapper_core/mushroom_paths.py": "fa56d098f7ea5a2af6f9493ae0192be59a03a45d4677de3272e6b024957ae413",
+        "/app/rainmapper_core/mushroom_ml_experiments.py": "43cdedf49f40b5acf0caf1c42e2de01ee2ea698f43ff73ba693e30dfa00a9580",
+        "/app/rainmapper_core/mushroom_ml_error_analysis.py": "da125f00ac6e38299ef60b0d9a16db5e1e5c624d1c1701c1bae7408d82326f52",
+        "/app/rainmapper_core/mushroom_ml_experiment_trainer.py": "70cb2d05371ef651cb5b04b2b69504405df9ea1d19bd8460f46b599d3c273dce",
+        "/app/rainmapper_core/mushroom_ml_comparison.py": "61590a65773afd4e9315db38dbb3913c11e4a2f79e1c166d8083b20dc08fd2c7",
+        "/app/rainmapper_core/mushroom_ml_predictor.py": "efa01518499badbc1b5636bf44c01103395b1adfacc5cd9300e93b80b257178b",
+        "/app/rainmapper_core/mushroom_prediction_interpretation.py": "dcebdda1da6fddd154b261b3949bc9ab7c9958b141a00b22f203ce6cd83c8475",
+        "/app/rainmapper_core/mushroom_predictor_precompute.py": "68163cff73b28c4f11f0f7a9c29042da9a173bdff710824a1d371f84abc628eb",
+        "/app/rainmapper_core/mushroom_predictor_precompute_control.py": "5664d791a8a31efb0b0005f81f3bb4cdb01cae35281854fa50e5b6f9970dc1b4",
+        "/app/rainmapper_core/mushroom_predictor_runtime.py": "b32e3d1dddb7cf74d4e0d558fa337698e7df296f38009e1de8f54d8c3ec3eff6",
+        "/app/rainmapper_core/mushroom_predictor_service.py": "e5cb9a41ac7dafb9fceb1b9a803fd17494f9be695f34068f941fea8c0373d123",
+        "/app/rainmapper_core/mushroom_rebuild_contracts.py": "6b80af78f7345b9f144936b7b85b14914854d0c91433b2af0d1c6abc22ebc426",
+        "/app/rainmapper_core/mushroom_rebuild_comparison.py": "4e1ad152d6be01be450c8760bedb39388396fe52e35b3242336759fe50f84cf6",
+        "/app/rainmapper_core/mushroom_rebuild_pipeline.py": "97719660c1832ce3f1b16199312969aeacced141068d9193efadbc07073b842e",
+        "/app/rainmapper_core/mushroom_rebuild_snapshot.py": "835eaab45b6277bcba4dbfe3a8878a98719fd9ea08cedf59dc3bc5100088185f",
+        "/app/rainmapper_core/mushroom_store.py": "0834cc76ca23a2148f057f8c3f77513d45b17db68df8f47527838dbbe3f7865a",
+        "/app/rainmapper_core/mushroom_worker_dataset_cache.py": "00906abd8c41eb0f42e226c609582c81b8f1b82c2533f226d294c2e25e7d1198",
+        "/app/rainmapper_core/mushroom_worker_config.py": "22be1d5f3fdda6c2fe0bb7d61261c370b8f577274ae33d969a1ee7ba81d0c6a4",
+        "/app/rainmapper_core/mushroom_worker_registry.py": "535a5f6c0f63b56d7a55854b7ee83673d6ec9fe3a97041367dc4aff56da03dfd",
+        "/app/rainmapper_core/mushroom_worker_jobs.py": "a98199bdb435698bd63d9b059241918f91de15771c25158edcd48d06df425773",
+        "/app/rainmapper_core/mushroom_worker_service.py": "0280c549c999b7742fbc0c17a31d661cb0f356b367c7b6de4f99e9014ff2ea3f",
+        "/app/rainmapper_core/mushroom_worker_completion.py": "630f903a645c333b9eba1394d3696252b457147af986190e48f6e91ef24a71f0",
+        "/app/rainmapper_core/mushroom_worker_transport.py": "e8b83236e8b9a8a037bbf00523154f144a6bf5ef24bf44e11b17cf5799fd5b49",
+        "/app/rainmapper_core/mushroom_worker_results.py": "3e46ec3e59b07d888ed470ece522a867ff2cc0d3a1e846f00be633b00aa56dd4",
+        "/app/rainmapper_core/mushroom_performance_telemetry.py": "45fffe10b86378ed0228464eb7e88cdafdd33fabbff55078da0794c8819f63db",
+        "/app/rainmapper_core/mushroom_weather_idw.py": "9b667c995a599ef65cae56eaeac2ec0a2bd5810b1dcd3b0e93c4ea590503b224",
+        "/app/rainmapper_core/mushroom_ml_trainer.py": "d3bfa7ffbf420bfab1d5b5e0809fa8c37886a4ecae129196c80e9242c8f5b12b",
+        "/app/rainmapper_core/runtime_diagnostics.py": "96e14e09b49270128ae56af32ccfa5ec88251db5ef21c96528146d10923da3ee",
+        "/app/rainmapper_core/weather_history_contract.py": "714c68a3ec87535970097b6867a249f363bef5aa09f1c8b4f28a156b6216a6e1",
+        "/app/rainmapper_core/weather_history_dataset.py": "e0b87c3deddddcc00df5bbd257f3b4cf180d0172ccf6b9391eea778d30559123",
+        "/app/mushroom-data/mushroom_ml_version_registry.json": "cc3ba8906a79d73a8a05f0a6e3b014ba5702b5f1eac7b55e554e9ccf9284cc94",
+        "/app/scripts/run-mushroom-rebuild-job.py": "717c0c44aea8d5860fccaf9874b76d7933668c51ffe59e1020b302bc9c01f645",
+        "/app/scripts/run-mushroom-ml-train-job.py": "fd3ba296466501ec4c7cc4619726caa2c98e5a7d03518bcf8e7438335bceb4d8",
+        "/app/scripts/run-mushroom-ml-multiversion-job.py": "890fd6a0322ff19c1ed1c05d57ff266f3d9d85cdf7fe1eca93d9f3c29e5b9bdd",
+        "/app/scripts/prepare-mushroom-ml-multiversion-inputs.py": "d82c57c1fd1a40bb5ff1f48a844728584ef201cdb165878b0c48a9d7bdda263a",
+        "/app/scripts/build-biology-v3-benchmark.py": "f617a1e372e94539c24a1d26dfed14bd81d1c04c710875e820c96cee2889f4d3",
+        "/app/scripts/build-biology-v4-benchmark.py": "b7c5709d1286ee101838203810fdcda0dacda306b696aa567b2f32e939636295",
+        "/app/scripts/build-biology-v5-raw-benchmark.py": "9bd17c7ce32bee9b65b36a70857f9aa5e22fe54b232d72dfb5c6eafbdfbb87e9",
+        "/app/scripts/evaluate-biology-v5-raw-benchmark.py": "54c9062310919538d16d297c4b92af955965683d2f577fbc5472690b922db5f5",
+        "/app/scripts/evaluate-biology-v6-smooth-hierarchical.py": "99155e8c52ad2c015a5826cc03c421f5b6fd832f304c7b1d22fa782d5f3ab7fc",
+        "/app/scripts/manage-mushroom-worker-datasets.py": "7b82d11683381a806e943d6bafb2391259e9d3f48f188cc0bb1b102066caa9de",
+        "/app/scripts/manage-mushroom-worker-config.py": "0cfcf719d3859900a5b21c12cbd3eedadee833f0c66dad79fbb2a48741c42a45",
+        "/app/scripts/run-mushroom-worker-service.py": "8141a6ffcb25c68b9686b99e05d1bcd5e5f3cd9fd4827ae50b55d70527a26d4e",
+        "/app/scripts/prediction-map-local-geography.py": "cc3b2f29c5b2b635ca3702719c50694aebd3edd2457fbb019cd13cf211e87e06",
+        "/app/scripts/prediction-map-local-weather.py": "47c177e319ec75a0df567645255ed1e8ecbf18740e43635fb166c9c1e6b37e20",
+        "/app/scripts/prediction-map-local-model.py": "209ee928f9edd7d54287dd37c4007fe1062508f6236c6776fb333be374e4dad6",
+        "/app/scripts/manage-prediction-map-volume.py": "8ee62753ba5938170af091bc5df093bb2932d6b7549f4ed17fc51d7cc712fc45",
+        "/usr/local/bin/rainmapper-worker": "86da8f845b1acbb5fad70beb5a1f89cd98ea7b9b9d0695313813b34d7d8782f7"
+      }
+    }
+  },
+  "validation": {
+    "smoke": {
+      "ok": true,
+      "tests": 1551,
+      "skipped": 48,
+      "log": "smoke-calendar.log"
+    },
+    "map": {
+      "contract": "prediction_map_point_v1",
+      "start_date": "2026-09-15",
+      "checks": {
+        "ready": {
+          "contract": "prediction_map_point_v1",
+          "can_use_prediction_map": true,
+          "admin_only": true,
+          "data_mode": "prediction",
+          "worker_ready": true,
+          "executors": {
+            "local": true,
+            "worker": true
+          },
+          "calendar_timezone": "Europe/Madrid",
+          "max_horizon_days": 7,
+          "max_species": 32
+        },
+        "unauthorized": 401,
+        "invalid_coordinate": 400,
+        "initial_parity": true,
+        "local_warm_parity": true,
+        "worker_warm_parity": true,
+        "concurrent_parity": true,
+        "local_cancel": "cancelled",
+        "worker_cancel": "cancelled"
+      },
+      "queries": [
+        {
+          "mode": "local",
+          "point": {
+            "lat": 42.29077,
+            "lon": 1.53842
+          },
+          "elapsed_ms": 2062.87,
+          "compute_ms": 1857.671,
+          "polls": 11,
+          "state_bytes": 570,
+          "result_bytes": 23696,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 42.29077,
+            "lon": 1.53842
+          },
+          "elapsed_ms": 2903.4,
+          "compute_ms": 1736.286,
+          "polls": 15,
+          "state_bytes": 793,
+          "result_bytes": 23697,
+          "calculated_species": 3
+        },
+        {
+          "mode": "local",
+          "point": {
+            "lat": 42.29077,
+            "lon": 1.53842
+          },
+          "elapsed_ms": 1641.43,
+          "compute_ms": 1603.252,
+          "polls": 9,
+          "state_bytes": 456,
+          "result_bytes": 23696,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 42.29077,
+            "lon": 1.53842
+          },
+          "elapsed_ms": 1645.87,
+          "compute_ms": 1301.27,
+          "polls": 9,
+          "state_bytes": 455,
+          "result_bytes": 23696,
+          "calculated_species": 3
+        },
+        {
+          "mode": "local",
+          "point": {
+            "lat": 42.02466,
+            "lon": 1.77189
+          },
+          "elapsed_ms": 2063.81,
+          "compute_ms": 1920.258,
+          "polls": 11,
+          "state_bytes": 570,
+          "result_bytes": 25597,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 42.02466,
+            "lon": 1.77189
+          },
+          "elapsed_ms": 2682.62,
+          "compute_ms": 1724.086,
+          "polls": 4,
+          "state_bytes": 171,
+          "result_bytes": 25598,
+          "calculated_species": 3
+        }
+      ],
+      "differences": [],
+      "scientific_provenance": {
+        "engine": "existing_python_predictor",
+        "scientifically_validated": false,
+        "selection_scope": "species",
+        "point_validation": "not_established",
+        "model_revision": "ac802efe85f6be611b19",
+        "batch_id": "operational_20260909T184116Z",
+        "weather_generation": "20260914T220642275627Z-887eada37d76",
+        "soil_context_hash": "2bf319b22511dbb662afca57829e908f7e8659068c82c15461c4742366f95089"
+      },
+      "species": [
+        {
+          "species_id": "boletus_edulis",
+          "label_key": "boletus_edulis",
+          "status": "available",
+          "probabilities": [
+            0.682701,
+            0.691804,
+            0.700748,
+            0.709528,
+            0.718143,
+            0.726588,
+            0.734863
+          ],
+          "reasons": [
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated"
+          ]
+        },
+        {
+          "species_id": "boletus_pinophilus",
+          "label_key": "boletus_pinophilus",
+          "status": "available",
+          "probabilities": [
+            0.266938,
+            0.266533,
+            0.26797,
+            0.258665,
+            0.259335,
+            0.259533,
+            0.259533
+          ],
+          "reasons": [
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated"
+          ]
+        },
+        {
+          "species_id": "cantharellus_cibarius_sl",
+          "label_key": "cantharellus_cibarius_sl",
+          "status": "available",
+          "probabilities": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "reasons": [
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained",
+            "model_abstained"
+          ]
+        },
+        {
+          "species_id": "cantharellus_lutescens",
+          "label_key": "cantharellus_lutescens",
+          "status": "no_model",
+          "probabilities": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "reasons": [
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable",
+            "model_unavailable"
+          ]
+        },
+        {
+          "species_id": "lactarius_deliciosus",
+          "label_key": "lactarius_deliciosus",
+          "status": "available",
+          "probabilities": [
+            0.595364,
+            0.600036,
+            0.611729,
+            0.617589,
+            0.624357,
+            0.635975,
+            0.662243
+          ],
+          "reasons": [
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated",
+            "calculated"
+          ]
+        }
+      ],
+      "ok": true,
+      "temporary_test_device_removed": true
+    },
+    "browser": {
+      "ok": true,
+      "checks": "shared viewer, lazy module, station hover/click, modal, popup, dates, cancellation, errors, repeated toggles, mobile, non-admin, original route",
+      "screenshots": "/var/folders/42/w270zmtn6q17nw__20m8kvsm0000gn/T/prediction-map-browser-8D1l79",
+      "demo_requests": 20
+    },
+    "affinity_browser": {
+      "ok": true,
+      "views": [
+        "v0",
+        "enriched"
+      ],
+      "widths": [
+        1600,
+        390
+      ],
+      "ajax_species_switch": true
+    },
+    "calendar": {
+      "default": "Europe/Madrid",
+      "device_setting": "prediction_timezone",
+      "request_and_result_field": "calendar_timezone",
+      "browser_timezone_test": "Pacific/Honolulu",
+      "map_timezone_test": "Pacific/Kiritimati",
+      "midnight_summer_and_winter": true,
+      "future_weather_guard_preserved": true,
+      "sagas_final": [
+        {
+          "capabilities": {
+            "contract": "prediction_map_point_v1",
+            "can_use_prediction_map": true,
+            "admin_only": true,
+            "data_mode": "prediction",
+            "worker_ready": true,
+            "executors": {
+              "local": true,
+              "worker": true
+            },
+            "calendar_timezone": "Europe/Madrid",
+            "max_horizon_days": 7,
+            "max_species": 32
+          }
+        },
+        {
+          "ok": true,
+          "execution": {
+            "mode": "worker",
+            "compute_ms": 1074.444
+          },
+          "data_mode": "prediction",
+          "start_date": "2026-09-14",
+          "species": [
+            {
+              "species_id": "amanita_caesarea",
+              "status": "available",
+              "probabilities": [
+                0.303587,
+                0.316806,
+                0.330301,
+                0.344053,
+                0.358044,
+                0.372253,
+                0.386658
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated"
+              ]
+            },
+            {
+              "species_id": "boletus_aereus",
+              "status": "available",
+              "probabilities": [
+                0.458678,
+                0.469228,
+                0.479789,
+                0.490353,
+                0.50091,
+                0.511451,
+                0.521968
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated"
+              ]
+            },
+            {
+              "species_id": "cantharellus_cibarius_sl",
+              "status": "available",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained"
+              ]
+            },
+            {
+              "species_id": "craterellus_cornucopioides",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "lepista_nuda",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "macrolepiota_procera",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "russula_virescens",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            }
+          ],
+          "provenance": {
+            "engine": "existing_python_predictor",
+            "scientifically_validated": false,
+            "selection_scope": "species",
+            "point_validation": "not_established",
+            "model_revision": "ac802efe85f6be611b19",
+            "batch_id": "operational_20260909T184116Z",
+            "weather_generation": "20260914T220642275627Z-887eada37d76",
+            "soil_context_hash": "91de5e6b8ff865831e8f25e3ff7bfe22336d3a7f3abc5f1d958197e7325daecd"
+          }
+        },
+        {
+          "ok": true,
+          "execution": {
+            "mode": "worker",
+            "compute_ms": 932.045
+          },
+          "data_mode": "prediction",
+          "start_date": "2026-09-15",
+          "species": [
+            {
+              "species_id": "amanita_caesarea",
+              "status": "available",
+              "probabilities": [
+                0.328565,
+                0.34231,
+                0.356296,
+                0.370503,
+                0.38491,
+                0.399494,
+                0.41423
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated"
+              ]
+            },
+            {
+              "species_id": "boletus_aereus",
+              "status": "available",
+              "probabilities": [
+                0.43142,
+                0.441838,
+                0.452293,
+                0.462775,
+                0.473275,
+                0.483784,
+                0.494292
+              ],
+              "reasons": [
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated",
+                "calculated"
+              ]
+            },
+            {
+              "species_id": "cantharellus_cibarius_sl",
+              "status": "available",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained",
+                "model_abstained"
+              ]
+            },
+            {
+              "species_id": "craterellus_cornucopioides",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "lepista_nuda",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "macrolepiota_procera",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            },
+            {
+              "species_id": "russula_virescens",
+              "status": "no_model",
+              "probabilities": [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              "reasons": [
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable",
+                "model_unavailable"
+              ]
+            }
+          ],
+          "provenance": {
+            "engine": "existing_python_predictor",
+            "scientifically_validated": false,
+            "selection_scope": "species",
+            "point_validation": "not_established",
+            "model_revision": "ac802efe85f6be611b19",
+            "batch_id": "operational_20260909T184116Z",
+            "weather_generation": "20260914T220642275627Z-887eada37d76",
+            "soil_context_hash": "91de5e6b8ff865831e8f25e3ff7bfe22336d3a7f3abc5f1d958197e7325daecd"
+          }
+        }
+      ]
+    }
+  },
+  "data_preservation": {
+    "files_checked": 8,
+    "unchanged_immediately_after_recreation": true,
+    "later_changes_preserved": [
+      "docker-data/mushroom-data/mushroom_profiles.json"
+    ],
+    "later_profile_id": "lepista_nuda",
+    "later_change_note": "UI save metadata, season pattern order and numeric 0.0 to 0; preserved without restoring backup",
+    "current_sha256": {
+      "docker-data/mushroom-data/mushroom_profiles.json": "5df7fe4a02ae737641be3350e6d4f01b24493dd58279b703967a91809bcacd21",
+      "docker-data/mushroom-data/mushroom_reference_catalogs.json": "5e5dee67bdf044772c5cbc687208e5e10060b5c8b39ac9b48b6d64cc27df39e5",
+      "docker-data/mushroom-data/mushroom_gis_mappings.json": "0b2745a711e3cdf5a342cdf24f330c88e65919fb1d79144bf730ab145837eac5",
+      "docker-data/mushroom-data/mushroom_known_sites.json": "b5e23a5e3661a86b7496bdbc6732beecf6c3030ef8550f376dba23a615268c17",
+      "docker-data/mushroom-data/mushroom_observations.json": "7ce058bce2b28ca30ec613e2cc66ee0045f140895e54d930d812af9d5ab85227",
+      "docker-data/prediction-map/worker.json": "2cd07df60f544e04a9f17ad27206d10766d114a3e60bdaebd386569e6ee6835b",
+      "docker-data/prediction-map/local.json": "122b4e8c3f58408a7c3ab38f962d198d1bdfb7c3497496d06600e763b6132f88",
+      "rainmapper-local/options.local-ha-ui.json": "03e88dfcae20fe900a27fa8ba71b70d3154c77b94f1fae4e7c2c6287eded8013"
+    }
+  },
+  "worker_coordinators_sha256": {
+    "additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0",
+    "coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10"
+  },
+  "user_scheduled_job_observed": {
+    "job_id": "worker_job_2ZYlQ1rRrIJ_",
+    "coordinator_id": "primary",
+    "type": "worker_predictor_precompute_v1",
+    "lane": "background",
+    "finish_acknowledged": true,
+    "ha_activation_finished_at": "2026-09-14T22:01:37+00:00",
+    "worker_total_seconds": 319.38565
+  },
+  "not_performed": [
+    "HA real publication or installation",
+    "manual training or precompute",
+    "GIS download",
+    "worker coordinator changes"
+  ],
+  "still_required_for_release": [
+    "private cache integration for map/RPi4",
+    "applicable full local rebuild/train/promote/precompute lifecycle",
+    "explicit user acceptance"
+  ],
+  "backup_directory": "backups/local-base-20260915",
+  "image_aliases": [
+    "rainmapperha:local-base-20260915",
+    "rainmapper-worker:local-base-20260915"
+  ],
+  "user_local_job_observed": {
+    "job_id": "worker_job_rZ1LhV4N9-oJ",
+    "coordinator_id": "coordinator_fde2e9b1c6c1f5b2",
+    "type": "worker_predictor_precompute_v1",
+    "lane": "background",
+    "finish_acknowledged": true,
+    "ha_activation_finished_at": "2026-09-14T22:11:22+00:00",
+    "worker_activation_finished_at": "2026-09-14T22:11:31+00:00",
+    "worker_total_seconds": 273.696114
+  }
+}

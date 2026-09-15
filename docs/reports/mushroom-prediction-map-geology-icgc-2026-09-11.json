@@ -1,0 +1,508 @@
+{
+  "date": "2026-09-11",
+  "step": "1. Geología de Catalánides con ICGC",
+  "status": "source_prepared_and_selected_points_verified",
+  "scope": "Data preparation complete; application integration and exhaustive territorial audit pending",
+  "manifest": "mushroom-map-GIS/icgc-geologia-50000/source/manifest.json",
+  "readme": "mushroom-map-GIS/icgc-geologia-50000/source/README.md",
+  "source_policy": "mushroom-map-GIS/geology-source-policy.json",
+  "feature_count": 61437,
+  "crs": "EPSG:25831",
+  "files": [
+    {
+      "file": "geologia-territorial-50000-geologic-v3r0-202412.zip",
+      "bytes": 161846224,
+      "sha256": "bf086c9ec05d6a8bfef8533412760e0b8d99aa51fde53f6c9e919aae7ae6f685",
+      "copied_from": "mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/source/geologia-territorial-50000-geologic-v3r0-202412.zip",
+      "matches_original": true
+    },
+    {
+      "file": "geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+      "bytes": 293679104,
+      "sha256": "60d730395874ee860d09ddddbf2cc60d187c46f05f9018e7049bcdf8a65b684f",
+      "copied_from": "mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+      "matches_original": true
+    },
+    {
+      "file": "geologia-territorial-50000-geologic-v3r0-202412.html",
+      "bytes": 418,
+      "sha256": "c0a02204bd3825de1298e16d38c8d388f2d21092492f4733559480db3fad89a9",
+      "copied_from": "mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.html",
+      "matches_original": true
+    },
+    {
+      "file": "geologia-territorial-50000-geologic-v3r0-202412.qlr",
+      "bytes": 2975972,
+      "sha256": "1e8d9084db060001df9c92d35c123733d1e433b4db250889deb78fdb09052d89",
+      "copied_from": "mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.qlr",
+      "matches_original": true
+    },
+    {
+      "file": "geologia-territorial-50000-geologic-v3r0-20250430.pdf",
+      "bytes": 870408,
+      "sha256": "ff5f26ba4c8c471e3ad60aee29cde57a88f89f419655b54824216dc1a743b6cd",
+      "copied_from": "mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-20250430.pdf",
+      "matches_original": true
+    },
+    {
+      "file": "official-page.html",
+      "source_url": "https://www.icgc.cat/ca/Eines-i-visors/Visors/Visualitzadors-Geoindex/Geoindex-Geologia-territorial",
+      "bytes": 171726,
+      "sha256": "78211e696c30db6b05bbcd9866d128995c3dd57f7737e96ef4a765985466cba6",
+      "download_date": "2026-09-11"
+    },
+    {
+      "file": "geologia-territorial-50000-geologic-v3r0-20250430-llegenda.pdf",
+      "source_url": "https://datacloud.ide.cat/especificacions/geologia-territorial-50000-geologic-v3r0-20250430-llegenda.pdf",
+      "bytes": 919034,
+      "sha256": "e2edcb06f673480edf64f4dc849d3f5b657ef98631b94bfc2d43155c5d112c65",
+      "download_date": "2026-09-11"
+    }
+  ],
+  "checks": {
+    "zip_crc_valid": true,
+    "gpkg_matches_zip": true,
+    "sqlite_quick_check": "ok",
+    "spatial_index_records": 61437,
+    "null_or_empty_blob_code_or_description_records": 0,
+    "all_control_expectations_met": true
+  },
+  "icgc_local_controls": [
+    {
+      "label": "barcelona",
+      "longitude": 2.15,
+      "latitude": 41.4,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 15812,
+          "Codi": "Qbcn",
+          "Descripcio": "Argiles amb bretxes a la base, nivell de loess amb nòduls de calitx i crosta de calitx al sostre. Dipòsit de plana al·luvial del \"Tricicle\" del Pla de Barcelona"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "collserola",
+      "longitude": 2.1,
+      "latitude": 41.43,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 61046,
+          "Codi": "EÇOrp",
+          "Descripcio": "Pissarres micacítiques i pissarres sorrenques"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "garraf",
+      "longitude": 1.87,
+      "latitude": 41.3,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 40618,
+          "Codi": "CVBcd",
+          "Descripcio": "Calcàries amb intercalacions dolomítiques"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "montseny",
+      "longitude": 2.43,
+      "latitude": 41.77,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 52528,
+          "Codi": "mc_EÇOrp",
+          "Descripcio": "Fil·lites i cornubianites. Roques de la unitat EÇOrp afectades per metamorfisme de contacte varisc"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "montnegre",
+      "longitude": 2.58,
+      "latitude": 41.67,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 52525,
+          "Codi": "mc_EÇOrp",
+          "Descripcio": "Fil·lites i cornubianites. Roques de la unitat EÇOrp afectades per metamorfisme de contacte varisc"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "gavarres",
+      "longitude": 2.98,
+      "latitude": 41.92,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 61097,
+          "Codi": "EÇOrp",
+          "Descripcio": "Pissarres micacítiques i pissarres sorrenques"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "selva",
+      "longitude": 2.6,
+      "latitude": 41.82,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 49724,
+          "Codi": "Ggd",
+          "Descripcio": "Granodiorites i granits alcalins"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "tarragona",
+      "longitude": 1.25,
+      "latitude": 41.12,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 16209,
+          "Codi": "Qg",
+          "Descripcio": "Clasts angulosos heteromètrics inclosos en una matriu d'argiles vermelles. Dipòsit de peu de mont"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "prades",
+      "longitude": 0.99,
+      "latitude": 41.31,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 45429,
+          "Codi": "Tb",
+          "Descripcio": "Conglomerats, gresos i lutites. Fàcies Buntsandstein"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "priorat",
+      "longitude": 0.82,
+      "latitude": 41.15,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 49746,
+          "Codi": "Ggd",
+          "Descripcio": "Granodiorites i granits alcalins"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "ports",
+      "longitude": 0.32,
+      "latitude": 40.83,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 41560,
+          "Codi": "JDm",
+          "Descripcio": "Calcàries margoses i micrítiques amb nivells de dolomies"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "delta_ebro",
+      "longitude": 0.75,
+      "latitude": 40.75,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 7534,
+          "Codi": "Qpa",
+          "Descripcio": "Graves, sorres i lutites. Plana al·luvial"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "aran",
+      "longitude": 0.8,
+      "latitude": 42.7,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 6857,
+          "Codi": "Qco",
+          "Descripcio": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "lleida",
+      "longitude": 0.65,
+      "latitude": 41.62,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 9416,
+          "Codi": "S_Qt1",
+          "Descripcio": "Graves i llims. Terrassa més baixa del Segre, situada a 3 m per sobre del nivell actual del riu"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "cerdanya",
+      "longitude": 1.93,
+      "latitude": 42.37,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 60484,
+          "Codi": "EÇOrgl",
+          "Descripcio": "Alternança centimètrica de gresos i lutites. Formació Jújols"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "cap_creus",
+      "longitude": 3.3,
+      "latitude": 42.32,
+      "expected_coverage": true,
+      "count": 1,
+      "matches": [
+        {
+          "id": 52967,
+          "Codi": "mr_EÇOrp2",
+          "Descripcio": "Esquists i alternança de pissarres i fil·lites. Roques de la unitat EÇOrp2 afectades per metamorfisme regional varisc"
+        }
+      ],
+      "expectation_met": true
+    },
+    {
+      "label": "control_valencia",
+      "longitude": -0.475,
+      "latitude": 39.47,
+      "expected_coverage": false,
+      "count": 0,
+      "matches": [],
+      "expectation_met": true
+    },
+    {
+      "label": "control_francia",
+      "longitude": 2.098,
+      "latitude": 42.574,
+      "expected_coverage": false,
+      "count": 0,
+      "matches": [],
+      "expectation_met": true
+    },
+    {
+      "label": "control_mar",
+      "longitude": 3.4,
+      "latitude": 41.4,
+      "expected_coverage": false,
+      "count": 0,
+      "matches": [],
+      "expectation_met": true
+    }
+  ],
+  "geode_online_diagnostic_controls": [
+    {
+      "label": "barcelona",
+      "lon": 2.15,
+      "lat": 41.4,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=2.15%2C41.4&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-barcelona.json",
+      "geode_online_count": 0,
+      "icgc_local_count": 1,
+      "icgc_units": [
+        {
+          "id": 15812,
+          "Codi": "Qbcn",
+          "Descripcio": "Argiles amb bretxes a la base, nivell de loess amb nòduls de calitx i crosta de calitx al sostre. Dipòsit de plana al·luvial del \"Tricicle\" del Pla de Barcelona"
+        }
+      ]
+    },
+    {
+      "label": "collserola",
+      "lon": 2.1,
+      "lat": 41.43,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=2.1%2C41.43&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-collserola.json",
+      "geode_online_count": 0,
+      "icgc_local_count": 1,
+      "icgc_units": [
+        {
+          "id": 61046,
+          "Codi": "EÇOrp",
+          "Descripcio": "Pissarres micacítiques i pissarres sorrenques"
+        }
+      ]
+    },
+    {
+      "label": "garraf",
+      "lon": 1.87,
+      "lat": 41.3,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=1.87%2C41.3&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-garraf.json",
+      "geode_online_count": 0,
+      "icgc_local_count": 1,
+      "icgc_units": [
+        {
+          "id": 40618,
+          "Codi": "CVBcd",
+          "Descripcio": "Calcàries amb intercalacions dolomítiques"
+        }
+      ]
+    },
+    {
+      "label": "montseny",
+      "lon": 2.43,
+      "lat": 41.77,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=2.43%2C41.77&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-montseny.json",
+      "geode_online_count": 0,
+      "icgc_local_count": 1,
+      "icgc_units": [
+        {
+          "id": 52528,
+          "Codi": "mc_EÇOrp",
+          "Descripcio": "Fil·lites i cornubianites. Roques de la unitat EÇOrp afectades per metamorfisme de contacte varisc"
+        }
+      ]
+    },
+    {
+      "label": "tarragona",
+      "lon": 1.25,
+      "lat": 41.12,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=1.25%2C41.12&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-tarragona.json",
+      "geode_online_count": 0,
+      "icgc_local_count": 1,
+      "icgc_units": [
+        {
+          "id": 16209,
+          "Codi": "Qg",
+          "Descripcio": "Clasts angulosos heteromètrics inclosos en una matriu d'argiles vermelles. Dipòsit de peu de mont"
+        }
+      ]
+    },
+    {
+      "label": "prades",
+      "lon": 0.99,
+      "lat": 41.31,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=0.99%2C41.31&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-prades.json",
+      "geode_online_count": 0,
+      "icgc_local_count": 1,
+      "icgc_units": [
+        {
+          "id": 45429,
+          "Codi": "Tb",
+          "Descripcio": "Conglomerats, gresos i lutites. Fàcies Buntsandstein"
+        }
+      ]
+    },
+    {
+      "label": "ports",
+      "lon": 0.32,
+      "lat": 40.83,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=0.32%2C40.83&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-ports.json",
+      "geode_online_count": 0,
+      "icgc_local_count": 1,
+      "icgc_units": [
+        {
+          "id": 41560,
+          "Codi": "JDm",
+          "Descripcio": "Calcàries margoses i micrítiques amb nivells de dolomies"
+        }
+      ]
+    },
+    {
+      "label": "lleida",
+      "lon": 0.65,
+      "lat": 41.62,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=0.65%2C41.62&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-lleida.json",
+      "geode_online_count": 0,
+      "icgc_local_count": 1,
+      "icgc_units": [
+        {
+          "id": 9416,
+          "Codi": "S_Qt1",
+          "Descripcio": "Graves i llims. Terrassa més baixa del Segre, situada a 3 m per sobre del nivell actual del riu"
+        }
+      ]
+    },
+    {
+      "label": "control_valencia",
+      "lon": -0.475,
+      "lat": 39.47,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=-0.475%2C39.47&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-control_valencia.json",
+      "geode_online_count": 1,
+      "icgc_local_count": 0,
+      "icgc_units": []
+    },
+    {
+      "label": "control_madrid",
+      "lon": -3.7,
+      "lat": 40.42,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=-3.7%2C40.42&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-control_madrid.json",
+      "geode_online_count": 1,
+      "icgc_local_count": null,
+      "icgc_units": null
+    },
+    {
+      "label": "control_aran",
+      "lon": 0.8,
+      "lat": 42.7,
+      "url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=0.8%2C42.7&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json",
+      "path": "mushroom-map-GIS/icgc-geologia-50000/source/geode-control_aran.json",
+      "geode_online_count": 0,
+      "icgc_local_count": 1,
+      "icgc_units": [
+        {
+          "id": 6857,
+          "Codi": "Qco",
+          "Descripcio": "Argiles amb còdols angulosos dispersos. Dipòsit col·luvial"
+        }
+      ]
+    }
+  ],
+  "runtime_offline": true,
+  "geode_local_index_still_needed": true,
+  "protected_observations_sha256": "f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0"
+}

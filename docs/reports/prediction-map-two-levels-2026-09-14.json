@@ -1,0 +1,933 @@
+{
+  "date": "2026-09-14",
+  "policy": "territorial_species_windows_v5",
+  "status": "implemented_local_preview",
+  "scientifically_validated": false,
+  "local_profile_changes": [
+    {
+      "species_id": "boletus_aereus",
+      "before": {
+        "accepted_soil_ids": [
+          "soil_siliceous"
+        ],
+        "excluded_soil_ids": [],
+        "ph_conflict": "estimated_interval_overlap",
+        "review_ref": "docs/mushrooms/prediction-map-species-ph-proposal-es.md#15-prueba-local-del-filtro-combinado",
+        "ph_override_blocked_soil_ids": [
+          "soil_calcareous",
+          "soil_gypsiferous"
+        ]
+      },
+      "after": {
+        "accepted_soil_ids": [
+          "soil_siliceous"
+        ],
+        "excluded_soil_ids": [],
+        "ph_conflict": "estimated_interval_overlap",
+        "review_ref": "docs/mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5",
+        "ph_override_blocked_soil_ids": [
+          "soil_calcareous",
+          "soil_gypsiferous"
+        ],
+        "conditional_soil_ids": [
+          "soil_calcareous"
+        ],
+        "require_soil_context": true
+      }
+    },
+    {
+      "species_id": "boletus_edulis",
+      "before": null,
+      "after": {
+        "accepted_soil_ids": [
+          "soil_siliceous"
+        ],
+        "excluded_soil_ids": [],
+        "ph_conflict": "strict",
+        "conditional_soil_ids": [
+          "soil_calcareous"
+        ],
+        "require_soil_context": true,
+        "review_ref": "docs/mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5"
+      }
+    },
+    {
+      "species_id": "boletus_pinophilus",
+      "before": null,
+      "after": {
+        "accepted_soil_ids": [
+          "soil_siliceous"
+        ],
+        "excluded_soil_ids": [],
+        "ph_conflict": "strict",
+        "conditional_soil_ids": [
+          "soil_calcareous"
+        ],
+        "require_soil_context": true,
+        "review_ref": "docs/mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5"
+      }
+    },
+    {
+      "species_id": "cantharellus_cibarius_sl",
+      "before": null,
+      "after": {
+        "accepted_soil_ids": [
+          "soil_siliceous"
+        ],
+        "excluded_soil_ids": [],
+        "ph_conflict": "strict",
+        "conditional_soil_ids": [
+          "soil_calcareous"
+        ],
+        "require_soil_context": true,
+        "review_ref": "docs/mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5"
+      }
+    }
+  ],
+  "before_profiles_sha256": "aead9e4d27d3b1788b75275a6d53e3939b7cff67c16b8c4292052b52f806f72e",
+  "applied_files_sha256": {
+    "mushroom_profiles.json": "e0978db5867bcacaceb0979edfa20f3a50b1b9d78cfe5c6f1466e714cb6e6ef8",
+    "mushroom_reference_catalogs.json": "5e5dee67bdf044772c5cbc687208e5e10060b5c8b39ac9b48b6d64cc27df39e5",
+    "mushroom_gis_mappings.json": "0b2745a711e3cdf5a342cdf24f330c88e65919fb1d79144bf730ab145837eac5"
+  },
+  "preservation": {
+    "only_four_soil_filter_blocks_changed": true,
+    "other_profile_fields_including_phenology_hosts_altitude_metadata_unchanged": true,
+    "catalog_and_mappings_equal_previous_icgc_report": true,
+    "seeds_profiles_unchanged_by_this_increment": true,
+    "no_observation_or_backup_writes": true,
+    "no_worker_coordinator_changes": true
+  },
+  "checks": {
+    "directed_unittest_command": "RAINMAPPER_TEST_LOCAL_MUSHROOM_DATA=docker-data/mushroom-data .venv/bin/python -m unittest tests.test_mushroom_map_ecology tests.test_mushroom_map_model_runtime tests.test_mushroom_prediction_map tests.test_mushroom_map_prediction tests.test_mushroom_map_local_mappings",
+    "directed_tests": 67,
+    "directed_result": "OK",
+    "regression_unittest_command": ".venv/bin/python -m unittest tests.test_mushroom_map_queries tests.test_web_server_auth tests.test_mushroom_map_forest tests.test_mushroom_data_validator",
+    "regression_tests": 369,
+    "regression_skipped": 12,
+    "regression_result": "OK",
+    "browser_command": "node tests/prediction_map_browser_check.mjs /private/tmp/rainmapper-maplibre-4.7.1.js /private/tmp/rainmapper-maplibre-4.7.1.css",
+    "browser_result": "OK",
+    "browser_screenshots": "/var/folders/42/w270zmtn6q17nw__20m8kvsm0000gn/T/prediction-map-browser-watyy7",
+    "browser_coverage": [
+      "same territorial species across dates",
+      "probability ordering and null last",
+      "zero displayed as zero",
+      "conditional soil reasons",
+      "unknown host reason",
+      "desktop/mobile",
+      "original weather route",
+      "station hover/click",
+      "cancellation",
+      "non-admin"
+    ],
+    "git_diff_check": "OK"
+  },
+  "live_geography": [
+    {
+      "name": "Vallcebre",
+      "lat": 42.22549,
+      "lon": 1.81417,
+      "invariant_dates": [
+        "2026-09-14",
+        "2026-01-14"
+      ],
+      "species": {
+        "amanita_caesarea": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "hosts_match",
+            "altitude_outside",
+            "ph_match"
+          ]
+        },
+        "boletus_aereus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_outside"
+          ]
+        },
+        "boletus_edulis": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_ph_conditional"
+          ]
+        },
+        "boletus_pinophilus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_outside",
+            "ph_outside"
+          ]
+        },
+        "cantharellus_cibarius_sl": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_ph_conditional"
+          ]
+        },
+        "hygrophorus_latitabundus": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        }
+      },
+      "abstention_reason": null,
+      "response_bytes": 12466
+    },
+    {
+      "name": "La Selva 1",
+      "lat": 41.22694,
+      "lon": 1.09095,
+      "invariant_dates": [
+        "2026-09-14",
+        "2026-01-14"
+      ],
+      "species": {
+        "amanita_caesarea": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match"
+          ]
+        },
+        "boletus_aereus": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_match",
+            "ph_conflict_soil_supported",
+            "soil_preference_match"
+          ]
+        },
+        "boletus_edulis": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_outside",
+            "ph_match",
+            "soil_preference_match"
+          ]
+        },
+        "boletus_pinophilus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_outside",
+            "ph_outside",
+            "soil_preference_match"
+          ]
+        },
+        "cantharellus_cibarius_sl": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match"
+          ]
+        },
+        "hygrophorus_latitabundus": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match"
+          ]
+        }
+      },
+      "abstention_reason": null,
+      "response_bytes": 12468
+    },
+    {
+      "name": "La Selva 2",
+      "lat": 41.23675,
+      "lon": 1.13555,
+      "invariant_dates": [
+        "2026-09-14",
+        "2026-01-14"
+      ],
+      "species": {
+        "amanita_caesarea": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match"
+          ]
+        },
+        "boletus_aereus": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_match",
+            "ph_conflict_soil_supported",
+            "soil_preference_match"
+          ]
+        },
+        "boletus_edulis": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_outside",
+            "ph_match",
+            "soil_preference_match"
+          ]
+        },
+        "boletus_pinophilus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_outside",
+            "ph_outside",
+            "soil_preference_match"
+          ]
+        },
+        "cantharellus_cibarius_sl": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match"
+          ]
+        },
+        "hygrophorus_latitabundus": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match"
+          ]
+        }
+      },
+      "abstention_reason": null,
+      "response_bytes": 12487
+    },
+    {
+      "name": "Aleixar",
+      "lat": 41.22071,
+      "lon": 1.07009,
+      "invariant_dates": [
+        "2026-09-14",
+        "2026-01-14"
+      ],
+      "species": {
+        "amanita_caesarea": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_aereus": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_match",
+            "ph_conflict_soil_supported",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_edulis": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_outside",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_pinophilus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_outside",
+            "ph_outside",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "cantharellus_cibarius_sl": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "hygrophorus_latitabundus": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match"
+          ]
+        }
+      },
+      "abstention_reason": null,
+      "response_bytes": 12627
+    },
+    {
+      "name": "Ggd sin hosts",
+      "lat": 41.22012,
+      "lon": 1.06989,
+      "invariant_dates": [
+        "2026-09-14",
+        "2026-01-14"
+      ],
+      "species": {
+        "amanita_caesarea": {
+          "status": "unknown",
+          "admission": null,
+          "reasons": [
+            "terrain_context_missing"
+          ]
+        },
+        "boletus_aereus": {
+          "status": "unknown",
+          "admission": null,
+          "reasons": [
+            "terrain_context_missing"
+          ]
+        },
+        "boletus_edulis": {
+          "status": "unknown",
+          "admission": null,
+          "reasons": [
+            "terrain_context_missing"
+          ]
+        },
+        "boletus_pinophilus": {
+          "status": "unknown",
+          "admission": null,
+          "reasons": [
+            "terrain_context_missing"
+          ]
+        },
+        "cantharellus_cibarius_sl": {
+          "status": "unknown",
+          "admission": null,
+          "reasons": [
+            "terrain_context_missing"
+          ]
+        },
+        "hygrophorus_latitabundus": {
+          "status": "unknown",
+          "admission": null,
+          "reasons": [
+            "terrain_context_missing"
+          ]
+        }
+      },
+      "abstention_reason": "terrain_context_missing",
+      "response_bytes": 10103
+    },
+    {
+      "name": "La Vansa",
+      "lat": 42.27588,
+      "lon": 1.5246,
+      "invariant_dates": [
+        "2026-09-14",
+        "2026-01-14"
+      ],
+      "species": {
+        "amanita_caesarea": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "hosts_unknown",
+            "altitude_outside",
+            "ph_match"
+          ]
+        },
+        "boletus_aereus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_not_listed",
+            "hosts_unknown",
+            "altitude_outside",
+            "ph_match",
+            "soil_ph_conditional"
+          ]
+        },
+        "boletus_edulis": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_ph_conditional"
+          ]
+        },
+        "boletus_pinophilus": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_ph_conditional"
+          ]
+        },
+        "cantharellus_cibarius_sl": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_ph_conditional"
+          ]
+        },
+        "hygrophorus_latitabundus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "hosts_match",
+            "altitude_outside",
+            "ph_outside",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        }
+      },
+      "abstention_reason": null,
+      "response_bytes": 12038
+    },
+    {
+      "name": "Fogars",
+      "lat": 41.77528,
+      "lon": 2.4648,
+      "invariant_dates": [
+        "2026-09-14",
+        "2026-01-14"
+      ],
+      "species": {
+        "amanita_caesarea": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "hosts_unknown",
+            "altitude_outside",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_aereus": {
+          "status": "unknown",
+          "admission": null,
+          "reasons": [
+            "soil_accepted",
+            "hosts_unknown",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_edulis": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_pinophilus": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "cantharellus_cibarius_sl": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "soil_accepted",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        },
+        "hygrophorus_latitabundus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "hosts_unknown",
+            "altitude_match",
+            "ph_outside"
+          ]
+        }
+      },
+      "abstention_reason": null,
+      "response_bytes": 11935
+    },
+    {
+      "name": "Olvan",
+      "lat": 42.06282,
+      "lon": 1.93765,
+      "invariant_dates": [
+        "2026-09-14",
+        "2026-01-14"
+      ],
+      "species": {
+        "amanita_caesarea": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_aereus": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_ph_conditional",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_edulis": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_outside",
+            "ph_match",
+            "soil_ph_conditional"
+          ]
+        },
+        "boletus_pinophilus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_outside",
+            "ph_match",
+            "soil_ph_conditional",
+            "lithology_preference_match"
+          ]
+        },
+        "cantharellus_cibarius_sl": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_ph_conditional",
+            "lithology_preference_match"
+          ]
+        },
+        "hygrophorus_latitabundus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "hosts_unknown",
+            "altitude_match",
+            "ph_outside",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        }
+      },
+      "abstention_reason": null,
+      "response_bytes": 13117
+    },
+    {
+      "name": "Merles",
+      "lat": 42.01347,
+      "lon": 1.97098,
+      "invariant_dates": [
+        "2026-09-14",
+        "2026-01-14"
+      ],
+      "species": {
+        "amanita_caesarea": {
+          "status": "compatible",
+          "admission": "standard",
+          "reasons": [
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_aereus": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_ph_conditional",
+            "lithology_preference_match"
+          ]
+        },
+        "boletus_edulis": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_outside",
+            "ph_match",
+            "soil_ph_conditional"
+          ]
+        },
+        "boletus_pinophilus": {
+          "status": "incompatible",
+          "admission": null,
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_outside",
+            "ph_match",
+            "soil_ph_conditional",
+            "lithology_preference_match"
+          ]
+        },
+        "cantharellus_cibarius_sl": {
+          "status": "compatible",
+          "admission": "conditional",
+          "reasons": [
+            "soil_not_listed",
+            "hosts_match",
+            "altitude_match",
+            "ph_match",
+            "soil_ph_conditional",
+            "lithology_preference_match"
+          ]
+        },
+        "hygrophorus_latitabundus": {
+          "status": "unknown",
+          "admission": null,
+          "reasons": [
+            "hosts_unknown",
+            "altitude_match",
+            "ph_match",
+            "soil_preference_match",
+            "lithology_preference_match"
+          ]
+        }
+      },
+      "abstention_reason": null,
+      "response_bytes": 12725
+    }
+  ],
+  "live_api": {
+    "endpoint": "http://127.0.0.1:65517/api/mushrooms/prediction-map/queries",
+    "request": {
+      "contract": "prediction_map_point_v1",
+      "request_id": "two_levels_vansa_20260914",
+      "point": {
+        "lat": 42.27588,
+        "lon": 1.5246
+      },
+      "start_date": "2026-09-14",
+      "horizon_days": 7,
+      "history_days": 60,
+      "species_ids": [
+        "boletus_edulis",
+        "boletus_pinophilus",
+        "cantharellus_cibarius_sl"
+      ],
+      "execution": "local"
+    },
+    "execution": {
+      "mode": "local",
+      "compute_ms": 2219.796792000001
+    },
+    "species": [
+      {
+        "species_id": "boletus_edulis",
+        "label_key": "boletus_edulis",
+        "status": "available",
+        "probabilities": [
+          0.586985,
+          0.59723,
+          0.607375,
+          0.617414,
+          0.62734,
+          0.637145,
+          0.646824
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      },
+      {
+        "species_id": "boletus_pinophilus",
+        "label_key": "boletus_pinophilus",
+        "status": "available",
+        "probabilities": [
+          0.424468,
+          0.418307,
+          0.416446,
+          0.432878,
+          0.401438,
+          0.384518,
+          0.388346
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      },
+      {
+        "species_id": "cantharellus_cibarius_sl",
+        "label_key": "cantharellus_cibarius_sl",
+        "status": "available",
+        "probabilities": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "reasons": [
+          "model_abstained",
+          "model_abstained",
+          "model_abstained",
+          "model_abstained",
+          "model_abstained",
+          "model_abstained",
+          "model_abstained"
+        ]
+      }
+    ],
+    "response_bytes": 20772,
+    "note": "existing Python predictor, no training or precompute; API response provides functional evidence, not scientific validation"
+  },
+  "code_sha256": {
+    "rainmapper_core/mushroom_map_ecology.py": "e7e49fbe46148d9ab099025823e2618fedeaf909b01675248631405e27f69686",
+    "rainmapper_core/mushroom_map_model_runtime.py": "6137beb6c0d646e2c2592d3e392cf20d6db5d86a0019d06e6db20fd7c9c8c497",
+    "rainmapper_core/mushroom_map_execution.py": "98ec2679201615d8dca560bcbfff207e082c89a5c9fbd7515c607314d06628ee",
+    "rainmapper_core/mushroom_prediction_map.py": "9d138c63fba5afa74a940ad8fa6d8c0a9dbe2641c5bce33925c4e890f78d3ef8",
+    "scripts/prediction-map-local-geography.py": "168964a0ab935e3783aa595b5ccdfd15a424926d3ba21647c08859bc507d11c5",
+    "rainmapper_core/viewers/prediction-map/prediction-mode.js": "9dd74233dd9e07ca0e309d4d00bb6346cb1feddd22871fa5a5b7c85e055065e7",
+    "mushroom-data/mushroom_labels.json": "03e7c60652b8c05a37853883ecbc5bfcb9dfa56cb31695952dacfab33f213b81",
+    "tests/prediction_map_browser_check.mjs": "c3cfb236158f5dc90a2f1a9e85995f98bbd2bebcb57199786a7e3125dc52449a"
+  },
+  "preview": {
+    "url": "http://127.0.0.1:65517/protected/prediction-map/index.html",
+    "reloaded_with_same_port_and_arguments": true,
+    "authentication": "isolated synthetic preview user; no real authentication",
+    "http_status": 200
+  },
+  "not_run": [
+    "downloads",
+    "completed GIS audits or migrations",
+    "operational runners",
+    "training",
+    "precompute",
+    "HA builds/publication",
+    "worker restart"
+  ]
+}

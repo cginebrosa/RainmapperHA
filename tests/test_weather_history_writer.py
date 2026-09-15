@@ -38,6 +38,7 @@ from rainmapper_core.weather_history_writer import (
     repair_current_after_restore,
 )
 from rainmapper_core.weather_history_archive import archive_and_close_pending
+from rainmapper_core.weather_history_catalog_repair import repair_catalog_coordinates
 
 
 class WeatherHistoryWriterTests(unittest.TestCase):
@@ -274,12 +275,99 @@ class WeatherHistoryWriterTests(unittest.TestCase):
 
     def test_coordinate_jump_quarantines_batch_before_current_changes(self):
         self._pending(
-            [self.row("meteocat", "A", "20260101", 3.0, lat=43.0, lon=3.0)]
+            [self.row("meteocat", "A", "20260101", 3.0, lat=40.76, lon=-73.99)]
         )
         with self.assertRaises(WeatherHistoryCoordinateConflict):
             archive_pending_batches(self.data_dir, reserve_bytes=0)
         self.assertEqual(resolve_weather_generation(self.data_dir).generation_id, self.initial_generation_id)
         self.assertEqual(len(list_pending_batches(self.data_dir)), 1)
+
+    def test_coordinate_changes_inside_spain_and_islands_are_accepted_and_audited(self):
+        for lat, lon in ((41.38, 2.16), (40.42, -3.70), (39.57, 2.65), (28.46, -16.25)):
+            with self.subTest(lat=lat, lon=lon):
+                self._pending([self.row("meteocat", "A", "20260101", 3.0, lat=lat, lon=lon)])
+                report = archive_pending_batches(self.data_dir, reserve_bytes=0)
+                generation = resolve_weather_generation(self.data_dir, verify_hashes=True)
+                rows = pq.read_table(generation.object_path(generation.catalog.path)).to_pylist()
+                station = next(r for r in rows if r["station_code"] == "A")
+                self.assertEqual((station["lat"], station["lon"]), (lat, lon))
+                manifest = json.loads(generation.manifest_path.read_text())
+                self.assertEqual(manifest["update_report"]["coordinate_corrections"][0]["new"]["lat"], lat)
+                for batch_id in report.batch_ids:
+                    acknowledge_archived_pending(self.data_dir, batch_id)
+
+    def test_coordinate_policy_override_can_disable_acceptance(self):
+        write_json_atomic(self.data_dir / "weather_coordinate_policy.json", {
+            "schema_version": "weather_coordinate_policy_v1", "regions": [],
+        })
+        self._pending([self.row("meteocat", "A", "20260101", 3.0, lat=40.42, lon=-3.70)])
+        with self.assertRaises(WeatherHistoryCoordinateConflict):
+            archive_pending_batches(self.data_dir, reserve_bytes=0)
+
+    def test_foreign_coordinates_can_be_corrected_but_not_reintroduced(self):
+        self._pending([self.row("meteocat", "B", "20260101", 1.0, lat=41.64, lon=21.97)])
+        archived = archive_pending_batches(self.data_dir, reserve_bytes=0)
+        for batch_id in archived.batch_ids:
+            acknowledge_archived_pending(self.data_dir, batch_id)
+        self._pending([self.row("meteocat", "B", "20260102", 2.0, lat=41.38, lon=2.16)])
+        archived = archive_pending_batches(self.data_dir, reserve_bytes=0)
+        for batch_id in archived.batch_ids:
+            acknowledge_archived_pending(self.data_dir, batch_id)
+        self._pending([self.row("meteocat", "B", "20260103", 3.0, lat=41.64, lon=21.97)])
+        with self.assertRaises(WeatherHistoryCoordinateConflict):
+            archive_pending_batches(self.data_dir, reserve_bytes=0)
+        self.assertEqual(resolve_weather_generation(self.data_dir).generation_id, archived.generation_id)
+
+    def test_invalid_coordinate_policy_does_not_publish_generation(self):
+        write_json_atomic(self.data_dir / "weather_coordinate_policy.json", {
+            "schema_version": "weather_coordinate_policy_v1",
+            "regions": [{"south": 50, "north": 35, "west": -10, "east": 5}],
+        })
+        self._pending([self.row("meteocat", "A", "20260101", 3.0)])
+        with self.assertRaisesRegex(ValueError, "region bounds"):
+            archive_pending_batches(self.data_dir, reserve_bytes=0)
+        self.assertEqual(resolve_weather_generation(self.data_dir).generation_id, self.initial_generation_id)
+
+    def test_catalog_repair_preserves_readings_receipts_other_stations_and_backup(self):
+        old = resolve_weather_generation(self.data_dir, verify_hashes=True)
+        manifest_before = json.loads(old.manifest_path.read_text())
+        old_catalog = old.object_path(old.catalog.path).read_bytes()
+        plan = {
+            "expected_generation_id": old.generation_id,
+            "source": "meteocat", "station_code": "A",
+            "before": {"lat": 42.0, "lon": 2.0, "altitude": 700.0},
+            "after": {"lat": 41.38, "lon": 2.16, "altitude": 14.0},
+            "reason": "Reviewed fixture correction",
+        }
+        self.assertFalse(repair_catalog_coordinates(self.data_dir, plan)["applied"])
+        self.assertEqual(resolve_weather_generation(self.data_dir).generation_id, old.generation_id)
+        result = repair_catalog_coordinates(self.data_dir, plan, apply=True)
+        new = resolve_weather_generation(self.data_dir, verify_hashes=True)
+        manifest_after = json.loads(new.manifest_path.read_text())
+        self.assertTrue(result["applied"])
+        self.assertEqual(manifest_before["partitions"], manifest_after["partitions"])
+        self.assertEqual(manifest_after["update_report"]["batch_ids"], manifest_before["update_report"]["batch_ids"])
+        self.assertEqual(new.previous_generation_id, old.generation_id)
+        self.assertEqual(old.object_path(old.catalog.path).read_bytes(), old_catalog)
+        self.assertEqual((Path(result["backup"]) / old.object_path(old.catalog.path).name).read_bytes(), old_catalog)
+        rows_before = pq.read_table(old.object_path(old.catalog.path)).to_pylist()
+        rows_after = pq.read_table(new.object_path(new.catalog.path)).to_pylist()
+        rows_before[0].update(plan["after"])
+        self.assertEqual(rows_before, rows_after)
+        with self.assertRaisesRegex(ValueError, "CURRENT changed"):
+            repair_catalog_coordinates(self.data_dir, plan, apply=True)
+
+    def test_catalog_repair_rejects_unreviewed_old_values(self):
+        plan = {"expected_generation_id": self.initial_generation_id,
+                "source": "meteocat", "station_code": "A", "before": {}}
+        with self.assertRaisesRegex(ValueError, "before values"):
+            repair_catalog_coordinates(self.data_dir, plan, apply=True)
+        self.assertEqual(resolve_weather_generation(self.data_dir).generation_id, self.initial_generation_id)
+
+    def test_old_coordinate_metadata_cannot_use_domestic_exception(self):
+        self._pending([self.row("meteocat", "A", "20251230", 3.0, lat=40.42, lon=-3.70)])
+        with self.assertRaises(WeatherHistoryCoordinateConflict):
+            archive_pending_batches(self.data_dir, reserve_bytes=0)
 
     def test_noop_partition_is_reused_but_receipt_is_committed(self):
         old = resolve_weather_generation(self.data_dir)

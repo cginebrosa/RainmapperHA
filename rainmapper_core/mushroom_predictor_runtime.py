@@ -821,6 +821,11 @@ def _synchronize_runtime_unlocked(
                         shutil.copy2(cached_object, target)
                     reused = True
                     reused_verified = True
+                elif cached_object.exists():
+                    # A same-size corrupt object must not replace the verified
+                    # download in _cache_verified_runtime_object below.
+                    cached_object.unlink()
+                    available_objects.discard(cached_object.name)
             if not reused:
                 fetch(row["path"], target)
                 transferred += row["size_bytes"]
@@ -840,6 +845,7 @@ def _synchronize_runtime_unlocked(
                 digest=str(row["sha256"]),
                 size_bytes=int(row["size_bytes"]),
             )
+            available_objects.add(cached_object.name)
             if cached_object != target and target.stat().st_ino != cached_object.stat().st_ino:
                 replacement = target.with_name(f".{target.name}.object-link")
                 replacement.unlink(missing_ok=True)

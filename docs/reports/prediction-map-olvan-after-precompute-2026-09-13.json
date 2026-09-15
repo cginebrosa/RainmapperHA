@@ -1,0 +1,332 @@
+{
+  "date": "2026-09-13",
+  "precompute_path": "docker-media/rainmapper/predictor_precompute/active.sqlite3",
+  "modified_at": "2026-09-13T20:59:31.525867+02:00",
+  "receipt": {
+    "artifact_id": "sha256:2bbc48179e4262001bcf9982920353f284536931a0205f921b4ef6c1ec9e487d",
+    "desired_revision": 58,
+    "file_sha256": "sha256:07234485d46d4b5c9b17d2961136dc47855d4b854952e4b6bd76b57b10ee9781",
+    "receipt_id": "sha256:a3d7b684f7685ba7b9f08a914b3b2c793615a576a47ef10060f97e70d9053ee2",
+    "schema_version": "1.0",
+    "size_bytes": 25432064
+  },
+  "area_results": {
+    "boletus_aereus": [
+      {
+        "date": "2026-09-13",
+        "probability": 0.380899,
+        "candidate": {
+          "estimator_id": "smooth_shared_logistic_v1",
+          "horizon_days": 1,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-14",
+        "probability": 0.388701,
+        "candidate": {
+          "estimator_id": "smooth_shared_logistic_v1",
+          "horizon_days": 2,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-15",
+        "probability": 0.396546,
+        "candidate": {
+          "estimator_id": "smooth_shared_logistic_v1",
+          "horizon_days": 3,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-16",
+        "probability": 0.40443,
+        "candidate": {
+          "estimator_id": "smooth_shared_logistic_v1",
+          "horizon_days": 4,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-17",
+        "probability": 0.412351,
+        "candidate": {
+          "estimator_id": "smooth_shared_logistic_v1",
+          "horizon_days": 5,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-18",
+        "probability": 0.420304,
+        "candidate": {
+          "estimator_id": "smooth_shared_logistic_v1",
+          "horizon_days": 6,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-19",
+        "probability": 0.428288,
+        "candidate": {
+          "estimator_id": "smooth_shared_logistic_v1",
+          "horizon_days": 7,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      }
+    ],
+    "amanita_caesarea": [
+      {
+        "date": "2026-09-13",
+        "probability": 0.332051,
+        "candidate": {
+          "estimator_id": "smooth_partial_pooling_logistic_v1",
+          "horizon_days": 1,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-14",
+        "probability": 0.345923,
+        "candidate": {
+          "estimator_id": "smooth_partial_pooling_logistic_v1",
+          "horizon_days": 2,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-15",
+        "probability": 0.360033,
+        "candidate": {
+          "estimator_id": "smooth_partial_pooling_logistic_v1",
+          "horizon_days": 3,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-16",
+        "probability": 0.374359,
+        "candidate": {
+          "estimator_id": "smooth_partial_pooling_logistic_v1",
+          "horizon_days": 4,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-17",
+        "probability": 0.388881,
+        "candidate": {
+          "estimator_id": "smooth_partial_pooling_logistic_v1",
+          "horizon_days": 5,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-18",
+        "probability": 0.403573,
+        "candidate": {
+          "estimator_id": "smooth_partial_pooling_logistic_v1",
+          "horizon_days": 6,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      },
+      {
+        "date": "2026-09-19",
+        "probability": 0.418411,
+        "candidate": {
+          "estimator_id": "smooth_partial_pooling_logistic_v1",
+          "horizon_days": 7,
+          "profile_id": "smooth_window_60d_plus_physical_state",
+          "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+          "temporal_family": "lag",
+          "version_id": "biology_v6_windowed_smooth_hierarchical"
+        },
+        "scope": null
+      }
+    ]
+  },
+  "same_point_aereus": {
+    "data_mode": "prediction",
+    "species": [
+      {
+        "species_id": "boletus_aereus",
+        "label_key": "boletus_aereus",
+        "status": "available",
+        "probabilities": [
+          0.335248,
+          0.344782,
+          0.354427,
+          0.364177,
+          0.374025,
+          0.383965,
+          0.393988
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      }
+    ],
+    "provenance": {
+      "engine": "existing_python_predictor",
+      "scientifically_validated": false,
+      "selection_scope": "species",
+      "point_validation": "not_established",
+      "model_revision": "ac802efe85f6be611b19",
+      "batch_id": "operational_20260909T184116Z",
+      "weather_generation": "20260913T171307152718Z-c1fbe31a5cf7",
+      "soil_context_hash": "091abf86c986ddd2e88ef99b81a09874aea7bc35c0a6ab8547cd3516d5563ea9"
+    }
+  },
+  "same_point_aereus_with_area_evidence": {
+    "data_mode": "prediction",
+    "species": [
+      {
+        "species_id": "boletus_aereus",
+        "label_key": "boletus_aereus",
+        "status": "available",
+        "probabilities": [
+          0.363608,
+          0.371268,
+          0.37898,
+          0.386739,
+          0.394542,
+          0.402388,
+          0.410272
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      }
+    ],
+    "provenance": {
+      "engine": "existing_python_predictor",
+      "scientifically_validated": false,
+      "selection_scope": "species",
+      "point_validation": "not_established",
+      "model_revision": "ac802efe85f6be611b19",
+      "batch_id": "operational_20260909T184116Z",
+      "weather_generation": "20260913T171307152718Z-c1fbe31a5cf7",
+      "soil_context_hash": "091abf86c986ddd2e88ef99b81a09874aea7bc35c0a6ab8547cd3516d5563ea9"
+    }
+  },
+  "same_point_caesarea_first_day": 0.33223,
+  "feature_comparison": {
+    "model_refs_equal": true,
+    "feature_count_each": 317,
+    "different_features_count": 278,
+    "examples": {
+      "humidity_min_pct__lag_000": {
+        "area": 39.728209655716874,
+        "point": 39.993851314602416
+      },
+      "soil_water_recharge_7d": {
+        "area": 0.987241,
+        "point": 1.0
+      },
+      "temp_max_c__lag_000": {
+        "area": 27.715161628354167,
+        "point": 27.74416456428172
+      },
+      "soil_water_drydown_7d": {
+        "area": 0.23738,
+        "point": 0.241775
+      },
+      "soil_water_area_mean_at_cutoff": {
+        "area": 0.749861,
+        "point": 0.758225
+      },
+      "soil_water_change_14d": {
+        "area": 0.749861,
+        "point": 0.758225
+      },
+      "soil_water_deficit_at_cutoff": {
+        "area": 0.250139,
+        "point": 0.241775
+      },
+      "temp_min_c__lag_000": {
+        "area": 13.132160179255358,
+        "point": 13.046834128026466
+      },
+      "humidity_max_pct__lag_000": {
+        "area": 93.69064505647127,
+        "point": 93.71818610818673
+      },
+      "soil_water_change_7d": {
+        "area": 0.749861,
+        "point": 0.758225
+      },
+      "soil_water_area_min_at_cutoff": {
+        "area": 0.740733,
+        "point": 0.758225
+      }
+    }
+  },
+  "finding": "Refreshing precompute does not remove the gap. Area aereus uses 60d while current map selects 30d. With area evidence the same point becomes 36.3608%; stored area output remains 38.0899%. Same 60d model reference confirmed but point and area weather/water features differ. Individual feature contributions not attributed. Caesarea differs only slightly.",
+  "operational_changes": false,
+  "jobs_started_by_assistant": false
+}

@@ -300,6 +300,28 @@ coordenadas o altitud por estación. Ningún conflicto material se resuelve
 silenciosamente; se conserva la metadata diaria y se documenta la decisión del
 catálogo.
 
+Decisión vigente del usuario (13/09/2026): el límite habitual de salto de 1 km
+admite una excepción si el destino está dentro de las envolventes aproximadas de
+España, incluidas Baleares y Canarias, con independencia del origen. Las regiones
+se mantienen en `rainmapper_core/weather_coordinate_policy.json`; un archivo
+`Data/weather_coordinate_policy.json` sustituye íntegramente ese valor por defecto
+(una lista vacía desactiva la excepción). No son fronteras administrativas: las
+envolventes incluyen mar y territorio vecino. No hay consulta remota ni GIS pesado.
+Un salto grande hacia fuera sigue bloqueado; la excepción no permite reemplazar
+metadata por un registro de fecha anterior. Los cambios aceptados quedan en
+`update_report.coordinate_corrections` con estación, valores anteriores/nuevos y
+fecha. La propuesta inicial de aceptar solo fuera→dentro fue descartada por el usuario.
+
+El control de saltos no comprueba la veracidad geográfica de la ubicación inicial.
+Barcelona se reparó expresamente en local y HA real mediante un catálogo nuevo,
+con backup del catálogo, manifiesto y CURRENT anteriores, sin modificar las
+particiones meteorológicas ni Erinya. El CLI manual
+`python -m rainmapper_core.weather_history_catalog_repair --data-dir ... --plan ...`
+previsualiza por defecto; `--apply` publica con bloqueo del escritor, generación
+esperada y valores anteriores comprobados. La reparación de datos no instala la
+nueva política automática en HA. Evidencia y resultados en
+`docs/reports/weather-coordinate-conflict-2026-09-13.json`.
+
 Una clave histórica que nunca tenga latitud y longitud válidas conserva todas
 sus filas en el histórico, pero no entra en el catálogo seleccionable. Se
 reporta por separado para evitar que Predictor o mapas intenten usarla y para

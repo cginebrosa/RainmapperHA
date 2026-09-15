@@ -1,13 +1,707 @@
 # Decisions
 
-## 2026-09-11 - [VIGENTE][RELEASE] HA 0.2.302 publicada
+## 2026-09-14 - [VIGENTE][MAPA][CACHÉ] Reutilizar datos del worker durante la predicción
+
+- El usuario exige minimizar transporte RPi4–worker: meteorología recibida para
+  precálculo y fichas existentes se reutilizan si siguen siendo las versiones
+  aprobadas por HA. No descargar todo de nuevo por consulta.
+- Integrar el mapa con el runtime/caché existente, mediante referencias compactas
+  y sincronización solo de archivos/particiones cambiados o ausentes. Un cambio
+  de ficha no debe volver a transferir meteorología/modelos iguales. No construir
+  manifiestos grandes, hashes o TARs en HA en cada clic.
+- Mantener versiones coherentes, autorización por asociación y generaciones en
+  uso. La RPi4 coordina; sin fallback automático de cálculo pesado.
+- La base de reutilización tiene cuatro pruebas dirigidas verificadas. La
+  integración del mapa sigue pendiente: los montajes locales no validan este
+  transporte. [Diseño y aceptación](mushrooms/prediction-map-local-worker-setup-es.md#sincronización-privada-y-caché-requisito-acordado-integración-pendiente).
+
+## 2026-09-14 - [VIGENTE][MAPA][OPERACIÓN] Worker existente, alcance nacional y RPi4
+
+- Usuario aplaza revisión visual a fondo y árboles vecinos al TODO; autoriza
+  volumen/configuración y comparación HA local–worker. Prefiere usar el worker
+  existente. Sus dos asociaciones se conservan exactamente; canal del mapa activo
+  solo en la asociación ya existente con HA local.
+- En RPi4, cálculo mediante worker en principio, sin fallback local. HA local
+  sirve para comprobar paridad. Tiempos en el mismo Mac no deciden dónde ejecutar
+  en producción ni representan rendimiento de Raspberry.
+- Alcance nacional confirmado. No reducir a Catalunya para ahorrar volumen.
+  Los 14,54 GB instalados son dependencias de lectores actuales: GEODE y MFE del
+  resto del país están descargados, pero falta integrarlos y completar el paquete.
+- Volumen público por enlaces duros y montajes de solo lectura, sin duplicar
+  14,54 GB en el Mac. Privados separados por coordinador; sin datos/credenciales
+  dentro de la imagen o del paquete público. No promoción de semillas.
+- Paridad de cálculo actual, cancelación, indisponibilidad y hashes comprobados
+  en HA local/worker ARM64. Sin entrenamiento, precálculo ni release HA real.
+  [Instalación y límites](mushrooms/prediction-map-local-worker-setup-es.md).
+
+## 2026-09-14 - [VIGENTE][MAPA][UI] Suelo antes del arbolado y descartes legibles
+
+- Cabecera Terreno: mostrar primero las etiquetas de suelo recibidas en
+  `mapped_context.soil_tendencies`, después árboles/hábitats. Conservar mezclas,
+  traducciones y procedencia; no derivar otra categoría desde el pH.
+- Desplegable de descartadas/desconocidas: nombre en línea propia y cada motivo
+  debajo, con separación entre especies y ajuste al ancho móvil.
+- Cambio de presentación en `prediction-mode.js`/`.css`, sin alterar reglas,
+  modelos, datos o autenticación. Chrome escritorio/móvil correcto, con aserciones
+  de orden, posición de motivos y ausencia de desbordamiento en
+  `tests/prediction_map_browser_check.mjs`.
+
+## 2026-09-14 - [VIGENTE][MAPA][SUELO] Conservar reglas; descartada restricción adicional
+
+- El usuario contrastó la propuesta «restringir por tipo de suelo y confirmar por
+  pH» y la descartó porque excluiría sitios conocidos de aereus. Instrucción final:
+  **dejar suelo/pH como está**. Conservar las reglas locales, excepciones acotadas,
+  admisiones condicionadas y rangos; no convertir esa propuesta en nuevos vetos.
+- Contraste puntual con lectores actuales: La Selva/L’Aleixar silíceos con medias
+  fuera de 6,8 e intervalos solapados; Olvan/Merlès unidad POmlg con componente
+  calcáreo y arenoso, pH 6,3/6,7. Exigir silíceo como tipo excluyente descartaría
+  también estos últimos setales comunicados. Sin inferir descalcificación.
+- No se editaron reglas ni fichas durante el contraste. Continúan aplicados el
+  filtro estacional v6 y las etiquetas principal/secundaria, pedidos por separado.
+
+## 2026-09-14 - [VIGENTE][MAPA] Fuera de temporada oculto; fase en filas visibles
+
+- Corrección expresa del usuario: fuera de temporada no debe salir. Sustituye
+  la decisión anterior de mantener toda especie territorialmente compatible en
+  la lista durante todo el año. El nivel territorial interno sigue independiente.
+- Meses originales de la ficha: principal/secundaria permiten aparecer e inferir;
+  fuera de temporada o sin meses resueltos no permiten aparecer. Las filas visibles
+  muestran «Temporada principal» o «Temporada secundaria», actualizadas con la fecha.
+- Cálculo y UI consumen `daily_season_phases`. Clasificador único compartido con
+  Predictor en `mushroom_phenology.py`, sin reglas estacionales nuevas ni cambios
+  de meses. Una semana que cruza temporada solo invoca modelos en días admitidos.
+- V6: 106 pruebas, Chrome y API Cercs correctos. Marçot fuera; fredolic secundario
+  según su ficha, sin modelo. Datos locales conservados por hash respecto a v5.
+- [Evidencia](reports/prediction-map-season-visibility-2026-09-14.json).
+
+## 2026-09-14 - [VIGENTE][GIS] Descalcificación presente en descripciones GEODE
+
+- OpenLandMap instalado aporta pH e incertidumbre; no variable descalcificación.
+- ICGC local: búsqueda en descripción/protolito sin menciones explícitas descalc/
+  decalc/descarbonat; nódulos disueltos de Orst y derivados describen roca.
+- GEODE sí: unidad 247, Z1000, «Fm. Oviedo: calizas, a veces descalcificadas, y
+  margas». Servicio oficial y copia local coinciden (OBJECTID 16027/16028).
+- Es una condición descrita de la unidad, no un dato medido o homogéneo de suelo
+  superficial por coordenada. No activado como equivalencia universal ni inferido
+  desde pH. [Consulta y procedencia](reports/prediction-map-gis-decalcification-2026-09-14.json).
+
+## 2026-09-14 - [VIGENTE][MAPA] Dos niveles y descarte antes de inferencia
+
+- El usuario distingue especies posibles **por el lugar** (suelo y pH conjuntos,
+  hospedadores/hábitat y altitud) de condiciones para **fructificar en la fecha**.
+  Fenología, humedad y temperatura corresponden al predictor existente.
+- El estado territorial interno no cambia por mes; desde la decisión posterior
+  v6, la lista visible sí excluye días fuera de temporada. Conservar las
+  ventanas estacionales en las fichas para el segundo nivel, no borrarlas.
+- Filtrar antes de preparar/invocar predicción: incompatibles sin cálculo,
+  compatibles con modelo calculan, compatibles sin modelo al final con null.
+  Falta de datos implica abstención, no compatibilidad ni cero ficticio.
+  Sin candidatas, salida temprana; cero llamadas para descartadas verificadas.
+- **Implementado en v5 local:** `status` territorial y proyección diaria constante;
+  fenología conservada para `resolve_species_week`. El lector geográfico prepara
+  contexto hídrico solo tras seleccionar candidatas; el ejecutor salta el proceso
+  del modelo si no hay ninguna. Runtime sin candidatas retorna antes de `_refresh`;
+  ninguna candidata con evidencia de modelo, sin preparación meteorológica.
+- UI única Terreno, selección del mapa por especie y predictor por área intactos.
+  Sin nuevos pesos, modelos, entrenamiento, precálculo o publicación HA.
+
+## 2026-09-14 - [VIGENTE][MAPA][SUELO] Primeras cuatro reglas conjuntas v5
+
+- Solo `ecology.soil_filter` de aereus, edulis, pinophilus y cibarius locales:
+  preferencias silíceas no exhaustivas, exclusiones vacías, caliza+pH admitido
+  condicionada; composición no resuelta implica desconocido, no ausencia biológica.
+- Aereus conserva 3,5–6,8 y excepción OpenLandMap con intervalo solapado,
+  silíceo y sin carbonatos/yeso que bloqueen el rescate. Las otras tres comparan
+  la media estrictamente. Mezclas conservadas; no deducir descalcificación.
+- `conditional_soil_ids` añade aviso al coincidir y estar el pH en rango;
+  `require_soil_context` exige información, sin imponer un tipo concreto de roca.
+  `admission` separa admisión ordinaria/condicionada; no es probabilidad ni peso.
+- Sin cambios de fenología, hosts, altitudes, rangos, afinidades ni metadatos del
+  usuario; comparación estructural de los perfiles. Catálogo/mappings conservan
+  hashes ICGC. No semillas, observaciones, backups ni URLs de coordinador editados.
+- 67 pruebas dirigidas; 369 de regresión (12 omitidas), Chrome, nueve puntos con
+  dos fechas y API de La Vansa. Reglas provisionales; validación científica pendiente.
+- [Semántica, alternativas y procedencia](mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5)
+  y [evidencia y huellas](reports/prediction-map-two-levels-2026-09-14.json).
+
+## 2026-09-14 - [REEMPLAZADA][MAPA] Época dentro de la compatibilidad territorial
+
+- Queda reemplazada la propuesta de conservar época/meses en el primer filtro.
+  Los diagnósticos antiguos `outside_season`, como Vallcebre/latitabundus en
+  septiembre, describen el código anterior y no el comportamiento objetivo.
+- El cambio no altera las reglas temporales del Predictor ni garantiza que una
+  especie compatible disponga de un cálculo para cualquier fecha.
+
+## 2026-09-14 - [VIGENTE][MAPA][SUELO] Revisión ICGC y ensayo local de aereus
+
+- Alcance autorizado: primero las 1.055 unidades ICGC descargadas; GEODE después.
+  Revisión aplicada localmente: 1.046 códigos con materiales en 192 reglas y
+  14 materiales nuevos. Nueve sin equivalencia segura. Mezclas y originales
+  conservados; no inferir composición de un depósito ni pH de su roca.
+- Autoridad en los tres JSON de `docker-data/mushroom-data/`, con backups y
+  revisión detallada. No semillas, reglas por código en Python ni promoción HA.
+- Se conserva aereus en 3,5–6,8; ampliar globalmente máximo a 7,5 fue rechazado.
+  Ensayo v4: silíceo y solapamiento del intervalo pueden admitir media superior
+  con aviso. Carbonatos/yeso bloquean ese rescate; no excluyen universalmente
+  cuando el pH sí encaja. `excluded_soil_ids` sigue vacío.
+- Matriz de las 21 fichas documentada; en aquel incremento las otras veinte
+  quedaron sin nuevos filtros. El bloque v5 posterior añade tres reglas locales.
+  Las preferencias no son listas exhaustivas ni exclusiones automáticas.
+- [Aplicación, hashes y validación](reports/prediction-map-icgc-substrates-2026-09-14.json).
+
+## 2026-09-14 - [VIGENTE][MAPA][CIENCIA] Cruzar suelo y pH sin equiparar roca y horizonte
+
+- Separar composición geológica y reacción del suelo. La literatura respalda
+  el efecto conjunto del ambiente y el hospedador, no que un único factor mande
+  siempre. El suelo no sustituye un hospedador necesario.
+- Agua infiltrada puede lavar carbonatos y producir un horizonte descalcificado
+  sobre roca calcárea. Un pH estimado ácido es indicio, no confirmación de ese
+  proceso. Lluvia reciente y presencia comunicada no son mediciones del suelo.
+- Edulis local contempla suelo descalcificado. No aplicar veto geológico
+  universal ni inferir que sus floradas allí sean siempre pequeñas. No hacer
+  equivaler «no listado como preferido» a «biológicamente imposible».
+- Próximo diseño: requisitos, preferencias, tolerancias y exclusiones revisados
+  por ficha; casos contradictorios explícitos, sin porcentajes correctores
+  inventados. Ácido derivado del pH no cuenta como segunda evidencia independiente.
+- [Fuentes primarias, propuesta y casos](mushrooms/prediction-map-ecological-factors-literature-es.md).
+
+## 2026-09-14 - [DUDA][MAPA] Descalcificación puntual y traslado de árboles vecinos
+
+- La Vansa `PPcm` tiene componente calcáreo cartografiado y media estimada 6,3;
+  no consta medición que resuelva carbonatos del horizonte superficial. Pendiente
+  concretar tratamiento por especie de posibles descalcificados; no hay veto
+  aprobado para edulis/pinophilus/cibarius basado únicamente en esa unidad.
+- El usuario solicita árboles vecinos donde falten. En 41.22012, 1.06989 MFE
+  registra «No arbolado»; vecino con información a 52,09 m. Recuperación forestal
+  vecina aún no implementada; criterio/radio/procedencia pendientes. El vecino de
+  pH hasta 1 km no autoriza a usar ese radio para árboles.
+
+## 2026-09-13 - [VIGENTE][MAPA] Selección por especie aunque el punto esté en un área conocida
+
+- El usuario confirma el reparto acordado: Predictor conserva probabilidad y
+  evidencia de área; el mapa selecciona por especie y calcula con las entradas
+  propias del punto. Estar dentro de un área no cambia esa selección.
+- Rechazada la propuesta posterior al diagnóstico de Olvan de incorporar
+  evidencia territorial al mapa. No implementar ese ajuste ni buscar igualdad
+  numérica con el Predictor de áreas. El código actual ya aplica esta decisión.
+- Se conservan la política semanal, modelos y abstención existentes. Los valores
+  de Olvan con evidencia de área fueron una prueba diagnóstica, no un cambio
+  operativo ni una decisión aprobada.
+- [Comparación tras actualizar precálculo](reports/prediction-map-olvan-after-precompute-2026-09-13.json).
+
+## 2026-09-13 - [VIGENTE][MAPA] Especies separadas y motor conectado
+
+- Última decisión del usuario: Rovelló por especie, cada una con su propio
+  porcentaje cuando exista. Sustituye la agrupación derivada anterior: no crear
+  dataset conjunto ni fusionar observaciones. Mantener salmonicolor/quieticolor
+  como ficha existente conjunta. Mostrar nombres diferenciados desde metadatos
+  locales, sin deducir IDs por nombres comunes ni codificar especies en Python.
+- Compatibles con cálculo por probabilidad descendente del día seleccionado;
+  sin cálculo al final, «Sin probabilidad calculada». Cero calculado es cero,
+  ausencia de modelo o abstención es null. Modelo y evidencia de un ID nunca
+  habilitan otro. No atribuir falta de modelo a pocas observaciones sin prueba.
+- Motor Python existente conectado en preview y en el ejecutor compartido, con
+  entradas del punto y selección sellada por especie. Continuidad/fallback y
+  vetos vigentes conservados; sin reutilizar contexto de un área vecina.
+  La transferencia del modelo a puntos nuevos aún requiere validación de campo.
+- Contrato/broker/UI admiten modo prediction con especie/punto/fechas y
+  compatibilidad comprobados. Proyección acotada de calidad, sin arrays por
+  área ni artefactos grandes en el payload del visor. No se fabrica evidencia.
+- Confirmada causa de tres huecos aparentes MFE: geometría inválida en un
+  candidato. Reparación en memoria solo si conserva área y validez, con límites
+  de tamaño/caché y abstención si no es reparable. No cambiar originales,
+  reconstruir índices ni inferir árboles de etiquetas genéricas.
+- Sin modificar reglas de hospedadores: Macrolepiota admite hábitat según su
+  ficha saprófita; edulis exige hospedador identificado. En Fogars 41.77528,
+  2.46480 el lector corregido identifica haya y edulis vuelve a ser compatible.
+- Activación solo preview, pruebas dirigidas y navegador; imágenes/worker/HA
+  no desplegados. Comparación de rendimiento y aceptación operativa posteriores.
+- [Implementación y evidencia](reports/prediction-map-engine-integration-2026-09-13.json).
+
+## 2026-09-13 - [VIGENTE][MAPA][PH] OpenLandMap local y filtro por media
+
+- Descargar pH para España, con islas secundarias; conservar SoilGrids para comparar.
+  Nueve recortes completados en `mushroom-map-GIS/openlandmap-ph/spain-v20250204/`.
+- Selección de especies con media OpenLandMap y los 21 rangos locales existentes.
+  Esta decisión sustituye la abstención por solapamiento de incertidumbre en preview;
+  la falta de media sigue siendo desconocida. Hospedadores y altitud se conservan.
+- Mostrar media/mínimo/máximo de ambas fuentes; profundidad en Terreno, no cabecera.
+  Los extremos son cuantiles de incertidumbre, no mínimos/máximos medidos del lugar.
+- Si falta la media, usar el píxel válido más cercano y mostrar distancia. Radio
+  operativo de 1.000 m configurable en manifiesto; fuera de él no extrapolar.
+- Activado solo en preview, sin desplegar HA. No se adopta Sporas como verdad de
+  campo ni se eliminan datos de SoilGrids. Retención hídrica permanece en SoilGrids.
+- [Implementación y pruebas](reports/prediction-map-openlandmap-ph-implementation-2026-09-13.json).
+
+
+## 2026-09-13 - [VIGENTE][MAPA][PH] Aplicar los 21 rangos y revisar con setales
+
+- El usuario acepta todos los rangos provisionales como filtros, incluidos los
+  diez AMPLIO. Sustituye la recomendación anterior de dejarlos solo informativos.
+- Aplicados a las 21 fichas locales, con backup y procedencia por ficha. Números
+  editables en JSON; sin reglas por especie hardcoded ni modificación de semillas.
+- Conservar abstención ante pH ausente, hospedadores y altitudes. La regla de
+  solapamiento queda sustituida en preview por la decisión OpenLandMap anterior.
+  Revisar discrepancias con setales conocidos conforme se aporten, sin bloquear
+  por ello la siguiente implementación de Rovelló y el motor compartido.
+- [Tabla y método](mushrooms/prediction-map-species-ph-proposal-es.md),
+  [registro de aplicación y validación](reports/prediction-map-species-ph-application-2026-09-13.json).
+
+## 2026-09-13 - [REEMPLAZADA][MAPA][PH] Preparación de rangos provisionales, sin aplicación
+
+- El usuario solicita preparar y documentar los rangos de pH que faltaban.
+  Se entrega tabla/JSON de las 21 fichas, con números, confianza, procedencia y
+  uso propuesto. Esta petición prepara una propuesta revisable; no se han
+  modificado perfiles ni dado por aceptados todos sus extremos.
+- Las aproximaciones de clases químicas locales se identifican expresamente.
+  No convertir litología, textura, humus o un óptimo micelial en tolerancias del
+  suelo. Once ventanas candidatas para filtro provisional; diez coberturas
+  amplias solo de contexto, sin veto recomendado.
+- Trufa: la guía CTFC recoge 7,1–8,85 en truferas naturales; propuesta 7,1–8,9,
+  separada del rango recomendado de cultivo. Fuente y método/profundidad
+  disponibles o desconocidos quedan registrados.
+- Se conserva la abstención por solapamiento de SoilGrids, no comparación solo
+  con la mediana. Merlès fue reproducido en copia temporal con edulis/pinophilus
+  desconocidos, sin inferir ausencia. Hospedadores y altitud siguen como revisión
+  independiente, no se corrigen ajustando pH al resultado deseado.
+- [Tabla, método y siguiente aplicación](mushrooms/prediction-map-species-ph-proposal-es.md).
+  [JSON y cuatro comprobaciones aisladas](reports/prediction-map-species-ph-proposal-2026-09-13.json).
+
+## 2026-09-13 - [VIGENTE][METEO] Correcciones de coordenadas con destino en España aproximada
+
+- Decisión final explícita: admitir cualquier salto cuyo destino esté dentro
+  de la zona aproximada de España, incluidas Baleares y Canarias, también si
+  el origen estaba dentro. Reemplaza la propuesta fuera→dentro, aceptada y luego
+  corregida por el usuario. Sigue primando la fecha de metadata más reciente.
+- Envolventes editables en `rainmapper_core/weather_coordinate_policy.json`,
+  sustituibles mediante `Data/weather_coordinate_policy.json`; no fronteras
+  administrativas exactas. Registrar los saltos admitidos en el manifiesto.
+  Mantener el bloqueo habitual de saltos grandes con destino fuera de la zona.
+- Barcelona `ESCAT0800000008011B` reparada en local y HA real a partir del CSV
+  confirmado: `41.38,2.16,14m`. Nuevos catálogos, backups pequeños y una sola fila
+  modificada en cada entorno. Conservar particiones, receipts y observaciones.
+  Erinya `ESCAT2500000025515B` se deja como está hasta que la fuente la corrija.
+- Validación: 36 pruebas writer/dataset; comparación de ambos catálogos, hashes,
+  particiones, receipts y registros pendientes de Barcelona. No runner operativo,
+  entrenamiento, precálculo ni publicación. La política automática sigue solo
+  en código local. [Evidencia](reports/weather-coordinate-conflict-2026-09-13.json).
+
+## 2026-09-13 - [VIGENTE][MAPA][TERRENO] Hábitats sin árboles, mezclas y datos editables
+
+- El usuario acepta expresamente candidatas por prado/ribera revisado aunque
+  no haya árboles, si la ficha admite ese hábitat. Reemplaza la abstención global
+  anterior por falta de hosts; los hospedadores concretos siguen siendo requisitos
+  para las especies que los necesitan. Sin hosts ni hábitat: abstención, no 0 %.
+- Presentación única **Terreno**: altitud, pH, etiquetas de árboles y hábitats;
+  el usuario no tiene que manejar la separación interna de catálogos. Mantener
+  IDs distintos internamente evita que «prado» se convierta en pino/roble.
+- Las mezclas conservan todos los materiales traducidos y la unión sin duplicados
+  de tendencias de suelo revisadas. Son posibilidades del material parental,
+  no mediciones del suelo ni pH; no activar vetos, humedad o drenaje inferidos.
+- Catálogo y equivalencias permanecen editables: `mushroom_reference_catalogs.json`
+  define vocabulario; `mushroom_gis_mappings.json` traduce códigos por fuente,
+  edición y campo. Nada de equivalencias científicas incrustadas en Python.
+- `exact_value_mapping_groups` almacena una lista de códigos por combinación
+  idéntica, sin duplicar targets. 77 reglas para 787 códigos; cinco filas legacy
+  conservadas. Máximo 512 reglas y 2.048 referencias acotadas antes de indexar,
+  2 MiB/JSON. Revisión extensa fuera del contrato operativo.
+- ForestReader y EcologyReader comprueban la misma huella de catálogo; una
+  edición intermedia produce `unavailable`, sin usar IDs de semántica obsoleta.
+- Evidencia: 74 pruebas Python y Chrome, cuatro puntos reales y POST de preview.
+  [Informe](reports/prediction-map-mappings-2026-09-13.json). No motor, jobs o HA.
+
+## 2026-09-13 - [REEMPLAZADA EN PARTE][MAPA][ECOLOGÍA] Hospedadores y abstención
+
+La regla global sin hosts queda reemplazada por la decisión Terreno anterior;
+la jerarquía y la exigencia de un hospedador compatible cuando se requiere siguen vigentes.
+
+- Sin hospedador compatible identificado, no incluir la especie que lo requiere.
+  Sin ningún host identificado en el punto, ninguna candidata en esta fase,
+  incluso si la carencia procede de un hueco cartográfico. Es abstención, no
+  ausencia física demostrada ni probabilidad 0 %. Caso del usuario: Avià.
+- Padre de **género** ↔ especie admitido en ambos sentidos según el catálogo.
+  Ficha pino negro acepta GIS pino negro/pinos, pero no pino rojo. Ficha pinos
+  acepta cualquier especie del género. No equiparar hermanos específicos ni
+  géneros distintos por familia. Mismo criterio para todas las fichas.
+- Basta una alternativa positiva de la ficha; una relación genérica adicional
+  amplía admisión. No inferir árboles desde afinidades del hongo o una etiqueta
+  genérica de bosque. Conservar IDs/procedencia originales.
+- Implementado en `EcologyReader` y preview; 42 pruebas dirigidas + Chrome en
+  el incremento. [Diseño](mushrooms/prediction-map-specification-es.md),
+  [evidencia](reports/prediction-map-ecology-2026-09-13.json).
+
+## 2026-09-13 - [VIGENTE][MAPA][PERFILES] Ventanas amplias y pH mantenible
+
+- Aplicar por ficha ventanas amplias de meses/asociaciones/altitud/pH utilizables
+  de la revisión: unión de alternativas, menor mínimo/mayor máximo documentados.
+  Los desconocidos/placeholders no se vuelven ceros ni se inventan óptimos.
+- Orientación no es requisito de ninguna especie ahora. Conservar valores y
+  pesos existentes; revisar ventanas/orientaciones si los resultados lo requieren.
+- `ecology.ph_min/ph_max` en JSON y mantenimiento, V0/Enriched. Vacíos si no hay
+  cifras de suelo utilizables; no inferirlos del catálogo genérico o de cultivo.
+  Inicialmente ambos null; la decisión posterior aplica 21 rangos provisionales. Un campo vacío sigue sin vetar por pH.
+- Filtro actual con pH informado: intervalo superficial contenido admite la
+  dimensión, disjunto queda fuera y solapado/incompleto permanece desconocido.
+  Es tratamiento operativo revisable, no tolerancia universal demostrada.
+- Revisión bibliográfica y segunda pasada ya realizadas; no consultar PDFs,
+  webs o LLM por clic. Fichas/catálogos/mappings locales son reglas mantenibles.
+- [Revisión y decisiones](mushrooms/prediction-map-species-literature-review-es.md),
+  [aplicación/backups](reports/prediction-map-species-windows-2026-09-13.json).
+
+## 2026-09-13 - [REEMPLAZADA][MAPA][ROVELLÓ] Agrupación derivada preservando observaciones
+
+Sustituida por la decisión posterior de filas por especie, al inicio del documento.
+
+- No separar salmonicolor/quieticolor; mantener ficha/ID conjuntos y ventanas amplias.
+- Agrupar para el objetivo predictivo Rovelló: deliciosus, sanguifluus, vinosus,
+  salmonicolor/quieticolor. Mantener fichas y observaciones originales; derivar
+  dataset con miembros versionados y trazabilidad de IDs para futura separación.
+- Una curva conjunta si al menos una ficha completa es compatible. No mezclar
+  requisitos de diferentes fichas, fusionar observaciones, sumar porcentajes o
+  renombrar un modelo entrenado solo con deliciosus como si fuera conjunto.
+- Implementación/entrenamiento pendientes; esta decisión no autoriza lanzar jobs.
+  Fuente: revisión de especies §8.2 y especificación central.
+
+## 2026-09-13 - [VIGENTE][MAPA][EJECUCIÓN] Motor común y orden de implementación
+
+- Completar terreno/traducciones y compatibilidad antes de probabilidades reales.
+  Después integrar el motor existente en servidor local/HA, validarlo y comparar
+  el mismo cálculo con worker incluyendo transporte. No duplicar Python.
+- Selector Servidor local/Worker; «local» no es navegador. No ejecutar inferencia
+  científica en navegador; su IDW de visualización sigue siendo independiente.
+- Punto con entradas propias aun dentro de área conocida. Reutilizar selección
+  semanal `weekly_lag_event_v2`, familia `lag_event` h1–h7, corte común, veto diario
+  sin cambio de familia y fallback existente. Igualdad con inputs/artefactos/
+  evidencia iguales, no con el área si las entradas difieren.
+- Esto sustituye la exigencia inicial de worker exclusivo para el **nuevo mapa**;
+  no modifica por sí solo decisiones del Predictor público existente.
+- No adelantar comparación de rendimiento usando tiempos geográficos; no priorizar
+  AWS/servidores futuros o migración general SoilGrids sobre este desarrollo.
+
+## 2026-09-13 - [VIGENTE][MAPA][DATOS/UI] Autoridad local y estado de preview
+
+- Catálogo/fichas/mappings en `docker-data/mushroom-data/` son autoridad de trabajo;
+  promover al repo/HA explícitamente más adelante. Preservar entradas del usuario.
+- Preview sin autenticación real, sin usuarios ficticios en `devices.json`.
+  Ajustes de prueba temporales; al integrar, mismo guardado de dispositivo que
+  General/IDW/Heatmap. No añadir infraestructura de autenticación para la prueba.
+- Cabecera con municipio/coordenadas, altitud/pH y arbolado a ancho completo;
+  detalles desplegables. Hasta siete días predictivos; 60 observados visibles,
+  motor puede usar más. Sin previsión meteorológica; viento de estación opcional.
+- La rama `ecology` presenta candidatas y «Predicción pendiente», no los ejemplos
+  que aún conserva el contrato demo. No presentar compatibilidad como porcentaje.
+- Huecos forestales aceptados; vegetación/ecología/geología francesa aplazadas.
+  Municipio ausente no bloquea por sí solo; ausencia de hosts sí impide candidatas.
+
+## 2026-09-13 - [REEMPLAZADA][MAPA] Repetir revisión antes de avanzar y prioridad SoilGrids
+
+Las indicaciones históricas de «revisar todas las fichas antes de implementar»,
+«pH aún sin controles», «ampliar cobertura forestal primero» o «migrar SoilGrids
+como P0» no son el punto de continuación. La revisión y ventanas ya se aplicaron;
+los huecos se aceptaron. Continúan mappings nuevos, grupo Rovelló y motor local.
+La migración SoilGrids conserva su diseño y pruebas pendientes, con menor prioridad.
+
+## 2026-09-13 - [DUDA][MAPA] Validaciones aún abiertas
+
+- Aplicabilidad/evidencia del modelo en puntos nuevos, contrato real y agrupación
+  predictiva no están cerrados por disponer de lecturas o candidatas.
+- Comprobar coherencia de instantánea de catálogo entre lectores si se edita
+  durante una consulta. Completar mappings de hábitat para no ectomicorrícicas.
+- Cifras pH ausentes siguen vacías hasta contar con fuente utilizable. Revisión
+  futura de ventanas/orientaciones y métricas completas HA/worker pendientes.
+- La preview no acredita integración Docker ni aceptación para HA real.
+
+## 2026-09-12 - [VIGENTE][MAPA][DATOS] Municipios locales y exportación portable del worker
+
+- El usuario prefiere descargar términos municipales para resolver pertenencia
+  del punto, en lugar de depender de Google. No sustituir municipio por población
+  o estación cercana.
+- Acepta código/lectores en la imagen y cartografía e índices preparados en
+  volumen persistente, con generaciones independientes y conservación al
+  actualizar/recrear el contenedor. No reconstruir mapas desde HA real.
+- La exportación a otro equipo debe incluir imagen, datos del volumen,
+  manifiesto e instalador/restauración del montaje. Una imagen sola no basta.
+  Exigir prueba en destino limpio y compatibilidad de arquitectura; separar
+  cartografía de credenciales/artefactos privados y conservar coordinadores.
+- Implementación de la distribución/exportación pendiente. No se han cambiado
+  montajes ni destinos actuales. [Especificación central](mushrooms/prediction-map-specification-es.md#6-cartografía-copias-locales-y-lectores).
+
+## 2026-09-12 - [VIGENTE][MAPA] Inicio técnico y prototipo local separado
+
+- El usuario pide documentar lo acordado y comenzar el trabajo técnico. Se
+  inicia el prototipo con respuestas simuladas identificado en la fase B.
+- Ruta nueva `/protected/prediction-map/index.html`, misma plantilla y recursos
+  meteorológicos; adaptador y módulo opcional separados. Los archivos del visor
+  original no se modifican. Diana/dardo debajo de IDW, modal y popup anclado;
+  clic y hover sobre estaciones conservan su función meteorológica.
+- API administrativa acotada y contrato inicial `prediction_map_point_v1`.
+  `demo` entrega ejemplos; `queries` devuelve 503 sin crear trabajos hasta
+  integrar el servicio geográfico. `can_use_prediction_map` queda reservado;
+  no se cambian usuarios reales ni se permite acceso no administrador.
+- Validación dirigida y navegador aislado; sin cambios de HA, servicios, datos,
+  cachés GIS ni destinos del worker. La petición no autoriza publicación.
+- Estado técnico vigente y evidencia en la
+  [especificación central, §5.1 y §9.1](mushrooms/prediction-map-specification-es.md#51-primera-entrega-técnica-local-visor-y-contrato-de-demostración).
+  Las notas «sin implementación» inferiores describen sus revisiones previas.
+
+## 2026-09-12 - [VIGENTE][MAPA][UI] Botón debajo de IDW y propuesta de diana con dardo
+
+- Posición acordada: inmediatamente debajo de IDW en la columna derecha de la
+  ruta nueva, antes del control de norte. No reordenar los demás controles ni
+  modificar la ruta meteorológica actual.
+- El usuario prefiere una diana con un dardo. Sustituye la propuesta de seta;
+  dibujo final pendiente de prototipo, con SVG monocromo y estilo de los botones
+  existentes. Hacer visible el dardo para distinguirlo de los círculos del heatmap.
+- Texto de ayuda «Modo predicción» y estado activo identificable. Si IDW está
+  oculto, conservar la posición lógica sin hueco y sin ligar ambos permisos.
+- [Especificación](mushrooms/prediction-map-specification-es.md#3-un-visor-compartido-y-dos-rutas-iniciales).
+
+## 2026-09-12 - [VIGENTE][MAPA][UI] Conservar clic y hover meteorológicos de estaciones
+
+- El usuario cambia la decisión: en modo predicción, clic sobre estación abre
+  el popup meteorológico como ahora; el hover también conserva su popup actual.
+  No solicitar predicción ni mostrar modal de cálculo por esas interacciones.
+- El clic fuera de estaciones inicia la consulta predictiva; la interacción de
+  estación tiene prioridad para evitar dos acciones sobre el mismo evento.
+- Se conserva acceso inicial solo para administradores y permiso individual
+  preparado para una fase posterior. No cambia el comportamiento de la ruta actual.
+- Sustituye la decisión anterior de interpretar el clic de estación como
+  predicción. [Especificación vigente](mushrooms/prediction-map-specification-es.md#3-un-visor-compartido-y-dos-rutas-iniciales).
+  Solo documentación, sin cambios ejecutables.
+
+## 2026-09-12 - [REEMPLAZADA][MAPA][PERMISOS] Clic de estación y acceso inicial
+
+El acuerdo de clic queda sustituido por la decisión superior; el acceso inicial
+solo para administradores se mantiene. Lo siguiente conserva el acuerdo anterior.
+
+- El usuario acepta que, con modo predicción activo, tocar una estación consulte
+  el punto sin abrir también el popup meteorológico. Una sola solicitud sigue
+  el recorrido modal de espera → popup predictivo.
+- Acepta acceso inicial solo para administradores durante las pruebas, preparando
+  permiso individual para otros usuarios posteriormente. Aplicar autorización
+  también en API/caché; preparar el permiso no habilita todavía a no administradores.
+- Al desactivar el modo se recuperan los clics meteorológicos de la ruta nueva;
+  la ruta meteorológica actual conserva exactamente su comportamiento.
+- Acuerdos incorporados a la [especificación central](mushrooms/prediction-map-specification-es.md#3-un-visor-compartido-y-dos-rutas-iniciales).
+  Sin implementación ni cambio de permisos de usuarios reales en esta revisión.
+
+## 2026-09-12 - [VIGENTE][MAPA][UI] Modal visible durante el cálculo
+
+- El usuario pide que al tocar un punto aparezca un modal en pantalla con
+  «Calculando predicción…» mientras se obtiene el resultado. Al terminar se
+  cierra y el informe aparece en el popup anclado al punto.
+- Es una espera transitoria de la ruta nueva, no otro contenedor del resultado.
+  Propuesta: cancelación accesible, estados de cola/error, sin porcentajes falsos,
+  duplicados o respuestas tardías que reabran el popup. No recargar el mapa.
+- [Flujo y aceptación](mushrooms/prediction-map-specification-es.md#4-experiencia-de-consulta-e-informe).
+  Documentado, sin implementación.
+
+## 2026-09-12 - [VIGENTE][MAPA][UI] Resultado en popup anclado, estilo Rainmapper
+
+- El usuario precisa que el resultado debe ser un popup que apunte al punto
+  tocado, como los popups actuales de Rainmapper. Reemplaza la propuesta de
+  panel lateral fijo y ficha inferior móvil; Sporas sigue siendo referencia
+  del contenido, no del contenedor o estilo.
+- Reutilizar el mecanismo MapLibre existente, con adaptaciones limitadas al
+  módulo predictivo de la ruta nueva; no modificar estilos globales, handlers
+  o comportamiento del mapa meteorológico actual.
+- Propuesta de contenido plegable y tamaño acotado para que curvas, especies y
+  meteorología quepan sin ocupar una franja fija. Anclaje, bordes y móvil deben
+  validarse en el prototipo. [Especificación](mushrooms/prediction-map-specification-es.md#42-popup-por-especies-anclado-al-punto).
+
+## 2026-09-12 - [VIGENTE][MAPA][UI] Panel inspirado en Sporas y alcance semanal
+
+- El usuario elige un panel similar al de Sporas. Se revisaron su captura y el
+  texto del panel abierto en Safari, sin cambiar cuenta ni setales. Organización
+  propuesta: lugar/terreno, curvas y lista por especies, meteorología histórica
+  y explicación; detalle en la [especificación central](mushrooms/prediction-map-specification-es.md#41-referencia-inspeccionada-y-adaptación-acordada).
+- Aclaración posterior: esa referencia afecta al contenido; la presentación
+  acordada es un popup anclado con el estilo actual de Rainmapper, no panel lateral.
+- Predicción inicial de hasta una semana. Se omite previsión meteorológica por
+  ahora; viento se muestra si hay una serie utilizable y se omite si no la hay.
+  Los quince días y controles de pronóstico de Sporas no definen nuestro alcance.
+- Reutilizar el visor MapLibre y sus funciones, añadiendo el modo predictivo en
+  la ruta nueva. El mapa meteorológico actual mantiene su comportamiento.
+  Integrar cartografía significa conectar datos científicos al worker, no rehacer
+  el mapa visual. Panel y contratos sin implementar; propuesta de detalle en §4.
+
+## 2026-09-12 - [VIGENTE][MAPA][UI] Botón derecho y consulta por especies
+
+- El usuario concreta la interacción inicial: el mismo visor meteorológico
+  MapLibre, con la función añadida de predicción y un botón en la derecha,
+  junto a las opciones de la aplicación, para entrar en modo predicción.
+- En ese modo, tocar un punto muestra la predicción por especies de esa zona.
+  El recorrido básico no requiere seleccionar antes una especie/fecha ni abrir
+  otro visor. Terreno y meteorología sirven de contexto al resultado principal.
+- Se mantienen dos rutas y permisos: el botón nuevo se habilita en la ruta
+  nueva; la ruta meteorológica actual conserva exactamente su comportamiento.
+- [Especificación central](mushrooms/prediction-map-specification-es.md#4-experiencia-de-consulta-e-informe).
+  Diseño funcional acordado, sin código implementado; panel, valores iniciales,
+  filtros, detalle de eventos y contratos todavía por concretar.
+
+## 2026-09-11 - [VIGENTE][MAPA][DOCS] Especificación central del Mapa de predicción
+
+- Por indicación del usuario, el diseño tiene una referencia principal:
+  [prediction-map-specification-es.md](mushrooms/prediction-map-specification-es.md).
+  Debe explicar el producto completo: objetivo, alcance, visor y permisos,
+  componentes, datos/lectores, HA–worker, aplicación actual, pruebas y fases.
+- Reparto de cálculo, lector SoilGrids y viabilidad quedan como anexos de detalle;
+  adquisición/cobertura son evidencia y el seguimiento registra ejecución.
+  Conservar esos documentos y sus fuentes; no mantener diseños alternativos.
+- Actualizar las decisiones primero en la especificación y sincronizar anexos.
+  Distinguir acordado, propuesto y pendiente; documentación no implica código
+  implementado, datos instalados, pruebas ejecutadas ni autorización de despliegue.
+
+## 2026-09-11 - [VIGENTE][MAPA][MAPLIBRE] Dos rutas y un único visor modular
+
+- Por indicación del usuario, reutilizar el mismo visor meteorológico: una
+  plantilla, núcleo y recursos comunes, sin copiar `app.js` ni mantener dos
+  implementaciones. La predicción es un módulo/capa opcional del mismo mapa.
+- Conservar inicialmente la URL meteorológica actual con predicción deshabilitada;
+  ofrecer una ruta nueva con esa capacidad disponible según permiso del usuario
+  e interruptor. Comprobar permisos también en la API y al entregar caché.
+- El mapa actual debe conservar exactamente controles, interacciones y
+  comportamiento. Las funciones nuevas se habilitan solo en la ruta nueva;
+  activarlas en la actual requiere otra decisión expresa del usuario. Una
+  diferencia funcional en la ruta actual se considera una regresión a corregir.
+- El módulo apagado no añade carga predictiva ni intercepta interacciones;
+  desactivarlo detiene sondeo y desvincula solicitudes sin borrar datos.
+- HA sirve y coordina; el navegador representa; el worker calcula con mapas
+  locales. La ruta nueva podrá converger con la actual habilitando la capacidad,
+  sin reescribir el visor ni sustituir el Predictor actual.
+- La separación de rutas no elimina riesgos del código común: exigir regresión
+  meteorológica, permisos y ciclo de activación en ambas configuraciones.
+- [Diseño y pruebas](mushrooms/mushroom-map-compute-data-placement-es.md#dos-rutas-iniciales-y-una-sola-implementación).
+  Dirección de diseño acordada; prototipo, integración y publicación pendientes.
+  Esta decisión no autoriza migraciones, trabajos ni despliegues.
+
+## 2026-09-11 - [REEMPLAZADA][MAPA][WORKER] Réplicas de mapas y ejecución exclusiva remota
+
+**Reemplazada parcialmente el 13/09:** el nuevo mapa permite servidor local/HA
+por elección explícita. Se conservan réplicas locales por ejecutor y preparación
+pesada remota; la exigencia de worker exclusivo inferior es histórica.
+
+- Por indicación del usuario, la RPi4 atiende edición acotada y coordinación;
+  los workers deben tener localmente los GIS/DEM/SoilGrids necesarios para
+  preparar datos, entrenar/precalcular y servir el nuevo mapa por coordenadas.
+- El nuevo mapa calcula a demanda en worker; no habrá precálculo de todos los
+  puntos de España ni fallback pesado automático a HA. Reutilizar contextos
+  válidos no elimina la necesidad de mapas locales para preparar los pendientes.
+- Compartir datos significa misma edición y contratos, con copia por máquina
+  ejecutora, sin duplicación por job/modelo/especie. Trasladar la autocura pesada
+  previa al snapshot al worker; HA valida resultados candidatos y conflictos.
+- Reemplaza la propuesta de lector SoilGrids exclusivo de HA. Conserva índices,
+  ventanas, límites e integridad fuera de las consultas. La matriz incluye
+  edición de observaciones, altitud de fotos, previsualización GIS y herramientas
+  de correspondencias, además de entrenamiento, precálculo y mapa.
+- Diseño y fases en [reparto HA–worker](mushrooms/mushroom-map-compute-data-placement-es.md).
+  Contratos, réplicas e integración sin implementar. No autoriza transferencias,
+  trabajos, cambios de URLs, borrados o publicación de HA.
+
+## 2026-09-11 - [VIGENTE][MAPA] Mapa de predicción como desarrollo complementario
+
+- Nombre acordado: **Mapa de predicción**. **Predictor** sigue designando la
+  herramienta actual. Alcance inicial Catalunya y preparación de datos españoles.
+- Reutilizar fuentes, contextos y modelos donde sean compatibles, sin sustituir
+  la selección ni los contratos operativos actuales por esta investigación.
+- Separar descripción del terreno, compatibilidad ecológica y probabilidad.
+  La evidencia global de especie es la propuesta para seleccionar candidatos
+  geográficos; necesita evaluación en lugares nuevos, no acredita por sí sola
+  porcentajes de probabilidad en cualquier coordenada.
+- Literatura existente como base de hábitat y temporada, diferenciando reglas
+  configuradas de estacionalidad aprendida. Horizonte inicial propuesto: siete
+  días; quince días con previsión meteorológica requiere contrato y evaluación.
+- Referencia: `mushrooms/mushroom-map-point-prediction-feasibility-es.md`.
+
+## 2026-09-11 - [VIGENTE][GIS] Fuentes locales separadas y geología sin dependencia online
+
+- Adquisiciones en `mushroom-map-GIS/`, separadas de `mushroom-GIS`, con README
+  junto a cada fuente/descarga. Excluidas de Git y del contexto Docker.
+  Scripts y manifiestos locales también quedan excluidos: pendiente decidir su
+  conservación/distribución al integrar, sin confundirlos con código versionado.
+- Geología descargada para consulta local. Usar ICGC 1:50.000 donde cubra en
+  Catalunya y GEODE como fuente española restante, con procedencia explícita.
+  No sustituir huecos por el polígono más cercano ni depender de peticiones web
+  al pulsar el mapa. Índice GEODE pendiente; no afirmar integración terminada.
+- Originales conservados y límites documentados: ausencia GEODE Catalánides,
+  una geometría vacía y diccionarios MFE25 variables. `MFE_42` identificado como
+  Castilla-La Mancha y carpeta renombrada; nombres internos preservados.
+- Referencias: `mushrooms/mushroom-map-gis-downloads-es.md` y
+  `mushrooms/mushroom-prediction-map-progress-es.md`.
+
+## 2026-09-11 - [REEMPLAZADA][SOILGRIDS] Propuesta inicial ampliada con textura y carbono
+
+El dimensionado inicial de 99 combinaciones no es el alcance de descarga
+aprobado. Lo sustituye retención más pH (63). No se concluye que textura o
+carbono carezcan de interés científico; se evita añadir volumen y complejidad
+sin una necesidad demostrada para estos dos módulos.
+
+## 2026-09-11 - [VIGENTE][SOILGRIDS] Base compartida mínima y cobertura aceptada
+
+- Conservar las 54 combinaciones de retención que requiere el lector actual;
+  añadir nueve de pH superficial (tres profundidades y tres cuantiles).
+  Textura/carbono/materia orgánica quedan fuera del alcance nacional inicial.
+- Una base local compartida para ambos módulos, evitando dos descargas
+  permanentes. Secuencia acordada: descargar, validar, cambiar controladamente
+  el lector/referencias, conservar backup temporal y solo después revisar la
+  retirada de lo antiguo. La copia de transición no es duplicación permanente.
+- El usuario acepta el 2,43 % sin cobertura completa en la auditoría nacional.
+  No rellenar ni interpretar ausencias como pH cero. Conservar cobertura parcial;
+  controles de pH no permiten generalizar NoData a cualquier cero de retención.
+- La migración debe cubrir creación/cambio de áreas y microáreas además de
+  consultas del mapa. Preservar contextos actuales antes de retirar referencias.
+- Referencias: `mushrooms/mushroom-prediction-map-soilgrids-plan-es.md` y
+  `mushrooms/mushroom-prediction-map-soilgrids-coverage-es.md`.
+
+## 2026-09-11 - [VIGENTE][RECURSOS] Lecturas SoilGrids acotadas para RPi4
+
+- Consulta por índice y ventana de las propiedades necesarias; sin escanear el
+  país, recalcular hashes completos o lanzar un proceso por capa en cada clic.
+- Validación de integridad al incorporar/actualizar la edición; caché acotada
+  y reutilización por celda/edición, sin multiplicar grandes datos por día,
+  especie o trabajo. Diagnóstico nacional fuera del contrato operativo mínimo.
+- El conjunto descargado ocupa 795,5 MB y ningún TIFF supera 4,14 MB. Los
+  bloques de 256×256 permiten diseñar lecturas pequeñas, pero no acreditan por
+  sí solos consumo total ni latencia aceptable: **RPi4 aún no medida**.
+- Validación local proporcional antes de migrar o desplegar; elegir límites
+  y dependencias compatibles con HA. GDAL Python del Mac se usó para auditoría,
+  no se añadió como dependencia del runtime.
+
+## 2026-09-11 - [DUDA][MAPA] Resoluciones, edición y plazo de rollback pendientes
+
+- Tamaño útil de zona meteorológica IDW pendiente de auditar la red. Terreno
+  detallado no equivale a meteorología medida a metros. No se confirmó que
+  Sporas use teselas grandes ni su algoritmo interno.
+- Retención previa reutilizada junto a nuevas adquisiciones: no se ha
+  certificado que todo corresponda a una edición científica homogénea.
+- Los 30 días de backup son una propuesta, no un plazo aceptado ni autorización
+  para borrado automático. Concretar al preparar la migración.
+- Formato del índice, dependencias y presupuesto medible del lector no elegidos.
+
+## 2026-09-11 - [VIGENTE][RELEASE] Referencia de código 0.2.303; no nueva release por GIS
+
+- HEAD y remoto verificados al cierre:
+  `fce06dd24507a17071755763cb24fb7da1a4ce85`, release `0.2.303`.
+- Publicación, smoke y reconstrucción del worker privado `1.1.1` constan en
+  `reports/session-context-before-close-2026-09-11.md`; son evidencia histórica.
+  No se revalidaron GHCR ni instalación actual de HA real en el cierre GIS.
+- No cambiar el contador de días secos tras las auditorías. No inferir nuevas
+  autorizaciones de release, entrenamiento o precálculo del cierre documental.
+
+## 2026-09-11 - [REEMPLAZADA][RELEASE] HA 0.2.302 como última publicación
+
+Sustituida por `0.2.303` como release publicada. Las decisiones funcionales
+incluidas se mantienen salvo modificación explícita. Los resultados siguientes
+son históricos; la instalación `0.2.302` se comprobó después mediante diagnóstico
+persistido, según el archivo de contexto del 11/09.
 
 - Publicación autorizada por el usuario tras aceptar la UI local y cerrar la
   auditoría del contador con la decisión de conservarlo sin cambios.
 - Tags GHCR `0.2.302` y `latest` verificados con el mismo índice
   `sha256:cb6b54e9b32727521567ccaedb18dcdaf509a9be6ed710acb0d43a42da058e4e`;
   plataformas `linux/amd64` y `linux/arm64`. Script de publicación terminado
-  con código 0. Instalación en HA real pendiente de confirmación del usuario.
+  con código 0. La instalación se confirmó posteriormente mediante diagnóstico
+  persistido (evidencia histórica, no comprobación del cierre).
 - Incluye continuidad semanal opcional lag h1–h7 con corte común y fallback
   diario auditado; meteorología observada y presentación compacta; intervalo
   mensual Wunderground corregido y contadores de filas totales/actualizadas.
@@ -45,8 +739,8 @@
   Chrome móvil y los 469 resultados persistidos de cinco versiones.
 - El usuario ya lanzó el precálculo: revisión 54 activa, política
   `weekly_lag_event_v2`, 553 celdas y 469 miembros del 11 al 17 de septiembre.
-  Codex no lanzó trabajos. Queda completar la auditoría detallada del selector
-  antes de una eventual release, que sigue sin autorización.
+  Codex no lanzó trabajos. La auditoría y publicación se completaron después
+  en las releases registradas; este punto no queda como pendiente activo.
 
 ## 2026-09-11 - [VIGENTE][PREDICTOR] Semana de retardo h1--h7 con corte común; el usuario lanza el precálculo
 

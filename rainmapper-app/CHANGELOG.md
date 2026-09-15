@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.304
+
+- Integrate point predictions into the authenticated map with per-user access,
+  persisted settings, weekly curves and localized ecological explanations.
+- Filter territorial and seasonal candidates before invoking existing models;
+  preserve abstention and species without a calculated probability.
+- Add editable soil/pH rules, multilingual help and safe affinity row editing.
+- Keep map queries on the online worker lane and scientific chains in background.
+- Synchronize sealed public geography from HA media to persistent worker caches
+  before queries, reusing unchanged objects and avoiding large hashes on HA.
+- Preserve independent private runtime caching and read shared geography directly
+  from prepared media files, without first-start commands or filesystem links.
+
 ## 0.2.303
 
 - Widen the Predictor to a responsive 1600 px maximum while retaining margins

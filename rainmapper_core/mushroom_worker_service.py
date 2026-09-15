@@ -1200,6 +1200,22 @@ def serve(
         "foreground": None,
         "background": None,
     }
+    # The map shares the foreground calculation slot with normal predictor jobs.
+    # Background precompute retains its independent existing lane.
+    online_slot = threading.Lock()
+    background_slot = threading.Lock()
+    lane_slots = {"foreground": online_slot, "background": background_slot}
+    map_query_thread = None
+    map_config_path = os.environ.get("RAINMAPPER_PREDICTION_MAP_CONFIG", "")
+    if not map_config_path:
+        installed_map_config = Path(__file__).resolve().parents[1]/"map-config.json"
+        if installed_map_config.is_file(): map_config_path = str(installed_map_config)
+    if map_config_path:
+        from rainmapper_core import mushroom_map_worker
+        map_query_thread = mushroom_map_worker.start(
+            map_config_path, coordinators, identity["worker_id"], stop_event,
+            online_slot=online_slot, worker_data_dir=worker_data_dir, background_slot=background_slot,
+        )
     next_coordinator_affinity = {"foreground": "", "background": ""}
     probe_duration = max(2.0, float(os.environ.get("RAINMAPPER_WORKER_CLAIM_PROBE_SECONDS", "12")))
     job_retry_seconds = max(
@@ -2587,9 +2603,11 @@ def serve(
                     ),
                     flush=True,
                 )
+                # Follow the operational chain on the lane that just completed.
+                # New coordinators assign it to background; older coordinators
+                # can still assign foreground until they are upgraded.
                 if (
                     job_succeeded
-                    and lane == "foreground"
                     and (
                         (
                             job.get("job_type") == "worker_candidate_rebuild"
@@ -2604,6 +2622,12 @@ def serve(
                     with runtime_lock:
                         next_coordinator_affinity[lane] = coordinator_id
                 set_runtime(lane, "idle")
+
+        def run_lane_job(job, lane, coordinator):
+            try:
+                run_claimed_job(job, lane, coordinator)
+            finally:
+                lane_slots[lane].release()
 
         def heartbeat_loop() -> None:
             last_errors = {
@@ -2842,84 +2866,92 @@ def serve(
                                     completion_blocked_ids.add(pending_coordinator_id)
                             except (OSError, ValueError, KeyError, TypeError):
                                 completion_blocked_ids.add(pending_coordinator_id)
-                    with runtime_lock:
-                        affinity_id = next_coordinator_affinity[lane]
-                        next_coordinator_affinity[lane] = ""
-                    claim_result = claim_job_round_robin(
-                        coordinators,
-                        reachable_coordinator_ids=(
-                            reachable_coordinator_ids - completion_blocked_ids
-                            if lane == "background" else reachable_coordinator_ids
-                        ),
-                        start_index=next_coordinator_index[lane],
-                        lane=lane,
-                        worker_id=identity["worker_id"],
-                        preferred_coordinator_id=affinity_id,
-                    )
-                    for empty_coordinator_id in claim_result["empty"]:
-                        empty_claim_polls[(empty_coordinator_id, lane)] += 1
-                    for claim_error in claim_result["errors"]:
-                        coordinator_id = claim_error["coordinator_id"]
-                        error = claim_error["error"]
-                        if error != last_errors[coordinator_id]:
+                    if not lane_slots[lane].acquire(blocking=False):
+                        continue
+                    handed_off = False
+                    try:
+                        with runtime_lock:
+                            affinity_id = next_coordinator_affinity[lane]
+                            next_coordinator_affinity[lane] = ""
+                        claim_result = claim_job_round_robin(
+                            coordinators,
+                            reachable_coordinator_ids=(
+                                reachable_coordinator_ids - completion_blocked_ids
+                                if lane == "background" else reachable_coordinator_ids
+                            ),
+                            start_index=next_coordinator_index[lane],
+                            lane=lane,
+                            worker_id=identity["worker_id"],
+                            preferred_coordinator_id=affinity_id,
+                        )
+                        for empty_coordinator_id in claim_result["empty"]:
+                            empty_claim_polls[(empty_coordinator_id, lane)] += 1
+                        for claim_error in claim_result["errors"]:
+                            coordinator_id = claim_error["coordinator_id"]
+                            error = claim_error["error"]
+                            if error != last_errors[coordinator_id]:
+                                print(
+                                    json.dumps(
+                                        {
+                                            "status": "claim_failed",
+                                            "service": "rainmapper-worker",
+                                            "coordinator_id": coordinator_id,
+                                            "lane": lane,
+                                            "error": error,
+                                        },
+                                        ensure_ascii=False,
+                                    ),
+                                    flush=True,
+                                )
+                            last_errors[coordinator_id] = error
+                        claimed_job = claim_result["job"]
+                        coordinator = claim_result["coordinator"]
+                        if claimed_job is not None and coordinator is not None:
+                            coordinator_id = str(coordinator["coordinator_id"])
+                            claim_key = (coordinator_id, lane)
+                            if stop_event.is_set():
+                                continue
+                            claimed_at = time.perf_counter()
+                            set_runtime(
+                                lane,
+                                "busy",
+                                str(claimed_job.get("job_id", "")),
+                                coordinator_id,
+                            )
                             print(
                                 json.dumps(
                                     {
-                                        "status": "claim_failed",
+                                        "status": "job_claimed",
                                         "service": "rainmapper-worker",
                                         "coordinator_id": coordinator_id,
+                                        "job_id": claimed_job.get("job_id", ""),
+                                        "job_type": claimed_job.get("job_type", ""),
                                         "lane": lane,
-                                        "error": error,
+                                        "empty_claim_polls_before_claim": empty_claim_polls[
+                                            claim_key
+                                        ],
+                                        "seconds_since_previous_claim": round(
+                                            claimed_at - previous_claim_at[claim_key], 6
+                                        ),
                                     },
                                     ensure_ascii=False,
                                 ),
                                 flush=True,
                             )
-                        last_errors[coordinator_id] = error
-                    claimed_job = claim_result["job"]
-                    coordinator = claim_result["coordinator"]
-                    if claimed_job is not None and coordinator is not None:
-                        coordinator_id = str(coordinator["coordinator_id"])
-                        claim_key = (coordinator_id, lane)
-                        if stop_event.is_set():
-                            continue
-                        claimed_at = time.perf_counter()
-                        set_runtime(
-                            lane,
-                            "busy",
-                            str(claimed_job.get("job_id", "")),
-                            coordinator_id,
-                        )
-                        print(
-                            json.dumps(
-                                {
-                                    "status": "job_claimed",
-                                    "service": "rainmapper-worker",
-                                    "coordinator_id": coordinator_id,
-                                    "job_id": claimed_job.get("job_id", ""),
-                                    "job_type": claimed_job.get("job_type", ""),
-                                    "lane": lane,
-                                    "empty_claim_polls_before_claim": empty_claim_polls[
-                                        claim_key
-                                    ],
-                                    "seconds_since_previous_claim": round(
-                                        claimed_at - previous_claim_at[claim_key], 6
-                                    ),
-                                },
-                                ensure_ascii=False,
-                            ),
-                            flush=True,
-                        )
-                        empty_claim_polls[claim_key] = 0
-                        previous_claim_at[claim_key] = claimed_at
-                        next_coordinator_index[lane] = claim_result["next_index"]
-                        active_job_threads[lane] = threading.Thread(
-                            target=run_claimed_job,
-                            args=(claimed_job, lane, coordinator),
-                            daemon=True,
-                            name=f"rainmapper-worker-{lane}-job",
-                        )
-                        active_job_threads[lane].start()
+                            empty_claim_polls[claim_key] = 0
+                            previous_claim_at[claim_key] = claimed_at
+                            next_coordinator_index[lane] = claim_result["next_index"]
+                            active_job_threads[lane] = threading.Thread(
+                                target=run_lane_job,
+                                args=(claimed_job, lane, coordinator),
+                                daemon=True,
+                                name=f"rainmapper-worker-{lane}-job",
+                            )
+                            active_job_threads[lane].start()
+                            handed_off = True
+                    finally:
+                        if not handed_off:
+                            lane_slots[lane].release()
                 stop_event.wait(max(1.0, heartbeat_interval))
 
         heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True, name="rainmapper-worker-heartbeat")
@@ -2950,6 +2982,8 @@ def serve(
         server.server_close()
         if heartbeat_thread is not None:
             heartbeat_thread.join(timeout=2)
+        if map_query_thread is not None:
+            map_query_thread.join(timeout=2)
         for active_job_thread in active_job_threads.values():
             if active_job_thread is not None:
                 active_job_thread.join(timeout=2)

@@ -1,0 +1,104 @@
+{
+  "date": "2026-09-12",
+  "platform": "macOS-26.5.2-arm64-arm-64bit",
+  "scope": "Point input preparation only; no species inference, training, download, HA/worker deployment or migration",
+  "index": "mushroom-map-GIS/terrain-index/point-inputs-2026-09-12.sqlite",
+  "index_bytes": 2162688,
+  "samples": [
+    {
+      "name": "Ripoll",
+      "point": [
+        42.17826,
+        2.20633
+      ],
+      "water_status": "complete",
+      "capacity_30cm_mm": 52.45,
+      "terrain_and_water_ms": 188.223,
+      "water_repeat_ms": 30.675,
+      "water_context_bytes": 2765,
+      "geography_peak_rss_bytes": 107053056,
+      "open_datasets": 16,
+      "model_inputs": [
+        {
+          "station_count": 13,
+          "rows_loaded": 1146,
+          "lookback_days": 90,
+          "cutoff_date": "2026-09-11",
+          "generation_id": "20260912T113632582813Z-2188741b0a76",
+          "elapsed_ms": 97.088,
+          "peak_rss_bytes": 124977152,
+          "rain_days": 90,
+          "soil_water_eligible": true,
+          "model_series_diagnostic_bytes": 16915
+        },
+        {
+          "station_count": 13,
+          "rows_loaded": 2704,
+          "lookback_days": 365,
+          "cutoff_date": "2026-09-11",
+          "generation_id": "20260912T113632582813Z-2188741b0a76",
+          "elapsed_ms": 95.115,
+          "peak_rss_bytes": 134283264,
+          "rain_days": 365,
+          "soil_water_eligible": true,
+          "model_series_diagnostic_bytes": 64881
+        }
+      ]
+    },
+    {
+      "name": "Font-Romeu",
+      "point": [
+        42.5284314,
+        2.0095071
+      ],
+      "water_status": "complete",
+      "capacity_30cm_mm": 49.05,
+      "terrain_and_water_ms": 60.621,
+      "water_repeat_ms": 31.007,
+      "water_context_bytes": 2765,
+      "geography_peak_rss_bytes": 110116864,
+      "open_datasets": 16,
+      "model_inputs": [
+        {
+          "station_count": 9,
+          "rows_loaded": 664,
+          "lookback_days": 90,
+          "cutoff_date": "2026-09-11",
+          "generation_id": "20260912T113632582813Z-2188741b0a76",
+          "elapsed_ms": 25.605,
+          "peak_rss_bytes": 134840320,
+          "rain_days": 90,
+          "soil_water_eligible": true,
+          "model_series_diagnostic_bytes": 17032
+        },
+        {
+          "station_count": 9,
+          "rows_loaded": 2521,
+          "lookback_days": 365,
+          "cutoff_date": "2026-09-11",
+          "generation_id": "20260912T113632582813Z-2188741b0a76",
+          "elapsed_ms": 77.207,
+          "peak_rss_bytes": 138493952,
+          "rain_days": 365,
+          "soil_water_eligible": true,
+          "model_series_diagnostic_bytes": 65119
+        }
+      ]
+    }
+  ],
+  "limits": {
+    "gdal_cache_bytes": 16777216,
+    "gdal_open_datasets": 16,
+    "sqlite_cache_kib": 4096,
+    "nearby_stations": 256,
+    "model_history_days": 365,
+    "browser_history_days": 60
+  },
+  "limitations": [
+    "macOS peak RSS includes interpreter and libraries; geography and weather are different resident processes",
+    "Filesystem cache not flushed; no RPi4 extrapolation",
+    "Diagnostic series serialized once for size measurement only, not a browser/worker operational payload",
+    "No inference or scientific applicability validated; unchanged functions prepare features only",
+    "Single-cell aggregation compatibility checked with synthetic decoded raster oracle, not a migration of real microareas"
+  ]
+}

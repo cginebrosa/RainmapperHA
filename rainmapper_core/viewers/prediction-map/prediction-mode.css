@@ -1,0 +1,77 @@
+.pm-mode-toggle[aria-pressed="true"] { background:#dff4ff; border-color:rgba(28,159,234,.45); color:#076caa; }
+.pm-demo-banner { position:absolute; left:50%; bottom:88px; transform:translateX(-50%); z-index:5; padding:6px 12px; border-radius:8px; background:#fff2cc; color:#423500; max-width:70vw; text-align:center; font:600 13px system-ui; pointer-events:none; }
+.pm-wait { border:0; border-radius:16px; padding:24px; max-width:min(400px,calc(100vw - 48px)); background:#f4f8fc; color:#1a2834; font:15px system-ui; box-shadow:0 12px 48px #0005; }
+.pm-wait::backdrop { background:#14233366; }
+.pm-wait h2 { margin:8px 0; font-size:20px; }
+.pm-wait button { min-height:40px; padding:8px 16px; border-radius:8px; cursor:pointer; color:#1a2834; background:#dff4ff; }
+.pm-spinner { display:block; width:24px; height:24px; border:3px solid #a3d0e8; border-top-color:#087baa; border-radius:50%; animation:pm-spin 1s linear infinite; }
+.pm-spinner[hidden] { display:none; }
+@keyframes pm-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .pm-spinner { animation:none; } }
+.pm-popup .maplibregl-popup-content { padding:14px; width:auto; max-height:none; overflow:visible; }
+.pm-popup .maplibregl-popup-tip { display:block; }
+.pm-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color:rgba(248,252,255,.94); }
+.pm-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color:rgba(248,252,255,.94); }
+.pm-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color:rgba(248,252,255,.94); }
+.pm-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color:rgba(248,252,255,.94); }
+.pm-result { display:flex; flex-direction:column; width:min(430px,calc(100vw - 68px)); max-height:min(650px,calc(100dvh - 190px)); overflow:clip; font:14px/1.45 system-ui; }
+.pm-result-header { flex:none; padding-bottom:10px; border-bottom:1px solid #ccd6df; }
+.pm-result-body { min-height:0; overflow:auto; overscroll-behavior:contain; padding-top:8px; }
+.pm-weekly-chart { margin-top:10px; position:relative; }
+.pm-chart-tooltip { position:absolute; z-index:2; box-sizing:border-box; max-width:100%; padding:6px 8px; border-radius:5px; background:#142c3b; color:#fff; font:12px/1.4 system-ui; overflow-wrap:anywhere; pointer-events:none; box-shadow:0 2px 6px #0003; }
+.pm-chart-tooltip[hidden] { display:none; }
+.pm-chart-tooltip-row { display:grid; grid-template-columns:8px minmax(0,1fr) auto; gap:6px; align-items:center; margin-top:4px; }
+.pm-chart-tooltip-row .pm-species-color { width:8px; height:8px; margin:0; }
+.pm-weekly-chart circle:focus-visible { outline:2px solid #142c3b; outline-offset:3px; }
+.pm-weekly-chart[hidden] { display:none; }
+.pm-weekly-chart svg { display:block; width:100%; height:auto; cursor:pointer; }
+.pm-chart-label { font:9px system-ui; fill:#526678; }
+.pm-species-color { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; }
+.pm-weekly-peak { color:#526678; }
+.pm-result h2 { margin:8px 24px 4px 0; font-size:18px; }
+.pm-municipality { display:block; overflow-wrap:anywhere; }
+.pm-place-heading { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr); gap:10px; padding:6px 0 10px; align-items:start; }
+.pm-place-name { min-width:0; }
+.pm-result .pm-coordinates { margin:3px 0 0; font-size:12px; overflow-wrap:anywhere; color:#526678; }
+.pm-terrain-summary { min-width:0; border-left:1px solid #cddbdc; padding-left:10px; }
+.pm-summary-values { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.pm-summary-values > div { display:flex; flex-direction:column; gap:2px; font-size:11px; color:#526678; }
+.pm-summary-values strong { color:#235e4d; font-size:14px; white-space:nowrap; }
+.pm-summary-trees { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:0; font-size:11px; }
+.pm-summary-trees-label { width:100%; color:#526678; }
+.pm-tree-chip { background:#e4f1ea; border:1px solid #b0cebf; border-radius:5px; padding:2px 6px; color:#235e4d; overflow-wrap:anywhere; max-width:100%; box-sizing:border-box; }
+.pm-tree-chip-muted { background:transparent; border-color:#d2dce1; color:#637482; }
+.pm-soil-chip { background:#f4ecdd; border-color:#d2bd99; color:#71522a; }
+@media (max-width:480px) {
+  .pm-place-heading { grid-template-columns:1fr; gap:7px; }
+  .pm-terrain-summary { border-left:0; padding-left:0; }
+  .pm-summary-values > div { flex-direction:row; align-items:baseline; gap:6px; }
+}
+.pm-result p { margin:4px 0 10px; }
+.pm-close { float:right; font-size:24px; border:0; background:transparent; color:inherit; cursor:pointer; min-width:30px; min-height:30px; }
+.pm-simulation { display:block; color:#785400; padding-right:25px; font-size:12px; }
+.pm-chart { display:block; width:100%; height:auto; background:#edf3f7; border-radius:8px; }
+.pm-result label { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
+.pm-result select { padding:5px; max-width:65%; }
+.pm-species { list-style:none; padding:0; margin:12px 0; }
+.pm-species li { display:grid; grid-template-columns:1fr auto; gap:4px 8px; border-bottom:1px solid #ccd6df; padding:8px 0; }
+.pm-species small { grid-column:1 / -1; }
+.pm-result details { border-top:1px solid #ccd6df; padding:8px 0; }
+.pm-result summary { cursor:pointer; font-weight:600; }
+.pm-ecology-exclusions ul { list-style:none; padding:0; margin:8px 0 0; }
+.pm-ecology-exclusions li { display:flex; flex-direction:column; gap:4px; padding:8px 0; border-bottom:1px solid #ccd6df; overflow-wrap:anywhere; }
+.pm-ecology-exclusions li:last-child { border-bottom:0; }
+.pm-ecology-exclusions small { display:block; font-size:12px; color:#526678; }
+.pm-terrain h3 { font-size:14px; margin:12px 0 6px; }
+.pm-terrain-note { font-size:12px; color:#526678; }
+.pm-ph-table, .pm-ph-openlandmap { width:100%; border-collapse:collapse; font-size:12px; }
+.pm-ph-table th, .pm-ph-table td, .pm-ph-openlandmap th, .pm-ph-openlandmap td { padding:5px 3px; text-align:left; border-bottom:1px solid #ccd6df; }
+.pm-summary-ph .pm-ph-nearby { display:block; font-size:10px; color:#526678; }
+.pm-weather-figure { margin:14px 0; }
+.pm-weather-figure figcaption { font-weight:600; }
+.pm-weather-figure svg { display:block; width:100%; height:auto; background:#edf3f7; border-radius:8px; }
+.pm-weather-legend { display:flex; gap:14px; font-size:12px; }
+.pm-weather-dates, .pm-weather-total { font-size:12px; }
+.pm-weather-table-scroll { overflow-x:auto; max-width:100%; }
+.pm-weather-table-scroll table { border-collapse:collapse; font-size:11px; white-space:nowrap; }
+.pm-weather-table-scroll td, .pm-weather-table-scroll th { padding:5px; border-bottom:1px solid #ccd6df; text-align:right; }

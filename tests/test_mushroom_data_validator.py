@@ -45,6 +45,30 @@ def write_dataset(target: Path, profiles, catalogs, gis, observations) -> None:
 
 
 class MushroomDataValidatorTests(unittest.TestCase):
+    def test_soil_ph_optional_bounds_and_invalid_imports(self) -> None:
+        for lower, upper in ((None, None), (None, 8), (4, None), (0, 14), (5.5, 5.5)):
+            with self.subTest(lower=lower, upper=upper):
+                self.profiles["species_profiles"][0]["ecology"].update(ph_min=lower, ph_max=upper)
+                errors = [m.format() for m in self.validate_temp_dataset()
+                          if m.severity == "ERROR" and "ph_" in m.location]
+                self.assertEqual([], errors)
+        for lower, upper in ((8, 5), (-1, 7), (5, 15), (True, 7), ("5", 7),
+                             (float("nan"), 7), (5, float("inf"))):
+            with self.subTest(lower=lower, upper=upper):
+                self.profiles["species_profiles"][0]["ecology"].update(ph_min=lower, ph_max=upper)
+                self.assertTrue(any(m.severity == "ERROR" and ("pH" in m.message or "ph_min" in m.message)
+                                    for m in self.validate_temp_dataset()))
+
+    def test_unknown_altitudes_do_not_disable_order_validation(self) -> None:
+        topo = self.profiles["species_profiles"][0]["topography"]
+        topo.update(altitude_min_m=None, altitude_optimal_min_m=None,
+                    altitude_optimal_max_m=None, altitude_max_m=None)
+        self.assertFalse(any(m.severity == "ERROR" and "topography" in m.location
+                             for m in self.validate_temp_dataset()))
+        topo.update(altitude_min_m=1000, altitude_max_m=500)
+        self.assertTrue(any(m.severity == "ERROR" and "altitude_max_m" in m.location
+                            for m in self.validate_temp_dataset()))
+
     def setUp(self) -> None:
         self.profiles = load_json("mushroom_profiles.json")
         self.catalogs = load_json("mushroom_reference_catalogs.json")

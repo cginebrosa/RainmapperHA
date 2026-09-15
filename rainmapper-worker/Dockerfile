@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=1.1.1
+ARG RAINMAPPER_WORKER_VERSION=1.1.2
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -12,10 +12,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+COPY rainmapper-worker/map-config.json /app/map-config.json
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         gdal-bin \
+        python3-gdal \
         gosu \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 rainmapper-worker \
@@ -30,6 +33,27 @@ RUN pip install --no-cache-dir \
         scikit-learn==1.9.0
 
 COPY rainmapper_core/__init__.py \
+     rainmapper_core/mushroom_prediction_map.py \
+     rainmapper_core/mushroom_map_municipalities.py \
+     rainmapper_core/mushroom_map_terrain.py \
+     rainmapper_core/mushroom_map_land.py \
+     rainmapper_core/mushroom_map_forest.py \
+     rainmapper_core/mushroom_map_ecology.py \
+     rainmapper_core/mushroom_phenology.py \
+     rainmapper_core/mushroom_map_ph.py \
+     rainmapper_core/mushroom_map_prediction.py \
+     rainmapper_core/mushroom_map_model_runtime.py \
+     rainmapper_core/mushroom_soilgrids.py \
+     rainmapper_core/mushroom_map_land_parts.py \
+     rainmapper_core/mushroom_map_weather.py \
+     rainmapper_core/mushroom_map_execution.py \
+     rainmapper_core/mushroom_map_queries.py \
+     rainmapper_core/mushroom_map_worker.py \
+     rainmapper_core/mushroom_map_runtime.py \
+     rainmapper_core/mushroom_map_volume.py \
+     rainmapper_core/mushroom_map_geography_runtime.py \
+     rainmapper_core/mushroom_geography_store.py \
+     rainmapper_core/mushroom_geography_import.py \
      rainmapper_core/mushroom_gis_lab.py \
      rainmapper_core/mushroom_known_sites.py \
      rainmapper_core/mushroom_learned_model.py \
@@ -108,6 +132,8 @@ COPY scripts/evaluate-biology-v6-smooth-hierarchical.py /app/scripts/evaluate-bi
 COPY scripts/manage-mushroom-worker-datasets.py /app/scripts/manage-mushroom-worker-datasets.py
 COPY scripts/manage-mushroom-worker-config.py /app/scripts/manage-mushroom-worker-config.py
 COPY scripts/run-mushroom-worker-service.py /app/scripts/run-mushroom-worker-service.py
+COPY scripts/prediction-map-local-geography.py scripts/prediction-map-local-weather.py scripts/prediction-map-local-model.py /app/scripts/
+COPY scripts/manage-prediction-map-volume.py scripts/manage-shared-geography.py /app/scripts/
 COPY rainmapper-worker/entrypoint.sh /usr/local/bin/rainmapper-worker
 
 RUN chmod 0755 /usr/local/bin/rainmapper-worker \

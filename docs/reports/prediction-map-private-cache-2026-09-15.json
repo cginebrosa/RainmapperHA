@@ -1,0 +1,301 @@
+{
+  "date": "2026-09-15",
+  "scope": "HA local and existing worker; no HA real publication",
+  "cache": {
+    "last_sync": {
+      "fingerprint": "sha256:c9b92ac80399668ebf6482a72eab30a760cef7801da54bdabce0ebf8e5132e76",
+      "status": "synchronized",
+      "transferred_size_bytes": 475540,
+      "pruned_versions": 0,
+      "pruned_objects": 0,
+      "verification_status": "full",
+      "hashed_file_count": 791,
+      "reused_file_count": 787,
+      "fetched_file_count": 4,
+      "elapsed_seconds": 5.424718,
+      "metadata_bytes": 269782
+    },
+    "logical_file_count": 791,
+    "logical_size_bytes": 162500474,
+    "map_versions": 1,
+    "coordinator_config_hashes": {
+      "coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+      "additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+    }
+  },
+  "ha_preparation": {
+    "small_hashed_bytes": 482575,
+    "heavy_hashed_bytes": 0
+  },
+  "images": {
+    "ha": {
+      "image": "rainmapperha:local-ha-ui",
+      "image_id": "sha256:1fc3947a542f2180d9630decad1345054387139ad6381f723239815809f0c45b",
+      "file_count": 193,
+      "differences": []
+    },
+    "worker": {
+      "image": "rainmapper-worker:1.1.1",
+      "image_id": "sha256:bd7f7d0061ef16e798f230800f9df8a6ac3567c43e765172a11e1267e87f13fb",
+      "file_count": 101,
+      "differences": []
+    }
+  },
+  "acceptance": {
+    "contract": "prediction_map_point_v1",
+    "start_date": "2026-09-15",
+    "checks": {
+      "ready": {
+        "contract": "prediction_map_point_v1",
+        "can_use_prediction_map": true,
+        "admin_only": false,
+        "data_mode": "prediction",
+        "worker_ready": true,
+        "executors": {
+          "local": true,
+          "worker": true
+        },
+        "calendar_timezone": "Europe/Madrid",
+        "max_horizon_days": 7,
+        "max_species": 32
+      },
+      "basic_user_allowed": true,
+      "unauthorized": 401,
+      "invalid_coordinate": 400,
+      "initial_parity": true,
+      "local_warm_parity": true,
+      "worker_warm_parity": true,
+      "concurrent_parity": true,
+      "local_cancel": "cancelled",
+      "worker_cancel": "cancelled"
+    },
+    "queries": [
+      {
+        "mode": "local",
+        "point": {
+          "lat": 42.29077,
+          "lon": 1.53842
+        },
+        "elapsed_ms": 2466.45,
+        "compute_ms": 2294.423,
+        "polls": 13,
+        "state_bytes": 684,
+        "result_bytes": 23696,
+        "calculated_species": 3
+      },
+      {
+        "mode": "worker",
+        "point": {
+          "lat": 42.29077,
+          "lon": 1.53842
+        },
+        "elapsed_ms": 6383.49,
+        "compute_ms": 5378.886,
+        "polls": 32,
+        "state_bytes": 1762,
+        "result_bytes": 23697,
+        "calculated_species": 3
+      },
+      {
+        "mode": "local",
+        "point": {
+          "lat": 42.29077,
+          "lon": 1.53842
+        },
+        "elapsed_ms": 2056.58,
+        "compute_ms": 1852.084,
+        "polls": 11,
+        "state_bytes": 570,
+        "result_bytes": 23696,
+        "calculated_species": 3
+      },
+      {
+        "mode": "worker",
+        "point": {
+          "lat": 42.29077,
+          "lon": 1.53842
+        },
+        "elapsed_ms": 2873.42,
+        "compute_ms": 1861.049,
+        "polls": 15,
+        "state_bytes": 793,
+        "result_bytes": 23697,
+        "calculated_species": 3
+      },
+      {
+        "mode": "local",
+        "point": {
+          "lat": 42.02466,
+          "lon": 1.77189
+        },
+        "elapsed_ms": 2058.58,
+        "compute_ms": 2034.577,
+        "polls": 11,
+        "state_bytes": 570,
+        "result_bytes": 25597,
+        "calculated_species": 3
+      },
+      {
+        "mode": "worker",
+        "point": {
+          "lat": 42.02466,
+          "lon": 1.77189
+        },
+        "elapsed_ms": 3077.21,
+        "compute_ms": 2102.536,
+        "polls": 6,
+        "state_bytes": 285,
+        "result_bytes": 25598,
+        "calculated_species": 3
+      }
+    ],
+    "differences": [],
+    "scientific_provenance": {
+      "engine": "existing_python_predictor",
+      "scientifically_validated": false,
+      "selection_scope": "species",
+      "point_validation": "not_established",
+      "model_revision": "ac802efe85f6be611b19",
+      "batch_id": "operational_20260909T184116Z",
+      "weather_generation": "20260914T220642275627Z-887eada37d76",
+      "soil_context_hash": "2bf319b22511dbb662afca57829e908f7e8659068c82c15461c4742366f95089"
+    },
+    "species": [
+      {
+        "species_id": "boletus_edulis",
+        "label_key": "boletus_edulis",
+        "status": "available",
+        "probabilities": [
+          0.682701,
+          0.691804,
+          0.700748,
+          0.709528,
+          0.718143,
+          0.726588,
+          0.734863
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      },
+      {
+        "species_id": "boletus_pinophilus",
+        "label_key": "boletus_pinophilus",
+        "status": "available",
+        "probabilities": [
+          0.266938,
+          0.266533,
+          0.26797,
+          0.258665,
+          0.259335,
+          0.259533,
+          0.259533
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      },
+      {
+        "species_id": "cantharellus_cibarius_sl",
+        "label_key": "cantharellus_cibarius_sl",
+        "status": "available",
+        "probabilities": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "reasons": [
+          "model_abstained",
+          "model_abstained",
+          "model_abstained",
+          "model_abstained",
+          "model_abstained",
+          "model_abstained",
+          "model_abstained"
+        ]
+      },
+      {
+        "species_id": "cantharellus_lutescens",
+        "label_key": "cantharellus_lutescens",
+        "status": "no_model",
+        "probabilities": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "reasons": [
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable",
+          "model_unavailable"
+        ]
+      },
+      {
+        "species_id": "lactarius_deliciosus",
+        "label_key": "lactarius_deliciosus",
+        "status": "available",
+        "probabilities": [
+          0.595364,
+          0.600036,
+          0.611729,
+          0.617589,
+          0.624357,
+          0.635975,
+          0.662243
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      }
+    ],
+    "ok": true,
+    "temporary_test_device_removed": true
+  },
+  "worker_mount_destinations": [
+    "/var/lib/rainmapper-worker",
+    "/maps",
+    "/point-config"
+  ],
+  "validation": {
+    "smoke_tests": 1561,
+    "smoke_skipped": 48,
+    "map_runtime_tests": 10,
+    "map_route_tests": 14,
+    "predictor_runtime_tests": 19
+  },
+  "limits": [
+    "Local ARM64 on the same Mac; not a Raspberry Pi benchmark.",
+    "Restart and incremental/corruption cases use isolated fixtures.",
+    "No worker restart or job monitoring after the user requested preserving precompute.",
+    "No HA real release; public GIS distribution and scientific release gate remain pending."
+  ]
+}

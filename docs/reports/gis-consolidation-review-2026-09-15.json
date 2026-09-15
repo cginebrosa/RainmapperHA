@@ -1,0 +1,341 @@
+{
+  "date": "2026-09-15",
+  "scope": "Read-only metadata and persisted-manifest comparison. No GIS raster/vector payload hashed or changed.",
+  "ha": {
+    "legacy_root": "/Volumes/media/rainmapper/mushroom-GIS",
+    "legacy_files": 1432,
+    "legacy_bytes": 6820316846,
+    "legacy_groups": {
+      "dem-ign-mtn50-592": {
+        "files": 2,
+        "bytes": 3737724
+      },
+      "dem-andorra": {
+        "files": 3,
+        "bytes": 31421507
+      },
+      "model-elevacions-terreny-topografic-catalunya-5m-2009-2018": {
+        "files": 1,
+        "bytes": 5127260482
+      },
+      "soilgrids": {
+        "files": 1414,
+        "bytes": 395714887
+      },
+      "MVC50mil": {
+        "files": 8,
+        "bytes": 885427441
+      },
+      "dem-france-rge-alti-5m": {
+        "files": 3,
+        "bytes": 83075701
+      },
+      "geologia-territorial-50000-geologic-v3r0-202412": {
+        "files": 1,
+        "bytes": 293679104
+      }
+    },
+    "prediction_generation": "/Volumes/media/rainmapper/prediction-map/generations/local-20260914",
+    "prediction_files": 3510,
+    "prediction_bytes": 14538214301,
+    "prediction_groups": {
+      "mushroom-GIS/dem-andorra": {
+        "files": 1,
+        "bytes": 31416509
+      },
+      "mushroom-GIS/dem-france-rge-alti-5m": {
+        "files": 1,
+        "bytes": 83072534
+      },
+      "mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018": {
+        "files": 1,
+        "bytes": 5127260482
+      },
+      "mushroom-map-GIS/icgc-cobertes-2024": {
+        "files": 3,
+        "bytes": 1716807723
+      },
+      "mushroom-map-GIS/icgc-geologia-50000": {
+        "files": 2,
+        "bytes": 293683911
+      },
+      "mushroom-map-GIS/ign-mdt25": {
+        "files": 1525,
+        "bytes": 4591986678
+      },
+      "mushroom-map-GIS/ign-municipios": {
+        "files": 1,
+        "bytes": 78630912
+      },
+      "mushroom-map-GIS/mfe25": {
+        "files": 7,
+        "bytes": 1638279970
+      },
+      "mushroom-map-GIS/openlandmap-ph": {
+        "files": 11,
+        "bytes": 376533135
+      },
+      "mushroom-map-GIS/soilgrids-shared": {
+        "files": 1956,
+        "bytes": 598378472
+      },
+      "mushroom-map-GIS/terrain-index": {
+        "files": 2,
+        "bytes": 2163975
+      }
+    },
+    "main_overlap_candidates": [
+      {
+        "legacy": "dem-andorra/extracted/rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif",
+        "map": "mushroom-GIS/dem-andorra/extracted/rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif",
+        "bytes": 31416509,
+        "sha256": "10e9a27d97c7e3fb05b9411e8604cdd3674df128d61fbabf6a491a64ed5bbb22",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2,
+        "ha_old_size_matches": true,
+        "ha_new_manifest_matches": true
+      },
+      {
+        "legacy": "dem-france-rge-alti-5m/extracted/rainmapper-dem-france-rge-alti-5m.tif",
+        "map": "mushroom-GIS/dem-france-rge-alti-5m/extracted/rainmapper-dem-france-rge-alti-5m.tif",
+        "bytes": 83072534,
+        "sha256": "3e86d6c2ee4e3677dd895de369045b8f49c02a23902771692177b7a60256860f",
+        "same_inode": false,
+        "legacy_links": 1,
+        "map_links": 2,
+        "ha_old_size_matches": true,
+        "ha_new_manifest_matches": true
+      },
+      {
+        "legacy": "model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+        "map": "mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+        "bytes": 5127260482,
+        "sha256": "de42f8d5b75cb3f5f6b51475e90195d2c6d74c92a532fe0a8cb39aba5b0753bb",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2,
+        "ha_old_size_matches": true,
+        "ha_new_manifest_matches": true
+      },
+      {
+        "legacy": "geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+        "map": "mushroom-map-GIS/icgc-geologia-50000/source/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+        "bytes": 293679104,
+        "sha256": "60d730395874ee860d09ddddbf2cc60d187c46f05f9018e7049bcdf8a65b684f",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2,
+        "ha_old_size_matches": true,
+        "ha_new_manifest_matches": true
+      },
+      {
+        "legacy": "dem-ign-mtn50-592/extracted/PNOA_MDT25_ETRS89_HU30_0592_LID.tif",
+        "map": "mushroom-map-GIS/ign-mdt25/source/PNOA-MDT25-ETRS89-HU30-0592-LID.TIF",
+        "bytes": 3736503,
+        "sha256": "8cfe2a5c0808990c4de2da6d1347e6192eb194a126d8dfe7908d2b9f1f64b0b5",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2,
+        "ha_old_size_matches": true,
+        "ha_new_manifest_matches": true
+      },
+      {
+        "legacy": "MVC50mil/extracted/MVC50mil_novembre2019.cpg",
+        "map": "mushroom-map-GIS/mfe25/source/mfe_catalunia/MFE_51.cpg",
+        "bytes": 5,
+        "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2,
+        "ha_old_size_matches": true,
+        "ha_new_manifest_matches": true
+      }
+    ],
+    "soilgrids_persisted_hash_matches": 1355,
+    "soilgrids_overlap_bytes": 197122219,
+    "limits": "Main assets match the worker persisted hash records and current HA path/size; old HA main asset content hashes were not revalidated. SoilGrids comparison uses both current persisted manifests plus HA old path/size. Before destructive dedup, validate native identities and trusted receipts. SMB metadata alone is not content verification.",
+    "soilgrids_overlap_sample": [
+      {
+        "legacy": "soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.05/x160_y82.tif",
+        "map": "mushroom-map-GIS/soilgrids-shared/source/existing-retention/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.05/x160_y82.tif",
+        "bytes": 219164,
+        "sha256": "aa3f739c8af6cda668f3f1672ee67b703b74048607bd9033e6608193b426eb81"
+      },
+      {
+        "legacy": "soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.05/x160_y83.tif",
+        "map": "mushroom-map-GIS/soilgrids-shared/source/existing-retention/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.05/x160_y83.tif",
+        "bytes": 226388,
+        "sha256": "a673ecbad6a0e108cc62ba01f0ee0c93c309429238874b22c56b352cab11a578"
+      },
+      {
+        "legacy": "soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.05/x160_y84.tif",
+        "map": "mushroom-map-GIS/soilgrids-shared/source/existing-retention/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.05/x160_y84.tif",
+        "bytes": 240216,
+        "sha256": "dc3323264f65de27e6c6e26b065ce9924e10ab80c380b037c139e6be349616ec"
+      }
+    ],
+    "full_overlap_local_evidence": "tmp/gis-consolidation-20260915/full-review.json",
+    "potential_overlap_bytes": 5736287356,
+    "potential_remaining_logical_bytes": 15622243791
+  },
+  "worker": {
+    "dataset_root": "/var/lib/rainmapper-worker/datasets/mushroom_gis_v0/versions/sha256:7410f2e2482b77688027440fa047344bba65285fa2f9e812c07c65f769981574",
+    "dataset": {
+      "schema_version": "0.1",
+      "kind": "rainmapper_worker_dataset_cache_manifest",
+      "dataset_id": "mushroom_gis_v0",
+      "fingerprint": "sha256:7410f2e2482b77688027440fa047344bba65285fa2f9e812c07c65f769981574",
+      "files": [
+        {
+          "role": "gis",
+          "path": "MVC50mil/extracted/MVC50mil_novembre2019.cpg",
+          "size_bytes": 5,
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "role": "gis",
+          "path": "MVC50mil/extracted/MVC50mil_novembre2019.dbf",
+          "size_bytes": 492893570,
+          "sha256": "83c4f73e709af0260b55f05e7f8edbb64e0654f7c1887c40ccc6d8814d6901b5"
+        },
+        {
+          "role": "gis",
+          "path": "MVC50mil/extracted/MVC50mil_novembre2019.prj",
+          "size_bytes": 403,
+          "sha256": "3310a13a2197b3dea683734e1736d779f70f49bb7dd36ca8d1c7450f6ca3e33e"
+        },
+        {
+          "role": "gis",
+          "path": "MVC50mil/extracted/MVC50mil_novembre2019.sbn",
+          "size_bytes": 1121132,
+          "sha256": "c6abeda10687a46025b83e2113c0410a035b965d26b0464f6e866f8048ece8c7"
+        },
+        {
+          "role": "gis",
+          "path": "MVC50mil/extracted/MVC50mil_novembre2019.sbx",
+          "size_bytes": 58532,
+          "sha256": "7b0f7a6385b5c71e528d6c4e6451c9974c41e61d0492d4631500d3ba22fab621"
+        },
+        {
+          "role": "gis",
+          "path": "MVC50mil/extracted/MVC50mil_novembre2019.shp",
+          "size_bytes": 390387624,
+          "sha256": "2c405e122c1bbba4db6041aec1cf7761f3c47d4ee589f1ec1ab6b80dabd7bbd1"
+        },
+        {
+          "role": "gis",
+          "path": "MVC50mil/extracted/MVC50mil_novembre2019.shp.xml",
+          "size_bytes": 34331,
+          "sha256": "8325c272cd83a4c2720e5a9689dcd10307a9279a96c7f22e31912d49260a6791"
+        },
+        {
+          "role": "gis",
+          "path": "MVC50mil/extracted/MVC50mil_novembre2019.shx",
+          "size_bytes": 931844,
+          "sha256": "9e6fd149f69ef450dcb5966898055a772479b5c8e5cfb55224d39f959f3292d6"
+        },
+        {
+          "role": "gis",
+          "path": "dem-andorra/extracted/rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif",
+          "size_bytes": 31416509,
+          "sha256": "10e9a27d97c7e3fb05b9411e8604cdd3674df128d61fbabf6a491a64ed5bbb22"
+        },
+        {
+          "role": "gis",
+          "path": "dem-france-rge-alti-5m/extracted/rainmapper-dem-france-rge-alti-5m.tif",
+          "size_bytes": 83072534,
+          "sha256": "3e86d6c2ee4e3677dd895de369045b8f49c02a23902771692177b7a60256860f"
+        },
+        {
+          "role": "gis",
+          "path": "dem-ign-mtn50-592/extracted/PNOA_MDT25_ETRS89_HU30_0592_LID.tif",
+          "size_bytes": 3736503,
+          "sha256": "8cfe2a5c0808990c4de2da6d1347e6192eb194a126d8dfe7908d2b9f1f64b0b5"
+        },
+        {
+          "role": "gis",
+          "path": "geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+          "size_bytes": 293679104,
+          "sha256": "60d730395874ee860d09ddddbf2cc60d187c46f05f9018e7049bcdf8a65b684f"
+        },
+        {
+          "role": "gis",
+          "path": "model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+          "size_bytes": 5127260482,
+          "sha256": "de42f8d5b75cb3f5f6b51475e90195d2c6d74c92a532fe0a8cb39aba5b0753bb"
+        }
+      ]
+    },
+    "geography": [
+      {
+        "path": "/var/lib/rainmapper-worker/map-geography/coordinators/coordinator_fde2e9b1c6c1f5b2/versions/8ab40e26cddf9567b878611f11c39d079579eb455105839a40ac67610e3f1336/manifest.json",
+        "file_count": 3510,
+        "bytes": 14538214301
+      }
+    ],
+    "same_content": [
+      {
+        "legacy": "dem-andorra/extracted/rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif",
+        "map": "mushroom-GIS/dem-andorra/extracted/rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif",
+        "bytes": 31416509,
+        "sha256": "10e9a27d97c7e3fb05b9411e8604cdd3674df128d61fbabf6a491a64ed5bbb22",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2
+      },
+      {
+        "legacy": "dem-france-rge-alti-5m/extracted/rainmapper-dem-france-rge-alti-5m.tif",
+        "map": "mushroom-GIS/dem-france-rge-alti-5m/extracted/rainmapper-dem-france-rge-alti-5m.tif",
+        "bytes": 83072534,
+        "sha256": "3e86d6c2ee4e3677dd895de369045b8f49c02a23902771692177b7a60256860f",
+        "same_inode": false,
+        "legacy_links": 1,
+        "map_links": 2
+      },
+      {
+        "legacy": "model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+        "map": "mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018/extracted/model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+        "bytes": 5127260482,
+        "sha256": "de42f8d5b75cb3f5f6b51475e90195d2c6d74c92a532fe0a8cb39aba5b0753bb",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2
+      },
+      {
+        "legacy": "geologia-territorial-50000-geologic-v3r0-202412/extracted/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+        "map": "mushroom-map-GIS/icgc-geologia-50000/source/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+        "bytes": 293679104,
+        "sha256": "60d730395874ee860d09ddddbf2cc60d187c46f05f9018e7049bcdf8a65b684f",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2
+      },
+      {
+        "legacy": "dem-ign-mtn50-592/extracted/PNOA_MDT25_ETRS89_HU30_0592_LID.tif",
+        "map": "mushroom-map-GIS/ign-mdt25/source/PNOA-MDT25-ETRS89-HU30-0592-LID.TIF",
+        "bytes": 3736503,
+        "sha256": "8cfe2a5c0808990c4de2da6d1347e6192eb194a126d8dfe7908d2b9f1f64b0b5",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2
+      },
+      {
+        "legacy": "MVC50mil/extracted/MVC50mil_novembre2019.cpg",
+        "map": "mushroom-map-GIS/mfe25/source/mfe_catalunia/MFE_51.cpg",
+        "bytes": 5,
+        "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+        "same_inode": false,
+        "legacy_links": 2,
+        "map_links": 2
+      }
+    ],
+    "duplicate_bytes": 5539165137
+  },
+  "operations": {
+    "remote_writes": false,
+    "file_deletions": false,
+    "asset_content_hashes": 0,
+    "builds_or_scientific_jobs": false
+  }
+}

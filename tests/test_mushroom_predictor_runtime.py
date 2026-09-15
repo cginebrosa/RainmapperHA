@@ -105,7 +105,7 @@ class PredictorRuntimeTests(TestCase):
             self.assertEqual(second["reused_file_count"], len(manifest["files"]))
             self.assertEqual(second["fetched_file_count"], 0)
             self.assertGreaterEqual(second["elapsed_seconds"], 0.0)
-            self.assertEqual(len(fetched), len(manifest["files"]))
+            self.assertEqual(len(fetched), len({r['sha256'] for r in manifest['files']}))
             self.assertTrue(service_paths(runtime)["known_sites_path"].is_file())
             self.assertTrue((runtime / "verified-runtime.json").is_file())
             self.assertTrue(service_paths(runtime)["profiles_path"].is_file())
@@ -505,7 +505,8 @@ class PredictorRuntimeTests(TestCase):
             )
 
             self.assertEqual(result["status"], "synchronized")
-            self.assertEqual(result["transferred_size_bytes"], manifest["size_bytes"])
+            unique_objects = {r['sha256']:r['size_bytes'] for r in manifest['files']}
+            self.assertEqual(result["transferred_size_bytes"], sum(unique_objects.values()))
             self.assertTrue(service_paths(runtime)["features_artifact_path"].is_file())
             self.assertEqual(build_runtime_archive(root / "archives", manifest, sources), archive)
             self.assertEqual((root / "archives").stat().st_mode & 0o777, 0o700)

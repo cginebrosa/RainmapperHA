@@ -4,7 +4,7 @@ Estado: **runtime multicoordinador implementado y probado; administración CLI
 incompleta y pendiente de versionado/despliegue**
 
 Fecha: 2026-08-17
-Actualizado: 2026-09-06
+Actualizado: 2026-09-15 (reparto de canales; contexto de despliegue anterior histórico)
 
 Este documento define la evolución del worker externo para que una misma
 instalación física pueda permanecer emparejada simultáneamente con varios
@@ -45,12 +45,14 @@ coordinadores no cambia los perfiles, modelos ni reglas científicas.
 3. El worker inicia todas las conexiones y mantiene heartbeat y consulta de
    jobs independientes con cada coordinador activo. No se abre una UI ni un
    puerto de administración en el worker.
-4. Se conservan los dos carriles actuales como recursos globales del worker:
-   un único job `foreground` y un único job `background`. Reconstrucción,
-   entrenamiento y predicción interactiva comparten `foreground`; el
-   precálculo utiliza `background`. Por tanto pueden coincidir un entrenamiento
-   y un precálculo, pero nunca dos entrenamientos ni dos precálculos aunque
-   procedan de coordinadores distintos.
+4. Se conservan dos carriles como recursos globales del worker. Desde el
+   incremento local del 15/09/2026, reconstrucción, entrenamiento base,
+   entrenamiento multiversión (operativo o benchmark) y precálculo comparten
+   **background**. **Online/foreground** atiende predicción interactiva y el
+   mapa; sus sondas de diagnóstico conservan el canal anterior. Como máximo
+   puede ejecutarse un trabajo por carril en toda la instalación, aunque haya
+   varios coordinadores. Un entrenamiento y un precálculo esperan turno en
+   background; el mapa puede calcular mientras uno de ellos se ejecuta.
 5. Cuando un carril queda libre, el worker consulta coordinadores aptos con una
    política justa y determinista, inicialmente round-robin por carril. La
    indisponibilidad de uno no bloquea a los demás.
@@ -62,6 +64,34 @@ coordinadores no cambia los perfiles, modelos ni reglas científicas.
 8. Emparejar un coordinador nuevo **añade** una entrada; no sustituye ni
    modifica las existentes. La migración desde el formato actual debe conservar
    exactamente la URL y el token ya instalados, sin exigir pairing nuevo.
+
+## Reparto de canales — incremento del 15/09/2026
+
+`mushroom_worker_jobs.claim_next` selecciona por tipo de trabajo al reclamar:
+`worker_candidate_rebuild`, `worker_ml_train_v0`, `worker_ml_multiversion_v1` y
+`worker_predictor_precompute_v1` van a background. No añade manifiestos, hashes,
+archivos de caché ni transporte. Los trabajos en cola adoptan la regla nueva
+sin migración; el historial y los trabajos ya iniciados no se reescriben.
+
+Tras completar reconstrucción o entrenamiento base, el siguiente sondeo del
+mismo carril prefiere el coordinador de esa cadena. Se conservan las dependencias:
+reconstrucción → ML base → ML multiversión; HA verifica los resultados y realiza
+la promoción conjunta. No se añade un cuarto trabajo de promoción al worker.
+La preferencia de coordinador no reserva background durante la preparación del
+sucesor ni altera el orden de la cola: otro trabajo apto puede tomar ese turno.
+El siguiente intento se realiza en el sondeo habitual cuando el carril esté libre.
+
+La decisión de asignación reside en **HA/coordinador**. Actualizar solo el worker
+no cambia las asignaciones de un HA antiguo: hasta actualizarlo puede seguir
+entregando entrenamiento en foreground. La preferencia de cadena respeta el
+carril recibido también durante esa transición. No se modifica ni redirige su URL.
+
+Pruebas dirigidas: API de claim, cola con los tres tipos pesados y benchmark,
+Predictor reclamable mientras background está ocupado, precálculo en background,
+servicio real con HTTP simulado que conserva el coordinador entre pasos, y pruebas
+existentes de exclusión del slot online del mapa. El fixture del servicio sustituye
+transporte y procesos científicos; no entrena ni prepara una semana real. El
+circuito científico completo para release sigue pendiente de aceptación explícita.
 
 ## 2. Límite configurable
 

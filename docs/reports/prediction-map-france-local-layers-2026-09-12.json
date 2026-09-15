@@ -1,0 +1,271 @@
+{
+  "scope": "Five representative points in two French areas and three microareas; local files only, not full polygon coverage or prediction validation",
+  "checked_at": "2026-09-12",
+  "catalog": "docker-data/mushroom-data/mushroom_known_sites.json",
+  "dem": {
+    "path": "mushroom-GIS/dem-france-rge-alti-5m/extracted/rainmapper-dem-france-rge-alti-5m.tif",
+    "bytes": 83072534,
+    "pixel_size_m": [
+      5.0,
+      5.0
+    ],
+    "crs": "EPSG:2154"
+  },
+  "ph_crs_note": "Raw WCS has no declared CRS; native IGH from acquisition SUBSETTINGCRS/OUTPUTCRS; no normalization or writes performed",
+  "points": [
+    {
+      "id": "font_romeu",
+      "kind": "areas",
+      "point": {
+        "lat": 42.5229233,
+        "lon": 2.0129924
+      },
+      "dem_m": 1986.800048828125,
+      "retention_layers": 54,
+      "retention_non_nodata": 54,
+      "retention_raw_range": [
+        60.0,
+        535.0
+      ],
+      "ph_layers": 9,
+      "ph_raw": {
+        "phh2o_0-5cm_Q0.05": 42.0,
+        "phh2o_0-5cm_Q0.5": 63.0,
+        "phh2o_0-5cm_Q0.95": 80.0,
+        "phh2o_5-15cm_Q0.05": 42.0,
+        "phh2o_5-15cm_Q0.5": 64.0,
+        "phh2o_5-15cm_Q0.95": 80.0,
+        "phh2o_15-30cm_Q0.05": 44.0,
+        "phh2o_15-30cm_Q0.5": 64.0,
+        "phh2o_15-30cm_Q0.95": 80.0
+      },
+      "vector_intersections": {
+        "mvc50": 0,
+        "geology_50000": 0
+      },
+      "persisted_soil_status": null,
+      "persisted_dem_status": null,
+      "persisted_ecology": {}
+    },
+    {
+      "id": "querigut",
+      "kind": "areas",
+      "point": {
+        "lat": 42.6825108,
+        "lon": 2.0708249
+      },
+      "dem_m": 1764.260009765625,
+      "retention_layers": 54,
+      "retention_non_nodata": 54,
+      "retention_raw_range": [
+        52.0,
+        540.0
+      ],
+      "ph_layers": 9,
+      "ph_raw": {
+        "phh2o_0-5cm_Q0.05": 39.0,
+        "phh2o_0-5cm_Q0.5": 53.0,
+        "phh2o_0-5cm_Q0.95": 78.0,
+        "phh2o_5-15cm_Q0.05": 41.0,
+        "phh2o_5-15cm_Q0.5": 53.0,
+        "phh2o_5-15cm_Q0.95": 78.0,
+        "phh2o_15-30cm_Q0.05": 41.0,
+        "phh2o_15-30cm_Q0.5": 53.0,
+        "phh2o_15-30cm_Q0.95": 78.0
+      },
+      "vector_intersections": {
+        "mvc50": 0,
+        "geology_50000": 0
+      },
+      "persisted_soil_status": null,
+      "persisted_dem_status": null,
+      "persisted_ecology": {}
+    },
+    {
+      "id": "querigut_querigut_medio",
+      "kind": "micro_areas",
+      "point": {
+        "lat": 42.6694146,
+        "lon": 2.0927232
+      },
+      "dem_m": 1702.6199951171875,
+      "retention_layers": 54,
+      "retention_non_nodata": 54,
+      "retention_raw_range": [
+        53.0,
+        537.0
+      ],
+      "ph_layers": 9,
+      "ph_raw": {
+        "phh2o_0-5cm_Q0.05": 39.0,
+        "phh2o_0-5cm_Q0.5": 54.0,
+        "phh2o_0-5cm_Q0.95": 78.0,
+        "phh2o_5-15cm_Q0.05": 40.0,
+        "phh2o_5-15cm_Q0.5": 54.0,
+        "phh2o_5-15cm_Q0.95": 78.0,
+        "phh2o_15-30cm_Q0.05": 40.0,
+        "phh2o_15-30cm_Q0.5": 54.0,
+        "phh2o_15-30cm_Q0.95": 78.0
+      },
+      "vector_intersections": {
+        "mvc50": 0,
+        "geology_50000": 0
+      },
+      "persisted_soil_status": "complete",
+      "persisted_dem_status": "ok",
+      "persisted_ecology": {
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [],
+        "habitat_feature_ids": [],
+        "notes": ""
+      }
+    },
+    {
+      "id": "querigut_querigut_bajo",
+      "kind": "micro_areas",
+      "point": {
+        "lat": 42.6734137,
+        "lon": 2.1042927
+      },
+      "dem_m": 1644.0899658203125,
+      "retention_layers": 54,
+      "retention_non_nodata": 54,
+      "retention_raw_range": [
+        51.0,
+        536.0
+      ],
+      "ph_layers": 9,
+      "ph_raw": {
+        "phh2o_0-5cm_Q0.05": 40.0,
+        "phh2o_0-5cm_Q0.5": 56.0,
+        "phh2o_0-5cm_Q0.95": 77.0,
+        "phh2o_5-15cm_Q0.05": 41.0,
+        "phh2o_5-15cm_Q0.5": 56.0,
+        "phh2o_5-15cm_Q0.95": 78.0,
+        "phh2o_15-30cm_Q0.05": 41.0,
+        "phh2o_15-30cm_Q0.5": 56.0,
+        "phh2o_15-30cm_Q0.95": 78.0
+      },
+      "vector_intersections": {
+        "mvc50": 0,
+        "geology_50000": 0
+      },
+      "persisted_soil_status": "complete",
+      "persisted_dem_status": "ok",
+      "persisted_ecology": {
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [],
+        "habitat_feature_ids": [],
+        "notes": ""
+      }
+    },
+    {
+      "id": "font_romeu_font_romeu_medio",
+      "kind": "micro_areas",
+      "point": {
+        "lat": 42.5284314,
+        "lon": 2.0095071
+      },
+      "dem_m": 2069.39990234375,
+      "retention_layers": 54,
+      "retention_non_nodata": 54,
+      "retention_raw_range": [
+        50.0,
+        528.0
+      ],
+      "ph_layers": 9,
+      "ph_raw": {
+        "phh2o_0-5cm_Q0.05": 43.0,
+        "phh2o_0-5cm_Q0.5": 63.0,
+        "phh2o_0-5cm_Q0.95": 80.0,
+        "phh2o_5-15cm_Q0.05": 44.0,
+        "phh2o_5-15cm_Q0.5": 63.0,
+        "phh2o_5-15cm_Q0.95": 80.0,
+        "phh2o_15-30cm_Q0.05": 45.0,
+        "phh2o_15-30cm_Q0.5": 63.0,
+        "phh2o_15-30cm_Q0.95": 80.0
+      },
+      "vector_intersections": {
+        "mvc50": 0,
+        "geology_50000": 0
+      },
+      "persisted_soil_status": "complete",
+      "persisted_dem_status": "ok",
+      "persisted_ecology": {
+        "host_ids": [],
+        "forest_type_ids": [],
+        "soil_tendency_ids": [],
+        "habitat_feature_ids": [],
+        "notes": ""
+      }
+    }
+  ],
+  "changes": "No downloads, hashes, national audit, jobs, restarts, GIS/cache/catalog writes or production access",
+  "sampled_files": [
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_100-200cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_100-200cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_100-200cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_15-30cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_15-30cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_15-30cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_30-60cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_30-60cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_30-60cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_5-15cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_5-15cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_5-15cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_60-100cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_60-100cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_60-100cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_0-5cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_0-5cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_0-5cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_100-200cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_100-200cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_100-200cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_15-30cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_15-30cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_15-30cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_30-60cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_30-60cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_30-60cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_5-15cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_5-15cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_5-15cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_60-100cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_60-100cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0033_60-100cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_0-5cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_0-5cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_0-5cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_100-200cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_100-200cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_100-200cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_15-30cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_15-30cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_15-30cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_30-60cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_30-60cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_30-60cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_5-15cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_5-15cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_5-15cm_Q0.95/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_60-100cm_Q0.05/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_60-100cm_Q0.5/x163_y85.tif",
+    "mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv1500_60-100cm_Q0.95/x163_y85.tif",
+    "mushroom-map-GIS/soilgrids-shared/source/phh2o_0-5cm_Q0.05/x159-164_y79-86.tif",
+    "mushroom-map-GIS/soilgrids-shared/source/phh2o_0-5cm_Q0.5/x159-164_y79-86.tif",
+    "mushroom-map-GIS/soilgrids-shared/source/phh2o_0-5cm_Q0.95/x159-164_y79-86.tif",
+    "mushroom-map-GIS/soilgrids-shared/source/phh2o_15-30cm_Q0.05/x159-164_y79-86.tif",
+    "mushroom-map-GIS/soilgrids-shared/source/phh2o_15-30cm_Q0.5/x159-164_y79-86.tif",
+    "mushroom-map-GIS/soilgrids-shared/source/phh2o_15-30cm_Q0.95/x159-164_y79-86.tif",
+    "mushroom-map-GIS/soilgrids-shared/source/phh2o_5-15cm_Q0.05/x159-164_y79-86.tif",
+    "mushroom-map-GIS/soilgrids-shared/source/phh2o_5-15cm_Q0.5/x159-164_y79-86.tif",
+    "mushroom-map-GIS/soilgrids-shared/source/phh2o_5-15cm_Q0.95/x159-164_y79-86.tif"
+  ]
+}

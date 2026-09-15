@@ -7,6 +7,7 @@ as duplicated choices or ambiguous month assignments.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -116,6 +117,30 @@ def validate_profile_semantics(profile: dict[str, Any]) -> list[ProfileValidatio
 
     ecology = profile.get("ecology")
     if isinstance(ecology, dict):
+        ph_values: dict[str, float] = {}
+        for field in ("ph_min", "ph_max"):
+            value = ecology.get(field)
+            if value is None:
+                continue
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or not 0 <= value <= 14
+            ):
+                issues.append(ProfileValidationIssue(
+                    location=f"profiles.{profile_id}.ecology.{field}",
+                    message="expected a finite pH number between 0 and 14 or null",
+                    fix="Enter a soil pH value or leave the field empty.",
+                ))
+            else:
+                ph_values[field] = value
+        if len(ph_values) == 2 and ph_values["ph_min"] > ph_values["ph_max"]:
+            issues.append(ProfileValidationIssue(
+                location=f"profiles.{profile_id}.ecology",
+                message="ph_min must not exceed ph_max",
+                fix="Keep the lower pH bound at or below the upper bound.",
+            ))
         for field in AFFINITY_FIELDS:
             values = ecology.get(field)
             if not isinstance(values, list):
@@ -182,6 +207,8 @@ def empty_species_profile(species_id: str, scientific_name: str, common_name: st
         "edibility": "good",
         "ecology": {
             "trophic_mode_id": "trophic_ectomycorrhizal",
+            "ph_min": None,
+            "ph_max": None,
             "host_affinities": [],
             "forest_type_affinities": [],
             "soil_affinities": [],

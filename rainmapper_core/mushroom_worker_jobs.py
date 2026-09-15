@@ -30,6 +30,14 @@ JOB_TYPE_ML_TRAIN = "worker_ml_train_v0"
 JOB_TYPE_ML_MULTIVERSION = "worker_ml_multiversion_v1"
 JOB_TYPE_PREDICTOR = "worker_predictor_v1"
 JOB_TYPE_PREDICTOR_PRECOMPUTE = "worker_predictor_precompute_v1"
+# Compute-heavy jobs share one slot, leaving foreground available to queries.
+# Resolve at claim time so already queued jobs need no migration or rewrite.
+BACKGROUND_JOB_TYPES = frozenset({
+    JOB_TYPE_CANDIDATE_REBUILD,
+    JOB_TYPE_ML_TRAIN,
+    JOB_TYPE_ML_MULTIVERSION,
+    JOB_TYPE_PREDICTOR_PRECOMPUTE,
+})
 ML_JOB_PURPOSES = frozenset({"operational", "benchmark"})
 MAX_JOBS = 50
 DEFAULT_LEASE_SECONDS = 10
@@ -2152,7 +2160,7 @@ def claim_next(
             if row.get("status") == "queued"
             and row.get("target_worker_id") == target_worker_id
             and (
-                (row.get("job_type") == JOB_TYPE_PREDICTOR_PRECOMPUTE) == (lane == "background")
+                (row.get("job_type") in BACKGROUND_JOB_TYPES) == (lane == "background")
             )
         ),
         None,

@@ -237,7 +237,7 @@ class MushroomWorkerDatasetCacheTests(unittest.TestCase):
             "valid",
         )
 
-    def test_link_failure_falls_back_to_fetching_the_reusable_file(self) -> None:
+    def test_link_failure_preserves_active_dataset_without_duplicate_download(self) -> None:
         mushroom_worker_dataset_cache.sync_local(
             self.manifest, self.source, self.worker_data
         )
@@ -256,16 +256,14 @@ class MushroomWorkerDatasetCacheTests(unittest.TestCase):
             mushroom_worker_dataset_cache.os,
             "link",
             side_effect=OSError("hard links unavailable"),
-        ):
-            result = mushroom_worker_dataset_cache.sync_from_fetcher(
+        ), self.assertRaisesRegex(OSError, 'hard links unavailable'):
+            mushroom_worker_dataset_cache.sync_from_fetcher(
                 updated_manifest,
                 self.worker_data,
                 fetch_file=fetch,
             )
 
-        self.assertEqual(fetched, ["nested/a.dat", "b.dat"])
-        self.assertEqual(result["transferred_file_count"], 2)
-        self.assertEqual(result["reused_file_count"], 0)
+        self.assertEqual(fetched, [])
         self.assertEqual(
             mushroom_worker_dataset_cache.verify_version(self.worker_data, deep=True)["status"],
             "valid",

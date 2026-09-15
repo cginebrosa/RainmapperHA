@@ -1,0 +1,2581 @@
+{
+  "checked_at": "2026-09-13T16:34:53.888967+00:00",
+  "scope": "Read-only comparison of kept pre-update backup, recorded per-field application, current local profiles, proposal report and effective HA local bind-mounted profile file. No data migration rerun.",
+  "profile_path": "docker-data/mushroom-data/mushroom_profiles.json",
+  "profile_sha256": "110a6ba701ee6e46479b8917bf69297332b4558feacf0168aae30dc407097170",
+  "matches_recorded_applied_profile_sha256": true,
+  "backup_path": "docker-data/mushroom-data/backups/mushroom_profiles.20260913T110116616635Z.keep.json",
+  "backup_sha256_verified": true,
+  "catalog_matches_recorded_applied_sha256": true,
+  "report_path": "docs/reports/prediction-map-species-windows-2026-09-13.json",
+  "reported_field_count": 143,
+  "reported_current_mismatches": [],
+  "field_changed_species": {
+    "topography.altitude_min_m": [
+      "boletus_edulis",
+      "boletus_pinophilus",
+      "calocybe_gambosa",
+      "cantharellus_cibarius_sl",
+      "craterellus_cornucopioides",
+      "lactarius_salmonicolor_quieticolor_group",
+      "marasmius_oreades",
+      "russula_virescens",
+      "tuber_melanosporum"
+    ],
+    "topography.altitude_max_m": [
+      "boletus_aereus",
+      "boletus_edulis",
+      "cantharellus_lutescens",
+      "hygrophorus_marzuolus",
+      "lactarius_vinosus",
+      "marasmius_oreades",
+      "tuber_melanosporum"
+    ],
+    "topography.altitude_optimal_min_m": [
+      "cantharellus_lutescens",
+      "craterellus_cornucopioides",
+      "lactarius_deliciosus",
+      "lepista_nuda",
+      "macrolepiota_procera",
+      "marasmius_oreades",
+      "russula_virescens",
+      "tricholoma_terreum",
+      "tuber_melanosporum"
+    ],
+    "topography.altitude_optimal_max_m": [
+      "cantharellus_lutescens",
+      "craterellus_cornucopioides",
+      "lactarius_deliciosus",
+      "lepista_nuda",
+      "macrolepiota_procera",
+      "marasmius_oreades",
+      "russula_virescens",
+      "tricholoma_terreum",
+      "tuber_melanosporum"
+    ],
+    "phenology.main_months": [],
+    "phenology.secondary_months": [
+      "amanita_caesarea",
+      "boletus_edulis",
+      "boletus_pinophilus",
+      "cantharellus_cibarius_sl",
+      "craterellus_cornucopioides",
+      "lactarius_salmonicolor_quieticolor_group",
+      "lepista_nuda",
+      "macrolepiota_procera"
+    ],
+    "ecology.host_affinities": [
+      "amanita_caesarea",
+      "boletus_aereus",
+      "boletus_edulis",
+      "boletus_pinophilus",
+      "cantharellus_cibarius_sl",
+      "cantharellus_lutescens",
+      "craterellus_cornucopioides",
+      "hygrophorus_latitabundus",
+      "hygrophorus_marzuolus",
+      "lactarius_salmonicolor_quieticolor_group",
+      "lactarius_sanguifluus"
+    ],
+    "ecology.forest_type_affinities": [
+      "boletus_edulis",
+      "boletus_pinophilus",
+      "cantharellus_lutescens",
+      "craterellus_cornucopioides",
+      "hygrophorus_marzuolus",
+      "lactarius_salmonicolor_quieticolor_group"
+    ],
+    "ecology.soil_affinities": [],
+    "ecology.lithology_affinities": [],
+    "ecology.habitat_feature_affinities": [],
+    "ecology.ph_min": [
+      "amanita_caesarea",
+      "boletus_aereus",
+      "boletus_edulis",
+      "boletus_pinophilus",
+      "calocybe_gambosa",
+      "cantharellus_cibarius_sl",
+      "cantharellus_lutescens",
+      "craterellus_cornucopioides",
+      "hygrophorus_latitabundus",
+      "hygrophorus_marzuolus",
+      "lactarius_deliciosus",
+      "lactarius_salmonicolor_quieticolor_group",
+      "lactarius_sanguifluus",
+      "lactarius_vinosus",
+      "lepista_nuda",
+      "macrolepiota_procera",
+      "marasmius_oreades",
+      "morchella_elata_complex",
+      "russula_virescens",
+      "tricholoma_terreum",
+      "tuber_melanosporum"
+    ],
+    "ecology.ph_max": [
+      "amanita_caesarea",
+      "boletus_aereus",
+      "boletus_edulis",
+      "boletus_pinophilus",
+      "calocybe_gambosa",
+      "cantharellus_cibarius_sl",
+      "cantharellus_lutescens",
+      "craterellus_cornucopioides",
+      "hygrophorus_latitabundus",
+      "hygrophorus_marzuolus",
+      "lactarius_deliciosus",
+      "lactarius_salmonicolor_quieticolor_group",
+      "lactarius_sanguifluus",
+      "lactarius_vinosus",
+      "lepista_nuda",
+      "macrolepiota_procera",
+      "marasmius_oreades",
+      "morchella_elata_complex",
+      "russula_virescens",
+      "tricholoma_terreum",
+      "tuber_melanosporum"
+    ]
+  },
+  "per_species": [
+    {
+      "species_id": "amanita_caesarea",
+      "changes": [
+        {
+          "path": "phenology.secondary_months",
+          "before": [
+            6,
+            7,
+            8
+          ],
+          "current": [
+            6,
+            7,
+            8,
+            11
+          ]
+        },
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_quercus_suber",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_ilex",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "primary",
+              "affinity": 0.85,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_quercus_suber",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_ilex",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "primary",
+              "affinity": 0.85,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_faginea",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "boletus_aereus",
+      "changes": [
+        {
+          "path": "topography.altitude_max_m",
+          "before": 1000,
+          "current": 1200
+        },
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_quercus_suber",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_ilex",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "primary",
+              "affinity": 0.8,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_quercus_suber",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_ilex",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "primary",
+              "affinity": 0.8,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_pyrenaica",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_quercus_faginea",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "boletus_edulis",
+      "changes": [
+        {
+          "path": "topography.altitude_min_m",
+          "before": 1000,
+          "current": 600
+        },
+        {
+          "path": "topography.altitude_max_m",
+          "before": 2100,
+          "current": 2200
+        },
+        {
+          "path": "phenology.secondary_months",
+          "before": [
+            7,
+            11
+          ],
+          "current": [
+            5,
+            6,
+            7,
+            11,
+            12
+          ]
+        },
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_betula_spp",
+              "relationship": "primary",
+              "affinity": 0.8,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_betula_spp",
+              "relationship": "primary",
+              "affinity": 0.8,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_quercus_pyrenaica",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_cistus_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.forest_type_affinities",
+          "before": [
+            {
+              "id": "forest_montane_pine",
+              "relationship": "primary",
+              "affinity": 0.7,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_subalpine_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_beech",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_mixed_conifer",
+              "relationship": "primary",
+              "affinity": 0.8,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "forest_montane_pine",
+              "relationship": "primary",
+              "affinity": 0.7,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_subalpine_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_beech",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_mixed_conifer",
+              "relationship": "primary",
+              "affinity": 0.8,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_deciduous_broadleaf",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "forest_chestnut",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "boletus_pinophilus",
+      "changes": [
+        {
+          "path": "topography.altitude_min_m",
+          "before": 1000,
+          "current": 600
+        },
+        {
+          "path": "phenology.secondary_months",
+          "before": [
+            10
+          ],
+          "current": [
+            4,
+            5,
+            10,
+            11,
+            12
+          ]
+        },
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 0.55,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 0.55,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_picea_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            },
+            {
+              "id": "host_abies_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.forest_type_affinities",
+          "before": [
+            {
+              "id": "forest_montane_pine",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_subalpine_pine",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 0.55,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "forest_montane_pine",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_subalpine_pine",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 0.55,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_beech",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "forest_deciduous_broadleaf",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "forest_chestnut",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "forest_mixed_conifer",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "calocybe_gambosa",
+      "changes": [
+        {
+          "path": "topography.altitude_min_m",
+          "before": 500,
+          "current": 400
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "cantharellus_cibarius_sl",
+      "changes": [
+        {
+          "path": "topography.altitude_min_m",
+          "before": 400,
+          "current": 50
+        },
+        {
+          "path": "phenology.secondary_months",
+          "before": [
+            5,
+            11,
+            12
+          ],
+          "current": [
+            4,
+            5,
+            11,
+            12
+          ]
+        },
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "primary",
+              "affinity": 0.85,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "primary",
+              "affinity": 0.75,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "primary",
+              "affinity": 0.65,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_ilex",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_suber",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "primary",
+              "affinity": 0.85,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "primary",
+              "affinity": 0.75,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "primary",
+              "affinity": 0.65,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_ilex",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_suber",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_eucalyptus_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "cantharellus_lutescens",
+      "changes": [
+        {
+          "path": "topography.altitude_max_m",
+          "before": 1600,
+          "current": 1800
+        },
+        {
+          "path": "topography.altitude_optimal_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_pinus_spp",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_nigra",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_halepensis",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_pinaster",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_pinea",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            }
+          ],
+          "current": [
+            {
+              "id": "host_pinus_spp",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_nigra",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_halepensis",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_pinaster",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_pinus_pinea",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.forest_type_affinities",
+          "before": [
+            {
+              "id": "forest_mixed_conifer",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "forest_montane_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "forest_mediterranean_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "forest_mixed_woodland",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            }
+          ],
+          "current": [
+            {
+              "id": "forest_mixed_conifer",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "forest_montane_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "forest_mediterranean_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "forest_mixed_woodland",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ],
+              "v0_placeholder": true
+            },
+            {
+              "id": "forest_beech",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "forest_chestnut",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "craterellus_cornucopioides",
+      "changes": [
+        {
+          "path": "topography.altitude_min_m",
+          "before": 0,
+          "current": 200
+        },
+        {
+          "path": "topography.altitude_optimal_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "phenology.secondary_months",
+          "before": [
+            1,
+            8,
+            9
+          ],
+          "current": [
+            1,
+            6,
+            7,
+            8,
+            9
+          ]
+        },
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_ilex",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_suber",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_ilex",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_quercus_suber",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_castanea_sativa",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.forest_type_affinities",
+          "before": [
+            {
+              "id": "forest_beech",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_deciduous_broadleaf",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_holm_oak",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_cork_oak",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_mixed_woodland",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "forest_beech",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_deciduous_broadleaf",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_holm_oak",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_cork_oak",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_mixed_woodland",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_chestnut",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "hygrophorus_latitabundus",
+      "changes": [
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0.85,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_nigra",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_halepensis",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_spp",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0.85,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_nigra",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_halepensis",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_spp",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_pinaster",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "hygrophorus_marzuolus",
+      "changes": [
+        {
+          "path": "topography.altitude_max_m",
+          "before": 1900,
+          "current": 2000
+        },
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0.8,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "primary",
+              "affinity": 0.35,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0.8,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_fagus_sylvatica",
+              "relationship": "primary",
+              "affinity": 0.35,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_betula_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            },
+            {
+              "id": "host_quercus_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.forest_type_affinities",
+          "before": [
+            {
+              "id": "forest_montane_pine",
+              "relationship": "primary",
+              "affinity": 0.75,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_subalpine_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_beech",
+              "relationship": "primary",
+              "affinity": 0.35,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "forest_montane_pine",
+              "relationship": "primary",
+              "affinity": 0.75,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 1,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_subalpine_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_beech",
+              "relationship": "primary",
+              "affinity": 0.35,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_deciduous_broadleaf",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_sporas"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "lactarius_deliciosus",
+      "changes": [
+        {
+          "path": "topography.altitude_optimal_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "lactarius_salmonicolor_quieticolor_group",
+      "changes": [
+        {
+          "path": "topography.altitude_min_m",
+          "before": 1200,
+          "current": 750
+        },
+        {
+          "path": "phenology.secondary_months",
+          "before": [
+            7,
+            10
+          ],
+          "current": [
+            7,
+            10,
+            11
+          ]
+        },
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_abies_alba",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_uncinata",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_spp",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            },
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            },
+            {
+              "id": "host_pinus_radiata",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.forest_type_affinities",
+          "before": [
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_subalpine_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "forest_fir",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_subalpine_pine",
+              "relationship": "primary",
+              "affinity": 0,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "forest_montane_pine",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            },
+            {
+              "id": "forest_mediterranean_pine",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "lactarius_sanguifluus",
+      "changes": [
+        {
+          "path": "ecology.host_affinities",
+          "before": [
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0.85,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_nigra",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_halepensis",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            }
+          ],
+          "current": [
+            {
+              "id": "host_pinus_sylvestris",
+              "relationship": "primary",
+              "affinity": 0.85,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_nigra",
+              "relationship": "primary",
+              "affinity": 0.9,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_halepensis",
+              "relationship": "primary",
+              "affinity": 0.95,
+              "source_ids": [
+                "literature_marc_estevez"
+              ]
+            },
+            {
+              "id": "host_pinus_pinaster",
+              "relationship": "secondary",
+              "affinity": 0,
+              "v0_placeholder": true,
+              "source_ids": [
+                "literature_review_20260913"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "lactarius_vinosus",
+      "changes": [
+        {
+          "path": "topography.altitude_max_m",
+          "before": 700,
+          "current": 1010
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "lepista_nuda",
+      "changes": [
+        {
+          "path": "topography.altitude_optimal_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "phenology.secondary_months",
+          "before": [
+            3,
+            4,
+            9,
+            1,
+            2
+          ],
+          "current": [
+            1,
+            2,
+            3,
+            4,
+            9
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "macrolepiota_procera",
+      "changes": [
+        {
+          "path": "topography.altitude_optimal_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "phenology.secondary_months",
+          "before": [
+            5,
+            6,
+            8,
+            11
+          ],
+          "current": [
+            5,
+            6,
+            7,
+            8,
+            11,
+            12
+          ]
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "marasmius_oreades",
+      "changes": [
+        {
+          "path": "topography.altitude_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "morchella_elata_complex",
+      "changes": [
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "russula_virescens",
+      "changes": [
+        {
+          "path": "topography.altitude_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "tricholoma_terreum",
+      "changes": [
+        {
+          "path": "topography.altitude_optimal_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    },
+    {
+      "species_id": "tuber_melanosporum",
+      "changes": [
+        {
+          "path": "topography.altitude_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_min_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "topography.altitude_optimal_max_m",
+          "before": 0,
+          "current": null
+        },
+        {
+          "path": "ecology.ph_min",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        },
+        {
+          "path": "ecology.ph_max",
+          "before": {
+            "field_absent": true
+          },
+          "current": null
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "altitude_bounds_changed_species": 13,
+    "added_host_relations": 25,
+    "host_relations_changed_species": 11,
+    "added_forest_relations": 12,
+    "forest_relations_changed_species": 6,
+    "months_changed_species": 8,
+    "soil_affinities_changed_species": 0,
+    "lithology_affinities_changed_species": 0,
+    "profiles_with_ph_bounds_empty": 21
+  },
+  "ph_proposal_evidence": {
+    "report": "docs/reports/prediction-map-species-literature-review-2026-09-13.json",
+    "species": [
+      {
+        "species_id": "amanita_caesarea",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "boletus_aereus",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "boletus_edulis",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "boletus_pinophilus",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "calocybe_gambosa",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "cantharellus_cibarius_sl",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "cantharellus_lutescens",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "craterellus_cornucopioides",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "hygrophorus_latitabundus",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "hygrophorus_marzuolus",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "lactarius_deliciosus",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "lactarius_salmonicolor_quieticolor_group",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "lactarius_sanguifluus",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "lactarius_vinosus",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "lepista_nuda",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "macrolepiota_procera",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "marasmius_oreades",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "morchella_elata_complex",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "russula_virescens",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "tricholoma_terreum",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      },
+      {
+        "species_id": "tuber_melanosporum",
+        "proposed_ph_numeric_bounds": null,
+        "proposed_ph_exclusion_enabled": false
+      }
+    ],
+    "earlier_assistant_message": {
+      "timestamp": "2026-09-13T11:09:17.455Z",
+      "excerpt": "He añadido los campos y su guardado, pero todavía falta completar los valores de pH."
+    },
+    "interpretation": "Proposals and qualitative pH reviews existed; recorded numeric proposals are null and numerical completion remained pending. This is not proof that no other proposal ever existed."
+  },
+  "ha_local_verified": {
+    "container": "rainmapper-local-rainmapper-ha-ui-1",
+    "path": "/share/rainmapper/mushroom-data/mushroom_profiles.json",
+    "sha256": "110a6ba701ee6e46479b8917bf69297332b4558feacf0168aae30dc407097170"
+  },
+  "data_modified": false
+}

@@ -16,6 +16,35 @@ fueron reemplazados.
   entender el proyecto, archivarlo aqui de forma resumida y enlazar el documento
   largo si existe.
 
+## 2026-09-13 — Cierre de fichas y filtro ecológico del Mapa de predicción
+
+Se sustituye el contexto acumulado de 577 líneas por una ventana operativa con
+siguiente acción, decisiones vigentes, archivos, pruebas y riesgos. TODO prioriza
+mappings nuevos, agrupación Rovelló y motor local; migración SoilGrids queda detrás.
+Se registran explícitamente ventanas amplias, pH mantenible aún vacío, autoridad
+local y jerarquía de hospedadores con abstención cuando faltan datos.
+
+[Contexto, TODO y entrada anteriores íntegros](reports/session-context-before-close-2026-09-13.md)
+conservan evidencia histórica y prioridades reemplazadas; no son instrucciones
+activas. [Relevo técnico del 13/09](reports/prediction-map-handoff-before-compaction-2026-09-13.md)
+conserva el comando de preview y detalles del incremento. La próxima sesión
+puede continuar leyendo solo `codex-start-here.md` y `active-context.md`.
+
+Cierre documental: sin cambios ejecutables/datos, reinicios, trabajos, commit,
+push o publicación. La preview/filtro está separada de la validación Docker/HA.
+
+## 2026-09-11 — Cierre de preparación GIS del Mapa de predicción
+
+Se compactan contexto y TODO para separar la preparación del mapa de los
+históricos de releases, UI, worker y auditorías científicas cerradas. Las
+fuentes GIS y SoilGrids están descargadas; la lectura compartida y migración
+siguen pendientes. La preocupación activa es el presupuesto de la RPi4.
+
+[Contexto y TODO previos íntegros](reports/session-context-before-close-2026-09-11.md).
+Ese snapshot conserva pruebas y hashes antiguos, incluidos los de HA 0.2.303;
+no acredita el estado actual ni mantiene vigentes sus pendientes reemplazados.
+Para continuar basta con `codex-start-here.md` y `active-context.md`.
+
 ## 2026-06 - Core Rainmapper y visores
 
 Se consolido la separacion entre:

@@ -1,0 +1,247 @@
+{
+  "status": "prepared_and_locally_validated_not_published_or_installed",
+  "ha_version": "0.2.304",
+  "worker_version": "1.1.2",
+  "ha_real": {
+    "asset_hashes_reused_from_verified_copies": true,
+    "checksum_inventory": "/media/rainmapper/geography/SHA256SUMS",
+    "dataset_files": 13,
+    "elapsed_s": 577.9,
+    "fingerprint": "sha256:8ab40e26cddf9567b878611f11c39d079579eb455105839a40ac67610e3f1336",
+    "format": "map_geography_publication_v1",
+    "full_asset_hash_reread_bytes": 0,
+    "generation": "local-20260914",
+    "gis_files": 1432,
+    "gis_references_verified": 1432,
+    "hashed_asset_bytes": 0,
+    "local_read_only_start_tested": true,
+    "map_logical_files": 3510,
+    "map_references_verified": 3510,
+    "metadata": {
+      "CURRENT.json": {
+        "bytes": 208,
+        "sha256": "8cac612b492c934194fa93fadcc78d6229ec31b482ea2733c982c862390ab684"
+      },
+      "generations/local-20260914/manifest.json": {
+        "bytes": 807785,
+        "sha256": "8ab40e26cddf9567b878611f11c39d079579eb455105839a40ac67610e3f1336"
+      },
+      "map-config.json": {
+        "bytes": 728,
+        "sha256": "da54837eba56a3f836f83923e42d08fd9779b554d1d5756cbaa0acb4ede956e8"
+      },
+      "map-sources-local-20260914.json": {
+        "bytes": 1223062,
+        "sha256": "54cea72597221a984f7968bdc0f76247b842fda735450f2a0f60038947cdcd8e"
+      },
+      "mushroom-GIS/geography-auxiliary.json": {
+        "bytes": 311283,
+        "sha256": "acc81af1a5a01eeb603323915eb4b90d451aeafb4ceab06147a1c6dd2c1bd697"
+      },
+      "mushroom-GIS/geography-dataset.json": {
+        "bytes": 2515,
+        "sha256": "a6b826ef4297ae8dbe9ff11abe15b4821e619267496223ef8505958dda80c493"
+      },
+      "mushroom-GIS/geography-sources.json": {
+        "bytes": 483526,
+        "sha256": "dc901a57c8f4ce1db26a678fa47d8a13ca37175b283ff275bfa35d7c18049b28"
+      }
+    },
+    "method": "rename_owned_verified_copies",
+    "native_HA_execution_tested": false,
+    "ordinary_bytes": 15622243791,
+    "ordinary_file_links": 1,
+    "ordinary_files": 3581,
+    "original_directories_preserved": [
+      "/media/rainmapper/mushroom-GIS",
+      "/media/rainmapper/prediction-map/generations/local-20260914/mushroom-GIS",
+      "/media/rainmapper/prediction-map/generations/local-20260914/mushroom-map-GIS"
+    ],
+    "originals_untouched": true,
+    "post_placement_verification_seconds": 98.9,
+    "sources_file": "map-sources-local-20260914.json",
+    "startup_commands": 0
+  },
+  "local": {
+    "readers": {
+      "reader_points": 4,
+      "identical_to_previous": true,
+      "dataset_files": 13,
+      "gis_root": "/media/rainmapper/geography/mushroom-GIS",
+      "source_identity_format": "portable",
+      "map_fingerprint": "sha256:8ab40e26cddf9567b878611f11c39d079579eb455105839a40ac67610e3f1336"
+    },
+    "readonly_start": {
+      "read_only_first_open": true,
+      "media_configuration_auto_detected": true,
+      "local_executor_ready": true,
+      "gis_files": 13,
+      "startup_commands": 0,
+      "writable_media": false
+    },
+    "queries": {
+      "ok": true,
+      "checks": {
+        "ready": {
+          "contract": "prediction_map_point_v1",
+          "can_use_prediction_map": true,
+          "admin_only": false,
+          "data_mode": "prediction",
+          "worker_ready": true,
+          "executors": {
+            "local": true,
+            "worker": true
+          },
+          "calendar_timezone": "Europe/Madrid",
+          "max_horizon_days": 7,
+          "max_species": 32
+        },
+        "basic_user_allowed": true,
+        "unauthorized": 401,
+        "invalid_coordinate": 400,
+        "initial_parity": true,
+        "local_warm_parity": true,
+        "worker_warm_parity": true,
+        "concurrent_parity": true,
+        "local_cancel": "cancelled",
+        "worker_cancel": "cancelled"
+      },
+      "differences": [],
+      "queries": [
+        {
+          "mode": "local",
+          "point": {
+            "lat": 42.29077,
+            "lon": 1.53842
+          },
+          "elapsed_ms": 1643.11,
+          "compute_ms": 1472.139,
+          "polls": 9,
+          "state_bytes": 456,
+          "result_bytes": 23695,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 42.29077,
+            "lon": 1.53842
+          },
+          "elapsed_ms": 1634.38,
+          "compute_ms": 1355.507,
+          "polls": 9,
+          "state_bytes": 455,
+          "result_bytes": 23696,
+          "calculated_species": 3
+        },
+        {
+          "mode": "local",
+          "point": {
+            "lat": 42.29077,
+            "lon": 1.53842
+          },
+          "elapsed_ms": 1435.48,
+          "compute_ms": 1246.129,
+          "polls": 8,
+          "state_bytes": 399,
+          "result_bytes": 23695,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 42.29077,
+            "lon": 1.53842
+          },
+          "elapsed_ms": 3088.47,
+          "compute_ms": 1142.875,
+          "polls": 16,
+          "state_bytes": 846,
+          "result_bytes": 23696,
+          "calculated_species": 3
+        },
+        {
+          "mode": "local",
+          "point": {
+            "lat": 42.02466,
+            "lon": 1.77189
+          },
+          "elapsed_ms": 1842.78,
+          "compute_ms": 1673.177,
+          "polls": 10,
+          "state_bytes": 513,
+          "result_bytes": 25597,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 42.02466,
+            "lon": 1.77189
+          },
+          "elapsed_ms": 2865.97,
+          "compute_ms": 1832.48,
+          "polls": 6,
+          "state_bytes": 285,
+          "result_bytes": 25597,
+          "calculated_species": 3
+        }
+      ]
+    },
+    "cleanup": {
+      "local_only": true,
+      "removed_obsolete_directories_and_receipts": [
+        "datasets",
+        "objects",
+        "receipts.sqlite",
+        "imports"
+      ],
+      "old_map_file_aliases_removed": 3510,
+      "map_files_verified": 3510,
+      "gis_files_verified": 1432,
+      "remaining_ordinary_data_files": 3581,
+      "original_repo_sources_preserved": true,
+      "worker_volume_untouched": true
+    },
+    "worker": {
+      "configuration_unchanged": true,
+      "configuration_hashes": {
+        "coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+        "additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+      },
+      "map_sync": [
+        {
+          "fetched_files": 0,
+          "files": 3510,
+          "fingerprint": "sha256:8ab40e26cddf9567b878611f11c39d079579eb455105839a40ac67610e3f1336",
+          "hashed_bytes": 0,
+          "metadata_bytes": 0,
+          "transferred_bytes": 0
+        }
+      ]
+    },
+    "smoke": {
+      "passed": true,
+      "tests": 1600,
+      "skipped": 48
+    }
+  },
+  "effective_images": {
+    "ha": {
+      "image": "rainmapperha:local-ha-ui",
+      "image_id": "sha256:b2849d2dc7a270e9ea96dda057db41aaa49f266e5b09ae0f69197b0d1b8a727d",
+      "file_count": 198,
+      "differences": []
+    },
+    "worker": {
+      "image": "rainmapper-worker:1.1.2",
+      "image_id": "sha256:8671d6101d4d586d921982eae7c6d579fe69a2a8231075571d4619f82e26c1c1",
+      "file_count": 106,
+      "differences": []
+    }
+  },
+  "source_backup": "backups/ha-portable-ready-20260915/source-worktree.tar.gz",
+  "previous_scientific_chain": "docs/reports/shared-geography-acceptance-2026-09-15.json",
+  "scientific_chain_repeated": false,
+  "reason_for_proportional_validation": "Physical layout changed; GIS contract, hashes and scientific code unchanged. Snapshot inventory, all portable aliases, GIS contexts, authenticated prediction parity, and worker content reuse verified."
+}

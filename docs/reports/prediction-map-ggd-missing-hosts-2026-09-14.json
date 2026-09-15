@@ -1,0 +1,603 @@
+{
+  "point": {
+    "lat": 41.22012,
+    "lon": 1.06989
+  },
+  "selected_date": "2026-09-14",
+  "user_report": "Presencia de Amanita caesarea y Boletus aereus; no es una medición de pH",
+  "geography": {
+    "land_context": {
+      "trees": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "no_trees_recorded",
+        "items": [],
+        "polygon_id": "2325877",
+        "formation": "No arbolado",
+        "catalog_revision": "2d462c0d815ad89437f9"
+      },
+      "vegetation": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 491849,
+        "code": "223",
+        "label": "Boscos densos d'esclerofil·les i laurifolis",
+        "mapping_status": "not_evaluated"
+      },
+      "geology": {
+        "source_id": "icgc_geologia_50000",
+        "edition": "2024-12",
+        "field": "Codi",
+        "status": "available",
+        "feature_id": 49879,
+        "code": "Ggd",
+        "label": "Granodiorites i granits alcalins",
+        "mapping_status": "not_evaluated"
+      }
+    },
+    "location": {
+      "status": "available",
+      "source": "IGN",
+      "edition": "2026-08-10",
+      "name": "L'Aleixar",
+      "national_code": "34094343007"
+    },
+    "terrain": {
+      "status": "available",
+      "data_mode": "geographic_sources",
+      "elevation": {
+        "status": "available",
+        "value_m": 452.5,
+        "resolution_m": 5.0,
+        "source_id": "dem_5m"
+      },
+      "ph": {
+        "status": "available",
+        "resolution_m": 250,
+        "source_id": "soilgrids_2_phh2o",
+        "depths": [
+          {
+            "depth_cm": [
+              0,
+              5
+            ],
+            "status": "available",
+            "lower": 4.8,
+            "median": 7.3,
+            "upper": 8.2
+          },
+          {
+            "depth_cm": [
+              5,
+              15
+            ],
+            "status": "available",
+            "lower": 4.8,
+            "median": 7.3,
+            "upper": 8.2
+          },
+          {
+            "depth_cm": [
+              15,
+              30
+            ],
+            "status": "available",
+            "lower": 4.8,
+            "median": 7.3,
+            "upper": 8.2
+          }
+        ]
+      },
+      "ph_openlandmap": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 6.8,
+        "lower": 6.0,
+        "upper": 7.7,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 41.22012,
+          "lon": 1.06989
+        }
+      }
+    },
+    "ecology": {
+      "status": "available",
+      "policy": "broad_species_windows_v3",
+      "revision": "8fdcc72302dac385fdbd",
+      "ph_selection": {
+        "source": "openlandmap",
+        "statistic": "mean"
+      },
+      "dates": [
+        "2026-09-14",
+        "2026-09-15",
+        "2026-09-16",
+        "2026-09-17",
+        "2026-09-18",
+        "2026-09-19",
+        "2026-09-20"
+      ],
+      "mapping_states": {
+        "vegetation": "unresolved",
+        "geology": "unresolved"
+      },
+      "species": [
+        {
+          "species_id": "amanita_caesarea",
+          "name": "Ou de reig",
+          "scientific_name": "Amanita caesarea",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "boletus_aereus",
+          "name": "Aereus",
+          "scientific_name": "Boletus aereus",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "boletus_edulis",
+          "name": "Edulis",
+          "scientific_name": "Boletus edulis",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "boletus_pinophilus",
+          "name": "Pinícola",
+          "scientific_name": "Boletus pinophilus",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "calocybe_gambosa",
+          "name": "Moixernó",
+          "scientific_name": "Calocybe gambosa",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "cantharellus_cibarius_sl",
+          "name": "Rossinyol",
+          "scientific_name": "Cantharellus cibarius",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "cantharellus_lutescens",
+          "name": "Camagroc",
+          "scientific_name": "Cantharellus lutescens",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "craterellus_cornucopioides",
+          "name": "Trompeta negra",
+          "scientific_name": "Craterellus cornucopioides",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "hygrophorus_latitabundus",
+          "name": "Llanega negra",
+          "scientific_name": "Hygrophorus latitabundus",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "hygrophorus_marzuolus",
+          "name": "Marçot",
+          "scientific_name": "Hygrophorus marzuolus",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "lactarius_deliciosus",
+          "name": "Rovelló · deliciosus",
+          "scientific_name": "Lactarius deliciosus",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "lactarius_salmonicolor_quieticolor_group",
+          "name": "Rovelló · salmonicolor/quieticolor",
+          "scientific_name": "Lactarius salmonicolor / quieticolor",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "lactarius_sanguifluus",
+          "name": "Rovelló · sanguifluus",
+          "scientific_name": "Lactarius sanguifluus",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "lactarius_vinosus",
+          "name": "Rovelló · vinosus",
+          "scientific_name": "Lactarius vinosus",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "lepista_nuda",
+          "name": "Lepista nuda",
+          "scientific_name": "Lepista nuda",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "macrolepiota_procera",
+          "name": "Macrolepiota procera",
+          "scientific_name": "Macrolepiota procera",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "marasmius_oreades",
+          "name": "Marasmius oreades",
+          "scientific_name": "Marasmius oreades",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "morchella_elata_complex",
+          "name": "Múrgola negra",
+          "scientific_name": "Morchella elata complex",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "russula_virescens",
+          "name": "Llora verda",
+          "scientific_name": "Russula virescens",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "tricholoma_terreum",
+          "name": "Fredolic",
+          "scientific_name": "Tricholoma terreum",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        },
+        {
+          "species_id": "tuber_melanosporum",
+          "name": "Tófona Negra",
+          "scientific_name": "Tuber melanosporum",
+          "status": "unknown",
+          "daily_statuses": [
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown"
+          ],
+          "reasons": [
+            "terrain_context_missing"
+          ],
+          "matched_host_ids": []
+        }
+      ],
+      "mapped_context": {
+        "habitats": [],
+        "soil_tendencies": [],
+        "lithologies": []
+      },
+      "abstention_reason": "terrain_context_missing"
+    }
+  },
+  "forest_source_read": [
+    {
+      "fid": 53525,
+      "contains": true,
+      "distance_m": 0.0,
+      "fields": {
+        "Poligon": 2325877,
+        "FormArbol": "No arbolado",
+        "Especie1": "sin datos",
+        "Especie2": "sin datos",
+        "Especie3": "sin datos",
+        "n_sp1": 0,
+        "n_sp2": 0,
+        "n_sp3": 0
+      }
+    },
+    {
+      "fid": 53579,
+      "contains": false,
+      "distance_m": 52.09,
+      "fields": {
+        "Poligon": 2326361,
+        "FormArbol": "Pinar de pino carrasco (Pinus halepensis)",
+        "Especie1": "Pinus halepensis",
+        "Especie2": "Quercus ilex",
+        "Especie3": "Quercus faginea",
+        "n_sp1": 24,
+        "n_sp2": 45,
+        "n_sp3": 44
+      }
+    },
+    {
+      "fid": 53507,
+      "contains": false,
+      "distance_m": 97.32,
+      "fields": {
+        "Poligon": 2325655,
+        "FormArbol": "No arbolado",
+        "Especie1": "sin datos",
+        "Especie2": "sin datos",
+        "Especie3": "sin datos",
+        "n_sp1": 0,
+        "n_sp2": 0,
+        "n_sp3": 0
+      }
+    }
+  ],
+  "findings": [
+    "MFE polígono 2325877 clasificado No arbolado, especies sin datos y códigos cero; lector reproduce correctamente la fuente",
+    "ICGC cubierta 223 indica bosque denso de esclerófilas y laurifolios, sin hospedador específico identificado",
+    "Polígono MFE 2326361 a 52.09 m del punto registra Pinus halepensis, Quercus ilex y Quercus faginea; proximidad no acredita hospedadores en el punto",
+    "Ggd no tiene mapping exacto activo; revisión local anterior unresolved",
+    "En coordenadas aportadas OpenLandMap estima 6.8 [6.0,7.7]; captura muestra 7.0 y cubierta 221, por lo que no se atribuyen sus valores al punto sin comprobar",
+    "Aereus unknown/terrain_context_missing; estimación 6.8 sí entra en su rango actual"
+  ],
+  "changes": "Diagnóstico documental; no cambios a GIS, mappings, perfiles, observaciones ni regla de hospedadores"
+}

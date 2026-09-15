@@ -1,0 +1,420 @@
+{
+  "date": "2026-09-12",
+  "scope": "12 point controls, 4 inside oversized originals; compare exact original geometry against subdivisions on Mac, no HA",
+  "preparation": {
+    "format": "prediction_map_land_parts_v1",
+    "kind": "vegetation",
+    "source_stamp": [
+      1694642176,
+      1789130431608541624
+    ],
+    "source_ids": [
+      352691,
+      357503,
+      548487,
+      1475533
+    ],
+    "part_counts": {
+      "352691": 32,
+      "357503": 31,
+      "548487": 25,
+      "1475533": 168
+    },
+    "complete": true
+  },
+  "parts_file": "mushroom-map-GIS/icgc-cobertes-2024/prepared/oversized-parts-2026-09-12.gpkg",
+  "parts_bytes": 22163456,
+  "part_geometry_stats": {
+    "count": 256,
+    "max_bytes": 130671,
+    "sum_bytes": 21829423
+  },
+  "controls": [
+    {
+      "point": {
+        "lat": 42.17826,
+        "lon": 2.20633
+      },
+      "lookup_ms": 139.853,
+      "cached_ms": 0.05,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 429914,
+        "code": "222",
+        "label": "Boscos densos de caducifolis, planifolis",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        429914
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 41.235,
+        "lon": 1.12
+      },
+      "lookup_ms": 16.443,
+      "cached_ms": 0.034,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 540925,
+        "code": "224",
+        "label": "Matollar",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        540925
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 42.05,
+        "lon": 1.96
+      },
+      "lookup_ms": 9.453,
+      "cached_ms": 0.028,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 966238,
+        "code": "228",
+        "label": "Prats i herbassars",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        966238
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 41.3851,
+        "lon": 2.1734
+      },
+      "lookup_ms": 13.995,
+      "cached_ms": 0.029,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 1283509,
+        "code": "341",
+        "label": "Casc urbà",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        1283509
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 40.72,
+        "lon": 0.58
+      },
+      "lookup_ms": 16.496,
+      "cached_ms": 0.033,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 796691,
+        "code": "224",
+        "label": "Matollar",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        796691
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 42.3,
+        "lon": 3.2
+      },
+      "lookup_ms": 31.169,
+      "cached_ms": 0.041,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 564752,
+        "code": "224",
+        "label": "Matollar",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        564752
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 42.6,
+        "lon": 1.1
+      },
+      "lookup_ms": 11.121,
+      "cached_ms": 0.024,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 363247,
+        "code": "221",
+        "label": "Boscos densos d'aciculifolis",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        363247
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 42.5284314,
+        "lon": 2.0095071
+      },
+      "lookup_ms": 0.085,
+      "cached_ms": 0.012,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "not_covered"
+      },
+      "original_match_ids": [],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 42.31636181939868,
+        "lon": 1.5277828098392225
+      },
+      "lookup_ms": 20.939,
+      "cached_ms": 0.034,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 352691,
+        "code": "221",
+        "label": "Boscos densos d'aciculifolis",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        352691
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 42.18968580957821,
+        "lon": 2.1236893248917483
+      },
+      "lookup_ms": 32.873,
+      "cached_ms": 0.054,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 357503,
+        "code": "221",
+        "label": "Boscos densos d'aciculifolis",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        357503
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 40.89920373343927,
+        "lon": 0.6349341918906827
+      },
+      "lookup_ms": 51.56,
+      "cached_ms": 0.045,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 548487,
+        "code": "224",
+        "label": "Matollar",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        548487
+      ],
+      "original_boundary": false,
+      "parity": true
+    },
+    {
+      "point": {
+        "lat": 41.50558299158093,
+        "lon": 2.131265610780953
+      },
+      "lookup_ms": 26.996,
+      "cached_ms": 0.053,
+      "result": {
+        "source_id": "icgc_cobertes_2024",
+        "edition": "2024",
+        "field": "nivell_2",
+        "status": "available",
+        "feature_id": 1475533,
+        "code": "351",
+        "label": "Xarxa viària",
+        "mapping_status": "not_evaluated"
+      },
+      "original_match_ids": [
+        1475533
+      ],
+      "original_boundary": false,
+      "parity": true
+    }
+  ],
+  "notes": [
+    "No geometry simplification; original IDs and areas preserved",
+    "Oracle holds original geometries only in offline validation, never in request runtime",
+    "RSS of this parity process includes original geometry oracle and is not runtime RSS",
+    "Preparation time wrapper printed 13.27 seconds then failed to read sandbox sysctl; valid completed artifact checked independently"
+  ],
+  "runtime_only": {
+    "process_peak_rss_bytes": 103219200,
+    "controls": [
+      {
+        "point": {
+          "lat": 42.17826,
+          "lon": 2.20633
+        },
+        "ms": 135.622,
+        "bytes": 208
+      },
+      {
+        "point": {
+          "lat": 41.235,
+          "lon": 1.12
+        },
+        "ms": 15.492,
+        "bytes": 176
+      },
+      {
+        "point": {
+          "lat": 42.05,
+          "lon": 1.96
+        },
+        "ms": 7.992,
+        "bytes": 186
+      },
+      {
+        "point": {
+          "lat": 41.3851,
+          "lon": 2.1734
+        },
+        "ms": 12.391,
+        "bytes": 179
+      },
+      {
+        "point": {
+          "lat": 40.72,
+          "lon": 0.58
+        },
+        "ms": 15.329,
+        "bytes": 176
+      },
+      {
+        "point": {
+          "lat": 42.3,
+          "lon": 3.2
+        },
+        "ms": 28.046,
+        "bytes": 176
+      },
+      {
+        "point": {
+          "lat": 42.6,
+          "lon": 1.1
+        },
+        "ms": 9.592,
+        "bytes": 196
+      },
+      {
+        "point": {
+          "lat": 42.5284314,
+          "lon": 2.0095071
+        },
+        "ms": 0.096,
+        "bytes": 93
+      },
+      {
+        "point": {
+          "lat": 42.31636181939868,
+          "lon": 1.5277828098392225
+        },
+        "ms": 19.42,
+        "bytes": 196
+      },
+      {
+        "point": {
+          "lat": 42.18968580957821,
+          "lon": 2.1236893248917483
+        },
+        "ms": 29.535,
+        "bytes": 196
+      },
+      {
+        "point": {
+          "lat": 40.89920373343927,
+          "lon": 0.6349341918906827
+        },
+        "ms": 45.79,
+        "bytes": 176
+      },
+      {
+        "point": {
+          "lat": 41.50558299158093,
+          "lon": 2.131265610780953
+        },
+        "ms": 23.654,
+        "bytes": 182
+      }
+    ],
+    "environment": "Mac M1, no cold OS cache, source originals not loaded as oracle in this process"
+  },
+  "preview_http_verified": [
+    "Ripoll",
+    "Selva control"
+  ],
+  "tests": {
+    "reader_tests": 24,
+    "contract_broker_tests": 18
+  }
+}

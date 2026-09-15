@@ -1,0 +1,403 @@
+{
+  "verified_at": "2026-09-11T18:21:59.012556+00:00",
+  "status": "source_acquisition_complete",
+  "operational_integration": false,
+  "tile_layer_pairs": 7119,
+  "coverages": 63,
+  "storage_tiles": 113,
+  "new_blocks": 538,
+  "reused_files": 1410,
+  "total_raster_files": 1948,
+  "raster_bytes": 795522040,
+  "downloaded_block_bytes": 401229517,
+  "coverage_summary": {
+    "wv0010_0-5cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 6541990,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_0-5cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6183324,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_0-5cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 5426896,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_5-15cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 6534028,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_5-15cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6073783,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_5-15cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 5556967,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_15-30cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 6431895,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_15-30cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6170973,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_15-30cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 5686616,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_30-60cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 6519441,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_30-60cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6193261,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_30-60cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 5833957,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_60-100cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 6735626,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_60-100cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6204777,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_60-100cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 5902953,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_100-200cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 6730548,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_100-200cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6371221,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0010_100-200cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6050902,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_0-5cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 7003486,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_0-5cm_Q0.5": {
+      "new_blocks": 7,
+      "new_bytes": 6468241,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 30
+    },
+    "wv0033_0-5cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6860467,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_5-15cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 7082245,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_5-15cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6470470,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_5-15cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6806948,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_15-30cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 7067522,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_15-30cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6439743,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_15-30cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6676401,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_30-60cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 7121964,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_30-60cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6344200,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_30-60cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6614345,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_60-100cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 7190095,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_60-100cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6380455,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_60-100cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6603492,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_100-200cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 6935065,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_100-200cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6376524,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv0033_100-200cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6578047,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_0-5cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 5970482,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_0-5cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6217688,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_0-5cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6937735,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_5-15cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 5988588,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_5-15cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6260784,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_5-15cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 7055210,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_15-30cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 5901500,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_15-30cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6330149,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_15-30cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 7069896,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_30-60cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 5737134,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_30-60cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6657517,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_30-60cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6552017,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_60-100cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 5750493,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_60-100cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6726033,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_60-100cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6490338,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_100-200cm_Q0.05": {
+      "new_blocks": 9,
+      "new_bytes": 5662812,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_100-200cm_Q0.5": {
+      "new_blocks": 9,
+      "new_bytes": 6732701,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "wv1500_100-200cm_Q0.95": {
+      "new_blocks": 9,
+      "new_bytes": 6513361,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 25
+    },
+    "phh2o_0-5cm_Q0.05": {
+      "new_blocks": 6,
+      "new_bytes": 6471572,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 0
+    },
+    "phh2o_0-5cm_Q0.5": {
+      "new_blocks": 6,
+      "new_bytes": 6195643,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 0
+    },
+    "phh2o_0-5cm_Q0.95": {
+      "new_blocks": 6,
+      "new_bytes": 5407170,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 0
+    },
+    "phh2o_5-15cm_Q0.05": {
+      "new_blocks": 6,
+      "new_bytes": 6838902,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 0
+    },
+    "phh2o_5-15cm_Q0.5": {
+      "new_blocks": 6,
+      "new_bytes": 6109651,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 0
+    },
+    "phh2o_5-15cm_Q0.95": {
+      "new_blocks": 6,
+      "new_bytes": 5249871,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 0
+    },
+    "phh2o_15-30cm_Q0.05": {
+      "new_blocks": 6,
+      "new_bytes": 6608174,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 0
+    },
+    "phh2o_15-30cm_Q0.5": {
+      "new_blocks": 6,
+      "new_bytes": 6158501,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 0
+    },
+    "phh2o_15-30cm_Q0.95": {
+      "new_blocks": 6,
+      "new_bytes": 5466727,
+      "tile_layer_pairs": 113,
+      "reused_pairs": 0
+    }
+  },
+  "warnings": [],
+  "new_blocks_without_declared_crs": 538,
+  "new_blocks_without_declared_nodata": 538,
+  "limits": [
+    "Rectangular acquisition envelope, not complete valid-pixel coverage certification",
+    "Source rasters preserved; missing-data semantics, normalization and spatial reader integration pending",
+    "Existing retention snapshot preserved; homogeneous edition and quantile/scientific comparisons not yet validated"
+  ],
+  "old_manifest_sha256": "4ef9ecf186ecbe9ac017ea9ba61f14a1c5bb31a0763fcbe072aba0b6bcba7a22",
+  "observations_sha256": "f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0"
+}

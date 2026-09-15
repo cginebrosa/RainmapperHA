@@ -17,6 +17,102 @@ from rainmapper_core import mushroom_worker_service
 
 
 class MushroomWorkerServiceTests(unittest.TestCase):
+    def test_background_chain_keeps_affinity_after_rebuild_and_base_training(self):
+        # Real service/HTTP scheduling; all scientific execution and transport are stubs.
+        claims = []
+        finishes = []
+        third_claimed = threading.Event()
+        jobs = [
+            {"job_type": "worker_candidate_rebuild", "full_update": True},
+            {"job_type": "worker_ml_train_v0", "triggered_by_job_id": "worker_job_chain000"},
+            {"job_type": "worker_ml_multiversion_v1", "triggered_by_job_id": "worker_job_chain001"},
+        ]
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802
+                payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+                response = {"ok": True, "job": {}, "cancel_requested": False}
+                if self.path.endswith("/jobs/claim"):
+                    response["job"] = None
+                    if payload["lane"] == "background":
+                        peer = self.server.is_peer
+                        if peer:
+                            # A competing coordinator is always eligible; affinity must win.
+                            claims.append("peer")
+                        elif len(claims) < 3:
+                            index = len(claims)
+                            claims.append(f"chain-{index}")
+                            response["job"] = {**jobs[index], "job_id": f"worker_job_chain00{index}", "claim_token": "fixture-token"}
+                            if index == 2:
+                                third_claimed.set()
+                                # Stop before any multiversion execution is dispatched.
+                                response["job"] = None
+                elif self.path.endswith("/jobs/finish"):
+                    finishes.append(payload["status"])
+                body = json.dumps(response).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):
+                pass
+
+        servers = []
+        process = None
+        try:
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                for peer in (False, True):
+                    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+                    server.is_peer = peer
+                    servers.append(server)
+                    threading.Thread(target=server.serve_forever, daemon=True).start()
+                config = mushroom_worker_service.mushroom_worker_config
+                config.save_coordinator_config(root, rainmapper_url=f"http://127.0.0.1:{servers[0].server_port}", token="p" * 40)
+                config.add_coordinator(root, rainmapper_url=f"http://127.0.0.1:{servers[1].server_port}", token="s" * 40)
+                bootstrap = '''
+import sys
+from pathlib import Path
+from rainmapper_core import mushroom_worker_service as service
+root = Path(sys.argv[1])
+def inputs(url, job, *args, **kwargs):
+    path = root / job['job_id']
+    path.mkdir()
+    return {'input_dir': str(path)}
+class FinishedProcess:
+    def __init__(self, command, **kwargs):
+        assert command[1] in ('/app/scripts/run-mushroom-rebuild-job.py', '/app/scripts/run-mushroom-ml-train-job.py'), command
+    def poll(self): return 0
+    def wait(self, **kwargs): return 0
+service.subprocess.Popen = FinishedProcess
+service.mushroom_worker_transport.download_input_bundle = inputs
+service.mushroom_worker_transport.download_ml_train_inputs = inputs
+service.mushroom_worker_results.upload_candidate_result = lambda *a, **k: {}
+service.mushroom_worker_results.upload_ml_train_result = lambda *a, **k: {}
+service.serve(root, host='127.0.0.1', port=0, heartbeat_interval=0.1)
+'''
+                with (root / "service.log").open("w+") as log:
+                    process = subprocess.Popen(
+                        [sys.executable, "-c", bootstrap, str(root)],
+                        env={**os.environ, "RAINMAPPER_PREDICTION_MAP_CONFIG": "", "RAINMAPPER_WORKER_JOB_RETRY_SECONDS": "0"},
+                        stdout=log, stderr=subprocess.STDOUT,
+                    )
+                    reached = third_claimed.wait(8)
+                    process.terminate()
+                    process.wait(timeout=8)
+                    log.seek(0)
+                    self.assertTrue(reached, log.read())
+                    self.assertEqual(["chain-0", "chain-1", "chain-2"], claims[:3])
+                    self.assertEqual(["complete", "complete"], finishes[:2])
+        finally:
+            if process is not None and process.poll() is None:
+                process.terminate()
+                process.wait(timeout=8)
+            for server in servers:
+                server.shutdown()
+                server.server_close()
+
     def test_precompute_failed_finish_survives_service_restart_and_blocks_new_background_claims(self):
         failed_delivery = threading.Event()
         delivered = threading.Event()

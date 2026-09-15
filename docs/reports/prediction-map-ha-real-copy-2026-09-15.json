@@ -1,0 +1,48 @@
+{
+  "target": "HA real via SMB //Carlos@100.111.77.48/media",
+  "generation_path": "/Volumes/media/rainmapper/prediction-map/generations/local-20260914",
+  "manifest_fingerprint": "sha256:8ab40e26cddf9567b878611f11c39d079579eb455105839a40ac67610e3f1336",
+  "manifest_matches_prepared_package": true,
+  "expected_files": 3510,
+  "found_files": 3510,
+  "expected_bytes": 14538214301,
+  "found_bytes": 14538214301,
+  "missing": [],
+  "wrong_sizes": [],
+  "non_regular": [],
+  "extra_files": [],
+  "errors": [],
+  "asset_contents_hashed": false,
+  "remote_writes": false,
+  "elapsed_seconds": 95.2,
+  "checked_at": "2026-09-15T11:17:06.388663+00:00",
+  "timestamp_check": {
+    "observed_via": "SMB",
+    "mismatches": 3493,
+    "min_delta_ns": -156,
+    "max_delta_ns": 57,
+    "all_exact_after_truncation_to_100ns": false,
+    "examples": [
+      {
+        "path": "mushroom-map-GIS/ign-mdt25/source/PNOA-MDT25-ETRS89-HU30-0137-LID.TIF",
+        "expected": 1789130601033897069,
+        "actual": 1789130601033897000,
+        "delta_ns": -69
+      },
+      {
+        "path": "mushroom-map-GIS/ign-mdt25/source/PNOA-MDT25-ETRS89-HU30-0378-LID.TIF",
+        "expected": 1789130719248764857,
+        "actual": 1789130719248764800,
+        "delta_ns": -57
+      },
+      {
+        "path": "mushroom-map-GIS/ign-mdt25/source/PNOA-MDT25-ETRS89-HU30-0522-LID.TIF",
+        "expected": 1789130795719020747,
+        "actual": 1789130795719020700,
+        "delta_ns": -47
+      }
+    ],
+    "interpretation": "SMB timestamps differ from sealed nanoseconds. Server-side publication must check native timestamps and restore from manifest if necessary; SMB observation alone cannot distinguish transport precision from stored precision."
+  },
+  "next_step": "After installing candidate, publish from HA with --restore-timestamps if native stat differs. No remote mutation or activation performed by this check."
+}

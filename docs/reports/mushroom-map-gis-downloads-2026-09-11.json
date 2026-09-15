@@ -1,0 +1,492 @@
+{
+  "date": "2026-09-11",
+  "root": "mushroom-map-GIS",
+  "not_integrated": true,
+  "icgc": {
+    "status": "complete",
+    "zip_bytes": 810439129,
+    "gpkg_bytes": 1694642176,
+    "features": 1524399,
+    "categories": 41,
+    "readme": "mushroom-map-GIS/icgc-cobertes-2024/source/README.md",
+    "manifest": "mushroom-map-GIS/icgc-cobertes-2024/source/manifest.json"
+  },
+  "ign": {
+    "status": "complete",
+    "files": 1524,
+    "bytes": 4591983594,
+    "headers_validated": 1524,
+    "crs_mismatches": [
+      "PNOA-MDT25-ETRS89-HU29-0001-LID.TIF",
+      "PNOA-MDT25-ETRS89-HU31-0118B-LID.TIF"
+    ],
+    "readme": "mushroom-map-GIS/ign-mdt25/source/README.md",
+    "manifest": "mushroom-map-GIS/ign-mdt25/manifest.json"
+  },
+  "mfe": {
+    "status": "all_17_regional_packages_and_supplementary_tables_downloaded",
+    "vector_status": "all_17_regional_packages_verified",
+    "readme": "mushroom-map-GIS/mfe25/source/README.md",
+    "manifest": "mushroom-map-GIS/mfe25/source/manifest.json",
+    "catalogue_regions": 17,
+    "files": [
+      {
+        "file": "MFE25_OtrasEspeciesArboreas.zip",
+        "source_url": "https://www.miteco.gob.es/content/dam/miteco/es/biodiversidad/servicios/banco-datos-naturaleza/mfe/mfe25/MFE25_OtrasEspeciesArboreas.zip",
+        "bytes": 31567584,
+        "sha256": "4472e512c4288faf2b85a71cb8e5d8922ca75af36911982094c6918188a2495e"
+      },
+      {
+        "file": "MFE25_OtrasSuperficies.zip",
+        "source_url": "https://www.miteco.gob.es/content/dam/miteco/es/biodiversidad/servicios/banco-datos-naturaleza/mfe/mfe25/MFE25_OtrasSuperficies.zip",
+        "bytes": 17992543,
+        "sha256": "46dcdfd2c0766b32c4faba67052bfd1c79eea28bb80cc3694396cb66e300ec16"
+      },
+      {
+        "file": "mfe25_dd.xlsx",
+        "source_url": "https://www.miteco.gob.es/content/dam/miteco/es/biodiversidad/servicios/banco-datos-naturaleza/mfe/mfe25/mfe25_dd.xlsx",
+        "bytes": 884040,
+        "sha256": "13506cb57abbe9f8cafa3bc1b2e3435cddba19b281187e8a02fff6482936e774"
+      },
+      {
+        "file": "mfe_catalunia.zip",
+        "source_url": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_catalunia.zip",
+        "acquisition": "Downloaded by user in browser and placed in project; network transfer not observed by agent",
+        "verified_date": "2026-09-11",
+        "bytes": 381585438,
+        "sha256": "f398f7d17649a1134bf6a06276d69c97a5a533783058a252dc7e6986a4df3451",
+        "zip_crc_valid": true,
+        "readme": "mfe_catalunia.README.md",
+        "validation": "mfe_catalunia/validation.json"
+      },
+      {
+        "file": "mfe_galicia.rar",
+        "bytes": 215793859,
+        "sha256": "2dd7da9d0d904ddda1f8789e6a2c65ffd57d8a71e7ba12950b32a17520139c9a",
+        "source_url": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_galicia.rar",
+        "acquisition": "User browser download; supplied original archive",
+        "extraction": "bsdtar completed without errors",
+        "readme": "mfe_galicia.README.md"
+      }
+    ],
+    "catalunya": {
+      "feature_count": 238096,
+      "crs": "EPSG:25830",
+      "province_counts": {
+        "Barcelona": 69656,
+        "Girona": 39467,
+        "Lleida": 66223,
+        "Tarragona": 62750
+      },
+      "origin_counts": {
+        "MFE25": 238096
+      },
+      "temporal_evidence": {
+        "dictionary": "MaximaActualidadMFE25_50_Dic2021_dd.xlsx",
+        "metadata_source_database": "MfeMaxDic2021.gdb",
+        "metadata_creation_date": "2022-09-14",
+        "field_observation_dates": "not established by this audit"
+      },
+      "extracted_original_bytes": 1617431022,
+      "not_checked": [
+        "Exhaustive geometry validity",
+        "Territorial gaps and overlaps",
+        "Joins with supplementary tables",
+        "Current field presence of individual trees"
+      ],
+      "validation": "mushroom-map-GIS/mfe25/source/mfe_catalunia/validation.json"
+    },
+    "regions": [
+      {
+        "region": "Andalucía",
+        "directory": "mfe_andalucia",
+        "feature_count": 305063,
+        "original_bytes": 2903628859,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_andalucia.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_andalucia.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2025_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_andalucia/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_andalucia/package-validation.json"
+      },
+      {
+        "region": "Aragón",
+        "directory": "mfe_aragon",
+        "feature_count": 173553,
+        "original_bytes": 2090264019,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_aragon.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_aragon.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2023_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_aragon/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_aragon/package-validation.json"
+      },
+      {
+        "region": "Asturias",
+        "directory": "mfe_principadodeasturias",
+        "feature_count": 33726,
+        "original_bytes": 292529222,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_asturias.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_principadodeasturias.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_principadodeasturias/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_principadodeasturias/package-validation.json"
+      },
+      {
+        "region": "Canarias",
+        "directory": "mfe_canarias",
+        "feature_count": 26418,
+        "original_bytes": 207833306,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_canarias.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_canarias.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "WGS 84 / UTM zone 28N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_canarias/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_canarias/package-validation.json"
+      },
+      {
+        "region": "Cantabria",
+        "directory": "mfe_cantabria",
+        "feature_count": 15296,
+        "original_bytes": 130140010,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_cantabria.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_cantabria.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_cantabria/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_cantabria/package-validation.json"
+      },
+      {
+        "region": "Castilla-La Mancha",
+        "directory": "mfe_castillalamancha",
+        "feature_count": 238421,
+        "original_bytes": 2506455106,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_castilla_la_mancha.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_castillalamancha.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2022_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_castillalamancha/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_castillalamancha/package-validation.json"
+      },
+      {
+        "region": "Castilla y León",
+        "directory": "mfe_castillayleon",
+        "feature_count": 351853,
+        "original_bytes": 3467248132,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_castilla_y_leon.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_castillayleon.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_castillayleon/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_castillayleon/package-validation.json"
+      },
+      {
+        "region": "Catalunya",
+        "directory": "mfe_catalunia",
+        "feature_count": 238096,
+        "original_bytes": 1617431022,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_catalunia.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_catalunia.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_catalunia/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_catalunia/package-validation.json"
+      },
+      {
+        "region": "Comunitat Valenciana",
+        "directory": "mfe_ComunitatValenciana",
+        "feature_count": 92589,
+        "original_bytes": 1024880347,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_comunidadvalenciana.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_ComunitatValenciana.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2025_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_ComunitatValenciana/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_ComunitatValenciana/package-validation.json"
+      },
+      {
+        "region": "Extremadura",
+        "directory": "mfe_extremadura",
+        "feature_count": 96680,
+        "original_bytes": 647550730,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_extremadura.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_extremadura.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_extremadura/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_extremadura/package-validation.json"
+      },
+      {
+        "region": "Galicia",
+        "directory": "mfe_galicia",
+        "feature_count": 96665,
+        "original_bytes": 764904238,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_galicia.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_galicia.rar",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_galicia/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_galicia/package-validation.json"
+      },
+      {
+        "region": "Illes Balears",
+        "directory": "mfe_illesbalears",
+        "feature_count": 12114,
+        "original_bytes": 118713390,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_illesbalears.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_illesbalears.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_illesbalears/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_illesbalears/package-validation.json"
+      },
+      {
+        "region": "La Rioja",
+        "directory": "mfe_larioja",
+        "feature_count": 15115,
+        "original_bytes": 118142860,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_larioja.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_larioja.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_larioja/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_larioja/package-validation.json"
+      },
+      {
+        "region": "Madrid",
+        "directory": "mfe_madrid",
+        "feature_count": 50992,
+        "original_bytes": 387442730,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_madrid.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_madrid.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_madrid/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_madrid/package-validation.json"
+      },
+      {
+        "region": "Murcia",
+        "directory": "mfe_regiondemurcia",
+        "feature_count": 20931,
+        "original_bytes": 174429788,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe-murcia.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_regiondemurcia.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_regiondemurcia/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_regiondemurcia/package-validation.json"
+      },
+      {
+        "region": "Navarra",
+        "directory": "mfe_navarra",
+        "feature_count": 34860,
+        "original_bytes": 339565118,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_navarra.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_navarra.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_navarra/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_navarra/package-validation.json"
+      },
+      {
+        "region": "País Vasco",
+        "directory": "mfe_pais_vasco",
+        "feature_count": 192481,
+        "original_bytes": 1213427264,
+        "source_page": "https://www.miteco.gob.es/es/cartografia-y-sig/ide/descargas/biodiversidad/mfe_paisvasco.html",
+        "source_download": "https://gis.miteco.gob.es/descargas/app/DescargaFichero?f=mfe_pais_vasco.zip",
+        "dictionary_files": [
+          "MaximaActualidadMFE25_50_Dic2021_dd.xlsx"
+        ],
+        "crs": "ETRS89 / UTM zone 30N",
+        "readme": "mushroom-map-GIS/mfe25/source/mfe_pais_vasco/README.md",
+        "validation": "mushroom-map-GIS/mfe25/source/mfe_pais_vasco/package-validation.json"
+      }
+    ],
+    "total_features": 1994853,
+    "total_original_files": 153,
+    "total_extracted_original_bytes": 18004586141,
+    "regions_validation": "mushroom-map-GIS/mfe25/regions-validation.json",
+    "original_archives_available": [
+      "mfe_catalunia.zip",
+      "mfe_galicia.rar"
+    ],
+    "other_regions_supplied_extracted": 15,
+    "remaining_regional_packages": []
+  },
+  "geode": {
+    "status": "complete",
+    "expected_geology_polygons": 612170,
+    "readme": "mushroom-map-GIS/geology-spain/source/README.md",
+    "layers": [
+      {
+        "layer": 8,
+        "status": "complete",
+        "blocks": 613,
+        "bytes": 1618622544,
+        "spatial_reference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "manifest": "mushroom-map-GIS/geology-spain/source/layer-8-manifest.json",
+        "manifest_sha256": "d3356aac9f48a5823eb103d4c6a45855997e061d797b5688c93f910b54d77898",
+        "records": 612170,
+        "nonempty_polygon_geometries": 612170
+      },
+      {
+        "layer": 6,
+        "status": "complete",
+        "blocks": 45,
+        "bytes": 6422419,
+        "spatial_reference": {
+          "wkid": 102100,
+          "latestWkid": 3857
+        },
+        "manifest": "mushroom-map-GIS/geology-spain/source/layer-6-manifest.json",
+        "manifest_sha256": "cfdba81c1b16ff25586a47766941f6a02db5db52254f7621738b52a9380f2113",
+        "records": 44464,
+        "nonempty_polygon_geometries": 44463
+      }
+    ],
+    "total_compressed_bytes": 1625044963,
+    "total_records": 656634,
+    "nonempty_polygon_geometries": 656633,
+    "geometry_validation": [
+      {
+        "layer": 8,
+        "features": 612170,
+        "geometries": {
+          "rings": 612170
+        },
+        "zones": {
+          "Z1000": 23776,
+          "Z1100": 10343,
+          "Z1200": 13636,
+          "Z1300": 37119,
+          "Z1400": 58162,
+          "Z1500": 19398,
+          "Z1600": 23915,
+          "Z1700": 41729,
+          "Z1800": 50403,
+          "Z2100": 39892,
+          "Z2210": 2734,
+          "Z2211": 5982,
+          "Z2212": 1401,
+          "Z2300": 66519,
+          "Z2400": 59623,
+          "Z2500": 16856,
+          "Z2600": 57025,
+          "Z2700": 41307,
+          "Z2800": 4967,
+          "Z2910": 2009,
+          "Z2911": 7509,
+          "Z2912": 5689,
+          "Z2913": 5594,
+          "Z2914": 4121,
+          "Z2915": 3333,
+          "Z2916": 992,
+          "Z3100": 8136
+        }
+      },
+      {
+        "layer": 6,
+        "features": 44464,
+        "geometries": {
+          "rings": 44463,
+          "missing_or_empty": 1
+        },
+        "zones": {
+          "Z1100": 304,
+          "Z1300": 1261,
+          "Z1400": 3999,
+          "Z1500": 28,
+          "Z1600": 2492,
+          "Z1700": 1735,
+          "Z1800": 3725,
+          "Z2100": 2912,
+          "Z2211": 1251,
+          "Z2300": 4467,
+          "Z2400": 4734,
+          "Z2500": 949,
+          "Z2600": 5121,
+          "Z2700": 10729,
+          "Z2800": 757
+        }
+      }
+    ],
+    "territorial_limit": {
+      "absent_zone_in_main_layer": "Z3000",
+      "zone_name": "Catalánides",
+      "catalogue_zones": 28,
+      "zones_in_main_layer": 27,
+      "barcelona_probe": {
+        "longitude": 2.15,
+        "latitude": 41.4,
+        "input_crs": "EPSG:4326",
+        "returned_count": 0,
+        "source_url": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query?geometry=2.15%2C41.4&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json"
+      }
+    },
+    "expected_quaternary_records": 44464
+  },
+  "total_directory_bytes": 28669570943,
+  "remaining_part_files": [],
+  "observations_sha256": "f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0",
+  "icgc_geology": {
+    "status": "prepared_and_point_checked",
+    "feature_count": 61437,
+    "zip_bytes": 161846224,
+    "gpkg_bytes": 293679104,
+    "manifest": "mushroom-map-GIS/icgc-geologia-50000/source/manifest.json",
+    "readme": "mushroom-map-GIS/icgc-geologia-50000/source/README.md",
+    "report": "docs/reports/mushroom-prediction-map-geology-icgc-2026-09-11.json",
+    "positive_local_controls": 16,
+    "negative_local_controls": 3
+  },
+  "soilgrids": {
+    "status": "source_acquisition_complete",
+    "operational_integration": false,
+    "new_blocks": 538,
+    "reused_files": 1410,
+    "raster_bytes": 795522040,
+    "downloaded_block_bytes": 401229517,
+    "storage_tiles": 113,
+    "coverages": 63,
+    "tile_layer_pairs": 7119,
+    "readme": "mushroom-map-GIS/soilgrids-shared/source/README.md",
+    "validation": "docs/reports/mushroom-prediction-map-soilgrids-acquisition-2026-09-11.json"
+  }
+}

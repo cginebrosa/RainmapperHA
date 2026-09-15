@@ -1,0 +1,180 @@
+{
+  "checked_at": "2026-09-13T17:33:31.929584+00:00",
+  "scope": "Only pH0–30cm, period2020–2022, mean30m plus p16/p84 at120m. Not the whole OpenLandMap catalog.",
+  "method": "Read remote GeoTIFF headers; count raster cells intersecting padded mainland bounding rectangle; no bulk raster download.",
+  "bbox_note": "Rectangle -9.6,35.9,3.4,43.9 includes Portugal, sea and some non-mainland territory; no precise Spain land mask, deliberately conservative.",
+  "layers": [
+    {
+      "type": "mean",
+      "nominal_resolution": "30m",
+      "url": "https://s3.opengeohub.org/global-soil/global_soil_props_v20250204_mosaics/ph.h2o_iso.10390.2021.index_m_30m_b0cm..30cm_20200101_20221231_g_epsg.4326_v20250204.tif",
+      "dtype": "Byte",
+      "bytes_per_pixel": 1.0,
+      "bands": 1,
+      "geotransform": [
+        -180.0005,
+        0.00024999999999996845,
+        0.0,
+        76.0005,
+        0.0,
+        -0.00024999999999996845
+      ],
+      "block_size": [
+        2048,
+        2048
+      ],
+      "compression": {
+        "LAYOUT": "COG",
+        "COMPRESSION": "DEFLATE",
+        "INTERLEAVE": "BAND",
+        "PREDICTOR": "2"
+      },
+      "world_pixels": [
+        1440004,
+        528004
+      ],
+      "mainland_bbox": [
+        -9.6,
+        35.9,
+        3.4,
+        43.9
+      ],
+      "bbox_pixels": [
+        52001,
+        32001
+      ],
+      "bbox_uncompressed_bytes": 1664084001
+    },
+    {
+      "type": "p0.16",
+      "nominal_resolution": "120m",
+      "url": "https://s3.opengeohub.org/global-soil/global_soil_props_v20250204_mosaics/ph.h2o_iso.10390.2021.index_p16_120m_b0cm..30cm_20200101_20221231_g_epsg.4326_v20250204.tif",
+      "dtype": "Byte",
+      "bytes_per_pixel": 1.0,
+      "bands": 1,
+      "geotransform": [
+        -180.0,
+        0.0009999999999998738,
+        0.0,
+        76.0,
+        0.0,
+        -0.0009999999999998738
+      ],
+      "block_size": [
+        2048,
+        2048
+      ],
+      "compression": {
+        "LAYOUT": "COG",
+        "COMPRESSION": "DEFLATE",
+        "INTERLEAVE": "BAND",
+        "PREDICTOR": "2"
+      },
+      "world_pixels": [
+        360000,
+        132000
+      ],
+      "mainland_bbox": [
+        -9.6,
+        35.9,
+        3.4,
+        43.9
+      ],
+      "bbox_pixels": [
+        13001,
+        8001
+      ],
+      "bbox_uncompressed_bytes": 104021001
+    },
+    {
+      "type": "p0.84",
+      "nominal_resolution": "120m",
+      "url": "https://s3.opengeohub.org/global-soil/global_soil_props_v20250204_mosaics/ph.h2o_iso.10390.2021.index_p84_120m_b0cm..30cm_20200101_20221231_g_epsg.4326_v20250204.tif",
+      "dtype": "Byte",
+      "bytes_per_pixel": 1.0,
+      "bands": 1,
+      "geotransform": [
+        -180.0,
+        0.0009999999999998738,
+        0.0,
+        76.0,
+        0.0,
+        -0.0009999999999998738
+      ],
+      "block_size": [
+        2048,
+        2048
+      ],
+      "compression": {
+        "LAYOUT": "COG",
+        "COMPRESSION": "DEFLATE",
+        "INTERLEAVE": "BAND",
+        "PREDICTOR": "2"
+      },
+      "world_pixels": [
+        360000,
+        132000
+      ],
+      "mainland_bbox": [
+        -9.6,
+        35.9,
+        3.4,
+        43.9
+      ],
+      "bbox_pixels": [
+        13001,
+        8001
+      ],
+      "bbox_uncompressed_bytes": 104021001
+    }
+  ],
+  "uncompressed_total_bytes": 1872126003,
+  "uncompressed_total_decimal_GB": 1.872126003,
+  "with_power_of_two_overviews_estimate_decimal_GB": 2.496168004,
+  "suggested_working_storage_decimal_GB": 3,
+  "compressed_disk_size": "Not measured; depends on output compression, tiling, mask and overviews.3GB is a planning allowance, not a measured download size.",
+  "whole_world_30m_mean_only_head_content_length_bytes": 60577404749,
+  "all_three_depth_intervals_scenario_uncompressed_decimal_GB": 5.616378009,
+  "all_three_depth_intervals_scenario_note": "Extrapolation assuming identical grids/storage type for additional horizons, not separately checked here. No need to acquire them for initial pH evaluation.",
+  "operational_files_modified": false,
+  "all_spain_estimate": {
+    "method": "Same verified pixel grids and byte types; sum three padded rectangular windows. Includes non-Spanish land/sea and a small overlap; conservative estimate without territorial mask. No new raster downloads.",
+    "regions": [
+      {
+        "region": "peninsula_and_balearics",
+        "bbox": [
+          -9.6,
+          35.9,
+          4.4,
+          43.9
+        ],
+        "uncompressed_bytes": 2016132003
+      },
+      {
+        "region": "canaries",
+        "bbox": [
+          -18.3,
+          27.5,
+          -13.3,
+          29.5
+        ],
+        "uncompressed_bytes": 180042003
+      },
+      {
+        "region": "north_african_spanish_territories",
+        "bbox": [
+          -5.5,
+          35.0,
+          -2.3,
+          35.95
+        ],
+        "uncompressed_bytes": 54744903
+      }
+    ],
+    "total_uncompressed_decimal_GB": 2.250918909,
+    "with_overviews_estimate_decimal_GB": 3.001225212,
+    "recommended_storage_decimal_GB": 4,
+    "compressed_size_measured": false,
+    "scope": "Same pH0–30cm and2020–2022 period:30m mean plus120m p16/p84; not whole product catalog."
+  }
+}

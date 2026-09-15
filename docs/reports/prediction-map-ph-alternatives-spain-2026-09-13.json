@@ -1,0 +1,343 @@
+{
+  "checked_at": "2026-09-13T17:26:18.366184+00:00",
+  "status": "candidate_point_comparison_not_integrated",
+  "scope": "Spain mainland priority; islands lower priority and not a blocker, per user steering. Not restricted to Catalonia.",
+  "method": "Remote GDAL 1x1 windows via HTTP range requests to three public COGs. No full map download, training, runner or operational changes. Three Catalan test sites, not Spain-wide validation.",
+  "points": [
+    {
+      "name": "merles",
+      "lat": 42.01347,
+      "lon": 1.97098,
+      "column": 727885,
+      "row": 135948,
+      "raw": 67.0,
+      "ph": 6.7,
+      "openlandmap_mean_resolution": "30m",
+      "depth_cm": [
+        0,
+        30
+      ],
+      "period": "2020-2022",
+      "uncertainty_68pct_at_120m": [
+        5.6,
+        7.9
+      ]
+    },
+    {
+      "name": "olvan",
+      "lat": 42.0622,
+      "lon": 1.93614,
+      "column": 727746,
+      "row": 135753,
+      "raw": 66.0,
+      "ph": 6.6,
+      "openlandmap_mean_resolution": "30m",
+      "depth_cm": [
+        0,
+        30
+      ],
+      "period": "2020-2022",
+      "uncertainty_68pct_at_120m": [
+        5.7,
+        7.6
+      ]
+    },
+    {
+      "name": "la_pera",
+      "lat": 42.0641,
+      "lon": 1.9387,
+      "column": 727756,
+      "row": 135745,
+      "raw": 64.0,
+      "ph": 6.4,
+      "openlandmap_mean_resolution": "30m",
+      "depth_cm": [
+        0,
+        30
+      ],
+      "period": "2020-2022",
+      "uncertainty_68pct_at_120m": [
+        5.5,
+        7.6
+      ]
+    }
+  ],
+  "raw_reads": [
+    {
+      "source": {
+        "property": "ph.h2o",
+        "unit": "10x",
+        "depth_interval": "0..30cm",
+        "year_interval": "2020-2022",
+        "type": "mean",
+        "Resolution": "30m",
+        "scaler": "0.1",
+        "filename": "ph.h2o_iso.10390.2021.index",
+        "description": "The pH, 1:1 soil-water suspension is the pH of a sample measured in distilled water at a 1:1 soil:solution ratio;\nBlock prediction for soil pH in water between depths across five years.",
+        "s3 paths": "https://s3.opengeohub.org/global-soil/global_soil_props_v20250204_mosaics/ph.h2o_iso.10390.2021.index_m_30m_b0cm..30cm_20200101_20221231_g_epsg.4326_v20250204.tif",
+        "DOI": ""
+      },
+      "points": [
+        {
+          "name": "merles",
+          "lat": 42.01347,
+          "lon": 1.97098,
+          "column": 727885,
+          "row": 135948,
+          "raw": 67.0,
+          "ph": 6.7
+        },
+        {
+          "name": "olvan",
+          "lat": 42.0622,
+          "lon": 1.93614,
+          "column": 727746,
+          "row": 135753,
+          "raw": 66.0,
+          "ph": 6.6
+        },
+        {
+          "name": "la_pera",
+          "lat": 42.0641,
+          "lon": 1.9387,
+          "column": 727756,
+          "row": 135745,
+          "raw": 64.0,
+          "ph": 6.4
+        }
+      ]
+    },
+    {
+      "source": {
+        "property": "ph.h2o",
+        "unit": "10x",
+        "depth_interval": "0..30cm",
+        "year_interval": "2020-2022",
+        "type": "p0.16",
+        "Resolution": "120m",
+        "scaler": "0.1",
+        "filename": "ph.h2o_iso.10390.2021.index",
+        "description": "The pH, 1:1 soil-water suspension is the pH of a sample measured in distilled water at a 1:1 soil:solution ratio;\nBlock prediction for soil pH in water between depths across five years.",
+        "s3 paths": "https://s3.opengeohub.org/global-soil/global_soil_props_v20250204_mosaics/ph.h2o_iso.10390.2021.index_p16_120m_b0cm..30cm_20200101_20221231_g_epsg.4326_v20250204.tif",
+        "DOI": ""
+      },
+      "points": [
+        {
+          "name": "merles",
+          "lat": 42.01347,
+          "lon": 1.97098,
+          "column": 181970,
+          "row": 33986,
+          "raw": 56.0,
+          "ph": 5.6
+        },
+        {
+          "name": "olvan",
+          "lat": 42.0622,
+          "lon": 1.93614,
+          "column": 181936,
+          "row": 33937,
+          "raw": 57.0,
+          "ph": 5.7
+        },
+        {
+          "name": "la_pera",
+          "lat": 42.0641,
+          "lon": 1.9387,
+          "column": 181938,
+          "row": 33935,
+          "raw": 55.0,
+          "ph": 5.5
+        }
+      ]
+    },
+    {
+      "source": {
+        "property": "ph.h2o",
+        "unit": "10x",
+        "depth_interval": "0..30cm",
+        "year_interval": "2020-2022",
+        "type": "p0.84",
+        "Resolution": "120m",
+        "scaler": "0.1",
+        "filename": "ph.h2o_iso.10390.2021.index",
+        "description": "The pH, 1:1 soil-water suspension is the pH of a sample measured in distilled water at a 1:1 soil:solution ratio;\nBlock prediction for soil pH in water between depths across five years.",
+        "s3 paths": "https://s3.opengeohub.org/global-soil/global_soil_props_v20250204_mosaics/ph.h2o_iso.10390.2021.index_p84_120m_b0cm..30cm_20200101_20221231_g_epsg.4326_v20250204.tif",
+        "DOI": ""
+      },
+      "points": [
+        {
+          "name": "merles",
+          "lat": 42.01347,
+          "lon": 1.97098,
+          "column": 181970,
+          "row": 33986,
+          "raw": 79.0,
+          "ph": 7.9
+        },
+        {
+          "name": "olvan",
+          "lat": 42.0622,
+          "lon": 1.93614,
+          "column": 181936,
+          "row": 33937,
+          "raw": 76.0,
+          "ph": 7.6
+        },
+        {
+          "name": "la_pera",
+          "lat": 42.0641,
+          "lon": 1.9387,
+          "column": 181938,
+          "row": 33935,
+          "raw": 76.0,
+          "ph": 7.6
+        }
+      ]
+    }
+  ],
+  "sources": {
+    "soilgrids": "https://docs.isric.org/globaldata/soilgrids/SoilGrids_faqs_01.html",
+    "openlandmap": "https://github.com/openlandmap/soildb",
+    "openlandmap_catalog": "https://github.com/openlandmap/soildb/blob/main/tables/OpenLandMap_soildb_COGS.csv",
+    "esdac": "https://esdac.jrc.ec.europa.eu/content/chemical-properties-european-scale-based-lucas-topsoil-data"
+  },
+  "catalog_bytes": 368158,
+  "catalog_sha256": "463cd69199a79c3cc515182a9923bb13125d751da292d47f42daffcdd2997312",
+  "soilgrids_available_statistics": [
+    "Q0.05",
+    "Q0.50 median",
+    "mean",
+    "Q0.95"
+  ],
+  "comparison_limitations": [
+    "Mean vs median are different estimates; choosing a different statistic alone does not establish greater accuracy.",
+    "OpenLandMap top layer is0–30cm; current SoilGrids preview0–5cm. No direct replacement or mixing horizons.",
+    "OpenLandMap intervals are68% at120m vs SoilGrids90% at250m; smaller interval widths are not directly comparable evidence of improved accuracy.",
+    "Greater spatial resolution does not establish site-level accuracy; no measured pH at these sites.",
+    "Known aereus and caesarea occurrence supports investigating omitted species; does not itself measure pH or validate either model.",
+    "Global coverage advertised excluding deserts/permanent ice; effective mainland Spain coverage/NoData not yet audited.",
+    "Even the alternative intervals partially overlap current species windows, so simply replacing the data would not fix hiding uncertain species under the current policy."
+  ],
+  "esdac_assessment": "European pH in H2O and CaCl2 maps at500m from LUCAS2009/2012. Useful comparison candidate, not finer spatial detail. Requires request/registration; no request submitted.",
+  "next_step": "Compare equivalent depths/statistics and more mainland reference points before selecting a source; retain uncertainty and preserve editable provisional species ranges.",
+  "sporas_user_reported_comparison": {
+    "source": "User reports Sporas pH 6.6 for Olvan and 7.1 for Merles; not independently queried from Sporas API. Exact coincidence of Sporas query coordinates not verified.",
+    "points": [
+      {
+        "name": "olvan",
+        "sporas_reported_ph": 6.6,
+        "soilgrids_current_ph": 7.6,
+        "openlandmap_ph": 6.6,
+        "absolute_difference_soilgrids_vs_sporas": 1.0,
+        "absolute_difference_openlandmap_vs_sporas": 0.0
+      },
+      {
+        "name": "merles",
+        "sporas_reported_ph": 7.1,
+        "soilgrids_current_ph": 7.6,
+        "openlandmap_ph": 6.7,
+        "absolute_difference_soilgrids_vs_sporas": 0.5,
+        "absolute_difference_openlandmap_vs_sporas": 0.4
+      }
+    ],
+    "interpretation": "Better agreement with the reported Sporas values, especially Olvan. Agreement between estimates does not establish measured soil pH or identify the Sporas source."
+  },
+  "whole_soilgrids_replacement_review": {
+    "user_preference": "Minimize distinct soil data sources where equivalent inputs exist. This is a feasibility inquiry, not authorization for a general migration.",
+    "local_reader_inputs": {
+      "water_properties": [
+        "wv0010",
+        "wv0033",
+        "wv1500"
+      ],
+      "water_depths_cm": [
+        [
+          0,
+          5
+        ],
+        [
+          5,
+          15
+        ],
+        [
+          15,
+          30
+        ],
+        [
+          30,
+          60
+        ],
+        [
+          60,
+          100
+        ],
+        [
+          100,
+          200
+        ]
+      ],
+      "water_quantiles": [
+        0.05,
+        0.5,
+        0.95
+      ],
+      "water_combinations": 54,
+      "ph_depths_cm": [
+        [
+          0,
+          5
+        ],
+        [
+          5,
+          15
+        ],
+        [
+          15,
+          30
+        ]
+      ],
+      "ph_quantiles": [
+        0.05,
+        0.5,
+        0.95
+      ],
+      "ph_combinations": 9,
+      "sources": [
+        "rainmapper_core/mushroom_soilgrids.py:49",
+        "rainmapper_core/mushroom_map_terrain.py:17"
+      ]
+    },
+    "openlandmap_soildb_catalog_properties": [
+      "bd.core",
+      "clay",
+      "ph.h2o",
+      "sand",
+      "silt",
+      "soc",
+      "socd",
+      "soil.type"
+    ],
+    "openlandmap_soildb_water_retention_present": false,
+    "legacy_openlandmap_water": {
+      "documented_suctions_kpa": [
+        33,
+        1500
+      ],
+      "resolution_m": 250,
+      "standard_depth_points_cm": [
+        0,
+        10,
+        30,
+        60,
+        100,
+        200
+      ],
+      "source": "https://docs.openlandmap.org/016-project.html#openlandmap-long-term-soil-water-content",
+      "ten_kpa_equivalent_verified": false,
+      "same_quantile_contract_verified": false
+    },
+    "assessment": "OpenLandMap is not pH-only, but the inspected30m soildb product lacks our water retention inputs. Legacy250m water products do not establish a drop-in replacement:10kPa missing from documented list, depth points differ from intervals, and matching uncertainty quantiles unverified. Using legacy layers would still combine different products even under one provider.",
+    "recommendation": "Evaluate OpenLandMap pH while retaining existing SoilGrids water data. A full unification requires separate scientific/contract validation and is not needed to test the pH improvement. No change to data sources, downloads or water engine."
+  }
+}

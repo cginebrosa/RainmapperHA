@@ -1,0 +1,59 @@
+{
+  "checked_at": "2026-09-12",
+  "scope": "Municipal point lookup in the isolated local preview; no production deployment or scientific prediction",
+  "source": {
+    "publisher": "IGN Spain",
+    "edition": "2026-08-10",
+    "feed": "https://www.ign.es/atom/dataset_feeds/lin_lim_mun.es.xml",
+    "download": "https://centrodedescargas.cnig.es/CentroDescargas/documentos/atom/au/lineas_limite_gml.zip",
+    "zip_bytes": 66245318,
+    "zip_sha256_at_preparation": "5bd73c530af995c05da8d9ff4e3d293f62d0dc91c5e48ee773fe881716c108a6"
+  },
+  "prepared": {
+    "path": "mushroom-map-GIS/ign-municipios/prepared/municipalities-2026-08-10.gpkg",
+    "bytes": 78630912,
+    "sha256_at_preparation": "445d0923d1afde492298e628bfb2d0348009001b782e9b28f6826434fc0a39fc",
+    "crs": "EPSG:4326",
+    "features": 8220,
+    "unique_national_codes": 8220,
+    "empty_names": 0,
+    "rtree_entries": 8220,
+    "sqlite_quick_check": "ok",
+    "count_note": "Fourth-order administrative units, including shared territories; not a count of town councils"
+  },
+  "reader": {
+    "source_file": "rainmapper_core/mushroom_map_municipalities.py",
+    "read_only": true,
+    "resident": true,
+    "cache_entries": 128,
+    "candidate_limit": 64,
+    "max_geometry_bytes": 2097152,
+    "hashes_or_downloads_per_query": false,
+    "missing_or_ambiguous_name_blocks_prediction": false,
+    "requires": "GDAL Python bindings and GEOS, currently tested with Homebrew Python 3.14 and GDAL 3.13.1"
+  },
+  "point_checks": [
+    {"lat": 42.17826, "lon": 2.20633, "name": "Ripoll", "national_code": "34091717147"},
+    {"lat": 40.4168, "lon": -3.7038, "name": "Madrid"},
+    {"lat": 41.3874, "lon": 2.1686, "name": "Barcelona"},
+    {"lat": 28.4636, "lon": -16.2518, "name": "Santa Cruz de Tenerife"},
+    {"lat": 39.5696, "lon": 2.6502, "name": "Palma"},
+    {"lat": 35.8894, "lon": -5.3213, "name": "Ceuta"},
+    {"lat": 35.2923, "lon": -2.9381, "name": "Melilla"},
+    {"lat": 0, "lon": 0, "status": "not_covered"}
+  ],
+  "local_probe": {
+    "initialization_ms": 318.725,
+    "first_ripoll_lookup_ms": 5.531,
+    "cached_ripoll_lookup_ms": 0.010,
+    "process_peak_rss_bytes": 101629952,
+    "limits": "Single local Mac process, includes Python/GDAL; disk cache not cleared; not RPi4 performance or national coverage validation"
+  },
+  "validation": {
+    "geometry_tests": 5,
+    "contract_and_translation_tests": 13,
+    "browser": "passed: desktop/mobile, municipality literal text and ambiguous omission, station hover/click, cancellation, errors and original route",
+    "preview_api": "POST loopback port 65517 demo returned Ripoll at the screenshot point with simulated species retained"
+  },
+  "pending": ["GDAL packaging and worker integration", "French municipalities deferred by user", "Real geographic prediction remains unconnected"]
+}

@@ -1,0 +1,108 @@
+{
+  "date": "2026-09-12",
+  "scope": "Local preview observed weather only; simulated mushroom curves; no HA or worker integration",
+  "platform": "macOS-26.5.2-arm64-arm-64bit",
+  "python": "3.11.15",
+  "data_root": "docker-data/Data",
+  "read_only": true,
+  "full_object_hashes": false,
+  "tests": "8 point-reader tests, 11 canonical IDW tests, 13 prediction-map contract/translation tests; browser desktop/mobile",
+  "samples": [
+    {
+      "name": "Ripoll",
+      "point": [
+        42.17826,
+        2.20633
+      ],
+      "altitude_m": 765.3,
+      "status": "available",
+      "generation_id": "20260912T113632582813Z-2188741b0a76",
+      "days_with_data": {
+        "rain_mm": 60,
+        "temp_min_c": 60,
+        "temp_max_c": 60,
+        "humidity_min_pct": 60,
+        "humidity_max_pct": 60
+      },
+      "wind_station": "RIPOLL",
+      "first": {
+        "cache_hit": false,
+        "station_count": 13,
+        "rows_loaded": 773,
+        "result_bytes": 8229,
+        "elapsed_ms": 122.244
+      },
+      "repeated": {
+        "cache_hit": true,
+        "elapsed_ms": 0.097
+      },
+      "process_peak_rss_bytes": 120635392
+    },
+    {
+      "name": "Font-Romeu microarea",
+      "point": [
+        42.5284314,
+        2.0095071
+      ],
+      "altitude_m": 2069.4,
+      "status": "available",
+      "generation_id": "20260912T113632582813Z-2188741b0a76",
+      "days_with_data": {
+        "rain_mm": 60,
+        "temp_min_c": 60,
+        "temp_max_c": 60,
+        "humidity_min_pct": 60,
+        "humidity_max_pct": 60
+      },
+      "wind_station": "alaskan team",
+      "first": {
+        "cache_hit": false,
+        "station_count": 9,
+        "rows_loaded": 442,
+        "result_bytes": 7888,
+        "elapsed_ms": 18.859
+      },
+      "repeated": {
+        "cache_hit": true,
+        "elapsed_ms": 0.083
+      },
+      "process_peak_rss_bytes": 122634240
+    },
+    {
+      "name": "outside coverage",
+      "point": [
+        0,
+        0
+      ],
+      "altitude_m": null,
+      "status": "no_data",
+      "generation_id": "20260912T113632582813Z-2188741b0a76",
+      "days_with_data": {
+        "rain_mm": 0,
+        "temp_min_c": 0,
+        "temp_max_c": 0,
+        "humidity_min_pct": 0,
+        "humidity_max_pct": 0
+      },
+      "wind_station": null,
+      "first": {
+        "cache_hit": false,
+        "station_count": 0,
+        "rows_loaded": 0,
+        "result_bytes": 3586,
+        "elapsed_ms": 3.085
+      },
+      "repeated": {
+        "cache_hit": true,
+        "elapsed_ms": 0.042
+      },
+      "process_peak_rss_bytes": 122634240
+    }
+  ],
+  "limitations": [
+    "Warm filesystem cache possible; process peak RSS includes Python and Arrow imports",
+    "Not a Raspberry Pi measurement",
+    "No persistent weather data written; only this report",
+    "Wind from one identified nearby station, not interpolated at point"
+  ]
+}

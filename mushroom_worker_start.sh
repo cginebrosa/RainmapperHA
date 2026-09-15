@@ -5,6 +5,10 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${REPO_ROOT}/rainmapper-local/docker-compose.worker.yml"
+COMPOSE_ARGS=(-f "${COMPOSE_FILE}")
+if [[ -f "${RAINMAPPER_LOCAL_DATA_ROOT:-${REPO_ROOT}/docker-data}/prediction-map/worker.json" ]]; then
+    COMPOSE_ARGS+=(-f "${REPO_ROOT}/rainmapper-local/docker-compose.prediction-map-worker.yml")
+fi
 RAINMAPPER_WORKER_VERSION="$(sed -n 's/^ARG RAINMAPPER_WORKER_VERSION=\([^[:space:]]*\).*/\1/p' "${REPO_ROOT}/rainmapper-worker/Dockerfile" | head -n 1)"
 if [[ ! "${RAINMAPPER_WORKER_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     printf 'Error: rainmapper-worker/Dockerfile does not define a valid semantic worker version.\n' >&2
@@ -218,7 +222,7 @@ cd "${REPO_ROOT}"
 
 docker volume create "${WORKER_VOLUME}" >/dev/null
 docker network create "${WORKER_NETWORK}" >/dev/null 2>&1 || true
-docker compose -f "${COMPOSE_FILE}" build rainmapper-worker
+docker compose "${COMPOSE_ARGS[@]}" build rainmapper-worker
 
 cleanup_local_worker_build_artifacts() {
     local tag
@@ -435,7 +439,7 @@ while ! validate_or_save_configuration; do
 done
 
 PERSISTED_URL="$(worker_config get-url)"
-docker compose -f "${COMPOSE_FILE}" up --force-recreate -d rainmapper-worker
+docker compose "${COMPOSE_ARGS[@]}" up --force-recreate -d rainmapper-worker
 
 for attempt in {1..30}; do
     if WORKER_STATUS_JSON="$(curl --fail --silent --show-error "${WORKER_HEALTH_URL}" 2>/dev/null)"; then

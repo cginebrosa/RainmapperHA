@@ -1,0 +1,2749 @@
+{
+  "date": "2026-09-11T18:42:40.670803+00:00",
+  "method": "250m native cell centres within GISCO NUTS2 2024 1:1M polygons; all touched cells for sites; values >0 within native range, not a scientific accuracy test",
+  "national": {
+    "pixels": 8105272,
+    "all_63_valid": 7908114,
+    "retention_54_valid": 7908114,
+    "ph_9_valid": 7908150,
+    "all_63_zero": 197122,
+    "partial": 36,
+    "reference_nodata": 191739,
+    "all_valid_outside_reference": 0,
+    "missing_inside_reference": 5419,
+    "all_63_valid_percent": 97.5675
+  },
+  "regions": [
+    {
+      "id": "ES11",
+      "name": "Galicia",
+      "pixels": 473401,
+      "all_63_valid": 458658,
+      "retention_54_valid": 458658,
+      "ph_9_valid": 458658,
+      "all_63_zero": 14743,
+      "partial": 0,
+      "reference_nodata": 13803,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 940,
+      "all_63_valid_percent": 96.8857,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES12",
+      "name": "Principado de Asturias",
+      "pixels": 169733,
+      "all_63_valid": 165497,
+      "retention_54_valid": 165497,
+      "ph_9_valid": 165497,
+      "all_63_zero": 4236,
+      "partial": 0,
+      "reference_nodata": 3682,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 554,
+      "all_63_valid_percent": 97.5043,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES13",
+      "name": "Cantabria",
+      "pixels": 85224,
+      "all_63_valid": 81547,
+      "retention_54_valid": 81547,
+      "ph_9_valid": 81547,
+      "all_63_zero": 3677,
+      "partial": 0,
+      "reference_nodata": 3467,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 210,
+      "all_63_valid_percent": 95.6855,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES21",
+      "name": "País Vasco",
+      "pixels": 115745,
+      "all_63_valid": 110383,
+      "retention_54_valid": 110383,
+      "ph_9_valid": 110383,
+      "all_63_zero": 5362,
+      "partial": 0,
+      "reference_nodata": 5184,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 178,
+      "all_63_valid_percent": 95.3674,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES22",
+      "name": "Comunidad Foral de Navarra",
+      "pixels": 166360,
+      "all_63_valid": 164433,
+      "retention_54_valid": 164433,
+      "ph_9_valid": 164433,
+      "all_63_zero": 1927,
+      "partial": 0,
+      "reference_nodata": 1927,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 0,
+      "all_63_valid_percent": 98.8417,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES23",
+      "name": "La Rioja",
+      "pixels": 80787,
+      "all_63_valid": 79988,
+      "retention_54_valid": 79988,
+      "ph_9_valid": 79988,
+      "all_63_zero": 799,
+      "partial": 0,
+      "reference_nodata": 799,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 0,
+      "all_63_valid_percent": 99.011,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES24",
+      "name": "Aragón",
+      "pixels": 764100,
+      "all_63_valid": 758037,
+      "retention_54_valid": 758037,
+      "ph_9_valid": 758037,
+      "all_63_zero": 6063,
+      "partial": 0,
+      "reference_nodata": 6063,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 0,
+      "all_63_valid_percent": 99.2065,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES30",
+      "name": "Comunidad de Madrid",
+      "pixels": 128631,
+      "all_63_valid": 115023,
+      "retention_54_valid": 115023,
+      "ph_9_valid": 115023,
+      "all_63_zero": 13608,
+      "partial": 0,
+      "reference_nodata": 13608,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 0,
+      "all_63_valid_percent": 89.4209,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES41",
+      "name": "Castilla y León",
+      "pixels": 1508668,
+      "all_63_valid": 1495120,
+      "retention_54_valid": 1495120,
+      "ph_9_valid": 1495120,
+      "all_63_zero": 13548,
+      "partial": 0,
+      "reference_nodata": 13548,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 0,
+      "all_63_valid_percent": 99.102,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES42",
+      "name": "Castilla-La Mancha",
+      "pixels": 1272891,
+      "all_63_valid": 1260141,
+      "retention_54_valid": 1260141,
+      "ph_9_valid": 1260141,
+      "all_63_zero": 12750,
+      "partial": 0,
+      "reference_nodata": 12750,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 0,
+      "all_63_valid_percent": 98.9983,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES43",
+      "name": "Extremadura",
+      "pixels": 667018,
+      "all_63_valid": 651491,
+      "retention_54_valid": 651491,
+      "ph_9_valid": 651491,
+      "all_63_zero": 15527,
+      "partial": 0,
+      "reference_nodata": 15527,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 0,
+      "all_63_valid_percent": 97.6722,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES51",
+      "name": "Cataluña",
+      "pixels": 514233,
+      "all_63_valid": 490794,
+      "retention_54_valid": 490794,
+      "ph_9_valid": 490795,
+      "all_63_zero": 23438,
+      "partial": 1,
+      "reference_nodata": 23176,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 263,
+      "all_63_valid_percent": 95.4419,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES52",
+      "name": "Comunitat Valenciana",
+      "pixels": 372736,
+      "all_63_valid": 353913,
+      "retention_54_valid": 353913,
+      "ph_9_valid": 353913,
+      "all_63_zero": 18823,
+      "partial": 0,
+      "reference_nodata": 18453,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 370,
+      "all_63_valid_percent": 94.95,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES53",
+      "name": "Illes Balears",
+      "pixels": 79963,
+      "all_63_valid": 74176,
+      "retention_54_valid": 74176,
+      "ph_9_valid": 74176,
+      "all_63_zero": 5787,
+      "partial": 0,
+      "reference_nodata": 4899,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 888,
+      "all_63_valid_percent": 92.7629,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES61",
+      "name": "Andalucía",
+      "pixels": 1404279,
+      "all_63_valid": 1363282,
+      "retention_54_valid": 1363282,
+      "ph_9_valid": 1363282,
+      "all_63_zero": 40997,
+      "partial": 0,
+      "reference_nodata": 40306,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 691,
+      "all_63_valid_percent": 97.0806,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES62",
+      "name": "Región de Murcia",
+      "pixels": 181345,
+      "all_63_valid": 177065,
+      "retention_54_valid": 177065,
+      "ph_9_valid": 177065,
+      "all_63_zero": 4280,
+      "partial": 0,
+      "reference_nodata": 4069,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 211,
+      "all_63_valid_percent": 97.6399,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES63",
+      "name": "Ciudad de Ceuta",
+      "pixels": 320,
+      "all_63_valid": 157,
+      "retention_54_valid": 157,
+      "ph_9_valid": 157,
+      "all_63_zero": 163,
+      "partial": 0,
+      "reference_nodata": 154,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 9,
+      "all_63_valid_percent": 49.0625,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES64",
+      "name": "Ciudad de Melilla",
+      "pixels": 217,
+      "all_63_valid": 58,
+      "retention_54_valid": 58,
+      "ph_9_valid": 58,
+      "all_63_zero": 159,
+      "partial": 0,
+      "reference_nodata": 159,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 0,
+      "all_63_valid_percent": 26.7281,
+      "quantile_order_violations": 0
+    },
+    {
+      "id": "ES70",
+      "name": "Canarias",
+      "pixels": 119621,
+      "all_63_valid": 108351,
+      "retention_54_valid": 108351,
+      "ph_9_valid": 108386,
+      "all_63_zero": 11235,
+      "partial": 35,
+      "reference_nodata": 10165,
+      "all_valid_outside_reference": 0,
+      "missing_inside_reference": 1105,
+      "all_63_valid_percent": 90.5786,
+      "quantile_order_violations": 0
+    }
+  ],
+  "reference_mask_codes": {
+    "-32768": {
+      "pixels": 191739,
+      "all_valid": 0,
+      "all_zero": 191739,
+      "partial": 0
+    },
+    "11": {
+      "pixels": 1632477,
+      "all_valid": 1632417,
+      "all_zero": 60,
+      "partial": 0
+    },
+    "40": {
+      "pixels": 654107,
+      "all_valid": 653624,
+      "all_zero": 483,
+      "partial": 0
+    },
+    "60": {
+      "pixels": 678436,
+      "all_valid": 677813,
+      "all_zero": 623,
+      "partial": 0
+    },
+    "70": {
+      "pixels": 666622,
+      "all_valid": 666262,
+      "all_zero": 360,
+      "partial": 0
+    },
+    "100": {
+      "pixels": 1140046,
+      "all_valid": 1139746,
+      "all_zero": 300,
+      "partial": 0
+    },
+    "120": {
+      "pixels": 350725,
+      "all_valid": 350515,
+      "all_zero": 210,
+      "partial": 0
+    },
+    "130": {
+      "pixels": 519393,
+      "all_valid": 518809,
+      "all_zero": 583,
+      "partial": 1
+    },
+    "150": {
+      "pixels": 83587,
+      "all_valid": 83491,
+      "all_zero": 96,
+      "partial": 0
+    },
+    "180": {
+      "pixels": 7993,
+      "all_valid": 7699,
+      "all_zero": 294,
+      "partial": 0
+    },
+    "200": {
+      "pixels": 71424,
+      "all_valid": 70222,
+      "all_zero": 1167,
+      "partial": 35
+    },
+    "201": {
+      "pixels": 6386,
+      "all_valid": 6351,
+      "all_zero": 35,
+      "partial": 0
+    },
+    "10": {
+      "pixels": 578478,
+      "all_valid": 577909,
+      "all_zero": 569,
+      "partial": 0
+    },
+    "20": {
+      "pixels": 389372,
+      "all_valid": 389232,
+      "all_zero": 140,
+      "partial": 0
+    },
+    "30": {
+      "pixels": 365278,
+      "all_valid": 365046,
+      "all_zero": 232,
+      "partial": 0
+    },
+    "50": {
+      "pixels": 57,
+      "all_valid": 57,
+      "all_zero": 0,
+      "partial": 0
+    },
+    "90": {
+      "pixels": 22497,
+      "all_valid": 22496,
+      "all_zero": 1,
+      "partial": 0
+    },
+    "110": {
+      "pixels": 7119,
+      "all_valid": 7103,
+      "all_zero": 16,
+      "partial": 0
+    },
+    "153": {
+      "pixels": 68891,
+      "all_valid": 68881,
+      "all_zero": 10,
+      "partial": 0
+    },
+    "12": {
+      "pixels": 667417,
+      "all_valid": 667275,
+      "all_zero": 142,
+      "partial": 0
+    },
+    "122": {
+      "pixels": 2859,
+      "all_valid": 2859,
+      "all_zero": 0,
+      "partial": 0
+    },
+    "170": {
+      "pixels": 4,
+      "all_valid": 4,
+      "all_zero": 0,
+      "partial": 0
+    },
+    "202": {
+      "pixels": 295,
+      "all_valid": 233,
+      "all_zero": 62,
+      "partial": 0
+    },
+    "80": {
+      "pixels": 11,
+      "all_valid": 11,
+      "all_zero": 0,
+      "partial": 0
+    },
+    "61": {
+      "pixels": 59,
+      "all_valid": 59,
+      "all_zero": 0,
+      "partial": 0
+    }
+  },
+  "quantile_order_violation_pixels": 0,
+  "persisted_context_asset_compatibility": [
+    {
+      "id": "olvan_la_pera",
+      "name": "La Pera",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "olvan_serra_ramons",
+      "name": "Serra de Ramons",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "santa_maria_de_merles_casa_escrigues",
+      "name": "Casa Escrigues",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "olvan_mas_ballaro",
+      "name": "Mas Ballaró",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "santa_maria_de_merles_la_tor_nova",
+      "name": "Bosc de la Tor",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "espunyola_muntanya",
+      "name": "Muntanyà",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "olvan_romeros",
+      "name": "Romeros",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "la_masella_km11",
+      "name": "KM11",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "bacanella_bacanella",
+      "name": "Bacanella",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "sant_joan_coll_de_leix",
+      "name": "Coll de Leix",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "guils_estacio",
+      "name": "Estacio",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "guils_la_feixa",
+      "name": "La Feixa",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "guils_el_comu",
+      "name": "El Comú",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "guils_la_socarrada",
+      "name": "La Socarrada",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "salteguet_entrada",
+      "name": "Entrada",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "la_masella_km9",
+      "name": "KM9",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "sant_joan_baga_de_sant_andreu",
+      "name": "Baga de Sant Andreu",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "sant_joan_cota_1400",
+      "name": "Cota 1400",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "sant_joan_recta_1700",
+      "name": "Recta 1700",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "ordino_cota_2100",
+      "name": "Cota 2100",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "santa_maria_de_merles_la_coromina",
+      "name": "La Coromina",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "rubio_plantacion",
+      "name": "Plantación",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "la_masella_estacion",
+      "name": "Estacion",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "coll_de_la_batalla_principal",
+      "name": "Principal",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "olvan_cercado_vacas",
+      "name": "Cercado Vacas",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "olvan_bosquecillo",
+      "name": "Bosquecillo",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "selva_del_camp_casa_perros",
+      "name": "Casa Perros",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "rectoria_de_la_selva_rectoria",
+      "name": "Rectoria",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "la_gavarra_paradell",
+      "name": "Paradell",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "els_ports_la_mola",
+      "name": "La Mola",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "el_perello_lo_burgar",
+      "name": "Lo Burgar",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "ermita_ascensio_obaga_de_la_castellana",
+      "name": "Obaga de la Castellana",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "vallcebre_agustinet",
+      "name": "Agustinet",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "vallcebre_petitons",
+      "name": "Petitons",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "llambilles_medio",
+      "name": "Medio",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "llambilles_arriba",
+      "name": "Arriba",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "llambilles_abajo",
+      "name": "Abajo",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "breda_arriba",
+      "name": "Arriba",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "sant_jaume_de_boixadera_pla_de_boixadera",
+      "name": "Pla de Boixadera",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "sant_joan_serrat_de_la_carbassa",
+      "name": "Serrat de la Carbassa",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "sant_joan_obaga_de_la_culla",
+      "name": "Obaga de la Culla",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "salteguet_salteguet_fondo",
+      "name": "Salteguet Fondo",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "prats_de_llucanes_bosc_davant_prats_llucanes",
+      "name": "Bosc davant Prats Llucanes",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "selva_del_camp_mas_de_la_cabrera",
+      "name": "Mas de la Cabrera",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "selva_del_camp_mas_de_sant_josep",
+      "name": "Mas de Sant Josep",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "guils_plantacion_pinitos",
+      "name": "Plantacion pinitos",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "baga_clot_de_l_infern",
+      "name": "Clot de l'infern",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "planoles_el_sola",
+      "name": "El Solà",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "riu_de_cerdanya_els_plans",
+      "name": "Els Plans",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "salteguet_encima_camino",
+      "name": "Encima camino",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "puertomingalvo_pm_arriba",
+      "name": "PM-Arriba",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "puertomingalvo_mas_del_sapo",
+      "name": "Mas del Sapo",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "sant_joan_tossal_del_castillo",
+      "name": "Tossal del Castillo",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "la_gavarra_carborriu",
+      "name": "Carborriu",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "mollo_puig_de_sant_joan",
+      "name": "Puig de Sant Joan",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "riu_de_cerdanya_riu_arriba",
+      "name": "Riu Arriba",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "riu_de_cerdanya_riu_en_medio",
+      "name": "Riu en medio",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "campelles_pla_dels_avets",
+      "name": "Pla dels Avets",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "tor_tor",
+      "name": "Tor",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "setcases_izquierda_rio",
+      "name": "Izquierda-Rio",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "setcases_la_collada",
+      "name": "La Collada",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 108,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "vallter_ulldeter",
+      "name": "Ulldeter",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "espinavell_ritort",
+      "name": "Ritort",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "querigut_querigut_medio",
+      "name": "Querigut_medio",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "querigut_querigut_bajo",
+      "name": "Querigut_bajo",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    },
+    {
+      "id": "font_romeu_font_romeu_medio",
+      "name": "Font_Romeu medio",
+      "persisted_status": "complete",
+      "persisted_coverage_fraction": 1.0,
+      "referenced_assets": 54,
+      "mismatched_assets": [],
+      "missing_assets": []
+    }
+  ],
+  "protected_hashes": {
+    "docker-data/mushroom-data/mushroom_known_sites.json": "6c3d24dc668a3c59f3f1b7f941b17a3ac30a80ff428d3e4e6c754e8324f01aa3",
+    "mushroom-GIS/soilgrids/manifest.json": "4ef9ecf186ecbe9ac017ea9ba61f14a1c5bb31a0763fcbe072aba0b6bcba7a22",
+    "mushroom-data/mushroom_observations.json": "f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0"
+  },
+  "limits": [
+    "positive admissible values proxy; authoritative per-property missingness must be cross-checked",
+    "GISCO 1:1M boundary approximation at 250m cell centres",
+    "site coverage counts use all-touched cells, not area weighting",
+    "file preservation and stored asset hashes do not constitute a full live-reader migration test"
+  ],
+  "sites": [
+    {
+      "kind": "areas",
+      "id": "olvan",
+      "name": "Olvan",
+      "counts": {
+        "touched_cells": 40,
+        "all_valid": 40,
+        "retention_valid": 40,
+        "ph_valid": 40,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "santa_maria_de_merles",
+      "name": "Santa Maria de Merles",
+      "counts": {
+        "touched_cells": 166,
+        "all_valid": 166,
+        "retention_valid": 166,
+        "ph_valid": 166,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "espunyola",
+      "name": "Espunyola",
+      "counts": {
+        "touched_cells": 642,
+        "all_valid": 642,
+        "retention_valid": 642,
+        "ph_valid": 642,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "la_masella",
+      "name": "La Masella",
+      "counts": {
+        "touched_cells": 111,
+        "all_valid": 111,
+        "retention_valid": 111,
+        "ph_valid": 111,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "bacanella",
+      "name": "Bacanella",
+      "counts": {
+        "touched_cells": 15,
+        "all_valid": 15,
+        "retention_valid": 15,
+        "ph_valid": 15,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "sant_joan",
+      "name": "Sant Joan",
+      "counts": {
+        "touched_cells": 378,
+        "all_valid": 378,
+        "retention_valid": 378,
+        "ph_valid": 378,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "guils",
+      "name": "Guils",
+      "counts": {
+        "touched_cells": 171,
+        "all_valid": 171,
+        "retention_valid": 171,
+        "ph_valid": 171,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "salteguet",
+      "name": "Salteguet",
+      "counts": {
+        "touched_cells": 60,
+        "all_valid": 60,
+        "retention_valid": 60,
+        "ph_valid": 60,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "ordino",
+      "name": "Ordino",
+      "counts": {
+        "touched_cells": 23,
+        "all_valid": 23,
+        "retention_valid": 23,
+        "ph_valid": 23,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "rubio",
+      "name": "Rubio",
+      "counts": {
+        "touched_cells": 349,
+        "all_valid": 349,
+        "retention_valid": 349,
+        "ph_valid": 349,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "coll_de_la_batalla",
+      "name": "Coll de la Batalla",
+      "counts": {
+        "touched_cells": 53,
+        "all_valid": 53,
+        "retention_valid": 53,
+        "ph_valid": 53,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "selva_del_camp",
+      "name": "Selva del Camp",
+      "counts": {
+        "touched_cells": 326,
+        "all_valid": 325,
+        "retention_valid": 325,
+        "ph_valid": 325,
+        "all_zero": 1,
+        "partial": 0,
+        "reference_nodata": 1,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "rectoria_de_la_selva",
+      "name": "Rectoria de la Selva",
+      "counts": {
+        "touched_cells": 105,
+        "all_valid": 105,
+        "retention_valid": 105,
+        "ph_valid": 105,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "la_gavarra",
+      "name": "La Gavarra",
+      "counts": {
+        "touched_cells": 275,
+        "all_valid": 275,
+        "retention_valid": 275,
+        "ph_valid": 275,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "els_ports",
+      "name": "Els Ports",
+      "counts": {
+        "touched_cells": 4377,
+        "all_valid": 4377,
+        "retention_valid": 4377,
+        "ph_valid": 4377,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "el_perello",
+      "name": "El Perelló",
+      "counts": {
+        "touched_cells": 832,
+        "all_valid": 832,
+        "retention_valid": 832,
+        "ph_valid": 832,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "ermita_ascensio",
+      "name": "Ermita Ascensió",
+      "counts": {
+        "touched_cells": 110,
+        "all_valid": 110,
+        "retention_valid": 110,
+        "ph_valid": 110,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "vallcebre",
+      "name": "Vallcebre",
+      "counts": {
+        "touched_cells": 66,
+        "all_valid": 66,
+        "retention_valid": 66,
+        "ph_valid": 66,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "llambilles",
+      "name": "Llambilles",
+      "counts": {
+        "touched_cells": 178,
+        "all_valid": 178,
+        "retention_valid": 178,
+        "ph_valid": 178,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "breda",
+      "name": "Breda",
+      "counts": {
+        "touched_cells": 118,
+        "all_valid": 118,
+        "retention_valid": 118,
+        "ph_valid": 118,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "sant_jaume_de_boixadera",
+      "name": "Sant Jaume de Boixadera",
+      "counts": {
+        "touched_cells": 182,
+        "all_valid": 182,
+        "retention_valid": 182,
+        "ph_valid": 182,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "prats_de_llucanes",
+      "name": "Prats de Llucanes",
+      "counts": {
+        "touched_cells": 147,
+        "all_valid": 147,
+        "retention_valid": 147,
+        "ph_valid": 147,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "baga",
+      "name": "Bagà",
+      "counts": {
+        "touched_cells": 125,
+        "all_valid": 125,
+        "retention_valid": 125,
+        "ph_valid": 125,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "planoles",
+      "name": "Planoles",
+      "counts": {
+        "touched_cells": 180,
+        "all_valid": 180,
+        "retention_valid": 180,
+        "ph_valid": 180,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "puertomingalvo",
+      "name": "Puertomingalvo",
+      "counts": {
+        "touched_cells": 80,
+        "all_valid": 80,
+        "retention_valid": 80,
+        "ph_valid": 80,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "mollo",
+      "name": "Molló",
+      "counts": {
+        "touched_cells": 62,
+        "all_valid": 62,
+        "retention_valid": 62,
+        "ph_valid": 62,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "riu_de_cerdanya",
+      "name": "Riu de Cerdanya",
+      "counts": {
+        "touched_cells": 223,
+        "all_valid": 223,
+        "retention_valid": 223,
+        "ph_valid": 223,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "campelles",
+      "name": "Campelles",
+      "counts": {
+        "touched_cells": 228,
+        "all_valid": 228,
+        "retention_valid": 228,
+        "ph_valid": 228,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "tor",
+      "name": "Tor",
+      "counts": {
+        "touched_cells": 59,
+        "all_valid": 59,
+        "retention_valid": 59,
+        "ph_valid": 59,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "setcases",
+      "name": "Setcases",
+      "counts": {
+        "touched_cells": 210,
+        "all_valid": 210,
+        "retention_valid": 210,
+        "ph_valid": 210,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "vallter",
+      "name": "Vallter",
+      "counts": {
+        "touched_cells": 44,
+        "all_valid": 44,
+        "retention_valid": 44,
+        "ph_valid": 44,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "espinavell",
+      "name": "Espinavell",
+      "counts": {
+        "touched_cells": 430,
+        "all_valid": 430,
+        "retention_valid": 430,
+        "ph_valid": 430,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "font_romeu",
+      "name": "Font-Romeu",
+      "counts": {
+        "touched_cells": 352,
+        "all_valid": 352,
+        "retention_valid": 352,
+        "ph_valid": 352,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "areas",
+      "id": "querigut",
+      "name": "Querigut",
+      "counts": {
+        "touched_cells": 287,
+        "all_valid": 287,
+        "retention_valid": 287,
+        "ph_valid": 287,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "olvan_la_pera",
+      "name": "La Pera",
+      "counts": {
+        "touched_cells": 13,
+        "all_valid": 13,
+        "retention_valid": 13,
+        "ph_valid": 13,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "olvan_serra_ramons",
+      "name": "Serra de Ramons",
+      "counts": {
+        "touched_cells": 6,
+        "all_valid": 6,
+        "retention_valid": 6,
+        "ph_valid": 6,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "santa_maria_de_merles_casa_escrigues",
+      "name": "Casa Escrigues",
+      "counts": {
+        "touched_cells": 7,
+        "all_valid": 7,
+        "retention_valid": 7,
+        "ph_valid": 7,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "olvan_mas_ballaro",
+      "name": "Mas Ballaró",
+      "counts": {
+        "touched_cells": 5,
+        "all_valid": 5,
+        "retention_valid": 5,
+        "ph_valid": 5,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "santa_maria_de_merles_la_tor_nova",
+      "name": "Bosc de la Tor",
+      "counts": {
+        "touched_cells": 4,
+        "all_valid": 4,
+        "retention_valid": 4,
+        "ph_valid": 4,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "espunyola_muntanya",
+      "name": "Muntanyà",
+      "counts": {
+        "touched_cells": 6,
+        "all_valid": 6,
+        "retention_valid": 6,
+        "ph_valid": 6,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "olvan_romeros",
+      "name": "Romeros",
+      "counts": {
+        "touched_cells": 5,
+        "all_valid": 5,
+        "retention_valid": 5,
+        "ph_valid": 5,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "la_masella_km11",
+      "name": "KM11",
+      "counts": {
+        "touched_cells": 9,
+        "all_valid": 9,
+        "retention_valid": 9,
+        "ph_valid": 9,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "bacanella_bacanella",
+      "name": "Bacanella",
+      "counts": {
+        "touched_cells": 14,
+        "all_valid": 14,
+        "retention_valid": 14,
+        "ph_valid": 14,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "sant_joan_coll_de_leix",
+      "name": "Coll de Leix",
+      "counts": {
+        "touched_cells": 17,
+        "all_valid": 17,
+        "retention_valid": 17,
+        "ph_valid": 17,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "guils_estacio",
+      "name": "Estacio",
+      "counts": {
+        "touched_cells": 15,
+        "all_valid": 15,
+        "retention_valid": 15,
+        "ph_valid": 15,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "guils_la_feixa",
+      "name": "La Feixa",
+      "counts": {
+        "touched_cells": 30,
+        "all_valid": 30,
+        "retention_valid": 30,
+        "ph_valid": 30,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "guils_el_comu",
+      "name": "El Comú",
+      "counts": {
+        "touched_cells": 6,
+        "all_valid": 6,
+        "retention_valid": 6,
+        "ph_valid": 6,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "guils_la_socarrada",
+      "name": "La Socarrada",
+      "counts": {
+        "touched_cells": 38,
+        "all_valid": 38,
+        "retention_valid": 38,
+        "ph_valid": 38,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "salteguet_entrada",
+      "name": "Entrada",
+      "counts": {
+        "touched_cells": 12,
+        "all_valid": 12,
+        "retention_valid": 12,
+        "ph_valid": 12,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "la_masella_km9",
+      "name": "KM9",
+      "counts": {
+        "touched_cells": 14,
+        "all_valid": 14,
+        "retention_valid": 14,
+        "ph_valid": 14,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "sant_joan_baga_de_sant_andreu",
+      "name": "Baga de Sant Andreu",
+      "counts": {
+        "touched_cells": 18,
+        "all_valid": 18,
+        "retention_valid": 18,
+        "ph_valid": 18,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "sant_joan_cota_1400",
+      "name": "Cota 1400",
+      "counts": {
+        "touched_cells": 7,
+        "all_valid": 7,
+        "retention_valid": 7,
+        "ph_valid": 7,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "sant_joan_recta_1700",
+      "name": "Recta 1700",
+      "counts": {
+        "touched_cells": 7,
+        "all_valid": 7,
+        "retention_valid": 7,
+        "ph_valid": 7,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "ordino_cota_2100",
+      "name": "Cota 2100",
+      "counts": {
+        "touched_cells": 16,
+        "all_valid": 16,
+        "retention_valid": 16,
+        "ph_valid": 16,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "santa_maria_de_merles_la_coromina",
+      "name": "La Coromina",
+      "counts": {
+        "touched_cells": 6,
+        "all_valid": 6,
+        "retention_valid": 6,
+        "ph_valid": 6,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "rubio_plantacion",
+      "name": "Plantación",
+      "counts": {
+        "touched_cells": 25,
+        "all_valid": 25,
+        "retention_valid": 25,
+        "ph_valid": 25,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "la_masella_estacion",
+      "name": "Estacion",
+      "counts": {
+        "touched_cells": 9,
+        "all_valid": 9,
+        "retention_valid": 9,
+        "ph_valid": 9,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "coll_de_la_batalla_principal",
+      "name": "Principal",
+      "counts": {
+        "touched_cells": 42,
+        "all_valid": 42,
+        "retention_valid": 42,
+        "ph_valid": 42,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "olvan_cercado_vacas",
+      "name": "Cercado Vacas",
+      "counts": {
+        "touched_cells": 7,
+        "all_valid": 7,
+        "retention_valid": 7,
+        "ph_valid": 7,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "olvan_bosquecillo",
+      "name": "Bosquecillo",
+      "counts": {
+        "touched_cells": 2,
+        "all_valid": 2,
+        "retention_valid": 2,
+        "ph_valid": 2,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "selva_del_camp_casa_perros",
+      "name": "Casa Perros",
+      "counts": {
+        "touched_cells": 4,
+        "all_valid": 4,
+        "retention_valid": 4,
+        "ph_valid": 4,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "rectoria_de_la_selva_rectoria",
+      "name": "Rectoria",
+      "counts": {
+        "touched_cells": 17,
+        "all_valid": 17,
+        "retention_valid": 17,
+        "ph_valid": 17,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "la_gavarra_paradell",
+      "name": "Paradell",
+      "counts": {
+        "touched_cells": 30,
+        "all_valid": 30,
+        "retention_valid": 30,
+        "ph_valid": 30,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "els_ports_la_mola",
+      "name": "La Mola",
+      "counts": {
+        "touched_cells": 75,
+        "all_valid": 75,
+        "retention_valid": 75,
+        "ph_valid": 75,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "el_perello_lo_burgar",
+      "name": "Lo Burgar",
+      "counts": {
+        "touched_cells": 25,
+        "all_valid": 25,
+        "retention_valid": 25,
+        "ph_valid": 25,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "ermita_ascensio_obaga_de_la_castellana",
+      "name": "Obaga de la Castellana",
+      "counts": {
+        "touched_cells": 48,
+        "all_valid": 48,
+        "retention_valid": 48,
+        "ph_valid": 48,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "vallcebre_agustinet",
+      "name": "Agustinet",
+      "counts": {
+        "touched_cells": 6,
+        "all_valid": 6,
+        "retention_valid": 6,
+        "ph_valid": 6,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "vallcebre_petitons",
+      "name": "Petitons",
+      "counts": {
+        "touched_cells": 2,
+        "all_valid": 2,
+        "retention_valid": 2,
+        "ph_valid": 2,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "llambilles_medio",
+      "name": "Medio",
+      "counts": {
+        "touched_cells": 13,
+        "all_valid": 13,
+        "retention_valid": 13,
+        "ph_valid": 13,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "llambilles_arriba",
+      "name": "Arriba",
+      "counts": {
+        "touched_cells": 9,
+        "all_valid": 9,
+        "retention_valid": 9,
+        "ph_valid": 9,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "llambilles_abajo",
+      "name": "Abajo",
+      "counts": {
+        "touched_cells": 37,
+        "all_valid": 37,
+        "retention_valid": 37,
+        "ph_valid": 37,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "breda_arriba",
+      "name": "Arriba",
+      "counts": {
+        "touched_cells": 7,
+        "all_valid": 7,
+        "retention_valid": 7,
+        "ph_valid": 7,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "sant_jaume_de_boixadera_pla_de_boixadera",
+      "name": "Pla de Boixadera",
+      "counts": {
+        "touched_cells": 28,
+        "all_valid": 28,
+        "retention_valid": 28,
+        "ph_valid": 28,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "sant_joan_serrat_de_la_carbassa",
+      "name": "Serrat de la Carbassa",
+      "counts": {
+        "touched_cells": 24,
+        "all_valid": 24,
+        "retention_valid": 24,
+        "ph_valid": 24,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "sant_joan_obaga_de_la_culla",
+      "name": "Obaga de la Culla",
+      "counts": {
+        "touched_cells": 59,
+        "all_valid": 59,
+        "retention_valid": 59,
+        "ph_valid": 59,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "salteguet_salteguet_fondo",
+      "name": "Salteguet Fondo",
+      "counts": {
+        "touched_cells": 9,
+        "all_valid": 9,
+        "retention_valid": 9,
+        "ph_valid": 9,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "prats_de_llucanes_bosc_davant_prats_llucanes",
+      "name": "Bosc davant Prats Llucanes",
+      "counts": {
+        "touched_cells": 8,
+        "all_valid": 8,
+        "retention_valid": 8,
+        "ph_valid": 8,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "selva_del_camp_mas_de_la_cabrera",
+      "name": "Mas de la Cabrera",
+      "counts": {
+        "touched_cells": 9,
+        "all_valid": 9,
+        "retention_valid": 9,
+        "ph_valid": 9,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "selva_del_camp_mas_de_sant_josep",
+      "name": "Mas de Sant Josep",
+      "counts": {
+        "touched_cells": 5,
+        "all_valid": 5,
+        "retention_valid": 5,
+        "ph_valid": 5,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "guils_plantacion_pinitos",
+      "name": "Plantacion pinitos",
+      "counts": {
+        "touched_cells": 17,
+        "all_valid": 17,
+        "retention_valid": 17,
+        "ph_valid": 17,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "baga_clot_de_l_infern",
+      "name": "Clot de l'infern",
+      "counts": {
+        "touched_cells": 19,
+        "all_valid": 19,
+        "retention_valid": 19,
+        "ph_valid": 19,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "planoles_el_sola",
+      "name": "El Solà",
+      "counts": {
+        "touched_cells": 13,
+        "all_valid": 13,
+        "retention_valid": 13,
+        "ph_valid": 13,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "riu_de_cerdanya_els_plans",
+      "name": "Els Plans",
+      "counts": {
+        "touched_cells": 20,
+        "all_valid": 20,
+        "retention_valid": 20,
+        "ph_valid": 20,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "salteguet_encima_camino",
+      "name": "Encima camino",
+      "counts": {
+        "touched_cells": 12,
+        "all_valid": 12,
+        "retention_valid": 12,
+        "ph_valid": 12,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "puertomingalvo_pm_arriba",
+      "name": "PM-Arriba",
+      "counts": {
+        "touched_cells": 16,
+        "all_valid": 16,
+        "retention_valid": 16,
+        "ph_valid": 16,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "puertomingalvo_mas_del_sapo",
+      "name": "Mas del Sapo",
+      "counts": {
+        "touched_cells": 14,
+        "all_valid": 14,
+        "retention_valid": 14,
+        "ph_valid": 14,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "sant_joan_tossal_del_castillo",
+      "name": "Tossal del Castillo",
+      "counts": {
+        "touched_cells": 23,
+        "all_valid": 23,
+        "retention_valid": 23,
+        "ph_valid": 23,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "la_gavarra_carborriu",
+      "name": "Carborriu",
+      "counts": {
+        "touched_cells": 32,
+        "all_valid": 32,
+        "retention_valid": 32,
+        "ph_valid": 32,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "mollo_puig_de_sant_joan",
+      "name": "Puig de Sant Joan",
+      "counts": {
+        "touched_cells": 13,
+        "all_valid": 13,
+        "retention_valid": 13,
+        "ph_valid": 13,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "riu_de_cerdanya_riu_arriba",
+      "name": "Riu Arriba",
+      "counts": {
+        "touched_cells": 33,
+        "all_valid": 33,
+        "retention_valid": 33,
+        "ph_valid": 33,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "riu_de_cerdanya_riu_en_medio",
+      "name": "Riu en medio",
+      "counts": {
+        "touched_cells": 99,
+        "all_valid": 99,
+        "retention_valid": 99,
+        "ph_valid": 99,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "campelles_pla_dels_avets",
+      "name": "Pla dels Avets",
+      "counts": {
+        "touched_cells": 15,
+        "all_valid": 15,
+        "retention_valid": 15,
+        "ph_valid": 15,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "tor_tor",
+      "name": "Tor",
+      "counts": {
+        "touched_cells": 35,
+        "all_valid": 35,
+        "retention_valid": 35,
+        "ph_valid": 35,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "setcases_izquierda_rio",
+      "name": "Izquierda-Rio",
+      "counts": {
+        "touched_cells": 29,
+        "all_valid": 29,
+        "retention_valid": 29,
+        "ph_valid": 29,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "setcases_la_collada",
+      "name": "La Collada",
+      "counts": {
+        "touched_cells": 100,
+        "all_valid": 100,
+        "retention_valid": 100,
+        "ph_valid": 100,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "vallter_ulldeter",
+      "name": "Ulldeter",
+      "counts": {
+        "touched_cells": 20,
+        "all_valid": 20,
+        "retention_valid": 20,
+        "ph_valid": 20,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "espinavell_ritort",
+      "name": "Ritort",
+      "counts": {
+        "touched_cells": 77,
+        "all_valid": 77,
+        "retention_valid": 77,
+        "ph_valid": 77,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "querigut_querigut_medio",
+      "name": "Querigut_medio",
+      "counts": {
+        "touched_cells": 25,
+        "all_valid": 25,
+        "retention_valid": 25,
+        "ph_valid": 25,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "querigut_querigut_bajo",
+      "name": "Querigut_bajo",
+      "counts": {
+        "touched_cells": 22,
+        "all_valid": 22,
+        "retention_valid": 22,
+        "ph_valid": 22,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    },
+    {
+      "kind": "micro_areas",
+      "id": "font_romeu_font_romeu_medio",
+      "name": "Font_Romeu medio",
+      "counts": {
+        "touched_cells": 38,
+        "all_valid": 38,
+        "retention_valid": 38,
+        "ph_valid": 38,
+        "all_zero": 0,
+        "partial": 0,
+        "reference_nodata": 0,
+        "valid_outside_reference": 0,
+        "missing_inside_reference": 0
+      }
+    }
+  ],
+  "territorial_envelope_check": {
+    "outside_downloaded_envelope": []
+  },
+  "geometry_context_check": {
+    "geometry_hash_mismatches": [],
+    "microareas": 66
+  },
+  "asset_preservation_check": {
+    "checked_at": "2026-09-11T18:45:54.663392+00:00",
+    "normalized_files_checked_in_both_roots": 1355,
+    "mismatches": []
+  },
+  "source_comparison": [
+    {
+      "region": "ES51",
+      "category": 2,
+      "lon": 0.5518566144113494,
+      "lat": 40.766673019635164,
+      "source_url": "https://files.isric.org/soilgrids/latest/data/phh2o/phh2o_0-5cm_Q0.5/tileSG-009-046/tileSG-009-046_1-2.tif",
+      "original_vrt_nodata": -32768.0,
+      "original_vrt_value": -32768,
+      "downloaded_wcs_value": 0
+    },
+    {
+      "region": "ES51",
+      "category": 3,
+      "lon": 0.7243747568322975,
+      "lat": 40.81834238293509,
+      "source_url": "https://files.isric.org/soilgrids/latest/data/phh2o/phh2o_0-5cm_Q0.5/tileSG-009-046/tileSG-009-046_1-2.tif",
+      "original_vrt_nodata": -32768.0,
+      "original_vrt_value": -32768,
+      "downloaded_wcs_value": 0
+    },
+    {
+      "region": "ES51",
+      "category": 4,
+      "lon": 0.6714873835987917,
+      "lat": 40.56454954852214,
+      "source_url": "https://files.isric.org/soilgrids/latest/data/phh2o/phh2o_0-5cm_Q0.5/tileSG-009-046/tileSG-009-046_1-2.tif",
+      "original_vrt_nodata": -32768.0,
+      "original_vrt_value": 78,
+      "downloaded_wcs_value": 78
+    },
+    {
+      "region": "ES70",
+      "category": 3,
+      "lon": -18.073900747874735,
+      "lat": 27.700674679930593,
+      "source_url": "https://files.isric.org/soilgrids/latest/data/phh2o/phh2o_0-5cm_Q0.5/tileSG-012-041/tileSG-012-041_1-2.tif",
+      "original_vrt_nodata": -32768.0,
+      "original_vrt_value": -32768,
+      "downloaded_wcs_value": 0
+    },
+    {
+      "region": "ES70",
+      "category": 4,
+      "lon": -16.64987489866823,
+      "lat": 28.280088038187685,
+      "source_url": "https://files.isric.org/soilgrids/latest/data/phh2o/phh2o_0-5cm_Q0.5/tileSG-012-041/tileSG-012-041_1-3.tif",
+      "original_vrt_nodata": -32768.0,
+      "original_vrt_value": 68,
+      "downloaded_wcs_value": 68
+    }
+  ],
+  "decision": {
+    "coverage_gaps_accepted_by_user": true,
+    "fill_gaps": false,
+    "operational_migration_performed": false,
+    "next_step": "Compatible reader and controlled local migration; retain missing-data flags."
+  },
+  "rpi4_io_review": {
+    "scope": "Local source raster metadata; not a Raspberry Pi benchmark",
+    "raster_files": 1948,
+    "total_bytes": 795522040,
+    "largest_file": "source/phh2o_5-15cm_Q0.05/x159-164_y79-86.tif",
+    "largest_file_bytes": 4140163,
+    "block_sizes": {
+      "[256, 256]": 1948
+    },
+    "int16_bytes_per_256_square_block": 131072,
+    "single_pixel_all_63_layers_decompressed_block_bytes": 8257536,
+    "single_pixel_ph_9_layers_decompressed_block_bytes": 1179648,
+    "budget_note": "Block arithmetic only, excluding indexes, file headers, GDAL/process cache and concurrent requests. Does not assert resident-memory or disk-read totals."
+  }
+}

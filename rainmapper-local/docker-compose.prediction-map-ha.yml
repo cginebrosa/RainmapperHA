@@ -1,0 +1,4 @@
+# HA uses /share/rainmapper/prediction-map/config.json and /media/rainmapper.
+# Same paths as the HA add-on; no host geography or extra configuration mount.
+services:
+  rainmapper-ha-ui: {}

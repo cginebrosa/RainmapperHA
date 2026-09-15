@@ -1,0 +1,365 @@
+{
+  "checked_at": "2026-09-12",
+  "scope": "Local point reader and isolated preview; no worker/HA rollout or geographic prediction validation",
+  "index": {
+    "path": "mushroom-map-GIS/terrain-index/preview-2026-09-12.sqlite",
+    "bytes": 712704,
+    "dem_assets": 1527,
+    "ph_assets": 54,
+    "ph_tile_layers": 1017
+  },
+  "environment": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "python": "3.14.6"
+  },
+  "initialization_ms": 268.028,
+  "process_peak_rss_bytes": 103415808,
+  "open_datasets_after_queries": 13,
+  "queries": [
+    {
+      "point": {
+        "lat": 42.17826,
+        "lon": 2.20633
+      },
+      "elapsed_ms": 130.864,
+      "terrain": {
+        "status": "available",
+        "data_mode": "geographic_sources",
+        "elevation": {
+          "status": "available",
+          "value_m": 765.3,
+          "resolution_m": 5.0,
+          "source_id": "dem_5m"
+        },
+        "ph": {
+          "status": "available",
+          "resolution_m": 250,
+          "source_id": "soilgrids_2_phh2o",
+          "depths": [
+            {
+              "depth_cm": [
+                0,
+                5
+              ],
+              "status": "available",
+              "lower": 4.8,
+              "median": 7.0,
+              "upper": 8.2
+            },
+            {
+              "depth_cm": [
+                5,
+                15
+              ],
+              "status": "available",
+              "lower": 4.9,
+              "median": 7.0,
+              "upper": 8.2
+            },
+            {
+              "depth_cm": [
+                15,
+                30
+              ],
+              "status": "available",
+              "lower": 4.9,
+              "median": 7.0,
+              "upper": 8.2
+            }
+          ]
+        }
+      },
+      "terrain_json_bytes": 470
+    },
+    {
+      "point": {
+        "lat": 42.17826,
+        "lon": 2.20633
+      },
+      "elapsed_ms": 1.928,
+      "terrain": {
+        "status": "available",
+        "data_mode": "geographic_sources",
+        "elevation": {
+          "status": "available",
+          "value_m": 765.3,
+          "resolution_m": 5.0,
+          "source_id": "dem_5m"
+        },
+        "ph": {
+          "status": "available",
+          "resolution_m": 250,
+          "source_id": "soilgrids_2_phh2o",
+          "depths": [
+            {
+              "depth_cm": [
+                0,
+                5
+              ],
+              "status": "available",
+              "lower": 4.8,
+              "median": 7.0,
+              "upper": 8.2
+            },
+            {
+              "depth_cm": [
+                5,
+                15
+              ],
+              "status": "available",
+              "lower": 4.9,
+              "median": 7.0,
+              "upper": 8.2
+            },
+            {
+              "depth_cm": [
+                15,
+                30
+              ],
+              "status": "available",
+              "lower": 4.9,
+              "median": 7.0,
+              "upper": 8.2
+            }
+          ]
+        }
+      },
+      "terrain_json_bytes": 470
+    },
+    {
+      "point": {
+        "lat": 42.5284314,
+        "lon": 2.0095071
+      },
+      "elapsed_ms": 6.198,
+      "terrain": {
+        "status": "available",
+        "data_mode": "geographic_sources",
+        "elevation": {
+          "status": "available",
+          "value_m": 2069.4,
+          "resolution_m": 5.0,
+          "source_id": "dem_france_rge_alti_5m"
+        },
+        "ph": {
+          "status": "available",
+          "resolution_m": 250,
+          "source_id": "soilgrids_2_phh2o",
+          "depths": [
+            {
+              "depth_cm": [
+                0,
+                5
+              ],
+              "status": "available",
+              "lower": 4.3,
+              "median": 6.3,
+              "upper": 8.0
+            },
+            {
+              "depth_cm": [
+                5,
+                15
+              ],
+              "status": "available",
+              "lower": 4.4,
+              "median": 6.3,
+              "upper": 8.0
+            },
+            {
+              "depth_cm": [
+                15,
+                30
+              ],
+              "status": "available",
+              "lower": 4.5,
+              "median": 6.3,
+              "upper": 8.0
+            }
+          ]
+        }
+      },
+      "terrain_json_bytes": 487
+    },
+    {
+      "point": {
+        "lat": 42.5063,
+        "lon": 1.5218
+      },
+      "elapsed_ms": 3.855,
+      "terrain": {
+        "status": "partial",
+        "data_mode": "geographic_sources",
+        "elevation": {
+          "status": "available",
+          "value_m": 1007.7,
+          "resolution_m": 5.0,
+          "source_id": "dem_andorra_5m"
+        },
+        "ph": {
+          "status": "no_data",
+          "resolution_m": 250,
+          "source_id": "soilgrids_2_phh2o",
+          "depths": [
+            {
+              "depth_cm": [
+                0,
+                5
+              ],
+              "status": "no_data",
+              "lower": null,
+              "median": null,
+              "upper": null
+            },
+            {
+              "depth_cm": [
+                5,
+                15
+              ],
+              "status": "no_data",
+              "lower": null,
+              "median": null,
+              "upper": null
+            },
+            {
+              "depth_cm": [
+                15,
+                30
+              ],
+              "status": "no_data",
+              "lower": null,
+              "median": null,
+              "upper": null
+            }
+          ]
+        }
+      },
+      "terrain_json_bytes": 478
+    },
+    {
+      "point": {
+        "lat": 40.4168,
+        "lon": -3.7038
+      },
+      "elapsed_ms": 10.69,
+      "terrain": {
+        "status": "partial",
+        "data_mode": "geographic_sources",
+        "elevation": {
+          "status": "available",
+          "value_m": 648.2,
+          "resolution_m": 25.0,
+          "source_id": "ign_mdt25"
+        },
+        "ph": {
+          "status": "no_data",
+          "resolution_m": 250,
+          "source_id": "soilgrids_2_phh2o",
+          "depths": [
+            {
+              "depth_cm": [
+                0,
+                5
+              ],
+              "status": "no_data",
+              "lower": null,
+              "median": null,
+              "upper": null
+            },
+            {
+              "depth_cm": [
+                5,
+                15
+              ],
+              "status": "no_data",
+              "lower": null,
+              "median": null,
+              "upper": null
+            },
+            {
+              "depth_cm": [
+                15,
+                30
+              ],
+              "status": "no_data",
+              "lower": null,
+              "median": null,
+              "upper": null
+            }
+          ]
+        }
+      },
+      "terrain_json_bytes": 473
+    },
+    {
+      "point": {
+        "lat": 0,
+        "lon": 0
+      },
+      "elapsed_ms": 1.229,
+      "terrain": {
+        "status": "no_data",
+        "data_mode": "geographic_sources",
+        "elevation": {
+          "status": "not_covered"
+        },
+        "ph": {
+          "status": "not_covered",
+          "resolution_m": 250,
+          "source_id": "soilgrids_2_phh2o",
+          "depths": [
+            {
+              "depth_cm": [
+                0,
+                5
+              ],
+              "status": "not_covered",
+              "lower": null,
+              "median": null,
+              "upper": null
+            },
+            {
+              "depth_cm": [
+                5,
+                15
+              ],
+              "status": "not_covered",
+              "lower": null,
+              "median": null,
+              "upper": null
+            },
+            {
+              "depth_cm": [
+                15,
+                30
+              ],
+              "status": "not_covered",
+              "lower": null,
+              "median": null,
+              "upper": null
+            }
+          ]
+        }
+      },
+      "terrain_json_bytes": 431
+    }
+  ],
+  "limits": "Single process. OS cache not cleared; not RPi4 timings or incremental cgroup memory. 16 MiB GDAL cache, 16 handles, 4 MiB SQLite, no raster-result cache.",
+  "validation": {
+    "reader_tests": 7,
+    "contract_translation_tests": 13,
+    "browser": "desktop/mobile, scrolled pH table, missing values, station hover/click and original route",
+    "python_311": "syntax and contract tests only; GDAL reader tests use Homebrew Python",
+    "optional_municipality": "Missing municipal dataset returns location unavailable while terrain remains available in Font-Romeu",
+    "live_preview_api": "Final local API verified: Ripoll, 765.3 m, surface pH median 7.0; species remain simulation"
+  },
+  "pending": [
+    "SoilGrids retention/polygon aggregation and old-context compatibility",
+    "Prepared data distribution and GDAL packaging",
+    "Observed weather in popup",
+    "Worker geographic execution and scientific prediction validation",
+    "French vegetation/ecology deferred"
+  ],
+  "preservation": "No downloads, raster rewrites, full hashes, jobs, HA/worker restarts, coordinator changes or observations edits"
+}

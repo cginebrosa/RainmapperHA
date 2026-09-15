@@ -1,0 +1,2014 @@
+{
+  "date": "2026-09-13",
+  "scope": "Filtro ecológico local previo al motor; sin probabilidades nuevas",
+  "policy": "broad_species_windows_v1",
+  "config_files_read_only": {
+    "docker-data/mushroom-data/mushroom_profiles.json": {
+      "bytes": 177432,
+      "sha256": "110a6ba701ee6e46479b8917bf69297332b4558feacf0168aae30dc407097170"
+    },
+    "docker-data/mushroom-data/mushroom_reference_catalogs.json": {
+      "bytes": 101239,
+      "sha256": "395e7004c46659b1bcf396f08433de1cfd8d585bc461a224a071cd98e8648b90"
+    },
+    "docker-data/mushroom-data/mushroom_gis_mappings.json": {
+      "bytes": 27883,
+      "sha256": "891e0d4dea7a083faa77c8cfd203d7bf33b55e77895429966aaa5ec24aba6799"
+    }
+  },
+  "resource_limits": {
+    "max_profiles": 32,
+    "max_config_file_bytes": 2097152,
+    "max_exact_mappings": 512,
+    "reload": "stat; leer y calcular huella solo al cambiar los JSON pequeños"
+  },
+  "tests": {
+    "ecology": 14,
+    "forest_gdal": 10,
+    "queries": 6,
+    "prediction_map": 12,
+    "browser": "pasa; hosts ausentes, candidatas por día, sin curvas de ejemplo, móvil y ruta meteorológica"
+  },
+  "point_probes": [
+    {
+      "point": [
+        42.06511,
+        1.81822
+      ],
+      "elapsed_ms": 582.216,
+      "response_bytes": 7562,
+      "municipality": {
+        "status": "available",
+        "source": "IGN",
+        "edition": "2026-08-10",
+        "name": "Avià",
+        "national_code": "34090808011"
+      },
+      "trees": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "unavailable",
+        "reason": "invalid_geometry"
+      },
+      "ecology": {
+        "status": "available",
+        "policy": "broad_species_windows_v1",
+        "revision": "5404d25975cdef0a3b72",
+        "dates": [
+          "2026-09-13",
+          "2026-09-14",
+          "2026-09-15",
+          "2026-09-16",
+          "2026-09-17",
+          "2026-09-18",
+          "2026-09-19"
+        ],
+        "mapping_states": {
+          "vegetation": "unresolved",
+          "geology": "unresolved"
+        },
+        "species": [
+          {
+            "species_id": "amanita_caesarea",
+            "name": "Ou de reig",
+            "scientific_name": "Amanita caesarea",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "boletus_aereus",
+            "name": "Aereus",
+            "scientific_name": "Boletus aereus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "boletus_edulis",
+            "name": "Edulis",
+            "scientific_name": "Boletus edulis",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "boletus_pinophilus",
+            "name": "Pinícola",
+            "scientific_name": "Boletus pinophilus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "calocybe_gambosa",
+            "name": "Moixernó",
+            "scientific_name": "Calocybe gambosa",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "cantharellus_cibarius_sl",
+            "name": "Rossinyol",
+            "scientific_name": "Cantharellus cibarius",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "cantharellus_lutescens",
+            "name": "Camagroc",
+            "scientific_name": "Cantharellus lutescens",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "craterellus_cornucopioides",
+            "name": "Trompeta negra",
+            "scientific_name": "Craterellus cornucopioides",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "hygrophorus_latitabundus",
+            "name": "Llanega negra",
+            "scientific_name": "Hygrophorus latitabundus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "hygrophorus_marzuolus",
+            "name": "Marçot",
+            "scientific_name": "Hygrophorus marzuolus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_deliciosus",
+            "name": "Rovelló",
+            "scientific_name": "Lactarius deliciosus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_salmonicolor_quieticolor_group",
+            "name": "Rovelló d'avet",
+            "scientific_name": "Lactarius salmonicolor / quieticolor",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_sanguifluus",
+            "name": "Rovelló de sang",
+            "scientific_name": "Lactarius sanguifluus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_vinosus",
+            "name": "Vinader",
+            "scientific_name": "Lactarius vinosus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lepista_nuda",
+            "name": "Lepista nuda",
+            "scientific_name": "Lepista nuda",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "macrolepiota_procera",
+            "name": "Macrolepiota procera",
+            "scientific_name": "Macrolepiota procera",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "marasmius_oreades",
+            "name": "Marasmius oreades",
+            "scientific_name": "Marasmius oreades",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "morchella_elata_complex",
+            "name": "Múrgola negra",
+            "scientific_name": "Morchella elata complex",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "russula_virescens",
+            "name": "Llora verda",
+            "scientific_name": "Russula virescens",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "tricholoma_terreum",
+            "name": "Fredolic",
+            "scientific_name": "Tricholoma terreum",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "tuber_melanosporum",
+            "name": "Tófona Negra",
+            "scientific_name": "Tuber melanosporum",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          }
+        ],
+        "abstention_reason": "host_data_missing"
+      }
+    },
+    {
+      "point": [
+        42.06397,
+        1.93668
+      ],
+      "elapsed_ms": 73.137,
+      "response_bytes": 9869,
+      "municipality": {
+        "status": "available",
+        "source": "IGN",
+        "edition": "2026-08-10",
+        "name": "Olvan",
+        "national_code": "34090808144"
+      },
+      "trees": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "available",
+        "items": [
+          {
+            "label": "Encina",
+            "scientific_name": "Quercus ilex",
+            "code": "45",
+            "host_id": "host_quercus_ilex"
+          },
+          {
+            "label": "quejigo",
+            "scientific_name": "Quercus faginea",
+            "code": "44",
+            "host_id": "host_quercus_faginea"
+          },
+          {
+            "label": "Roble pubescente",
+            "scientific_name": "Quercus humilis (Q. Pubescens)",
+            "code": "243",
+            "host_id": "host_quercus_humilis"
+          }
+        ],
+        "polygon_id": "2188313",
+        "formation": "Encinares (Quercus ilex)"
+      },
+      "ecology": {
+        "status": "available",
+        "policy": "broad_species_windows_v1",
+        "revision": "5404d25975cdef0a3b72",
+        "dates": [
+          "2026-09-13",
+          "2026-09-14",
+          "2026-09-15",
+          "2026-09-16",
+          "2026-09-17",
+          "2026-09-18",
+          "2026-09-19"
+        ],
+        "mapping_states": {
+          "vegetation": "unresolved",
+          "geology": "unresolved"
+        },
+        "species": [
+          {
+            "species_id": "amanita_caesarea",
+            "name": "Ou de reig",
+            "scientific_name": "Amanita caesarea",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "boletus_aereus",
+            "name": "Aereus",
+            "scientific_name": "Boletus aereus",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "boletus_edulis",
+            "name": "Edulis",
+            "scientific_name": "Boletus edulis",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "boletus_pinophilus",
+            "name": "Pinícola",
+            "scientific_name": "Boletus pinophilus",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "calocybe_gambosa",
+            "name": "Moixernó",
+            "scientific_name": "Calocybe gambosa",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_match",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "cantharellus_cibarius_sl",
+            "name": "Rossinyol",
+            "scientific_name": "Cantharellus cibarius",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "cantharellus_lutescens",
+            "name": "Camagroc",
+            "scientific_name": "Cantharellus lutescens",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "craterellus_cornucopioides",
+            "name": "Trompeta negra",
+            "scientific_name": "Craterellus cornucopioides",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "hygrophorus_latitabundus",
+            "name": "Llanega negra",
+            "scientific_name": "Hygrophorus latitabundus",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_match",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "hygrophorus_marzuolus",
+            "name": "Marçot",
+            "scientific_name": "Hygrophorus marzuolus",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "lactarius_deliciosus",
+            "name": "Rovelló",
+            "scientific_name": "Lactarius deliciosus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_salmonicolor_quieticolor_group",
+            "name": "Rovelló d'avet",
+            "scientific_name": "Lactarius salmonicolor / quieticolor",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_sanguifluus",
+            "name": "Rovelló de sang",
+            "scientific_name": "Lactarius sanguifluus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_vinosus",
+            "name": "Vinader",
+            "scientific_name": "Lactarius vinosus",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_match",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lepista_nuda",
+            "name": "Lepista nuda",
+            "scientific_name": "Lepista nuda",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "macrolepiota_procera",
+            "name": "Macrolepiota procera",
+            "scientific_name": "Macrolepiota procera",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "marasmius_oreades",
+            "name": "Marasmius oreades",
+            "scientific_name": "Marasmius oreades",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_unbounded",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "morchella_elata_complex",
+            "name": "Múrgola negra",
+            "scientific_name": "Morchella elata complex",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_match",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "russula_virescens",
+            "name": "Llora verda",
+            "scientific_name": "Russula virescens",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          },
+          {
+            "species_id": "tricholoma_terreum",
+            "name": "Fredolic",
+            "scientific_name": "Tricholoma terreum",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "tuber_melanosporum",
+            "name": "Tófona Negra",
+            "scientific_name": "Tuber melanosporum",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_unbounded",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": [
+              "host_quercus_faginea",
+              "host_quercus_humilis",
+              "host_quercus_ilex"
+            ]
+          }
+        ],
+        "abstention_reason": null
+      }
+    },
+    {
+      "point": [
+        42.46291,
+        1.82695
+      ],
+      "elapsed_ms": 33.393,
+      "response_bytes": 9586,
+      "municipality": {
+        "status": "available",
+        "source": "IGN",
+        "edition": "2026-08-10",
+        "name": "Ger",
+        "national_code": "34091717078"
+      },
+      "trees": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "available",
+        "items": [
+          {
+            "label": "Pino negro",
+            "scientific_name": "Pinus uncinata",
+            "code": "22",
+            "host_id": "host_pinus_uncinata"
+          },
+          {
+            "label": "Enebro",
+            "scientific_name": "Juniperus communis",
+            "code": "37",
+            "host_id": "host_juniperus_communis"
+          }
+        ],
+        "polygon_id": "2100670",
+        "formation": "Pinar de pino negro (Pinus uncinata)"
+      },
+      "ecology": {
+        "status": "available",
+        "policy": "broad_species_windows_v1",
+        "revision": "5404d25975cdef0a3b72",
+        "dates": [
+          "2026-09-13",
+          "2026-09-14",
+          "2026-09-15",
+          "2026-09-16",
+          "2026-09-17",
+          "2026-09-18",
+          "2026-09-19"
+        ],
+        "mapping_states": {
+          "vegetation": "unresolved",
+          "geology": "unresolved"
+        },
+        "species": [
+          {
+            "species_id": "amanita_caesarea",
+            "name": "Ou de reig",
+            "scientific_name": "Amanita caesarea",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "boletus_aereus",
+            "name": "Aereus",
+            "scientific_name": "Boletus aereus",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "boletus_edulis",
+            "name": "Edulis",
+            "scientific_name": "Boletus edulis",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "boletus_pinophilus",
+            "name": "Pinícola",
+            "scientific_name": "Boletus pinophilus",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "calocybe_gambosa",
+            "name": "Moixernó",
+            "scientific_name": "Calocybe gambosa",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_outside",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "cantharellus_cibarius_sl",
+            "name": "Rossinyol",
+            "scientific_name": "Cantharellus cibarius",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "cantharellus_lutescens",
+            "name": "Camagroc",
+            "scientific_name": "Cantharellus lutescens",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "craterellus_cornucopioides",
+            "name": "Trompeta negra",
+            "scientific_name": "Craterellus cornucopioides",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "hygrophorus_latitabundus",
+            "name": "Llanega negra",
+            "scientific_name": "Hygrophorus latitabundus",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_outside",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "hygrophorus_marzuolus",
+            "name": "Marçot",
+            "scientific_name": "Hygrophorus marzuolus",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_outside",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "lactarius_deliciosus",
+            "name": "Rovelló",
+            "scientific_name": "Lactarius deliciosus",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "lactarius_salmonicolor_quieticolor_group",
+            "name": "Rovelló d'avet",
+            "scientific_name": "Lactarius salmonicolor / quieticolor",
+            "status": "compatible",
+            "daily_statuses": [
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible",
+              "compatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_match",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "lactarius_sanguifluus",
+            "name": "Rovelló de sang",
+            "scientific_name": "Lactarius sanguifluus",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_vinosus",
+            "name": "Vinader",
+            "scientific_name": "Lactarius vinosus",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_outside",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lepista_nuda",
+            "name": "Lepista nuda",
+            "scientific_name": "Lepista nuda",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "macrolepiota_procera",
+            "name": "Macrolepiota procera",
+            "scientific_name": "Macrolepiota procera",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "marasmius_oreades",
+            "name": "Marasmius oreades",
+            "scientific_name": "Marasmius oreades",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_unbounded",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "morchella_elata_complex",
+            "name": "Múrgola negra",
+            "scientific_name": "Morchella elata complex",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "habitat_unknown",
+              "altitude_outside",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "russula_virescens",
+            "name": "Llora verda",
+            "scientific_name": "Russula virescens",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "tricholoma_terreum",
+            "name": "Fredolic",
+            "scientific_name": "Tricholoma terreum",
+            "status": "incompatible",
+            "daily_statuses": [
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible",
+              "incompatible"
+            ],
+            "reasons": [
+              "hosts_match",
+              "altitude_outside",
+              "ph_unbounded"
+            ],
+            "matched_host_ids": [
+              "host_pinus_uncinata"
+            ]
+          },
+          {
+            "species_id": "tuber_melanosporum",
+            "name": "Tófona Negra",
+            "scientific_name": "Tuber melanosporum",
+            "status": "out_of_season",
+            "daily_statuses": [
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season",
+              "out_of_season"
+            ],
+            "reasons": [
+              "hosts_unknown",
+              "altitude_unbounded",
+              "ph_unbounded",
+              "outside_season"
+            ],
+            "matched_host_ids": []
+          }
+        ],
+        "abstention_reason": null
+      }
+    },
+    {
+      "point": [
+        42.06511,
+        1.81822
+      ],
+      "elapsed_ms": 2.293,
+      "response_bytes": 7562,
+      "municipality": {
+        "status": "available",
+        "source": "IGN",
+        "edition": "2026-08-10",
+        "name": "Avià",
+        "national_code": "34090808011"
+      },
+      "trees": {
+        "source_id": "mfe25",
+        "exhaustive": false,
+        "status": "unavailable",
+        "reason": "invalid_geometry"
+      },
+      "ecology": {
+        "status": "available",
+        "policy": "broad_species_windows_v1",
+        "revision": "5404d25975cdef0a3b72",
+        "dates": [
+          "2026-09-13",
+          "2026-09-14",
+          "2026-09-15",
+          "2026-09-16",
+          "2026-09-17",
+          "2026-09-18",
+          "2026-09-19"
+        ],
+        "mapping_states": {
+          "vegetation": "unresolved",
+          "geology": "unresolved"
+        },
+        "species": [
+          {
+            "species_id": "amanita_caesarea",
+            "name": "Ou de reig",
+            "scientific_name": "Amanita caesarea",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "boletus_aereus",
+            "name": "Aereus",
+            "scientific_name": "Boletus aereus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "boletus_edulis",
+            "name": "Edulis",
+            "scientific_name": "Boletus edulis",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "boletus_pinophilus",
+            "name": "Pinícola",
+            "scientific_name": "Boletus pinophilus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "calocybe_gambosa",
+            "name": "Moixernó",
+            "scientific_name": "Calocybe gambosa",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "cantharellus_cibarius_sl",
+            "name": "Rossinyol",
+            "scientific_name": "Cantharellus cibarius",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "cantharellus_lutescens",
+            "name": "Camagroc",
+            "scientific_name": "Cantharellus lutescens",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "craterellus_cornucopioides",
+            "name": "Trompeta negra",
+            "scientific_name": "Craterellus cornucopioides",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "hygrophorus_latitabundus",
+            "name": "Llanega negra",
+            "scientific_name": "Hygrophorus latitabundus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "hygrophorus_marzuolus",
+            "name": "Marçot",
+            "scientific_name": "Hygrophorus marzuolus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_deliciosus",
+            "name": "Rovelló",
+            "scientific_name": "Lactarius deliciosus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_salmonicolor_quieticolor_group",
+            "name": "Rovelló d'avet",
+            "scientific_name": "Lactarius salmonicolor / quieticolor",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_sanguifluus",
+            "name": "Rovelló de sang",
+            "scientific_name": "Lactarius sanguifluus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lactarius_vinosus",
+            "name": "Vinader",
+            "scientific_name": "Lactarius vinosus",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "lepista_nuda",
+            "name": "Lepista nuda",
+            "scientific_name": "Lepista nuda",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "macrolepiota_procera",
+            "name": "Macrolepiota procera",
+            "scientific_name": "Macrolepiota procera",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "marasmius_oreades",
+            "name": "Marasmius oreades",
+            "scientific_name": "Marasmius oreades",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "morchella_elata_complex",
+            "name": "Múrgola negra",
+            "scientific_name": "Morchella elata complex",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "russula_virescens",
+            "name": "Llora verda",
+            "scientific_name": "Russula virescens",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "tricholoma_terreum",
+            "name": "Fredolic",
+            "scientific_name": "Tricholoma terreum",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          },
+          {
+            "species_id": "tuber_melanosporum",
+            "name": "Tófona Negra",
+            "scientific_name": "Tuber melanosporum",
+            "status": "unknown",
+            "daily_statuses": [
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown",
+              "unknown"
+            ],
+            "reasons": [
+              "host_data_missing"
+            ],
+            "matched_host_ids": []
+          }
+        ],
+        "abstention_reason": "host_data_missing"
+      }
+    }
+  ],
+  "preview_http": {
+    "point": {
+      "lat": 42.06511,
+      "lon": 1.81822
+    },
+    "ecology_status": "available",
+    "abstention_reason": "host_data_missing",
+    "eligible": 0,
+    "weather_status": "available",
+    "execution": {
+      "mode": "local",
+      "compute_ms": 319.56087500000285
+    }
+  },
+  "limitations": [
+    "Rendimientos de lecturas en M1, no predicción completa ni comparativa HA/worker.",
+    "Las cinco correspondencias exactas locales son anteriores; ninguna corresponde a los nuevos productos ICGC con edición exacta. Hábitat/suelo/litología pendientes de mappings revisados.",
+    "pH opcional sin cifras en las 21 fichas; no se inventan límites.",
+    "Agrupación predictiva Rovelló y conexión del motor pendientes.",
+    "El contrato de prototipo conserva los ejemplos en species; si hay ecology, el visor solo muestra elegibilidad, nunca esos porcentajes.",
+    "Sin publicación HA ni ejecución de trabajos. Catálogo, perfiles, mappings y observaciones no modificados por este bloque."
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "schema": "openlandmap_ph_acquisition_v1",
+  "source_id": "openlandmap_soildb_ph",
+  "edition": "v20250204",
+  "period": "2020-2022",
+  "depth_cm": [
+    0,
+    30
+  ],
+  "scale": 0.1,
+  "interval_probability": 0.68,
+  "license": "CC-BY-4.0",
+  "attribution": "OpenLandMap-soildb / OpenGeoHub",
+  "source_url": "https://github.com/openlandmap/soildb",
+  "regions": [
+    {
+      "region": "peninsula_and_balearics",
+      "bbox": [
+        -9.6,
+        35.9,
+        4.4,
+        43.9
+      ],
+      "uncompressed_bytes": 2016132003
+    },
+    {
+      "region": "canaries",
+      "bbox": [
+        -18.3,
+        27.5,
+        -13.3,
+        29.5
+      ],
+      "uncompressed_bytes": 180042003
+    },
+    {
+      "region": "north_african_spanish_territories",
+      "bbox": [
+        -5.5,
+        35.0,
+        -2.3,
+        35.95
+      ],
+      "uncompressed_bytes": 54744903
+    }
+  ],
+  "layers": [
+    {
+      "statistic": "mean",
+      "resolution_m": 30,
+      "url": "https://s3.opengeohub.org/global-soil/global_soil_props_v20250204_mosaics/ph.h2o_iso.10390.2021.index_m_30m_b0cm..30cm_20200101_20221231_g_epsg.4326_v20250204.tif"
+    },
+    {
+      "statistic": "p0.16",
+      "resolution_m": 120,
+      "url": "https://s3.opengeohub.org/global-soil/global_soil_props_v20250204_mosaics/ph.h2o_iso.10390.2021.index_p16_120m_b0cm..30cm_20200101_20221231_g_epsg.4326_v20250204.tif"
+    },
+    {
+      "statistic": "p0.84",
+      "resolution_m": 120,
+      "url": "https://s3.opengeohub.org/global-soil/global_soil_props_v20250204_mosaics/ph.h2o_iso.10390.2021.index_p84_120m_b0cm..30cm_20200101_20221231_g_epsg.4326_v20250204.tif"
+    }
+  ],
+  "nearest_max_distance_m": 1000
+}

@@ -1,0 +1,356 @@
+{
+  "contract": "prediction_map_point_v1",
+  "checks": {
+    "ready": {
+      "contract": "prediction_map_point_v1",
+      "can_use_prediction_map": true,
+      "admin_only": true,
+      "data_mode": "prediction",
+      "worker_ready": true,
+      "executors": {
+        "local": true,
+        "worker": true
+      },
+      "max_horizon_days": 7,
+      "max_species": 32
+    },
+    "unauthorized": 401,
+    "invalid_coordinate": 400,
+    "initial_parity": true,
+    "local_warm_parity": true,
+    "worker_warm_parity": true,
+    "concurrent_parity": true,
+    "local_cancel": "cancelled",
+    "worker_cancel": "cancelled"
+  },
+  "queries": [
+    {
+      "mode": "local",
+      "point": {
+        "lat": 42.29077,
+        "lon": 1.53842
+      },
+      "elapsed_ms": 1851.38,
+      "compute_ms": 1707.01,
+      "polls": 10,
+      "state_bytes": 513,
+      "result_bytes": 23879,
+      "calculated_species": 3
+    },
+    {
+      "mode": "worker",
+      "point": {
+        "lat": 42.29077,
+        "lon": 1.53842
+      },
+      "elapsed_ms": 2052.81,
+      "compute_ms": 1791.554,
+      "polls": 11,
+      "state_bytes": 569,
+      "result_bytes": 23881,
+      "calculated_species": 3
+    },
+    {
+      "mode": "local",
+      "point": {
+        "lat": 42.29077,
+        "lon": 1.53842
+      },
+      "elapsed_ms": 1446.54,
+      "compute_ms": 1248.968,
+      "polls": 8,
+      "state_bytes": 399,
+      "result_bytes": 23880,
+      "calculated_species": 3
+    },
+    {
+      "mode": "worker",
+      "point": {
+        "lat": 42.29077,
+        "lon": 1.53842
+      },
+      "elapsed_ms": 1870.35,
+      "compute_ms": 1283.23,
+      "polls": 10,
+      "state_bytes": 511,
+      "result_bytes": 23880,
+      "calculated_species": 3
+    },
+    {
+      "mode": "local",
+      "point": {
+        "lat": 42.02466,
+        "lon": 1.77189
+      },
+      "elapsed_ms": 2684.75,
+      "compute_ms": 2589.037,
+      "polls": 14,
+      "state_bytes": 741,
+      "result_bytes": 25643,
+      "calculated_species": 3
+    },
+    {
+      "mode": "worker",
+      "point": {
+        "lat": 42.02466,
+        "lon": 1.77189
+      },
+      "elapsed_ms": 3300.25,
+      "compute_ms": 2437.924,
+      "polls": 4,
+      "state_bytes": 171,
+      "result_bytes": 25644,
+      "calculated_species": 3
+    }
+  ],
+  "differences": [],
+  "scientific_provenance": {
+    "engine": "existing_python_predictor",
+    "scientifically_validated": false,
+    "selection_scope": "species",
+    "point_validation": "not_established",
+    "model_revision": "ac802efe85f6be611b19",
+    "batch_id": "operational_20260909T184116Z",
+    "weather_generation": "20260913T171307152718Z-c1fbe31a5cf7",
+    "soil_context_hash": "2bf319b22511dbb662afca57829e908f7e8659068c82c15461c4742366f95089"
+  },
+  "species": [
+    {
+      "species_id": "boletus_edulis",
+      "label_key": "boletus_edulis",
+      "status": "available",
+      "probabilities": [
+        0.606589,
+        0.616665,
+        0.626627,
+        0.636468,
+        0.646182,
+        0.655764,
+        0.665207
+      ],
+      "reasons": [
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated"
+      ]
+    },
+    {
+      "species_id": "boletus_pinophilus",
+      "label_key": "boletus_pinophilus",
+      "status": "available",
+      "probabilities": [
+        0.278388,
+        0.277451,
+        0.277045,
+        0.278815,
+        0.265758,
+        0.25664,
+        0.257046
+      ],
+      "reasons": [
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated"
+      ]
+    },
+    {
+      "species_id": "cantharellus_cibarius_sl",
+      "label_key": "cantharellus_cibarius_sl",
+      "status": "available",
+      "probabilities": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "model_abstained",
+        "model_abstained",
+        "model_abstained",
+        "model_abstained",
+        "model_abstained",
+        "model_abstained",
+        "model_abstained"
+      ]
+    },
+    {
+      "species_id": "cantharellus_lutescens",
+      "label_key": "cantharellus_lutescens",
+      "status": "no_model",
+      "probabilities": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable"
+      ]
+    },
+    {
+      "species_id": "lactarius_deliciosus",
+      "label_key": "lactarius_deliciosus",
+      "status": "available",
+      "probabilities": [
+        0.611375,
+        0.611674,
+        0.619264,
+        0.625384,
+        0.631784,
+        0.639866,
+        0.650355
+      ],
+      "reasons": [
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated",
+        "calculated"
+      ]
+    },
+    {
+      "species_id": "tricholoma_terreum",
+      "label_key": "tricholoma_terreum",
+      "status": "no_model",
+      "probabilities": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "reasons": [
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable",
+        "model_unavailable"
+      ]
+    }
+  ],
+  "ok": true,
+  "temporary_test_device_removed": true,
+  "date": "2026-09-14",
+  "code_parity": {
+    "source": {
+      "rainmapper_core/mushroom_map_execution.py": "b2dbf5f8b42f4e5d56531f176b517f4c23d85f5c3f84d4f0bc9109bcf0b0d77e",
+      "rainmapper_core/mushroom_map_ecology.py": "52a9cf05e38024f4eddec8af74326f263ab048fd37d57500ed7a6aa8a0fc5b18",
+      "rainmapper_core/mushroom_phenology.py": "5c9c91595c1960c945b6df02f65af912566c1793da2cd95dd8d76aaf7041339b",
+      "rainmapper_core/mushroom_map_model_runtime.py": "adc5998c8a3d31ce27f17e275dbdb2914917078054a715e27262c97a63fbb389",
+      "rainmapper_core/mushroom_map_queries.py": "aaec09b2686c9ee56fa3c515648d05adfbbb70037f9e8203065a483124e30d35",
+      "rainmapper_core/mushroom_map_worker.py": "5b042bdd6ebaed8be0ef33eabab909cae93cac087d99eff7495b462eccd62d89",
+      "rainmapper_core/mushroom_map_volume.py": "8871b202b4adc2024e304d48af0a86c7d5e270312a4c40ee8c0a777f70e2214c",
+      "rainmapper_core/mushroom_ml_predictor.py": "efa01518499badbc1b5636bf44c01103395b1adfacc5cd9300e93b80b257178b",
+      "scripts/prediction-map-local-geography.py": "cc3b2f29c5b2b635ca3702719c50694aebd3edd2457fbb019cd13cf211e87e06",
+      "scripts/prediction-map-local-weather.py": "df04e917230485d07a1d3710e852ed0c77793af840fb74444de6d00247549623",
+      "scripts/prediction-map-local-model.py": "4a0a1a5ff9e6af8cac084f748adcaa45318bb55a5453a0d21f6264572283b52f"
+    },
+    "containers": {
+      "rainmapper-local-rainmapper-ha-ui-1": {
+        "source_matches": true,
+        "image_id": "sha256:609f79d354aaf0166353fe60be7f970517a6a10af4df86797474c39fbc7b0a63"
+      },
+      "rainmapper-worker": {
+        "source_matches": true,
+        "image_id": "sha256:427b87549ac5b614198ad4eb83e9bb513438a1aca774859e12d6dd278cd05882"
+      }
+    }
+  },
+  "offline": {
+    "contract": "prediction_map_point_v1",
+    "checks": {
+      "worker_offline_no_local_fallback": true
+    },
+    "queries": [],
+    "ok": true,
+    "temporary_test_device_removed": true
+  },
+  "volume": {
+    "generation": "local-20260914",
+    "manifest": "docker-media/rainmapper/prediction-map/generations/local-20260914/manifest.json",
+    "files": 3510,
+    "logical_bytes": 14538214301,
+    "install_method": "same-filesystem hardlinks; read-only container mounts",
+    "transferred_bytes": 0,
+    "initial_hashed_bytes": 14538214301,
+    "repeat_transferred_bytes": 0,
+    "repeat_hashed_bytes": 0,
+    "national_complete": false,
+    "not_integrated": [
+      "GEODE",
+      "MFE outside Catalunya"
+    ],
+    "private_runtime": "separate read-only mounts from local coordinator; never in public package"
+  },
+  "profile_revision_note": {
+    "v5_backup": "backups/mushroom_profiles.20260914T004258Z.json",
+    "current_change": "salmonicolor/quieticolor host_affinities changed from five entries to host_abies_spp; metadata updated_by rainmapper_ui",
+    "file_mtime_local": "2026-09-14 02:42:58",
+    "preserved": true,
+    "acceptance_uses_current_profiles": true
+  },
+  "local_profile_catalog_mapping_hashes": {
+    "mushroom_profiles.json": "b9b85a5a23b07346b96772b8ec3d9807a22a003e58dae6aa2a0719397924407a",
+    "mushroom_reference_catalogs.json": "5e5dee67bdf044772c5cbc687208e5e10060b5c8b39ac9b48b6d64cc27df39e5",
+    "mushroom_gis_mappings.json": "0b2745a711e3cdf5a342cdf24f330c88e65919fb1d79144bf730ab145837eac5"
+  },
+  "coordinator_config_hashes_unchanged": {
+    "config/coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+    "config/additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+  },
+  "cgroup_after_acceptance": {
+    "ha_local": {
+      "current_bytes": 658063360,
+      "peak_bytes": 778915840
+    },
+    "worker": {
+      "current_bytes": 569921536,
+      "peak_bytes": 576188416
+    },
+    "scope": "entire containers since recreation, including page cache; not per-query incremental RAM; Docker bind IO not represented by empty io.stat"
+  },
+  "validation": {
+    "directed_batch_tests": 118,
+    "batch_note": "117 passed in sandbox; sole socket test blocked by sandbox then passed outside sandbox",
+    "final_changed_scope_tests": 19,
+    "final_scope": "volume/readiness and map API after capabilities fix",
+    "browser": "not rerun; no visual changes; visual review and Safari deferred by user",
+    "architectures_tested": [
+      "linux/arm64"
+    ],
+    "scope": "same Mac; not RPi4 benchmark, scientific calibration or national geographic acceptance",
+    "not_run": [
+      "training",
+      "precompute",
+      "weather runners",
+      "HA real publish/install",
+      "national downloads/audits"
+    ]
+  }
+}

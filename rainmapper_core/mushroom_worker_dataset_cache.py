@@ -10,6 +10,7 @@ import shutil
 import uuid
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Callable
+from rainmapper_core.mushroom_geography_store import ObjectStore, receipt_stamp
 
 
 SCHEMA_VERSION = "0.1"
@@ -57,10 +58,11 @@ def _validated_dataset(input_manifest: dict[str, Any], dataset_id: str) -> dict[
     if not isinstance(fingerprint, str) or not _FINGERPRINT_RE.fullmatch(fingerprint):
         raise ValueError("dataset fingerprint must be a lowercase sha256 value")
     raw_files = dataset.get("files")
-    if not isinstance(raw_files, list) or not raw_files:
+    if not isinstance(raw_files, list) or not raw_files or len(raw_files) > 20000:
         raise ValueError("dataset files must be a non-empty list")
     files: list[dict[str, Any]] = []
     seen: set[str] = set()
+    total_bytes = 0
     for raw_record in raw_files:
         if not isinstance(raw_record, dict):
             raise ValueError("dataset contains an invalid file record")
@@ -73,6 +75,9 @@ def _validated_dataset(input_manifest: dict[str, Any], dataset_id: str) -> dict[
         digest = raw_record.get("sha256")
         if not isinstance(size, int) or isinstance(size, bool) or size < 0:
             raise ValueError(f"invalid size for dataset path: {logical_path}")
+        total_bytes += size
+        if total_bytes > 128 * 1024**3:
+            raise ValueError('dataset byte limit exceeded')
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise ValueError(f"invalid sha256 for dataset path: {logical_path}")
         files.append(
@@ -333,6 +338,40 @@ def sync_from_fetcher(
     dataset_id: str = DEFAULT_DATASET_ID,
 ) -> dict[str, Any]:
     """Fetch a missing dataset version directly into transactional staging."""
+    store = ObjectStore(worker_data_dir.resolve() / 'geography')
+    try:
+        return _sync_from_fetcher(input_manifest, worker_data_dir, fetch_file=fetch_file,
+                                  dataset_id=dataset_id, store=store)
+    finally:
+        store.close()
+
+
+def _shared_link(store, record, destination):
+    with store.locked():
+        obj = store.find(record['sha256'], record['size_bytes'])
+        if obj is None:
+            return False
+        store.link(obj, destination, replace_owned_view=True)
+        return True
+
+
+def _share_cached_file(store, record, source, destination, *, freshly_verified=False):
+    if _shared_link(store, record, destination):
+        return
+    before = receipt_stamp(source)
+    if not freshly_verified:
+        check = hashlib.sha256()
+        with source.open('rb') as stream:
+            for block in iter(lambda: stream.read(4*1024*1024), b''):
+                check.update(block)
+        if check.hexdigest() != record['sha256']:
+            raise RuntimeError('cached GIS source checksum mismatch')
+    with store.locked():
+        obj = store.adopt_checked(source, record['sha256'], record['size_bytes'], before)
+        store.link(obj, destination, replace_owned_view=True)
+
+
+def _sync_from_fetcher(input_manifest, worker_data_dir, *, fetch_file, dataset_id, store):
     dataset = _validated_dataset(input_manifest, dataset_id)
     root = _cache_root(worker_data_dir, dataset_id)
     versions = root / "versions"
@@ -351,6 +390,9 @@ def sync_from_fetcher(
         )
         if verification["status"] != "valid":
             raise RuntimeError("existing dataset version failed shallow validation")
+        for record in dataset['files']:
+            source = version_dir / _safe_relative_path(record['path'])
+            _share_cached_file(store, record, source, source)
         _activate(root, fingerprint)
         return {
             **verification,
@@ -364,6 +406,11 @@ def sync_from_fetcher(
         }
 
     reusable_files = _reusable_current_files(dataset, worker_data_dir, dataset_id)
+    with store.locked():
+        for record in dataset['files']:
+            obj = store.find(record['sha256'], record['size_bytes'])
+            if obj is not None:
+                reusable_files[record['path']] = obj
     required_bytes = sum(
         int(record["size_bytes"])
         for record in dataset["files"]
@@ -390,26 +437,17 @@ def sync_from_fetcher(
             if reusable_source is not None:
                 destination = staging / relative
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    os.link(reusable_source, destination)
-                except OSError:
-                    fallback_required = remaining_required_bytes + int(record["size_bytes"])
-                    free_bytes = shutil.disk_usage(root).free
-                    if free_bytes < fallback_required + MIN_DATASET_FREE_BYTES:
-                        raise RuntimeError(
-                            "insufficient free space for dataset staging: "
-                            f"required={fallback_required + MIN_DATASET_FREE_BYTES}, "
-                            f"available={free_bytes}"
-                        )
-                else:
-                    reused_files += 1
-                    reused_bytes += int(record["size_bytes"])
-                    continue
+                _share_cached_file(store, record, reusable_source, destination)
+                reused_files += 1
+                reused_bytes += int(record["size_bytes"])
+                continue
             size, digest = fetch_file(record, staging / relative)
             if size != record["size_bytes"]:
                 raise RuntimeError(f"dataset source size mismatch: {record['path']}")
             if digest != record["sha256"]:
                 raise RuntimeError(f"dataset source hash mismatch: {record['path']}")
+            _share_cached_file(store, record, staging / relative, staging / relative,
+                               freshly_verified=True)
             transferred_files += 1
             transferred_bytes += size
             if reusable_source is None:
@@ -426,6 +464,19 @@ def sync_from_fetcher(
             raise RuntimeError("new dataset version failed shallow validation")
         _activate(root, fingerprint)
     except BaseException:
+        # Removing a staging hardlink changes ctime of a shared object. Keep
+        # its verified receipt current without hashing unrelated objects.
+        with store.locked():
+            for record in dataset['files']:
+                path = staging / _safe_relative_path(record['path'])
+                if path.is_file():
+                    try:
+                        obj = store.find(record['sha256'], record['size_bytes'])
+                    except ValueError:
+                        obj = None
+                    if obj is not None and os.path.samefile(path, obj):
+                        path.unlink()
+                        store.remember(obj)
         shutil.rmtree(staging, ignore_errors=True)
         raise
 

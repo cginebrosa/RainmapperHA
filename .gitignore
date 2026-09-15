@@ -17,6 +17,7 @@ MERGED_*.csv
 /backups/
 /tmp/
 /mushroom-GIS/*
+/mushroom-map-GIS/
 !/mushroom-GIS/.gitignore
 !/mushroom-GIS/README.md
 

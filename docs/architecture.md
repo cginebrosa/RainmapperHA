@@ -22,10 +22,11 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - Librerias HTTP/API: `requests`, `rainmapper_core.sources.sodapy_local`, `googlemaps`.
 - Librerias de testing: `unittest` de la libreria estandar en `tests/`; no se ha detectado `pytest`.
 - Persistencia: CSV/JSON y objetos direccionados por contenido son las fuentes
-  autoritativas. SQLite se usa únicamente como artefacto regenerable del
+  autoritativas. SQLite se usa como artefacto regenerable del
   precálculo semanal del Predictor, activado bajo
   `/media/rainmapper/predictor_precompute` para excluirlo del backup de
-  `/share`.
+  `/share`. El nuevo mapa añade índices SQLite locales para consultas espaciales
+  y ráster por ventanas, actualmente usados en preview, sin migrar esa persistencia.
 - Despliegue: GitHub como repositorio de app HA y GHCR como registry de imagenes preconstruidas; Home Assistant descarga `ghcr.io/cginebrosa/rainmapperha:<version>` cuando existe la imagen publicada.
 
 ## Estructura de carpetas
@@ -50,7 +51,70 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `Tomap/`: CSV intermedios para mapas, ignorados por Git.
 - `Plots/`: HTML Bokeh generados, ignorados por Git.
 - `docker-data/`: volumenes locales Docker, ignorados por Git.
+- `mushroom-map-GIS/`: preparación local de fuentes del futuro Mapa de
+  predicción, separada de `mushroom-GIS`; datos, scripts, README y manifiestos
+  excluidos de Git y del contexto Docker. No es un dataset operativo activado.
 - `docs/`: documentacion de continuidad.
+
+## Mapa de predicción: lectores residentes y motor compartido (14/09/2026)
+
+[Especificación central](mushrooms/prediction-map-specification-es.md): módulo
+complementario al Predictor. `mushroom_prediction_map_ui.py` compone la plantilla
+MapLibre existente y la extensión `rainmapper_core/viewers/prediction-map/` en
+ruta nueva. No hay un segundo núcleo del visor ni un motor científico JavaScript.
+
+La preview aislada `tests/prediction_map_browser_check.mjs --preview` sirve datos
+locales y usa tres adaptadores residentes: geografía (GDAL), modelo y meteorología
+(Python `.venv`). `PointExecutor` prepara el mismo acceso para HA/worker; `QueryBroker`
+mantiene consultas efímeras acotadas y `mushroom_map_worker.py` el canal remoto.
+Preparados en código, no activados en el worker instalado por esta entrega.
+La elección de ejecutor permite servidor local/HA o worker explícitamente.
+
+Fuentes locales `mushroom-map-GIS/`: IGN/ICGC DEM, municipios, cubiertas, MFE25,
+geología, OpenLandMap pH y SoilGrids (comparación pH/retención). Índices y auxiliares preparados una vez; las consultas no
+reconstruyen fuentes ni hacen hashes completos o un proceso por capa. El lector
+forestal resuelve IDs por científico/alias del catálogo editable y mantiene caché
+geométrica al cambiar nombres. MFE Catalunya conectado; otros esquemas pendientes.
+
+`mushroom_map_ecology.EcologyReader` carga perfiles/catálogo/mappings locales,
+compila una instantánea por consulta semanal y evalúa hosts, meses y altitud,
+pH y hábitat con mappings exactos revisados. Recarga por stat de tres JSON
+pequeños; 32 fichas, 2 MiB/archivo y 512 reglas como límites. Las equivalencias
+ICGC se agrupan para compartir materiales. Hay 21 rangos de pH locales y un
+ensayo configurable de suelo/pH en aereus (`broad_species_windows_v4`).
+Las fichas ectomicorrícicas requieren hosts; las demás pueden entrar por hábitat
+revisado. Datos ausentes no se convierten en compatibilidad.
+
+El contrato `prediction_map_point_v1` admite `data_mode=prediction`, con IDs,
+punto y fechas comprobados. UI por probabilidad descendente y sin cálculo al
+final; null distinto de cero. `PointModelRuntime.predict` filtra candidatas antes
+de preparar modelos/entradas, sale si no hay ninguna y materializa las restantes
+con evidencia sellada por especie y datos propios del punto. No adopta evidencia
+del área contenedora. Compatibilidad no es probabilidad ni validación científica.
+
+`mushroom_map_prediction.resolve_species_week` reutiliza selección del Predictor,
+continuidad semanal/fallback y fenología, con materialización real y preparación
+hídrica 90/365 según modelo. No hay dos motores científicos HA/worker.
+Rovelló se presenta por cuatro IDs existentes, cada uno con su modelo si existe;
+sin agrupación derivada ni fusión de observaciones.
+
+**Cambio acordado pendiente:** separar el filtro territorial (suelo/pH,
+hospedadores/hábitat, altitud) del nivel temporal del predictor. Actualmente el
+lector ecológico todavía aplica meses; retirarlos conservando la fenología en
+las fichas y el descarte antes de inferencia. La lista territorial debe permanecer
+igual entre fechas para iguales datos/perfiles. No duplicar humedad/temperatura
+ni agregar pesos ecológicos arbitrarios a la probabilidad.
+
+Los datos pesados e índices estarán en volumen persistente portable del worker,
+separados de imagen/código y credenciales; exportación/distribución pendientes.
+SoilGrids nacional (54 retenciones + nueve pH) descargado y huecos aceptados;
+los lectores candidatos puntuales no completan la migración de caché/agregados
+para áreas y microáreas. Caché antigua y contextos operativos se conservan.
+
+El filtro último está activo **solo en la preview**. HA local recibió antes los
+controles de mantenimiento pH; no equivale a integrar geografía/predicción en
+Docker. No despliegue en HA real. Estado/pruebas en `active-context.md`; detalle
+por componente en la especificación y [relevo](reports/prediction-map-handoff-before-compaction-2026-09-13.md).
 
 ## Punto de entrada de la aplicacion
 Hay varios entry points segun entorno:
@@ -279,6 +343,14 @@ Hay varios entry points segun entorno:
 > principal y precálculo— y no multiplica la concurrencia por coordinador. El
 > diseño vinculante y la administración CLI todavía pendiente están en
 > `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`.
+
+El mapa puntual comparte desde el 14/09/2026 la reserva del canal
+online/foreground con los trabajos principales. Su transporte efímero no crea
+un tercer carril: puede convivir con background, pero no ejecutar simultáneamente
+otro trabajo foreground. La reserva abarca reclamación y ejecución y se libera
+también al fallar. Un heartbeat `busy` distingue presencia de capacidad de
+aceptar una consulta. Copias aplicadas en local; pendientes de próxima imagen
+autorizada, sin publicación de HA real.
 
 - Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
   La reconstrucción calcula un único `OperationalTrainingScope` después de

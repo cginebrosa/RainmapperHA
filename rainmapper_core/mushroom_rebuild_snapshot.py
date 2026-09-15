@@ -151,6 +151,19 @@ def gis_file_records(
 ) -> list[dict[str, object]]:
     """Hash GIS files once and reuse digests while their filesystem identity is unchanged."""
     root = gis_root.resolve()
+    sealed = root / 'geography-dataset.json'
+    if sealed.is_file():
+        from rainmapper_core.mushroom_geography_store import read_metadata, SourceIdentities, IDENTITIES_FILE
+        from rainmapper_core.mushroom_worker_dataset_cache import dataset_contract
+        data = dataset_contract({'datasets': [read_metadata(sealed)]})
+        identities = SourceIdentities(root / IDENTITIES_FILE)
+        for row in data['files']:
+            source = _resolve_beneath(root, row['path'], label='sealed GIS file')
+            state = identities.stamp(source)
+            declared = identities.records.get(row['path'], {})
+            if state[0] != row['size_bytes'] or declared.get('sha256') != row['sha256']:
+                raise RuntimeError('sealed GIS identity mismatch')
+        return data['files']
     cached = _load_gis_hash_cache(hash_cache_path)
     records: list[dict[str, object]] = []
     cache_records: list[dict[str, object]] = []

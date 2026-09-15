@@ -1,0 +1,9 @@
+{
+  "schema_version": "weather_coordinate_policy_v1",
+  "description": "Approximate operational envelopes, not administrative borders. Includes nearby territory and sea. Permits coordinate changes whose destination is inside any envelope, including the Balearic and Canary islands.",
+  "regions": [
+    {"name": "peninsula_and_balearic_islands", "south": 35.5, "north": 44.0, "west": -10.0, "east": 4.5},
+    {"name": "canary_islands", "south": 27.5, "north": 29.5, "west": -18.5, "east": -13.0},
+    {"name": "melilla", "south": 35.2, "north": 35.4, "west": -3.1, "east": -2.8}
+  ]
+}

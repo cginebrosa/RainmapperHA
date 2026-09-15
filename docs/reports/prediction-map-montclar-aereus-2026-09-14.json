@@ -1,0 +1,153 @@
+{
+  "date": "2026-09-14",
+  "point": {
+    "lat": 42.02466,
+    "lon": 1.77189
+  },
+  "site_evidence": {
+    "species_id": "boletus_aereus",
+    "source": "User reports this is an aereus setal, with screenshot and clarification.",
+    "meaning": "Counterexample to proposed blanket calcareous restriction, not a report of current exclusion.",
+    "not_established": [
+      "measured soil pH",
+      "surface soil decalcification",
+      "abundance or observation date"
+    ]
+  },
+  "verified_current_context": {
+    "elevation": {
+      "status": "available",
+      "value_m": 763.8,
+      "resolution_m": 5,
+      "source_id": "dem_5m"
+    },
+    "ph_openlandmap": {
+      "status": "available",
+      "source_id": "openlandmap_soildb_ph",
+      "edition": "v20250204",
+      "period": "2020-2022",
+      "depth_cm": [
+        0,
+        30
+      ],
+      "interval_probability": 0.68,
+      "revision": "e3d5c75beeaa4a44c192",
+      "estimate": 6.6,
+      "lower": 6.1,
+      "upper": 7.9,
+      "estimate_resolution_m": 30,
+      "interval_resolution_m": 120,
+      "lookup": {
+        "method": "point",
+        "distance_m": 0,
+        "lat": 42.02466,
+        "lon": 1.77189
+      }
+    },
+    "geology": {
+      "source_id": "icgc_geologia_50000",
+      "edition": "2024-12",
+      "field": "Codi",
+      "status": "available",
+      "feature_id": 22373,
+      "code": "POmlg",
+      "label": "Margues, limolites i gresos amb intercalacions de conglomerats. Formació Molassa de Solsona",
+      "mapping_status": "not_evaluated"
+    },
+    "mapped_context": {
+      "habitats": [],
+      "soil_tendencies": [
+        {
+          "id": "soil_calcareous",
+          "label": {
+            "es": "Calizo",
+            "ca": "Calcari",
+            "en": "Calcareous"
+          }
+        },
+        {
+          "id": "soil_sandy",
+          "label": {
+            "es": "Arenoso",
+            "ca": "Sorrenc",
+            "en": "Sandy"
+          }
+        }
+      ],
+      "lithologies": [
+        {
+          "id": "lith_calcareous_marl",
+          "label": {
+            "es": "Marga caliza",
+            "ca": "Marga calcària",
+            "en": "Calcareous marl"
+          }
+        },
+        {
+          "id": "lith_conglomerate_breccia",
+          "label": {
+            "es": "Conglomerado o brecha",
+            "ca": "Conglomerat o bretxa",
+            "en": "Conglomerate or breccia"
+          }
+        },
+        {
+          "id": "lith_fine_clastic",
+          "label": {
+            "es": "Clástico fino",
+            "ca": "Clàstic fi",
+            "en": "Fine clastic"
+          }
+        },
+        {
+          "id": "lith_sandstone",
+          "label": {
+            "es": "Arenisca",
+            "ca": "Gres",
+            "en": "Sandstone"
+          }
+        }
+      ]
+    },
+    "aereus": {
+      "species_id": "boletus_aereus",
+      "name": "Aereus",
+      "scientific_name": "Boletus aereus",
+      "status": "compatible",
+      "daily_statuses": [
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible",
+        "compatible"
+      ],
+      "daily_season_phases": [
+        "main",
+        "main",
+        "main",
+        "main",
+        "main",
+        "main",
+        "main"
+      ],
+      "admission": "conditional",
+      "soil_filter_review_ref": "docs/mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5",
+      "reasons": [
+        "soil_not_listed",
+        "hosts_match",
+        "altitude_match",
+        "ph_match",
+        "soil_ph_conditional",
+        "lithology_preference_match"
+      ],
+      "matched_host_ids": [
+        "host_quercus_humilis",
+        "host_quercus_ilex"
+      ]
+    }
+  },
+  "decision": "Keep current soil/pH rules. Do not impose the rejected soil-type restriction or a coordinate-specific exception.",
+  "changes": "Documentation only; no profiles, mappings or observation records modified."
+}

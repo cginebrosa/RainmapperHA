@@ -1,458 +1,715 @@
 # Active Context
 
-Ventana operativa de RainmapperHA al 11 de septiembre de 2026. No es un
-histórico. Revalidar siempre repositorio, contenedores, datos y servicios antes
-de asumir que este estado sigue vigente.
+Estado del 16/09/2026. **HA 0.2.304 publicada en GHCR**, tags de versión y
+`latest` verificados con el mismo digest y plataformas amd64/arm64. El usuario
+ha autorizado publicar y hará la instalación/prueba; HA real no se ha instalado.
+[Informe de release](reports/ha-release-0.2.304.json).
 
-## Release HA 0.2.303 publicada
+La publicación inicial falló por token caducado. Tras renovarlo, se reutilizó
+la imagen construida y se subieron ambos tags correctamente, sin repetir build.
+Código efectivo revalidado: 198 archivos HA y 106 worker idénticos a la candidata
+probada; los únicos cambios posteriores fueron documentales. Smoke 1600/48 y
+circuito local completo mantienen la evidencia del incremento correspondiente.
+Worker existente 1.1.2 conservado con sus volúmenes y coordinadores.
 
-- El usuario acepta el ancho final del Predictor y la persistencia del detalle
-  técnico, espera a que terminen runner/precálculo y autoriza reconstruir el
-  worker y publicar HA. No se crea una copia/worktree de release aparte.
-- Worker privado `1.1.1` reconstruido/recreado con el aviso final persistente.
-  Se mantienen sus dos asociaciones y sus huellas exactas; ambos carriles idle
-  y cachés válidas después del arranque. No se publica otra versión de worker.
-- La imagen nueva pasó 50 pruebas aisladas (10 del aviso y 40 del servicio),
-  con red externa deshabilitada y sin montar datos operativos. Incluyen
-  respuesta perdida, reinicio, cancelación, abandono y reentrega. No se lanzó
-  entrenamiento ni precálculo operativo desde Codex.
-- HA local y worker ejecutan el código candidato: 145 y 77 ficheros Python
-  respectivamente, sin diferencias con el worktree. No se repitió el build de
-  HA local después del bump mecánico; el código ya había sido aceptado allí.
-- Smoke completo: 1.395 tests correctos, 62,506 s. El primer intento detectó
-  una aserción que aún exigía 1.280 px; actualizada a los 1.600 aceptados, se
-  repitió el smoke completo y terminó con código 0.
-- Build multiarch terminado con código 0. GHCR verificado: `0.2.303` y
-  `latest` comparten el índice
-  `sha256:4b70a512bca003f859e27379cd143cd5fb62fc6955d5f4632dfb50cce9ee97cf`,
-  con manifests `linux/amd64` y `linux/arm64` y sus attestations.
-  Código, pruebas, bump, changelog y documentación se cierran en un único
-  commit `Release Home Assistant 0.2.303`. Instalación por el usuario pendiente;
-  la última versión comprobada en HA real es `0.2.302`.
-- Observaciones del usuario excluidas de la release y sin modificaciones de
-  Codex: SHA-256 `f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0`.
+**Siguiente:** instalación por el usuario, prueba de predicción con su permiso
+individual, caché preparada del worker, geografía portable y Safari/iPhone.
+Conservar los originales de media hasta validar el funcionamiento en HA real.
+No repetir uploads de GiB ni ejecutar comandos de preparación al primer arranque.
+Ediciones ajenas de `mushroom-data/mushroom_observations.json` quedan fuera de
+la release; datos privados locales y reales preservados.
 
-## Release HA 0.2.302 publicada
+## Geografía portable: validación local terminada, copias remotas colocadas y verificadas
 
-- El usuario autoriza publicar HA el 11/09/2026 después de decidir mantener el
-  contador de días secos. Bump y changelog preparados para `0.2.302`.
-- Smoke completo correcto: 1.384 tests, 57,548 s; sintaxis, fixtures y demás
-  controles correctos. Primer intento bloqueado por el sandbox en tres pruebas
-  con servidor local; repetición fuera del sandbox correcta. Tras el bump se
-  comprobaron solo los tres metadatos de versión y los cache-busters.
-- HA local y worker reconstruidos/recreados antes del bump mecánico. Comparados
-  144 Python efectivos de HA y 76 del worker: todos idénticos al worktree.
-  Las huellas de ambas configuraciones de coordinador siguen siendo las de la
-  especificación semanal. Worker `1.1.1` healthy, capacidad semanal v2; sin
-  release de worker ni cambios de URL. No se inició entrenamiento ni precálculo.
-- Revalidación SQLite de solo lectura: publicación completa, 553 celdas,
-  469 miembros lag con horizonte correcto y corte 10/09; 61 parejas con una
-  misma familia semanal, seis parejas Cantharellus con fallback diario y
-  84 celdas sin miembros en las tres especies fuera de temporada.
-- `./scripts/build-push-ha-image.sh` terminó con código 0. GHCR verificado:
-  `0.2.302` y `latest` comparten el índice
-  `sha256:cb6b54e9b32727521567ccaedb18dcdaf509a9be6ed710acb0d43a42da058e4e`,
-  con manifests `linux/amd64` y `linux/arm64` y sus attestations.
-- Código, pruebas, bump, changelog y documentación se reúnen en el único commit
-  `Release Home Assistant 0.2.302`. Se excluye expresamente el JSON de
-  observaciones del usuario, con SHA-256
-  `f2d2df20a7d4397fd905d3e440ef81333feab0c609b43c592ebd18765f4142d0`.
-- HA real `0.2.302` confirmada posteriormente mediante su `runtime_state.json`
-  montado por el usuario. No repetir smoke, builds ni trabajos por cerrar
-  documentación o publicar el commit.
+La nueva versión lee archivos ordinarios desde `/media/rainmapper/geography`.
+No hay comandos de primer arranque, symlinks ni recibos dependientes del equipo
+para instalar los datos en HA. GIS y SoilGrids usan `mushroom-GIS`; mapa resuelve
+sus referencias al mismo archivo compartido mediante un manifiesto portable.
+Configuración de reserva en `geography/map-config.json` si no hay una explícita.
 
-## Estado operativo comprobado
+- Smoke actual: 1.600 tests, 48 omitidos, OK. Ambos contenedores reconstruidos y
+  recreados, 198/106 archivos efectivos sin diferencias. Versiones 0.2.304/1.1.2.
+- Cuatro lecturas GIS/contextos iguales a la estructura anterior y seis consultas
+  autenticadas con igualdad local/worker, incluso concurrentes; permisos básicos,
+  401 sin sesión y cancelación correctos. El usuario confirmó que vuelve a
+  funcionar el ejecutor local tras arrancar los contenedores.
+- Primer acceso sin red, sistema y media de solo lectura: configuración detectada,
+  ejecutor local listo, inventario GIS de 13 archivos. Ninguna preparación al arrancar.
+- Worker reutiliza 3.510 archivos con 0 bytes de transferencia, metadatos y hash.
+  URLs de ambos coordinadores conservadas. No se han lanzado nuevos entrenamientos
+  o precálculos: el contrato GIS y contenido son idénticos al circuito completo ya
+  validado. Este cambio de rutas tiene pruebas dirigidas y paridad reales.
+- Limpieza local aplicada: retirados objetos/recibos/vistas HA antiguos; 3.581
+  archivos ordinarios compartidos, 15.622.243.791 bytes lógicos más metadatos.
+  Conservados originales del repositorio, datos privados, backups y caché worker.
+- HA real: 3.581 archivos colocados en sus rutas definitivas y referencias finales
+  verificadas (3.510 mapa / 1.432 GIS). Archivos ordinarios, sin enlaces creados ni
+  recibos nativos. `SHA256SUMS` junto a siete manifiestos/configuraciones. Los tres
+  directorios originales intactos. No se ha instalado/reiniciado/ejecutado HA real.
 
-- Incidencia posterior a la publicación, 11/09/2026: el precálculo de HA real
-  `worker_job_5ryH9BEsc60-` fue reclamado por el worker principal a las
-  01:46:36 UTC. El cálculo terminó en 236,864562 s; al entregar el resultado
-  falló con `[Errno 111] Connection refused` a las 01:53:59 UTC. El hilo se
-  liberó con `finish_acknowledged=false`; `/health` confirma ambos carriles
-  idle mientras la captura de HA sigue mostrando `running`. No interpretar
-  ese progreso como cálculo activo. Los logs registran además timeouts y
-  conexiones restauradas con el coordinador principal; no se ha determinado
-  la causa de la indisponibilidad de HA.
-- El resultado permanece en el worker, sin modificar:
-  `/var/lib/rainmapper-worker/predictor_precompute/staging/worker_job_5ryH9BEsc60-.sqlite3`,
-  27.369.472 bytes, publicación `complete`, política `weekly_lag_event_v2`,
-  567 celdas y 483 miembros. Su identidad coincide con la captura de HA:
-  `sha256:1bae9bbfcc72b67568f377a592ced3f0dffe99d2cdbcbc15105184b661e48543`.
-  Se validó también con el validador completo nativo; no se reenvió ni activó
-  el resultado, no se reinició ningún servicio ni se lanzó otro trabajo.
-- Con `share` y `media` montados por el usuario se confirma: HA conserva ese
-  trabajo en `running`, revisión deseada 112 e identidad coincidente; sigue
-  activa la revisión 111. `runtime_state.json` confirma HA `0.2.302`, último
-  arranque 01:45:44 UTC, anterior al trabajo. Los diagnósticos disponibles no
-  explican el rechazo de conexiones posterior; no atribuirlo a OOM o reinicios
-  sin evidencia adicional.
-- El SQLite del worker pasó `validate_artifact(full=True)` con identidad
-  esperada. SHA-256 del archivo:
-  `sha256:cd3732619efa09bccff340aa7ee2b28857b8c5d63c9903207d11a16f5510aa4e`.
-- El usuario abandonó el trabajo: JSON de HA confirmado en `cancelled`, fase
-  `Abandoned`, final `2026-09-11T02:09:56+00:00`. Se descarta la recuperación
-  puntual y su pregunta de conectividad; no ejecutar el helper temporal con
-  `--apply` ni recuperar este trabajo.
-- Corrección local de la notificación final perdida: aviso pequeño y persistente
-  por coordinador, reentregado al volver la conexión, respetando cancelación,
-  abandono e idempotencia. Diez pruebas nuevas del aviso y una del servicio
-  reiniciado; 160 pruebas de workers correctas (15,609 s). Posteriormente instalada en el worker privado por petición expresa del
-  usuario; véase la validación de `0.2.303` arriba.
-  [Incidencia, alcance y validación](reports/mushroom-precompute-lost-finish-2026-09-11.md).
-- El usuario repitió el precálculo antes de instalar la corrección:
-  `worker_job_T83NizH1i5bM` finalizó `complete` a las 02:32:17 UTC, revisión
-  113 activa en HA, `finish_acknowledged=true` en worker. Cálculo 252,558316 s,
-  publicación HA 57,095007 s, activación worker 10,047821 s; total del hilo
-  323,942985 s. Otro timeout de heartbeat durante publicación se recuperó
-  antes del cierre. Esto no determina la causa del corte anterior ni valida
-  la corrección entonces sin instalar. Codex solo supervisó logs y metadatos.
+[Guía vigente](mushrooms/shared-geography-consolidation-es.md) e
+[informe final](reports/shared-geography-portable-2026-09-15.json). Fuentes y hashes
+recuperables en `backups/ha-portable-ready-20260915/`. Candidata publicada como HA 0.2.304;
+la instalación y prueba RPi4/iPhone las hará el usuario. No repetir cargas de GiB,
+adopción antigua ni circuito local por cambios únicamente documentales.
+Las imágenes arm64 y paquetes guardados en `ha-map-candidate-20260915` son previos
+a esta corrección: no confundirlos con las imágenes locales actuales comprobadas.
 
-- Workspace: `/Users/carlosginebrosa/Developer/RainmapperHA`; rama `inicial`.
-- Base previa de esta release: `e3db62b4a2c3b6ff10d8fff59b18ff0fb166dfca`
-  (`0.2.302`). Consultar Git para la identidad del commit final `0.2.303`.
-- HA `0.2.302` publicada en GHCR e instalada, confirmado mediante el diagnóstico
-  persistido de HA real montado por el usuario.
-- `mushroom-data/mushroom_observations.json` también está modificado, pero es
-  dato del usuario: no editarlo, restaurarlo, borrarlo ni incluirlo ciegamente
-  en ningún commit. Los datos vivos del laboratorio están en `docker-data/`.
-- HA local está activo en `127.0.0.1:8101` con imagen
-  `rainmapperha:local-ha-ui`; consultar Docker para el ID tras las
-  reconstrucciones de presentación posteriores a la release.
-  Reconstruida para probar el ancho del Predictor. Incluye el core actual,
-  y worker posteriormente reconstruido desde el mismo código: la corrección
-  de sus notificaciones ya está instalada en el servicio local.
-- El worker privado está healthy e idle con `rainmapper-worker:1.1.1`, imagen
-  `sha256:16b8f6cc81db3a823d33ae8c444527efc7b85b32d724a42d15dea3ecce90fd28`.
-  Sus carriles foreground/background están idle y las huellas de los tres
-  módulos del selector coinciden con HA local y el worktree.
-- Asociaciones persistidas del worker, revalidadas sin exponer tokens:
-  - principal: `http://100.111.77.48:8100`;
-  - adicional `coordinator_fde2e9b1c6c1f5b2`:
-    `http://rainmapper-ha-ui:8100`;
-  - límite: cuatro coordinadores.
-  No cambiar ninguna URL sin autorización expresa para ese destino.
-- La caché GIS del worker está válida: 13 ficheros, 6.424.592.573 bytes y
-  fingerprint
-  `sha256:7410f2e2482b77688027440fa047344bba65285fa2f9e812c07c65f769981574`.
-  La caché Predictor está válida con fingerprint
-  `sha256:f0bb15bfad80b4dd7de48e929b403b52ff6ffd7808f557ca75da7e26011dff86`.
+El estado anterior queda en
+[contexto previo](reports/context-before-portable-close-2026-09-15.md).
+Los apartados siguientes conservan el alcance y las validaciones históricas de
+la candidata; las rutas/instalación vigentes son las descritas arriba.
 
-## Cambios de 0.2.302 validados localmente
+## Candidata local aceptada técnicamente — 15/09
 
-### Continuidad semanal del Predictor
+**Trabajo autónomo local completado. No publicado en GHCR ni instalado en HA real.**
+El usuario hará la instalación; no tocar la RPi4 ni publicar como continuación
+implícita. [Informe final](reports/prediction-map-geography-2026-09-15.json).
 
-- La opción `predictor_weekly_model_selection`, desactivada por defecto y
-  activada en HA local, selecciona una familia `lag_event` común por
-  especie/área para los siete días, con horizontes h1--h7 y corte común.
-- El orden es cobertura de aplicabilidad semanal primero y evidencia fiable
-  agregada después. No gana quien dé probabilidades más altas ni quien sea
-  primero más días.
-- La familia elegida no cambia si una fecha queda fuera de aplicabilidad: ese
-  día se abstiene. Una pareja sin familia común conserva actualmente la
-  selección diaria y queda auditada como `daily_fallback`.
-- El worker anuncia `predictor_weekly_model_selection_v2`; HA no asigna esa
-  política a un worker que no declare la capacidad.
-- Pasaron 521 pruebas dirigidas de selector, servicio, SQLite, variables,
-  worker, empaquetado y web. HA local y worker se reconstruyeron desde el mismo
-  código; pasaron además seis regresiones temporales dentro de cada contenedor.
-  Se compararon 142 ficheros Python de HA, su `run.sh` y labels, y 76 Python del
-  worker con el worktree: ninguna diferencia.
-- El SQLite activo local está completo, usa política `weekly_lag_event_v2`, cubre
-  2026-09-11--2026-09-17, nueve especies, 79 parejas especie/área, cinco versiones, 469
-  miembros y 553 celdas de cobertura. Su `artifact_id` es
-  `sha256:457a09931d22c4d16c28a4075fecf739cd39c7eaa84b098d3fb4443ce4958475`.
+HA **0.2.304** / worker **1.1.2** reconstruidos y recreados desde fuentes; verificados
+194 archivos HA y 103 worker dentro de imágenes y contenedores, sin diferencias.
+Smoke final: **1581 tests, 48 omitidos, OK**. Seis consultas reales con usuario básico,
+paridad exacta HA local/worker, repetición, concurrencia y cancelación correctas.
+La prueba usa el batch operativo nuevo y produce probabilidades. Estos tiempos
+son del M1 local, no una medición de rendimiento de la RPi4.
 
-### Corrección temporal y precálculo lanzado por el usuario
+Circuito local mediante worker completado y auditado:
+- `worker_job_uS0z1vBVTD7vB6m-`: reconstrucción verificada y promovida.
+- `worker_job_JcDC_qjKhmWtnGSa`: entrenamiento base, nueve especies, promovido.
+- `worker_job_d0_gpX_RtsLf0K9Q`: 714/714 ajustes; cinco generaciones instaladas
+  del batch `operational_20260915T013504Z`.
+- `worker_job_0BvFFmJkAIaj`: precálculo recibido y activo, revisión 61,
+  artefacto `sha256:6f60d84e9bc6c5fc87b31ffe0e10817278eb00cb025289d533e21585c4480fc5`.
+No repetir estos trabajos: no quedan directorios terminales en el worker.
 
-- El selector anterior podía elegir una familia `fixed_gap_7d`. En el SQLite
-  anterior, `boletus_aereus/olvan` usaba la misma V6w `fixed h7` del 10 al 16 de
-  septiembre, siempre con `horizon_days = 7`.
-- Para la predicción del 13 de septiembre el corte meteorológico es el día 6,
-  por lo que no ve los 56,1 mm del día 9. Para la del día 16 el corte es el día
-  9 y sí los ve. El dato no se ha perdido: es la semántica con la que se entrenó
-  `fixed h7`, pero resulta inadecuada como ancla semanal.
-- Corrección aceptada e implementada: en modo semanal seleccionar únicamente una familia
-  `lag_event`, mantener versión/perfil/estimador y usar su horizonte natural
-  h1--h7. Así toda la semana comparte el último día meteorológico completo.
-  `fixed h7` permanece disponible en selección diaria y detalle técnico.
-- No se debe alimentar `fixed h7` con meteorología más reciente ni fingir que
-  es h1--h7: cambiaría el contrato sin reentrenarlo.
-- Los modelos `lag_event` h1--h7 ya existen. El usuario lanzó y confirmó el fin
-  del nuevo precálculo. El job `worker_job_tcxhsuDyln_L` está `complete`, con
-  activación HA/worker confirmada y revisión 54. No entrenar ni lanzar otro
-  precálculo desde Codex.
-- Se conserva el `daily_fallback` auditado ya acordado cuando no existe una
-  familia común. No se reabre como propuesta de abstención semanal completa.
-  Ese fallback puede usar `fixed h7`, pero debe distinguirse de la selección
-  semanal con corte común; conserva las limitaciones temporales del modo diario.
-- La revisión de solo lectura del 11 de septiembre confirmó tres familias
-  `lag_event` comunes h1--h7 para Aereus/Olvan: V6w de 30/60/90 días. Sus
-  artefactos están presentes. El plan de corrección y su evidencia están en la
-  especificación semanal; el plan está aceptado e implementado y los resultados persistidos del
-  precálculo se revalidaron antes de la publicación de 0.2.302.
-- La revisión global del mismo catálogo y las 79 parejas del SQLite encontró
-  61 con familia de retardo completa, seis de Cantharellus que necesitarían
-  fallback diario y doce ya sin ganador toda la semana. Son conteos de catálogo,
-  previos al control de aplicabilidad del nuevo precálculo. La corrección y su
-  auditoría deben abarcar el conjunto, no solo Aereus/Olvan.
-- Las doce parejas sin ganador corresponden a especies fuera de temporada:
-  `hygrophorus_latitabundus`, `hygrophorus_marzuolus` y
-  `morchella_elata_complex`; `species_context.season_phase_by_date` confirma
-  `out_of_season` en las siete fechas para las tres.
-- Nueva identidad de política `weekly_lag_event_v2`; los SQLite
-  `weekly_aggregate` anteriores se sirven como desactualizados con aviso de
-  que pueden omitir lluvia conocida. Se verificó ese aviso y el motivo
-  `weekly_selection_policy_outdated` leyendo Aereus/Olvan dentro de HA local.
-- Antes de la intervención del usuario, la parada se verificó sin trabajos nuevos: cola local con diez `complete`
-  y cuatro `failed`, ambos carriles idle. `desired.json` y
-  `active-receipt.json` conservaron exactamente sus SHA-256; no se sustituyó el
-  artefacto activo. Las dos configuraciones de coordinador conservaron sus
-  huellas y URLs y las observaciones protegidas conservaron su SHA-256.
+Correcciones detectadas durante aceptación: caché preparada y online ocupado se
+tratan por separado para aceptar la cola acotada; notas de auditoría `installation`
+no invalidan modelos idénticos. La comparación sigue exigiendo igualdad de
+`installed_generation_id`, generaciones y contratos de artefactos. Cambios finales
+solo en módulos del mapa, reconstruidos y probados después; el código científico
+no cambió respecto al circuito ejecutado (huellas en el informe).
 
-### Meteorología observada en el Predictor
+Cartografía con autoridad en `/media/rainmapper/prediction-map`: HA vigila el pequeño
+`CURRENT.json`, sin rehashear los GiB. Transferencia fría real al volumen del worker:
+3510 archivos, 14.538.214.301 bytes. Reinicio: cero bytes transferidos/rehasheados.
+Sin `/maps` compartido en ambos contenedores. Tras promoción, caché privada:
+790 archivos reutilizados y solo 31.538 bytes descargados del registro cambiado;
+cartografía intacta. Una vista geográfica, dos privadas y ninguna descarga parcial.
+Coordinadores, fichas, catálogos, mappings, setales, observaciones y credenciales
+preservados. Los cambios de datos son los derivados esperables del circuito local.
 
-- Corrección posterior: «Detalle técnico del resultado» conserva también su
-  estado abierto/cerrado al navegar con las tarjetas semanales. El controlador
-  existente guarda `.pred-summary-technical` en una clave propia de
-  `sessionStorage`, independiente de meteorología, y restaura ambos después de
-  cada `document.open/write`. Probado en Chrome con el controlador real de
-  tarjetas y respuestas simuladas: cuatro navegaciones con estados
-  meteorología/técnico `abierto/abierto`, `cerrado/abierto`, `abierto/cerrado`,
-  `abierto/abierto`; tooltips meteorológicos funcionales. Ocho pruebas Python
-  de meteorología correctas. HA local reconstruido, respuesta HTTP con el
-  script nuevo y módulo efectivo idéntico al worktree (SHA-256
-  `3a0ffee9b844ec4128ac4af3610d6bedfead7bcc58c868f867be384e480026f6`).
-  Esta UI y el worker se incluyen en la validación posterior de `0.2.303`.
-- Ajuste posterior a `0.2.302`: `.pred-page` pasa de 1.280 a un máximo de
-  1.600 px. La primera prueba sin límite interior resultó demasiado ancha al
-  usuario; se modera a 1.600 y se conserva la reducción al espacio disponible
-  junto al menú de HA, sin reservar una segunda barra lateral dentro de la UI.
-  HA local reconstruido/recreado y servido con el CSS definitivo; SHA-256 del
-  módulo efectivo idéntico al worktree:
-  `043fc2f5e08b848b4f3aaf66391311d137c39f952608f9c5cd13bba9f16a9276`.
-  Chrome con HTML servido por HA local y el CSS candidato: sin desbordamientos
-  a 1.920/1.856/1.664/1.440/1.184/768/390 px disponibles. Incluye simulación de
-  64/256 px ocupados por una barra lateral; no es una prueba del frontend real
-  de HA. Sin precálculo nuevo por este ajuste visual; el worker se actualizó
-  después, al preparar la release con autorización expresa.
-- Cambio de presentación en `mushroom_predictor_weather_ui.py`, invocado por
-  la tarjeta existente y empaquetado en el Dockerfile HA. No cambia inferencia,
-  worker, contratos, artefactos ni probabilidades; no necesita precálculo nuevo.
-- Resumen con título y fechas en una sola línea, suma de lluvia y última lluvia
-  disponible de al menos 0,01 mm. Por indicación del usuario, las trazas menores
-  se ignoran al elegir esa última fecha, sin modificar los datos del modelo ni
-  los acumulados. Caso confirmado en el precálculo local: Edulis/Espinavell,
-  objetivo 11/09/2026, contiene 0,0013102441455423875 mm el 10/09 y
-  42,73318528702588 mm el 09/09; el resumen debe mostrar el 09/09 y 42,73 mm.
-  Corrección validada con 342 pruebas dirigidas de presentación y web.
-  Probabilidad y modelo seleccionado comparten también una fila; se adaptan al
-  ancho disponible en móvil. Ajuste final validado con los 334 tests web.
-  Las leyendas de mínima/máxima conservan sus colores y se centran en la misma
-  fila que las fechas inicial/final de temperatura y humedad (siete pruebas
-  dirigidas de meteorología tras este ajuste visual).
-  Desplegable «Meteorología observada» con barras diarias, curvas de temperatura
-  y humedad mínimas/máximas, lectura al tocar/señalar y tablas accesibles.
-  `sessionStorage` conserva abierto/cerrado al cambiar de fecha en la pestaña.
-- Corrección posterior al probar las tarjetas semanales: su controlador usa
-  `document.open/write`, que borra listeners pero conserva propiedades de
-  `window`. El guard global impedía volver a registrar controles después del
-  primer cambio de día. Se ata el guard al elemento raíz del documento nuevo.
-  La prueba anterior de navegación completa no cubría ese recorrido; ahora
-  se reprodujo el fallo con `predictor_launch_script()` real y respuestas HTML
-  simuladas (sin trabajos), y se verificaron tres clics sucesivos con estados
-  abierto/cerrado/abierto y lectura de barras funcional tras cada sustitución.
-- Se retiraron, a petición del usuario, la leyenda verde/gris/rayado y la
-  instrucción de señalar/tocar. La lectura aparece en un recuadro flotante
-  sobre el gráfico, sin añadir altura. Se oculta al salir, tocar fuera o pulsar
-  Escape; se conserva la lectura accesible por teclado y se evitan tooltips
-  nativos duplicados. Probado con el controlador real de tarjetas semanales,
-  comprobando altura invariable, límites de pantalla y cierre con Escape.
-  También se retiró el texto explicativo situado encima de la franja semanal.
-  La explicación sobre estimaciones diarias, lluvia débil y datos ausentes se
-  trasladó al tooltip del título «Meteorología observada», sin párrafo visible.
-  La ventana orientativa de fructificación y el desplegable de detalle técnico
-  se sitúan después del origen de selección y antes del bloque meteorológico.
-  Se retiró también la línea «Última lluvia de al menos 5 mm» del detalle de
-  la tarjeta, por petición posterior del usuario. Los datos y cálculos
-  subyacentes permanecen intactos.
-- Datos exclusivamente del resultado seleccionado persistido. Un valor ausente
-  no se convierte en cero; las curvas se interrumpen en los huecos. Versiones
-  con acumulados muestran periodos y sus resúmenes de temperatura/humedad,
-  sin inventar series diarias ni fecha de última lluvia.
-- Auditoría de lectura de los 469 miembros actuales (2.676.234 bytes): 322
-  diarios (V5w/V6w) y 147 con acumulados (V2/V3/V4); ninguno guarda viento en
-  sus variables. El render anterior a retirar textos midió como máximo 95.905
-  bytes de HTML por resultado. No se amplió ningún payload HA--worker.
-- Validación: 341 tests de UI/web; Chrome móvil a 390 px, interacción y
-  persistencia abierto/cerrado al navegar entre fechas. Sin desbordamiento de
-  página. HA local reconstruido; ninguna publicación ni cambio en HA real.
-- Duración del precálculo: cálculo anterior 505,173 s y último 245,102 s;
-  transferencia/activación similares. Cobertura y activación completas. La
-  telemetría no permite atribuir con certeza todo el ahorro a una fase interna.
+Paquete recuperable en `backups/ha-map-candidate-20260915/`: cartografía comprimida
+(12.127.781.210 bytes) con hashes, imágenes locales arm64, fuentes, configuración de
+ejemplo y backup previo a pruebas. [Guía de importación](mushrooms/prediction-map-ha-media-install-es.md).
+No es una release multiarch publicada. Siguientes pasos: aceptación del usuario,
+publicación según `release-flow.md`, importación de datos y prueba iPhone en HA real.
+GEODE/cobertura ecológica nacional y revisión a fondo de suelo/pH siguen en TODO.
 
-### Wunderground y estado de fuentes
+## Cadena operativa en background — 15/09/2026
 
-- HA `0.2.300` añadió detección de respuestas actuales obsoletas según
-  `epoch`/`obsTimeUtc`, reintentos entre variantes `Accept-Encoding` y elección
-  exclusiva de la respuesta con timestamp más reciente. El scraper HTML sigue
-  siendo el fallback final.
-- HA `0.2.301` hizo configurable y validado el orden de encodings; el valor
-  vigente es `gzip,identity,deflate`. El runner registra recuperación o
-  persistencia de caché antigua y los fallbacks al scraper.
-- Los modos mensual y semanal son mutuamente excluyentes. El worktree corrige
-  el modo mensual para pedir desde el día 1 hasta hoy y, los días 1--7, incluir
-  también el mes anterior. El semanal pide hoy y los seis días anteriores,
-  incluso al cruzar mes. Un backfill explícito conserva sus fechas exactas.
-- El archivador ya publica `total_rows` y `updated_rows` a partir de contadores
-  existentes y mantiene `rows` como alias compatible. El panel muestra ambas
-  columnas sin volver a recorrer los CSV.
-- La activación de un nuevo precálculo conserva los trabajos automáticos
-  terminales dentro del historial ligero global de 50 entradas; la retención
-  de artefactos pesados sigue siendo independiente.
+Autorizado por el usuario después de confirmar que su trabajo había acabado.
+Cambio de código: reconstrucción, ML base y ML multiversión (incluido benchmark)
+comparten background con el precálculo. El mapa/Predictor interactivo conserva
+online. La preferencia por el coordinador de la cadena sigue el carril recibido;
+promoción y verificaciones permanecen en HA. Sin migración ni transporte extra.
+41 pruebas de cola, 41 de servicio y 343 de API correctas; smoke 1565/48.
+HA local y worker existente reconstruidos y recreados, 193/101 archivos iguales
+a fuentes en imágenes y contenedores. Coordinadores conservados, canales libres
+antes de recrear. Esa aceptación inicial no ejecutó trabajos científicos reales; el circuito completo
+local se completó después, como se indica arriba.
+[Informe](reports/worker-background-chain-2026-09-15.json).
+[Funcionamiento y compatibilidad con HA antiguo](mushrooms/mushroom-worker-multicoordinator-design-es.md#reparto-de-canales--incremento-del-15092026).
+La prohibición de instalar HA real sigue vigente. No duplicar la cadena local ya completada.
 
-### GIS francés y almacenamiento del worker
+## Mapa unificado y permiso individual — 15/09/2026 (aplicado y validado localmente)
 
-- RGE ALTI Francia 5 m está integrado como cuarto DEM tras Catalunya, Andorra
-  e IGN MDT25 de Puertomingalvo. El TIFF definitivo tiene SHA-256
-  `3e86d6c2ee4e3677dd895de369045b8f49c02a23902771692177b7a60256860f`,
-  CRS EPSG:2154 y cobertura válida de las microáreas francesas probadas.
-- HA local recupera altitud, pendiente y orientación para las microáreas de
-  Font-Romeu y Quérigut. HA real ya ejecuta `0.2.301`, que contiene el soporte;
-  queda volver a revisar y aplicar los campos desde la UI.
-- La limpieza auditada del volumen persistente del worker eliminó únicamente
-  jobs antiguos y una generación GIS inactiva: pasó de 18.084.029 KiB a
-  7.144.228 KiB, liberando 10,43 GiB. Se preservaron runtimes, cachés y la
-  generación GIS activa.
-- Infoclimat se descartó como fuente nueva para esta zona por su cobertura útil
-  insuficiente. Meteo-France queda como diseño futuro; actualmente Font-Romeu y
-  Formiguères se cubren con estaciones Wunderground existentes.
+**Incremento completado:** datos privados conectados al almacén de objetos del worker,
+sin montajes privados del Mac. HA reutiliza hashes sellados de modelos/meteorología;
+hash inicial de entradas pequeñas: 482.575 bytes. Worker reutilizó 787 archivos y
+descargó cuatro (475.540 bytes), más manifiesto de 269.782 bytes, antes del clic.
+Imágenes/contenedores verificados: 193 archivos HA y 101 worker; seis consultas reales
+con paridad exacta local/worker, repetición y cancelación correctas. Smoke 1561/48,
+10 pruebas de caché y 14 de rutas. [Informe](reports/prediction-map-private-cache-2026-09-15.json).
+El precálculo que el usuario protegió entonces ya terminó. No publicado HA real.
+[Diseño, explicación y límites](mushrooms/prediction-map-private-cache-es.md).
+Conservar la posición del interruptor de predicción por petición del usuario.
 
-## Releases y entrenamiento cerrados durante la sesión
+Decisión del usuario: en HA real el visor habitual incorporará la capa de
+predicción. `/protected/maplibre/index.html` y el alias anterior
+`/protected/prediction-map/index.html` sirven la misma composición del visor;
+se conservan estaciones, meteorología y recursos compartidos.
 
-- HA `0.2.298`: alta automática de especies en el catálogo de tuning. El
-  entrenamiento real con `cantharellus_cibarius_sl` superó el fallo original;
-  no repetirlo sin una causa nueva.
-- HA `0.2.300`: DEM francés, sincronización GIS incremental, modos API
-  Wunderground y defensa frente a variantes CDN antiguas.
-- HA `0.2.301`: orden configurable de encodings y retención de precálculos
-  automáticos en trabajos recientes. Posteriormente reemplazada en HA real por
-  `0.2.302`.
-- El entrenamiento y los precálculos posteriores terminaron correctamente
-  según confirmación del usuario. La nueva ejecución semanal local fue sólo para
-  validar el cambio posterior del worktree.
+`can_use_prediction_map` se guarda en la ficha de usuario, junto a Heatmap,
+Métricas e IDW. Es explícito para **todos los roles**, incluidos administradores;
+si falta, queda desactivado. La UI Usuarios permite activarlo o retirarlo.
+La API exige la sesión existente y ese permiso en cada consulta: ningún bypass
+por rol. El visor retira los controles cuando se refresca una sesión revocada.
 
-## Próximos pasos, por prioridad
+No hay otro login ni otra persistencia: se reutilizan `/auth/*` y los ajustes
+por dispositivo. Ejecutor, idioma y zona horaria siguen en esos ajustes;
+retirar el permiso no los borra. La preview permanece aislada, sin auth real.
 
-0. El usuario autorizó y se completó la comparación aislada posterior con el
-   selector real: [plan y resultados](reports/mushroom-dry-spell-selector-audit-2026-09-11.md).
-   V2/V3/V4 con/sin contador, todos sus perfiles y algoritmos vigentes; V5w/V6w
-   idénticos entre brazos. Dos exámenes cronológicos con entrenamiento,
-   evidencia de selección y examen separados. 990 intentos de ajuste final,
-   978 completados. Semanal sin contador: mejora del error 0,43 % en 2025–2026,
-   empeoramiento 8,28 % en 2023–2024 sobre casos comunes. En el segundo se
-   pierden 49 escenarios de ocho observaciones de Ou de reig/Olvan: cambia el
-   ámbito de evidencia, V6w deja de estar en la lista semanal común y los
-   candidatos restantes no son aplicables. Diario: empeora 0,59 % / mejora
-   3,32 %, respectivamente. El usuario decide conservar el contador el
-   11/09/2026; auditoría cerrada, sin cambios de contratos ni activación.
-   Evidencia insuficiente para entrenar ciertos modelos por especie con las
-   particiones reservadas, incluido Edulis; no declarar validación universal.
-   Observaciones, registro, manifiesto y precálculo protegidos conservan sus
-   huellas. 31 tests dirigidos correctos; ninguna publicación HA.
-   Antecedente: se completó primero una auditoría aislada de racha seca:
-   [plan, resultados y límites](reports/mushroom-dry-spell-threshold-audit-2026-09-11.md).
-   Se compararon retirada del contador, umbrales diarios 1–5 mm y acumulados
-   5/10 mm en 3 días. 1.602 ajustes en memoria; entradas históricas del 05/09.
-   Inventario de 17 especies, comparación descriptiva en seis y selección
-   interna válida en tres. Sin contador: reducción media de error 1,05 %/1,27 %
-   (grupos 14/7 días) en las seis; 0,30 %/0,66 % en las tres con selección interna,
-   donde la incertidumbre incluye ausencia de mejora. Ningún umbral muestra
-   una ventaja estable. La retirada favorece sobre todo Rovelló, Edulis y
-   Pinícola; Aereus empeora en media. No se activaron modelos, no se lanzó
-   precálculo ni se publicó HA. Su ventaja descriptiva no se reprodujo de forma
-   estable en la comparación ampliada del selector. No sustituir el contador
-   ni eliminarlo de los contratos actuales por iniciativa de Codex.
-1. El usuario puede instalar HA `0.2.303`, publicada y verificada; el worker
-   privado ya está reconstruido con la corrección. No recuperar el trabajo abandonado
-   ni lanzar otro precálculo desde Codex.
-2. La UI local fue aceptada por el usuario. La lectura final del precálculo
-   confirmó 61 familias semanales constantes, seis fallback diarios y doce
-   parejas sin miembros fuera de temporada. No repetir entrenamiento ni
-   precálculo por iniciativa de Codex.
-3. Tras la instalación, comprobar visualmente en HA «Meteorología observada» y
-   las columnas `Total rows`/`Updated rows`; el intervalo mensual está cubierto
-   por las pruebas incluidas en el smoke de release.
-6. Reaplicar y revisar GIS/DEM en las microáreas francesas de HA real desde la
-   UI de `0.2.301`.
-7. Retomar la auditoría multiespecie de aplicabilidad desde Rovelló / Els Ports /
-   2026-09-07 y diseñar la probabilidad vetada sin convertirla en recomendación.
-8. Después: medir transporte HA--worker en RPi4 y completar el CLI por
-   `coordinator_id`.
+Validación: 13 pruebas de contrato/rutas, 343 de autenticación, navegador con
+usuario básico autorizado, admin revocado, URL habitual, meteorología y
+persistencia. Smoke completo: 1552 tests, 48 omitidos. Ambas imágenes reconstruidas
+y contenedores recreados: 192 archivos HA y 100 worker coinciden con las fuentes.
+Consulta real con usuario básico temporal: seis consultas local/worker, tres
+especies con cálculo, paridad exacta, repetición/concurrencia/cancelación correctas.
+Usuario y dispositivo temporales retirados; registros previos de usuarios iguales.
+Coordinadores y volúmenes conservados. No publicado en HA real.
+Informe: `docs/reports/prediction-map-user-permissions-2026-09-15.json`.
 
-## Riesgos y dudas activas
+Prueba manual local: `http://127.0.0.1:8101/users` → usuario → **Prediction access**
+→ **Save user**. Abrir/recargar `http://127.0.0.1:8101/protected/maplibre/index.html`
+con la sesión habitual. No se ha activado automáticamente para usuarios existentes.
 
-- Investigación de trazas cerrada: el usuario conserva el contador vigente.
-  La publicación de 0.2.302 se ha completado.
-  Diagnóstico confirmado el 11/09/2026 en código y precálculo local: la racha
-  seca de V2/V3/V4 se corta con cualquier valor `> 0` (`_dry_spell` en
-  `mushroom_ml_biology_v3.py`; también ocurre en los constructores de variables
-  de observaciones y experimentos). Pinophilus/Espinavell para el 11/09 guarda
-  `dry_spell_observed_at_cutoff=0`, con 0,0013102441455423875 mm el 10/09.
-  V5/V6 no reciben ese contador: usan series meteorológicas y estado hídrico;
-  `soil_water_drydown_7d` mide pérdida de agua, no días consecutivos secos.
-  La propuesta inicial de 0,01 mm para ese contador queda retirada: omitía la
-  revisión y batería existentes del 05/09. Se revalidó el JSON experimental:
-  el umbral de 1 mm no mejora de forma consistente y quitar el contador tampoco
-  mejora todas las combinaciones. Se mantiene la decisión de no cambiar los
-  contratos actuales. La ampliación bibliográfica del 11/09 documenta el umbral
-  meteorológico de 1 mm, la intercepción forestal y por qué 10 mm de lluvia no
-  equivalen a humedecer 1 cm de suelo; véase sección 13 de
-  `docs/mushrooms/literature/prediction/rainmapper_dry_spell_variable_review.md`.
-  Las dos auditorías aisladas del 11/09 están ejecutadas y enlazadas arriba.
-  La ampliación con selector no justifica una retirada general del contador;
-  los intervalos incluyen ausencia de diferencia y aparece pérdida de cobertura.
-  No se ha modificado ningún cálculo operativo ni lanzado entrenamiento/precálculo
-  operativo.
-- Los cambios de `0.2.302` están publicados e instalados. La corrección posterior
-  de la notificación final ya está instalada en el worker privado; HA `0.2.303`
-  está publicada, pendiente de instalación por el usuario.
-- Elegir una identidad de modelo constante no garantiza coherencia temporal si
-  el contrato semanal es `fixed h7`.
-- El fallback diario acordado resuelve ausencia de familia común, pero puede
-  reintroducir saltos entre días y cortes distintos. Debe quedar identificado
-  como excepción; no reabrir su política para corregir Aereus/Olvan.
-- La aplicabilidad puede vetar por una desviación normalizada alta aunque la
-  diferencia absoluta sea pequeña. No ampliar umbrales globalmente sin la
-  auditoría multiespecie.
-- Una probabilidad vetada sólo puede mostrarse como diagnóstico inequívocamente
-  separado de una recomendación, color operativo o ranking.
-- Wunderground puede volver a servir variantes CDN desactualizadas. Conservar
-  detección por timestamp, trazas de reintento y fallback; no asumir que un
-  encoding concreto será siempre el fresco.
-- HA real corre en una Raspberry Pi 4 compartida: no repetir entrenamientos,
-  precálculos, escaneos completos ni copias grandes para diagnosticar.
-- No tocar las URL de coordinador ni el JSON de observaciones protegido.
+El puerto local sigue enlazado a `127.0.0.1:8101`; no es accesible directamente
+desde iPhone. No exponer todo ese servidor a LAN: incluye administración local.
+Si se habilita una prueba móvil local, limitarla al visor y API autenticadas.
+La caché privada por asociación ya está conectada y probada sin montajes privados
+compartidos. Sigue pendiente su despliegue en HA real y la aceptación de release.
 
-## Archivos relevantes
+## Incremento anterior y prioridades históricas (ver actualización de caché arriba)
 
-- Continuidad semanal y limitación `fixed h7`:
-  `docs/mushrooms/mushroom-predictor-weekly-precompute-spec-es.md`.
-- Selector y materialización:
-  `rainmapper_core/mushroom_ml_multiversion_comparison.py`,
-  `rainmapper_core/mushroom_predictor_precompute.py` y
-  `rainmapper_core/mushroom_predictor_service.py`.
-- Pruebas del selector:
-  `tests/test_mushroom_ml_multiversion_comparison.py`,
-  `tests/test_mushroom_predictor_precompute.py` y
-  `tests/test_mushroom_predictor_service.py`.
-- Wunderground: `rainmapper_core/sources/wunderground/daily_api.py`,
-  `rainmapper_core/rainmapper.py`, `rainmapper-app/run.sh` y
-  `rainmapper-app/config.yaml`.
-- Contadores de fuente: `rainmapper_core/weather_history_archive.py` y
-  `rainmapper-app/app/web_server.py`.
-- GIS francés: `rainmapper_core/mushroom_gis_lab.py`,
-  `rainmapper_core/mushroom_rebuild_snapshot.py` y
-  `docs/mushrooms/france-sources/`.
-- Aplicabilidad: `docs/mushrooms/mushroom-predictor-reliability-selection-spec-es.md`.
-- Worker multicoordinador:
-  `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`.
-- Flujo de release: `docs/release-flow.md`.
+**Base local incorporada a imágenes, 15/09:** HA local y el worker existente se
+han reconstruido desde el mismo worktree y recreado sin copiar código de aplicación
+después. Verificados 192 archivos en HA y 100 en worker contra fuentes, tanto en
+imágenes como dentro de contenedores; sin diferencias. Incluye todos los ajustes
+anteriores de mapa, idiomas, ayuda, canal online y editor de afinidades. El botón
+«Añadir fila» también se inicializa al cambiar de especie por AJAX, no solo al
+cargar la página. Los wrappers de arranque incorporan los overlays del mapa cuando
+ya existe su configuración; recrear con ellos conserva sus montajes.
+
+**Calendario visible:** Parámetros → Predicción → Zona horaria de la predicción,
+con ayuda ES/CA/EN y guardado por dispositivo. Valor inicial `Europe/Madrid`.
+La fecha inicial ya usa esa zona, no la del navegador. Cada consulta lleva
+`calendar_timezone` validada hasta los lectores de HA/worker y el resultado debe
+devolver la misma; visible bajo la fecha. Conserva el ajuste al guardar desde
+el mapa meteorológico. Informes abiertos mantienen su zona original.
+Corregido el fallo de medianoche: el worker UTC consideraba el 14/09 todavía
+«hoy» cuando en Madrid ya era 15/09, rechazaba el corte meteorológico del 14 y
+mostraba todas las especies sin cálculo. No cambia modelos ni inventa datos;
+se mantiene la protección contra cortes futuros y la abstención por datos/modelos.
+[Semántica y configuración](mushrooms/prediction-map-local-worker-setup-es.md#calendario-visible-de-la-predicción--15092026).
+
+Validación final: smoke **1.551 tests, 48 omitidos, OK**; Chrome con 20 consultas
+fixture, zona del navegador Honolulu/mapa Kiritimati, persistencia, escritorio/móvil
+y ruta meteorológica. API HA local–worker para el 15/09: paridad exacta, repetición,
+concurrencia y cancelación; tres especies calculadas en La Vansa/Montclar.
+Sagàs (41.98996, 1.90109): aereus y caesarea vuelven a tener siete probabilidades.
+Perfiles, datos y backups del usuario preservados; URLs del worker idénticas por
+SHA256 antes/después. Se esperó a que finalizaran los trabajos que lanzó el usuario.
+
+Evidencia e identidades finales: [informe de base local](reports/prediction-map-local-images-2026-09-15.json).
+Copia recuperable local en `backups/local-base-20260915/`: source completo con
+archivos nuevos, hashes, configuración y JSON privados actuales/anteriores.
+Los modelos, meteorología y GIS permanecen en sus volúmenes; no se duplicaron GB.
+Etiquetas locales conservadas: `rainmapperha:local-base-20260915` y
+`rainmapper-worker:local-base-20260915`. **No hay publicación ni actualización de
+HA real, ni commit/push del worktree.** Seguimos con dos mapas; el meteorológico
+actual y la preview sin autenticación real se conservan.
+
+Siguiente: integrar la caché privada por asociación con el mapa y completar GIS
+nacional. Antes de HA real sigue pendiente el circuito local de entrenamiento,
+promoción y precálculo aplicable y la aceptación expresa, según `release-flow.md`.
+No lanzarlo automáticamente: esta tarea solo autorizó builds/recreaciones locales.
+La revisión científica de suelo/pH y la revisión visual a fondo/árboles vecinos
+siguen aparcadas en TODO. No reabrirlas por este arreglo.
+
+## Historial de los incrementos incorporados a la base local
+
+Las referencias siguientes a copias puntuales o imágenes pendientes describen
+el momento original de cada ajuste: quedan superadas por la reconstrucción del
+15/09 documentada arriba.
+
+**Edición de afinidades corregida, 14/09:** el decodificador HTTP omite valores
+vacíos; el parser anterior terminaba al primer índice ausente y perdía las filas
+posteriores a un ID puesto en «-». Ahora recorre los índices enviados, conserva
+metadatos de identidades sin cambiar y mantiene las afinidades ocultas de V0.
+Marcador de grupo permite vaciar una lista completa. «Añadir fila» en V0 y
+Enriched, con opciones del catálogo, prevención de duplicados y ayuda ES/CA/EN.
+Se aplica a hosts, bosques, suelos, litología y rasgos de hábitat.
+Seis pruebas dirigidas pasan, incluidas primera/intermedia/última fila vacía,
+índices separados, cero, metadatos, datos ocultos y validación de duplicados.
+Navegador sobre HA local: añadir dos filas por grupo, seleccionar catálogo,
+vaciar la primera sin alterar las restantes, V0/Enriched y anchos 1600/390.
+Código y etiquetas copiados a HA local, reiniciado y SHA-256 comparados con
+fuentes; no se reconstruyeron imágenes ni se modificó el worker.
+
+Recuperación limitada a `tricholoma_terreum.ecology.host_affinities`: restaurados
+`host_pinus_nigra` y `host_pinus_sylvestris` con sus metadatos del backup
+`mushroom_profiles.20260914T194237Z.json`. El backup mostrado en la captura
+(`194342Z`) ya contenía el borrado. Abeto blanco sigue eliminado; todos los demás
+campos y perfiles actuales, incluidos cambios posteriores de suelo, se conservan.
+Validación: 0 errores, 104 avisos. Copia previa a la recuperación conservada en
+`docker-data/mushroom-data/backups/mushroom_profiles.20260914T195548693692Z.affinity-recovery.keep.json`.
+Incorporar estos cambios en la próxima imagen autorizada.
+
+
+**Hover inmediato por fecha, 14/09:** eliminado `<title>` de puntos de la gráfica
+semanal, que dependía de la demora nativa del navegador. Tooltip propio sin espera
+al mover el puntero por una columna de fecha; muestra juntas todas las especies
+calculadas ese día y sus colores, sin acertar en puntos próximos/solapados.
+Posición horizontal acotada a la gráfica, sin capturar clics; salir/Escape oculta.
+Foco de teclado en punto muestra el mismo desglose. Sin valores se indica sin
+probabilidad calculada, sin inventar cero. No consulta ni recalcula; preserva
+selector/clic de fecha. Prueba de navegador final pasa (20 consultas fixture),
+incluida aparición síncrona lejos de curvas, las tres especies, borde derecho,
+teclado y día sin valores. Captura inspeccionada. JS/CSS copiados a HA local y
+huellas servidas por HTTP verificadas. Sin reinicios ni cambios del worker/datos;
+incorporar en la próxima imagen autorizada.
+
+**Colores de curvas, 14/09:** corregida asignación que consumía posiciones para
+todas las especies del catálogo y dejaba curvas visibles con verdes muy próximos.
+Solo consumen color las especies compatibles con alguna probabilidad finita en
+temporada durante la semana (0 incluido, null no). Paleta contrastada inicial de
+ocho colores sin repetición; extensión por tonos para más series. Identidad
+ordenada y conjunto semanal mantienen colores al cambiar fecha/ranking/idioma;
+curva y marcador de lista comparten color. Los colores pueden cambiar entre
+puntos con conjuntos calculados distintos. Prueba de navegador correcta (19
+consultas fixture), incluida regresión de 21 especies con solo tres curvas
+próximas: Edulis azul, Pinícola naranja y Rovelló morado. Captura inspeccionada.
+JS copiado a HA local y verificado por HTTP; sin reinicios, cambios de cálculo,
+worker o datos. Incorporar en próxima imagen autorizada.
+
+**Mapa por canal online/foreground, 14/09:** decisión expresa del usuario:
+background puede ejecutar precálculo mientras online atiende el mapa. Corregido
+el bloqueo global que impedía sondear consultas si había cualquier trabajo activo.
+El mapa conserva su contrato efímero por coordenadas, pero comparte una reserva
+global de foreground con los trabajos online existentes; no añade un tercer
+cálculo concurrente ni un canal por coordinador. Reserva no bloqueante antes de
+reclamar, retenida hasta finalizar y liberada también con errores; background
+conserva su carril independiente. Cuando online está ocupado, acción autenticada
+`busy` mantiene presencia sin reclamar; broker devuelve `worker_busy`, distinto
+de desconectado, con texto ES/CA/EN. El visor usa la capacidad de predicción para
+el aviso inicial; ya no inventa modo simulado mientras espera el primer resultado.
+23 pruebas dirigidas pasan (incluido servicio con dos coordinadores y concurrencia
+de carriles); navegador correcto con aviso de ocupado (18 consultas fixture).
+Aplicado en HA local/worker por copia, sin imágenes nuevas. Worker reiniciado solo
+con ambos carriles libres y configuraciones de coordinador idénticas por hash.
+No se lanzó ni canceló entrenamiento/precálculo real durante este arreglo.
+Comprobación final HA local→worker tras el cambio: `worker_ready=true`,
+`data_mode=prediction`, 7 especies, cálculo 1277,742 ms; sesión temporal eliminada.
+
+Diagnóstico que originó el cambio: `worker_job_UbGvg0cuhtud` era precálculo de
+`primary` (HA real), no de la cola local mostrada. Log confirmó fin/liberación a
+19:04:10 UTC (21:04:10 local). La tarjeta «En espera» mira solo foreground y puede
+ocultar actividad de background; queda pendiente mejorar el resumen de la tarjeta.
+El predictor remoto `worker_predictor_v1` se asigna a foreground cuando se crea
+ese trabajo; no significa que toda consulta del predictor vaya al worker, porque
+puede servirse del precálculo existente.
+
+**Ayuda de suelo/pH, 14/09:** disponible en Ecología → Suelos, V0 y Enriched,
+como desplegable explícito «Ayuda: cómo funcionan el suelo y el pH». Explica los
+ocho controles, pH, excepción, afinidades, duplicidad aparente de Silíceo,
+Calizo condicionado/bloqueador, ejemplo aereus/ou de reig y guardado. Texto
+completo ES/CA/EN, 14 secciones; [guía fácil de consultar](mushrooms/soil-ph-rule-help-es.md).
+Dos pruebas dirigidas pasan; navegador en HA local verifica apertura sin cambios
+en campos y sin desbordamiento a 1600/390 px. Render de tres idiomas comprobado
+en contenedor sin etiquetas ausentes. UI y etiquetas copiadas a HA local y
+reiniciado solo ese contenedor; hashes coinciden. Sin editar fichas ni reglas,
+sin worker/build/publicación. Incorporar cambios en próxima imagen autorizada.
+
+**Hospedadores ES/CA/EN, 14/09:** corregido el lector forestal y el mapa para
+usar `common_names` del catálogo local según el idioma seleccionado. Los 115
+hospedadores ya tenían los tres idiomas: no se editó el catálogo. `labels`
+transporta tres nombres acotados; `label` conserva compatibilidad anterior.
+Sin traducción se muestra el nombre científico; alias ambiguos siguen sin
+asignarse. Cambiar idioma no repite consultas y editar nombres conserva la caché
+geográfica. Trece pruebas GDAL pasan en directorio temporal del worker y prueba
+de navegador ES→EN→CA→ES pasa, incluidos fallback y payload antiguo.
+Punto 41.98967, 1.90060 comprobado en lector del worker: Alzina/Holm oak,
+Roure martinenc/Downy oak, Arboç/Strawberry tree. Cambios copiados a HA local y
+worker, reiniciados tras comprobar worker idle; hashes de archivos y de ambas
+configuraciones de coordinador verificados. JavaScript servido por HTTP coincide.
+Sin builds/publicación: incorporar estos archivos en la próxima imagen autorizada.
+
+**Inglés para demostración, 14/09:** el usuario pide enseñarlo a su jefe como
+ejemplo para posibles predicciones en alquileres de M3. Verificados los 117 textos
+del mapa con traducción EN y prueba de navegador ES→EN→ES con resultado abierto:
+cabecera, máximo semanal, temporada, sin cálculo y gráfica; fecha conservada y
+sin nuevas consultas. Activado `settings.language=en` en el único Safari local
+habilitado de `carlos` que usa worker; demás ajustes/dispositivos intactos.
+Es la preferencia compartida del visor por dispositivo. Recargar para aplicarla.
+El pendiente de nombres forestales detectado entonces queda resuelto en el
+incremento anterior. Los nombres de especies siguen los definidos en ficha;
+no afirmar que todos los datos descriptivos están traducidos. La activación
+inicial de idioma no modificó código ejecutable.
+
+**Editor de reglas suelo/pH, 14/09:** el usuario detectó que la regla de exclusión
+por falta de suelo solo estaba en JSON. Ahora Ecología → Suelos, en V0/Enriched,
+expone los siete campos de `ecology.soil_filter`: exigencia de contexto, suelos
+de apoyo/condicionados/excluidos, suelos que bloquean excepción de pH, modo de
+excepción y referencia. Activación explícita; sin regla no se crea al guardar.
+Metadatos expone además `map_display_name`, otro campo usado por el mapa que
+faltaba en el formulario. Las afinidades antiguas y «Evitar» no se presentan como
+vetos. Validación compartida de reglas y catálogo local antes de guardar.
+Cuatro pruebas dirigidas pasan, incluidos rechazo de IDs/conflictos/referencia
+vacía y conservación de otras fichas/campos; pruebas en copias temporales locales.
+Controles comprobados por HTTP/navegador en HA local, escritorio/móvil sin guardar.
+Perfiles, catálogo, mappings y observaciones reales mantienen sus hashes previos:
+no se ha desactivado `require_soil_context` de aereus ni cambiado ninguna regla.
+Dos módulos de UI y etiquetas copiados/reiniciados solo en HA local; imagen
+pendiente de reconstruir en la siguiente construcción autorizada. [Detalles](mushrooms/prediction-map-local-worker-setup-es.md#edición-de-las-reglas-de-suelo-y-ph).
+
+**Diagnóstico Merlès solicitado, 14/09:** punto 42.01392, 1.96982, fecha
+2026-09-14 consultado con el lector geográfico del worker y sus datos montados.
+Aereus pasa hospedadores, altitud, pH y temporada principal, pero queda `unknown`
+por `soil_unresolved`: unidad ICGC `Q`, depósitos de fondo de valle/rambla/piedemonte,
+sin tendencia edáfica resuelta en el mapping. Ou de reig queda compatible porque
+su ficha no exige ese contexto conjunto; asimetría de criterios entre fichas,
+no evidencia de ausencia de aereus. No se modifican reglas ni mappings:
+suelo/pH sigue aparcado. [Respuesta del lector](reports/prediction-map-merles-soil-unresolved-2026-09-14.json).
+
+**Gráfica semanal en cabecera, 14/09:** añadida al final de la cabecera fija,
+después de la fecha. Usa exclusivamente las siete probabilidades recibidas del
+ejecutor para las especies visibles. Color por identidad, estable al cambiar
+fecha/orden, compartido por curva y marcador de la fila. Cada fila calculada
+muestra máximo semanal y primera fecha del pico; `null` interrumpe la curva,
+0 permanece válido, sin modelo no tiene curva ni máximo inventado. Respeta
+temporadas por día. Pulsar la gráfica cambia fecha sin consultar al worker.
+Prueba de navegador escritorio/móvil correcta, incluyendo huecos, cero, ausencia
+de modelo, colores, temporadas y cabecera fija. Recursos visuales y traducciones
+copiados a HA local; reiniciado solo HA local para cargar etiquetas. HTTP coincide
+con fuentes y API vuelve a anunciar `worker_ready: true`. Sin build ni cambio de
+datos/modelos/worker/HA real; incorporar cambios en próxima imagen local autorizada.
+
+**Cabecera fija del popup, 14/09:** por petición del usuario, título/cierre,
+ubicación, terreno, tiempos y selector de fecha permanecen fuera del scroll.
+Solo especies, avisos y desplegables se desplazan en `.pm-result-body`.
+En mapas estrechos se ajusta el encuadre si falta altura para cabecera y contenido,
+manteniendo el punto y la flecha. Prueba de navegador escritorio/móvil pasa,
+incluidos fecha visible al desplazar, cambio de fecha, bordes y visor meteorológico.
+Tres recursos visuales actualizados en HA local y verificados contra HTTP:
+`prediction-mode.js`, `prediction-mode.css`, `prediction-bootstrap.js`.
+Siguen pendientes de incorporar a la imagen en una construcción local posterior;
+no se reconstruyó/reinició ni se cambió worker, datos o HA real.
+
+**Ajuste visual posterior, 14/09:** el usuario probó el mapa mediante worker en
+HA local y detectó popups demasiado bajos cerca del borde superior. El popup
+lateral ahora desplaza su cuerpo dentro del mapa y compensa la flecha hacia el
+punto; en escritorio (ancho de mapa ≥900 px) aprovecha la altura disponible sin
+el tope de 650 px. Foco del cierre sin desplazar el contenido; ajuste al cambiar
+altura/contenido o mover el mapa. Navegador escritorio/móvil y cuatro posiciones
+de borde pasan. Solo el JS visual se ha actualizado en el contenedor HA local,
+verificado por SHA256 de la respuesta HTTP; la imagen aún contiene el JS anterior.
+No hubo build, reinicio ni cambio en worker/HA real o autenticación de preview.
+La revisión visual general aplazada sigue en TODO.
+
+**Último incremento: volumen y paridad HA local–worker, 14/09.** El usuario aplaza
+revisión visual a fondo/Safari y árboles vecinos (siguen en TODO), y autoriza
+preparar datos/configuración y comparar ejecutores. Se usa el worker existente,
+no uno adicional. Ambos contenedores reconstruidos, montajes de mapa en solo lectura
+y canal de la asociación HA local activados. URLs/credenciales persistidas intactas.
+La preview ficticia se conserva. [Instalación, comandos y límites](mushrooms/prediction-map-local-worker-setup-es.md).
+
+Generación pública local: 3.510 archivos / 14.538.214.301 bytes lógicos,
+reutilizados por enlaces duros (cero copia adicional); segunda instalación sin
+transferencia ni rehash. Contiene dependencias de lectores actuales; **no completa
+España**: GEODE y MFE fuera de Catalunya siguen sin integrar. El usuario confirma
+alcance nacional, no recortar territorio. Preparar estas integraciones sin repetir
+descargas/auditorías. La portabilidad nacional y la aceptación en otra máquina
+quedan abiertas; la paridad del cálculo actual sí está probada en Linux ARM64.
+
+La Vansa/Montclar: resultados idénticos, repetición/concurrencia, cancelación,
+401/400 y worker desconectado→503 sin fallback correctos. Once archivos compartidos
+con hashes idénticos al source en ambos contenedores. [Informe](reports/prediction-map-local-worker-integration-2026-09-14.json).
+**RPi4: cálculo mediante worker en principio.** HA local se usa como referencia
+de paridad; no extrapolar estos tiempos al Raspberry ni trasladarle configuración
+de cálculo local automáticamente. No hubo entrenamiento, precálculo o release.
+La prueba comparte datos privados de HA local por montajes de solo lectura.
+Antes de HA real falta integrar el mapa con las generaciones privadas de esa
+asociación en el worker; nunca sustituirlas por `docker-data` del Mac. Cartografía
+pública reutilizable, perfiles/modelos/meteorología separados por coordinador.
+
+**Última precisión del usuario: minimizar transporte durante la predicción.**
+Reutilizar meteorología del precálculo y fichas existentes si coinciden con las
+versiones aprobadas por HA. El runtime actual ya reutiliza recibos/objetos y
+transfiere solo archivos cambiados (cuatro pruebas dirigidas pasan); **el mapa
+todavía no está conectado a esa caché**. Su integración debe usar referencias
+compactas, evitar manifiestos completos/hashes/TARs por clic y sincronizar solo
+lo ausente, con versiones coherentes y permisos por asociación. No confundir
+la prueba con montajes locales con una prueba de ese transporte. [Contrato y
+aceptación pendiente](mushrooms/prediction-map-local-worker-setup-es.md#sincronización-privada-y-caché-requisito-acordado-integración-pendiente).
+
+**Implementado localmente: `territorial_and_seasonal_windows_v6`.**
+
+1. **Especies posibles en el lugar:** suelo+pH conjuntamente, hospedadores o
+   hábitat y altitud. `status` territorial no cambia por mes ni meteorología.
+   `daily_statuses` es una proyección idéntica, validada por contrato/navegador.
+2. **Lista visible y cálculo en una fecha:** decisión posterior del usuario:
+   **fuera de temporada no debe aparecer**. Solo se muestran fases principal o
+   secundaria, con esa etiqueta junto a la especie. La clasificación procede de
+   los meses originales y de la función compartida con el Predictor en
+   `mushroom_phenology.py`; humedad/temperatura siguen en el motor existente.
+   `daily_season_phases` está separado del estado territorial. La lista visible
+   sí puede cambiar con la fecha; no hay descuentos arbitrarios del porcentaje.
+
+`territorial_candidates` conserva el primer nivel; `prediction_candidates` añade
+la temporada entre lector, ejecutor y runtime. Se filtra antes del contexto hídrico
+para modelos y de inferir; las fechas fuera de temporada no invocan modelos. Se respeta la
+selección de especies solicitada. Sin candidatas no se llama al proceso del
+motor; el runtime también retorna antes de abrir modelos/meteorología. Si ninguna
+candidata tiene evidencia de modelo, no prepara meteorología del modelo.
+El desplegable meteorológico permanece independiente. Compatibles sin modelo o
+con abstención permanecen al final con «Sin probabilidad calculada»: `null`, no 0.
+
+**Cuatro fichas locales revisadas:** aereus, edulis, pinophilus y cibarius s.l.
+Cambios limitados a `ecology.soil_filter`; pH, hosts, fenología, altitudes y ediciones
+restantes preservados por comparación estructural. Silíceo es apoyo no exhaustivo;
+caliza+pH admitido produce admisión condicionada, nunca descalcificación confirmada.
+Otros tipos conocidos no preferidos pueden entrar condicionados. Sin composición
+resuelta, abstención por falta de información; sin nuevo veto litológico.
+Solo aereus conserva la excepción de intervalo solapado y el máximo 6,8.
+[Reglas completas y procedencia](mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5).
+UI con avisos de admisión condicionada y desplegable de descartadas/desconocidas.
+Descartadas: nombre en línea propia, cada motivo debajo y filas separadas;
+corregida la concatenación visual de nombres/motivos.
+Cabecera «Terreno»: tipos de suelo primero, después árboles/hábitats. Etiquetas
+del catálogo recibido en `mapped_context.soil_tendencies`, mezclas conservadas;
+suelo en color tierra, sin inferir categorías nuevas desde pH ni cambiar filtros.
+
+**Siguiente:** integrar el mapa con la caché privada existente según el requisito
+anterior y completar integración nacional (GEODE y MFE fuera de Catalunya)
+y su paquete operativo; no reducir el alcance a Catalunya. Revisión visual a fondo
+y recuperación forestal vecina aplazadas por el usuario al TODO.
+El usuario ha aparcado suelo/pH: conservar reglas; la revisión de otras fichas y
+vinosus sigue pendiente, sin reabrirla automáticamente ni cambiar datos en silencio.
+La aceptación del cálculo actual en HA local–worker está realizada arriba; no
+confundirla con validación científica, cobertura nacional o permiso de release.
+No repetir el incremento ni las comprobaciones ya terminadas si no cambia código.
+
+Balance y orden de los pendientes actualizados en
+[el seguimiento del mapa](mushrooms/mushroom-prediction-map-progress-es.md#balance-y-próximos-pasos--14092026).
+
+## Contraste posterior solicitado: presentación temporal y suelo condicionado
+
+Diagnóstico del segundo punto del usuario: **42.29077, 1.53842**, distinto del
+primer punto de La Vansa. API actual: 1.784 m, pino rojo, unidad `Tk` (margas y
+calizas margosas), OpenLandMap 6,4 [5,4–7,3]. V5 admite condicionados edulis y
+pinophilus; reproduce 61 % y 28 % redondeados para 14/09. Ambos incluyen septiembre
+en sus fichas. No hay evidencia de carbonatos superficiales/descalcificación medida.
+**Decisión posterior cerrada del usuario:** conservar las reglas actuales de
+suelo/pH. Rechaza exigir tipo de suelo y confirmación por pH porque descartaría
+setales conocidos de aereus. No implementar esa restricción ni cambiar admisiones
+condicionadas. La revisión puntual también confirmó componente calcáreo en las
+unidades de Olvan/Merlès; geología y pH no describen exhaustivamente el suelo del
+setal. Esta decisión no revierte el filtro estacional ni sus etiquetas.
+[Diagnóstico exacto](reports/prediction-map-vansa-second-diagnosis-2026-09-14.json).
+
+En el primer punto de la captura (42.17076, 1.84548), marçot figura territorialmente
+posible y devuelve abstención; su ficha excluye septiembre. Fredolic incluye
+septiembre secundario y devuelve falta de modelo. La decisión posterior ya está aplicada: marçot se oculta y no llega al modelo;
+fredolic aparece con «Temporada secundaria» y sin modelo. No se cambiaron meses
+ni reglas de suelo. 106 pruebas y Chrome; respuesta actual de este mismo punto
+verificada en el [informe v6](reports/prediction-map-season-visibility-2026-09-14.json).
+
+**Descalcificación en las capas reales:** OpenLandMap instalado solo aporta pH e
+incertidumbre. En atributos ICGC no aparecieron descalcificación/descarbonatación;
+Orst/Orst1/mc_Orst mencionan nódulos disueltos en roca/protolito. **GEODE sí contiene
+el concepto en unidades cartografiadas**: unidad 247, Z1000, «Fm. Oviedo: calizas,
+a veces descalcificadas, y margas», confirmada en servicio oficial y bloque local
+`layer-8/0016000.json.gz` (OBJECTID 16027/16028). «A veces» no localiza ni mide el
+horizonte superficial en cada punto. GEODE aún no es el lector integrado de estos
+puntos catalanes. [Evidencia acotada](reports/prediction-map-gis-decalcification-2026-09-14.json).
+No confundir la categoría del catálogo con datos asignados a una coordenada.
+
+Setal adicional comunicado por el usuario: **Montclar, 42.02466, 1.77189**,
+aereus presente según su testimonio. No denunciaba exclusión actual: ilustra que
+un veto por componente calcáreo perdería un setal conocido. Consulta actual:
+763,8 m, pH estimado 6,6 [6,1–7,9], encina/roble pubescente, unidad `POmlg`,
+tendencias calcárea/arenosa. Aereus admitida condicionada y temporada principal.
+Reglas conservadas, sin excepción por coordenadas ni alta en observaciones.
+[Registro del contraste](reports/prediction-map-montclar-aereus-2026-09-14.json).
+
+## Suelo y pH: conclusiones y límites vigentes
+
+- La revisión bibliográfica respalda cruzar suelo y hospedador, no una jerarquía
+  universal «suelo manda siempre». Hospedador necesario no se sustituye por suelo.
+- Composición de roca y reacción del suelo son dimensiones diferentes. Silíceo
+  no equivale automáticamente a ácido; calcáreo no demuestra pH básico superficial.
+- El agua infiltrada puede lavar carbonatos: roca caliza con horizonte superficial
+  descalcificado/ácido es posible. Un pH **estimado** bajo no confirma ese proceso;
+  tampoco las lluvias recientes permiten inferirlo. No convertir todas las calizas
+  en terreno favorable ni excluir edulis universalmente por la roca madre.
+- Edulis local ya incluye `lith_decalcified_soil` entre sus preferencias. No hay
+  medición de descalcificación en La Vansa. Que allí fructifique poco o mucho no
+  se deduce de las fuentes revisadas. Presencia comunicada tampoco mide el pH.
+- No duplicar evidencia contando «ácido» derivado de pH además del mismo pH.
+  Mantener mezclas, procedencia y desconocidos. No rellenar faltantes como neutro.
+- El usuario rechaza ampliar globalmente aereus a pH máximo 7,5. Sigue en 6,8.
+  No hay decisión aprobada de veto calcáreo universal para las otras especies.
+
+[Fuentes primarias y propuesta](mushrooms/prediction-map-ecological-factors-literature-es.md)
+y [matriz de 21 fichas](mushrooms/prediction-map-substrate-species-review-es.md).
+Son anexos para profundizar; el alcance y decisiones necesarios están arriba.
+
+## Qué está implementado y qué no
+
+El mapa calcula probabilidades del **motor Python existente en preview local**,
+con modelos instalados, evidencia por especie y entradas del punto. No calcula
+ML en navegador ni toma prestada la evidencia del área que contiene el punto.
+**Predictor por área; mapa por especie**, incluso en Olvan. La diferencia de
+porcentajes ya se investigó después del precálculo del usuario; no intentar
+igualarlos ni repetir esa investigación. [Informe](reports/prediction-map-olvan-after-precompute-2026-09-13.json).
+
+Rovelló tiene cuatro filas por IDs existentes: deliciosus, sanguifluus, vinosus y
+salmonicolor/quieticolor. Esto **reemplaza el grupo derivado**. Solo deliciosus
+tiene modelo en las comprobaciones realizadas; no prestar su modelo a las demás.
+Nombres en `metadata.map_display_name`, sin fusionar observaciones ni dividir
+la ficha conjunta salmonicolor/quieticolor. Probabilidades descendentes del día;
+sin cálculo al final. Cálculo disponible no significa validación científica:
+`scientifically_validated=false`, `point_validation=not_established`.
+
+**Reglas de suelo v5 conservadas en el filtro v6:** `ecology.soil_filter` de las cuatro fichas define apoyo
+silíceo, lista de exclusiones vacía, caliza condicionada y requisito de composición
+resuelta. Son reglas provisionales, no límites biológicos absolutos. El máximo de
+aereus no se amplía: solo su ensayo previo permite una media fuera de rango con
+intervalo OpenLandMap solapado y silíceo, sin componente carbonatado/yesífero que
+bloquee esa excepción. Edulis/pinophilus/cibarius comparan estrictamente la media.
+Las otras 17 fichas conservan sus políticas de suelo; ninguna usa meses para la
+selección territorial. Preferencias y valores de afinidad no activan nuevos vetos.
+
+Revisión ICGC aplicada: 1.055 códigos revisados, 1.046 con materiales en 192 reglas
+compartidas; 14 materiales añadidos al catálogo. Nueve sin equivalencia segura:
+CK, Dlva, Fd, Glpm, Org, Pze, bf, ff, mr_EÇOr. Identificar un depósito no resuelve
+su composición: 392 unidades indeterminadas para silíceo/calizo/yesífero. Mezclas
+sin proporciones inventadas; cuatro códigos de cubierta y cinco filas MVC
+previas preservados. **GEODE siguiente fase**, no revisar/descargar otra vez ICGC.
+[Revisión y hashes](reports/prediction-map-icgc-substrates-2026-09-14.json).
+
+Catálogo y mappings locales conservan los SHA256 `applied_files_sha256` del
+informe ICGC, revalidados. El hash de perfiles cambió después de v5 por edición
+desde la UI a las 02:42:58 del 14/09: salmonicolor/quieticolor conserva solo
+`host_abies_spp`, con metadatos actualizados. Edición preservada; comparación
+estructural con backup `mushroom_profiles.20260914T004258Z.json`, que coincide
+con el hash v5. No restaurar cinco afinidades anteriores. El [informe v5](reports/prediction-map-two-levels-2026-09-14.json),
+con reglas antes/después y prueba de preservación de los demás campos.
+Backups con sufijo `20260913T224213651843Z.icgc-substrates.keep.json` y revisión
+`docker-data/mushroom-data/gis-mapping-reviews/icgc-substrates-2026-09-14.json`
+conservados. No repetir la auditoría ICGC ni las descargas.
+
+## Casos útiles para pruebas dirigidas
+
+Los valores de la tabla son contexto histórico, no mediciones. En este incremento
+se reconsultaron nueve puntos con los lectores reales para enero y septiembre:
+listas territoriales idénticas, sin inferir modelos en esa comprobación geográfica.
+Vallcebre mantiene latitabundus; La Selva/L’Aleixar, aereus condicionada; La Vansa,
+las tres fichas condicionadas; Fogars conserva edulis; Ggd sin hosts se abstiene.
+Olvan/Merlès conservan aereus y caesarea. Resultados actuales en el informe v5.
+
+| Punto | Evidencia y resultado que interesa |
+|---|---|
+| Vallcebre 42.22549, 1.81417 | Latitabundus: pino rojo, 1.050 m, pH 6,9; excluida el 13/09 solo por mes (principal 10–12, secundario 1). Debe seguir posible territorialmente tras separar niveles. |
+| La Selva 41.22694, 1.09095 | Pizarras `mc_Capg`, silíceo, pH 7,2 [6,7–7,8], encina/roble, 415,4 m. Aereus admitida por ensayo v4; presencia abundante comunicada. |
+| La Selva 41.23675, 1.13555 | Misma unidad silícea, pH 7,5 [6,6–8,1], encina/quejigo, 357,9 m; aereus admitida con aviso. No ampliar máximo global. |
+| L’Aleixar 41.22071, 1.07009 | `Ggd`, granito+granodiorita → silíceo; pH 6,9 [6,0–7,7], hosts identificados. Aereus compatible por ensayo. |
+| 41.22012, 1.06989 | `Ggd` ya mapeado, pero polígono MFE «No arbolado», códigos cero. Vecino con pino/encina/quejigo a 52,09 m. Sigue absteniendo por terreno; no fallo geométrico. |
+| La Vansa 42.27588, 1.52460 | `PPcm`, lutitas+caliza, pino rojo, 1.663,7 m, media 6,3 [5,2–7,3], SoilGrids superficial 6,1. Edulis, pinophilus y cibarius: admisión condicionada desde v5. Caliza cartografiada no confirma carbonatos superficiales/descalcificación. |
+| Fogars 41.77528, 2.46480 | Haya recuperada tras arreglo geométrico MFE, edulis compatible. Regresión para no volver a perder árboles. |
+| Olvan 42.06282, 1.93765 y Merlès 42.01347, 1.97098 | Setales de aereus/caesarea comunicados. Mantener selección por especie y OpenLandMap; no ajustar modelos para igualar el Predictor de áreas. |
+
+Informes específicos en `docs/reports/prediction-map-{vallcebre-latitabundus,
+ggd-missing-hosts,ggd-mapping,vansa-calcareous,...}-2026-09-*.json`.
+La reparación MFE acotada en memoria recuperó árboles en Fogars y Arbúcies;
+fuentes/índices intactos. **Árboles vecinos aún no implementado**: usuario lo ha
+solicitado; concretar criterio/radio antes de trasladar información y mostrar
+procedencia/distancia. No confundirlo con vecino de pH, que sí existe hasta 1 km.
+
+## Datos, archivos y ejecución
+
+- Autoridad: `docker-data/mushroom-data/mushroom_profiles.json`,
+  `mushroom_reference_catalogs.json`, `mushroom_gis_mappings.json`. Son los datos
+  de trabajo, **no las semillas** `mushroom-data/`. 21 fichas/21 rangos de pH,
+  115 hosts. Preservar ediciones del usuario: edulis mínimo **900 m**,
+  pinophilus **1.100 m**, no restaurar 600 m.
+- UI única **Terreno**. Ectomicorrícicas exigen hospedador específico compatible;
+  jerarquía de género admite descendientes, no equivalencia entre hermanos.
+  No ectomicorrícicas pueden entrar por hábitat revisado (prado, ribera, bosque).
+  Falta de árboles/hábitat significa desconocido, nunca ausencia física demostrada.
+- OpenLandMap media 0–30 cm para filtro, límites Q16–Q84 informativos; nueve TIFF
+  (368 MiB) en `mushroom-map-GIS/openlandmap-ph/spain-v20250204/manifest.json`.
+  Profundidad solo en desplegable Terreno; SoilGrids conservado para comparación
+  y retención hídrica. Sin media, vecino hasta 1 km y distancia; sin vecino,
+  desconocido. No fallback silencioso a SoilGrids ni nuevas descargas.
+- Preview recargada con los mismos argumentos y puerto; API v6 comprobada:
+  `http://127.0.0.1:65517/protected/prediction-map/index.html`.
+  No asumir que sobreviva ni reutilizar PID antiguo. Sesión ficticia, sin autenticación real.
+  Entrada: `tests/prediction_map_browser_check.mjs --preview`, lectores en
+  `tests/prediction_map_preview_reader.mjs`. Configuración de esta ejecución en
+  `/private/tmp/rainmapper-map-point-executor-config.json` (temporal, no autoridad).
+- GDAL usa `/opt/homebrew/bin/python3`; motor/meteorología `.venv/bin/python`
+  **sin resolver el symlink**. Datos observados `docker-data/Data`,
+  `docker-data/stations.txt`, `PublicData`. Modelos en
+  `docker-media/rainmapper/mushroom-derived/ml_models`; registro local
+  `docker-data/mushroom-data/mushroom_ml_version_registry.json`.
+- GIS: `mushroom-map-GIS/terrain-index/point-inputs-2026-09-12.sqlite`, índice MFE
+  `mushroom-map-GIS/mfe25/prepared/catalunya-point-index-v2-2026-09-13.sqlite`,
+  geología ICGC `mushroom-map-GIS/icgc-geologia-50000/source/geologia-territorial-50000-geologic-v3r0-202412.gpkg`,
+  cubiertas `mushroom-map-GIS/icgc-cobertes-2024/source/cobertes-sol-v1r0-2024.gpkg`,
+  municipios `mushroom-map-GIS/ign-municipios/prepared/municipalities-2026-08-10.gpkg`,
+  SoilGrids `mushroom-map-GIS/soilgrids-shared`, DEM nacional
+  `mushroom-map-GIS/ign-mdt25`, regional `mushroom-GIS`. Ya preparados; no reconstruir.
+- Código del incremento: `rainmapper_core/mushroom_map_ecology.py`,
+  `mushroom_map_model_runtime.py`, `mushroom_prediction_map.py`,
+  `viewers/prediction-map/` y textos ES/CA/EN en `mushroom-data/mushroom_labels.json`.
+  Ejecutores: `mushroom_map_execution.py`, `mushroom_map_prediction.py`;
+  script de modelo `scripts/prediction-map-local-model.py`.
+- Pruebas: `tests/test_mushroom_map_ecology.py`,
+  `test_mushroom_map_model_runtime.py`, `test_mushroom_prediction_map.py`,
+  `test_mushroom_map_prediction.py`; datos locales opt-in en
+  `test_mushroom_map_local_mappings.py`. Cubren invariancia por fecha, fenología
+  preservada, cero llamadas para incompatibles y orden filtro→entradas del modelo.
+
+## Validación, riesgos y siguientes fases
+
+Último ajuste de UI: prueba Chrome escritorio/móvil correcta con suelo antes de
+árboles, motivos de descarte en líneas propias y sin desbordamiento horizontal.
+Comando: `node tests/prediction_map_browser_check.mjs /private/tmp/rainmapper-maplibre-4.7.1.js /private/tmp/rainmapper-maplibre-4.7.1.css`.
+Capturas de esa ejecución: directorio temporal `prediction-map-browser-gI2mPH`,
+incluida `exclusions-mobile.png`, inspeccionada visualmente. La preview sirvió JS/CSS
+idénticos a los archivos actuales, sin reinicio ni cambios de filtros.
+Este cierre documental no repite pruebas ejecutables: revisión y `git diff --check`.
+Las pruebas siguientes son evidencia de sus respectivos incrementos, no una nueva
+ejecución ni aceptación de Safari/iPhone, HA–worker o precisión científica.
+
+V6 actual: **106 pruebas correctas**, incluyendo regresión del Predictor, datos
+locales, salida temprana estacional y semana que cruza el mes sin inferir en días
+fuera de temporada. Chrome: ocultación diaria, etiquetas principal/secundaria,
+cero/null, móvil y ruta meteorológica correctos. Preview recargada en 65517 con
+los mismos argumentos; API Cercs verifica marçot fuera/sin modelo invocado,
+fredolic secundario sin modelo y edulis principal. Perfiles, catálogo y mappings
+mantienen hashes v5. [Informe](reports/prediction-map-season-visibility-2026-09-14.json).
+
+Validación histórica del código v5: **67 pruebas dirigidas correctas**, incluidas nueve
+contra JSON locales; otras **369 pruebas de regresión, 12 omitidas**, resultado OK.
+Chrome escritorio/móvil: fecha, orden, cero/null, motivos, ruta meteorológica y
+permisos simulados correctos. Nueve puntos × dos fechas mediante lectores GIS
+actuales. API real de preview en La Vansa: edulis/pinophilus calculadas y cibarius
+con abstención/null. Ninguna de estas comprobaciones acredita precisión científica.
+Comandos, resultados, tamaños de payload y huellas del código en
+[el informe v5](reports/prediction-map-two-levels-2026-09-14.json).
+
+La integración está ahora en preview y HA local/worker existente, con el alcance
+de la aceptación registrado arriba. HA real no ha recibido este bloque. Pendientes:
+completar GIS nacional, destino físico independiente/AMD64, medición IO físico y
+rendimiento representativo, revisión visual/Safari aplazada y superficie coloreada.
+Mantenedores legacy de mappings agrupados y 37 cubiertas pendientes. Vinosus
+mantiene contradicciones documentadas; no corregirlo silenciosamente.
+
+No runners, entrenamiento, precálculo, publicación HA real, Tailscale,
+autenticación real de preview, cambios de coordinador ni borrado de datos/backups.
+Preservar URLs antes/después de cualquier operación futura autorizada del worker.
+Los builds/recreaciones locales de este incremento sí fueron autorizados.
+No repetir descargas, auditorías o migraciones terminadas. RPi4 compartida:
+límites acotados, sin fuerza bruta ni artefactos grandes por punto/día/modelo.
+Continuar informando brevemente al menos cada minuto. Antes de implementar,
+resumir al usuario lo entendido y el incremento concreto; no pedir confirmaciones
+rutinarias sobre trabajo ya autorizado.
+
+Worktree ampliamente modificado, con archivos nuevos sin seguimiento y cambios
+previos en `mushroom-data/mushroom_observations.json`. No atribuir todo el diff a
+esta sesión ni incluirlo ciegamente en commit. Cierre sin commit/push ni despliegue.
+Incidencia Barcelona corregida anteriormente en catálogos local/HA real, Erinya
+pendiente de la fuente; reglas de coordenadas documentadas, sin runner nuevo.
+[Registro](reports/weather-coordinate-conflict-2026-09-13.json).

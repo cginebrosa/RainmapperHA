@@ -94,6 +94,10 @@ def default_cache_root(gis_root: Path | None = None) -> Path:
     configured_gis = os.environ.get("RAINMAPPER_MUSHROOM_GIS_ROOT", "").strip()
     if configured_gis:
         return Path(configured_gis) / "soilgrids"
+    for shared in (Path('/media/rainmapper/geography/mushroom-GIS'),
+                   Path('/media/rainmapper/geography/datasets/mushroom_gis_v0/current')):
+        if (shared / 'geography-dataset.json').is_file() and (shared / 'soilgrids').is_dir():
+            return shared / 'soilgrids'
     media_root = Path("/media/rainmapper/mushroom-GIS")
     if media_root.exists():
         return media_root / "soilgrids"

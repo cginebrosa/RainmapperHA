@@ -1,0 +1,50 @@
+{
+  "ha_version": "0.2.304",
+  "worker_version": "1.1.2",
+  "status": "published_multiarch_not_installed",
+  "user_authorized_publication": true,
+  "user_will_install": true,
+  "source_revalidation": {
+    "ha_effective_files": 198,
+    "worker_effective_files": 106,
+    "differences": [],
+    "changes_since_validation": "documentation_only",
+    "full_smoke": "tmp/geography-portable-20260915/smoke.log",
+    "scientific_chain": "docs/reports/shared-geography-acceptance-2026-09-15.json"
+  },
+  "build": {
+    "command": "./scripts/build-push-ha-image.sh",
+    "session_id": 61561,
+    "exit_code": 1,
+    "build_complete": true,
+    "platforms": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "local_index_digest": "sha256:96d6d0c1f81a532d6c05025f2a0fd46e40570f1a20b9dd08539ff78a4364bc2c",
+    "failure": "GHCR failed to fetch oauth token: denied",
+    "github_credential_check": 401,
+    "user_confirmed_expiry": true
+  },
+  "remote_publication_verified": true,
+  "git_commit_created": null,
+  "ha_real_installed": false,
+  "next": "User installs HA 0.2.304 and validates RPi4/iPhone; retain original geography directories until acceptance.",
+  "published_date": "2026-09-16",
+  "publication": {
+    "method": "Reuse built multiarch image; docker push version, then latest after credential renewal",
+    "tags": [
+      "0.2.304",
+      "latest"
+    ],
+    "digest": "sha256:96d6d0c1f81a532d6c05025f2a0fd46e40570f1a20b9dd08539ff78a4364bc2c",
+    "platforms": {
+      "linux/amd64": "sha256:fafa2d04ac426d4b7a79861d962eb5ec6ef237508b33c7867f5c05e03deaa427",
+      "linux/arm64": "sha256:8521a3fad84f179b7a2a4a1912b568de3636d392cdab634e56545448e8392e73"
+    },
+    "both_push_exit_codes": 0,
+    "both_remote_inspections_exit_codes": 0
+  },
+  "worker_distribution": "Existing local source-built worker 1.1.2 already validated; no new registry repository, recreation or coordinator changes.",
+  "git_delivery": "This report belongs to the single release commit, created after GHCR verification; unrelated observation edits are excluded."
+}

@@ -1,0 +1,665 @@
+{
+  "date": "2026-09-13",
+  "status": "downloaded_and_active_in_preview",
+  "download_root": "mushroom-map-GIS/openlandmap-ph/spain-v20250204",
+  "assets": [
+    {
+      "path": "peninsula_and_balearics_mean.tif",
+      "bytes": 311521525,
+      "sha256": "bb4f8d6049be5198ad69c80764947bece4785950808b01c8a24057f6d1b64b94"
+    },
+    {
+      "path": "canaries_mean.tif",
+      "bytes": 3803806,
+      "sha256": "e464a28a96c7cb27ce8859a5d3eb8bbec570383f2ee3635c07217c1e64863137"
+    },
+    {
+      "path": "north_african_spanish_territories_mean.tif",
+      "bytes": 4204893,
+      "sha256": "e57324c3a242cca744221f5352913cc503dcbe4cc469e125a65e29b50b079410"
+    },
+    {
+      "path": "peninsula_and_balearics_p016.tif",
+      "bytes": 29089923,
+      "sha256": "0a9aaaa622bdfac2e2036e1fa1c3c03e43f5733c023df9d6ed5ba7cbfc87aee5"
+    },
+    {
+      "path": "canaries_p016.tif",
+      "bytes": 377386,
+      "sha256": "916f33803c57e9500529be9a1083b04a26557888cc995d1559cab33621e6f959"
+    },
+    {
+      "path": "north_african_spanish_territories_p016.tif",
+      "bytes": 418052,
+      "sha256": "63bbf50fe2c05bc09997c4e3adf0ebc6fc8e8f130cd7a758e18ddf19d8696b26"
+    },
+    {
+      "path": "peninsula_and_balearics_p084.tif",
+      "bytes": 26476273,
+      "sha256": "610c8086b261b48fad768ec368f913c447365650adfb655001d5a0285d0d9242"
+    },
+    {
+      "path": "canaries_p084.tif",
+      "bytes": 309678,
+      "sha256": "f67e8140401138db996e0c3df5582988b3890411589ab2320e5dc8a4bb8a9291"
+    },
+    {
+      "path": "north_african_spanish_territories_p084.tif",
+      "bytes": 325448,
+      "sha256": "d3b51e662d045cec497b1d8b1cf50864ef1f39b0c29c38bdc07fd3eff28a001d"
+    }
+  ],
+  "total_bytes": 376526984,
+  "manifest_sha256": "e3d5c75beeaa4a44c192bc5b95d0158cdbe65e3d493c18df4962f8af02bfd596",
+  "policy": {
+    "selection_source": "openlandmap",
+    "selection_statistic": "mean",
+    "nearest_max_distance_m": 1000,
+    "missing_mean": "unknown_no_soilgrids_fallback",
+    "soilgrids": "retained_for_comparison_and_water",
+    "depth_in_header": false
+  },
+  "offline_points": [
+    {
+      "name": "Merles",
+      "lat": 42.01347,
+      "lon": 1.97098,
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 6.7,
+        "lower": 5.6,
+        "upper": 7.9,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 42.01347,
+          "lon": 1.97098
+        }
+      },
+      "elapsed_ms": 102.3,
+      "ph_payload_bytes": 380
+    },
+    {
+      "name": "Olvan",
+      "lat": 42.0622,
+      "lon": 1.93614,
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 6.6,
+        "lower": 5.7,
+        "upper": 7.6,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 42.0622,
+          "lon": 1.93614
+        }
+      },
+      "elapsed_ms": 0.08,
+      "ph_payload_bytes": 379
+    },
+    {
+      "name": "La Pera",
+      "lat": 42.0641,
+      "lon": 1.9387,
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 6.4,
+        "lower": 5.5,
+        "upper": 7.6,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 42.0641,
+          "lon": 1.9387
+        }
+      },
+      "elapsed_ms": 0.05,
+      "ph_payload_bytes": 378
+    },
+    {
+      "name": "Madrid",
+      "lat": 40.4168,
+      "lon": -3.7038,
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 7.6,
+        "lower": 6.9,
+        "upper": 8.1,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 40.4168,
+          "lon": -3.7038
+        }
+      },
+      "elapsed_ms": 2.08,
+      "ph_payload_bytes": 379
+    },
+    {
+      "name": "Galicia",
+      "lat": 42.8,
+      "lon": -8.0,
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 5.3,
+        "lower": 4.7,
+        "upper": 5.8,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 42.8,
+          "lon": -8.0
+        }
+      },
+      "elapsed_ms": 2.26,
+      "ph_payload_bytes": 373
+    },
+    {
+      "name": "Mallorca",
+      "lat": 39.7,
+      "lon": 2.8,
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 7.6,
+        "lower": 6.9,
+        "upper": 8.1,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 39.7,
+          "lon": 2.8
+        }
+      },
+      "elapsed_ms": 1.94,
+      "ph_payload_bytes": 372
+    },
+    {
+      "name": "Tenerife",
+      "lat": 28.3,
+      "lon": -16.5,
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 7.4,
+        "lower": 6.6,
+        "upper": 8.0,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 28.3,
+          "lon": -16.5
+        }
+      },
+      "elapsed_ms": 3.23,
+      "ph_payload_bytes": 374
+    },
+    {
+      "name": "Ceuta",
+      "lat": 35.89,
+      "lon": -5.34,
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 7.7,
+        "lower": 7.2,
+        "upper": 8.3,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 35.89,
+          "lon": -5.34
+        }
+      },
+      "elapsed_ms": 2.29,
+      "ph_payload_bytes": 375
+    },
+    {
+      "name": "Melilla",
+      "lat": 35.29,
+      "lon": -2.95,
+      "ph": {
+        "status": "available",
+        "source_id": "openlandmap_soildb_ph",
+        "edition": "v20250204",
+        "period": "2020-2022",
+        "depth_cm": [
+          0,
+          30
+        ],
+        "interval_probability": 0.68,
+        "revision": "e3d5c75beeaa4a44c192",
+        "estimate": 7.9,
+        "lower": 7.4,
+        "upper": 8.3,
+        "estimate_resolution_m": 30,
+        "interval_resolution_m": 120,
+        "lookup": {
+          "method": "point",
+          "distance_m": 0,
+          "lat": 35.29,
+          "lon": -2.95
+        }
+      },
+      "elapsed_ms": 1.35,
+      "ph_payload_bytes": 375
+    }
+  ],
+  "preview_url": "http://127.0.0.1:65517/protected/prediction-map/index.html",
+  "preview_points": [
+    {
+      "name": "merles",
+      "point": {
+        "lat": 42.01347,
+        "lon": 1.97098
+      },
+      "terrain": {
+        "status": "available",
+        "data_mode": "geographic_sources",
+        "elevation": {
+          "status": "available",
+          "value_m": 620.8,
+          "resolution_m": 5,
+          "source_id": "dem_5m"
+        },
+        "ph": {
+          "status": "available",
+          "resolution_m": 250,
+          "source_id": "soilgrids_2_phh2o",
+          "depths": [
+            {
+              "depth_cm": [
+                0,
+                5
+              ],
+              "status": "available",
+              "lower": 5.1,
+              "median": 7.6,
+              "upper": 8.3
+            },
+            {
+              "depth_cm": [
+                5,
+                15
+              ],
+              "status": "available",
+              "lower": 5.2,
+              "median": 7.7,
+              "upper": 8.4
+            },
+            {
+              "depth_cm": [
+                15,
+                30
+              ],
+              "status": "available",
+              "lower": 5.1,
+              "median": 7.7,
+              "upper": 8.4
+            }
+          ]
+        },
+        "ph_openlandmap": {
+          "status": "available",
+          "source_id": "openlandmap_soildb_ph",
+          "edition": "v20250204",
+          "period": "2020-2022",
+          "depth_cm": [
+            0,
+            30
+          ],
+          "interval_probability": 0.68,
+          "revision": "e3d5c75beeaa4a44c192",
+          "estimate": 6.7,
+          "lower": 5.6,
+          "upper": 7.9,
+          "estimate_resolution_m": 30,
+          "interval_resolution_m": 120,
+          "lookup": {
+            "method": "point",
+            "distance_m": 0,
+            "lat": 42.01347,
+            "lon": 1.97098
+          }
+        }
+      },
+      "ph_selection": {
+        "source": "openlandmap",
+        "statistic": "mean"
+      },
+      "species_statuses": {
+        "amanita_caesarea": "compatible",
+        "boletus_aereus": "compatible",
+        "boletus_edulis": "compatible",
+        "boletus_pinophilus": "compatible",
+        "calocybe_gambosa": "out_of_season",
+        "cantharellus_cibarius_sl": "compatible",
+        "cantharellus_lutescens": "unknown",
+        "craterellus_cornucopioides": "compatible",
+        "hygrophorus_latitabundus": "out_of_season",
+        "hygrophorus_marzuolus": "out_of_season",
+        "lactarius_deliciosus": "unknown",
+        "lactarius_salmonicolor_quieticolor_group": "incompatible",
+        "lactarius_sanguifluus": "unknown",
+        "lactarius_vinosus": "out_of_season",
+        "lepista_nuda": "compatible",
+        "macrolepiota_procera": "compatible",
+        "marasmius_oreades": "unknown",
+        "morchella_elata_complex": "out_of_season",
+        "russula_virescens": "compatible",
+        "tricholoma_terreum": "unknown",
+        "tuber_melanosporum": "out_of_season"
+      }
+    },
+    {
+      "name": "olvan",
+      "point": {
+        "lat": 42.0622,
+        "lon": 1.93614
+      },
+      "terrain": {
+        "status": "available",
+        "data_mode": "geographic_sources",
+        "elevation": {
+          "status": "available",
+          "value_m": 701.3,
+          "resolution_m": 5,
+          "source_id": "dem_5m"
+        },
+        "ph": {
+          "status": "available",
+          "resolution_m": 250,
+          "source_id": "soilgrids_2_phh2o",
+          "depths": [
+            {
+              "depth_cm": [
+                0,
+                5
+              ],
+              "status": "available",
+              "lower": 5.3,
+              "median": 7.6,
+              "upper": 8.3
+            },
+            {
+              "depth_cm": [
+                5,
+                15
+              ],
+              "status": "available",
+              "lower": 5.3,
+              "median": 7.6,
+              "upper": 8.3
+            },
+            {
+              "depth_cm": [
+                15,
+                30
+              ],
+              "status": "available",
+              "lower": 5.3,
+              "median": 7.6,
+              "upper": 8.3
+            }
+          ]
+        },
+        "ph_openlandmap": {
+          "status": "available",
+          "source_id": "openlandmap_soildb_ph",
+          "edition": "v20250204",
+          "period": "2020-2022",
+          "depth_cm": [
+            0,
+            30
+          ],
+          "interval_probability": 0.68,
+          "revision": "e3d5c75beeaa4a44c192",
+          "estimate": 6.6,
+          "lower": 5.7,
+          "upper": 7.6,
+          "estimate_resolution_m": 30,
+          "interval_resolution_m": 120,
+          "lookup": {
+            "method": "point",
+            "distance_m": 0,
+            "lat": 42.0622,
+            "lon": 1.93614
+          }
+        }
+      },
+      "ph_selection": {
+        "source": "openlandmap",
+        "statistic": "mean"
+      },
+      "species_statuses": {
+        "amanita_caesarea": "compatible",
+        "boletus_aereus": "compatible",
+        "boletus_edulis": "compatible",
+        "boletus_pinophilus": "compatible",
+        "calocybe_gambosa": "out_of_season",
+        "cantharellus_cibarius_sl": "compatible",
+        "cantharellus_lutescens": "unknown",
+        "craterellus_cornucopioides": "compatible",
+        "hygrophorus_latitabundus": "out_of_season",
+        "hygrophorus_marzuolus": "out_of_season",
+        "lactarius_deliciosus": "unknown",
+        "lactarius_salmonicolor_quieticolor_group": "incompatible",
+        "lactarius_sanguifluus": "unknown",
+        "lactarius_vinosus": "out_of_season",
+        "lepista_nuda": "compatible",
+        "macrolepiota_procera": "compatible",
+        "marasmius_oreades": "unknown",
+        "morchella_elata_complex": "out_of_season",
+        "russula_virescens": "compatible",
+        "tricholoma_terreum": "unknown",
+        "tuber_melanosporum": "out_of_season"
+      }
+    },
+    {
+      "name": "Olvan user screenshot",
+      "point": {
+        "lat": 42.06246,
+        "lon": 1.93612
+      },
+      "terrain": {
+        "status": "available",
+        "data_mode": "geographic_sources",
+        "elevation": {
+          "status": "available",
+          "value_m": 702.8,
+          "resolution_m": 5,
+          "source_id": "dem_5m"
+        },
+        "ph": {
+          "status": "available",
+          "resolution_m": 250,
+          "source_id": "soilgrids_2_phh2o",
+          "depths": [
+            {
+              "depth_cm": [
+                0,
+                5
+              ],
+              "status": "available",
+              "lower": 5.3,
+              "median": 7.6,
+              "upper": 8.3
+            },
+            {
+              "depth_cm": [
+                5,
+                15
+              ],
+              "status": "available",
+              "lower": 5.3,
+              "median": 7.6,
+              "upper": 8.3
+            },
+            {
+              "depth_cm": [
+                15,
+                30
+              ],
+              "status": "available",
+              "lower": 5.3,
+              "median": 7.6,
+              "upper": 8.3
+            }
+          ]
+        },
+        "ph_openlandmap": {
+          "status": "available",
+          "source_id": "openlandmap_soildb_ph",
+          "edition": "v20250204",
+          "period": "2020-2022",
+          "depth_cm": [
+            0,
+            30
+          ],
+          "interval_probability": 0.68,
+          "revision": "e3d5c75beeaa4a44c192",
+          "estimate": 6.7,
+          "lower": 5.7,
+          "upper": 7.6,
+          "estimate_resolution_m": 30,
+          "interval_resolution_m": 120,
+          "lookup": {
+            "method": "point",
+            "distance_m": 0,
+            "lat": 42.06246,
+            "lon": 1.93612
+          }
+        }
+      },
+      "ph_selection": {
+        "source": "openlandmap",
+        "statistic": "mean"
+      }
+    }
+  ],
+  "validation": {
+    "ecology_queries_contract_tests": 39,
+    "gdal_ph_terrain_tests": 21,
+    "browser_check": "passed desktop/mobile, station/weather original route, point popup, pH mean/bounds/nearest distance, cancellation, dates, non-admin",
+    "browser_screenshots": "/var/folders/42/w270zmtn6q17nw__20m8kvsm0000gn/T/prediction-map-browser-yUHyDy",
+    "served_js_matches_current_file": true,
+    "served_js_cache_control": "no-store",
+    "user_confirmation": "User confirms header and Terrain work after full-page reload.",
+    "additional_live_browser_probe": "Inconclusive: isolated browser timed out waiting for station layer. Did not reach pH assertions. Existing fixture browser check passed; real API and user reload confirmed separately."
+  },
+  "limitations": [
+    "Representative points do not establish complete valid-pixel coverage.",
+    "Mean 30m and 68% interval 120m may differ spatially.",
+    "Provisional species windows remain unchanged. Edulis and pinophilus also pass in Merles and Olvan.",
+    "Real prediction engine, derived Rovello group and HA/worker integration remain pending.",
+    "An already open tab retains its loaded JavaScript: reload the full page after preview code updates. Screenshot point 42.06246,1.93612 returns OpenLandMap 6.7, SoilGrids 7.6."
+  ],
+  "protected_local_files": {
+    "docker-data/mushroom-data/mushroom_profiles.json": {
+      "sha256": "8b7d6fd8e451ab7840a98dc6594a6e534d50e0018f26b8e09eab7e09fa2166ef",
+      "bytes": 197471,
+      "modified_by_ph_integration": false
+    },
+    "docker-data/mushroom-data/mushroom_reference_catalogs.json": {
+      "sha256": "2d462c0d815ad89437f9c30b73f3316994a629de3269aece1ed6ac16128795c8",
+      "bytes": 101239,
+      "modified_by_ph_integration": false
+    },
+    "docker-data/mushroom-data/mushroom_gis_mappings.json": {
+      "sha256": "aec5d3e353ec0afb8fe6ba9dd04421a9acb907b6f30366448a50fea02e74ae06",
+      "bytes": 76656,
+      "modified_by_ph_integration": false
+    },
+    "docker-data/mushroom-data/mushroom_observations.json": {
+      "sha256": "7ce058bce2b28ca30ec613e2cc66ee0045f140895e54d930d812af9d5ab85227",
+      "bytes": 1009466,
+      "modified_by_ph_integration": false
+    }
+  }
+}

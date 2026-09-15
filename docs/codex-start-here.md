@@ -1,6 +1,19 @@
 # Codex Start Here
 
-Punto de entrada estable para una nueva sesión en RainmapperHA.
+Punto de entrada estable para RainmapperHA. Leer completo este documento y
+`active-context.md`; `todo.md` solo amplía prioridades.
+
+Incremento actual: geografía portable, con archivos ordinarios compartidos en
+`/media/rainmapper/geography`. **Sin comandos ni enlaces en el primer arranque.**
+Validación local terminada: smoke 1600/48, código efectivo HA/worker comprobado,
+cuatro puntos GIS idénticos, seis consultas con paridad y primer acceso con media
+read-only. Copias en sus rutas definitivas de HA real y referencias verificadas; originales
+preservados. [Informe](reports/shared-geography-portable-2026-09-15.json).
+[Guía vigente](mushrooms/shared-geography-consolidation-es.md).
+HA 0.2.304 publicada el 16/09/2026: tags y plataformas GHCR verificados.
+Worker existente 1.1.2 validado. HA real no instalada; el usuario instalará.
+[Release](reports/ha-release-0.2.304.json). Continuar según `active-context.md`; no repetir la
+adopción nativa ni los uploads históricos.
 
 ## Qué es el proyecto
 
@@ -37,65 +50,107 @@ Leer siempre, en este orden:
 `docs/active-context.md` es una ventana operativa, no un diario. El histórico
 está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
 
-## Estado general al 2026-09-11
+## Estado general del trabajo local al 15/09/2026
 
-- Rama `inicial`; HA `0.2.303` publicada para amd64/arm64 tras smoke completo
-  (1.395 tests). Última instalación real comprobada: `0.2.302`, en su
-  diagnóstico persistido. Consultar Git para el commit de la release.
-- `0.2.302` incluye continuidad semanal opcional, meteorología observada en el
-  Predictor, corrección del rango mensual Wunderground y contadores de filas.
-- Auditoría del contador de días secos cerrada: el usuario decide conservarlo.
-  No se cambian contratos, umbrales ni modelos por esa investigación.
-- HA local y el worker privado `1.1.1` ejecutan el código validado para `0.2.303`. El
-  worker está healthy e idle y conserva exactamente la URL principal
-  `http://100.111.77.48:8100` y HA local como asociación adicional. No cambiar
-  ninguna sin autorización expresa para ese destino.
-- Tras la release se corrigió en el worktree la pérdida del aviso final de
-  precálculo cuando falla la comunicación: 160 pruebas de workers correctas;
-  posteriormente reconstruida e instalada en el worker privado por petición
-  del usuario. HA `0.2.303` está publicada con los ajustes de presentación;
-  consultar `active-context.md`. El usuario abandonó el trabajo afectado;
-  no recuperarlo ni lanzar otro por iniciativa de Codex.
-  Véase `docs/reports/mushroom-precompute-lost-finish-2026-09-11.md`.
-- La corrección semanal `lag_event` h1--h7 está implementada y reconstruida.
-  El usuario lanzó el precálculo y el resultado `weekly_lag_event_v2` ya está
-  activo (11--17 septiembre, 553 celdas y 469 miembros). Codex no lanzó trabajos.
-  La revisión final confirmó 61 familias constantes y seis fallback diarios.
-  No repetir entrenamiento ni
-  precálculo por iniciativa de Codex.
-- HA local incorpora el desplegable «Meteorología observada»: lluvia en barras,
-  temperatura/humedad en curvas cuando existen datos diarios y acumulados para
-  versiones anteriores. Conserva su estado al cambiar de fecha. No usa datos
-  actuales del mapa ni añade viento que no figure en la predicción guardada.
-- Se conserva el fallback diario auditado cuando falta una familia común. La
-  revisión del 11 de septiembre confirmó tres familias de retardo completas
-  para Aereus/Olvan; no es un caso de fallback. El plan está aceptado y las
-  pruebas previas al precálculo están registradas en la especificación semanal.
-- RGE ALTI Francia 5 m ya forma parte del dataset GIS y cubre las microáreas de
-  Font-Romeu y Quérigut. La caché del worker contiene 13 ficheros y 6,42 GB; una
-  limpieza auditada liberó 10,43 GiB sin retirar el dataset activo.
-- Wunderground dispone de modos mensual/semanal, detección por timestamp de
-  respuestas CDN antiguas y orden configurable de variantes
-  `Accept-Encoding`. Infoclimat se descartó como fuente nueva inicial;
-  Meteo-France permanece como diseño futuro.
-- Las especies nuevas reciben tuning inicial de forma automática. El
-  entrenamiento real con `cantharellus_cibarius_sl` y los precálculos
-  posteriores finalizaron correctamente; no repetirlos sin una causa nueva.
-- `mushroom-data/mushroom_observations.json` está modificado y pertenece al
-  usuario: no editarlo, restaurarlo, borrarlo ni incluirlo ciegamente. Los datos
-  vivos locales están en `docker-data/mushroom-data/`.
-- Sigue pendiente la auditoría multiespecie de aplicabilidad desde Rovelló /
-  Els Ports / 2026-09-07 y el diseño de una probabilidad vetada puramente
-  diagnóstica.
-- No borrar datos o artefactos, crear copias o mecanismos de reversión ad hoc,
-  cambiar retención, lanzar trabajos, hacer build/publicación ni tocar HA real
-  sin autorización explícita.
+- Base local del mapa consolidada en imágenes HA/worker reconstruidas y recreadas,
+  con huellas efectivas verificadas, smoke y paridad del día 15. Incluye los ajustes
+  de UI/idiomas/afinidades y canal online anteriores; ya no depende de copias
+  puntuales al contenedor. Copia recuperable en `backups/local-base-20260915/`.
+  [Informe](reports/prediction-map-local-images-2026-09-15.json). Sin release HA real.
+- Zona horaria visible en Parámetros → Predicción, ES/CA/EN y por dispositivo.
+  Fecha inicial y corte meteorológico usan esa zona (inicial Europe/Madrid) tanto
+  en HA como en worker; corregido el null general al pasar medianoche con worker
+  UTC. [Funcionamiento](mushrooms/prediction-map-local-worker-setup-es.md#calendario-visible-de-la-predicción--15092026).
 
-El estado exacto, la prueba siguiente y los riesgos están en
-`docs/active-context.md`.
+- **Implementado:** separación territorial/temporal (`territorial_and_seasonal_windows_v6`).
+  El lugar selecciona por suelo+pH, hospedadores/hábitat y altitud; el predictor
+  conserva fenología y evalúa fecha/meteorología. Decisión posterior: fuera de
+  temporada no aparece ni invoca modelo; visibles con etiqueta principal/secundaria.
+  Estado territorial separado de la fase diaria. Descartadas sin modelo; salida
+  temprana sin candidatas; compatibles sin cálculo al final con null distinto de cero.
+  Cuatro reglas locales conjuntas aplicadas: aereus, edulis, pinophilus y cibarius.
+  Suelo/pH se conserva por decisión final del usuario; no reabrir la restricción
+  por litología. UI: suelo antes de árboles y descartes con motivos separados.
+  Volumen/configuración de lectores actuales y paridad HA local–worker ya probados;
+  usar el worker existente, destinos intactos. Revisión visual y árboles vecinos
+  aplazados al TODO. La caché privada y la publicación geográfica ya están integradas y probadas.
+  Pendiente: GEODE/MFE nacional y despliegue de la candidata, sin
+  repetir descargas. RPi4 calculará mediante worker en principio, sin fallback local.
+  Contraste científico y resto de fichas siguen pendientes.
+- Prioridad: **Mapa de predicción**, complementario al Predictor. Preview nueva
+  reutiliza MapLibre y muestra terreno/meteorología reales y candidatas ecológicas
+  del punto y **probabilidades del motor Python existente**. Compatibles por
+  probabilidad descendente; sin cálculo al final. Predicción experimental.
+- Fichas/catálogo locales revisados: 21 fichas con ventanas amplias, 115 hosts;
+  21 pares pH min/max provisionales aplicados y revisables. Datos de trabajo en `docker-data/mushroom-data/`,
+  no en las semillas del repo. Promoción posterior explícita.
+- Revisadas las 1.055 unidades geológicas ICGC: 1.046 códigos con equivalencias
+  de materiales en 192 reglas compartidas; nueve sin equivalencia segura.
+  Composición del suelo puede seguir indeterminada aunque se identifique un
+  depósito. Catálogo local ampliado y mezclas conservadas; GEODE siguiente fase.
+  No equivalencias fijas en Python. Terreno agrupa árboles/hábitats; las fichas
+  de prado/ribera pueden encajar sin árboles. Hosts específicos siguen exigidos.
+- Ayuda de las reglas de suelo/pH: [guía de los controles](mushrooms/soil-ph-rule-help-es.md),
+  también en Ecología → Suelos mediante «Ayuda», completa en ES/CA/EN.
+- Reglas suelo/pH en cuatro fichas locales, sin cambiar rangos ni afinidades:
+  silíceo como apoyo no exhaustivo; caliza+pH admitido, condicionado sin presumir
+  descalcificación; composición sin resolver, desconocido. Solo aereus conserva
+  el ensayo de intervalo solapado, bloqueo de mezcla con carbonatos/yeso y máximo
+  6,8. Las otras 17 fichas conservadas; sin vetos geológicos universales. Detalle en
+  [sustrato y especies](mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5).
+- Rovelló por especie: cuatro IDs/fichas conservados, sin grupo derivado ni
+  préstamo de modelos. Motor conectado en preview y ejecutor Python común.
+  Paridad/datos de worker y comparación de ejecutores después del bloque de
+  compatibilidad descrito arriba; no inferencia en navegador.
+- Corregida lectura MFE de candidatos con anillos inválidos: reparación acotada
+  en memoria, conservando área y originales. Recuperadas encinas/hayas/castaños
+  en los puntos de Fogars y Arbúcies; no faltaban esas capas.
+- OpenLandMap pH descargado e integrado en preview: nueve GeoTIFF, 368 MiB en
+  `mushroom-map-GIS/openlandmap-ph/spain-v20250204/`. Selección con media, detalle
+  con límites e incertidumbre y comparación SoilGrids; profundidad solo en Terreno.
+  Si falta dato, píxel válido más cercano hasta 1 km y distancia visible. No repetir
+  descarga. Registro: `docs/reports/prediction-map-openlandmap-ph-implementation-2026-09-13.json`.
+- SoilGrids descargado/auditado, huecos aceptados; no repetir descargas ni auditoría.
+  Lectores candidatos puntuales existen; migración general áreas/microáreas y
+  exportación portable de volumen siguen pendientes detrás del mapa.
+- `mushroom-map-GIS/` queda fuera de Git/Docker; clone/imagen no transportan mapas.
+  Catálogos, perfiles, observaciones y URLs deben preservarse. `mushroom-data/`
+  contiene un cambio previo de observaciones del usuario: no incluirlo ciegamente.
+- El filtro y motor nuevos están activos en preview y en HA local/worker existente,
+  con datos actuales montados en solo lectura y paridad comprobada en ARM64.
+  Conjunto geográfico compartido de 15,62 GB mediante referencias portables; aún no incluye integración
+  de GEODE/MFE fuera de Catalunya. Alcance objetivo nacional conservado.
+  HA real `0.2.303`
+  funciona según confirmación del usuario, sin publicación del nuevo mapa.
+- Worktree con cambios/archivos nuevos sin commit. `active-context.md` identifica
+  código, estado comprobado, pruebas, riesgos y siguiente acción suficiente.
+
+No hace falta leer un tercer relevo para retomar. Los anexos del mapa documental
+se consultan solo al profundizar en el componente, sin reabrir decisiones cerradas.
 
 ## Mapa documental
 
+- **Mapa de predicción — especificación central y punto de entrada al diseño:**
+  [prediction-map-specification-es.md](mushrooms/prediction-map-specification-es.md).
+  Reúne objetivo, componentes, visor, permisos, datos, HA–worker, integración,
+  pruebas y decisiones abiertas. Los siguientes documentos del mapa son anexos
+  técnicos, evidencia o seguimiento; no sustituyen esta referencia principal.
+- GIS/DEM/SoilGrids, consumidores, copias locales y cálculo HA–worker:
+  `docs/mushrooms/mushroom-map-compute-data-placement-es.md`
+- SoilGrids, diseño del lector compartido, altas/cambios y pruebas de recursos:
+  `docs/mushrooms/mushroom-prediction-map-soilgrids-reader-design-es.md`
+- SoilGrids, cobertura aceptada y condiciones de lectura en RPi4:
+  `docs/mushrooms/mushroom-prediction-map-soilgrids-coverage-es.md`
+- SoilGrids, alcance nacional y migración controlada:
+  `docs/mushrooms/mushroom-prediction-map-soilgrids-plan-es.md`
+
+- Mapa de predicción, pasos completados y pendientes:
+  `docs/mushrooms/mushroom-prediction-map-progress-es.md`
+- Mapa de predicción: nuevo informe por coordenadas, complementario al Predictor;
+  análisis sin implementación:
+  `docs/mushrooms/mushroom-map-point-prediction-feasibility-es.md`
+- Fuentes descargadas para ese módulo, separadas en `mushroom-map-GIS/` con
+  README junto a los archivos: `docs/mushrooms/mushroom-map-gis-downloads-es.md`
 - Release HA: `docs/release-flow.md`
 - Arquitectura y entrypoints: `docs/architecture.md`
 - Decisiones: `docs/decisions.md`
@@ -289,6 +344,8 @@ haber quedado invalidadas.
 - Actualizar este documento solo si cambia el mapa general, las reglas o la
   arquitectura de alto nivel.
 - Sustituir contexto obsoleto en `active-context.md`; no acumular sesiones.
+  Mantener allí toda decisión necesaria para el siguiente paso: no exigir leer
+  un tercer relevo para reconstruir instrucciones. Archivos y anexos son detalle opcional.
 - Registrar decisiones con `[VIGENTE]`, `[REEMPLAZADA]`, `[OBSOLETA]` o `[DUDA]`.
 - Mover historia útil fuera de la ventana activa.
 - La compactación de continuidad **no puede resumir hasta perder** una decisión

@@ -1,0 +1,472 @@
+{
+  "date": "2026-09-11",
+  "scope": "Read-only metadata and eight chosen controls in Catalunya, not exhaustive coverage proof; no observation records used",
+  "rasters": [
+    {
+      "file": "model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif",
+      "bytes": 5127260482,
+      "size": [
+        56344,
+        55812
+      ],
+      "geoTransform": [
+        258102.5,
+        5.0,
+        0.0,
+        4763932.5,
+        0.0,
+        -5.0
+      ],
+      "wgs84Extent": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.0328322,
+              42.9895974
+            ],
+            [
+              0.146272,
+              40.4793272
+            ],
+            [
+              3.4700658,
+              40.5136184
+            ],
+            [
+              3.4887835,
+              43.0270314
+            ],
+            [
+              0.0328322,
+              42.9895974
+            ]
+          ]
+        ]
+      },
+      "nodata": [
+        -9999.0
+      ]
+    },
+    {
+      "file": "rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif",
+      "bytes": 31416509,
+      "size": [
+        7040,
+        5540
+      ],
+      "geoTransform": [
+        521402.5,
+        5.0,
+        0.0,
+        40097.5,
+        0.0,
+        -5.0
+      ],
+      "wgs84Extent": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1.3781688,
+              42.6565874
+            ],
+            [
+              1.3820871,
+              42.4073061
+            ],
+            [
+              1.8095435,
+              42.4101587
+            ],
+            [
+              1.8073787,
+              42.6594519
+            ],
+            [
+              1.3781688,
+              42.6565874
+            ]
+          ]
+        ]
+      },
+      "nodata": [
+        -9999.0
+      ]
+    },
+    {
+      "file": "PNOA_MDT25_ETRS89_HU30_0592_LID.tif",
+      "bytes": 3736503,
+      "size": [
+        1163,
+        780
+      ],
+      "geoTransform": [
+        710512.5,
+        25.0,
+        0.0,
+        4468637.5,
+        0.0,
+        -25.0
+      ],
+      "wgs84Extent": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.5215449,
+              40.3417485
+            ],
+            [
+              -0.5279439,
+              40.1662293
+            ],
+            [
+              -0.1868806,
+              40.1584399
+            ],
+            [
+              -0.1796014,
+              40.3339108
+            ],
+            [
+              -0.5215449,
+              40.3417485
+            ]
+          ]
+        ]
+      },
+      "nodata": [
+        -32767.0
+      ]
+    },
+    {
+      "file": "rainmapper-dem-france-rge-alti-5m.tif",
+      "bytes": 83072534,
+      "size": [
+        6579,
+        8368
+      ],
+      "geoTransform": [
+        604660.0,
+        5.0,
+        0.0,
+        6188590.0,
+        0.0,
+        -5.0
+      ],
+      "wgs84Extent": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1.835981,
+              42.7905039
+            ],
+            [
+              1.8434625,
+              42.4143964
+            ],
+            [
+              2.2424697,
+              42.4179799
+            ],
+            [
+              2.237569,
+              42.7941119
+            ],
+            [
+              1.835981,
+              42.7905039
+            ]
+          ]
+        ]
+      },
+      "nodata": [
+        -99999.0
+      ]
+    }
+  ],
+  "vectors": [
+    {
+      "source": "mvc50",
+      "file": "MVC50mil_novembre2019.shp",
+      "layers": [
+        {
+          "name": "MVC50mil_novembre2019",
+          "featureCount": 116468,
+          "extents": [
+            [
+              260188.98340000026,
+              4488765.827400001,
+              527401.9706,
+              4747980.932200001
+            ]
+          ],
+          "crs": "EPSG:25831"
+        }
+      ]
+    },
+    {
+      "source": "geology_50000",
+      "file": "geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+      "layers": [
+        {
+          "name": "_04_unitats_geologiques_50000",
+          "featureCount": 61437,
+          "extents": [
+            [
+              258139.6496,
+              4486262.9776,
+              527401.9707,
+              4747980.9323
+            ]
+          ],
+          "crs": "EPSG:25831"
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "label": "control_aran",
+      "lat": 42.7,
+      "lon": 0.8,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "LLVA_niv2t": "Ambients molt artificialitzats amb vegetació escassa o nul·la",
+            "LLFISCAT_t": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…"
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "Codi": "Qco"
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "elevation_m": 971.39,
+          "source_id": "dem_5m",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "label": "control_cerdanya",
+      "lat": 42.37,
+      "lon": 1.93,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "LLVA_niv2t": "Prats mesòfils eurosiberians dominats per hemicriptòfits",
+            "LLFISCAT_t": "Pastures (i molleres, i falgars...)"
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "Codi": "EÇOrgl"
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "elevation_m": 1698.59,
+          "source_id": "dem_5m",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "label": "control_cap_creus",
+      "lat": 42.32,
+      "lon": 3.3,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "LLVA_niv2t": "Màquies i garrigues termòfiles",
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "Codi": "mr_EÇOrp2"
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "elevation_m": 65.26,
+          "source_id": "dem_5m",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "label": "control_central",
+      "lat": 42.06,
+      "lon": 1.94,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "LLVA_niv2t": "Rouredes i pinedes submediterrànies de pi roig i pinassa",
+            "LLFISCAT_t": "Matollars (inclou bosquines, avellanoses, sargars, canyars…)"
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "Codi": "POmlg"
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "elevation_m": 654.99,
+          "source_id": "dem_5m",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "label": "control_lleida",
+      "lat": 41.62,
+      "lon": 0.65,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "LLVA_niv2t": "Ambients molt artificialitzats amb vegetació escassa o nul·la",
+            "LLFISCAT_t": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…"
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "Codi": "S_Qt1"
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "elevation_m": 156.54,
+          "source_id": "dem_5m",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "label": "control_barcelona",
+      "lat": 41.4,
+      "lon": 2.15,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "LLVA_niv2t": "Ambients molt artificialitzats amb vegetació escassa o nul·la",
+            "LLFISCAT_t": "Sense sobrecàrrega: vegetació rupícola, nitròfila, aquàtica, estassades forestals, repoblacions d’arbres exòtics diversos que no duen símbol…"
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "Codi": "Qbcn"
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "elevation_m": 64.57,
+          "source_id": "dem_5m",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "label": "control_ports",
+      "lat": 40.83,
+      "lon": 0.32,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "LLVA_niv2t": "Arbredes amb sotabosc no forestal",
+            "LLFISCAT_t": "Pinassa (Pinus nigra subsp. salzmannii)"
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "Codi": "JDm"
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "elevation_m": 1134.26,
+          "source_id": "dem_5m",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "label": "control_delta",
+      "lat": 40.75,
+      "lon": 0.75,
+      "layers": {
+        "mvc50": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "LLVA_niv2t": "Vegetació arvense",
+            "LLFISCAT_t": "Conreus (herbacis i llenyosos) i prats de dall"
+          }
+        },
+        "geology_50000": {
+          "status": "ok",
+          "elevation_m": null,
+          "source_id": null,
+          "properties": {
+            "Codi": "Qpa"
+          }
+        },
+        "dem_5m": {
+          "status": "ok",
+          "elevation_m": 0.55,
+          "source_id": "dem_5m",
+          "properties": {}
+        }
+      }
+    }
+  ]
+}

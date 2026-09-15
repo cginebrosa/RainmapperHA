@@ -1,0 +1,539 @@
+{
+  "current": {
+    "generation_id": "20260913T120416702167Z-9ab16d238e16",
+    "manifest_path": "manifests/20260913T120416702167Z-9ab16d238e16.json",
+    "manifest_sha256": "cfd8a448e1f146b9ae35ff87ba7927e41f3d5b87a906c65665ed16d15958c54a",
+    "schema_version": "weather_history_current_v1"
+  },
+  "station_code": "ESCAT0800000008011B",
+  "records": [
+    {
+      "path": "/Volumes/share/rainmapper/Data/weather-history/catalogs/stations-900c7010f0684b4c27c19a2f18f2ec15fc6b1046ce72012d25c1887bba555d8c.parquet",
+      "rows": [
+        {
+          "source": "meteoclimatic",
+          "station_code": "ESCAT0800000008011B",
+          "station_name": "Barcelona-Eixample Esq.",
+          "lat": 41.64,
+          "lon": 21.97,
+          "altitude": 176.0,
+          "first_date": "20251009",
+          "last_date": "20260913",
+          "metadata_date": "20260913"
+        }
+      ]
+    },
+    {
+      "path": "/Volumes/share/rainmapper/Data/weather-history/pending/source=meteoclimatic/b0d3932a2eceb804b70b670a62e6de4a90ec68e0e0881e860d1ac2d7655af8e4.parquet",
+      "rows": [
+        {
+          "station_code": "ESCAT0800000008011B",
+          "reading_datetime": "2026-09-06 23:42:34",
+          "station_name": "Barcelona-Eixample Esq.",
+          "county": "Not set yet",
+          "municipality": "Barcelona",
+          "province": "Barcelona",
+          "local_date": "20260906",
+          "local_time": "23:42:34",
+          "lat": 41.38,
+          "lon": 2.16,
+          "altitude": 14.0,
+          "last_reading": "2026/09/06 23:42:34",
+          "variable": "Precipitació",
+          "rain_mm": 0.0,
+          "unit": "mm",
+          "max_temp_celsius": 32.2,
+          "min_temp_celsius": 25.7,
+          "max_humidity_percent": 80.0,
+          "min_humidity_percent": 44.0,
+          "wind_avg_kmh": 3.0,
+          "wind_min_kmh": 0.0,
+          "wind_max_kmh": 7.0,
+          "wind_gust_kmh": 17.0,
+          "wind_direction_deg": 192.6,
+          "wind_gust_direction_deg": null,
+          "wind_observation_count": 8.0,
+          "wind_source_height_m": null,
+          "source": "meteoclimatic"
+        },
+        {
+          "station_code": "ESCAT0800000008011B",
+          "reading_datetime": "2026-09-07 19:42:36",
+          "station_name": "Barcelona-Eixample Esq.",
+          "county": "Not set yet",
+          "municipality": "Barcelona",
+          "province": "Barcelona",
+          "local_date": "20260907",
+          "local_time": "19:42:36",
+          "lat": 41.38,
+          "lon": 2.16,
+          "altitude": 14.0,
+          "last_reading": "2026/09/07 19:42:36",
+          "variable": "Precipitació",
+          "rain_mm": 0.0,
+          "unit": "mm",
+          "max_temp_celsius": 31.7,
+          "min_temp_celsius": 25.6,
+          "max_humidity_percent": 86.0,
+          "min_humidity_percent": 45.0,
+          "wind_avg_kmh": 4.1,
+          "wind_min_kmh": 1.0,
+          "wind_max_kmh": 9.0,
+          "wind_gust_kmh": 17.0,
+          "wind_direction_deg": 143.2,
+          "wind_gust_direction_deg": null,
+          "wind_observation_count": 7.0,
+          "wind_source_height_m": null,
+          "source": "meteoclimatic"
+        },
+        {
+          "station_code": "ESCAT0800000008011B",
+          "reading_datetime": "2026-09-08 23:42:35",
+          "station_name": "Barcelona-Eixample Esq.",
+          "county": "Not set yet",
+          "municipality": "Barcelona",
+          "province": "Barcelona",
+          "local_date": "20260908",
+          "local_time": "23:42:35",
+          "lat": 41.38,
+          "lon": 2.16,
+          "altitude": 14.0,
+          "last_reading": "2026/09/08 23:42:35",
+          "variable": "Precipitació",
+          "rain_mm": 0.0,
+          "unit": "mm",
+          "max_temp_celsius": 33.1,
+          "min_temp_celsius": 25.4,
+          "max_humidity_percent": 84.0,
+          "min_humidity_percent": 52.0,
+          "wind_avg_kmh": 3.0,
+          "wind_min_kmh": 0.0,
+          "wind_max_kmh": 10.0,
+          "wind_gust_kmh": 26.0,
+          "wind_direction_deg": 213.1,
+          "wind_gust_direction_deg": null,
+          "wind_observation_count": 8.0,
+          "wind_source_height_m": null,
+          "source": "meteoclimatic"
+        },
+        {
+          "station_code": "ESCAT0800000008011B",
+          "reading_datetime": "2026-09-09 23:42:36",
+          "station_name": "Barcelona-Eixample Esq.",
+          "county": "Not set yet",
+          "municipality": "Barcelona",
+          "province": "Barcelona",
+          "local_date": "20260909",
+          "local_time": "23:42:36",
+          "lat": 41.38,
+          "lon": 2.16,
+          "altitude": 14.0,
+          "last_reading": "2026/09/09 23:42:36",
+          "variable": "Precipitació",
+          "rain_mm": 23.2,
+          "unit": "mm",
+          "max_temp_celsius": 27.2,
+          "min_temp_celsius": 19.5,
+          "max_humidity_percent": 94.0,
+          "min_humidity_percent": 61.0,
+          "wind_avg_kmh": 3.0,
+          "wind_min_kmh": 0.0,
+          "wind_max_kmh": 8.0,
+          "wind_gust_kmh": 26.0,
+          "wind_direction_deg": 196.0,
+          "wind_gust_direction_deg": null,
+          "wind_observation_count": 11.0,
+          "wind_source_height_m": null,
+          "source": "meteoclimatic"
+        },
+        {
+          "station_code": "ESCAT0800000008011B",
+          "reading_datetime": "2026-09-10 23:42:37",
+          "station_name": "Barcelona-Eixample Esq.",
+          "county": "Not set yet",
+          "municipality": "Barcelona",
+          "province": "Barcelona",
+          "local_date": "20260910",
+          "local_time": "23:42:37",
+          "lat": 41.38,
+          "lon": 2.16,
+          "altitude": 14.0,
+          "last_reading": "2026/09/10 23:42:37",
+          "variable": "Precipitació",
+          "rain_mm": 0.0,
+          "unit": "mm",
+          "max_temp_celsius": 27.5,
+          "min_temp_celsius": 18.7,
+          "max_humidity_percent": 74.0,
+          "min_humidity_percent": 41.0,
+          "wind_avg_kmh": 5.9,
+          "wind_min_kmh": 0.0,
+          "wind_max_kmh": 15.0,
+          "wind_gust_kmh": 26.0,
+          "wind_direction_deg": 274.7,
+          "wind_gust_direction_deg": null,
+          "wind_observation_count": 8.0,
+          "wind_source_height_m": null,
+          "source": "meteoclimatic"
+        },
+        {
+          "station_code": "ESCAT0800000008011B",
+          "reading_datetime": "2026-09-11 23:42:36",
+          "station_name": "Barcelona-Eixample Esq.",
+          "county": "Not set yet",
+          "municipality": "Barcelona",
+          "province": "Barcelona",
+          "local_date": "20260911",
+          "local_time": "23:42:36",
+          "lat": 41.38,
+          "lon": 2.16,
+          "altitude": 14.0,
+          "last_reading": "2026/09/11 23:42:36",
+          "variable": "Precipitació",
+          "rain_mm": 0.0,
+          "unit": "mm",
+          "max_temp_celsius": 28.0,
+          "min_temp_celsius": 21.1,
+          "max_humidity_percent": 69.0,
+          "min_humidity_percent": 53.0,
+          "wind_avg_kmh": 3.1,
+          "wind_min_kmh": 0.0,
+          "wind_max_kmh": 7.0,
+          "wind_gust_kmh": 22.0,
+          "wind_direction_deg": 241.0,
+          "wind_gust_direction_deg": null,
+          "wind_observation_count": 8.0,
+          "wind_source_height_m": null,
+          "source": "meteoclimatic"
+        },
+        {
+          "station_code": "ESCAT0800000008011B",
+          "reading_datetime": "2026-09-12 23:41:38",
+          "station_name": "Barcelona-Eixample Esq.",
+          "county": "Not set yet",
+          "municipality": "Barcelona",
+          "province": "Barcelona",
+          "local_date": "20260912",
+          "local_time": "23:41:38",
+          "lat": 41.38,
+          "lon": 2.16,
+          "altitude": 14.0,
+          "last_reading": "2026/09/12 23:41:38",
+          "variable": "Precipitació",
+          "rain_mm": 0.0,
+          "unit": "mm",
+          "max_temp_celsius": 29.9,
+          "min_temp_celsius": 22.5,
+          "max_humidity_percent": 80.0,
+          "min_humidity_percent": 51.0,
+          "wind_avg_kmh": 3.5,
+          "wind_min_kmh": 0.0,
+          "wind_max_kmh": 9.0,
+          "wind_gust_kmh": 26.0,
+          "wind_direction_deg": 242.4,
+          "wind_gust_direction_deg": null,
+          "wind_observation_count": 8.0,
+          "wind_source_height_m": null,
+          "source": "meteoclimatic"
+        },
+        {
+          "station_code": "ESCAT0800000008011B",
+          "reading_datetime": "2026-09-13 16:42:34",
+          "station_name": "Barcelona-Eixample Esq.",
+          "county": "Not set yet",
+          "municipality": "Barcelona",
+          "province": "Barcelona",
+          "local_date": "20260913",
+          "local_time": "16:42:34",
+          "lat": 41.38,
+          "lon": 2.16,
+          "altitude": 14.0,
+          "last_reading": "2026/09/13 16:42:34",
+          "variable": "Precipitació",
+          "rain_mm": 0.0,
+          "unit": "mm",
+          "max_temp_celsius": 31.2,
+          "min_temp_celsius": 22.4,
+          "max_humidity_percent": 77.0,
+          "min_humidity_percent": 31.0,
+          "wind_avg_kmh": 3.5,
+          "wind_min_kmh": 0.0,
+          "wind_max_kmh": 8.0,
+          "wind_gust_kmh": 26.0,
+          "wind_direction_deg": 224.9,
+          "wind_gust_direction_deg": null,
+          "wind_observation_count": 6.0,
+          "wind_source_height_m": null,
+          "source": "meteoclimatic"
+        }
+      ]
+    }
+  ],
+  "local": {
+    "current": {
+      "generation_id": "20260912T113632582813Z-2188741b0a76",
+      "manifest_path": "manifests/20260912T113632582813Z-2188741b0a76.json",
+      "manifest_sha256": "33d3b75fc4431247a43e21adb21c4ca8c54d7e523a82d3fb20c0a35f2bc1ce06",
+      "schema_version": "weather_history_current_v1"
+    },
+    "catalog": "docker-data/Data/weather-history/catalogs/stations-9c428521c620d68cbc28a9dfd6a0f5e6806292c3f474426ede1fc29ea6596063.parquet",
+    "station": [
+      {
+        "source": "meteoclimatic",
+        "station_code": "ESCAT0800000008011B",
+        "station_name": "Barcelona-Eixample Esq.",
+        "lat": 41.64,
+        "lon": 21.97,
+        "altitude": 176.0,
+        "first_date": "20251009",
+        "last_date": "20260912",
+        "metadata_date": "20260912"
+      }
+    ]
+  },
+  "followup_coordinate_validation": {
+    "checked_at": "2026-09-13T16:10:04.053664+00:00",
+    "checks": [
+      {
+        "data_dir": "/Volumes/share/rainmapper/Data",
+        "current": {
+          "generation_id": "20260913T120416702167Z-9ab16d238e16",
+          "manifest_path": "manifests/20260913T120416702167Z-9ab16d238e16.json",
+          "manifest_sha256": "cfd8a448e1f146b9ae35ff87ba7927e41f3d5b87a906c65665ed16d15958c54a",
+          "schema_version": "weather_history_current_v1"
+        },
+        "catalog": "/Volumes/share/rainmapper/Data/weather-history/catalogs/stations-900c7010f0684b4c27c19a2f18f2ec15fc6b1046ce72012d25c1887bba555d8c.parquet",
+        "catalog_rows": [
+          {
+            "source": "meteoclimatic",
+            "station_code": "ESCAT0800000008011B",
+            "station_name": "Barcelona-Eixample Esq.",
+            "lat": 41.64,
+            "lon": 21.97,
+            "altitude": 176.0,
+            "first_date": "20251009",
+            "last_date": "20260913",
+            "metadata_date": "20260913"
+          },
+          {
+            "source": "meteoclimatic",
+            "station_code": "ESCAT2500000025515B",
+            "station_name": "Erinya",
+            "lat": 40.76,
+            "lon": -73.99,
+            "altitude": 14.0,
+            "first_date": "20250204",
+            "last_date": "20260913",
+            "metadata_date": "20260913"
+          }
+        ],
+        "stations_csv": [
+          {
+            "line": 87,
+            "row": {
+              "Codi Estació": "ESCAT0800000008011B",
+              "Estació": "Barcelona-Eixample Esq. ",
+              "Comarca": "Not set yet",
+              "Municipi": "Barcelona",
+              "Provincia": "Barcelona",
+              "Altitud": "14",
+              "Latitud": "41.38",
+              "Longitud": "2.16"
+            }
+          },
+          {
+            "line": 576,
+            "row": {
+              "Codi Estació": "ESCAT2500000025515B",
+              "Estació": "Erinya ",
+              "Comarca": "Not set yet",
+              "Municipi": "New York",
+              "Provincia": "New York County",
+              "Altitud": "14",
+              "Latitud": "40.76",
+              "Longitud": "-73.99"
+            }
+          }
+        ]
+      },
+      {
+        "data_dir": "docker-data/Data",
+        "current": {
+          "generation_id": "20260912T113632582813Z-2188741b0a76",
+          "manifest_path": "manifests/20260912T113632582813Z-2188741b0a76.json",
+          "manifest_sha256": "33d3b75fc4431247a43e21adb21c4ca8c54d7e523a82d3fb20c0a35f2bc1ce06",
+          "schema_version": "weather_history_current_v1"
+        },
+        "catalog": "docker-data/Data/weather-history/catalogs/stations-9c428521c620d68cbc28a9dfd6a0f5e6806292c3f474426ede1fc29ea6596063.parquet",
+        "catalog_rows": [
+          {
+            "source": "meteoclimatic",
+            "station_code": "ESCAT0800000008011B",
+            "station_name": "Barcelona-Eixample Esq.",
+            "lat": 41.64,
+            "lon": 21.97,
+            "altitude": 176.0,
+            "first_date": "20251009",
+            "last_date": "20260912",
+            "metadata_date": "20260912"
+          },
+          {
+            "source": "meteoclimatic",
+            "station_code": "ESCAT2500000025515B",
+            "station_name": "Erinya",
+            "lat": 40.76,
+            "lon": -73.99,
+            "altitude": 14.0,
+            "first_date": "20250204",
+            "last_date": "20260912",
+            "metadata_date": "20260912"
+          }
+        ],
+        "stations_csv": [
+          {
+            "line": 86,
+            "row": {
+              "Codi Estació": "ESCAT0800000008011B",
+              "Estació": "Barcelona-Eixample Esq. ",
+              "Comarca": "Not set yet",
+              "Municipi": "Barcelona",
+              "Provincia": "Barcelona",
+              "Altitud": "14",
+              "Latitud": "41.38",
+              "Longitud": "2.16"
+            }
+          },
+          {
+            "line": 575,
+            "row": {
+              "Codi Estació": "ESCAT2500000025515B",
+              "Estació": "Erinya ",
+              "Comarca": "Not set yet",
+              "Municipi": "New York",
+              "Provincia": "New York County",
+              "Altitud": "14",
+              "Latitud": "40.76",
+              "Longitud": "-73.99"
+            }
+          }
+        ]
+      }
+    ],
+    "verified_code_behavior": {
+      "source": "rainmapper_core/weather_history_writer.py:507-564",
+      "new_station": "Accepts coordinates passing basic validity without distance comparison when there is no prior catalog entry.",
+      "existing_station": "Compares incoming coordinates to archived catalog; rejects distance exceeding limit (default 1 km).",
+      "geographic_correctness": "This check does not validate coordinates against the station name or municipality."
+    },
+    "historical_origin": "First insertion of the wrong coordinates has not been established. Only two manifests remain in the real active manifest directory.",
+    "data_mutations": false
+  },
+  "repair": {
+    "checked_at": "2026-09-13T16:19:05.194097+00:00",
+    "results": [
+      {
+        "after": {
+          "altitude": 14.0,
+          "lat": 41.38,
+          "lon": 2.16
+        },
+        "applied": true,
+        "backup": "docker-data/Data/weather-history-repairs/20260913T161732073252Z",
+        "before": {
+          "altitude": 176.0,
+          "lat": 41.64,
+          "lon": 21.97
+        },
+        "catalog": "docker-data/Data/weather-history/catalogs/stations-24e18c3adf12073319ff146b119d8b207d7aebe44d93b0d060ba4b7b7aa6d6e9.parquet",
+        "catalog_rows": 2247,
+        "generation_id": "20260913T161732073252Z-24e18c3adf12",
+        "source": "meteoclimatic",
+        "source_generation_id": "20260912T113632582813Z-2188741b0a76",
+        "station_code": "ESCAT0800000008011B",
+        "verified_only_one_catalog_row_changed": true,
+        "verified_partition_descriptors_and_receipts_unchanged": true,
+        "verified_old_and_new_catalog_hashes": true,
+        "pending": [
+          {
+            "path": "docker-data/Data/weather-history/pending/source=meteoclimatic/519182431fef30f31b1196ae287037b4e34469139089b50b5c53b3945e08428e.parquet",
+            "barcelona_rows": 3,
+            "distance_to_repaired_catalog_km": 0
+          }
+        ],
+        "erinya_unchanged": {
+          "source": "meteoclimatic",
+          "station_code": "ESCAT2500000025515B",
+          "station_name": "Erinya",
+          "lat": 40.76,
+          "lon": -73.99,
+          "altitude": 14.0,
+          "first_date": "20250204",
+          "last_date": "20260912",
+          "metadata_date": "20260912"
+        }
+      },
+      {
+        "after": {
+          "altitude": 14.0,
+          "lat": 41.38,
+          "lon": 2.16
+        },
+        "applied": true,
+        "backup": "/Volumes/share/rainmapper/Data/weather-history-repairs/20260913T161812132344Z",
+        "before": {
+          "altitude": 176.0,
+          "lat": 41.64,
+          "lon": 21.97
+        },
+        "catalog": "/Volumes/share/rainmapper/Data/weather-history/catalogs/stations-145566ec95a50b1e75c7969dfd198cdd45077130a79ff5a3d0d6f1809bdbb7e9.parquet",
+        "catalog_rows": 2249,
+        "generation_id": "20260913T161812132344Z-145566ec95a5",
+        "source": "meteoclimatic",
+        "source_generation_id": "20260913T120416702167Z-9ab16d238e16",
+        "station_code": "ESCAT0800000008011B",
+        "verified_only_one_catalog_row_changed": true,
+        "verified_partition_descriptors_and_receipts_unchanged": true,
+        "verified_old_and_new_catalog_hashes": true,
+        "pending": [
+          {
+            "path": "/Volumes/share/rainmapper/Data/weather-history/pending/source=meteoclimatic/b0d3932a2eceb804b70b670a62e6de4a90ec68e0e0881e860d1ac2d7655af8e4.parquet",
+            "barcelona_rows": 8,
+            "distance_to_repaired_catalog_km": 0
+          }
+        ],
+        "erinya_unchanged": {
+          "source": "meteoclimatic",
+          "station_code": "ESCAT2500000025515B",
+          "station_name": "Erinya",
+          "lat": 40.76,
+          "lon": -73.99,
+          "altitude": 14.0,
+          "first_date": "20250204",
+          "last_date": "20260913",
+          "metadata_date": "20260913"
+        }
+      }
+    ],
+    "validation": "36 directed unittest tests passed (writer + dataset). No operational runner or archive executed.",
+    "automatic_policy": {
+      "decision": "Accept large coordinate changes with destinations inside configured approximate Spanish envelopes, including Balearic and Canary islands, regardless of previous location; reject older metadata and other large jumps.",
+      "default_json": "rainmapper_core/weather_coordinate_policy.json",
+      "data_override": "Data/weather_coordinate_policy.json",
+      "deployed_to_ha": false
+    }
+  },
+  "ha_local_container_verification": {
+    "checked_at": "2026-09-13T16:22:28.993452+00:00",
+    "container": "rainmapper-local-rainmapper-ha-ui-1",
+    "image": "rainmapperha:local-ha-ui",
+    "bind_source": "/Users/carlosginebrosa/Developer/RainmapperHA/docker-data",
+    "bind_destination": "/share/rainmapper",
+    "generation_id": "20260913T161732073252Z-24e18c3adf12",
+    "station_code": "ESCAT0800000008011B",
+    "lat": 41.38,
+    "lon": 2.16,
+    "altitude": 14.0,
+    "method": "docker inspect mounts; docker exec read CURRENT, active manifest and filtered catalog parquet",
+    "additional_repair_needed": false
+  }
+}

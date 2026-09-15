@@ -37,9 +37,11 @@ import mushroom_catalogs_ui
 import mushroom_gis_mappings_ui
 import mushroom_known_sites_ui
 import mushroom_predictor_ui
+import mushroom_prediction_map_ui
 import mushroom_profiles_ui
 import mushroom_workers_ui
 from rainmapper_core import mushroom_gis_lab
+from rainmapper_core import mushroom_prediction_map
 from rainmapper_core import mushroom_known_sites
 from rainmapper_core import mushroom_learned_model
 from rainmapper_core import mushroom_model_state
@@ -142,6 +144,7 @@ MUSHROOM_WORKER_PROTOCOL_GET_PATHS = {
     mushroom_worker_jobs.PREDICTOR_PRECOMPUTE_SELECTIONS_ENDPOINT,
 }
 MUSHROOM_WORKER_PROTOCOL_POST_PATHS = {
+    "/api/mushrooms/workers/map-queries",
     "/api/mushrooms/workers/pair",
     "/api/mushrooms/workers/heartbeat",
     "/api/mushrooms/workers/jobs/claim",
@@ -8653,6 +8656,44 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       var selectedUrl = new URL(href, window.location.href);
       return mushroomApiBasePath() + "/api/mushrooms/profile-detail?" + selectedUrl.searchParams.toString();
     }}
+    function initializeAffinityRows() {{
+      document.querySelectorAll('.profile-affinity-block').forEach(block => {{
+        if (block.dataset.affinityReady) return;
+        block.dataset.affinityReady = 'true';
+          const rows = block.querySelector('.profile-affinity-rows');
+          const template = block.querySelector('template');
+          let nextIndex = rows.children.length;
+          const updateOptions = () => {{
+            const selects = [...rows.querySelectorAll('select[name$="_id"]')];
+            const used = new Set(selects.map(select => select.value).filter(Boolean));
+            for (const select of selects) {{
+              const current = select.value;
+              const options = template.content.querySelector('select').cloneNode(true);
+              // Preserve catalog IDs no longer present in the current catalog.
+              if (current && ![...options.options].some(option => option.value === current)) {{
+                options.append(select.selectedOptions[0].cloneNode(true));
+              }}
+              select.replaceChildren(...options.children);
+              select.value = current;
+              for (const option of select.options) option.disabled = !!option.value && option.value !== current && used.has(option.value);
+            }}
+          }};
+          block.querySelector('[data-affinity-add]').addEventListener('click', () => {{
+            const fragment = template.content.cloneNode(true);
+            for (const element of fragment.querySelectorAll('[name], [id], [for]')) {{
+              for (const attribute of ['name', 'id', 'for']) {{
+                if (element.hasAttribute(attribute)) element.setAttribute(attribute, element.getAttribute(attribute).replace('__row__', nextIndex));
+              }}
+            }}
+            nextIndex += 1;
+            rows.append(fragment);
+            updateOptions();
+            rows.lastElementChild.querySelector('select').focus();
+          }});
+          rows.addEventListener('change', updateOptions);
+          updateOptions();
+      }});
+    }}
     async function selectSpeciesProfile(link, options) {{
       options = options || {{}};
       if (!link) {{
@@ -8691,6 +8732,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
           throw new Error(payload.error || "No se pudo cargar la especie.");
         }}
         editor.outerHTML = payload.editor_html;
+        initializeAffinityRows();
         var tabsRow = document.querySelector(".mushroom-tabs-row");
         if (tabsRow && payload.section_tabs_html) {{
           tabsRow.innerHTML = payload.section_tabs_html;
@@ -9180,6 +9222,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
     }});
     document.addEventListener("DOMContentLoaded", function() {{
+      initializeAffinityRows();
       applyUsersFilter();
       collapseUserCards();
       restoreControlTab();
@@ -10918,8 +10961,17 @@ ROLE_DEFAULT_MAX_DEVICES = {
     "pro": 3,
     "admin": 0,
 }
-USER_PERMISSION_FIELDS = ("can_use_heatmap", "can_use_layer_metrics", "can_use_estimated_field")
+USER_PERMISSION_FIELDS = ("can_use_heatmap", "can_use_layer_metrics", "can_use_estimated_field", "can_use_prediction_map")
 USER_PERMISSION_UI = (
+    {
+        "field": "can_use_prediction_map",
+        "label": "Prediction access",
+        "description": "Allow prediction mode and prediction settings for this user, regardless of role.",
+        "chip": "Prediction",
+        "chip_class": "permission-metrics",
+        "card_class": "permission-card-metrics",
+        "icon": "PR",
+    },
     {
         "field": "can_use_heatmap",
         "label": "Heatmap access",
@@ -10986,7 +11038,7 @@ def normalize_bool_flag(value: object) -> str:
 
 
 def default_user_permission(role: str, field: str) -> str:
-    if field not in USER_PERMISSION_FIELDS:
+    if field not in USER_PERMISSION_FIELDS or field == "can_use_prediction_map":
         return "false"
     return "true" if normalize_role(role) == "admin" else "false"
 
@@ -11011,6 +11063,7 @@ def user_auth_payload(user: dict[str, str]) -> dict[str, object]:
         "can_use_heatmap": user_permission_enabled(user, "can_use_heatmap"),
         "can_use_layer_metrics": user_permission_enabled(user, "can_use_layer_metrics"),
         "can_use_estimated_field": user_permission_enabled(user, "can_use_estimated_field"),
+        "can_use_prediction_map": user_permission_enabled(user, "can_use_prediction_map"),
     }
 
 
@@ -11085,6 +11138,7 @@ def write_users(users: dict[str, dict[str, str]]) -> None:
                 "can_use_heatmap": user_permission_enabled(user, "can_use_heatmap"),
                 "can_use_layer_metrics": user_permission_enabled(user, "can_use_layer_metrics"),
                 "can_use_estimated_field": user_permission_enabled(user, "can_use_estimated_field"),
+                "can_use_prediction_map": user_permission_enabled(user, "can_use_prediction_map"),
             }
             for _username, user in sorted(users.items())
         ]
@@ -11230,6 +11284,13 @@ def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
                 "pitch": round(max(0.0, min(85.0, finite_number(map_view.get("pitch"), 0.0))), 2),
             }
 
+    if raw_settings.get("prediction_execution") in ("local", "worker"):
+        settings["prediction_execution"] = raw_settings["prediction_execution"]
+    if 'prediction_timezone' in raw_settings:
+        try:
+            settings['prediction_timezone'] = mushroom_prediction_map.validate_calendar_timezone(raw_settings['prediction_timezone'])
+        except ValueError:
+            pass
     return settings
 
 
@@ -11248,6 +11309,12 @@ def update_device_settings(device_id: str, raw_settings: object) -> tuple[bool, 
     if not device:
         return False, {}
     settings = sanitize_device_settings(raw_settings)
+    # The original weather viewer does not send this optional extension field.
+    # Preserve it when that viewer saves its own settings on the same device.
+    previous = sanitize_device_settings(device.get("settings", {}))
+    for key in ('prediction_execution','prediction_timezone'):
+        if key not in settings and key in previous:
+            settings[key] = previous[key]
     device["settings"] = settings
     device["last_seen_at"] = utc_now()
     devices[device_key] = device
@@ -19345,8 +19412,10 @@ def profile_form_bool(form: dict[str, list[str]], name: str) -> bool:
 
 def profile_affinities_from_form(form: dict[str, list[str]], field: str) -> list[dict[str, object]]:
     affinities = []
-    index = 0
-    while f"{field}_{index}_id" in form:
+    # URL decoding can omit blank IDs. A gap is a deleted row, not end-of-list.
+    indices = sorted({int(match.group(1)) for key in form
+                      if (match := re.fullmatch(re.escape(field) + r"_(\d+)_id", key))})
+    for index in indices:
         item_id = catalog_form_string(form, f"{field}_{index}_id")
         relationship = catalog_form_string(form, f"{field}_{index}_relationship")
         affinity = profile_form_number(form, f"{field}_{index}_affinity")
@@ -19366,7 +19435,6 @@ def profile_affinities_from_form(form: dict[str, list[str]], field: str) -> list
                 if catalog_form_string(form, f"{field}_{index}_v0_active") == "false":
                     item["v0_active"] = False
             affinities.append(item)
-        index += 1
     return affinities
 
 
@@ -19404,9 +19472,44 @@ def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -
     ecology = profile_nested_dict(profile, "ecology").copy()
     if "trophic_mode_id" in form:
         ecology["trophic_mode_id"] = catalog_form_string(form, "trophic_mode_id")
+    for key in ("ph_min", "ph_max"):
+        if key in form:
+            ecology[key] = profile_form_number(form, key)
+    if "soil_filter_enabled" in form:
+        enabled = catalog_form_string(form, "soil_filter_enabled")
+        if enabled not in ("true", "false"):
+            raise ValueError("Invalid soil rule activation.")
+        if enabled == "false":
+            ecology.pop("soil_filter", None)
+        else:
+            rule = dict(ecology.get("soil_filter", {}))
+            for key in ("accepted_soil_ids", "conditional_soil_ids", "excluded_soil_ids", "ph_override_blocked_soil_ids"):
+                if "soil_filter_" + key in form:
+                    rule[key] = profile_form_string_list(form, "soil_filter_" + key)
+            if "soil_filter_require_soil_context" in form:
+                value = catalog_form_string(form, "soil_filter_require_soil_context")
+                if value not in ("true", "false"):
+                    raise ValueError("Invalid soil context requirement.")
+                rule["require_soil_context"] = value == "true"
+            for key in ("ph_conflict", "review_ref"):
+                if "soil_filter_" + key in form:
+                    rule[key] = catalog_form_string(form, "soil_filter_" + key)
+            ecology["soil_filter"] = rule
     for field in PROFILE_AFFINITY_GROUPS:
         if any(key.startswith(f"{field}_") for key in form):
-            ecology[field] = profile_affinities_from_form(form, field)
+            previous = ecology.get(field, [])
+            parsed = profile_affinities_from_form(form, field)
+            # Carry forward metadata only for an unchanged row identity.
+            originals = {item.get("id"): item for item in previous if isinstance(item, dict)}
+            unchanged = {catalog_form_string(form, key) for key in form
+                         if key.startswith(field + "_") and key.endswith("_original_id")
+                         and catalog_form_string(form, key) == catalog_form_string(form, key.replace("_original_id", "_id"))}
+            ecology[field] = [dict({key: value for key, value in originals.get(item["id"], {}).items()
+                                   if key not in ("relationship", "affinity")} if item["id"] in unchanged else {}, **item)
+                              for item in parsed]
+            if catalog_form_string(form, "view") == "v0":
+                ecology[field].extend(item for item in previous if isinstance(item, dict)
+                                      and item.get("v0_active") is False and item.get("id") not in {row["id"] for row in parsed})
     profile["ecology"] = ecology
 
     phenology = profile_nested_dict(profile, "phenology").copy()
@@ -19484,6 +19587,14 @@ def profile_from_form(existing: dict[str, object], form: dict[str, list[str]]) -
     profile["prediction_confidence"] = confidence
 
     metadata = profile_nested_dict(profile, "metadata").copy()
+    if "map_display_name" in form:
+        name = catalog_form_string(form, "map_display_name")
+        if len(name) > 256:
+            raise ValueError("Map display name is too long.")
+        if name:
+            metadata["map_display_name"] = name
+        else:
+            metadata.pop("map_display_name", None)
     for key in ("profile_version", "created_at", "updated_at", "created_by", "reviewed_by"):
         if key in form:
             metadata[key] = catalog_form_string(form, key)
@@ -19741,6 +19852,7 @@ def create_user(
     can_use_heatmap: str = "",
     can_use_layer_metrics: str = "",
     can_use_estimated_field: str = "",
+    can_use_prediction_map: str = "",
 ) -> str:
     user_id = normalize_user_id(username)
     if not user_id:
@@ -19763,6 +19875,7 @@ def create_user(
         "enabled": normalize_enabled(enabled),
         "max_devices": str(parse_max_devices(max_devices, normalized_role)),
         "must_change_password": "false",
+        "can_use_prediction_map": normalize_bool_flag(can_use_prediction_map),
         "can_use_heatmap": (
             normalize_bool_flag(can_use_heatmap)
             if can_use_heatmap
@@ -19794,6 +19907,7 @@ def update_user(
     can_use_heatmap: str,
     can_use_layer_metrics: str,
     can_use_estimated_field: str,
+    can_use_prediction_map: str | None = None,
 ) -> str:
     user_id = normalize_user_id(username)
     users = read_users()
@@ -19814,6 +19928,8 @@ def update_user(
             "can_use_estimated_field": normalize_bool_flag(can_use_estimated_field),
         }
     )
+    if can_use_prediction_map is not None:
+        user["can_use_prediction_map"] = normalize_bool_flag(can_use_prediction_map)
     mark_user_change(user, "updated user settings")
     write_users(users)
     return f"Updated user {user_id}."
@@ -19946,11 +20062,12 @@ def short_text(value: str, limit: int = 24) -> str:
     return text if len(text) <= limit else text[: max(0, limit - 3)] + "..."
 
 
-def permission_chips(can_use_heatmap: bool, can_use_layer_metrics: bool, can_use_estimated_field: bool) -> str:
+def permission_chips(can_use_heatmap: bool, can_use_layer_metrics: bool, can_use_estimated_field: bool, can_use_prediction_map: bool = False) -> str:
     states = {
         "can_use_heatmap": can_use_heatmap,
         "can_use_layer_metrics": can_use_layer_metrics,
         "can_use_estimated_field": can_use_estimated_field,
+        "can_use_prediction_map": can_use_prediction_map,
     }
     chips = []
     for permission in USER_PERMISSION_UI:
@@ -19979,6 +20096,7 @@ def user_search_text(
     can_use_heatmap: bool,
     can_use_layer_metrics: bool,
     can_use_estimated_field: bool,
+    can_use_prediction_map: bool = False,
 ) -> str:
     return " ".join(
         [
@@ -19990,6 +20108,7 @@ def user_search_text(
             "heatmap" if can_use_heatmap else "no heatmap",
             "metrics" if can_use_layer_metrics else "no metrics",
             "estimated field" if can_use_estimated_field else "no estimated field",
+            "prediction" if can_use_prediction_map else "no prediction",
             "change required" if user.get("must_change_password", "false").lower() == "true" else "current",
             max_devices,
             str(len(user_devices)),
@@ -20022,11 +20141,13 @@ def render_permissions_card(
     can_use_heatmap: bool,
     can_use_layer_metrics: bool,
     can_use_estimated_field: bool,
+    can_use_prediction_map: bool = False,
 ) -> str:
     states = {
         "can_use_heatmap": can_use_heatmap,
         "can_use_layer_metrics": can_use_layer_metrics,
         "can_use_estimated_field": can_use_estimated_field,
+        "can_use_prediction_map": can_use_prediction_map,
     }
     cards = []
     for permission in USER_PERMISSION_UI:
@@ -20154,6 +20275,7 @@ def render_user_card(username: str, user: dict[str, str], user_devices: list[tup
     can_use_heatmap = user_permission_enabled(user, "can_use_heatmap")
     can_use_layer_metrics = user_permission_enabled(user, "can_use_layer_metrics")
     can_use_estimated_field = user_permission_enabled(user, "can_use_estimated_field")
+    can_use_prediction_map = user_permission_enabled(user, "can_use_prediction_map")
     status_label = "Enabled" if enabled == "true" else "Disabled"
     status_class = "status-enabled" if enabled == "true" else "status-disabled"
     search_text = user_search_text(
@@ -20166,15 +20288,16 @@ def render_user_card(username: str, user: dict[str, str], user_devices: list[tup
         can_use_heatmap,
         can_use_layer_metrics,
         can_use_estimated_field,
+        can_use_prediction_map,
     )
     panel_id = "user-panel-" + "".join(char if char.isalnum() else "-" for char in username)
-    chips = permission_chips(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field)
+    chips = permission_chips(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field, can_use_prediction_map)
     latest_seen = latest_seen_for_devices(user_devices)
     password_state = "Change required" if user.get("must_change_password", "false").lower() == "true" else "Current"
     update_form = (
         f'<form class="user-update-form" method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Save changes for user {username}?", quote=True)}">'
         + render_user_details_card(username, user, role, enabled, max_devices)
-        + render_permissions_card(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field)
+        + render_permissions_card(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field, can_use_prediction_map)
         + render_audit_card(user)
         + "</form>"
     )
@@ -20216,7 +20339,7 @@ def render_create_user_modal() -> str:
           <h2 id="create-user-title">Create user</h2>
           <button type="button" data-create-user-close>Close</button>
         </div>
-        <p class="help-text">Create a protected MapLibre user. Admin users receive all experimental feature permissions by default unless changed here.</p>
+        <p class="help-text">Create a protected MapLibre user. Prediction access must be enabled explicitly for any role, including administrators.</p>
         <form method="post" action="">
           <input type="hidden" name="admin_action" value="create_user">
           <div class="admin-form-grid">
@@ -20234,6 +20357,7 @@ def render_create_user_modal() -> str:
             <div class="admin-field"><label><input name="can_use_heatmap" type="checkbox" value="true"> Heatmap access</label></div>
             <div class="admin-field"><label><input name="can_use_layer_metrics" type="checkbox" value="true"> Metric selector access</label></div>
             <div class="admin-field"><label><input name="can_use_estimated_field" type="checkbox" value="true"> Estimated field access</label></div>
+            <div class="admin-field"><label><input name="can_use_prediction_map" type="checkbox" value="true"> Prediction access</label></div>
           </div>
           <button class="primary">Create user</button>
         </form>
@@ -20503,6 +20627,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def request_body_limit(self) -> int:
         """Return the largest accepted body for the current endpoint."""
         path = urlparse(self.path).path.rstrip("/")
+        if path.startswith(mushroom_prediction_map.API_PATH + "/"):
+            return mushroom_prediction_map.MAX_REQUEST_BYTES
+        if path == "/api/mushrooms/workers/map-queries":
+            return mushroom_prediction_map.MAX_RESULT_BYTES + 4096
         if path == "/diagnostics/predictor-client":
             return PREDICTOR_CLIENT_TIMING_MAX_BYTES
         if path == "/api/mushrooms/workers/jobs/result-file":
@@ -22116,6 +22244,19 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         if not self.allow_listener_path("GET", path):
             return
 
+        if path.startswith(mushroom_prediction_map.API_PATH + "/"):
+            mushroom_prediction_map_ui.serve_api(self, path)
+            return
+        viewer_prefix = next((prefix for prefix in ("/protected/maplibre", mushroom_prediction_map.VIEWER_PATH)
+                              if path == prefix or path.startswith(prefix + "/")), None)
+        if viewer_prefix:
+            mushroom_prediction_map_ui.serve_viewer(
+                self, path.removeprefix(viewer_prefix),
+                assets=MAPLIBRE_VIEWER_ASSETS_PATH, config_js=auth_required_config_js(),
+                cache_bust=cache_bust_viewer_html,
+            )
+            return
+
         if path == "/api/mushrooms/workers/ping":
             if not mushroom_worker_api_enabled():
                 self.send_json(404, {"ok": False, "error": "Worker API is not enabled."})
@@ -22518,6 +22659,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             else:
                 self.send_bytes(exc.status, str(exc).encode("utf-8"), "text/plain; charset=utf-8")
             return
+        if path.startswith(mushroom_prediction_map.API_PATH + "/"):
+            mushroom_prediction_map_ui.serve_api(self, path, post=True)
+            return
+        if path == "/api/mushrooms/workers/map-queries":
+            mushroom_prediction_map_ui.serve_worker_api(
+                self, lambda worker_id, token: mushroom_worker_api_enabled() and authenticate_mushroom_worker(worker_id, token))
+            return
         if path == "/diagnostics/predictor-client":
             payload = self.read_json_payload()
             operation_id = str(payload.get("operation_id", ""))
@@ -22913,6 +23061,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "can_use_heatmap"),
                 self.form_value(form, "can_use_layer_metrics"),
                 self.form_value(form, "can_use_estimated_field"),
+                self.form_value(form, "can_use_prediction_map") or "false",
             )
             if message.startswith("Created user "):
                 created_username = normalize_user_id(username)
@@ -22929,6 +23078,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "can_use_heatmap"),
                 self.form_value(form, "can_use_layer_metrics"),
                 self.form_value(form, "can_use_estimated_field"),
+                self.form_value(form, "can_use_prediction_map") or "false",
             )
         elif admin_action == "set_password":
             message = set_admin_user_password(
@@ -24649,6 +24799,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
                     return profile_save_return_url(species_id, form, message=True)
                 entry = profile_from_form(existing, form)
+                if "soil_filter" in entry.get("ecology", {}):
+                    from rainmapper_core.mushroom_map_ecology import validate_soil_filter
+                    catalogs = store.load("catalogs").get("catalogs", {})
+                    validate_soil_filter(entry["ecology"]["soil_filter"],
+                                         {row["id"] for row in catalogs.get("soil_types", [])})
                 semantic_errors = profile_semantic_error_messages(entry)
                 if semantic_errors:
                     set_mushroom_profiles_flash("Species profile was not saved: " + "; ".join(semantic_errors[:3]))

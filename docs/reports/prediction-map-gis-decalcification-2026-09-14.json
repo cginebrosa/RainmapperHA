@@ -1,0 +1,112 @@
+{
+  "date": "2026-09-14",
+  "question": "Do the actual GIS layers include decalcification?",
+  "openlandmap": {
+    "source": "mushroom-map-GIS/openlandmap-ph/spain-v20250204/manifest.json",
+    "properties": [
+      "pH mean",
+      "pH Q16",
+      "pH Q84"
+    ],
+    "decalcification_variable": false
+  },
+  "icgc": {
+    "source": "mushroom-map-GIS/icgc-geologia-50000/source/geologia-territorial-50000-geologic-v3r0-202412.gpkg",
+    "table": "_04_unitats_geologiques_50000",
+    "fields": [
+      "Descripcio",
+      "Descripcio_protolit"
+    ],
+    "query": "SELECT DISTINCT Codi,Descripcio,Descripcio_protolit WHERE lower(description) LIKE each search term; no geometries",
+    "decalcification_term_matches": [],
+    "terms": [
+      "descalc",
+      "decalc",
+      "descarbonat"
+    ],
+    "dissolved_nodules_units": [
+      "Orst",
+      "Orst1",
+      "mc_Orst"
+    ],
+    "limitation": "Dissolved carbonate nodules described in rock/protolith do not verify present surface-soil decalcification."
+  },
+  "geode": {
+    "source": "https://mapas.igme.es/gis/rest/services/Cartografia_Geologica/IGME_Geode_50/MapServer/8/query",
+    "where": "UPPER(DESC_UNIT) LIKE '%DESCALC%'",
+    "returnGeometry": false,
+    "record_limit": 5,
+    "official_examples": [
+      {
+        "attributes": {
+          "OBJECTID": 16027,
+          "CODE_UNIO": "247",
+          "DESC_UNIT": "Fm. Oviedo: calizas, a veces descalcificadas, y margas",
+          "ZONA": "Z1000"
+        }
+      },
+      {
+        "attributes": {
+          "OBJECTID": 16028,
+          "CODE_UNIO": "247",
+          "DESC_UNIT": "Fm. Oviedo: calizas, a veces descalcificadas, y margas",
+          "ZONA": "Z1000"
+        }
+      },
+      {
+        "attributes": {
+          "OBJECTID": 16029,
+          "CODE_UNIO": "247",
+          "DESC_UNIT": "Fm. Oviedo: calizas, a veces descalcificadas, y margas",
+          "ZONA": "Z1000"
+        }
+      },
+      {
+        "attributes": {
+          "OBJECTID": 16030,
+          "CODE_UNIO": "247",
+          "DESC_UNIT": "Fm. Oviedo: calizas, a veces descalcificadas, y margas",
+          "ZONA": "Z1000"
+        }
+      },
+      {
+        "attributes": {
+          "OBJECTID": 16031,
+          "CODE_UNIO": "247",
+          "DESC_UNIT": "Fm. Oviedo: calizas, a veces descalcificadas, y margas",
+          "ZONA": "Z1000"
+        }
+      }
+    ],
+    "local_confirmation": {
+      "block": "layer-8/0016000.json.gz",
+      "examples": [
+        {
+          "OBJECTID": 16027,
+          "GEOM_LEN": 682.861804504,
+          "GEOM_AREA": 7778.94966804,
+          "CODE_UNIO": "247",
+          "DESC_UNIT": "Fm. Oviedo: calizas, a veces descalcificadas, y margas",
+          "CODE_COTR": "00350000",
+          "NAME_EDA2": "SANTONIENSE",
+          "NAME_EDA1": "CONIACIENSE",
+          "ZONA": "Z1000"
+        },
+        {
+          "OBJECTID": 16028,
+          "GEOM_LEN": 11913.4254556,
+          "GEOM_AREA": 2156644.4728,
+          "CODE_UNIO": "247",
+          "DESC_UNIT": "Fm. Oviedo: calizas, a veces descalcificadas, y margas",
+          "CODE_COTR": "00350000",
+          "NAME_EDA2": "SANTONIENSE",
+          "NAME_EDA1": "CONIACIENSE",
+          "ZONA": "Z1000"
+        }
+      ]
+    },
+    "quaternary_layer_6_same_search_matches": 0,
+    "limitation": "Unit explicitly says sometimes decalcified limestone. It does not establish homogeneous or measured surface-soil decalcification at every coordinate. GEODE is not yet the integrated geology reader for the Catalan points in this preview."
+  },
+  "no_new_download_or_audit": "Two bounded attribute queries and one previously downloaded block; no GIS layers downloaded, reindexed or migrated."
+}

@@ -876,6 +876,8 @@ def affinity_relationship_badge(item: dict[str, object], relationship: str) -> s
 def affinity_source_label(source_id: str) -> str:
     labels = {
         "literature_marc_estevez": ui_label("ui.source_marc_estevez"),
+        "literature_sporas": "Sporas",
+        "literature_review_20260913": "Bibliografía · 2026-09-13",
     }
     return labels.get(source_id, source_id)
 
@@ -3840,10 +3842,10 @@ def render_profile_affinity_rows(
         item for item in affinities
         if isinstance(item, dict) and (not is_v0_view(profile_view) or v0_active_affinity(item))
     ]
-    editable_rows = visible_affinities + ([] if is_v0_view(profile_view) else [{} for _ in range(3)])
-    for index, item in enumerate(editable_rows):
+    editable_rows = visible_affinities + [{}]
+    for index, item in [*enumerate(editable_rows), ("__row__", {})]:
         current_id = str(item.get("id", "") or "").strip()
-        row_options = [option for option in options if option[0] == current_id or option[0] not in used_ids]
+        row_options = options if index == "__row__" else [option for option in options if option[0] == current_id or option[0] not in used_ids]
         inactive_v0 = item.get("v0_active") is False
         status = []
         if inactive_v0:
@@ -3867,13 +3869,69 @@ def render_profile_affinity_rows(
             + status_html
             + "</div>"
         )
+    template = rows.pop()
     return (
         f'<div class="profile-affinity-block {html.escape(field)}">'
         f'<h2>{html.escape(field.replace("_", " ").title())}</h2>'
+        f'<input type="hidden" name="{html.escape(field)}_present" value="true">'
         '<div class="profile-affinity-rows">'
         + "".join(rows)
-        + "</div></div>"
+        + '</div><template>' + template + '</template>'
+        + f'<button type="button" data-affinity-add>{html.escape(ui_label("ui.affinity_add_row"))}</button>'
+        + f'<p class="meta">{html.escape(ui_label("ui.affinity_rows_help"))}</p>'
+        + "</div>"
     )
+
+
+def render_soil_filter_help() -> str:
+    sections = [("ph", "ui.species_soil_ph"),
+                *[(field, "ui.soil_filter_" + field) for field in
+                  ("enabled", "require_soil_context", "accepted_soil_ids", "conditional_soil_ids",
+                   "excluded_soil_ids", "ph_conflict", "ph_override_blocked_soil_ids", "review_ref")],
+                ("example", "ui.soil_help_example_title"),
+                ("affinities", "ui.soil_help_affinities_title"),
+                ("support", "ui.soil_help_support_title"),
+                ("comparison", "ui.soil_help_comparison_title"),
+                ("save", "ui.soil_help_save_title")]
+    paragraphs = "".join(
+        f'<p><strong>{html.escape(ui_label(title))}</strong><br>'
+        f'{html.escape(ui_label("ui.soil_help_" + field))}</p>' for field, title in sections)
+    return (f'<details class="profile-soil-help" style="margin:12px 0;overflow-wrap:anywhere">'
+            f'<summary style="cursor:pointer;font-weight:600;padding:10px;border:1px solid currentColor;border-radius:6px">'
+            f'{html.escape(ui_label("ui.soil_help_open"))}</summary>'
+            f'<div style="padding:0 12px">{paragraphs}</div></details>')
+
+
+def render_soil_filter_controls(ecology: dict, catalogs: dict) -> str:
+    rule = ecology.get("soil_filter")
+    enabled = isinstance(rule, dict) and bool(rule)
+    rule = rule if isinstance(rule, dict) else {}
+
+    def select(field, value, options):
+        name = "soil_filter_" + field
+        rendered = "".join(
+            f'<option value="{html.escape(key, quote=True)}"{" selected" if key == value else ""}>'
+            f'{html.escape(ui_label(label))}</option>' for key, label in options
+        )
+        return (f'<div class="admin-field"><label for="profile-{name}">'
+                f'{html.escape(ui_label("ui." + name))}</label>'
+                f'<select id="profile-{name}" name="{name}">{rendered}</select></div>')
+
+    controls = [select("enabled", str(enabled).lower(), [("false", "ui.no"), ("true", "ui.yes")]),
+                select("require_soil_context", str(rule.get("require_soil_context", False)).lower(),
+                       [("false", "ui.no"), ("true", "ui.yes")]),
+                select("ph_conflict", rule.get("ph_conflict", "strict"),
+                       [("strict", "ui.soil_filter_ph_strict"),
+                        ("estimated_interval_overlap", "ui.soil_filter_ph_overlap")])]
+    for field in ("accepted_soil_ids", "conditional_soil_ids", "excluded_soil_ids", "ph_override_blocked_soil_ids"):
+        name = "soil_filter_" + field
+        controls.append(f'<input type="hidden" name="{name}" value="">' +
+                        form_catalog_toggles(name, ui_label("ui." + name), rule.get(field, []), catalogs, "soil_types"))
+    controls.append(form_field("soil_filter_review_ref", ui_label("ui.soil_filter_review_ref"), rule.get("review_ref", "")))
+    return (f'<div class="profile-soil-filter"><h3>{html.escape(ui_label("ui.soil_filter_title"))}</h3>'
+            f'<p class="meta">{html.escape(ui_label("ui.soil_filter_help"))}</p>' +
+            render_soil_filter_help() +
+            '<div class="profile-grid two">' + "".join(controls) + '</div></div>')
 
 
 def render_ecology_affinity_tabs(
@@ -3898,8 +3956,22 @@ def render_ecology_affinity_tabs(
         tab_id = f"eco-tab-{index}"
         radios.append(f'<input type="radio" name="ecology_tab" id="{tab_id}"{" checked" if index == 0 else ""}>')
         tab_labels.append(f'<label for="{tab_id}">{html.escape(labels[field])}</label>')
+        soil_ph = ""
+        if field == "soil_affinities":
+            soil_ph = (
+                f'<h3>{html.escape(ui_label("ui.species_soil_ph"))}</h3>'
+                '<div class="profile-grid two">'
+                + "".join(
+                    form_field(key, ui_label(f"ui.species_{key}"), ecology.get(key),
+                               field_type="number", minimum="0", maximum="14")
+                    for key in ("ph_min", "ph_max")
+                )
+                + f'</div><p class="meta">{html.escape(ui_label("ui.species_ph_help"))}</p>'
+                + render_soil_filter_controls(ecology, catalogs)
+            )
         panels.append(
             f'<section class="ecology-subtab-panel panel-{index}">'
+            f'{soil_ph}'
             f'{render_profile_affinity_rows(field, ecology.get(field, []), catalogs, profile_view, profile_source_v0)}'
             "</section>"
         )
@@ -3968,7 +4040,7 @@ def render_general_dashboard(
       </article>
     """
     delay_row = "" if is_v0_view(profile_view) else value_row(ui_label("ui.fruiting_delay"), f'{delay.get("min", "-")} / {delay.get("optimal_min", "-")}-{delay.get("optimal_max", "-")} / {delay.get("max", "-")} days')
-    optimal_altitude_row = "" if is_v0_view(profile_view) else value_row(ui_label("ui.optimal_altitude"), f'{topography.get("altitude_optimal_min_m", "-")} - {topography.get("altitude_optimal_max_m", "-")} m')
+    optimal_altitude_row = "" if is_v0_view(profile_view) else value_row(ui_label("ui.optimal_altitude"), f'{model_number_label(topography.get("altitude_optimal_min_m"))} - {model_number_label(topography.get("altitude_optimal_max_m"))} m')
     parked_count = inactive_v0_affinity_count(ecology)
     parked_row = value_row("Aparcado para v0", f"{parked_count} afinidades") if is_v0_view(profile_view) and parked_count else ""
     metadata_card = f"""
@@ -3996,7 +4068,7 @@ def render_general_dashboard(
         {card_title(2, ui_label("ui.ecology_topography"), "ecology")}
         {value_row(ui_label("ui.trophic_mode"), catalog_display(catalogs, "trophic_modes", ecology.get("trophic_mode_id", "-")))}
         {value_row(ui_label("ui.primary_hosts"), ", ".join(host_names[:4]) if host_names else "-")}
-        {value_row(ui_label("altitude.meters"), f'{topography.get("altitude_min_m", "-")} - {topography.get("altitude_max_m", "-")} m')}
+        {value_row(ui_label("altitude.meters"), f'{model_number_label(topography.get("altitude_min_m"))} - {model_number_label(topography.get("altitude_max_m"))} m')}
         {optimal_altitude_row}
         {value_row(ui_label("ui.preferred_aspects"), catalog_compact_list(catalogs, "aspects", aspect_names, 6))}
         {parked_row}
@@ -4237,6 +4309,7 @@ def render_profile_editor(profile: dict[str, object] | None, catalogs: dict[str,
                   {form_field("scientific_name", ui_label("ui.scientific_name"), profile.get("scientific_name", ""))}
                   {form_select("taxonomy_status", ui_label("ui.taxonomy_status"), profile.get("taxonomy_status", ""), PROFILE_SELECT_VALUES["taxonomy_status"])}
                   {form_textarea("common_names", ui_label("ui.common_names"), profile.get("common_names", []), rows=3)}
+                  {form_field("map_display_name", ui_label("ui.species_map_display_name"), metadata.get("map_display_name", ""))}
                   {form_select("edibility", ui_label("ui.edibility"), profile.get("edibility", ""), PROFILE_SELECT_VALUES["edibility"])}
                 </div>
               </div>

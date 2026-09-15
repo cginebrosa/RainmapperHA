@@ -405,16 +405,20 @@ def validate_ordered_numbers(
     keys: list[str],
     location: str,
     messages: list[ValidationMessage],
+    *,
+    allow_none: bool = False,
 ) -> None:
     values = []
     for key in keys:
         if key not in obj:
             messages.append(error(f"{location}.{key}", "missing required field"))
             return
+        if allow_none and obj[key] is None:
+            continue
         if not validate_number(obj[key], f"{location}.{key}", messages):
             return
-        values.append(obj[key])
-    for left_key, left, right_key, right in zip(keys, values, keys[1:], values[1:]):
+        values.append((key, obj[key]))
+    for (left_key, left), (right_key, right) in zip(values, values[1:]):
         if left > right:
             messages.append(
                 error(f"{location}.{right_key}", f"expected {left_key} <= {right_key}")
@@ -460,6 +464,7 @@ def validate_profile_numeric_ranges(
             ["altitude_min_m", "altitude_optimal_min_m", "altitude_optimal_max_m", "altitude_max_m"],
             f"profiles.{profile_id}.topography",
             messages,
+            allow_none=True,
         )
 
     weather = profile.get("weather_model", {})
@@ -591,6 +596,12 @@ def validate_profiles(
         )
 
         ecology = profile.get("ecology")
+        if isinstance(ecology, dict) and "soil_filter" in ecology:
+            from rainmapper_core.mushroom_map_ecology import validate_soil_filter
+            try:
+                validate_soil_filter(ecology["soil_filter"], ids_by_catalog.get("soil_types", set()))
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                messages.append(error(f"{profile_location}.ecology.soil_filter", str(exc)))
         if require_mapping(ecology, REQUIRED_ECOLOGY_KEYS, f"{profile_location}.ecology", messages):
             validate_id(
                 ecology.get("trophic_mode_id"),
@@ -776,6 +787,15 @@ def validate_gis(
 ) -> None:
     if not require_mapping(gis_payload, REQUIRED_GIS_ROOT_KEYS, "gis", messages):
         return
+
+    # Point-map groups share an exact target combination across source codes.
+    # Validate with the same bounded compiler used by the resident reader.
+    if "exact_value_mapping_groups" in gis_payload:
+        from rainmapper_core.mushroom_map_ecology import compile_exact_mappings
+        try:
+            compile_exact_mappings(gis_payload, ids_by_catalog)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            messages.append(error("gis.exact_value_mapping_groups", str(exc)))
 
     exact_value_mappings = gis_payload.get("exact_value_mappings")
     if require_list(exact_value_mappings, "gis.exact_value_mappings", messages):

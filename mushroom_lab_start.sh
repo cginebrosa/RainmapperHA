@@ -15,11 +15,16 @@ WORKER_COORDINATOR_URL="http://rainmapper-ha-ui:8100"
 export RAINMAPPER_LOCAL_REPO_ROOT="${REPO_ROOT}"
 RAINMAPPER_LOCAL_DATA_ROOT="${RAINMAPPER_LOCAL_DATA_ROOT:-${REPO_ROOT}/docker-data}"
 export RAINMAPPER_LOCAL_DATA_ROOT
+COMPOSE_ARGS=(-f "${COMPOSE_FILE}")
+# Keep the already configured prediction map when recreating the local lab.
+if [[ -f "${RAINMAPPER_LOCAL_DATA_ROOT}/prediction-map/local.json" ]]; then
+    COMPOSE_ARGS+=(-f "${REPO_ROOT}/rainmapper-local/docker-compose.prediction-map-ha.yml")
+fi
 
 cd "${REPO_ROOT}"
 
 docker network create rainmapper-local-compute >/dev/null 2>&1 || true
-docker compose -f "${COMPOSE_FILE}" up --build -d rainmapper-ha-ui
+docker compose "${COMPOSE_ARGS[@]}" up --build -d rainmapper-ha-ui
 
 printf '\nMushroom observation lab is starting.\n\n'
 printf 'UI URL for your browser:\n  %s\n\n' "${LAB_URL}"
