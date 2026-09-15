@@ -1,25 +1,35 @@
 # Active Context
 
-Estado del 16/09/2026. **HA 0.2.304 publicada en GHCR**, tags de versión y
-`latest` verificados con el mismo digest y plataformas amd64/arm64. El usuario
-ha autorizado publicar y hará la instalación/prueba; HA real no se ha instalado.
-[Informe de release](reports/ha-release-0.2.304.json).
+Estado del 16/09/2026. **HA 0.2.305 publicada y verificada en GHCR**: versión y
+`latest` tienen el mismo digest y manifests amd64/arm64. Actualización aceptada
+por el usuario tras revisar HA local; instalación de HA real pendiente del usuario.
+[Informe de release](reports/ha-release-0.2.305.json).
 
-La publicación inicial falló por token caducado. Tras renovarlo, se reutilizó
-la imagen construida y se subieron ambos tags correctamente, sin repetir build.
-Código efectivo revalidado: 198 archivos HA y 106 worker idénticos a la candidata
-probada; los únicos cambios posteriores fueron documentales. Smoke 1600/48 y
-circuito local completo mantienen la evidencia del incremento correspondiente.
-Worker existente 1.1.2 conservado con sus volúmenes y coordinadores.
+Incluye encuadre móvil tras login/recarga, cabecera de predicción compacta,
+fila Zona/Fecha alineada (selector 98×24 px), Cancelar compacto y etiqueta «Local».
+Worker es el valor inicial sin preferencia guardada; un rechazo inicial 503 por
+indisponibilidad/ocupación se reintenta una vez en Local sin modificar el setting.
+No se reintentan trabajos ya aceptados ni errores genéricos o cancelaciones.
+[Informe móvil y pruebas](reports/map-mobile-login-2026-09-16.md).
 
-**Siguiente:** instalación por el usuario, prueba de predicción con su permiso
-individual, caché preparada del worker, geografía portable y Safari/iPhone.
+Puerta local completada desde la candidata: HA y worker reconstruidos y recreados,
+198/106 archivos efectivos idénticos al worktree, coordinadores persistidos sin
+cambios. Smoke 1.600 tests/48 omitidos correcto; navegador 29 peticiones correcto.
+Safari local: consulta real Worker 2,14 s total / 1,42 s cálculo; fallback controlado
+Worker → Local conserva el setting. Worker permanece en 1.1.2, sin release nueva.
+No hay cambios científicos ni GIS: no regenerar mapas, entrenar, recalcular ni
+volver a subir datos para instalar 0.2.305. Recargar el visor tras actualizar.
+Pendiente confirmar en iPhone físico el comportamiento tras login y recarga.
+
+HA 0.2.304 fue probada por el usuario en real, incluyendo ejecución por worker.
+La disponibilidad requirió habilitar `primary` en el override de mapa del M1;
+[diagnóstico anterior](reports/map-worker-real-ha-2026-09-16.md).
 Conservar los originales de media hasta validar el funcionamiento en HA real.
 No repetir uploads de GiB ni ejecutar comandos de preparación al primer arranque.
-Ediciones ajenas de `mushroom-data/mushroom_observations.json` quedan fuera de
-la release; datos privados locales y reales preservados.
+Ediciones ajenas de `mushroom-data/mushroom_observations.json` y documentación GBIF
+quedan fuera de esta release; datos privados locales y reales preservados.
 
-## Geografía portable: validación local terminada, copias remotas colocadas y verificadas
+## Geografía portable: evidencia de la release 0.2.304
 
 La nueva versión lee archivos ordinarios desde `/media/rainmapper/geography`.
 No hay comandos de primer arranque, symlinks ni recibos dependientes del equipo

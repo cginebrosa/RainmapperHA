@@ -694,13 +694,17 @@ function showLogin(message = "") {
   if (error) {
     error.textContent = message;
   }
-  window.setTimeout(() => document.getElementById("login-username")?.focus(), 0);
+  window.setTimeout(() => document.getElementById("login-username")?.focus({ preventScroll: true }), 0);
 }
 
 function hideLogin() {
   const overlay = document.getElementById("login-overlay");
   if (!overlay) {
     return;
+  }
+  // Release the mobile keyboard before its focused field is hidden.
+  if (overlay.contains(document.activeElement)) {
+    document.activeElement.blur();
   }
   overlay.hidden = true;
   document.body.classList.remove("auth-open");
@@ -760,7 +764,7 @@ function setPasswordChangeMode(username, currentPassword) {
   if (submit) {
     submit.textContent = t("changePassword");
   }
-  window.setTimeout(() => document.getElementById("new-password")?.focus(), 0);
+  window.setTimeout(() => document.getElementById("new-password")?.focus({ preventScroll: true }), 0);
 }
 
 async function validateStoredSession() {
@@ -1362,6 +1366,11 @@ const map = new maplibregl.Map({
   maxPitch: 85,
   attributionControl: false,
 });
+
+// Loading saved filters/translations can resize the header without a window
+// resize. Keep the canvas in sync with the remaining space in the grid.
+const mapSizeObserver = new ResizeObserver(() => map.resize());
+mapSizeObserver.observe(document.getElementById("map"));
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 

@@ -1,0 +1,54 @@
+{
+  "version": "0.2.305",
+  "state": "image_published_and_verified",
+  "worker_version": "1.1.2",
+  "scope": "Mobile viewer layout, compact localized prediction controls, default Worker and one local fallback on rejected submission",
+  "smoke": {
+    "tests": 1600,
+    "skipped": 48,
+    "passed": true,
+    "log": "/private/tmp/rainmapper-ha-0.2.305-smoke.log"
+  },
+  "browser": {
+    "passed": true,
+    "requests": 29,
+    "screenshots": "/var/folders/42/w270zmtn6q17nw__20m8kvsm0000gn/T/prediction-map-browser-r5d68G"
+  },
+  "local_parity": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 198,
+      "mismatches": [],
+      "manifest_sha256": "50817b5f20d9dca010f12a5120e6767ff594eef1253263c6e2b50de2cbb32fb8"
+    },
+    "rainmapper-worker": {
+      "checked_files": 106,
+      "mismatches": [],
+      "manifest_sha256": "bffef26e5d1aa90da94e76c474fdb5fc1743dfac653b076afa2bfb95f8afdfde"
+    }
+  },
+  "worker_coordinators_unchanged": true,
+  "final_local_query": {
+    "execution": "worker",
+    "query_seconds": 2.14,
+    "compute_seconds": 1.42
+  },
+  "installed_real_ha": false,
+  "notes": [
+    "Smoke completed before the mechanical version/cache-buster bump, then version alignment was checked.",
+    "No scientific pipeline changes; no training or precompute rerun.",
+    "Existing explicit Local preferences preserved.",
+    "No worker release required."
+  ],
+  "ghcr": {
+    "tags": [
+      "0.2.305",
+      "latest"
+    ],
+    "digest": "sha256:9d7275c368cb5c64aa7fc70a35a0841a96dfa9c6626386c3fc42182fa6ec43d4",
+    "platforms": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "publish_exit_code": 0
+  }
+}

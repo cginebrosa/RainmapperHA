@@ -122,10 +122,23 @@ export function createPredictionMode(bridge) {
     const started = performance.now();
     const timeout = setTimeout(() => controller.abort(), 60000);
     try {
-      let response = await bridge.fetch(`${config.apiBase}/queries`, {
+      const submit = () => bridge.fetch(`${config.apiBase}/queries`, {
         method: "POST", cache: "no-store", signal: controller.signal,
         headers: { "Content-Type": "application/json" }, body: JSON.stringify(request),
       });
+      let response = await submit();
+      if (request.execution === "worker" && response.status === 503) {
+        const failure = await response.clone().json().catch(() => null);
+        if (["executor_unavailable", "worker_busy"].includes(failure?.error)) {
+          if (!enabled || revision !== ownRevision || controller.signal.aborted) return;
+          // A rejected submission has no queued query. Retry once locally;
+          // the user's saved executor and the worker protocol stay unchanged.
+          request.execution = "local";
+          request.request_id = globalThis.crypto?.randomUUID?.() || `local_${Date.now()}_${revision}`;
+          status.textContent = text("execution_fallback");
+          response = await submit();
+        }
+      }
       if (!response.ok) {
         if (response.status === 503) {
           const failure = await response.json();
@@ -171,11 +184,22 @@ export function createPredictionMode(bridge) {
     }
   }
 
+  function calendarLabel() {
+    const label = make("label", undefined, "pm-calendar");
+    const timezone = make("span", undefined, "pm-calendar-timezone");
+    timezone.append(make("span", `${text("calendar_timezone")}: `, "pm-timezone-caption"),
+      make("span", `${text("calendar_zone")}: `, "pm-zone-caption"),
+      make("span", result.calendar_timezone || bridge.calendarTimezone()));
+    timezone.title = result.calendar_timezone || bridge.calendarTimezone();
+    label.append(timezone, make("span", text("date"), "pm-date-title"));
+    return label;
+  }
+
   function renderEcology(container, header) {
     // Python supplies both levels; the visible list also requires an in-season day.
     const ecology = result.ecology;
     const section = make("section", undefined, "pm-ecology");
-    const dateLabel = make("label", text("date"));
+    const dateLabel = calendarLabel();
     const select = make("select");
     select.ariaLabel = text("date");
     result.dates.forEach((day, i) => {
@@ -196,7 +220,7 @@ export function createPredictionMode(bridge) {
     const speciesColors = new Map(ids.map((id, index) => [id, palette[index] ||
       `hsl(${((index - palette.length) * 137.508 + 35) % 360} 70% 30%)`]));
     const chart = make("div", undefined, "pm-weekly-chart");
-    header.append(dateLabel, make("p", `${text("calendar_timezone")}: ${result.calendar_timezone || bridge.calendarTimezone()}`, "pm-execution"), chart);
+    header.append(dateLabel, chart);
     const status = make("p", undefined, "pm-ecology-status");
     status.setAttribute("role", "status");
     const list = make("ul", undefined, "pm-species");
@@ -275,7 +299,10 @@ export function createPredictionMode(bridge) {
     container.hidden = !calculated.length;
     if (!calculated.length) return;
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("viewBox", "0 0 400 128");
+    // Reduce the plot area on phones, retaining the same label and marker sizes.
+    const chartHeight = window.matchMedia("(max-width:480px)").matches ? 104 : 128;
+    const plotBottom = chartHeight - 26;
+    svg.setAttribute("viewBox", `0 0 400 ${chartHeight}`);
     svg.setAttribute("role", "img");
     svg.setAttribute("aria-label", text("weekly_chart"));
     const node = (tag, attrs, label) => {
@@ -285,7 +312,7 @@ export function createPredictionMode(bridge) {
       return child;
     };
     const x = day => 34 + day * 358 / Math.max(1, result.dates.length - 1);
-    const y = value => 102 - value * 92;
+    const y = value => plotBottom - value * (plotBottom - 10);
     const descriptions = [];
     const tooltip = make("div", undefined, "pm-chart-tooltip");
     tooltip.setAttribute("role", "tooltip");
@@ -318,7 +345,7 @@ export function createPredictionMode(bridge) {
       svg.append(node("line", {x1:34,x2:392,y1:y(value),y2:y(value),stroke:"#cad6df"}),
         node("text", {x:29,y:y(value)+3,"text-anchor":"end",class:"pm-chart-label"}, `${value*100}%`));
     }
-    svg.append(node("line", {x1:x(dayIndex),x2:x(dayIndex),y1:8,y2:104,
+    svg.append(node("line", {x1:x(dayIndex),x2:x(dayIndex),y1:8,y2:plotBottom+2,
       stroke:"#526678","stroke-dasharray":"3 3",class:"pm-chart-selected-day"}));
     for (const row of calculated) {
       const group = node("g", {"data-species-id":row.id,stroke:row.color,fill:row.color});
@@ -341,7 +368,7 @@ export function createPredictionMode(bridge) {
       flush(); svg.append(group);
     }
     result.dates.forEach((date, day) => {
-      svg.append(node("text", {x:x(day),y:122,"text-anchor":day===0?"start":day===result.dates.length-1?"end":"middle",
+      svg.append(node("text", {x:x(day),y:chartHeight-6,"text-anchor":day===0?"start":day===result.dates.length-1?"end":"middle",
         class:"pm-chart-label"},date.slice(8,10)+"/"+date.slice(5,7)));
     });
     svg.append(node("desc", {}, descriptions.join("; ")));
@@ -407,7 +434,9 @@ export function createPredictionMode(bridge) {
     const phValue = ["available", "partial"].includes(phContext?.status) &&
       Number.isFinite(estimate) && estimate > 0 && estimate <= 14 ? `≈ ${estimate.toFixed(1)}` : "—";
     const ph = make("div", undefined, "pm-summary-ph");
-    ph.append(make("span", text("ph_estimated")), make("strong", phValue));
+    ph.append(make("span", text("ph_estimated"), "pm-ph-full-label"),
+      make("span", "pH", "pm-ph-short-label"), make("strong", phValue));
+    ph.querySelector(".pm-ph-short-label").setAttribute("aria-hidden", "true");
     ph.title = text("ph_comparison_help");
     if (openland?.lookup?.method === "nearest" && Number.isFinite(openland.lookup.distance_m)) {
       ph.append(make("small", `${text("ph_nearby")}: ${Math.round(openland.lookup.distance_m)} m`, "pm-ph-nearby"));
@@ -437,7 +466,7 @@ export function createPredictionMode(bridge) {
     heading.append(place, summary, trees);
     header.append(heading);
     if (["local", "worker"].includes(result.execution?.mode)) {
-      const timing = `${text(`execution_${result.execution.mode}`)} · ${text("query_time")}: ${(elapsedMs/1000).toFixed(2)} s`;
+      const timing = `${text(result.execution.mode === "local" ? "execution_local_short" : "execution_worker")} · ${text("query_time")}: ${(elapsedMs/1000).toFixed(2)} s`;
       header.append(make("p", timing + (Number.isFinite(result.execution.compute_ms) ? ` · ${text("compute_time")}: ${(result.execution.compute_ms/1000).toFixed(2)} s` : ""), "pm-execution"));
     }
     if (result.ecology) {
@@ -495,7 +524,7 @@ export function createPredictionMode(bridge) {
         });
         flush();
       });
-      const dateLabel = make("label", text("date"));
+      const dateLabel = calendarLabel();
       const select = make("select");
       select.ariaLabel = text("date");
       result.dates.forEach((day, i) => {
@@ -525,7 +554,7 @@ export function createPredictionMode(bridge) {
       };
       select.addEventListener("change", () => { dayIndex = Number(select.value); renderRows(); });
       renderRows();
-      header.append(dateLabel, make("p", `${text("calendar_timezone")}: ${result.calendar_timezone || bridge.calendarTimezone()}`, "pm-execution"));
+      header.append(dateLabel);
       body.append(chart, list);
     }
     const terrainDetail = make("details", undefined, "pm-terrain");

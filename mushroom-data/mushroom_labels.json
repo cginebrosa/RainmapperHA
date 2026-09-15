@@ -1,4 +1,9 @@
 {
+  "ui.prediction_map_calendar_zone": {
+    "es": "Zona",
+    "ca": "Zona",
+    "en": "Zone"
+  },
   "ui.prediction_map_calendar_timezone": {
     "es": "Zona horaria de la predicción",
     "ca": "Zona horària de la predicció",
@@ -139,15 +144,25 @@
     "es": "Servidor local",
     "ca": "Servidor local"
   },
+  "ui.prediction_map_execution_local_short": {
+    "en": "Local",
+    "es": "Local",
+    "ca": "Local"
+  },
   "ui.prediction_map_execution_worker": {
     "en": "Worker",
     "es": "Worker",
     "ca": "Worker"
   },
   "ui.prediction_map_execution_help": {
-    "en": "Local uses the server hosting this map. Worker sends the query to a prepared worker. Applies to new queries; never switches automatically.",
-    "es": "Local utiliza el servidor que sirve este mapa. Worker envía la consulta a un worker preparado. Se aplica a consultas nuevas; no cambia automáticamente de opción.",
-    "ca": "Local utilitza el servidor que serveix aquest mapa. Worker envia la consulta a un worker preparat. S'aplica a consultes noves; no canvia automàticament d'opció."
+    "en": "Worker is the default. If no worker is available to accept the query, the local server is tried automatically without changing your saved preference. Local always uses the server hosting this map.",
+    "es": "Worker es la opción por defecto. Si no hay un worker disponible para aceptar la consulta, se intenta automáticamente en el servidor local sin cambiar la preferencia guardada. Local utiliza siempre el servidor que sirve este mapa.",
+    "ca": "Worker és l'opció per defecte. Si no hi ha cap worker disponible per acceptar la consulta, es prova automàticament al servidor local sense canviar la preferència desada. Local utilitza sempre el servidor que serveix aquest mapa."
+  },
+  "ui.prediction_map_execution_fallback": {
+    "en": "Worker unavailable. Trying the local server…",
+    "es": "Worker no disponible. Intentando en el servidor local…",
+    "ca": "Worker no disponible. Provant al servidor local…"
   },
   "ui.prediction_map_executor_unavailable": {
     "en": "The selected executor is not available. Choose another option in Prediction settings or try again later.",
@@ -6963,9 +6978,9 @@
     "en": "Experimental prediction · pending field validation"
   },
   "ui.prediction_map_ecology_calculated": {
-    "es": "Especies compatibles con el lugar y la temporada seleccionada. Las que no tienen cálculo aparecen al final.",
-    "ca": "Espècies compatibles amb el lloc i la temporada seleccionada. Les que no tenen càlcul apareixen al final.",
-    "en": "Species compatible with the location and selected season. Those without a calculation appear last."
+    "es": "Especies y temporada compatible",
+    "ca": "Espècies i temporada compatible",
+    "en": "Compatible species and season"
   },
   "ui.prediction_map_soil_ph_conditional": {
     "es": "Admisión condicionada: componente calcáreo y pH admitido. No se ha confirmado descalcificación del suelo superficial.",

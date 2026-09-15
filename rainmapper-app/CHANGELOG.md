@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.305
+
+- Keep the mobile map within the available viewport after login and reload,
+  including headers expanded by saved filters.
+- Compact prediction headers, coordinates, altitude, pH, timezone/date controls
+  and Cancel buttons on phones; leave more space for scrolling species.
+- Shorten localized status text and display local execution as `Local`.
+- Default new prediction preferences to Worker and retry rejected unavailable
+  worker queries once locally without changing the saved executor preference.
+
 ## 0.2.304
 
 - Integrate point predictions into the authenticated map with per-user access,

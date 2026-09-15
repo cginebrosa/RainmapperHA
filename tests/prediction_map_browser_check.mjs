@@ -84,8 +84,11 @@ const base = path.join(root, "rainmapper_core/viewers/maplibre-viewer");
 const extension = path.join(root, "rainmapper_core/viewers/prediction-map");
 let predictionAllowed = true;
 let role = "admin", calls = 0, delay = 0, failure = false, richTerrain = true, lastExecution = null;
+let compactMobileFixture = false;
 let lastCalendar = null, lastStartDate = null;
 let busyWorker = false;
+let unavailableWorker = false, unavailableLocal = false;
+const executionRequests = [];
 let ecologyFixture = null;
 let modelFixture = null;
 const asyncQueries = new Map();
@@ -144,9 +147,11 @@ const server = createServer(async (req, res) => {
       }
       const query = JSON.parse(Buffer.concat(chunks));
       lastExecution = query.execution || "local";
+      executionRequests.push(query);
       lastCalendar = query.calendar_timezone;
       lastStartDate = query.start_date;
-      if (busyWorker) return send({error:"worker_busy"},"application/json",503);
+      if (busyWorker && lastExecution === "worker") return send({error:"worker_busy"},"application/json",503);
+      if ((unavailableWorker && lastExecution === "worker") || (unavailableLocal && lastExecution === "local")) return send({error:"executor_unavailable"},"application/json",503);
       if (!["local","worker"].includes(lastExecution)) return send({error:"invalid_execution"},"application/json",400);
       if (preview && lastExecution === "worker") return send({error:"executor_unavailable"},"application/json",503);
       const started = performance.now();
@@ -175,6 +180,7 @@ const server = createServer(async (req, res) => {
           series:{rain_mm:values(2),temp_min_c:values(10),temp_max_c:values(20),humidity_min_pct:values(40),humidity_max_pct:values(80)},
           ...(richTerrain ? {wind:{station_name:"Viento <b>literal</b>",distance_km:2,avg_kmh:values(0),gust_kmh:values(12)}} : {}) };
         response.location = calls === 1 ? { status: "available", name: "Municipio de prueba <b>literal</b>" } : { status: "ambiguous" };
+        if (compactMobileFixture) response.location = {status:"available",name:"La Quar"};
         response.land_context = {
           trees: richTerrain ? {status:"available",items:[
             {label:"Encinas <b>literal</b>",scientific_name:"Quercus ilex",labels:{es:"Encinas <b>literal</b>",en:"Holm oak",ca:"Alzina"}},
@@ -195,6 +201,13 @@ const server = createServer(async (req, res) => {
       }
       if (!preview && ecologyFixture) response.ecology = {...ecologyFixture, dates:response.dates};
       if (!preview && modelFixture) Object.assign(response,modelFixture);
+      if (compactMobileFixture) {
+        response.terrain.ph_openlandmap.lookup={method:'cell'};
+        response.land_context.trees.items[0].labels={es:'Encina',ca:'Alzina',en:'Holm oak'};
+        response.ecology.mapped_context={soil_tendencies:[
+          {id:'calcareous',label:{es:'Calizo',ca:'Calcari',en:'Calcareous'}},
+          {id:'sandy',label:{es:'Arenoso',ca:'Sorrenc',en:'Sandy'}}]};
+      }
       response.execution = {mode:lastExecution,compute_ms:performance.now()-started};
       response.calendar_timezone = query.calendar_timezone;
       if (!preview && lastExecution === "worker" && !failure) {
@@ -288,11 +301,50 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   await send("Page.navigate", { url: origin + "/protected/prediction-map/index.html" });
   await until("!!document.getElementById('prediction-mode-toggle') && !!map.getLayer('station-circles')");
+  // iPhone login: guard the text size that triggers native focus zoom, and
+  // ensure the keyboard's focused field is released before hiding the overlay.
+  // Chrome emulation checks layout/focus; native iOS zoom still needs a device check.
+  for (const height of [664, 844]) {
+    await send("Emulation.setDeviceMetricsOverride", {width:390,height,deviceScaleFactor:1,mobile:true});
+    await evaluate("showLogin()");
+    await until("document.activeElement.id === 'login-username'");
+    const inputSizes = await evaluate("Array.from(document.querySelectorAll('.login-card input'), e=>parseFloat(getComputedStyle(e).fontSize))");
+    assert.ok(inputSizes.every(size=>size>=16), `Mobile login input sizes: ${inputSizes}`);
+    await evaluate("hideLogin()");
+    assert.equal(await evaluate("document.getElementById('login-overlay').contains(document.activeElement)"),false);
+    await pause(100);
+    const bounds=await evaluate(`['.topbar','.map-floating-controls','.maplibre-rain-legend','.period-timeline'].map(selector=>{
+      const r=document.querySelector(selector).getBoundingClientRect();
+      return {selector,left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight};
+    })`);
+    assert.ok(bounds.every(r=>r.left>=0 && r.top>=0 && r.right<=r.width+1 && r.bottom<=r.height+1),JSON.stringify(bounds));
+  }
+  const loginShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'mobile-after-login.png'),Buffer.from(loginShot.data,'base64'));
+  // A reload with a saved session restores filters and a taller summary after
+  // MapLibre has already measured its canvas. The map must fit the remainder.
+  for (const [width,height] of [[360,640],[390,744]]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+    await send('Page.reload');
+    await until("!!document.getElementById('prediction-mode-toggle') && !!map.getLayer('station-circles')");
+    assert.equal(await evaluate("document.getElementById('login-overlay').hidden"),true);
+    await evaluate("applyLanguage('ca'); minRainFilter=1; updateSummary('07d.geojson',1231,1995); document.getElementById('generated-at').textContent='15/09/26 - 23:56'");
+    await pause(150);
+    const layout=await evaluate(`(()=>{
+      const header=document.querySelector('.topbar').getBoundingClientRect(), main=document.querySelector('main').getBoundingClientRect(), canvas=map.getCanvas().getBoundingClientRect();
+      return {headerBottom:header.bottom,mainTop:main.top,mainBottom:main.bottom,canvasBottom:canvas.bottom,viewport:innerHeight,scrollWidth:document.documentElement.scrollWidth,width:innerWidth};
+    })()`);
+    assert.ok(layout.mainBottom<=layout.viewport+1 && Math.abs(layout.canvasBottom-layout.mainBottom)<=1 && layout.scrollWidth<=layout.width,JSON.stringify(layout));
+  }
+  const reloadShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'mobile-after-reload.png'),Buffer.from(reloadShot.data,'base64'));
+  await evaluate("minRainFilter=0;updateSummary('21d.geojson',1)");
+  await send("Emulation.setDeviceMetricsOverride", {width:1280,height:900,deviceScaleFactor:1,mobile:false});
   await evaluate("map.jumpTo({center:[1.9,42],zoom:9}); applyLanguage('es')");
   await evaluate("document.getElementById('settings-toggle').click();document.getElementById('settings-tab-prediction').click()");
   assert.equal(await evaluate("document.querySelectorAll('.map-settings-section.is-active').length"),1);
   assert.equal(await evaluate("document.querySelector('.map-settings-section.is-active').id"),"prediction-settings");
-  assert.equal(await evaluate("document.getElementById('prediction-execution-selector').value"),"local");
+  assert.equal(await evaluate("document.getElementById('prediction-execution-selector').value"),"worker");
   assert.equal(await evaluate("document.getElementById('prediction-timezone-selector').value"),"Europe/Madrid");
   await send('Emulation.setTimezoneOverride',{timezoneId:'Pacific/Honolulu'});
   await evaluate("document.getElementById('prediction-timezone-selector').value='Pacific/Kiritimati';document.getElementById('prediction-timezone-selector').dispatchEvent(new Event('change'))");
@@ -322,13 +374,13 @@ try {
   await until("!!document.querySelector('.pm-result')");
   assert.equal(await evaluate("!!document.querySelector('.pm-wait[open]')"), false);
   assert.equal(await evaluate("document.querySelectorAll('.pm-species li').length"), 3);
-  assert.equal(lastExecution,"local");
+  assert.equal(lastExecution,"worker");
   assert.equal(lastCalendar,'Pacific/Kiritimati');
   const expectedDay=await evaluate("(()=>{const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Kiritimati',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());return ['year','month','day'].map(k=>p.find(x=>x.type===k).value).join('-')})()");
   assert.equal(lastStartDate,expectedDay);
   assert.ok(await evaluate("document.querySelector('.pm-result').textContent.includes('Pacific/Kiritimati')"));
   assert.equal(deviceSettings.prediction_timezone,'Pacific/Kiritimati');
-  assert.ok(await evaluate("document.querySelector('.pm-execution').textContent.includes('Servidor local')"));
+  assert.ok(await evaluate("document.querySelector('.pm-execution').textContent.startsWith('Worker ·')"));
   assert.ok(await evaluate("(()=>{const node=document.querySelector('.pm-result'), r=node.getBoundingClientRect();return node.scrollWidth<=node.clientWidth && r.left>=0 && r.right<=innerWidth && r.bottom<=innerHeight})()"));
   assert.ok(await evaluate("document.querySelector('.pm-result').textContent.includes('predicción simulada')"));
   assert.equal(await evaluate("document.querySelector('.pm-municipality').textContent"), "Municipio de prueba <b>literal</b>");
@@ -405,12 +457,38 @@ try {
   await until("document.querySelector('.pm-wait h2')?.textContent.includes('No se ha podido')");
   await evaluate("document.querySelector('.pm-wait button').click()");
   failure = false;
-  busyWorker = true;
-  await clickAt(1.78, 42.07);
-  await until("document.querySelector('.pm-wait').textContent.includes('ocupado con otro trabajo')");
-  assert.ok(await evaluate("!document.querySelector('.pm-wait').textContent.includes('El ejecutor elegido no está disponible')"));
+  const savesBeforeFallback=settingsSaves;
+  for (const unavailable of ['busy','offline']) {
+    busyWorker=unavailable==='busy'; unavailableWorker=unavailable==='offline';
+    const beforeFallback=executionRequests.length;
+    await clickAt(1.78,42.07);
+    await until("!!document.querySelector('.pm-result')");
+    const attempts=executionRequests.slice(beforeFallback);
+    assert.deepEqual(attempts.map(r=>r.execution),['worker','local']);
+    assert.notEqual(attempts[0].request_id,attempts[1].request_id);
+    assert.deepEqual(attempts[0].point,attempts[1].point);
+    assert.equal(attempts[0].start_date,attempts[1].start_date);
+    assert.equal(attempts[0].calendar_timezone,attempts[1].calendar_timezone);
+    assert.equal(await evaluate("document.getElementById('prediction-execution-selector').value"),'worker');
+    assert.ok(await evaluate("document.querySelector('.pm-execution').textContent.startsWith('Local ·')"));
+    assert.equal(deviceSettings.prediction_execution,'worker');
+    assert.equal(settingsSaves,savesBeforeFallback);
+    await evaluate("document.querySelector('.pm-close').click()");
+  }
+  unavailableLocal=true;
+  const beforeBothUnavailable=executionRequests.length;
+  await clickAt(1.78,42.07);
+  await until("document.querySelector('.pm-wait h2')?.textContent.includes('No se ha podido')");
+  assert.deepEqual(executionRequests.slice(beforeBothUnavailable).map(r=>r.execution),['worker','local']);
   await evaluate("document.querySelector('.pm-wait button').click()");
-  busyWorker = false;
+  unavailableLocal=false;
+  // An explicit Local selection bypasses Worker even when it is unavailable.
+  await evaluate("document.getElementById('prediction-execution-selector').value='local';document.getElementById('prediction-execution-selector').dispatchEvent(new Event('change'))");
+  const beforeExplicitLocal=executionRequests.length;
+  await clickAt(1.78,42.07); await until("!!document.querySelector('.pm-result')");
+  assert.deepEqual(executionRequests.slice(beforeExplicitLocal).map(r=>r.execution),['local']);
+  await evaluate("document.querySelector('.pm-close').click();document.getElementById('prediction-execution-selector').value='worker';document.getElementById('prediction-execution-selector').dispatchEvent(new Event('change'))");
+  busyWorker=false; unavailableWorker=false;
   for (let i = 0; i < 4; i++) await evaluate("document.getElementById('prediction-mode-toggle').click()");
   const beforeOne = calls;
   await clickAt(2.04, 42.08);
@@ -573,6 +651,44 @@ try {
   assert.equal(await evaluate("document.querySelector('.pm-result-header select').value"),'0');
   assert.equal(calls,predictionCalls);
   // Terrain stays compatible, but the visible list changes with seasonal phase.
+  compactMobileFixture=true; richTerrain=true;
+  const compactMeasurements=[];
+  for (const [width,height,language] of [[360,640,'es'],[390,744,'ca'],[390,844,'en']]) {
+    await evaluate("document.querySelector('.pm-close').click()");
+    await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+    await evaluate(`applyLanguage('${language}');map.jumpTo({center:[1.9,42],zoom:8});void 0`);
+    await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-weekly-chart svg')");
+    const compact=await evaluate(`(()=>{
+      const box=s=>document.querySelector(s).getBoundingClientRect();
+      const coordinates=box('.pm-coordinates'),altitude=box('.pm-summary-altitude'),ph=box('.pm-summary-ph');
+      const date=box('.pm-date-title'),timezone=box('.pm-calendar-timezone'),select=box('.pm-calendar select');
+      const popup=box('.pm-result'),body=box('.pm-result-body');
+      const baseline=s=>{const marker=document.createElement('span');marker.style.cssText='display:inline-block;width:0;height:0;vertical-align:baseline';document.querySelector(s).append(marker);const y=marker.getBoundingClientRect().top;marker.remove();return y;};
+      return {width:innerWidth,height:innerHeight,bodyFraction:body.height/popup.height,
+        coordinatesTop:coordinates.top,altitudeTop:altitude.top,phTop:ph.top,
+        dateCenter:(date.top+date.bottom)/2,timezoneCenter:(timezone.top+timezone.bottom)/2,
+        selectCenter:(select.top+select.bottom)/2,
+        dateBaseline:baseline('.pm-date-title'),timezoneBaseline:baseline('.pm-calendar-timezone'),selectHeight:select.height,selectWidth:select.width,
+        zoneFirst:timezone.right<=date.left && date.right<=select.left,
+        zoneCaptionVisible:getComputedStyle(document.querySelector('.pm-zone-caption')).display!=='none',
+        noticeHidden:getComputedStyle(document.querySelector('.pm-simulation')).display==='none',
+        timezoneCaptionHidden:getComputedStyle(document.querySelector('.pm-timezone-caption')).display==='none',
+        noOverflow:document.querySelector('.pm-result').scrollWidth<=popup.width+1,
+        selectFont:parseFloat(getComputedStyle(document.querySelector('.pm-calendar select')).fontSize)};
+    })()`);
+    compactMeasurements.push(compact);
+    assert.ok(compact.noticeHidden && compact.timezoneCaptionHidden && compact.noOverflow,JSON.stringify(compact));
+    assert.ok(Math.abs(compact.coordinatesTop-compact.altitudeTop)<3 && Math.abs(compact.coordinatesTop-compact.phTop)<3,JSON.stringify(compact));
+    assert.ok(Math.abs(compact.dateBaseline-compact.timezoneBaseline)<1 && Math.abs(compact.dateCenter-compact.selectCenter)<4,JSON.stringify(compact));
+    assert.ok(compact.bodyFraction>=.45 && compact.selectFont>=11 && compact.selectHeight<=24 && compact.selectWidth<=98,JSON.stringify(compact));
+    assert.ok(compact.zoneFirst && compact.zoneCaptionVisible,JSON.stringify(compact));
+    const shot=await send('Page.captureScreenshot',{format:'png'});
+    await fs.writeFile(path.join(profile,`compact-header-${language}.png`),Buffer.from(shot.data,'base64'));
+  }
+  console.log(JSON.stringify({compact_header:compactMeasurements}));
+  compactMobileFixture=false; richTerrain=false;
+  await evaluate("applyLanguage('es')");
+  // Continue the season changes with the original fixture.
   ecologyFixture.species[0].daily_season_phases=Array(7).fill('out_of_season');
   ecologyFixture.species[1].daily_season_phases=['out_of_season','secondary',...Array(5).fill('main')];
   ecologyFixture.species[2].daily_season_phases=Array(7).fill('unknown');

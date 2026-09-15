@@ -11,7 +11,7 @@
   let mode = null;
   let loading = false;
   let settings = null;
-  let execution = "local";
+  let execution = "worker";
   let calendarTimezone = config.defaultCalendarTimezone || "Europe/Madrid";
   // Extend the existing save-on-panel-close payload only on the new route.
   const weatherDeviceSettings = currentDeviceSettings;
@@ -129,7 +129,7 @@
     const label = document.createElement("span");
     const select = document.createElement("select");
     select.id = "prediction-execution-selector";
-    const options = ["local", "worker"].map(value => {
+    const options = ["worker", "local"].map(value => {
       const option = document.createElement("option"); option.value = value; select.append(option); return option;
     });
     const note = document.createElement("p");
@@ -139,7 +139,7 @@
     if (!["local", "worker"].includes(execution)) {
       // Read the old prototype preference once when the device has none yet.
       // New changes are saved by saveDeviceSettings(), never to localStorage.
-      try { execution = localStorage.getItem(key) === "worker" ? "worker" : "local"; } catch { execution = "local"; }
+      try { execution = localStorage.getItem(key) === "local" ? "local" : "worker"; } catch { execution = "worker"; }
     }
     select.value = execution;
     const calendarRow = document.createElement("label");
@@ -157,7 +157,7 @@
     const refreshText = () => {
       tab.textContent = text("settings"); label.textContent = select.ariaLabel = text("execution");
       options.forEach(option => { option.textContent = text(`execution_${option.value}`); });
-      note.textContent = text("execution_help") + (capability.executors?.[execution] === false ? ` ${text("executor_unavailable")}` : "");
+      note.textContent = text("execution_help") + (execution === "local" && capability.executors?.local === false ? ` ${text("executor_unavailable")}` : "");
       calendarLabel.textContent = calendarSelect.ariaLabel = text("calendar_timezone");
       calendarNote.textContent = text("calendar_timezone_help");
     };
