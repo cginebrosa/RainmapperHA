@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.308
+
+- Show compact `IFF:` scores in Predictor cards and details; preserve the
+  accessible favorability explanation and the uncalculated state.
+
 ## 0.2.307
 
 - Color map IFF scores, descriptions and weekly maxima by favorability band,

@@ -1770,7 +1770,7 @@ def _compact_result_probability(interpretation: dict[str, Any]) -> str:
 def _compact_result_probability_html(interpretation: dict[str, Any]) -> str:
     value = _compact_result_probability(interpretation)
     rendered = _tooltip_label(
-        f"IFF {value}" if value != "—" else _lbl("ui.prediction_map_prediction_uncalculated"),
+        f"IFF:{value}" if value != "—" else _lbl("ui.prediction_map_prediction_uncalculated"),
         "ui.predictor_help_prediction_probability",
         strong=False,
     )
@@ -2025,8 +2025,7 @@ def _render_interpretation_card(
     if isinstance(display_reference_range, dict):
         range_html = (
             f'<div class="pred-interpretation-range">'
-            f'<span>{_tooltip_label_key("ui.predictor_estimated_probability", "ui.predictor_help_prediction_probability", strong=False)}</span>'
-            f'<strong>{html.escape(_probability_range(display_reference_range))}</strong>'
+            f'<strong>{_tooltip_label("IFF:" + _probability_range(display_reference_range), "ui.predictor_help_prediction_probability", strong=False)}</strong>'
             f'<span class="pred-iff-band">{html.escape(_iff_range_label(display_reference_range))}</span>'
             f'</div>'
         )

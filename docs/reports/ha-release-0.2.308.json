@@ -1,0 +1,155 @@
+{
+  "version": "0.2.308",
+  "date": "2026-09-16",
+  "image": "ghcr.io/cginebrosa/rainmapperha",
+  "tags": [
+    "0.2.308",
+    "latest"
+  ],
+  "digest": "sha256:c9aef260840f6e4a3a7cd4eeecde5a2d761304c2e43c233bbc79fcdce44d8648",
+  "platforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "verification": "docker buildx imagetools inspect for both tags; identical digest and platforms; publication process exited 0",
+  "scope": "Predictor IFF: score presentation; preserve favorability tooltip and uncalculated state. No model, worker contract or GIS mapping changes.",
+  "publication_authorization": "User explicitly requested publication of the pending HA version.",
+  "local_parity": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 200,
+      "mismatches": [],
+      "manifest_sha256": "94b762860017514848567155fe3b7298f86772b5bcd3b57e4d46c2c69a08fb04"
+    },
+    "rainmapper-worker": {
+      "checked_files": 107,
+      "mismatches": [],
+      "manifest_sha256": "6f32ec9f8e3f70aa272d4ddd3eb379ddf3fc5260b177c7654826c8e1d60e921b"
+    }
+  },
+  "local_validation": {
+    "ui": {
+      "container": "rainmapper-local-rainmapper-ha-ui-1",
+      "checks": [
+        {
+          "language": "es",
+          "compact": true,
+          "detail": true,
+          "tooltip": true,
+          "missing": true
+        },
+        {
+          "language": "ca",
+          "compact": true,
+          "detail": true,
+          "tooltip": true,
+          "missing": true
+        },
+        {
+          "language": "en",
+          "compact": true,
+          "detail": true,
+          "tooltip": true,
+          "missing": true
+        }
+      ],
+      "result": "passed"
+    },
+    "worker_config_sha256": {
+      "coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+      "additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+    },
+    "worker_health": {
+      "schema_version": "0.1",
+      "kind": "rainmapper_worker_status",
+      "service": "rainmapper-worker",
+      "worker_id": "worker_1a9a232c20fe2ee2",
+      "display_name": "M1 Personal",
+      "host_name": "MacBook Pro de Carlos",
+      "architecture": "aarch64",
+      "platform": "Linux",
+      "worker_version": "1.1.3",
+      "status": "idle",
+      "job_api": "candidate_rebuild_v0",
+      "capabilities": [
+        "rebuild_v0",
+        "weather_parquet_v1",
+        "partitioned_weather_history_v1",
+        "terminal_job_cleanup_v1",
+        "predictor_v1",
+        "predictor_precompute_v1",
+        "predictor_weekly_model_selection_v2",
+        "predictor_multiversion_v2",
+        "ml_multiversion_training_v2",
+        "ml_job_purpose_v1",
+        "ml_benchmark_report_v1"
+      ],
+      "dataset_cache": {
+        "status": "valid",
+        "dataset_id": "mushroom_gis_v0",
+        "fingerprint": "sha256:7410f2e2482b77688027440fa047344bba65285fa2f9e812c07c65f769981574",
+        "validation": "shallow",
+        "file_count": 13,
+        "size_bytes": 6424592573
+      },
+      "predictor_cache": {
+        "status": "valid",
+        "fingerprint": "sha256:d7191c3ea88f2c9495a909ba7278fff1f7bb6ee572b168ff6a152f64e15637a1",
+        "size_bytes": 174437896
+      },
+      "lanes": {
+        "foreground": {
+          "status": "idle",
+          "active_job_id": ""
+        },
+        "background": {
+          "status": "idle",
+          "active_job_id": ""
+        }
+      }
+    },
+    "containers": [
+      {
+        "name": "/rainmapper-local-rainmapper-ha-ui-1",
+        "image_id": "sha256:a0c717265520bf9cebded2423b402eff5765576a0232b82eb609f78c6d53b9f3",
+        "created": "2026-09-16T19:26:57.653031755Z",
+        "status": "running",
+        "health": null
+      },
+      {
+        "name": "/rainmapper-worker",
+        "image_id": "sha256:aa9b46179a360c81c299b717429881529be0fa9573ca0ab594782e0e122aa112",
+        "created": "2026-09-16T19:27:30.309372256Z",
+        "status": "running",
+        "health": "healthy"
+      }
+    ]
+  },
+  "smoke": {
+    "tests": 1613,
+    "skipped": 48,
+    "result": "passed",
+    "log": "tmp/release-0.2.308/smoke-final.log",
+    "note": "Initial sandbox run failed on six localhost socket permissions and one obsolete label assertion. Updated assertion to IFF:95/100 plus tooltip; full smoke passed outside sandbox."
+  },
+  "metadata": {
+    "version_fields": 3,
+    "viewer_cache_busters": 6,
+    "aligned": "0.2.308",
+    "note": "Local images and smoke validated final executable code before mechanical metadata/cache-buster bump, per release-flow.md."
+  },
+  "worker": {
+    "version": "1.1.3",
+    "rebuilt_and_recreated": true,
+    "new_publication": false,
+    "single_existing_worker": true,
+    "coordinator_destinations_preserved": true,
+    "coordinator_config_sha256": {
+      "coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+      "additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+    }
+  },
+  "local_pipeline": "Not relaunched: presentation-only change; no operational training or precompute requested or executed.",
+  "cleanup": "No image, cache, volume or GHCR cleanup performed; user data and evidence retained.",
+  "ha_real": "0.2.307 installed according to previous user confirmation; 0.2.308 installation remains user-managed and has not been checked remotely.",
+  "remaining": "GIS review remains explicitly paused. User observations and GBIF work excluded from the release commit."
+}

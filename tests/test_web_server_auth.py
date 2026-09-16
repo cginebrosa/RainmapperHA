@@ -5007,7 +5007,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 comparison["interpretation"]
             )
 
-        self.assertIn("ui.predictor_estimated_probability", rendered)
+        self.assertIn("IFF:95/100", rendered)
+        self.assertIn('data-help="ui.predictor_help_prediction_probability"', rendered)
         self.assertNotIn("ui.predictor_statistical_signal_before_veto", rendered)
         self.assertNotIn("ui.predictor_ecological_veto_result", rendered)
         self.assertNotIn("ui.predictor_ecological_compatibility", rendered)
