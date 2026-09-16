@@ -1,5 +1,33 @@
 # Active Context
 
+## Release 0.2.307 — 16/09/2026
+
+Imagen verificada en GHCR: `0.2.307` y `latest` comparten digest
+`sha256:d8c0c1b110b9d700e980e5409888374b61d1dcd35f0203260f0145c15af8ca46`,
+con manifests amd64 y arm64. Publicación autorizada expresamente tras revisión local.
+[Informe y evidencia de release](reports/ha-release-0.2.307.json).
+
+Incluye IFF en tres idiomas, colores por favorabilidad, ayuda desplazable,
+fechas con día de semana, filas compactas de especies e inventario GIS completo.
+HA local y el único worker existente (1.1.3) reconstruidos; 200/107 archivos
+efectivos coinciden con el código candidato. Destinos del worker conservados.
+Smoke final: 1613 tests, 48 omitidos; navegador correcto y sin desbordamiento móvil.
+La cadena local completó reconstrucción, entrenamiento base, 714 ajustes
+multiversión y precálculo activado. El cambio posterior de datos KMga4 se validó
+con ambos lectores y consulta local del punto; no se repitió esa cadena por él.
+
+Entrega congelada: `tmp/release-0.2.307/ha-data/mushroom-data/`, siete JSON para
+`/share/rainmapper/mushroom-data/`. El usuario indica haber copiado sin backup;
+no se ha comprobado el destino ni instalado/reiniciado HA real desde el agente.
+**Revisión científica adicional en pausa por petición del usuario.** No modificar
+la entrega congelada. Hay 471 códigos geológicos aceptados solo por litología,
+sin tendencia de suelo, además de 17 pendientes. No está cerrada la investigación
+de suelos de todas las formaciones. El cambio IFF es presentación; las revisiones
+GIS no reescriben modelos ni precálculos existentes.
+Observaciones privadas y documentación GBIF ajenas quedan fuera del commit.
+
+## Antecedente: release 0.2.305
+
 Estado del 16/09/2026. **HA 0.2.305 publicada y verificada en GHCR**: versión y
 `latest` tienen el mismo digest y manifests amd64/arm64. Actualización aceptada
 por el usuario tras revisar HA local; instalación de HA real pendiente del usuario.

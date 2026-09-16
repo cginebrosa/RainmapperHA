@@ -1,5 +1,13 @@
 /* Point-query presentation. Scientific probabilities come from the executor. */
-import { renderPointWeather } from "./prediction-weather.js";
+import { renderPointWeather, formatCalendarDate } from "./prediction-weather.js";
+// Presentation only: retain the executor's original values and ordering.
+export function iffScore(value) {
+  return Number.isFinite(value) && value >= 0 && value <= 1 ? Math.round(value * 100) : null;
+}
+export function iffBand(value) {
+  const score = iffScore(value);
+  return score === null ? null : [20, 40, 60, 80, 95, 101].findIndex(limit => score < limit);
+}
 export function createPredictionMode(bridge) {
   const { map, text, config } = bridge;
   let enabled = false;
@@ -52,6 +60,8 @@ export function createPredictionMode(bridge) {
   cancel.addEventListener("click", cancelQuery);
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); cancelQuery(); });
 
+  const dateText = (day, weekday = "long") => formatCalendarDate(day, bridge.language(), weekday);
+
   function localDay() {
     const parts = new Intl.DateTimeFormat("en-CA", {
       timeZone: bridge.calendarTimezone(), year: "numeric", month: "2-digit", day: "2-digit"
@@ -59,8 +69,35 @@ export function createPredictionMode(bridge) {
     const value = name => parts.find(part => part.type === name).value;
     return `${value("year")}-${value("month")}-${value("day")}`;
   }
-  function percent(value) {
-    return value === null ? "—" : `${Math.round(value * 100)} %`;
+  function indexText(value) {
+    const score = iffScore(value);
+    return score === null ? "—" : `${score}/100`;
+  }
+  function indexDescription(value) {
+    const band = iffBand(value);
+    return band === null ? text("prediction_uncalculated") : `IFF:${indexText(value)} · ${text(`iff_band_${band}`)}`;
+  }
+  function indexValue(value) {
+    const score = iffScore(value);
+    const wrap = make("span", undefined, "pm-iff-value");
+    if (score !== null) wrap.dataset.iffBand = String(iffBand(value));
+    const button = make("button", score === null ? text("prediction_uncalculated") : `IFF:${indexText(value)}`, "pm-iff-score");
+    button.type = "button";
+    button.setAttribute("aria-label", `${indexDescription(value)}. ${text("iff_name")}. ${text("iff_help")}`);
+    button.setAttribute("aria-expanded", "false");
+    const help = make("span", `${text("iff_name")}. ${text("iff_help")}`, "pm-iff-help");
+    help.setAttribute("role", "tooltip");
+    button.addEventListener("click", () => {
+      const open = button.getAttribute("aria-expanded") !== "true";
+      button.setAttribute("aria-expanded", String(open));
+      wrap.classList.toggle("pm-iff-open", open);
+    });
+    button.addEventListener("blur", () => { wrap.classList.remove("pm-iff-open"); button.setAttribute("aria-expanded", "false"); });
+    button.addEventListener("keydown", event => { if (event.key === "Escape") button.blur(); });
+    wrap.append(button);
+    if (score !== null) wrap.append(make("span", text(`iff_band_${iffBand(value)}`), "pm-iff-band"));
+    wrap.append(help);
+    return wrap;
   }
   function contextNames(kind) {
     const rows = result?.ecology?.status === "available" ? result.ecology.mapped_context?.[kind] : null;
@@ -203,7 +240,7 @@ export function createPredictionMode(bridge) {
     const select = make("select");
     select.ariaLabel = text("date");
     result.dates.forEach((day, i) => {
-      const option = make("option", day); option.value = String(i); select.append(option);
+      const option = make("option", dateText(day)); option.value = String(i); select.append(option);
     });
     select.value = String(dayIndex); dateLabel.append(select);
     const predicted = new Map(result.data_mode === "prediction" ? result.species.map(row => [row.species_id,row]) : []);
@@ -254,14 +291,20 @@ export function createPredictionMode(bridge) {
           dot.setAttribute("aria-hidden", "true");
           name.prepend(dot);
         }
-        item.append(name, make("span", calculated ?
-          (Number.isFinite(value) ? percent(value) : text("prediction_uncalculated")) : text("prediction_pending")),
+        item.append(name, calculated ? indexValue(value) : make("span", text("prediction_pending")),
                     make("small", row.scientific_name));
+        const seasonSummary = make("small", undefined, "pm-season-summary");
+        seasonSummary.append(make("span", text(`season_${row.daily_season_phases[dayIndex]}`), "pm-season-phase"));
         if (valid.length) {
           const peak = Math.max(...valid);
-          item.append(make("small", `${text("weekly_peak")}: ${percent(peak)} · ${result.dates[values.indexOf(peak)]}`, "pm-weekly-peak"));
+          const peakText = make("span", undefined, "pm-weekly-peak");
+          const peakValue = make("span", `${text("weekly_peak_short")}: ${indexText(peak)}`, "pm-iff-peak-value");
+          peakValue.dataset.iffBand = String(iffBand(peak));
+          peakText.append(peakValue, ` · ${dateText(result.dates[values.indexOf(peak)])}`);
+          peakText.title = `${text("weekly_peak")}: ${indexText(peak)} · ${dateText(result.dates[values.indexOf(peak)])}`;
+          seasonSummary.append(" — ", peakText);
         }
-        item.append(make("small", text(`season_${row.daily_season_phases[dayIndex]}`), "pm-season-phase"));
+        item.append(seasonSummary);
         if (row.reasons?.includes("ph_conflict_soil_supported")) {
           item.append(make("small", text("soil_ph_supported"), "pm-soil-ph-supported"));
         }
@@ -322,7 +365,7 @@ export function createPredictionMode(bridge) {
     const showTooltip = day => {
       if (!tooltip.hidden && hoveredDay === day) return;
       hoveredDay = day;
-      tooltip.replaceChildren(make("strong", result.dates[day]));
+      tooltip.replaceChildren(make("strong", dateText(result.dates[day])));
       for (const row of calculated) {
         const value = row.values[day];
         if (!Number.isFinite(value)) continue;
@@ -330,7 +373,7 @@ export function createPredictionMode(bridge) {
         const dot = make("span", undefined, "pm-species-color");
         dot.style.backgroundColor = row.color;
         dot.setAttribute("aria-hidden", "true");
-        entry.append(dot, make("span", row.name), make("strong", percent(value)));
+        entry.append(dot, make("span", row.name), make("strong", indexDescription(value)));
         tooltip.append(entry);
       }
       if (tooltip.children.length === 1) tooltip.append(make("div", text("prediction_uncalculated")));
@@ -343,7 +386,7 @@ export function createPredictionMode(bridge) {
     };
     for (const value of [0, .25, .5, .75, 1]) {
       svg.append(node("line", {x1:34,x2:392,y1:y(value),y2:y(value),stroke:"#cad6df"}),
-        node("text", {x:29,y:y(value)+3,"text-anchor":"end",class:"pm-chart-label"}, `${value*100}%`));
+        node("text", {x:29,y:y(value)+3,"text-anchor":"end",class:"pm-chart-label"}, `${value*100}`));
     }
     svg.append(node("line", {x1:x(dayIndex),x2:x(dayIndex),y1:8,y2:plotBottom+2,
       stroke:"#526678","stroke-dasharray":"3 3",class:"pm-chart-selected-day"}));
@@ -358,7 +401,7 @@ export function createPredictionMode(bridge) {
         if (!Number.isFinite(value)) { flush(); return; }
         segment.push(`${x(day)},${y(value)}`);
         const point = node("circle", {cx:x(day),cy:y(value),r:day===dayIndex?3.5:2.5,"data-day":day});
-        const description = `${row.name} · ${result.dates[day]}: ${percent(value)}`;
+        const description = `${row.name} · ${dateText(result.dates[day])}: ${indexDescription(value)}`;
         point.setAttribute("tabindex", "0");
         point.setAttribute("aria-label", description);
         point.addEventListener("focus", () => showTooltip(day));
@@ -368,8 +411,11 @@ export function createPredictionMode(bridge) {
       flush(); svg.append(group);
     }
     result.dates.forEach((date, day) => {
-      svg.append(node("text", {x:x(day),y:chartHeight-6,"text-anchor":day===0?"start":day===result.dates.length-1?"end":"middle",
-        class:"pm-chart-label"},date.slice(8,10)+"/"+date.slice(5,7)));
+      const [weekday, numeric] = dateText(date, "short").split(" ");
+      const labelX = Math.min(x(day), 376);
+      const label = node("text", {x:labelX,y:chartHeight-16,"text-anchor":"middle", class:"pm-chart-label"});
+      label.append(node("tspan", {x:labelX}, weekday), node("tspan", {x:labelX,dy:10}, numeric));
+      svg.append(label);
     });
     svg.append(node("desc", {}, descriptions.join("; ")));
     svg.addEventListener("pointermove", event => {
@@ -406,8 +452,11 @@ export function createPredictionMode(bridge) {
     close.addEventListener("click", closePopup);
     const modeNotice = text(result.data_mode === "prediction" ? "prediction_experimental" : result.ecology ? "ecology_prototype" : "simulation");
     banner.textContent = notice.textContent = modeNotice;
-    header.append(close, make("strong", modeNotice, "pm-simulation"),
-      make("h2", text("result")));
+    header.append(close);
+    if (result.data_mode !== "prediction") {
+      header.append(make("strong", modeNotice, "pm-simulation"));
+    }
+    header.append(make("h2", text("result")));
     const heading = make("div", undefined, "pm-place-heading");
     const place = make("div", undefined, "pm-place-name");
     const location = result.location;
@@ -488,14 +537,14 @@ export function createPredictionMode(bridge) {
         chart.append(label);
       };
       for (const level of [0, 0.5, 1]) {
-        chartText(`${level * 100}%`, 0, yAt(level) + 3);
+        chartText(`${level * 100}`, 0, yAt(level) + 3);
         const grid = document.createElementNS(chart.namespaceURI, "line");
         grid.setAttribute("x1", "34"); grid.setAttribute("x2", "390");
         grid.setAttribute("y1", yAt(level)); grid.setAttribute("y2", yAt(level));
         grid.setAttribute("stroke", "#cfdae1"); chart.append(grid);
       }
-      chartText(result.dates[0], 0, 144);
-      chartText(result.dates.at(-1), 400, 144, "end");
+      chartText(dateText(result.dates[0]), 0, 144);
+      chartText(dateText(result.dates.at(-1)), 400, 144, "end");
       const selectedDay = document.createElementNS(chart.namespaceURI, "line");
       selectedDay.setAttribute("y1", "12"); selectedDay.setAttribute("y2", "122");
       selectedDay.setAttribute("stroke", "#687d8a"); selectedDay.setAttribute("stroke-dasharray", "3 3");
@@ -528,7 +577,7 @@ export function createPredictionMode(bridge) {
       const select = make("select");
       select.ariaLabel = text("date");
       result.dates.forEach((day, i) => {
-        const option = make("option", day);
+        const option = make("option", dateText(day));
         option.value = String(i);
         select.append(option);
       });
@@ -542,12 +591,11 @@ export function createPredictionMode(bridge) {
           const item = make("li");
           const name = make("strong", text(row.label_key));
           name.style.color = colors[index % colors.length];
-          const value = row.status === "no_model" ? text("no_model") : percent(row.probabilities[dayIndex]);
-          item.append(name, make("span", value));
+          item.append(name, row.status === "no_model" ? make("span", text("no_model")) : indexValue(row.probabilities[dayIndex]));
           const valid = row.probabilities.filter((v) => v !== null);
           if (valid.length) {
             const peak = Math.max(...valid);
-            item.append(make("small", `${text("peak")}: ${percent(peak)} · ${result.dates[row.probabilities.indexOf(peak)]}`));
+            item.append(make("small", `${text("peak")}: ${indexText(peak)} · ${dateText(result.dates[row.probabilities.indexOf(peak)])}`));
           }
           list.append(item);
         });
@@ -620,7 +668,7 @@ export function createPredictionMode(bridge) {
     } else {
       terrainDetail.append(make("p", terrain?.status === "not_connected" ? text("not_connected") : missing(terrain?.status)));
     }
-    const weatherDetail = renderPointWeather(result.weather, text);
+    const weatherDetail = renderPointWeather(result.weather, text, bridge.language());
     const lithologies = contextNames("lithologies");
     const soilTendencies = contextNames("soil_tendencies");
     if (lithologies.length) terrainDetail.append(make("p", `${text("terrain_materials")}: ${lithologies.join(", ")}`, "pm-materials"));

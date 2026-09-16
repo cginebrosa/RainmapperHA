@@ -1,5 +1,14 @@
 /* Observed daily weather only. Local range selection never requests prediction. */
-export function renderPointWeather(weather, text) {
+// Calendar days are formatted in UTC to avoid shifting them in browser time zones.
+export function formatCalendarDate(day, language = "en", weekday = "long") {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day || "")) return "—";
+  const date = new Date(`${day}T12:00:00Z`);
+  if (!Number.isFinite(date.getTime())) return "—";
+  const name = new Intl.DateTimeFormat(language, { weekday, timeZone: "UTC" }).format(date);
+  return `${name} ${day.slice(8,10)}/${day.slice(5,7)}/${day.slice(2,4)}`;
+}
+export function renderPointWeather(weather, text, language = "en") {
+  const dateText = day => formatCalendarDate(day, language);
   const make = (tag, content, cls) => {
     const node = document.createElement(tag);
     if (content !== undefined) node.textContent = content;
@@ -65,15 +74,15 @@ export function renderPointWeather(weather, text) {
         const x = xAt(i), y = yAt(value);
         if (bars) {
           const bar = el("rect", { x: x-2, y, width: Math.max(2,Math.min(8,300/days.length)), height: Math.max(1,110-y), fill: colors[index] });
-          const label = document.createElementNS(svg.namespaceURI,"title"); label.textContent = `${days[i]}: ${number(value)} ${unit}`; bar.append(label);
+          const label = document.createElementNS(svg.namespaceURI,"title"); label.textContent = `${dateText(days[i])}: ${number(value)} ${unit}`; bar.append(label);
         } else {
           points.push(`${x},${y}`); el("circle", { cx: x, cy: y, r: 1.7, fill: colors[index] });
         }
       });
       flush();
     });
-    el("text", { x: 40, y: 132, "font-size": 10, fill: "#344a5a" }, days[0]);
-    el("text", { x: 394, y: 132, "text-anchor": "end", "font-size": 10, fill: "#344a5a" }, days.at(-1));
+    el("text", { x: 40, y: 132, "font-size": 10, fill: "#344a5a" }, dateText(days[0]));
+    el("text", { x: 394, y: 132, "text-anchor": "end", "font-size": 10, fill: "#344a5a" }, dateText(days.at(-1)));
     figure.append(svg);
     const legend = make("p", undefined, "pm-weather-legend");
     for (const [i, curve] of curves.entries()) {
@@ -85,7 +94,7 @@ export function renderPointWeather(weather, text) {
   function render() {
     const count = Number(select.value), days = dates.slice(-count);
     const series = Object.fromEntries(keys.map(key => [key, weather.series[key].slice(-count)]));
-    body.replaceChildren(make("p", `${days[0]} — ${days.at(-1)}`, "pm-weather-dates"));
+    body.replaceChildren(make("p", `${dateText(days[0])} — ${dateText(days.at(-1))}`, "pm-weather-dates"));
     const rain = series.rain_mm.filter(numeric);
     body.append(make("p", format("weather_rain_sum", { amount: rain.length ? number(rain.reduce((a,b) => a+b,0)) : "—", available: rain.length, days: count }), "pm-weather-total"));
     body.append(graph(text("rain"), "mm", days, [{ label: text("rain"), values: series.rain_mm }], true));
@@ -117,7 +126,7 @@ export function renderPointWeather(weather, text) {
     const head = make("thead"); head.append(header); table.append(head);
     const tbody = make("tbody");
     days.forEach((day,i) => {
-      const row = make("tr"); row.append(make("td",day));
+      const row = make("tr"); row.append(make("td",dateText(day)));
       for (const key of keys) row.append(make("td",number(series[key][i])));
       if (showWind) for (const key of ["avg_kmh","gust_kmh"]) row.append(make("td",number(wind[key][dates.length-count+i])));
       tbody.append(row);

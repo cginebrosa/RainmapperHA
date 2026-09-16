@@ -9,11 +9,12 @@ import math
 from pathlib import Path
 import sqlite3
 import threading
+from rainmapper_core.mushroom_gis_inventory import GEOLOGY_PRODUCT
 
 
 SOURCES = {
     "vegetation": ("cobertes_sol", "nivell_2", "icgc_cobertes_2024", "2024"),
-    "geology": ("_04_unitats_geologiques_50000", "Codi", "icgc_geologia_50000", "2024-12"),
+    "geology": ("_04_unitats_geologiques_50000", GEOLOGY_PRODUCT[2], GEOLOGY_PRODUCT[0], GEOLOGY_PRODUCT[1]),
 }
 MAX_CANDIDATES = 64
 MAX_GEOMETRY_BYTES = 2 * 1024 * 1024

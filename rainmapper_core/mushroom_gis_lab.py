@@ -285,20 +285,36 @@ def normalized_mapping_key(value: object) -> str:
     return " ".join(str(value or "").strip().casefold().split())
 
 
+def exact_layer_value_key(source_id: str, field: str, value: object) -> str:
+    # Geological codes encode different ages with letter case (KSCm != KScm).
+    # Keep the established normalization for vegetation text only.
+    if source_id == "geology_50000" and field == "Codi":
+        return str(value or "").strip()
+    return normalized_mapping_key(value)
+
+
 def exact_mapping_lookup(gis_payload: dict[str, Any] | None) -> dict[tuple[str, str, str], dict[str, Any]]:
-    mappings = gis_payload.get("exact_value_mappings") if isinstance(gis_payload, dict) else None
-    if not isinstance(mappings, list):
+    from rainmapper_core.mushroom_gis_inventory import GEOLOGY_PRODUCT, logical_mappings
+    if not isinstance(gis_payload, dict):
         return {}
     lookup: dict[tuple[str, str, str], dict[str, Any]] = {}
-    for mapping in mappings:
-        if not isinstance(mapping, dict):
-            continue
+    for mapping in logical_mappings(gis_payload):
         source_id = str(mapping.get("source_id", "") or "")
         field = str(mapping.get("field", "") or "")
         raw_value = mapping.get("raw_value")
         if not source_id or not field or raw_value in (None, ""):
             continue
-        lookup[(source_id, field, normalized_mapping_key(raw_value))] = mapping
+        # This layer is pinned to the published 2024-12 GeoPackage. Keep the
+        # existing source/output name; another edition must never override it.
+        edition = mapping.get("edition")
+        if source_id == GEOLOGY_PRODUCT[0] and field == GEOLOGY_PRODUCT[2]:
+            if edition and edition != GEOLOGY_PRODUCT[1]:
+                continue
+        key = (source_id, field, exact_layer_value_key(source_id, field, raw_value))
+        if not edition and lookup.get(key, {}).get("edition"):
+            continue
+        lookup[key] = mapping
+
     return lookup
 
 
@@ -557,7 +573,7 @@ def build_batch_unmapped_candidates(
                 if not raw_value:
                     continue
                 field_total += 1
-                key = (layer.source_id, field, normalized_mapping_key(raw_value))
+                key = (layer.source_id, field, exact_layer_value_key(layer.source_id, field, raw_value))
                 if key in existing_keys:
                     field_existing += 1
                     continue
@@ -629,7 +645,7 @@ def apply_exact_layer_mappings(
         value = properties.get(field)
         if value in (None, ""):
             continue
-        mapping = lookup.get((source_id, field, normalized_mapping_key(value)))
+        mapping = lookup.get((source_id, field, exact_layer_value_key(source_id, field, value)))
         context = mapping_context(source_id, field, properties)
         if not mapping:
             unmapped_item = {

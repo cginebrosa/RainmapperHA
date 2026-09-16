@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.307
+
+- Color map IFF scores, descriptions and weekly maxima by favorability band,
+  from red to green, keeping missing values neutral and text labels visible.
+
+## 0.2.306
+
+- Present map and Predictor scores as IFF values out of 100, with localized
+  favorability bands and accessible explanations, including missing scores.
+- Position Predictor IFF tooltips beside their trigger within the viewport.
+- Align each map IFF description beside the scientific name on one line.
+- Combine season and weekly maximum, retaining season emphasis; tighten
+  prediction header and species spacing for phone screens.
+- Complete map help for prediction, IFF, metrics, heatmaps and IDW; keep the
+  help panel scrollable within desktop and phone screens.
+- Format prediction dates as weekday DD/MM/YY in all three languages.
+- Inventory all 1,055 ICGC geology codes and 277 MVC50 values in GIS Mappings;
+  preserve `geology_50000`, geological code case and edition-specific reviews.
+- Apply editable grouped GIS mappings during reconstruction and preserve
+  explicit soil exclusions when admitting species on mixed substrates.
+- Package the shared GIS inventory reader in worker 1.1.3.
+
 ## 0.2.305
 
 - Keep the mobile map within the available viewport after login and reload,

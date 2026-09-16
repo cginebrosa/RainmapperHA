@@ -4940,7 +4940,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             )
 
         self.assertIn("SVM–V4", rendered)
-        self.assertIn("74%", rendered)
+        self.assertIn("74/100", rendered)
         self.assertIn("ui.predictor_area_evidence:</strong>", rendered)
         self.assertIn("ui.predictor_species_evidence:</strong>", rendered)
         self.assertIn("ui.predictor_conservative_reliability 68%", rendered)
@@ -5015,7 +5015,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("ui.predictor_interpretation_timing_late", rendered)
         self.assertIn("ui.predictor_applicability_fallback", rendered)
         self.assertIn("ui.predictor_applicability_fallback_value", rendered)
-        self.assertEqual(compact, "95%")
+        self.assertEqual(compact, "95/100")
 
     def test_multiversion_card_exposes_scenario_evidence_and_internal_agreement(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
@@ -5098,7 +5098,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 date(2026, 8, 24),
             )
 
-        self.assertIn("59.7%", rendered)
+        self.assertIn("60/100", rendered)
         self.assertIn("ui.predictor_statistical_support", rendered)
         self.assertIn("Brier +0.106", rendered)
         self.assertIn("ROC-AUC 0.826", rendered)
@@ -5116,22 +5116,33 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("pred-scenario-verdict-moderate", rendered)
         self.assertIn("pred-scenario-verdict-low", rendered)
 
-    def test_operational_percentage_does_not_round_across_decision_band(self) -> None:
+    def test_iff_score_and_band_share_display_rounding(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
-
-        self.assertEqual(predictor_ui._pct(1.0), ">99%")
-        self.assertEqual(predictor_ui._pct(0.999962), ">99%")
-        self.assertEqual(predictor_ui._pct(0.0), "<1%")
-        self.assertEqual(predictor_ui._operational_pct(1.0), ">99%")
-        self.assertEqual(predictor_ui._operational_pct(0.999962), ">99%")
-        self.assertEqual(predictor_ui._operational_pct(0.0), "<1%")
-        self.assertEqual(predictor_ui._operational_pct(0.596691), "59.7%")
-        self.assertEqual(predictor_ui._operational_pct(0.604), "60%")
-        self.assertEqual(predictor_ui._operational_pct(0.404), "40.4%")
+        for value, score, band in [(0,0,0),(.19,19,0),(.2,20,1),(.39,39,1),
+                                   (.4,40,2),(.59,59,2),(.6,60,3),(.79,79,3),
+                                   (.8,80,4),(.94,94,4),(.95,95,5),(1,100,5),
+                                   (.596691,60,3),(.945,95,5),(.999962,100,5)]:
+            with self.subTest(value=value):
+                self.assertEqual(predictor_ui._pct(value), f"{score}/100")
+                self.assertEqual(predictor_ui._operational_pct(value), f"{score}/100")
+                self.assertEqual(predictor_ui._iff_band(value), band)
+        for value in [None, True, "0.65", float('nan'), float('inf'), -1, 1.1]:
+            self.assertEqual(predictor_ui._pct(value), "—")
+            self.assertIsNone(predictor_ui._iff_band(value))
         self.assertEqual(
             predictor_ui._probability_range({"min": 0.596691, "max": 0.604}),
-            "59.7%–60%",
+            "60/100",
         )
+        self.assertEqual(predictor_ui._probability_range({"min": .4, "max": .8}), "40/100–80/100")
+        labels = json.loads((ROOT_DIR / "mushroom-data/mushroom_labels.json").read_text())
+        for language, optimal in [("es", "Óptima"), ("ca", "Òptima"), ("en", "Optimal")]:
+            with mock.patch.object(predictor_ui, "_lbl", side_effect=lambda key: labels[key][language]):
+                self.assertEqual(predictor_ui._iff_range_label({"min": .95, "max": 1}), optimal)
+                missing = predictor_ui._compact_result_probability_html({"reference_range": None})
+                self.assertIn(labels["ui.prediction_map_prediction_uncalculated"][language], missing)
+                self.assertIn('class="pred-tooltip pred-iff-tooltip"', missing)
+                self.assertNotIn("pred-iff-band", missing)
+                self.assertNotIn("0/100", missing)
 
     def test_predictor_card_explains_operational_abstention_reasons(self) -> None:
         predictor_ui = self.web_server.mushroom_predictor_ui
@@ -5222,7 +5233,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             )
 
         self.assertIn("ET–V4", rendered)
-        self.assertIn("68%", rendered)
+        self.assertIn("68/100", rendered)
         self.assertIn("ui.predictor_active_version_role", rendered)
         self.assertIn("ui.predictor_auc_gate_rule", rendered)
 
@@ -5273,7 +5284,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 date(2026, 8, 26),
             )
 
-        self.assertIn("41%–58%", rendered)
+        self.assertIn("41/100–58/100", rendered)
         self.assertIn("ET–V3", rendered)
         self.assertIn("RF–V4", rendered)
 
@@ -5281,7 +5292,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         comparison["interpretation"]["ecological_compatibility"] = "incompatible"
         self.assertEqual(
             predictor_ui._compact_comparison_range(comparison),
-            "41%–58%",
+            "41/100–58/100",
         )
 
     def seed_empty_mushroom_observations(self, data_dir: Path) -> None:

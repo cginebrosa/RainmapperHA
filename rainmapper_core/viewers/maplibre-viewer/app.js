@@ -450,6 +450,7 @@ function clampNumber(value, minimum, maximum, fallback) {
 }
 
 function updateHelpPanelText() {
+  document.querySelectorAll("[data-map-help-key]").forEach(node => { node.textContent = t(node.dataset.mapHelpKey); });
   [
     ["#help-title", "mapHelp"],
     ["#help-rain-title", "helpRainTitle"],
@@ -4186,11 +4187,26 @@ function renderSettingsPanel() {
   helpToggle.addEventListener("click", () => {
     const isOpen = helpPanel.hasAttribute("hidden");
     if (isOpen) {
+      helpPanel.querySelectorAll("[data-help-control]").forEach(section => {
+        const control = document.getElementById(section.dataset.helpControl);
+        section.hidden = !control || control.hidden;
+      });
       closeSecondaryPanels({ except: "help" });
       setSettingsOpen(false);
     }
     helpPanel.toggleAttribute("hidden", !isOpen);
     helpToggle.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) {
+      helpPanel.scrollTop = 0;
+      helpPanel.focus({ preventScroll: true });
+    }
+  });
+  helpPanel.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      helpPanel.hidden = true;
+      helpToggle.setAttribute("aria-expanded", "false");
+      helpToggle.focus({ preventScroll: true });
+    }
   });
 
   languageSelector.addEventListener("change", (event) => {

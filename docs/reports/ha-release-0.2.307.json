@@ -1,0 +1,132 @@
+{
+  "version": "0.2.307",
+  "date": "2026-09-16",
+  "image": "ghcr.io/cginebrosa/rainmapperha",
+  "tags": [
+    "0.2.307",
+    "latest"
+  ],
+  "digest": "sha256:d8c0c1b110b9d700e980e5409888374b61d1dcd35f0203260f0145c15af8ca46",
+  "platforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "verification": "docker buildx imagetools inspect for both tags; identical digest",
+  "publication_authorization": "User accepted local colors and explicitly requested publication; installation performed by user.",
+  "local_parity": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 200,
+      "mismatches": [],
+      "manifest_sha256": "5f90adb5250dddc8ecfb893a550aac77e355db66c6a50dbe814245f3b590dbe9"
+    },
+    "rainmapper-worker": {
+      "checked_files": 107,
+      "mismatches": [],
+      "manifest_sha256": "6f32ec9f8e3f70aa272d4ddd3eb379ddf3fc5260b177c7654826c8e1d60e921b"
+    }
+  },
+  "smoke": {
+    "tests": 1613,
+    "skipped": 48,
+    "result": "passed",
+    "log": "tmp/release-0.2.307/smoke-final.log"
+  },
+  "browser": {
+    "result": "passed",
+    "demo_requests": 29,
+    "mobile_no_overflow": true,
+    "log": "tmp/release-0.2.307/browser.log"
+  },
+  "local_pipeline": {
+    "evidence": "tmp/release-0.2.306/chain-jobs.json",
+    "jobs": [
+      {
+        "job_id": "worker_job_U3wE2jsNYpfWZQbc",
+        "job_type": "worker_candidate_rebuild",
+        "status": "complete"
+      },
+      {
+        "job_id": "worker_job_zXba1lb-rSYKUC9v",
+        "job_type": "worker_ml_train_v0",
+        "status": "complete"
+      },
+      {
+        "job_id": "worker_job_4R02a8dodDC5EGe9",
+        "job_type": "worker_ml_multiversion_v1",
+        "status": "complete"
+      },
+      {
+        "job_id": "worker_job_ofVtK3Oc4KIw",
+        "job_type": "worker_predictor_precompute_v1",
+        "status": "complete"
+      }
+    ],
+    "multiversion_fits": 714,
+    "failed_fits": 0,
+    "precompute_receipt": "sha256:4bc95c210eb8e17fd7ee015f4fab6e270e651e68516fb52d76fbe0094f216191",
+    "limitation": "Pipeline preceded final presentation changes and KMga4 data-only review. Final executable code passed rebuilt-container parity, smoke and browser. KMga4 validated with both mapping readers and a fresh local point query; pipeline not repeated for this mapping."
+  },
+  "gis_validation": {
+    "total": 1336,
+    "geological_codes": 1055,
+    "readers_match": true,
+    "KMga4": {
+      "status": "mapped",
+      "mapped_values": [
+        {
+          "source_id": "geology_50000",
+          "field": "Codi",
+          "raw_value": "KMga4",
+          "confidence": "medium",
+          "review_status": "accepted",
+          "mapped_lithology_ids": [
+            "lith_sandstone"
+          ],
+          "mapped_soil_tendency_ids": [
+            "soil_calcareous",
+            "soil_siliceous"
+          ]
+        }
+      ],
+      "pending_values": [],
+      "ignored_values": [],
+      "unmapped_values": [],
+      "invalid_references": [],
+      "mapped_lithology_ids": [
+        "lith_sandstone"
+      ],
+      "mapped_soil_tendency_ids": [
+        "soil_calcareous",
+        "soil_siliceous"
+      ]
+    }
+  },
+  "transfer": {
+    "directory": "tmp/release-0.2.307/ha-data/mushroom-data",
+    "destination": "/share/rainmapper/mushroom-data/",
+    "sha256sums": [
+      "b9c75a9264eea067480cc53b5b9f9e4fc8c7b75efb15374efe3d2bc8b7736a6a  mushroom-data/gis-mapping-reviews/formations-2026-09-16.json",
+      "0cbf7067fa504b32154f56edd0626fd8fb628bfe1dad1f9267944ca1dd1a3635  mushroom-data/gis-mapping-reviews/full-gis-review-2026-09-16.json",
+      "6f589467ceb5a3bff5c8f484d00b7d8315ae3b78da618a850ba8371c3807e090  mushroom-data/gis-mapping-reviews/icgc-ggd-2026-09-14.json",
+      "1b4d1417d288e76a6cda9919a6e7ab880aa246a69e2a230e08c6a9e11b8671ef  mushroom-data/gis-mapping-reviews/icgc-local-2026-09-13.json",
+      "aa4f15e14066cfedbd2f35201d094eb2445d55133ad367c6b8b2882827b6307a  mushroom-data/gis-mapping-reviews/icgc-substrates-2026-09-14.json",
+      "2bd5446cbf1e7bf21547fe1f6ab4b1528a3d84c6fd557b443b9222a89e520c53  mushroom-data/mushroom_gis_mappings.json",
+      "470df4bad9174974f7c69c96023aeed484b5ba1f65a30a70656e9e0b3fc0b9fe  mushroom-data/mushroom_reference_catalogs.json"
+    ],
+    "validation": "No validation errors; all review references present",
+    "frozen": true
+  },
+  "worker": {
+    "version": "1.1.3",
+    "container": "rainmapper-worker",
+    "single_existing_worker": true,
+    "coordinator_destinations_preserved": true,
+    "primary_config_sha256": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+    "additional_config_sha256": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+  },
+  "remaining": {
+    "ha_real_installation": "User-managed; not performed by agent",
+    "soil_research": "Paused per user instruction. 471 accepted geological mappings identify lithology without soil tendency; 17 geological mappings remain pending. Do not claim all soil classifications researched.",
+    "ha_real_retraining": "Not performed; UI presentation alone needs no recalculation. GIS changes require explicit rebuild/training/precompute to update existing derived artifacts."
+  }
+}

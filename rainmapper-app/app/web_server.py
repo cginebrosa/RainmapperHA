@@ -5330,6 +5330,9 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       gap: 6px;
       min-height: 30px;
       padding: 5px 9px;
+      width: auto;
+      max-width: 100%;
+      flex: 0 0 auto;
     }}
     .gis-mapping-filter-grid .catalog-chip strong {{
       font-size: 12px;
@@ -11728,6 +11731,16 @@ def gis_mapping_from_form(form: dict[str, list[str]]) -> tuple[dict[str, object]
         "confidence": confidence,
         "review_status": review_status,
     }
+    edition = catalog_form_string(form, "edition")
+    review_ref = catalog_form_string(form, "review_ref")
+    if edition:
+        mapping["edition"] = edition
+    if review_ref:
+        mapping["review_ref"] = review_ref
+    if review_status not in mushroom_gis_mappings_ui.REVIEW_STATUS_VALUES or confidence not in mushroom_gis_mappings_ui.CONFIDENCE_VALUES:
+        return None, "Invalid GIS review status or confidence."
+    if edition and review_status == "accepted" and not review_ref:
+        return None, "An accepted versioned GIS mapping requires a supporting reference."
     mapped_count = 0
     for target_field, _catalog_group in mushroom_gis_mappings_ui.TARGET_CATALOG_FIELDS:
         values = [str(value).strip() for value in form.get(target_field, []) if str(value).strip()]
@@ -11743,27 +11756,12 @@ def gis_mapping_from_form(form: dict[str, list[str]]) -> tuple[dict[str, object]
 
 
 def upsert_exact_gis_mapping(gis_payload: dict[str, object], mapping: dict[str, object]) -> tuple[bool, str]:
-    mappings = gis_payload.setdefault("exact_value_mappings", [])
-    if not isinstance(mappings, list):
-        return False, "GIS payload exact_value_mappings must be a list."
-    key = mushroom_gis_mappings_ui.mapping_key(
-        mapping.get("source_id", ""),
-        mapping.get("field", ""),
-        mapping.get("raw_value", ""),
-    )
-    for index, existing in enumerate(mappings):
-        if not isinstance(existing, dict):
-            continue
-        existing_key = mushroom_gis_mappings_ui.mapping_key(
-            existing.get("source_id", ""),
-            existing.get("field", ""),
-            existing.get("raw_value", ""),
-        )
-        if existing_key == key:
-            mappings[index] = mapping
-            return True, f"Updated GIS mapping for {mapping.get('source_id')}.{mapping.get('field')}."
-    mappings.append(mapping)
-    return True, f"Created GIS mapping for {mapping.get('source_id')}.{mapping.get('field')}."
+    from rainmapper_core.mushroom_gis_inventory import upsert_mapping
+    try:
+        upsert_mapping(gis_payload, mapping)
+    except ValueError as exc:
+        return False, str(exc)
+    return True, f"Saved GIS mapping for {mapping.get('source_id')}.{mapping.get('field')}: {mapping.get('raw_value')}."
 
 
 def mushroom_catalogs_flash() -> str:
@@ -23779,6 +23777,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     mapping.get("source_id", ""),
                     mapping.get("field", ""),
                     mapping.get("raw_value", ""),
+                    mapping.get("edition", ""),
                 )
                 if result.ok:
                     suffix = f" Backup: {result.backup_path}" if result.backup_path else ""

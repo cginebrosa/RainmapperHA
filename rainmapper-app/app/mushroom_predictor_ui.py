@@ -6,6 +6,7 @@ import gc
 import hashlib
 import html
 import json
+import math
 from contextvars import ContextVar
 from datetime import date, timedelta
 from pathlib import Path
@@ -30,10 +31,6 @@ from rainmapper_core.mushroom_predictor_service import (
     PredictorService,
     PreparedPredictor,
     validate_response,
-)
-from rainmapper_core.mushroom_prediction_interpretation import (
-    FAVORABLE_THRESHOLD,
-    UNFAVORABLE_THRESHOLD,
 )
 
 import mushroom_profiles_ui
@@ -182,6 +179,12 @@ def _tooltip_label(
     escaped_help = html.escape(help_text, quote=True)
     escaped_aria = html.escape(f"{label}. {help_text}", quote=True)
     label_html = f"<strong>{escaped_label}</strong>" if strong else escaped_label
+    if help_key == "ui.predictor_help_prediction_probability":
+        return (
+            f'<button type="button" class="pred-tooltip pred-iff-tooltip" '
+            f'data-help="{escaped_help}" aria-label="{escaped_aria}">{label_html}'
+            '<span class="pred-tooltip-icon" aria-hidden="true">ⓘ</span></button>'
+        )
     return (
         f'<span class="pred-tooltip" tabindex="0" title="{escaped_help}" '
         f'aria-label="{escaped_aria}">{label_html}'
@@ -425,42 +428,38 @@ def _status_dot(label: str) -> str:
 
 
 def _pct(prob: float | None) -> str:
-    if prob is None:
-        return "—"
-    if prob > 0.99:
-        return ">99%"
-    if prob < 0.01:
-        return "<1%"
-    return f"{round(prob * 100)}%"
+    score = _iff_score(prob)
+    return "—" if score is None else f"{score}/100"
+
+
+def _iff_score(value: object) -> int | None:
+    """Same display rounding as the point map; never turn missing data into zero."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or not 0 <= value <= 1:
+        return None
+    return math.floor(value * 100 + .5)
+
+
+def _iff_band(value: object) -> int | None:
+    score = _iff_score(value)
+    return None if score is None else next(i for i, limit in enumerate((20, 40, 60, 80, 95, 101)) if score < limit)
+
+
+def _iff_range_label(value: object) -> str:
+    """Preserve a multi-model range instead of inventing a single average."""
+    if not isinstance(value, dict):
+        return ""
+    bands = [_iff_band(value.get(key)) for key in ("min", "max")]
+    if None in bands:
+        return ""
+    labels = [_lbl(f"ui.prediction_map_iff_band_{band}") for band in bands]
+    return labels[0] if bands[0] == bands[1] else " – ".join(labels)
 
 
 def _operational_pct(prob: float | None) -> str:
-    """Avoid rounding a score across one of the displayed decision boundaries."""
-    if prob is None:
-        return "—"
-    if prob > 0.99:
-        return ">99%"
-    if prob < 0.01:
-        return "<1%"
-    percentage = float(prob) * 100
-    rounded_probability = round(percentage) / 100
-    raw_band = (
-        "favorable"
-        if prob >= FAVORABLE_THRESHOLD
-        else "unfavorable"
-        if prob <= UNFAVORABLE_THRESHOLD
-        else "uncertain"
-    )
-    rounded_band = (
-        "favorable"
-        if rounded_probability >= FAVORABLE_THRESHOLD
-        else "unfavorable"
-        if rounded_probability <= UNFAVORABLE_THRESHOLD
-        else "uncertain"
-    )
-    if raw_band != rounded_band:
-        return f"{percentage:.1f}%"
-    return f"{round(percentage)}%"
+    """Display IFF; scientific thresholds and stored probabilities stay intact."""
+    return _pct(prob)
 
 
 def _status_cls(label: str) -> str:
@@ -1336,6 +1335,10 @@ def _interpretation_label(interpretation: dict[str, Any]) -> str:
             "unfavorable": _lbl("ui.predictor_unvalidated_unfavorable_signal"),
             "mixed": _lbl("ui.predictor_unvalidated_mixed_signal"),
         }.get(unvalidated_signal, _lbl("ui.predictor_interpretation_abstain"))
+    if verdict in {"favorable", "uncertain", "unfavorable"}:
+        label = _iff_range_label(interpretation.get("reference_range"))
+        if label:
+            return label
     return {
         "favorable": _lbl("ui.predictor_favorable"),
         "uncertain": _lbl("ui.predictor_uncertain"),
@@ -1765,11 +1768,14 @@ def _compact_result_probability(interpretation: dict[str, Any]) -> str:
 
 
 def _compact_result_probability_html(interpretation: dict[str, Any]) -> str:
-    return _tooltip_label(
-        _compact_result_probability(interpretation),
+    value = _compact_result_probability(interpretation)
+    rendered = _tooltip_label(
+        f"IFF {value}" if value != "—" else _lbl("ui.prediction_map_prediction_uncalculated"),
         "ui.predictor_help_prediction_probability",
         strong=False,
     )
+    band = _iff_range_label(interpretation.get("reference_range"))
+    return rendered + (f'<small class="pred-iff-band">{html.escape(band)}</small>' if band else "")
 
 
 def _scenario_consensus_html(comparison: dict[str, Any]) -> str:
@@ -2021,6 +2027,7 @@ def _render_interpretation_card(
             f'<div class="pred-interpretation-range">'
             f'<span>{_tooltip_label_key("ui.predictor_estimated_probability", "ui.predictor_help_prediction_probability", strong=False)}</span>'
             f'<strong>{html.escape(_probability_range(display_reference_range))}</strong>'
+            f'<span class="pred-iff-band">{html.escape(_iff_range_label(display_reference_range))}</span>'
             f'</div>'
         )
     reliability_html = ""
@@ -3932,6 +3939,68 @@ def _render_page_inner(
   {content}
 </div>
 {mushroom_predictor_weather_ui.SCRIPT}
+{_IFF_TOOLTIP_SCRIPT}
+"""
+
+
+_IFF_TOOLTIP_SCRIPT = """
+<script>
+(() => {
+  if (window.rainmapperIffTooltipInstalled) return;
+  window.rainmapperIffTooltipInstalled = true;
+  const tip = document.createElement('div');
+  tip.id = 'pred-iff-help';
+  tip.className = 'pred-iff-help';
+  tip.setAttribute('role', 'tooltip');
+  tip.hidden = true;
+  document.body.append(tip);
+  let active = null, frame = null;
+  const target = node => node instanceof Element ? node.closest('.pred-iff-tooltip') : null;
+  const hide = () => {
+    active?.removeAttribute('aria-describedby');
+    active = null;
+    tip.hidden = true;
+  };
+  const position = () => {
+    frame = null;
+    if (!active?.isConnected) { hide(); return; }
+    const r = active.getBoundingClientRect(), v = window.visualViewport;
+    const left = v?.offsetLeft || 0, top = v?.offsetTop || 0;
+    const width = v?.width || innerWidth, height = v?.height || innerHeight;
+    if (r.bottom < top || r.top > top + height || r.right < left || r.left > left + width) { hide(); return; }
+    tip.style.maxWidth = Math.max(0, width - 24) + 'px';
+    tip.style.maxHeight = Math.max(0, height - 24) + 'px';
+    const size = tip.getBoundingClientRect();
+    const x = Math.max(left + 12, Math.min(r.left, left + width - size.width - 12));
+    const y = r.bottom + 8 + size.height <= top + height - 12 ? r.bottom + 8 : r.top - size.height - 8;
+    tip.style.left = x + 'px';
+    tip.style.top = Math.max(top + 12, Math.min(y, top + height - size.height - 12)) + 'px';
+  };
+  const show = button => {
+    if (!button) return;
+    if (active !== button) hide();
+    active = button;
+    tip.textContent = button.dataset.help;
+    button.setAttribute('aria-describedby', tip.id);
+    tip.hidden = false;
+    position();
+  };
+  const reposition = () => { if (active && frame === null) frame = requestAnimationFrame(position); };
+  document.addEventListener('pointerover', e => { if (e.pointerType === 'mouse') show(target(e.target)); });
+  document.addEventListener('pointerout', e => {
+    const button = target(e.target);
+    if (button && button === active && !button.contains(e.relatedTarget) && button !== document.activeElement) hide();
+  });
+  document.addEventListener('focusin', e => show(target(e.target)));
+  document.addEventListener('focusout', e => { if (target(e.target) === active) hide(); });
+  document.addEventListener('click', e => { const button = target(e.target); if (button) show(button); else hide(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+  document.addEventListener('scroll', reposition, true);
+  window.addEventListener('resize', reposition);
+  window.visualViewport?.addEventListener('resize', reposition);
+  window.visualViewport?.addEventListener('scroll', reposition);
+})();
+</script>
 """
 
 
@@ -4335,6 +4404,10 @@ _CSS = """
 }
 .pred-tooltip:focus { outline: 1px solid #5f7888; outline-offset: 2px; border-radius: 2px; }
 .pred-tooltip-icon { color: #7f919c; font-size: 0.72em; text-decoration: none; }
+.pred-iff-band { display:block; font-size:.8em; font-weight:400; color:#a2b9c7; }
+button.pred-iff-tooltip { appearance:none; border:0; padding:0; margin:0; color:inherit; background:none; font:inherit; text-align:inherit; cursor:help; }
+.pred-iff-help { position:fixed; z-index:100; width:360px; box-sizing:border-box; padding:10px 12px; border:1px solid #628b83; border-radius:6px; background:#091a20; color:#e4edf3; font:14px/1.45 system-ui; text-align:left; white-space:normal; overflow:auto; box-shadow:0 3px 12px #0005; }
+.pred-iff-help[hidden] { display:none; }
 .pred-interpretation-card p { margin: 0.75rem 0 0; color: #c2ccd2; line-height: 1.45; }
 .pred-model-comparison { margin: 1.25rem 0; padding: 1rem; border: 1px solid #344650; border-radius: 10px; background: #172129; }
 .pred-model-comparison h3 { margin: 0 0 0.35rem; color: #e8eef2; }

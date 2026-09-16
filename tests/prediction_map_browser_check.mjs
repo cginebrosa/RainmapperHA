@@ -187,7 +187,7 @@ const server = createServer(async (req, res) => {
             {label:"Robles",scientific_name:"Quercus",labels:{es:"Robles",ca:"Roures"}},
             {label:"Pinos"}]} : {status:"not_connected"},
           vegetation: richTerrain ? {status:"available",code:"221",label:"Bosc <b>literal</b>",source_id:"icgc_cobertes_2024",edition:"2024"} : {status:"resource_limit"},
-          geology: richTerrain ? {status:"available",code:"test",label:"Geologia de prueba",source_id:"icgc_geologia_50000",edition:"2024-12"} : {status:"not_covered"}
+          geology: richTerrain ? {status:"available",code:"test",label:"Geologia de prueba",source_id:"geology_50000",edition:"2024-12"} : {status:"not_covered"}
         };
         response.terrain = richTerrain ? { status: "partial", data_mode: "geographic_sources",
           elevation: { status: "available", value_m: 765.3, resolution_m: 5, source_id: "dem_5m" },
@@ -280,11 +280,11 @@ async function checkFixedHeader() {
     const after=header.getBoundingClientRect(), d=date.getBoundingClientRect(), r=popup.getBoundingClientRect();
     const result={fixed:before.top===after.top && before.bottom===after.bottom,
       dateVisible:d.top>=r.top && d.bottom<=r.bottom,
-      scrolled:body.scrollTop>0, bodyHeight:body.clientHeight, outerScroll:popup.scrollTop};
+      scrolled:body.scrollTop>0, fits:body.scrollHeight<=body.clientHeight, bodyHeight:body.clientHeight, outerScroll:popup.scrollTop};
     body.scrollTop=0;
     return result;
   })()`);
-  assert.ok(state.fixed && state.dateVisible && state.scrolled, JSON.stringify(state));
+  assert.ok(state.fixed && state.dateVisible && (state.scrolled || state.fits), JSON.stringify(state));
   assert.ok(state.bodyHeight >= 80, JSON.stringify(state));
   assert.equal(state.outerScroll, 0);
 }
@@ -599,21 +599,48 @@ try {
     {species_id:"lactarius_deliciosus",label_key:"lactarius_deliciosus",status:"available",probabilities:[.2,.9,null,.3,.5,null,null]},
     {species_id:"another",label_key:"another",status:"available",probabilities:[.8,.1,...Array(5).fill(null)]},
     {species_id:"zero",label_key:"zero",status:"available",probabilities:Array(7).fill(0)}]};
-  await evaluate("document.querySelector('.pm-close').click()");
+  await evaluate("document.querySelector('.pm-close')?.click()");
   await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-ecology')");
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-species li'),n=>n.dataset.speciesId)"),
     ["another","lactarius_deliciosus","zero","lactarius_vinosus"]);
-  assert.ok(await evaluate("document.querySelector('.pm-species li:last-child').textContent.includes('Sin probabilidad calculada')"));
+  assert.ok(await evaluate("document.querySelector('.pm-species li:last-child').textContent.includes('Sin IFF calculado')"));
+  await evaluate("document.querySelector('.pm-species li:last-child .pm-iff-score').click()");
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.pm-species li:last-child .pm-iff-help')).display"), 'block');
+  assert.equal(await evaluate("document.querySelector('.pm-species li:last-child .pm-iff-band')"), null);
+  await evaluate("document.querySelector('.pm-species li:last-child .pm-iff-score').blur()");
   assert.ok(await evaluate("document.querySelector('.pm-species').textContent.includes('No se ha confirmado descalcificación')"));
   assert.ok(await evaluate("document.querySelector('.pm-soil-ph-supported').textContent.includes('intervalo de pH solapado')"));
-  assert.ok(await evaluate("document.querySelector('.pm-species [data-species-id=zero]').textContent.includes('0 %')"));
+  assert.ok(await evaluate("document.querySelector('.pm-species [data-species-id=zero]').textContent.includes('0/100')"));
+  assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=zero] .pm-iff-band').textContent"), 'Desfavorable');
+  const bands = [[0,0,0],[.19,19,0],[.2,20,1],[.39,39,1],[.4,40,2],[.59,59,2],
+    [.6,60,3],[.79,79,3],[.8,80,4],[.94,94,4],[.95,95,5],[1,100,5],[.596691,60,3],[.945,95,5]];
+  assert.deepEqual(await evaluate(`import('./prediction-mode.js').then(m=>${JSON.stringify(bands)}.map(([v])=>[v,m.iffScore(v),m.iffBand(v)]))`),bands);
+  assert.deepEqual(await evaluate("import('./prediction-mode.js').then(m=>[null,true,'0.65',NaN,Infinity,-1,1.1].map(v=>[m.iffScore(v),m.iffBand(v)]))"),Array(7).fill([null,null]));
+  await evaluate("document.querySelector('.pm-iff-score').click()");
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.pm-iff-help')).display"), 'block');
+  assert.ok(await evaluate("document.querySelector('.pm-iff-help').textContent.includes('condiciones óptimas')"));
+  await evaluate("document.querySelector('.pm-iff-score').blur()");
   assert.equal(await evaluate("document.querySelectorAll('.pm-weekly-chart g[data-species-id]').length"),3);
   assert.equal(await evaluate("document.querySelectorAll('.pm-weekly-chart [data-species-id=lactarius_deliciosus] polyline').length"),2);
   assert.equal(await evaluate("document.querySelectorAll('.pm-weekly-chart [data-species-id=lactarius_deliciosus] circle').length"),4);
   assert.equal(await evaluate("document.querySelectorAll('.pm-weekly-chart [data-species-id=zero] circle').length"),7);
-  assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_deliciosus] .pm-weekly-peak').textContent"),'Máximo semanal: 90 % · 2026-09-13');
-  assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=zero] .pm-weekly-peak').textContent"),'Máximo semanal: 0 % · 2026-09-12');
+  assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_deliciosus] .pm-weekly-peak').textContent"),'Máx.: 90/100 · domingo 13/09/26');
+  assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=zero] .pm-weekly-peak').textContent"),'Máx.: 0/100 · sábado 12/09/26');
   assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_vinosus] .pm-weekly-peak')"),null);
+  const iffColors=await evaluate(`(()=>{
+    const row=document.querySelector('.pm-species [data-species-id=lactarius_deliciosus]');
+    const wrap=row.querySelector('.pm-iff-value'),score=row.querySelector('.pm-iff-score'),band=row.querySelector('.pm-iff-band'),peak=row.querySelector('.pm-iff-peak-value');
+    const original=wrap.dataset.iffBand;
+    const colors=Array.from({length:6},(_,i)=>{wrap.dataset.iffBand=String(i);peak.dataset.iffBand=String(i);return [getComputedStyle(score).color,getComputedStyle(band).color,getComputedStyle(peak).color];});
+    wrap.dataset.iffBand=original;peak.dataset.iffBand='4';
+    return {colors,missing:document.querySelector('.pm-species [data-species-id=lactarius_vinosus] .pm-iff-value').dataset.iffBand??null};
+  })()`);
+  assert.equal(new Set(iffColors.colors.map(c=>c[0])).size,6);
+  assert.ok(iffColors.colors.every(c=>c.every(v=>v===c[0])));
+  assert.equal(iffColors.missing,null);
+  const luminance=rgb=>rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+  const background=luminance([233,237,240]); // Translucent popup over a dark map.
+  assert.ok(iffColors.colors.every(([rgb])=>(background+.05)/(luminance(rgb.match(/\d+/g).map(Number))+.05)>=4.5),JSON.stringify(iffColors));
   const seriesColors = await evaluate("Array.from(document.querySelectorAll('.pm-weekly-chart g[data-species-id]'),g=>[g.dataset.speciesId,g.getAttribute('stroke')]).sort()");
   assert.ok(await evaluate("Array.from(document.querySelectorAll('.pm-weekly-chart g[data-species-id]'),g=>getComputedStyle(g).stroke===getComputedStyle(document.querySelector('.pm-species [data-species-id='+g.dataset.speciesId+'] .pm-species-color')).backgroundColor).every(Boolean)"));
   await checkFixedHeader();
@@ -640,10 +667,15 @@ try {
   await evaluate("applyLanguage('en')");
   await until("document.querySelector('.pm-result h2')?.textContent==='Prediction by species · 7 days'");
   assert.equal(await evaluate("document.querySelector('.pm-result-header select').value"),'1');
-  assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_deliciosus] .pm-weekly-peak').textContent"),'Weekly maximum: 90 % · 2026-09-13');
+  assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_deliciosus] .pm-weekly-peak').textContent"),'Max: 90/100 · Sunday 13/09/26');
   assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_deliciosus] .pm-season-phase').textContent"),'Main season');
-  assert.ok(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_vinosus]').textContent.includes('No probability calculated')"));
-  assert.ok(await evaluate("document.querySelector('.pm-weekly-chart svg').getAttribute('aria-label').includes('Calculated probabilities')"));
+  assert.ok(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_vinosus]').textContent.includes('No IFF calculated')"));
+  assert.ok(await evaluate("document.querySelector('.pm-weekly-chart svg').getAttribute('aria-label').includes('IFF by species')"));
+  assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_deliciosus] .pm-iff-band').textContent"), 'Very favorable');
+  assert.ok(await evaluate("document.querySelector('.pm-iff-help').textContent.includes('Index of Fruiting Favorability')"));
+  await evaluate("applyLanguage('ca')");
+  assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_deliciosus] .pm-iff-band').textContent"), 'Molt favorable');
+  assert.ok(await evaluate("document.querySelector('.pm-iff-help').textContent.includes('condicions òptimes')"));
   assert.equal(calls,predictionCalls);
   await evaluate("applyLanguage('es')");
   await until("document.querySelector('.pm-result h2')?.textContent==='Predicción por especies · 7 días'");
@@ -671,19 +703,75 @@ try {
         dateBaseline:baseline('.pm-date-title'),timezoneBaseline:baseline('.pm-calendar-timezone'),selectHeight:select.height,selectWidth:select.width,
         zoneFirst:timezone.right<=date.left && date.right<=select.left,
         zoneCaptionVisible:getComputedStyle(document.querySelector('.pm-zone-caption')).display!=='none',
-        noticeHidden:getComputedStyle(document.querySelector('.pm-simulation')).display==='none',
+        noticeHidden:!document.querySelector('.pm-simulation') || getComputedStyle(document.querySelector('.pm-simulation')).display==='none',
         timezoneCaptionHidden:getComputedStyle(document.querySelector('.pm-timezone-caption')).display==='none',
         noOverflow:document.querySelector('.pm-result').scrollWidth<=popup.width+1,
         selectFont:parseFloat(getComputedStyle(document.querySelector('.pm-calendar select')).fontSize)};
     })()`);
+    assert.ok(await evaluate(`(()=>{
+      const dates=[...document.querySelectorAll('.pm-chart-label tspan[dy]')].map(n=>n.getBoundingClientRect());
+      return dates.every((r,i)=>!i || r.left>=dates[i-1].right);
+    })()`),'Chart dates must not overlap on mobile');
+    // Long band labels share the scientific-name row, below the IFF score.
+    const bandLayout = await evaluate(`(()=>{
+      const row=document.querySelector('.pm-species li'),band=row.querySelector('.pm-iff-band');
+      band.textContent=({es:'Moderadamente favorable',ca:'Moderadament favorable',en:'Moderately favorable'})[document.documentElement.lang];
+      const b=band.getBoundingClientRect(),s=row.querySelector('small').getBoundingClientRect(),score=row.querySelector('.pm-iff-score').getBoundingClientRect();
+      const range=document.createRange();range.selectNodeContents(band);
+      return {lines:range.getClientRects().length,top:b.top,scientificTop:s.top,left:b.left,scientificRight:s.right,right:b.right,scoreRight:score.right,overflow:row.scrollWidth>row.clientWidth};
+    })()`);
+    assert.ok(bandLayout.lines===1 && Math.abs(bandLayout.top-bandLayout.scientificTop)<2 && bandLayout.left>=bandLayout.scientificRight && Math.abs(bandLayout.right-bandLayout.scoreRight)<1 && !bandLayout.overflow,JSON.stringify(bandLayout));
+    const seasonLayout=await evaluate(`(()=>{
+      const row=document.querySelector('.pm-species li'),summary=row.querySelector('.pm-season-summary');
+      const phase=summary.querySelector('.pm-season-phase'),peak=summary.querySelector('.pm-weekly-peak');
+      const a=phase.getBoundingClientRect(),b=peak.getClientRects()[0];
+      return {text:summary.textContent,phaseColor:getComputedStyle(phase).color,peakColor:getComputedStyle(peak).color,
+        sameFirstLine:Math.abs(a.top-b.top)<2,overflow:row.scrollWidth>row.clientWidth,
+        height:summary.getBoundingClientRect().height,lineHeight:parseFloat(getComputedStyle(summary).lineHeight)};
+    })()`);
+    assert.ok(seasonLayout.sameFirstLine && !seasonLayout.overflow && seasonLayout.phaseColor!==seasonLayout.peakColor && seasonLayout.text.includes(' — ') && seasonLayout.height<=seasonLayout.lineHeight*2+1,JSON.stringify(seasonLayout));
     compactMeasurements.push(compact);
     assert.ok(compact.noticeHidden && compact.timezoneCaptionHidden && compact.noOverflow,JSON.stringify(compact));
     assert.ok(Math.abs(compact.coordinatesTop-compact.altitudeTop)<3 && Math.abs(compact.coordinatesTop-compact.phTop)<3,JSON.stringify(compact));
     assert.ok(Math.abs(compact.dateBaseline-compact.timezoneBaseline)<1 && Math.abs(compact.dateCenter-compact.selectCenter)<4,JSON.stringify(compact));
-    assert.ok(compact.bodyFraction>=.45 && compact.selectFont>=11 && compact.selectHeight<=24 && compact.selectWidth<=98,JSON.stringify(compact));
+    assert.ok(compact.bodyFraction>=.45 && compact.selectFont>=11 && compact.selectHeight<=24 && compact.selectWidth<=140,JSON.stringify(compact));
     assert.ok(compact.zoneFirst && compact.zoneCaptionVisible,JSON.stringify(compact));
     const shot=await send('Page.captureScreenshot',{format:'png'});
     await fs.writeFile(path.join(profile,`compact-header-${language}.png`),Buffer.from(shot.data,'base64'));
+  }
+  // Calendar presentation must not depend on the browser time zone.
+  const calendarChecks = await evaluate(`(async()=>{
+    const {formatCalendarDate}=await import(new URL('prediction-weather.js',document.querySelector('script[src*=prediction-bootstrap]').src));
+    return ['es','ca','en'].map(lang=>[formatCalendarDate('2026-09-16',lang),formatCalendarDate('2028-02-29',lang)]);
+  })()`);
+  assert.deepEqual(calendarChecks,[['miércoles 16/09/26','martes 29/02/28'],['dimecres 16/09/26','dimarts 29/02/28'],['Wednesday 16/09/26','Tuesday 29/02/28']]);
+  await evaluate("document.querySelector('.pm-close')?.click()");
+  for (const [width,height] of [[1280,800],[375,667],[360,640]]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<500});
+    for (const language of ['es','ca','en']) {
+      await evaluate(`applyLanguage('${language}');document.getElementById('help-toggle').click()`);
+      const help = await evaluate(`(()=>{
+        const p=document.getElementById('map-help'),r=p.getBoundingClientRect();
+        const titles=Array.from(p.querySelectorAll('[data-help-control]')).filter(n=>!n.hidden).map(n=>n.dataset.helpControl);
+        return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,height:innerHeight,width:innerWidth,
+          scrollable:p.scrollHeight>p.clientHeight,titles,text:p.textContent};
+      })()`);
+      assert.ok(help.top>=0 && help.bottom<=height && help.left>=0 && help.right<=width && help.scrollable,JSON.stringify(help));
+      assert.deepEqual(help.titles,['prediction-mode-toggle','quick-metric-toggle','heatmap-toggle','estimated-field-toggle']);
+      const beforeZoom=await evaluate('map.getZoom()');
+      await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:(help.left+help.right)/2,y:(help.top+help.bottom)/2,deltaX:0,deltaY:10000});
+      await pause(500);
+      const scroll = await evaluate("(()=>{const p=document.getElementById('map-help'),r=p.getBoundingClientRect();return {top:p.scrollTop,height:p.clientHeight,total:p.scrollHeight,target:document.elementFromPoint((r.left+r.right)/2,(r.top+r.bottom)/2)?.outerHTML.slice(0,180)}})()");
+      assert.ok(scroll.top>0 && scroll.top+scroll.height>=scroll.total-2,JSON.stringify({width,height,language,scroll}));
+      assert.equal(await evaluate('map.getZoom()'),beforeZoom);
+      if (language==='es') {
+        const shot=await send('Page.captureScreenshot',{format:'png'});
+        await fs.writeFile(path.join(profile,`help-bottom-${width}.png`),Buffer.from(shot.data,'base64'));
+      }
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});
+      await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'});
+      assert.ok(await evaluate("document.getElementById('map-help').hidden && document.activeElement.id==='help-toggle'"),JSON.stringify(await evaluate("({hidden:document.getElementById('map-help').hidden,active:document.activeElement.outerHTML.slice(0,200)})")));
+    }
   }
   console.log(JSON.stringify({compact_header:compactMeasurements}));
   compactMobileFixture=false; richTerrain=false;
@@ -692,7 +780,7 @@ try {
   ecologyFixture.species[0].daily_season_phases=Array(7).fill('out_of_season');
   ecologyFixture.species[1].daily_season_phases=['out_of_season','secondary',...Array(5).fill('main')];
   ecologyFixture.species[2].daily_season_phases=Array(7).fill('unknown');
-  await evaluate("document.querySelector('.pm-close').click()");
+  await evaluate("document.querySelector('.pm-close')?.click()");
   await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-ecology')");
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-species li'),n=>n.dataset.speciesId)"),['zero']);
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-weekly-chart g[data-species-id]'),g=>g.dataset.speciesId)"),['zero']);
@@ -734,7 +822,7 @@ try {
   })()`);
   assert.equal(immediateHover.visible,true);
   assert.ok(immediateHover.text.includes('Rovelló · deliciosus'));
-  assert.ok(immediateHover.text.includes('64 %'));
+  assert.ok(immediateHover.text.includes('IFF:64/100'));
   assert.ok(immediateHover.text.includes('Edulis'));
   assert.ok(immediateHover.text.includes('Pinícola'));
   assert.equal(await evaluate("document.querySelectorAll('.pm-chart-tooltip-row').length"),3);
@@ -753,7 +841,7 @@ try {
   await evaluate("document.querySelector('.pm-close').click()");
   await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-weekly-chart svg')");
   await evaluate("(()=>{const svg=document.querySelector('.pm-weekly-chart svg'),r=svg.getBoundingClientRect();svg.dispatchEvent(new PointerEvent('pointermove',{clientX:r.left+r.width*213/400,clientY:r.top+20}))})()");
-  assert.ok(await evaluate("document.querySelector('.pm-chart-tooltip').textContent.includes('Sin probabilidad calculada')"));
+  assert.ok(await evaluate("document.querySelector('.pm-chart-tooltip').textContent.includes('Sin IFF calculado')"));
   assert.equal(await evaluate("document.querySelectorAll('.pm-chart-tooltip-row').length"),0);
   modelFixture=null;
   ecologyFixture=null;

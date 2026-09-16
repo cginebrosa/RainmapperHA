@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.305">
+    <link rel="stylesheet" href="style.css?v=0.2.307">
   </head>
   <body>
     <header class="topbar">
@@ -123,8 +123,33 @@
         <a href="https://www.meteoclimatic.net/" target="_blank" rel="noopener noreferrer">Meteoclimatic: Fuente: Información elaborada por Rainmapper a partir de datos de Meteoclimatic (www.meteoclimatic.net)</a>
         <a href="https://www.wunderground.com/" target="_blank" rel="noopener noreferrer">Weather Underground: Source: Information elaborated by Rainmapper from Weather Underground data</a>
       </section>
-      <section class="map-help" id="map-help" aria-label="Map help" hidden>
+      <section class="map-help" id="map-help" tabindex="0" aria-label="Map help" hidden>
         <h2 id="help-title">Map help</h2>
+        <section>
+          <h3 data-map-help-key="helpNavigationTitle">Navigation and legend</h3>
+          <p data-map-help-key="helpNavigationCopy">Drag to move, scroll or pinch to zoom. Station colours follow the scale and units at the left. The header shows the period, station counts, data timestamp and zoom.</p>
+        </section>
+        <section data-help-control="prediction-mode-toggle">
+          <h3 data-map-help-key="helpPredictionTitle">Prediction mode · IFF</h3>
+          <p data-map-help-key="helpPredictionQuery">Activate the prediction target button, then tap a point to query the next seven days. Cancel stops the current query; turn the mode off to return to station queries.</p>
+          <p data-map-help-key="helpPredictionExecutor">In Settings → Prediction, choose Worker or Local and the calendar time zone. Worker is the default; if unavailable, the query falls back to Local without changing your preference.</p>
+          <p data-map-help-key="helpPredictionCalendar">Choose a date in the selector or touch the chart. The chart shows daily IFF and the list shows each species and its weekly maximum. Hover or focus chart points for details. These dates are independent of the rain-period buttons.</p>
+          <p data-map-help-key="helpPredictionIff">IFF (Index of Fruiting Favorability) is a relative index, not a probability. 100 means optimal conditions according to the model, but does not guarantee fruiting. Tap or focus IFF to read its explanation, including when no IFF was calculated.</p>
+          <p data-map-help-key="helpPredictionBands">0–19 Unfavorable · 20–39 Slightly favorable · 40–59 Moderately favorable · 60–79 Favorable · 80–94 Very favorable · 95–100 Optimal. No IFF calculated does not mean 0/100.</p>
+          <p data-map-help-key="helpPredictionDetails">Expand Terrain, Observed weather or Excluded species for sources and reasons. Soil tendencies and pH are estimates, not field measurements. Observed weather includes charts, a period selector and a values table; it is not a weather forecast.</p>
+        </section>
+        <section data-help-control="quick-metric-toggle">
+          <h3 data-map-help-key="helpMetricsTitle">Weather metrics</h3>
+          <p data-map-help-key="helpMetricsCopy">The quick metric button selects the weather variable from the available options. Check the legend units when switching variables. Availability depends on your permissions and the loaded data.</p>
+        </section>
+        <section data-help-control="heatmap-toggle">
+          <h3 data-map-help-key="helpHeatmapTitle">Heatmap</h3>
+          <p data-map-help-key="helpHeatmapCopy">The concentric-circle button toggles the heatmap. Its Settings tab controls the metric, weight curve, opacity, radius and intensity, and can restore defaults. This visual layer is separate from mushroom prediction.</p>
+        </section>
+        <section data-help-control="estimated-field-toggle">
+          <h3 data-map-help-key="helpIdwTitle">IDW · estimated weather field</h3>
+          <p data-map-help-key="helpIdwCopy">IDW estimates values between stations; it is not a measurement at every point. Settings control opacity, influence radius, quality, smoothing, DEM zoom and altitude correction. The effective values show what is actually applied; use the ? buttons for details or restore defaults.</p>
+        </section>
         <section>
           <h3 id="help-rain-title">Rain periods</h3>
           <p id="help-rain-copy">Use the bottom buttons to switch the accumulated rain period. The current period changes immediately and does not overwrite your saved preference.</p>
@@ -359,7 +384,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.305"></script>
-  <script src="app.js?v=0.2.305"></script>
+  <script src="config.js?v=0.2.307"></script>
+  <script src="app.js?v=0.2.307"></script>
   </body>
 </html>

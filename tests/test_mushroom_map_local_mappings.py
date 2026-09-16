@@ -29,7 +29,7 @@ class LocalMappingTests(unittest.TestCase):
             'trees':{'status':'not_covered'},
             'vegetation':{'status':'available','source_id':'icgc_cobertes_2024',
                           'edition':'2024','field':'nivell_2','code':cover},
-            'geology':{'status':'available','source_id':'icgc_geologia_50000',
+            'geology':{'status':'available','source_id':'geology_50000',
                        'edition':'2024-12','field':'Codi','code':geology}},
             'terrain':{'elevation':{'status':'available','value_m':800},
                        'ph_openlandmap':{'status':'available','estimate':6.8,'lower':6,'upper':7.8}}}
@@ -56,11 +56,11 @@ class LocalMappingTests(unittest.TestCase):
         self.assertEqual({r['id'] for r in context['lithologies']},
                          {'lith_limestone','lith_calcareous_marl','lith_sandstone'})
         self.assertEqual({r['id'] for r in context['soil_tendencies']},
-                         {'soil_calcareous','soil_sandy'})
+                         {'soil_calcareous'})
         self.assertTrue(all('ph_unknown' not in r['reasons'] for r in result['species']))
         result = self.reader.evaluate(self.geography(geology='Orp'),'2026-09-13')
         self.assertEqual({r['id'] for r in result['mapped_context']['soil_tendencies']},
-                         {'soil_calcareous','soil_sandy','soil_siliceous'})
+                         {'soil_calcareous','soil_siliceous'})
 
     def test_generic_cover_unknown_codes_and_other_editions_do_not_supply_habitat(self):
         for cover in ('221','223','225','227','224','231','unknown'):
@@ -83,7 +83,9 @@ class LocalMappingTests(unittest.TestCase):
                 ('Ggd',{'soil_siliceous'}), ('Gdb',{'soil_siliceous'}),
                 ('mc_Dcm',{'soil_calcareous'}), ('TJb',{'soil_calcareous'}),
                 ('Cacnl',{'soil_siliceous','soil_calcareous'}),
-                ('mc_Capl',{'soil_siliceous','soil_calcareous'}),
+                # Conflicting current rock/protolith descriptions remain pending.
+                ('mc_Capl',set()),
+                ('EÇOrgl',{'soil_siliceous'}), ('Cagl',{'soil_siliceous'}),
                 ('Bo',set()), ('Ggdq',set()), ('Orst',set()), ('Qdc',set())]:
             with self.subTest(code=code):
                 r=self.reader.evaluate(self.geography(geology=code),'2026-09-14')
@@ -102,7 +104,7 @@ class LocalMappingTests(unittest.TestCase):
         g=self.geography(geology='Ggd')
         g['land_context']['trees']={'status':'available','items':[{'host_id':'host_quercus_ilex'}]}
         g['terrain']['ph_openlandmap'].update(estimate=7.5,lower=6.6,upper=8.1)
-        for code,expected in [('Ggd','compatible'),('mc_Capg','compatible'),
+        for code,expected in [('Ggd','compatible'),('mc_Capg','incompatible'),
                               ('mc_Capl','incompatible'),('mc_Dcm','incompatible'),('Qt1','incompatible')]:
             g['land_context']['geology']['code']=code
             r=self.reader.evaluate(g,'2026-09-14')
@@ -111,7 +113,8 @@ class LocalMappingTests(unittest.TestCase):
         g['land_context']['geology']['code']='mc_Capl'
         g['terrain']['ph_openlandmap']['estimate']=6.7
         row=next(x for x in self.reader.evaluate(g,'2026-09-14')['species'] if x['species_id']=='boletus_aereus')
-        self.assertEqual(row['status'],'compatible')
+        self.assertEqual(row['status'],'unknown')
+        self.assertIn('soil_unresolved',row['reasons'])
 
     def test_shared_rules_are_local_data_with_provenance_and_no_host_expansion(self):
         groups = self.payload['exact_value_mapping_groups']
@@ -119,11 +122,15 @@ class LocalMappingTests(unittest.TestCase):
         for group in groups:
             self.assertTrue(group['review_ref'])
             self.assertFalse(group.get('mapped_host_ids'))
+            if group['review_status'] != 'accepted':
+                for code in group['raw_values']:
+                    self.assertNotIn((group['source_id'],group['edition'],group['field'],code),self.reader.mappings)
+                continue
             first = self.reader.mappings[(group['source_id'],group['edition'],group['field'],group['raw_values'][0])]
             for code in group['raw_values']:
                 self.assertIs(first,self.reader.mappings[(group['source_id'],group['edition'],group['field'],code)])
 
-    def test_documented_sites_keep_territorial_species_across_all_months(self):
+    def test_documented_inputs_keep_territorial_status_across_all_months(self):
         # Replay documented inputs, not new GIS measurements or inferred setal pH.
         cases=[('mc_Capg','host_quercus_ilex',415.4,7.2,6.7,7.8,'boletus_aereus'),
                ('mc_Capg','host_quercus_faginea',357.9,7.5,6.6,8.1,'boletus_aereus'),
@@ -144,16 +151,24 @@ class LocalMappingTests(unittest.TestCase):
                 with self.subTest(species=sid,month=month):
                     self.assertEqual(territory(self.reader.evaluate(g,f'2026-{month:02d}-27')['species']),territory(expected))
             row=next(r for r in expected if r['species_id']==sid)
+            if code=='mc_Capg':
+                # The revised mapping records slate, without fabricating a
+                # mineralogical classification. A higher pH can still exclude;
+                # missing soil alone must remain unknown, not biological absence.
+                self.assertEqual(row['status'],'unknown' if ph==7.2 else 'incompatible',row)
+                self.assertIn('soil_unresolved',row['reasons'])
+                continue
             self.assertEqual(row['status'],'compatible',row)
             if sid!='hygrophorus_latitabundus':
-                self.assertEqual(row['admission'],'conditional',row)
+                self.assertEqual(row['admission'],'standard' if code=='Ggd' else 'conditional',row)
                 self.assertTrue(row['soil_filter_review_ref'])
             if code=='PPcm' and sid!='hygrophorus_latitabundus':
                 self.assertIn('soil_ph_conditional',row['reasons'])
 
     def test_local_joint_rules_preserve_limits_and_abstain_on_missing_inputs(self):
         profiles={p['species_id']:p for p in self.reader.profiles}
-        self.assertEqual(profiles['boletus_aereus']['ecology']['ph_max'],6.8)
+        # Current local profile, independently edited before this GIS review.
+        self.assertEqual(profiles['boletus_aereus']['ecology']['ph_max'],7.3)
         self.assertEqual(profiles['boletus_edulis']['topography']['altitude_min_m'],900)
         self.assertEqual(profiles['boletus_pinophilus']['topography']['altitude_min_m'],1100)
         g=self.geography(cover='unknown',geology='PPcm')

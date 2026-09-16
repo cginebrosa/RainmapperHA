@@ -13,6 +13,7 @@ import json
 from urllib.parse import urlencode
 
 import mushroom_catalogs_ui
+from rainmapper_core.mushroom_gis_inventory import logical_mappings, source_inventory
 
 
 TARGET_CATALOG_FIELDS = (
@@ -52,23 +53,23 @@ def suggested_status_from_context(context: object) -> str:
     return "pending_review"
 
 
-def mapping_key(source_id: object, field: object, raw_value: object) -> str:
+def mapping_key(source_id: object, field: object, raw_value: object, edition: object = "") -> str:
     """Return a stable row key for exact mappings and candidates."""
-    return f"{source_id}\u241f{field}\u241f{raw_value}"
+    key = f"{source_id}\u241f{field}\u241f{raw_value}"
+    return f"{key}\u241f{edition}" if edition else key
 
 
 def split_mapping_key(key: str) -> tuple[str, str, str]:
     """Parse a key created by `mapping_key`."""
-    parts = key.split("\u241f", 2)
-    if len(parts) != 3:
+    parts = key.split("\u241f")
+    if len(parts) not in (3, 4):
         return "", "", ""
     return parts[0], parts[1], parts[2]
 
 
 def exact_mappings(gis_payload: dict[str, object]) -> list[dict[str, object]]:
     """Return exact-value mappings from the GIS mappings payload."""
-    values = gis_payload.get("exact_value_mappings")
-    return [item for item in values if isinstance(item, dict)] if isinstance(values, list) else []
+    return list(logical_mappings(gis_payload))
 
 
 def candidate_rows(reconstruction_payload: dict[str, object] | None) -> list[dict[str, object]]:
@@ -79,14 +80,6 @@ def candidate_rows(reconstruction_payload: dict[str, object] | None) -> list[dic
     rows: list[dict[str, object]] = []
     if not isinstance(candidates, list):
         return rows
-    geology_descriptions = [
-        str(candidate.get("raw_value", "") or "")
-        for candidate in candidates
-        if isinstance(candidate, dict)
-        and str(candidate.get("source_id", "") or "") == "geology_50000"
-        and str(candidate.get("field", "") or "") == "Descripcio"
-        and candidate.get("raw_value")
-    ]
     for candidate in candidates:
         if not isinstance(candidate, dict):
             continue
@@ -102,8 +95,6 @@ def candidate_rows(reconstruction_payload: dict[str, object] | None) -> list[dic
             for key, value in candidate.items()
             if key not in {"source_id", "field", "raw_value"} and value not in (None, "")
         }
-        if source_id == "geology_50000" and field == "Codi" and "description" not in context and geology_descriptions:
-            context["description"] = geology_descriptions[0]
         rows.append(
             {
                 "source_id": source_id,
@@ -122,14 +113,15 @@ def mapping_rows(
     gis_payload: dict[str, object],
     reconstruction_payload: dict[str, object] | None,
 ) -> list[dict[str, object]]:
-    """Build merged rows from stored exact mappings and latest candidates."""
+    """Show the complete source inventory, overlaid by actual stored decisions."""
     rows: list[dict[str, object]] = []
     mapped_keys: set[str] = set()
     for index, mapping in enumerate(exact_mappings(gis_payload)):
         source_id = str(mapping.get("source_id", "") or "")
         field = str(mapping.get("field", "") or "")
         raw_value = str(mapping.get("raw_value", "") or "")
-        key = mapping_key(source_id, field, raw_value)
+        edition = str(mapping.get("edition", "") or "")
+        key = mapping_key(source_id, field, raw_value, edition)
         mapped_keys.add(key)
         rows.append(
             {
@@ -137,6 +129,7 @@ def mapping_rows(
                 "source_id": source_id,
                 "field": field,
                 "raw_value": raw_value,
+                "edition": edition,
                 "status": str(mapping.get("review_status", "") or "accepted"),
                 "confidence": str(mapping.get("confidence", "") or ""),
                 "key": key,
@@ -146,13 +139,47 @@ def mapping_rows(
     for candidate in candidate_rows(reconstruction_payload):
         if str(candidate["key"]) not in mapped_keys:
             rows.append(candidate)
-    rows.sort(key=lambda row: (str(row.get("source_id", "")), str(row.get("field", "")), str(row.get("raw_value", ""))))
+    by_key = {str(row['key']): row for row in rows}
+    for source in source_inventory():
+        source_id, field = source['source_id'], source['field']
+        # MVC50 keeps its existing unversioned operational identity. Geology
+        # uses the exact product/edition identity required by the map reader.
+        edition = source['edition'] if source_id == 'geology_50000' else ''
+        for value in source['values']:
+            raw_value = value['raw_value']
+            key = mapping_key(source_id, field, raw_value, edition)
+            legacy_key = mapping_key(source.get('legacy_source_id', source_id), field, raw_value)
+            legacy = by_key.get(legacy_key) if legacy_key != key else None
+            row = by_key.get(key)
+            if row is None:
+                row = {'source_id': source_id, 'edition': edition, 'field': field,
+                       'raw_value': raw_value, 'key': key, 'status': 'pending_review', 'mapping': None}
+                # Preserve the older decision visibly, but do not pretend an
+                # unversioned reconstruction rule is accepted by the map.
+                if legacy:
+                    row['legacy_mapping'] = legacy.get('mapping')
+                by_key[key] = row
+            context = dict(row.get('context') or {})
+            if row.get('mapping') is None:
+                row['status'] = 'pending_review'
+            context.update({'inventory': True, 'source_edition': source['edition'],
+                            'source_file': source['source_file'], **value})
+            if legacy:
+                context['legacy_status'] = legacy['status']
+                context['legacy_targets'] = mapping_target_summary(legacy.get('mapping') or suggested_mapping_from_context(legacy.get('context')))
+                by_key.pop(legacy_key, None)
+            row['context'] = context
+    rows = list(by_key.values())
+    rows.sort(key=lambda row: (str(row.get("source_id", "")), str(row.get('edition', '')), str(row.get("field", "")), str(row.get("raw_value", ""))))
     return rows
 
 
 def selected_mapping_row(rows: list[dict[str, object]], selected_key: str) -> dict[str, object] | None:
     """Return the selected mapping row or the first available row."""
     if selected_key:
+        source, field, raw = split_mapping_key(selected_key)
+        if source == 'geology_50000' and field == 'Codi' and selected_key.count('␟') == 2:
+            selected_key = mapping_key('geology_50000', field, raw, '2024-12')
         for row in rows:
             if str(row.get("key", "")) == selected_key:
                 return row
@@ -245,6 +272,15 @@ def render_mapping_context(row: dict[str, object], mapping: dict[str, object]) -
     context = row.get("context")
     if not isinstance(context, dict):
         return ""
+    if context.get('inventory'):
+        description = html.escape(str(context.get('description', '') or row.get('raw_value', '')))
+        legacy = ''
+        if context.get('legacy_status'):
+            legacy = f'<span>Reconstrucción anterior: {html.escape(str(context["legacy_status"]))} · {html.escape(str(context.get("legacy_targets", "-")))}</span>'
+        return ('<div class="gis-mapping-context"><strong>Valor de la capa completa</strong>'
+                f'<span>{description}</span><span>{html.escape(str(context["source_file"]))} · {html.escape(str(context["source_edition"]))}</span>'
+                '<span>Estar inventariado no implica una clasificación validada. Solo las reglas aceptadas se aplican al cálculo.</span>'
+                f'{legacy}</div>')
     suggestion = suggested_mapping_from_context(context)
     suggestion_html = ""
     if suggestion:
@@ -457,6 +493,18 @@ def render_mapping_table(
     selected_key = str(selected.get("key", "")) if isinstance(selected, dict) else ""
     if not rows:
         return '<div class="catalog-alert"><strong>No GIS mapping values</strong><br>Run the local GIS reconstructor or add exact mappings.</div>'
+    total = len(rows)
+    selected_index = next((i for i, row in enumerate(rows) if str(row.get('key', '')) == selected_key), 0)
+    start = (selected_index // 100) * 100
+    navigation = []
+    for offset, label in ((start - 100, 'Anterior'), (start + 100, 'Siguiente')):
+        if 0 <= offset < total:
+            href = mappings_query_url(selected_key=str(rows[offset]['key']), source_id=selected_source,
+                                      field=selected_field, search=search, status_filter=selected_status,
+                                      sort_by=sort_by, sort_dir=sort_dir)
+            navigation.append(f'<a class="button-link" href="{html.escape(href, quote=True)}">{label}</a>')
+    pagination = f'<div class="catalog-toolbar"><span>{start + 1}–{min(start + 100, total)} / {total}</span>{" ".join(navigation)}</div>'
+    rows = rows[start:start + 100]
     body = []
     scroll_key = "gis_mappings_scroll:" + "|".join(
         str(value)
@@ -511,7 +559,7 @@ def render_mapping_table(
             f'<th><a class="table-sort-link" href="{html.escape(href, quote=True)}">{html.escape(label)}{html.escape(arrow)}</a></th>'
         )
     return (
-        '<div class="gis-mapping-list-card"><div id="gis-mapping-table-shell" class="observations-table-shell catalog-table-shell gis-mapping-table-shell"><table>'
+        '<div class="gis-mapping-list-card">' + pagination + '<div id="gis-mapping-table-shell" class="observations-table-shell catalog-table-shell gis-mapping-table-shell"><table>'
         f'<thead><tr>{"".join(headers)}</tr></thead>'
         f'<tbody>{"".join(body)}</tbody></table></div></div>'
         '<script>'
@@ -592,6 +640,8 @@ def render_mapping_detail(row: dict[str, object] | None, catalogs: dict[str, obj
     field = str(row.get("field", "") or "")
     raw_value = str(row.get("raw_value", "") or "")
     key = str(row.get("key", "") or "")
+    edition = str(row.get('edition', '') or '')
+    review_ref = str(mapping.get('review_ref', '') or '')
     confidence = str(mapping.get("confidence", "") if isinstance(mapping, dict) else "") or "medium"
     if isinstance(stored_mapping, dict) and stored_mapping:
         review_status = str(mapping.get("review_status", "") or "accepted")
@@ -623,7 +673,7 @@ def render_mapping_detail(row: dict[str, object] | None, catalogs: dict[str, obj
         f'<option value="{value}"{" selected" if value == review_status else ""}>{value}</option>'
         for value in REVIEW_STATUS_VALUES
     )
-    quality_status = "Stored mapping" if isinstance(stored_mapping, dict) and stored_mapping else "Candidate from reconstruction"
+    quality_status = "Stored mapping" if isinstance(stored_mapping, dict) and stored_mapping else "Pending source value"
     if suggested_mapping:
         quality_status = "Candidate with review suggestion"
     quality_status_tone = "ok" if isinstance(stored_mapping, dict) and stored_mapping else "warn"
@@ -648,10 +698,12 @@ def render_mapping_detail(row: dict[str, object] | None, catalogs: dict[str, obj
           <div class="catalog-entry-form compact-labels">
             <label><span>Source:</span><input name="source_id" value="{html.escape(source_id, quote=True)}" readonly></label>
             <label><span>Field:</span><input name="field" value="{html.escape(field, quote=True)}" readonly></label>
+            <label><span>Edition:</span><input name="edition" value="{html.escape(edition, quote=True)}" readonly></label>
             <label><span>Raw value:</span><input name="raw_value" value="{html.escape(raw_value, quote=True)}" readonly></label>
             <label><span>Confidence:</span><select name="confidence">{confidence_options}</select></label>
             <label><span>Review status:</span><select name="review_status">{status_options}</select></label>
             <label class="span-full"><span>Notes:</span><textarea name="notes">{html.escape(notes)}</textarea></label>
+            <label class="span-full"><span>Referencia que justifica la clasificación:</span><input name="review_ref" value="{html.escape(review_ref, quote=True)}"></label>
           </div>
           {render_mapping_context(row, mapping if isinstance(mapping, dict) else {})}
         </div>

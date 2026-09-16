@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=1.1.2
+ARG RAINMAPPER_WORKER_VERSION=1.1.3
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -55,6 +55,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_geography_store.py \
      rainmapper_core/mushroom_geography_import.py \
      rainmapper_core/mushroom_gis_lab.py \
+     rainmapper_core/mushroom_gis_inventory.py \
      rainmapper_core/mushroom_known_sites.py \
      rainmapper_core/mushroom_learned_model.py \
      rainmapper_core/mushroom_ml_biology_v3.py \

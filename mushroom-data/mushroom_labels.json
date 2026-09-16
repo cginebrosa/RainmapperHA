@@ -105,9 +105,9 @@
   },
   "ui.soil_help_save_title": {"es":"Guardar y resultado en el mapa", "ca":"Desar i resultat al mapa", "en":"Saving and map results"},
   "ui.soil_help_save": {
-    "es": "Abrir esta ayuda no cambia ni guarda nada. Los ajustes se aplican al pulsar Guardar perfil de especie. Poner Aplicar regla en No y guardar elimina la regla de la ficha; conserva pH y afinidades. Consulta de nuevo el punto para evaluar los cambios. Incompatible y con información insuficiente son resultados distintos, aunque ninguno aparece entre las compatibles. Las descartadas no invocan modelos; las compatibles sin modelo permanecen al final con Sin probabilidad calculada, que no significa cero. La fecha filtra las temporadas principal y secundaria y el predictor calcula la probabilidad temporal.",
-    "ca": "Obrir aquesta ajuda no canvia ni desa res. Els ajustos s'apliquen en prémer Desar perfil d'espècie. Posar Aplicar regla en No i desar elimina la regla de la fitxa; conserva pH i afinitats. Consulta de nou el punt per avaluar els canvis. Incompatible i amb informació insuficient són resultats diferents, tot i que cap apareix entre les compatibles. Les descartades no invoquen models; les compatibles sense model queden al final amb Sense probabilitat calculada, que no significa zero. La data filtra les temporades principal i secundària i el predictor calcula la probabilitat temporal.",
-    "en": "Opening this help changes and saves nothing. Settings apply when you press Save species profile. Setting Apply rule to No and saving removes the rule while preserving pH bounds and affinities. Query the point again to evaluate changes. Incompatible and insufficient information are different outcomes, although neither appears among compatible species. Rejected species do not invoke models; compatible species without a model remain last with No probability calculated, which is not zero. The date filters main and secondary seasons, and the predictor calculates temporal probability."
+    "es": "Abrir esta ayuda no cambia ni guarda nada. Los ajustes se aplican al pulsar Guardar perfil de especie. Poner Aplicar regla en No y guardar elimina la regla de la ficha; conserva pH y afinidades. Consulta de nuevo el punto para evaluar los cambios. Incompatible y con información insuficiente son resultados distintos, aunque ninguno aparece entre las compatibles. Las descartadas no invocan modelos; las compatibles sin modelo permanecen al final con Sin IFF calculado, que no significa cero. La fecha filtra las temporadas principal y secundaria y el predictor calcula el IFF temporal.",
+    "ca": "Obrir aquesta ajuda no canvia ni desa res. Els ajustos s'apliquen en prémer Desar perfil d'espècie. Posar Aplicar regla en No i desar elimina la regla de la fitxa; conserva pH i afinitats. Consulta de nou el punt per avaluar els canvis. Incompatible i amb informació insuficient són resultats diferents, tot i que cap apareix entre les compatibles. Les descartades no invoquen models; les compatibles sense model queden al final amb Sense IFF calculat, que no significa zero. La data filtra les temporades principal i secundària i el predictor calcula l’IFF temporal.",
+    "en": "Opening this help changes and saves nothing. Settings apply when you press Save species profile. Setting Apply rule to No and saving removes the rule while preserving pH bounds and affinities. Query the point again to evaluate changes. Incompatible and insufficient information are different outcomes, although neither appears among compatible species. Rejected species do not invoke models; compatible species without a model remain last with No IFF calculated, which is not zero. The date filters main and secondary seasons, and the predictor calculates temporal IFF."
   },
   "ui.species_soil_ph": {
     "es": "pH del suelo",
@@ -365,9 +365,9 @@
     "ca": "Predicció per espècies · 7 dies"
   },
   "ui.prediction_map_chart": {
-    "en": "Simulated daily probabilities; values in the species list",
-    "es": "Probabilidades diarias simuladas; valores en la lista de especies",
-    "ca": "Probabilitats diàries simulades; valors a la llista d'espècies"
+    "es": "IFF diario simulado, escala de 0 a 100; valores en la lista de especies",
+    "ca": "IFF diari simulat, escala de 0 a 100; valors a la llista d’espècies",
+    "en": "Simulated daily IFF, on a 0–100 scale; values in the species list"
   },
   "ui.prediction_map_date": {
     "en": "Date",
@@ -378,6 +378,11 @@
     "en": "Daily maximum",
     "es": "Máximo diario",
     "ca": "Màxim diari"
+  },
+  "ui.prediction_map_weekly_peak_short": {
+    "en": "Max",
+    "es": "Máx.",
+    "ca": "Màx."
   },
   "ui.prediction_map_weekly_peak": {
     "en": "Weekly maximum",
@@ -428,9 +433,9 @@
     "es": "Nombre en el mapa (vacío: primer nombre común)", "ca": "Nom al mapa (buit: primer nom comú)", "en": "Map name (blank: first common name)"
   },
   "ui.prediction_map_weekly_chart": {
-    "en": "Calculated probabilities by species over seven days; select a date to view its values",
-    "es": "Probabilidades calculadas por especie durante siete días; selecciona una fecha para ver sus valores",
-    "ca": "Probabilitats calculades per espècie durant set dies; selecciona una data per veure els valors"
+    "es": "IFF por especie durante siete días, escala de 0 a 100; selecciona una fecha para ver los valores",
+    "ca": "IFF per espècie durant set dies, escala de 0 a 100; selecciona una data per veure els valors",
+    "en": "IFF by species over seven days, on a 0–100 scale; select a date to view values"
   },
   "ui.prediction_map_no_model": {
     "en": "No applicable model",
@@ -3643,9 +3648,9 @@
     "ca": "L'espècie és fora de la temporada de fructificació configurada"
   },
   "ui.predictor_probability": {
-    "en": "Probability",
-    "es": "Probabilidad",
-    "ca": "Probabilitat"
+    "es": "IFF",
+    "ca": "IFF",
+    "en": "IFF"
   },
   "ui.predictor_all_areas": {
     "en": "All areas",
@@ -5393,9 +5398,9 @@
     "ca": "model no disponible"
   },
   "ui.predictor_abstention_invalid_probability": {
-    "en": "invalid probability",
-    "es": "probabilidad inválida",
-    "ca": "probabilitat invàlida"
+    "es": "valor de IFF inválido",
+    "ca": "valor d’IFF invàlid",
+    "en": "invalid IFF value"
   },
   "ui.predictor_ecological_compatibility": {
     "en": "Ecological compatibility",
@@ -5518,9 +5523,9 @@
     "ca": "El veredicte global és el de l'escenari temporal més feble. Alta exigeix ROC-AUC >= 0,80, millora relativa de Brier >= 20 %, hold-out >= 50, almenys 10 casos de cada classe i l'entrada actual dins del rang observat. Moderada exigeix ROC-AUC >= 0,70, millora relativa de Brier >= 10 %, hold-out >= 30, almenys 5 casos de cada classe i aplicabilitat acceptable. Limitada significa que el guanyador supera el mínim operatiu (Brier millor que la prevalença i ROC-AUC >= 0,55), però no els nivells superiors. No està disponible si algun escenari no té guanyador avaluable."
   },
   "ui.predictor_help_consensus": {
-    "en": "Within each temporal scenario, the verdict uses the maximum probability gap between representatives of eligible methodological families: high <= 10 percentage points, moderate > 10 and < 20, and low >= 20. It is not measurable with fewer than two families. The global verdict is the weakest measurable scenario; contrast x/y reports how many eligible scenarios had at least two families. Internal agreement between variants of one family is shown separately and is not independent family consensus.",
-    "es": "Dentro de cada escenario temporal, el veredicto usa la separación máxima de probabilidad entre representantes de familias metodológicas elegibles: alto <= 10 puntos porcentuales, moderado > 10 y < 20, y bajo >= 20. No es medible con menos de dos familias. El veredicto global es el del escenario medible más débil; contraste x/y indica cuántos escenarios elegibles tenían al menos dos familias. El acuerdo interno entre variantes de una familia se muestra por separado y no constituye consenso entre familias independientes.",
-    "ca": "Dins de cada escenari temporal, el veredicte usa la separació màxima de probabilitat entre representants de famílies metodològiques elegibles: alt <= 10 punts percentuals, moderat > 10 i < 20, i baix >= 20. No és mesurable amb menys de dues famílies. El veredicte global és el de l'escenari mesurable més feble; contrast x/y indica quants escenaris elegibles tenien almenys dues famílies. L'acord intern entre variants d'una família es mostra per separat i no constitueix consens entre famílies independents."
+    "en": "Within each temporal scenario, the verdict uses the maximum IFF gap between representatives of eligible methodological families: high <= 10 IFF points, moderate > 10 and < 20, and low >= 20. It is not measurable with fewer than two families. The global verdict is the weakest measurable scenario; contrast x/y reports how many eligible scenarios had at least two families. Internal agreement between variants of one family is shown separately and is not independent family consensus.",
+    "es": "Dentro de cada escenario temporal, el veredicto usa la separación máxima de IFF entre representantes de familias metodológicas elegibles: alto <= 10 puntos de IFF, moderado > 10 y < 20, y bajo >= 20. No es medible con menos de dos familias. El veredicto global es el del escenario medible más débil; contraste x/y indica cuántos escenarios elegibles tenían al menos dos familias. El acuerdo interno entre variantes de una familia se muestra por separado y no constituye consenso entre familias independientes.",
+    "ca": "Dins de cada escenari temporal, el veredicte usa la separació màxima d’IFF entre representants de famílies metodològiques elegibles: alt <= 10 punts d’IFF, moderat > 10 i < 20, i baix >= 20. No és mesurable amb menys de dues famílies. El veredicte global és el de l'escenari mesurable més feble; contrast x/y indica quants escenaris elegibles tenien almenys dues famílies. L'acord intern entre variants d'una família es mostra per separat i no constitueix consens entre famílies independents."
   },
   "ui.predictor_help_experimental_signal": {
     "en": "Each weather contract selects its validated shadow model with the lowest Brier score. The names and range combine those per-contract winners; they are shown for evaluation and still do not change the verdict or ranking.",
@@ -5598,9 +5603,9 @@
     "ca": "Finestra orientativa de fructificació"
   },
   "ui.predictor_help_advisory_fruiting_timing": {
-    "en": "Diagnostic comparison between days since the last rain event of at least 5 mm and the configured post-rain fruiting intervals for the species. It is not learned by the model and does not change the probability, verdict or model selection.",
-    "es": "Comparación diagnóstica entre los días transcurridos desde el último episodio de al menos 5 mm y los intervalos de fructificación tras lluvia configurados para la especie. No la aprende el modelo y no modifica la probabilidad, el veredicto ni la selección del modelo.",
-    "ca": "Comparació diagnòstica entre els dies transcorreguts des de l'últim episodi d'almenys 5 mm i els intervals de fructificació després de pluja configurats per a l'espècie. No l'aprèn el model i no modifica la probabilitat, el veredicte ni la selecció del model."
+    "en": "Diagnostic comparison between days since the last rain event of at least 5 mm and the configured post-rain fruiting intervals for the species. It is not learned by the model and does not change the IFF, verdict or model selection.",
+    "es": "Comparación diagnóstica entre los días transcurridos desde el último episodio de al menos 5 mm y los intervalos de fructificación tras lluvia configurados para la especie. No la aprende el modelo y no modifica el IFF, el veredicto ni la selección del modelo.",
+    "ca": "Comparació diagnòstica entre els dies transcorreguts des de l'últim episodi d'almenys 5 mm i els intervals de fructificació després de pluja configurats per a l'espècie. No l'aprèn el model i no modifica l’IFF, el veredicte ni la selecció del model."
   },
   "ui.predictor_interpretation_timing_early": {
     "en": "The biological timing is still early.",
@@ -5748,9 +5753,9 @@
     "ca": "Aquest episodi conegut es va incloure en l'ajust final, de manera que aquests scores no són una comprovació històrica independent."
   },
   "ui.predictor_probability_source": {
-    "en": "Score source",
-    "es": "Origen de los scores",
-    "ca": "Origen dels scores"
+    "es": "Origen del IFF",
+    "ca": "Origen de l’IFF",
+    "en": "IFF source"
   },
   "ui.predictor_probability_source_production_fit": {
     "en": "final fit",
@@ -6208,9 +6213,9 @@
     "ca": "Meteorologia observada"
   },
   "ui.predictor_weather_daily_note": {
-    "en": "Daily area estimates saved with this prediction. Light rain is included too. These charts show input values, not how much each day affects the probability. Missing readings are not zero rainfall.",
-    "es": "Estimaciones diarias del área guardadas con esta predicción. También incluyen la lluvia débil. Los gráficos muestran los datos de entrada, no cuánto influye cada día en la probabilidad. Los datos ausentes no son días sin lluvia.",
-    "ca": "Estimacions diàries de l'àrea desades amb aquesta predicció. També inclouen la pluja feble. Els gràfics mostren les dades d'entrada, no quant influeix cada dia en la probabilitat. Les dades absents no són dies sense pluja."
+    "en": "Daily area estimates saved with this prediction. Light rain is included too. These charts show input values, not how much each day affects the IFF. Missing readings are not zero rainfall.",
+    "es": "Estimaciones diarias del área guardadas con esta predicción. También incluyen la lluvia débil. Los gráficos muestran los datos de entrada, no cuánto influye cada día en el IFF. Los datos ausentes no son días sin lluvia.",
+    "ca": "Estimacions diàries de l'àrea desades amb aquesta predicció. També inclouen la pluja feble. Els gràfics mostren les dades d'entrada, no quant influeix cada dia en l’IFF. Les dades absents no són dies sense pluja."
   },
   "ui.predictor_weather_bands_note": {
     "en": "This model saves rainfall totals by period. Each bar represents the whole period shown when selected; a daily breakdown and the latest rainy day cannot be recovered from these totals.",
@@ -6358,14 +6363,14 @@
     "ca": "es van descartar {skipped} candidats més ben classificats; es va usar el candidat fiable núm. {position}"
   },
   "ui.predictor_help_applicability_fallback": {
-    "en": "The training publication fixes the reliability order. If a higher-ranked candidate cannot be applied to the current features, Rainmapper uses the first later candidate that remains within the accepted domain. It never chooses by today's highest probability.",
+    "en": "The training publication fixes the reliability order. If a higher-ranked candidate cannot be applied to the current features, Rainmapper uses the first later candidate that remains within the accepted domain. It never chooses by today's highest IFF.",
     "es": "La publicación de entrenamiento fija el orden de fiabilidad. Si un candidato mejor clasificado no puede aplicarse a las features actuales, Rainmapper usa el primer candidato posterior que permanece dentro del dominio admitido. Nunca elige por el porcentaje más alto de hoy.",
     "ca": "La publicació d'entrenament fixa l'ordre de fiabilitat. Si un candidat més ben classificat no es pot aplicar a les features actuals, Rainmapper usa el primer candidat posterior que roman dins del domini admès. Mai tria pel percentatge més alt d'avui."
   },
   "ui.predictor_estimated_probability": {
-    "en": "Estimated probability",
-    "es": "Probabilidad estimada",
-    "ca": "Probabilitat estimada"
+    "es": "IFF",
+    "ca": "IFF",
+    "en": "IFF"
   },
   "ui.predictor_statistical_signal_before_veto": {
     "en": "Statistical signal before the ecological veto",
@@ -6503,9 +6508,9 @@
     "ca": "Evidència"
   },
   "ui.predictor_week_evidence_note": {
-    "en": "Each result shows its probability, selected model, area and species-wide evidence, and which scope determined the selection.",
-    "es": "Cada resultado muestra su probabilidad, el modelo elegido, la evidencia del área y de la especie, y cuál de los dos ámbitos decidió la selección.",
-    "ca": "Cada resultat mostra la probabilitat, el model triat, l'evidència de l'àrea i de l'espècie, i quin dels dos àmbits va decidir la selecció."
+    "en": "Each result shows its IFF, selected model, area and species-wide evidence, and which scope determined the selection.",
+    "es": "Cada resultado muestra su IFF, el modelo elegido, la evidencia del área y de la especie, y cuál de los dos ámbitos decidió la selección.",
+    "ca": "Cada resultat mostra l’IFF, el model triat, l'evidència de l'àrea i de l'espècie, i quin dels dos àmbits va decidir la selecció."
   },
   "ui.predictor_test_observations": {
     "en": "Test observations",
@@ -6518,9 +6523,9 @@
     "ca": "Florades de prova"
   },
   "ui.predictor_help_prediction_probability": {
-    "en": "Model estimate for this species, area and date. If an ecological veto is shown, this is the statistical signal before that veto, not the final probability.",
-    "es": "Estimación del modelo para esta especie, área y fecha. Si aparece un veto ecológico, es la señal estadística anterior al veto, no la probabilidad final.",
-    "ca": "Estimació del model per a aquesta espècie, àrea i data. Si apareix un veto ecològic, és el senyal estadístic anterior al veto, no la probabilitat final."
+    "es": "El IFF es un índice de favorabilidad relativa, no una probabilidad. Un valor de 100 indica condiciones óptimas según el modelo, pero no garantiza que haya fructificación.",
+    "ca": "L’IFF és un índex de favorabilitat relativa, no una probabilitat. Un valor de 100 indica condicions òptimes segons el model, però no garanteix que hi hagi fructificació.",
+    "en": "IFF is a relative favorability index, not a probability. A value of 100 indicates optimal conditions according to the model, but does not guarantee fruiting."
   },
   "ui.predictor_help_observed_outing_accuracy": {
     "en": "Share of held-out cases that were favorable among those where this candidate recommended an outing. The fraction shows correct recommendations / outing recommendations.",
@@ -6718,9 +6723,9 @@
     "ca": "Resultats dels membres V2–V6"
   },
   "ui.predictor_multiversion_no_ensemble": {
-    "en": "Quality is evaluated before agreement. These probabilities are not averaged and do not change the operational ranking.",
-    "es": "La calidad se evalúa antes que el acuerdo. Estas probabilidades no se promedian ni cambian el ranking operativo.",
-    "ca": "La qualitat s'avalua abans que l'acord. Aquestes probabilitats no es fan una mitjana ni canvien el rànquing operatiu."
+    "es": "La calidad se evalúa antes que el acuerdo. Estos valores de IFF no se promedian ni cambian el ranking operativo.",
+    "ca": "La qualitat s’avalua abans que l’acord. Aquests valors d’IFF no es fan una mitjana ni canvien el rànquing operatiu.",
+    "en": "Quality is evaluated before agreement. These IFF values are not averaged and do not change the operational ranking."
   },
   "ui.predictor_multiversion_model": {
     "en": "Version / profile / estimator",
@@ -6858,9 +6863,9 @@
     "ca": "La reconciliació SoilGrids ha acabat; preparant les entrades del worker."
   },
   "ui.prediction_map_ecology_prototype": {
-    "es": "Prototipo · predicción pendiente, sin porcentajes calculados",
-    "ca": "Prototip · predicció pendent, sense percentatges calculats",
-    "en": "Prototype · prediction pending, no calculated probabilities"
+    "es": "Prototipo · predicción pendiente, sin IFF calculado",
+    "ca": "Prototip · predicció pendent, sense IFF calculat",
+    "en": "Prototype · prediction pending, no IFF calculated"
   },
   "ui.prediction_map_prediction_pending": {
     "es": "Predicción pendiente",
@@ -6968,9 +6973,9 @@
     "ca": "Són estimacions, no mesures del setal. Mínim i màxim expressen la incertesa del model. Les fonts usen profunditats i intervals d’incertesa diferents."
   },
   "ui.prediction_map_prediction_uncalculated": {
-    "es": "Sin probabilidad calculada",
-    "ca": "Sense probabilitat calculada",
-    "en": "No probability calculated"
+    "es": "Sin IFF calculado",
+    "ca": "Sense IFF calculat",
+    "en": "No IFF calculated"
   },
   "ui.prediction_map_prediction_experimental": {
     "es": "Predicción experimental · pendiente de validación en setales",
@@ -7061,5 +7066,45 @@
     "es": "Temporada secundaria",
     "ca": "Temporada secundària",
     "en": "Secondary season"
+  },
+  "ui.prediction_map_iff_name": {
+    "es": "Índice de Favorabilidad de Fructificación",
+    "ca": "Índex de Favorabilitat de Fructificació",
+    "en": "Index of Fruiting Favorability"
+  },
+  "ui.prediction_map_iff_help": {
+    "es": "El IFF es un índice de favorabilidad relativa, no una probabilidad. Un valor de 100 indica condiciones óptimas según el modelo, pero no garantiza que haya fructificación.",
+    "ca": "L’IFF és un índex de favorabilitat relativa, no una probabilitat. Un valor de 100 indica condicions òptimes segons el model, però no garanteix que hi hagi fructificació.",
+    "en": "IFF is a relative favorability index, not a probability. A value of 100 indicates optimal conditions according to the model, but does not guarantee fruiting."
+  },
+  "ui.prediction_map_iff_band_0": {
+    "es": "Desfavorable",
+    "ca": "Desfavorable",
+    "en": "Unfavorable"
+  },
+  "ui.prediction_map_iff_band_1": {
+    "es": "Poco favorable",
+    "ca": "Poc favorable",
+    "en": "Slightly favorable"
+  },
+  "ui.prediction_map_iff_band_2": {
+    "es": "Moderadamente favorable",
+    "ca": "Moderadament favorable",
+    "en": "Moderately favorable"
+  },
+  "ui.prediction_map_iff_band_3": {
+    "es": "Favorable",
+    "ca": "Favorable",
+    "en": "Favorable"
+  },
+  "ui.prediction_map_iff_band_4": {
+    "es": "Muy favorable",
+    "ca": "Molt favorable",
+    "en": "Very favorable"
+  },
+  "ui.prediction_map_iff_band_5": {
+    "es": "Óptima",
+    "ca": "Òptima",
+    "en": "Optimal"
   }
 }

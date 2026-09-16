@@ -44,6 +44,10 @@ def mapping_key(row, value):
     if (any(not isinstance(v, str) or not v or len(v) > 128 for v in identity)
             or type(value) not in (str, int) or not str(value) or len(str(value)) > 128):
         return None
+    # Older map publications used a map-only alias for this same product.
+    # Adapt it here, keeping the editable source and reconstruction unchanged.
+    if identity[0] == 'icgc_geologia_50000' and identity[2] == 'Codi':
+        identity = ('geology_50000', *identity[1:])
     return (*identity, str(value))
 
 
@@ -301,7 +305,11 @@ class EcologyReader:
         if soil_rule.get('require_soil_context') and not soil:
             # An information gap is abstention, never proof of biological absence.
             states.append('unknown')
-        soil_conditional = bool(soil.intersection(soil_rule.get('conditional_soil_ids', [])))
+        # A confirmed accepted component already supports admission in a mixed
+        # unit. The extra conditional component must not add a warning by itself.
+        # Explicit exclusions above and the independent pH checks still apply.
+        soil_conditional = not soil_accepted and bool(
+            soil.intersection(soil_rule.get('conditional_soil_ids', [])))
         hosts = positive_ids(profile,'host_affinities')
         matching = sorted(h for h in observed if any(self.host_matches(h,r) for r in hosts))
         grassland = ecology.get('trophic_mode_id') != 'trophic_ectomycorrhizal'

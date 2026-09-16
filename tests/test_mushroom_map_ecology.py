@@ -250,13 +250,17 @@ class EcologyTests(unittest.TestCase):
         self.geo['terrain']['ph_openlandmap']['estimate']=6.7
         original=copy.deepcopy(self.geo)
         for soils, state, admission in [(['calcareous'],'compatible','conditional'),
-                (['siliceous','calcareous'],'compatible','conditional'),
+                (['siliceous','calcareous'],'compatible','standard'),
                 (['sandy'],'compatible','conditional'),(['siliceous'],'compatible','standard'),
                 ([], 'unknown',None)]:
             self.mapping['exact_value_mappings'][0]['mapped_soil_tendency_ids']=soils; self.save()
             row=self.row()
             self.assertEqual((row['status'],row['admission']),(state,admission))
             self.assertEqual(row['soil_filter_review_ref'],'test-review')
+            if 'siliceous' in soils:
+                self.assertNotIn('soil_ph_conditional',row['reasons'])
+            elif soils == ['calcareous']:
+                self.assertIn('soil_ph_conditional',row['reasons'])
         self.assertEqual(self.geo,original)
         self.mapping['exact_value_mappings'][0]['mapped_soil_tendency_ids']=['calcareous'];self.save()
         self.geo['terrain']['ph_openlandmap']['estimate']=7.5
@@ -264,6 +268,28 @@ class EcologyTests(unittest.TestCase):
         self.assertEqual(row['status'],'incompatible')
         self.assertIn('ph_outside',row['reasons'])
         self.assertNotIn('soil_ph_conditional',row['reasons'])
+
+    def test_accepted_mixed_component_does_not_bypass_exclusion_or_ph_limits(self):
+        self.set_soil_filter()
+        rule=self.profile['ecology']['soil_filter']
+        rule.update(excluded_soil_ids=[],conditional_soil_ids=['calcareous'],ph_conflict='strict')
+        self.mapping['exact_value_mappings'][0]['mapped_soil_tendency_ids']=['siliceous','calcareous']
+        for ph, expected, reason in [
+                ({'status':'available','estimate':6,'lower':5.8,'upper':6.2},'compatible','ph_match'),
+                ({'status':'available','estimate':7.5,'lower':7.2,'upper':7.8},'incompatible','ph_outside'),
+                ({'status':'unavailable'},'unknown','ph_unknown')]:
+            with self.subTest(ph=ph):
+                self.geo['terrain']['ph_openlandmap']=ph; self.save()
+                row=self.row()
+                self.assertEqual(row['status'],expected)
+                self.assertIn(reason,row['reasons'])
+                self.assertNotIn('soil_ph_conditional',row['reasons'])
+        self.geo['terrain']['ph_openlandmap']={'status':'available','estimate':6,'lower':5.8,'upper':6.2}
+        rule.update(excluded_soil_ids=['calcareous'],conditional_soil_ids=[])
+        self.save()
+        row=self.row()
+        self.assertNotEqual(row['status'],'compatible')
+        self.assertIn('soil_mixed_conflict',row['reasons'])
 
     def test_mixed_substrate_can_block_ph_exception_without_becoming_a_soil_veto(self):
         self.set_soil_filter()
