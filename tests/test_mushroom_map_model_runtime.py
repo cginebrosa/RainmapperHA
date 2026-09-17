@@ -31,9 +31,10 @@ class ProjectionTests(unittest.TestCase):
                 'daily_statuses':['compatible']*7,'daily_season_phases':['main']*7}]}}
             def selection(*args,**kwargs):
                 return SimpleNamespace(horizon_days=args[2]['horizon_days'],reference=args[2])
+            applicability={'status':'within_observed_range'}
             def compare(*args,**kwargs):
                 return {'members':[{'model_ref':ref.reference,'available':True,
-                    'prediction':{'probability':.6,'applicability':{'status':'within_observed_range'}},
+                    'prediction':{'probability':.6,'applicability':applicability},
                     'evaluation':{'evidence':'better_than_prevalence','brier_score':.1,
                      'prevalence_brier_score':.25,'brier_delta_vs_prevalence':.15,'roc_auc':.8}}
                     for ref in args[2]]}
@@ -54,6 +55,17 @@ class ProjectionTests(unittest.TestCase):
                     self.assertEqual(infer.call_count,7)
                     self.assertEqual(prepare.call_count,1)
                     self.assertEqual(prepare.call_args.kwargs['end_day'],date(2026,9,day-1))
+                for status in ('caution','outside_domain'):
+                    applicability.update(status=status,outside_feature_count=8,checked_feature_count=160,
+                        most_extreme=[{'feature':f'temp_min_c__lag_{i:03}', 'value':23.,
+                            'training_min':-7.,'training_max':22.} for i in range(5)])
+                    output=r.predict({'start_date':'2026-09-15','horizon_days':7,'point':{'lat':42,'lon':2}},geography)
+                    row=output['species'][0]
+                    self.assertEqual(row['applicability'],[0]*7)
+                    self.assertEqual(len(row['applicability_details']),1)
+                    self.assertEqual(len(row['applicability_details'][0]['examples']),3)
+                    self.assertEqual(row['reasons'],['calculated' if status=='caution' else 'outside_domain']*7)
+                    self.assertEqual(row['probabilities'],[.6 if status=='caution' else None]*7)
                 for day,zone in (('2026-09-16','Europe/Madrid'),('2026-09-15','UTC')):
                     prepare.reset_mock();infer.reset_mock()
                     future=r.predict({'start_date':day,'calendar_timezone':zone,'horizon_days':7,'point':{'lat':42,'lon':2}},geography)
@@ -301,6 +313,24 @@ class ResultTests(unittest.TestCase):
         model.call.assert_not_called();weather.call.assert_called_once()
         self.assertEqual(result['species'],[])
         self.assertEqual(result['weather']['status'],'available')
+
+    def test_compact_applicability_contract_rejects_unbounded_or_invalid_details(self):
+        valid=copy.deepcopy(self.result)
+        valid['species'][0].update(applicability=[0]*7,applicability_details=[
+            {'status':'caution','outside':8,'total':160,'examples':[
+                {'feature':'temp_min_c__lag_009','value':22.83,'training_min':-7.63,'training_max':22.73}]}])
+        contract.validate_result(valid,self.request)
+        for defect in ('reference','length','status','count','examples','nan','name'):
+            r=copy.deepcopy(valid);row=r['species'][0];detail=row['applicability_details'][0]
+            if defect=='reference':row['applicability'][0]=1
+            if defect=='length':row['applicability'].pop()
+            if defect=='status':detail['status']='unknown'
+            if defect=='count':detail['outside']=161
+            if defect=='examples':detail['examples']*=4
+            if defect=='nan':detail['examples'][0]['value']=float('nan')
+            if defect=='name':detail['examples'][0]['feature']='x'*129
+            with self.subTest(defect=defect), self.assertRaisesRegex(ValueError,'invalid_result_applicability'):
+                contract.validate_result(r,self.request)
 
     def test_rejects_cross_species_incompatible_and_invalid_probability(self):
         for mutation in ('species','ecology','nan','bool','no_model','duplicate','point','season','missing_season'):

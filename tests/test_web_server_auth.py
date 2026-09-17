@@ -12769,12 +12769,21 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 self.assertIn('value="8.5"', rendered)
                 self.assertNotIn('value="None"', rendered)
 
+    @staticmethod
+    def soil_rule_fixture() -> dict:
+        return {"accepted_soil_ids": ["soil_siliceous"],
+                "conditional_soil_ids": ["soil_calcareous"],
+                "excluded_soil_ids": [], "ph_override_blocked_soil_ids": [],
+                "require_soil_context": True, "ph_conflict": "estimated_interval_overlap",
+                "review_ref": "Test fixture: soil form validation"}
+
     def test_species_soil_rule_controls_show_local_values_in_both_views(self) -> None:
         module = self.web_server.mushroom_profiles_ui
-        local = ROOT_DIR / "docker-data" / "mushroom-data"
+        local = ROOT_DIR / "mushroom-data"
         catalogs = json.loads((local / "mushroom_reference_catalogs.json").read_text())["catalogs"]
         profiles = json.loads((local / "mushroom_profiles.json").read_text())["species_profiles"]
         profile = next(row for row in profiles if row["species_id"] == "boletus_aereus")
+        profile["ecology"]["soil_filter"] = self.soil_rule_fixture()
         for view in ("v0", "enriched"):
             rendered = module.render_ecology_affinity_tabs(profile["ecology"], catalogs, view)
             for field in profile["ecology"]["soil_filter"]:
@@ -12794,7 +12803,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('&lt;script&gt;&quot;', escaped)
 
     def test_species_soil_rule_form_saves_and_validates_without_changing_other_data(self) -> None:
-        local = ROOT_DIR / "docker-data" / "mushroom-data"
+        local = ROOT_DIR / "mushroom-data"
         with mock.patch.dict(os.environ, {
             "RAINMAPPER_MUSHROOM_DEFAULTS_DIR": str(local),
             "RAINMAPPER_MUSHROOM_DATA_DIR": str(Path(self.temp_dir.name) / "soil-form-data"),
@@ -12803,6 +12812,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
             store.ensure_seeded()
             initial = store.load("profiles")
             original = next(p for p in initial["species_profiles"] if p["species_id"] == "boletus_aereus")
+            original["ecology"]["soil_filter"] = self.soil_rule_fixture()
+            store.persistent_path("profiles").write_text(json.dumps(initial))
             handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
 
             def save(**fields):
@@ -12825,6 +12836,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
                             {"soil_filter_require_soil_context":"maybe"},
                             {"soil_filter_review_ref":""}):
                 self.assertEqual(updated, save(soil_filter_enabled="true", **invalid))
+                if "soil_filter_review_ref" in invalid:
+                    message = self.web_server.render_mushroom_profiles_flash(
+                        self.web_server.RUN_STATE["mushroom_profiles_flash"])
+                    expected = self.web_server.mushroom_profiles_ui.ui_label("ui.soil_filter_review_required")
+                    self.assertIn(self.web_server.html.escape(expected), message)
+                    self.assertNotIn("soil_filter_review_required", message)
             cleared = save(soil_filter_enabled="true", soil_filter_conditional_soil_ids=[""])
             self.assertEqual([], cleared["ecology"]["soil_filter"]["conditional_soil_ids"])
             self.assertEqual(cleared["ecology"], save(map_display_name="Aereus de prueba")["ecology"])

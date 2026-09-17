@@ -429,6 +429,11 @@
   "ui.soil_filter_review_ref": {
     "es": "Referencia que justifica la regla", "ca": "Referència que justifica la regla", "en": "Supporting reference for the rule"
   },
+  "ui.soil_filter_review_required": {
+    "es": "No se ha guardado la ficha. Para activar o modificar la regla de suelo/pH, completa «Referencia que justifica la regla» en Ecología → Suelos con la fuente o el criterio que la justifica (máximo 512 caracteres).",
+    "ca": "No s’ha desat la fitxa. Per activar o modificar la regla de sòl/pH, completa «Referència que justifica la regla» a Ecologia → Sòls amb la font o el criteri que la justifica (màxim 512 caràcters).",
+    "en": "The profile was not saved. To enable or change the soil/pH rule, fill in ‘Supporting reference for the rule’ under Ecology → Soils with the supporting source or rationale (maximum 512 characters)."
+  },
   "ui.species_map_display_name": {
     "es": "Nombre en el mapa (vacío: primer nombre común)", "ca": "Nom al mapa (buit: primer nom comú)", "en": "Map name (blank: first common name)"
   },
@@ -438,9 +443,9 @@
     "en": "IFF by species over seven days, on a 0–100 scale; select a date to view values"
   },
   "ui.prediction_map_no_model": {
-    "en": "No applicable model",
-    "es": "Sin modelo aplicable",
-    "ca": "Sense model aplicable"
+    "en": "No model available",
+    "es": "Sin modelo disponible",
+    "ca": "Sense model disponible"
   },
   "ui.prediction_map_terrain": {
     "en": "Terrain",
@@ -6922,6 +6927,11 @@
     "ca": "Possibles tipus de sòl",
     "en": "Possible soil types"
   },
+  "ui.prediction_map_soil_undetermined": {
+    "es": "Suelo no determinado",
+    "ca": "Sòl no determinat",
+    "en": "Soil undetermined"
+  },
   "ui.prediction_map_soil_tendencies_help": {
     "es": "Tendencias deducidas de los materiales cartografiados; pueden coexistir. Se combinan con el pH según la ficha de cada especie. No son mediciones del suelo.",
     "ca": "Tendències deduïdes dels materials cartografiats; poden coexistir. Es combinen amb el pH segons la fitxa de cada espècie. No són mesures del sòl.",
@@ -7062,6 +7072,16 @@
     "ca": "Temporada principal",
     "en": "Main season"
   },
+  "ui.prediction_map_season_out_of_season": {
+    "es": "Fuera de temporada para la fecha seleccionada",
+    "ca": "Fora de temporada per a la data seleccionada",
+    "en": "Out of season for the selected date"
+  },
+  "ui.prediction_map_season_unknown": {
+    "es": "Temporada no determinada para la fecha seleccionada",
+    "ca": "Temporada no determinada per a la data seleccionada",
+    "en": "Season undetermined for the selected date"
+  },
   "ui.prediction_map_season_secondary": {
     "es": "Temporada secundaria",
     "ca": "Temporada secundària",
@@ -7106,5 +7126,55 @@
     "es": "Óptima",
     "ca": "Òptima",
     "en": "Optimal"
+  },
+  "ui.prediction_map_outside_domain": {
+    "en": "Outside training range",
+    "es": "Fuera de rango",
+    "ca": "Fora de rang"
+  },
+  "ui.prediction_map_outside_domain_help": {
+    "en": "IFF withheld: conditions too far outside training data",
+    "es": "IFF descartado: condiciones demasiado alejadas del entrenamiento",
+    "ca": "IFF descartat: condicions massa allunyades de l’entrenament"
+  },
+  "ui.prediction_map_extrapolation_warning": {
+    "en": "Extrapolated IFF · interpret with caution",
+    "es": "IFF con extrapolación · interpretar con cautela",
+    "ca": "IFF amb extrapolació · interpretar amb cautela"
+  },
+  "ui.prediction_map_applicability_counts": {
+    "en": "{outside} of {total} inputs outside the observed training range. This does not establish reliability at this point.",
+    "es": "{outside} de {total} variables fuera del rango observado al entrenar. Esto no demuestra fiabilidad en este punto.",
+    "ca": "{outside} de {total} variables fora del rang observat en entrenar. Això no demostra fiabilitat en aquest punt."
+  },
+  "ui.prediction_map_days_before_cutoff": {
+    "en": "{days} days before weather cutoff",
+    "es": "{days} días antes del corte meteorológico",
+    "ca": "{days} dies abans del tall meteorològic"
+  },
+  "ui.prediction_map_feature_temp_min_c": {
+    "en": "Minimum temperature (°C)",
+    "es": "Temperatura mínima (°C)",
+    "ca": "Temperatura mínima (°C)"
+  },
+  "ui.prediction_map_feature_temp_max_c": {
+    "en": "Maximum temperature (°C)",
+    "es": "Temperatura máxima (°C)",
+    "ca": "Temperatura màxima (°C)"
+  },
+  "ui.prediction_map_feature_temp_mean_c": {
+    "en": "Mean temperature (°C)",
+    "es": "Temperatura media (°C)",
+    "ca": "Temperatura mitjana (°C)"
+  },
+  "ui.prediction_map_feature_rain_mm": {
+    "en": "Rainfall (mm)",
+    "es": "Precipitación (mm)",
+    "ca": "Precipitació (mm)"
+  },
+  "ui.prediction_map_training_range": {
+    "en": "Training range",
+    "es": "Rango de entrenamiento",
+    "ca": "Rang d’entrenament"
   }
 }

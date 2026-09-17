@@ -41,3 +41,6 @@ MERGED_*.csv
 /Rainmapper_Client_old.py
 /weather_scraper_old.py
 /stations_test.txt
+
+# Local GBIF review decisions and manual exports
+gbif-revision-*.json

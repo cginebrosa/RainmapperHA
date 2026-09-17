@@ -100,5 +100,21 @@ def resolve_species_week(
             )
         days.append({"target_date":target.isoformat(),"prediction_day":day,
                      "operational_comparison":operational,"reliability_selection":active})
+        # Only carry the selected member's compact explanation to the map.
+        # Full per-feature diagnostics remain outside the point response.
+        candidate = active.get("candidate") or {}
+        member = next((m for m in members_by_day[day]
+            if comparison._candidate_identity(m.get("model_ref") or {}) ==
+               comparison._candidate_identity(candidate)), {})
+        applicability = (member.get("prediction") or {}).get("applicability") or {}
+        if applicability:
+            days[-1]["applicability"] = {
+                "status": applicability.get("status"),
+                "outside": applicability.get("outside_feature_count", 0),
+                "total": applicability.get("checked_feature_count", 0),
+                "examples": [{key: extreme[key] for key in
+                    ("feature", "value", "training_min", "training_max")}
+                    for extreme in applicability.get("most_extreme", [])[:3]],
+            }
     return {"species_id":species_id,"point_id":point_id,"issue_date":issue_date.isoformat(),
             "days":days}

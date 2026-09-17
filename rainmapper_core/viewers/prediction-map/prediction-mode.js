@@ -77,13 +77,16 @@ export function createPredictionMode(bridge) {
     const band = iffBand(value);
     return band === null ? text("prediction_uncalculated") : `IFF:${indexText(value)} · ${text(`iff_band_${band}`)}`;
   }
-  function indexValue(value) {
+  function indexValue(value, model) {
     const score = iffScore(value);
     const wrap = make("span", undefined, "pm-iff-value");
     if (score !== null) wrap.dataset.iffBand = String(iffBand(value));
-    const button = make("button", score === null ? text("prediction_uncalculated") : `IFF:${indexText(value)}`, "pm-iff-score");
+    const reason = model?.reasons?.[dayIndex];
+    const missing = text(model?.status === "no_model" || reason === "model_unavailable" ? "no_model" :
+      reason === "outside_domain" ? "outside_domain" : "prediction_uncalculated");
+    const button = make("button", score === null ? missing : `IFF:${indexText(value)}`, "pm-iff-score");
     button.type = "button";
-    button.setAttribute("aria-label", `${indexDescription(value)}. ${text("iff_name")}. ${text("iff_help")}`);
+    button.setAttribute("aria-label", `${score === null ? missing : indexDescription(value)}. ${text("iff_name")}. ${text("iff_help")}`);
     button.setAttribute("aria-expanded", "false");
     const help = make("span", `${text("iff_name")}. ${text("iff_help")}`, "pm-iff-help");
     help.setAttribute("role", "tooltip");
@@ -98,6 +101,22 @@ export function createPredictionMode(bridge) {
     if (score !== null) wrap.append(make("span", text(`iff_band_${iffBand(value)}`), "pm-iff-band"));
     wrap.append(help);
     return wrap;
+  }
+
+  function appendApplicability(item, model) {
+    const info = model?.applicability_details?.[model?.applicability?.[dayIndex]];
+    if (!info || !["caution", "outside_domain"].includes(info.status)) return;
+    if (info.status === "caution" && !Number.isFinite(model?.probabilities?.[dayIndex])) return;
+    const details = make("details", undefined, "pm-applicability");
+    details.append(make("summary", text(info.status === "caution" ? "extrapolation_warning" : "outside_domain_help")));
+    details.append(make("small", text("applicability_counts").replace("{outside}", info.outside).replace("{total}", info.total)));
+    for (const example of info.examples || []) {
+      const lag = /^(temp_min_c|temp_max_c|temp_mean_c|rain_mm)__lag_(\d+)$/.exec(example.feature);
+      const feature = lag ? `${text(`feature_${lag[1]}`)} (${text("days_before_cutoff").replace("{days}", Number(lag[2]))})` : example.feature;
+      const number = value => Number(value).toLocaleString(bridge.language(), {maximumFractionDigits:2});
+      details.append(make("small", `${feature}: ${number(example.value)} · ${text("training_range")}: ${number(example.training_min)}–${number(example.training_max)}`));
+    }
+    item.append(details);
   }
   function contextNames(kind) {
     const rows = result?.ecology?.status === "available" ? result.ecology.mapped_context?.[kind] : null;
@@ -261,6 +280,9 @@ export function createPredictionMode(bridge) {
     const status = make("p", undefined, "pm-ecology-status");
     status.setAttribute("role", "status");
     const list = make("ul", undefined, "pm-species");
+    const exclusions = make("details", undefined, "pm-ecology-exclusions");
+    const entries = make("ul");
+    exclusions.append(make("summary", text("ecology_exclusions")), entries);
     const render = () => {
       list.replaceChildren();
       const probability = row => predicted.get(row.species_id)?.probabilities?.[dayIndex];
@@ -274,7 +296,11 @@ export function createPredictionMode(bridge) {
       eligible.sort((a,b) => (Number.isFinite(probability(b)) ? probability(b) : -1) -
         (Number.isFinite(probability(a)) ? probability(a) : -1));
       const series = eligible.map(row => ({id:row.species_id, name:row.name,
-        color:speciesColors.get(row.species_id), values:weeklyValues(row)}));
+        color:speciesColors.get(row.species_id), values:weeklyValues(row),
+        applicability:result.dates.map((_, day) => {
+          const model = predicted.get(row.species_id);
+          return model?.applicability_details?.[model?.applicability?.[day]];
+        })}));
       renderWeeklyChart(chart, series, select);
       for (const row of eligible) {
         const item = make("li");
@@ -291,7 +317,7 @@ export function createPredictionMode(bridge) {
           dot.setAttribute("aria-hidden", "true");
           name.prepend(dot);
         }
-        item.append(name, calculated ? indexValue(value) : make("span", text("prediction_pending")),
+        item.append(name, calculated ? indexValue(value, predicted.get(row.species_id)) : make("span", text("prediction_pending")),
                     make("small", row.scientific_name));
         const seasonSummary = make("small", undefined, "pm-season-summary");
         seasonSummary.append(make("span", text(`season_${row.daily_season_phases[dayIndex]}`), "pm-season-phase"));
@@ -305,6 +331,7 @@ export function createPredictionMode(bridge) {
           seasonSummary.append(" — ", peakText);
         }
         item.append(seasonSummary);
+        appendApplicability(item, predicted.get(row.species_id));
         if (row.reasons?.includes("ph_conflict_soil_supported")) {
           item.append(make("small", text("soil_ph_supported"), "pm-soil-ph-supported"));
         }
@@ -313,26 +340,28 @@ export function createPredictionMode(bridge) {
         }
         list.append(item);
       }
-    };
-    select.addEventListener("change", () => { dayIndex = Number(select.value); render(); });
-    render(); section.append(status, list);
-    const excluded = ecology.status === "available" ? ecology.species.filter(row => row.status !== "compatible") : [];
-    if (excluded.length) {
-      const details = make("details", undefined, "pm-ecology-exclusions");
-      details.append(make("summary", text("ecology_exclusions")));
-      const entries = make("ul");
+      const excluded = ecology.status === "available"
+        ? ecology.species.filter(row => !eligible.includes(row)) : [];
+      entries.replaceChildren();
+      exclusions.hidden = !excluded.length;
       const reasonKeys = ["ph_outside", "ph_unknown", "ph_overlap", "soil_excluded", "soil_mixed_conflict",
         "soil_unresolved", "hosts_unknown", "habitat_unknown", "altitude_outside", "altitude_unknown", "terrain_context_missing"];
       for (const row of excluded) {
         const item = make("li");
+        item.dataset.speciesId = row.species_id || "";
         item.append(make("strong", row.name));
+        const phase = row.daily_season_phases[dayIndex];
+        if (!["main", "secondary"].includes(phase)) {
+          item.append(make("small", text(`season_${phase}`)));
+        }
         for (const key of reasonKeys) {
           if (row.reasons?.includes(key)) item.append(make("small", text(`reason_${key}`)));
         }
         entries.append(item);
       }
-      details.append(entries); section.append(details);
-    }
+    };
+    select.addEventListener("change", () => { dayIndex = Number(select.value); render(); });
+    render(); section.append(status, list, exclusions);
     container.append(section);
   }
 
@@ -374,6 +403,7 @@ export function createPredictionMode(bridge) {
         dot.style.backgroundColor = row.color;
         dot.setAttribute("aria-hidden", "true");
         entry.append(dot, make("span", row.name), make("strong", indexDescription(value)));
+        if (row.applicability?.[day]?.status === "caution") entry.append(make("small", text("extrapolation_warning")));
         tooltip.append(entry);
       }
       if (tooltip.children.length === 1) tooltip.append(make("div", text("prediction_uncalculated")));
@@ -493,10 +523,14 @@ export function createPredictionMode(bridge) {
     values.append(altitude, ph);
     const trees = make("div", undefined, "pm-summary-trees");
     trees.append(make("span", text("terrain"), "pm-summary-trees-label"));
-    for (const name of new Set(contextNames("soil_tendencies"))) {
+    const soilTendencies = contextNames("soil_tendencies");
+    for (const name of new Set(soilTendencies)) {
       const chip = make("span", name, "pm-tree-chip pm-soil-chip");
       chip.title = text("soil_tendencies_help");
       trees.append(chip);
+    }
+    if (!soilTendencies.length) {
+      trees.append(make("span", text("soil_undetermined"), "pm-tree-chip pm-soil-unknown"));
     }
     const treeData = result.land_context?.trees;
     const names = treeData?.status === "available" && Array.isArray(treeData.items) && treeData.items.length <= 8
@@ -591,7 +625,8 @@ export function createPredictionMode(bridge) {
           const item = make("li");
           const name = make("strong", text(row.label_key));
           name.style.color = colors[index % colors.length];
-          item.append(name, row.status === "no_model" ? make("span", text("no_model")) : indexValue(row.probabilities[dayIndex]));
+          item.append(name, indexValue(row.probabilities[dayIndex], row));
+          appendApplicability(item, row);
           const valid = row.probabilities.filter((v) => v !== null);
           if (valid.length) {
             const peak = Math.max(...valid);
@@ -670,11 +705,12 @@ export function createPredictionMode(bridge) {
     }
     const weatherDetail = renderPointWeather(result.weather, text, bridge.language());
     const lithologies = contextNames("lithologies");
-    const soilTendencies = contextNames("soil_tendencies");
     if (lithologies.length) terrainDetail.append(make("p", `${text("terrain_materials")}: ${lithologies.join(", ")}`, "pm-materials"));
     if (soilTendencies.length) {
       terrainDetail.append(make("p", `${text("soil_tendencies")}: ${soilTendencies.join(", ")}`, "pm-soil-tendencies"),
         make("p", text("soil_tendencies_help"), "pm-terrain-note"));
+    } else {
+      terrainDetail.append(make("p", text("soil_undetermined"), "pm-soil-tendencies"));
     }
     if (result.land_context) {
       for (const key of ["vegetation", "geology"]) {

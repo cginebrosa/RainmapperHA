@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GBIF · Observaciones de setas</title>
+  <link rel="stylesheet" href="viewer/maplibre-gl.css">
+  <link rel="stylesheet" href="viewer/gbif-viewer.css">
+</head>
+<body>
+  <header><div class="heading"><h1>Observaciones GBIF</h1>
+    <span class="sub">Catalunya · 19/06/2012–16/09/2026</span></div>
+    <nav><a href="gallery.html">Galería</a><a href="review.csv">Descargar tabla</a><a href="README.md">Información</a><button id="export-review">Exportar revisión</button><button id="import-review">Importar revisión</button><input id="review-file" type="file" accept=".json,application/json" hidden></nav>
+  </header>
+  <section class="filters" aria-label="Filtros de observaciones">
+    <label>Especie<select id="species"><option value="all">Todas las especies</option></select></label>
+    <label>Incertidumbre<select id="precision"><option value="all">Todas</option><option value="precise_or_unknown">≤1 km y desconocidas</option><option value="precise">Hasta 1 km</option><option value="wide">Más de 1 km</option><option value="unknown">Desconocida</option></select></label>
+    <label>Revisión<select id="review-filter"><option value="all">Todos los estados</option><option value="pending">Pendiente</option><option value="doubtful">Dudosa</option><option value="approved">Aceptada</option><option value="rejected">Rechazada</option></select></label>
+    <label>Buscar<input id="search" type="search" placeholder="Lugar, observador, fecha o GBIF ID"></label>
+    <label>Fondo del mapa<select id="basemap"></select></label>
+    <label class="toggle"><input id="show-uncertainty" type="checkbox" checked>Mostrar incertidumbre</label>
+    <button id="fit">Encuadrar observaciones</button>
+  </section>
+  <div class="status"><span id="count" role="status" aria-live="polite"></span><span id="map-status">Cartografía online · observaciones locales</span></div>
+  <div class="review-storage"><span id="review-message" role="status" aria-live="polite"></span><button id="connect-review-file">Activar guardado en archivo</button><span id="review-file-status" role="status" aria-live="polite"></span></div>
+  <main>
+    <section class="map-column"><div id="map" aria-label="Mapa de observaciones"></div>
+      <div class="legend"><span><i class="dot precise"></i>Punto: hasta 1 km</span><span><i class="dot wide"></i>Punto: más de 1 km</span><span><i class="dot unknown"></i>Punto: desconocida</span><span><i class="radius known"></i>Azul: radio publicado</span><span><i class="radius illustrative"></i>Rojo: desconocida · radio visual de 500 m</span><span>Los grupos numerados reúnen puntos cercanos en pantalla.</span></div>
+    </section>
+    <aside id="side" aria-label="Ficha de la observación" hidden>
+      <div class="panel-header"><strong>Ficha de la observación</strong><button id="close-detail" aria-label="Cerrar ficha" title="Cerrar ficha">×</button></div>
+      <section id="detail" aria-live="polite"></section>
+      <section id="overlap" hidden></section>
+    </aside>
+  </main>
+  <script src="viewer/maplibre-gl.js"></script><script src="viewer/base-styles.js"></script>
+  <script src="viewer/data.js"></script><script src="viewer/gbif-viewer.js"></script><script src="viewer/gbif-review-file.js"></script>
+</body>
+</html>

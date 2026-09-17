@@ -16993,6 +16993,8 @@ def render_mushroom_profiles_flash(message: str) -> str:
     )
     if not is_error:
         return f'<div id="mushroom-profile-message" class="catalog-alert"><strong>Status</strong><br>{html.escape(text)}</div>'
+    if text == "Species action failed: soil_filter_review_required":
+        text = mushroom_profiles_ui.ui_label("ui.soil_filter_review_required")
     return (
         '<div id="mushroom-profile-message" class="catalog-alert error">'
         f"<strong>Validation error</strong><br>{html.escape(text)}"

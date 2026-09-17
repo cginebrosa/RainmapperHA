@@ -283,9 +283,12 @@ def _prediction_payload(
     blocking_outside_ratio = len(blocking_outside) / len(columns)
     applicability = (
         "outside_domain"
-        if blocking_outside_ratio >= 0.05
-        or any(
-            float(row.get("standard_deviations") or 0) >= 3
+        # Lag columns are correlated: counting them makes tiny excursions
+        # switch applicability at an arbitrary percentage. Keep the existing
+        # magnitude veto; an excursion from a constant feature also blocks.
+        if any(
+            row.get("standard_deviations") is None
+            or float(row["standard_deviations"]) >= 3
             for row in blocking_outside
         )
         else "caution"
@@ -302,6 +305,7 @@ def _prediction_payload(
         "missing_feature_count": len(missing),
         "missing_features": missing,
         "applicability": {
+            "policy": "magnitude_v2",
             "status": applicability,
             "outside_feature_count": len(outside),
             "checked_feature_count": len(columns),

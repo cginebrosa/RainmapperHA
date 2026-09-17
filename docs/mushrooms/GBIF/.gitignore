@@ -1,0 +1,6 @@
+# Local research observations and photos; scripts and reports remain reviewable.
+snapshot-*/
+gbif-counts-*.json
+gbif-sample-*.json
+__pycache__/
+gbif-revision-*.json

@@ -32,5 +32,7 @@ stations_test.txt
 stations.txt
 
 # Docs and repo metadata not needed in the image
+docs/mushrooms/GBIF/snapshot-*
+**/gbif-revision-*.json
 README_DOCKER.md
 .gitignore

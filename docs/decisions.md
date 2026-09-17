@@ -1,6 +1,147 @@
 # Decisions
 
-## 2026-09-14 - [VIGENTE][MAPA][CACHÉ] Reutilizar datos del worker durante la predicción
+## 2026-09-17 — [VIGENTE][RELEASE] HA 0.2.309
+
+Publicada a petición expresa del usuario, con los cambios adicionales de mensaje
+de validación y descartes por temporada pedidos durante la preparación.
+Tags `0.2.309` y `latest`, digest
+`sha256:fd181c978e48f503c18ee4a0fd1d78e88114bc1e2d18a2c413a02a1bb0c6b4b9`,
+plataformas AMD64/ARM64 verificadas y proceso de publicación terminado con 0.
+HA real no se instala automáticamente. [Evidencia](reports/ha-release-0.2.309.json).
+
+- Candidata instalada en HA local y worker privado 1.1.3: 200/107 archivos
+  idénticos al worktree, destinos persistidos intactos. Consulta de dos puntos
+  en ambos modos con resultados iguales salvo medidas e identificador.
+- Smoke final: 1.615 tests, 48 omitidos, correcto. Chrome verifica suelos
+  conocidos/desconocidos, motivos simultáneos, temporada y cambio de fecha.
+- El listado de descartes incluye toda especie no elegible para el día
+  seleccionado; conserva motivos de pH, hospedadores, altitud, suelo y falta
+  de información, y añade fuera de temporada/temporada desconocida. Una especie
+  territorialmente compatible ya no desaparece al quedar fuera de temporada.
+- «Suelo no determinado» es presentación general, no un nuevo requisito:
+  el usuario confirma que controla la exigencia de suelo desde cada ficha.
+- La referencia sigue siendo obligatoria al activar/modificar una regla de
+  suelo/pH; el error ahora identifica campo, ubicación y límite de longitud.
+- Sin entrenamiento, reconstrucción de datos ni precálculo operativos por
+  rutina. La validación del cambio de inferencia usa artefactos persistidos;
+  no se presenta como una nueva validación científica de los modelos.
+- Se versionan herramientas/documentación GBIF; snapshots, media, revisiones
+  personales y `mushroom_observations.json` del usuario quedan fuera del commit.
+  La revisión GIS general y la revisión manual GBIF siguen pendientes.
+
+## 2026-09-17 — [VIGENTE][ML, HA 0.2.309] Aplicabilidad por magnitud y aviso de extrapolación
+
+Por petición explícita del usuario, se retira el veto por porcentaje de columnas
+fuera de rango. Se conserva el existente ≥3 desviaciones respecto a la media
+para columnas ya fuera de su mínimo/máximo; una salida de una variable constante
+también veta y la lluvia mantiene su excepción de solo aviso. El resto de
+salidas se clasifica `caution` y el mapa muestra aviso/desplegable. No se altera
+el resultado bruto ni la evidencia por especie; permitir un candidato antes
+vetado sí puede cambiar el ganador. No se declara calibración científica de
+esta política ni de los resultados en puntos sin observaciones etiquetadas.
+
+Reemplaza la cláusula del veto 5 % de la decisión del 23/08, conservando sus
+contratos separados de selección, fiabilidad y consenso. Alternativa descartada:
+elevar ese porcentaje trasladaría el salto sin considerar la magnitud.
+Instalado posteriormente el 17/09 por petición expresa en HA local y worker,
+con paridad de código y consultas local/worker comprobadas. Publicado en HA
+0.2.309; instalación en HA real pendiente. Sin entrenamiento/precálculo.
+[Fórmula, evidencia, cifras y límites](reports/iff-applicability-2026-09-17.md).
+
+## 2026-09-16 — [VIGENTE][GIS] Investigación por código y pausa explícita
+
+El usuario aplaza la revisión restante y pide un TODO enlazado a un método breve.
+Tanda de 488: 145 aceptados, 343 pendientes; 12 con investigación específica y
+limitación documentada, 331 sin investigación específica suficiente. Los 12 no
+se consideran imposibles de resolver. Las otras 567 clasificaciones aceptadas
+anteriores no se presentan como nuevamente investigadas.
+
+Aceptar requiere fuente primaria aplicable a unidad/formación/facies y ámbito,
+con motivo, URL, localizador y huella. Consultar una leyenda o mencionar una
+memoria genérica no demuestra revisión científica completa. Material aceptado
+con suelo vacío tampoco significa suelo validado. Mantener pendientes los casos
+sin sustento; no inventar clasificaciones para rellenar la UI.
+
+[Método](mushrooms/gis-soil-review-method-es.md) y
+[informe con alcance y verificación](gis-review-2026-09-16.md).
+La revisión queda detenida por decisión del usuario, no por estar finalizada.
+
+## 2026-09-16 — [VIGENTE][GIS] Conservar fuentes y admitir componentes mixtos justificados
+
+Mantener identificadores de fuente, códigos y contratos existentes. GIS-mappings
+es la correspondencia aceptada; no renombrar `geology_50000` para resolver solo
+la presentación del mapa. Los últimos archivos preservan las 1.336 identidades;
+477 reglas agrupadas no significan 477 códigos. Agrupar solo metadatos idénticos
+sin elevar el límite de 512 ni perder entradas; verificar ambos lectores.
+
+Silíceo y calcáreo pueden coexistir cuando la evidencia lo justifique. Son
+componentes posibles del sustrato cartografiado, no garantías sobre cada horizonte.
+No inferir textura arenosa de arenisca, ni pH, drenaje, humus o descalcificación
+superficial de una roca. Las exclusiones explícitas de las fichas conservan su
+función. El usuario acordó no generar admisión condicionada únicamente por el
+componente calcáreo cuando también hay componente silíceo compatible; no quitar
+avisos debidos a otras condiciones ni eliminar exclusiones.
+
+Esta decisión sustituye la congelación de reglas del 14/09 en cuanto impedía
+la revisión bibliográfica y el tratamiento posterior de mezclas. Se conserva
+la prohibición de inventar vetos globales y alterar fichas sin justificación.
+
+## 2026-09-16 — [VIGENTE][UI] IFF, tres idiomas y espacio vertical
+
+Mantener IFF en ES/CA/EN, expresar el valor como `IFF:x/100`, sin llamarlo
+probabilidad. Rangos acordados: 0–19 desfavorable; 20–39 poco favorable;
+40–59 moderadamente favorable; 60–79 favorable; 80–94 muy favorable;
+95–100 óptima, con traducciones correspondientes. El tooltip explica favorabilidad
+relativa: 100 representa condiciones óptimas según el modelo, sin garantizar
+fructificación. También debe estar disponible sin IFF calculado.
+
+Aplicar colores de rojo a verde al valor, descripción y máximo; conservar textos
+para no depender solo del color. Compactar sin perder legibilidad: descripción
+bajo el IFF junto al nombre científico, temporada con su grafía más oscura seguida
+de separador y máximo, fechas DD/MM/AA y día de la semana cuando quepa.
+`null` es ausencia de cálculo, diferente de cero. Las estadísticas de validación
+pueden seguir siendo porcentajes cuando realmente sean métricas estadísticas.
+
+El ajuste de dos puntos en el Predictor está en HA local después de 0.2.307;
+no declararlo publicado por estar en el worktree. No cambia modelos ni exige
+entrenamiento para su presentación.
+
+## 2026-09-16 — [VIGENTE][WORKER] Un worker y preferencia con fallback
+
+Usar el worker existente; no crear otro para pruebas ni cambiar destinos sin
+permiso expreso para el destino concreto. Worker es la preferencia por defecto;
+el usuario puede elegir Local. Ante indisponibilidad del worker, el mapa debe
+poder recurrir automáticamente a Local sin sobrescribir la preferencia guardada.
+Esto reemplaza la prohibición anterior de fallback del 14/09; no autoriza reintentos
+duplicados indiscriminados ni cambiar reparto de entrenamiento/precálculo.
+
+Conservar sincronización privada por asociación y reutilización de meteorología,
+modelos y geografía sin volver a transferirlos en cada clic. No extrapolar tiempos
+del M1 a RPi4. La renovación de mappings del mapa no es una orden de reentrenar
+ni reescribe automáticamente artefactos precalculados del Predictor.
+
+## 2026-09-16 — [VIGENTE][OPERACIÓN] Evidencia compacta y limpieza acotada
+
+El usuario autorizó limpieza de GHCR, Docker local y copias de entrega obsoletas,
+**no borrar los JSON instalados en HA real**. Conservar auditorías GIS referenciadas:
+son justificaciones, no backups. Mantener scripts/fuentes necesarios para retomar,
+sin recrear paquetes voluminosos de rollback no solicitados. Python 3.11-slim se
+conserva; migración a 3.14 aplazada hasta estabilizar la aplicación.
+
+Los estados «pendiente de instalar 0.2.304» y las entregas 0.2.306/0.2.307
+como copias locales recuperables son **OBSOLETOS** tras instalación comunicada
+y limpieza. Las medidas de espacio e informes de release son evidencia fechada,
+no inventarios actuales automáticos.
+
+## 2026-09-16 — [DUDA][HA REAL] Consumo efectivo de la última subida GIS
+
+El usuario confirma instalación de HA 0.2.307 y subida posterior de los dos JSON.
+No se ha comprobado remotamente el SHA/consumo de esta última subida. HA local sí
+se comprobó con los últimos mappings y ambos lectores. No afirmar paridad remota,
+ni regenerar modelos o precálculo para disipar esta duda: comprobar versiones y
+artefactos efectivos mediante lectura acotada cuando se solicite.
+
+## 2026-09-14 - [REEMPLAZADA][MAPA][CACHÉ] Reutilizar datos del worker durante la predicción
 
 - El usuario exige minimizar transporte RPi4–worker: meteorología recibida para
   precálculo y fichas existentes se reutilizan si siguen siendo las versiones
@@ -15,7 +156,7 @@
   integración del mapa sigue pendiente: los montajes locales no validan este
   transporte. [Diseño y aceptación](mushrooms/prediction-map-local-worker-setup-es.md#sincronización-privada-y-caché-requisito-acordado-integración-pendiente).
 
-## 2026-09-14 - [VIGENTE][MAPA][OPERACIÓN] Worker existente, alcance nacional y RPi4
+## 2026-09-14 - [REEMPLAZADA][MAPA][OPERACIÓN] Worker existente, alcance nacional y RPi4
 
 - Usuario aplaza revisión visual a fondo y árboles vecinos al TODO; autoriza
   volumen/configuración y comparación HA local–worker. Prefiere usar el worker
@@ -46,7 +187,7 @@
   de orden, posición de motivos y ausencia de desbordamiento en
   `tests/prediction_map_browser_check.mjs`.
 
-## 2026-09-14 - [VIGENTE][MAPA][SUELO] Conservar reglas; descartada restricción adicional
+## 2026-09-14 - [REEMPLAZADA][MAPA][SUELO] Conservar reglas; descartada restricción adicional
 
 - El usuario contrastó la propuesta «restringir por tipo de suelo y confirmar por
   pH» y la descartó porque excluiría sitios conocidos de aereus. Instrucción final:
@@ -1813,8 +1954,9 @@ persistido, según el archivo de contexto del 11/09.
 - La UI ofrece veredictos visibles y mantiene debajo la evidencia por escenario.
   Solo se abren automáticamente los detalles de versiones con algoritmos
   elegidos; las demás versiones incluidas permanecen plegadas y auditables.
-- La aplicabilidad actual aprende mínimo, máximo, media y desviación por columna,
-  pero clasifica con dos constantes de política no calibradas: 5 % de columnas
+- [Cláusula reemplazada por la decisión del 17/09/2026; estado histórico]
+  La aplicabilidad aprendía mínimo, máximo, media y desviación por columna,
+  pero clasificaba con dos constantes de política no calibradas: 5 % de columnas
   fuera del rango o una salida a 3 sigma. No describen si lluvia/temperatura son
   ecológicamente buenas o malas; solo el soporte estadístico marginal del
   artefacto. Se auditarán antes de discutir cualquier cambio.

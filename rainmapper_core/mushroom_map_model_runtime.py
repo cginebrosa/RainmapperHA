@@ -243,6 +243,8 @@ class PointModelRuntime:
                     day,phenology.get('main_months',[]),phenology.get('secondary_months',[])),
                 phenology=phenology, lazy_families=True)
             row['status']='available'
+            row['applicability']=[None]*horizon
+            row['applicability_details']=[]
             diagnostic=[]
             for i,day in enumerate(week['days'][:horizon]):
                 operational=day['operational_comparison']; active=day['reliability_selection']
@@ -256,7 +258,14 @@ class PointModelRuntime:
                     reason='calculated'
                 else:
                     probability=None; reason=operational.get('reason') or 'model_abstained'
+                    if (day.get('applicability') or {}).get('status') == 'outside_domain':
+                        reason='outside_domain'
                 row['probabilities'][i]=probability;row['reasons'][i]=reason
+                detail=day.get('applicability')
+                if detail:
+                    if detail not in row['applicability_details']:
+                        row['applicability_details'].append(detail)
+                    row['applicability'][i]=row['applicability_details'].index(detail)
                 diagnostic.append({'day':i+1,'candidate':candidate,'weekly':active.get('weekly_model_selection'),
                     'runtime_status':active.get('runtime_selection_status'),'reason':reason})
             self.last_diagnostics[sid]=diagnostic

@@ -377,32 +377,30 @@ entre 10 y 20 moderado y >= 20 bajo. Con una sola familia se informa `sin
 contraste`; el resumen global adopta el peor escenario medible y declara cuántos
 escenarios pudieron contrastarse.
 
-### Aplicabilidad vigente y deuda de calibración
+### Aplicabilidad candidata y deuda de calibración
 
-Cada artefacto guarda por columna el mínimo, máximo, media y desviación estándar
-de sus muestras elegibles. En inferencia se compara el valor crudo actual con
-ese soporte marginal. El estado vigente es:
+Revisión del 17/09/2026, implementada y probada en HA local y worker;
+**todavía sin publicar ni actualizar HA real**. Política `magnitude_v2`:
 
-- `within_observed_range`: ninguna columna fuera de su mínimo/máximo;
-- `caution`: existe alguna columna fuera, pero representa menos del 5 % y
-  ninguna de esas columnas alcanza 3 desviaciones respecto a la media;
-- `outside_domain`: al menos el 5 % de las columnas queda fuera o una columna
-  ya fuera del rango alcanza 3 desviaciones.
+- `within_observed_range`: ninguna columna fuera de mínimos/máximos aprendidos.
+- `caution`: existe una salida de rango, pero no alcanza el veto por magnitud.
+- `outside_domain`: una columna no pluviométrica fuera de rango alcanza ≥3
+  desviaciones respecto a la media, o sale del rango de una variable constante.
+- La lluvia mantiene su excepción previa de solo aviso, sin veto por magnitud.
 
-El 5 % es una proporción de columnas, no una superación física del 5 %. Un
-episodio de lluvia superior al máximo no se considera ecológicamente malo por
-esta regla: solo se marca que el modelo dispone de menos soporte para esa
-entrada. Los límites mínimo/máximo/media/desviación se calculan desde los datos;
-los umbrales 5 % y 3 sigma están hardcoded y no son propiedades del estimador ni
-constan calibrados empíricamente para Rainmapper.
+El porcentaje de columnas fuera queda como diagnóstico; deja de vetar al 5 %.
+La regla anterior podía bloquear por dos entradas de temperatura ligeramente
+distintas, contando días de una misma serie como columnas separadas. El mapa
+muestra aviso de extrapolación y permite consultar algunos valores/rangos.
+No se elevan umbrales ni se modifica el valor bruto del estimador, pero cambia
+qué candidatos pueden participar en la selección operativa.
 
-La revisión acordada separará compatibilidad ecológica de aplicabilidad
-estadística y probará, sin cambiar todavía el selector: distribuciones robustas
-por variable, frecuencia de vecinos comparables, combinaciones multivariantes y
-degradación de Brier/ROC-AUC/calibración en hold-out conforme aumenta la novedad.
-Solo después de esa auditoría se discutirán nuevos límites. Si no hay extremos
-fuera de muestra suficientes, el resultado correcto será evidencia insuficiente,
-no un umbral nuevo presentado como validado.
+Mínimos, máximos, media y desviación proceden del artefacto. Las 3 desviaciones
+siguen siendo una política no calibrada empíricamente para Rainmapper; no son
+una frontera ecológica ni garantía de fiabilidad. La evaluación previa del
+modelo tampoco valida una coordenada extrapolada. Una calibración con hold-out
+etiquetado queda fuera de esta corrección acotada, sin declarar mejora predictiva.
+[Fórmula, dos puntos reales y evidencia](../reports/iff-applicability-2026-09-17.md).
 
 La UI resume antes del detalle cuatro grupos mutuamente excluyentes: miembros
 utilizables (en dominio y mejores que prevalencia), disponibles en dominio con

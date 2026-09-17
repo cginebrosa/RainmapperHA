@@ -1,0 +1,151 @@
+{
+  "version": "0.2.309",
+  "date": "2026-09-17",
+  "image": "ghcr.io/cginebrosa/rainmapperha",
+  "tags": [
+    "0.2.309",
+    "latest"
+  ],
+  "digest": "sha256:fd181c978e48f503c18ee4a0fd1d78e88114bc1e2d18a2c413a02a1bb0c6b4b9",
+  "platforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "publication_exit_code": 0,
+  "local_parity": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 200,
+      "mismatches": [],
+      "manifest_sha256": "b3d39db4d11ffdf7854b60ac4d572f82658b9d95226e16542521c824dd06181c"
+    },
+    "rainmapper-worker": {
+      "checked_files": 107,
+      "mismatches": [],
+      "manifest_sha256": "6a6f63bb8033fa66971e458c25745d8e8918395e1a278b82a6df42354e0e2eb9"
+    }
+  },
+  "validation": {
+    "smoke": {
+      "tests": 1615,
+      "skipped": 48,
+      "result": "passed",
+      "log": "tmp/release-0.2.309/smoke-season.log"
+    },
+    "browser": {
+      "result": "passed",
+      "log": "tmp/release-0.2.309/browser-final.log",
+      "checks": [
+        "known and unknown soil",
+        "season and ecological exclusions together",
+        "date-dependent movement between lists",
+        "mobile and ES/CA/EN"
+      ]
+    },
+    "api": {
+      "contract": "prediction_map_point_v1",
+      "start_date": "2026-09-17",
+      "checks": {
+        "ready": {
+          "contract": "prediction_map_point_v1",
+          "can_use_prediction_map": true,
+          "admin_only": false,
+          "data_mode": "prediction",
+          "worker_ready": true,
+          "executors": {
+            "local": true,
+            "worker": true
+          },
+          "calendar_timezone": "Europe/Madrid",
+          "max_horizon_days": 7,
+          "max_species": 32
+        },
+        "basic_user_allowed": true,
+        "unauthorized": 401,
+        "invalid_coordinate": 400,
+        "with-iff_local_worker_parity": true,
+        "without-iff_local_worker_parity": true,
+        "prediction-mode.js_sha256": "34ffafa1580274405146b396535512594637d7bf7183da92a6f8df9ea595127b",
+        "prediction-mode.css_sha256": "c28036e8c5d474b4917c65272c69bef69e33154562ea31604ec402723e77294f"
+      },
+      "queries": [
+        {
+          "mode": "local",
+          "point": {
+            "lat": 41.4329,
+            "lon": 2.11928
+          },
+          "elapsed_ms": 2472.3,
+          "compute_ms": 2298.7,
+          "polls": 13,
+          "state_bytes": 684,
+          "result_bytes": 23065,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 41.4329,
+            "lon": 2.11928
+          },
+          "elapsed_ms": 5853.04,
+          "compute_ms": 4925.815,
+          "polls": 29,
+          "state_bytes": 1592,
+          "result_bytes": 23068,
+          "calculated_species": 3
+        },
+        {
+          "mode": "local",
+          "point": {
+            "lat": 41.4346,
+            "lon": 2.12029
+          },
+          "elapsed_ms": 2063.16,
+          "compute_ms": 1980.028,
+          "polls": 11,
+          "state_bytes": 570,
+          "result_bytes": 23076,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 41.4346,
+            "lon": 2.12029
+          },
+          "elapsed_ms": 2898.36,
+          "compute_ms": 1962.256,
+          "polls": 15,
+          "state_bytes": 793,
+          "result_bytes": 23077,
+          "calculated_species": 3
+        }
+      ],
+      "ok": true,
+      "temporary_test_device_removed": true
+    },
+    "final_installed_assets": "served-final.js matches worktree; served config includes season labels"
+  },
+  "worker": {
+    "version": "1.1.3",
+    "published": false,
+    "rebuilt_and_recreated": true,
+    "destinations_preserved": true,
+    "configuration_sha256": {
+      "coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+      "additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+    }
+  },
+  "data_preserved": [
+    "mushroom-data/mushroom_observations.json",
+    "docker-data/mushroom-data/mushroom_observations.json",
+    "docker-data/mushroom-data/mushroom_gis_mappings.json",
+    "docker-data/mushroom-data/mushroom_ml_version_registry.json",
+    "docker-data/mushroom-data/mushroom_known_sites.json"
+  ],
+  "training_or_precompute_relaunched": false,
+  "validation_scope": "Inference and map presentation with existing persisted models; no operational rebuild, training, promotion or precompute rerun, per user instruction. New returned applicability data are bounded and deduplicated.",
+  "ha_real": "Image published; installation not performed or verified in this release. User previously reported completion of 0.2.308 installation.",
+  "gbif": "Viewer sources included in Git; downloaded records, media and review files excluded from Git and image; no operational import.",
+  "cleanup": "Build script completed its standard local image/cache cleanup; no GHCR deletion or user-data cleanup."
+}

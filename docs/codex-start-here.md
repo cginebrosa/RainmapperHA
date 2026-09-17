@@ -1,132 +1,29 @@
-# Codex Start Here
+# Codex: empezar aquí
 
-Punto de entrada estable para RainmapperHA. Leer completo este documento y
-`active-context.md`; `todo.md` solo amplía prioridades.
+Este documento contiene el mapa estable del proyecto y las reglas de continuidad.
+El estado operativo está exclusivamente en [active-context.md](active-context.md).
 
-Incremento actual: geografía portable, con archivos ordinarios compartidos en
-`/media/rainmapper/geography`. **Sin comandos ni enlaces en el primer arranque.**
-Validación local terminada: smoke 1600/48, código efectivo HA/worker comprobado,
-cuatro puntos GIS idénticos, seis consultas con paridad y primer acceso con media
-read-only. Copias en sus rutas definitivas de HA real y referencias verificadas; originales
-preservados. [Informe](reports/shared-geography-portable-2026-09-15.json).
-[Guía vigente](mushrooms/shared-geography-consolidation-es.md).
-HA 0.2.304 publicada el 16/09/2026: tags y plataformas GHCR verificados.
-Worker existente 1.1.2 validado. HA real no instalada; el usuario instalará.
-[Release](reports/ha-release-0.2.304.json). Continuar según `active-context.md`; no repetir la
-adopción nativa ni los uploads históricos.
+## Arranque de una sesión
+
+1. Leer este documento y [active-context.md](active-context.md).
+2. Consultar [todo.md](todo.md) solo para ampliar los próximos bloques.
+3. Revalidar los archivos, contenedores y huellas pertinentes antes de afirmar
+   su estado actual. Los informes anteriores acreditan la revisión indicada,
+   no el estado de otra imagen o de HA real después de una subida manual.
+4. Consultar anexos técnicos únicamente cuando lo requiera la tarea elegida.
+   Un pendiente no autoriza ejecutarlo: la revisión GIS quedó aplazada por el usuario.
 
 ## Qué es el proyecto
 
-RainmapperHA es una aplicación Python empaquetada como add-on de Home Assistant.
-Ingiere históricos meteorológicos, genera mapas protegidos MapLibre y mantiene
-el dominio micológico: observaciones y media, setales, GIS/DEM, reconstrucción de
-artefactos, entrenamiento ML y Predictor de Floradas.
+Rainmapper combina mapas meteorológicos y predicción de fructificación de setas.
+El mapa calcula por coordenadas; el Predictor trabaja con áreas y artefactos
+entrenados/precalculados. La presentación IFF no garantiza presencia de setas.
+HA coordina datos y trabajos; el worker ejecuta cálculo remoto. Sus versiones
+son independientes y sus asociaciones deben conservarse.
 
-El cálculo pesado puede ejecutarse en HA o en workers externos emparejados. HA
-conserva autoridad sobre usuarios, UI, jobs, datasets, promoción de artefactos,
-resultados y Diagnostics; los workers son calculadoras sin UI pública.
-
-## Arranque obligatorio
-
-Trabajar únicamente en:
-
-```text
-/Users/carlosginebrosa/Developer/RainmapperHA
-```
-
-Antes de actuar:
-
-```bash
-pwd
-git status --short
-```
-
-Leer siempre, en este orden:
-
-1. `docs/codex-start-here.md`
-2. `docs/active-context.md`
-3. `docs/todo.md` solo si hacen falta prioridades más largas
-
-`docs/active-context.md` es una ventana operativa, no un diario. El histórico
-está en `docs/decisions.md`, `docs/project-archive.md` y los diseños temáticos.
-
-## Estado general del trabajo local al 15/09/2026
-
-- Base local del mapa consolidada en imágenes HA/worker reconstruidas y recreadas,
-  con huellas efectivas verificadas, smoke y paridad del día 15. Incluye los ajustes
-  de UI/idiomas/afinidades y canal online anteriores; ya no depende de copias
-  puntuales al contenedor. Copia recuperable en `backups/local-base-20260915/`.
-  [Informe](reports/prediction-map-local-images-2026-09-15.json). Sin release HA real.
-- Zona horaria visible en Parámetros → Predicción, ES/CA/EN y por dispositivo.
-  Fecha inicial y corte meteorológico usan esa zona (inicial Europe/Madrid) tanto
-  en HA como en worker; corregido el null general al pasar medianoche con worker
-  UTC. [Funcionamiento](mushrooms/prediction-map-local-worker-setup-es.md#calendario-visible-de-la-predicción--15092026).
-
-- **Implementado:** separación territorial/temporal (`territorial_and_seasonal_windows_v6`).
-  El lugar selecciona por suelo+pH, hospedadores/hábitat y altitud; el predictor
-  conserva fenología y evalúa fecha/meteorología. Decisión posterior: fuera de
-  temporada no aparece ni invoca modelo; visibles con etiqueta principal/secundaria.
-  Estado territorial separado de la fase diaria. Descartadas sin modelo; salida
-  temprana sin candidatas; compatibles sin cálculo al final con null distinto de cero.
-  Cuatro reglas locales conjuntas aplicadas: aereus, edulis, pinophilus y cibarius.
-  Suelo/pH se conserva por decisión final del usuario; no reabrir la restricción
-  por litología. UI: suelo antes de árboles y descartes con motivos separados.
-  Volumen/configuración de lectores actuales y paridad HA local–worker ya probados;
-  usar el worker existente, destinos intactos. Revisión visual y árboles vecinos
-  aplazados al TODO. La caché privada y la publicación geográfica ya están integradas y probadas.
-  Pendiente: GEODE/MFE nacional y despliegue de la candidata, sin
-  repetir descargas. RPi4 calculará mediante worker en principio, sin fallback local.
-  Contraste científico y resto de fichas siguen pendientes.
-- Prioridad: **Mapa de predicción**, complementario al Predictor. Preview nueva
-  reutiliza MapLibre y muestra terreno/meteorología reales y candidatas ecológicas
-  del punto y **probabilidades del motor Python existente**. Compatibles por
-  probabilidad descendente; sin cálculo al final. Predicción experimental.
-- Fichas/catálogo locales revisados: 21 fichas con ventanas amplias, 115 hosts;
-  21 pares pH min/max provisionales aplicados y revisables. Datos de trabajo en `docker-data/mushroom-data/`,
-  no en las semillas del repo. Promoción posterior explícita.
-- Revisadas las 1.055 unidades geológicas ICGC: 1.046 códigos con equivalencias
-  de materiales en 192 reglas compartidas; nueve sin equivalencia segura.
-  Composición del suelo puede seguir indeterminada aunque se identifique un
-  depósito. Catálogo local ampliado y mezclas conservadas; GEODE siguiente fase.
-  No equivalencias fijas en Python. Terreno agrupa árboles/hábitats; las fichas
-  de prado/ribera pueden encajar sin árboles. Hosts específicos siguen exigidos.
-- Ayuda de las reglas de suelo/pH: [guía de los controles](mushrooms/soil-ph-rule-help-es.md),
-  también en Ecología → Suelos mediante «Ayuda», completa en ES/CA/EN.
-- Reglas suelo/pH en cuatro fichas locales, sin cambiar rangos ni afinidades:
-  silíceo como apoyo no exhaustivo; caliza+pH admitido, condicionado sin presumir
-  descalcificación; composición sin resolver, desconocido. Solo aereus conserva
-  el ensayo de intervalo solapado, bloqueo de mezcla con carbonatos/yeso y máximo
-  6,8. Las otras 17 fichas conservadas; sin vetos geológicos universales. Detalle en
-  [sustrato y especies](mushrooms/prediction-map-substrate-species-review-es.md#reglas-locales-conjuntas-v5).
-- Rovelló por especie: cuatro IDs/fichas conservados, sin grupo derivado ni
-  préstamo de modelos. Motor conectado en preview y ejecutor Python común.
-  Paridad/datos de worker y comparación de ejecutores después del bloque de
-  compatibilidad descrito arriba; no inferencia en navegador.
-- Corregida lectura MFE de candidatos con anillos inválidos: reparación acotada
-  en memoria, conservando área y originales. Recuperadas encinas/hayas/castaños
-  en los puntos de Fogars y Arbúcies; no faltaban esas capas.
-- OpenLandMap pH descargado e integrado en preview: nueve GeoTIFF, 368 MiB en
-  `mushroom-map-GIS/openlandmap-ph/spain-v20250204/`. Selección con media, detalle
-  con límites e incertidumbre y comparación SoilGrids; profundidad solo en Terreno.
-  Si falta dato, píxel válido más cercano hasta 1 km y distancia visible. No repetir
-  descarga. Registro: `docs/reports/prediction-map-openlandmap-ph-implementation-2026-09-13.json`.
-- SoilGrids descargado/auditado, huecos aceptados; no repetir descargas ni auditoría.
-  Lectores candidatos puntuales existen; migración general áreas/microáreas y
-  exportación portable de volumen siguen pendientes detrás del mapa.
-- `mushroom-map-GIS/` queda fuera de Git/Docker; clone/imagen no transportan mapas.
-  Catálogos, perfiles, observaciones y URLs deben preservarse. `mushroom-data/`
-  contiene un cambio previo de observaciones del usuario: no incluirlo ciegamente.
-- El filtro y motor nuevos están activos en preview y en HA local/worker existente,
-  con datos actuales montados en solo lectura y paridad comprobada en ARM64.
-  Conjunto geográfico compartido de 15,62 GB mediante referencias portables; aún no incluye integración
-  de GEODE/MFE fuera de Catalunya. Alcance objetivo nacional conservado.
-  HA real `0.2.303`
-  funciona según confirmación del usuario, sin publicación del nuevo mapa.
-- Worktree con cambios/archivos nuevos sin commit. `active-context.md` identifica
-  código, estado comprobado, pruebas, riesgos y siguiente acción suficiente.
-
-No hace falta leer un tercer relevo para retomar. Los anexos del mapa documental
-se consultan solo al profundizar en el componente, sin reabrir decisiones cerradas.
+Las decisiones científicas y sus límites se registran en
+[decisions.md](decisions.md). No inferir suelo medido a partir de litología ni
+convertir una clasificación inventariada en una revisión bibliográfica terminada.
 
 ## Mapa documental
 
@@ -305,7 +202,8 @@ se consultan solo al profundizar en el componente, sin reabrir decisiones cerrad
 - Setas en HA real: `/share/rainmapper/mushroom-data/`.
 - Copia local de pruebas: `docker-data/mushroom-data/`; nunca sobrescribir HA
   desde ella sin una sincronización explícita y verificada.
-- GIS/DEM pesado en HA: `/media/rainmapper/mushroom-GIS/`; no moverlo a `/share`
+- GIS/DEM pesado en HA: seguir las rutas/manifiestos de la consolidación geográfica
+  descrita en `docs/mushrooms/shared-geography-consolidation-es.md`; no moverlo a `/share`
   porque inflaría backups.
 - Media de observaciones:
   `/share/rainmapper/mushroom-data/media/observation-photos/`.

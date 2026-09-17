@@ -390,12 +390,12 @@ try {
   assert.ok(await evaluate("document.querySelector('.pm-summary-ph').textContent.includes('≈ 6.7')"));
   assert.ok(await evaluate("!document.querySelector('.pm-summary-ph').textContent.includes('cm')"));
   assert.ok(await evaluate("document.querySelector('.pm-summary-ph').textContent.includes('84 m')"));
-  assert.equal(await evaluate("document.querySelectorAll('.pm-tree-chip').length"),3);
+  assert.equal(await evaluate("document.querySelectorAll('.pm-tree-chip').length"),4);
   assert.equal(await evaluate("document.querySelector('.pm-tree-chip b')"),null);
   const beforeHostLanguage = calls;
-  for (const [language, expected] of [["en",["Holm oak","Quercus","Pinos"]],
-                                    ["ca",["Alzina","Roures","Pinos"]],
-                                    ["es",["Encinas <b>literal</b>","Robles","Pinos"]]]) {
+  for (const [language, expected] of [["en",["Soil undetermined","Holm oak","Quercus","Pinos"]],
+                                    ["ca",["Sòl no determinat","Alzina","Roures","Pinos"]],
+                                    ["es",["Suelo no determinado","Encinas <b>literal</b>","Robles","Pinos"]]]) {
     await evaluate(`applyLanguage('${language}')`);
     assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-tree-chip'),n=>n.textContent)"),expected);
   }
@@ -570,7 +570,7 @@ try {
   const unifiedTerrain = await send("Page.captureScreenshot", {format:"png"});
   await fs.writeFile(path.join(profile,"unified-terrain-mobile.png"),Buffer.from(unifiedTerrain.data,"base64"));
   await evaluate("document.querySelector('.pm-ecology-exclusions').open=true;document.querySelector('.pm-ecology-exclusions').scrollIntoView({block:'center'})");
-  assert.ok(await evaluate("(()=>{const n=document.querySelector('.pm-ecology-exclusions li'), title=n.querySelector('strong').getBoundingClientRect(), reasons=Array.from(n.querySelectorAll('small'),x=>x.getBoundingClientRect());return reasons.length===2 && reasons[0].top>=title.bottom && reasons[1].top>=reasons[0].bottom && document.querySelector('.pm-result').scrollWidth<=document.querySelector('.pm-result').clientWidth})()"));
+  assert.ok(await evaluate("(()=>{const n=document.querySelector('.pm-ecology-exclusions li'), title=n.querySelector('strong').getBoundingClientRect(), reasons=Array.from(n.querySelectorAll('small'),x=>x.getBoundingClientRect());return reasons.length===3 && reasons[0].top>=title.bottom && reasons[1].top>=reasons[0].bottom && reasons[2].top>=reasons[1].bottom && document.querySelector('.pm-result').scrollWidth<=document.querySelector('.pm-result').clientWidth})()"));
   const exclusionsShot=await send("Page.captureScreenshot",{format:"png"});
   await fs.writeFile(path.join(profile,"exclusions-mobile.png"),Buffer.from(exclusionsShot.data,"base64"));
   await checkFixedHeader();
@@ -778,16 +778,25 @@ try {
   await evaluate("applyLanguage('es')");
   // Continue the season changes with the original fixture.
   ecologyFixture.species[0].daily_season_phases=Array(7).fill('out_of_season');
+  ecologyFixture.species[0].status='incompatible';
+  ecologyFixture.species[0].daily_statuses=Array(7).fill('incompatible');
+  ecologyFixture.species[0].reasons=['ph_outside'];
   ecologyFixture.species[1].daily_season_phases=['out_of_season','secondary',...Array(5).fill('main')];
   ecologyFixture.species[2].daily_season_phases=Array(7).fill('unknown');
   await evaluate("document.querySelector('.pm-close')?.click()");
   await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-ecology')");
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-species li'),n=>n.dataset.speciesId)"),['zero']);
+  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-ecology-exclusions li'),n=>n.dataset.speciesId)"),
+    ['lactarius_vinosus','lactarius_deliciosus','another']);
+  assert.equal(await evaluate("document.querySelectorAll('.pm-ecology-exclusions [data-species-id=lactarius_vinosus] small').length"),2);
+  assert.ok(await evaluate("document.querySelector('.pm-ecology-exclusions [data-species-id=lactarius_deliciosus]').textContent.includes('Fuera de temporada')"));
+  assert.ok(await evaluate("document.querySelector('.pm-ecology-exclusions [data-species-id=another]').textContent.includes('Temporada no determinada')"));
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-weekly-chart g[data-species-id]'),g=>g.dataset.speciesId)"),['zero']);
   assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=zero] .pm-season-phase').textContent"),'Temporada principal');
   const seasonalCalls=calls;
   await evaluate("document.querySelector('.pm-result-header select').value='1';document.querySelector('.pm-result-header select').dispatchEvent(new Event('change'))");
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-species li'),n=>n.dataset.speciesId)"),['lactarius_deliciosus','zero']);
+  assert.equal(await evaluate("document.querySelector('.pm-ecology-exclusions [data-species-id=lactarius_deliciosus]')"),null);
   assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_deliciosus] .pm-season-phase').textContent"),'Temporada secundaria');
   await evaluate("document.querySelector('.pm-result-header select').value='2';document.querySelector('.pm-result-header select').dispatchEvent(new Event('change'))");
   assert.equal(await evaluate("document.querySelector('.pm-species [data-species-id=lactarius_deliciosus] .pm-season-phase').textContent"),'Temporada principal');
@@ -843,6 +852,28 @@ try {
   await evaluate("(()=>{const svg=document.querySelector('.pm-weekly-chart svg'),r=svg.getBoundingClientRect();svg.dispatchEvent(new PointerEvent('pointermove',{clientX:r.left+r.width*213/400,clientY:r.top+20}))})()");
   assert.ok(await evaluate("document.querySelector('.pm-chart-tooltip').textContent.includes('Sin IFF calculado')"));
   assert.equal(await evaluate("document.querySelectorAll('.pm-chart-tooltip-row').length"),0);
+  // Applicability warnings use the selected day; absent models are distinct.
+  modelFixture.species[0].applicability=[0,1,null,null,null,null,null];
+  modelFixture.species[0].applicability_details=[
+    {status:'caution',outside:8,total:160,examples:[{feature:'temp_min_c__lag_009',value:22.83,training_min:-7.63,training_max:22.73}]},
+    {status:'outside_domain',outside:1,total:160,examples:[]}];
+  modelFixture.species[0].probabilities[1]=null;
+  modelFixture.species[0].reasons=['calculated','outside_domain',...Array(5).fill('calculated')];
+  modelFixture.species[1].status='no_model';
+  modelFixture.species[1].probabilities=Array(7).fill(null);
+  modelFixture.species[1].reasons=Array(7).fill('model_unavailable');
+  await evaluate("document.querySelector('.pm-close').click()");
+  await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-applicability')");
+  assert.ok(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-applicability summary').textContent.includes('IFF con extrapolación')"));
+  assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_pinophilus] .pm-iff-score').textContent"),'Sin modelo disponible');
+  await evaluate("document.querySelector('.pm-applicability summary').click()");
+  assert.ok(await evaluate("document.querySelector('.pm-applicability').textContent.includes('8 de 160')"));
+  assert.ok(await evaluate("document.querySelector('.pm-applicability').textContent.includes('Temperatura mínima')"));
+  await evaluate("document.querySelector('.pm-weekly-chart [data-species-id=boletus_edulis] circle').focus()");
+  assert.ok(await evaluate("document.querySelector('.pm-chart-tooltip').textContent.includes('IFF con extrapolación')"));
+  await evaluate("(()=>{const s=document.querySelector('.pm-calendar select');s.value='1';s.dispatchEvent(new Event('change'))})()");
+  assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-iff-score').textContent"),'Fuera de rango');
+  assert.ok(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-applicability').textContent.includes('IFF descartado')"));
   modelFixture=null;
   ecologyFixture=null;
   await evaluate("document.querySelector('.pm-close').click();map.jumpTo({center:[2.15,42.2],zoom:9});document.getElementById('settings-toggle').click();document.getElementById('settings-tab-general').click();document.getElementById('save-map-view-default').click();document.getElementById('settings-toggle').click()");

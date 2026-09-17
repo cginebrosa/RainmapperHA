@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.309
+
+- List out-of-season species with all applicable exclusion reasons and update
+  both species lists when the selected date changes.
+- Fix weekly IFF tooltip wrapping and explain unavailable models, out-of-domain
+  predictions and extrapolation warnings.
+- Assess model applicability by excursion magnitude instead of the percentage
+  of correlated inputs outside their training ranges.
+- Show an explicit undetermined-soil label when no soil classification is
+  available, preserving each species soil requirements.
+- Explain the missing supporting reference when saving a soil/pH rule.
+
 ## 0.2.308
 
 - Show compact `IFF:` scores in Predictor cards and details; preserve the

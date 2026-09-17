@@ -187,6 +187,24 @@ def validate_result(result, request):
             not isinstance(reasons,list) or len(reasons)!=len(expected_dates)):
             raise ValueError('invalid_result_species')
         seen.add(sid)
+        if 'applicability' in row or 'applicability_details' in row:
+            refs=row.get('applicability'); details=row.get('applicability_details')
+            if (not isinstance(refs,list) or len(refs)!=len(expected_dates) or
+                    not isinstance(details,list) or len(details)>len(expected_dates) or
+                    any(ref is not None and (type(ref) is not int or not 0<=ref<len(details)) for ref in refs)):
+                raise ValueError('invalid_result_applicability')
+            for detail in details:
+                if (not isinstance(detail,dict) or detail.get('status') not in
+                        ('within_observed_range','caution','outside_domain') or
+                        type(detail.get('outside')) is not int or type(detail.get('total')) is not int or
+                        not 0<=detail['outside']<=detail['total'] or
+                        not isinstance(detail.get('examples'),list) or len(detail['examples'])>3):
+                    raise ValueError('invalid_result_applicability')
+                for example in detail['examples']:
+                    if (not isinstance(example,dict) or not isinstance(example.get('feature'),str) or
+                            len(example['feature'])>128 or any(type(example.get(k)) not in (int,float) or
+                            not math.isfinite(example[k]) for k in ('value','training_min','training_max'))):
+                        raise ValueError('invalid_result_applicability')
         states=by_id[sid].get('daily_statuses',[])
         if len(states)!=len(expected_dates): raise ValueError('invalid_result_ecology')
         for i,value in enumerate(values):
