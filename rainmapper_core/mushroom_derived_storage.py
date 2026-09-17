@@ -43,8 +43,11 @@ def _load_receipt() -> dict[str, Any] | None:
         not isinstance(payload, dict)
         or payload.get("schema_version") != TRANSITION_SCHEMA_VERSION
         or payload.get("status") != "complete"
-        or payload.get("target_root")
-        != str(mushroom_paths.mushroom_derived_data_dir())
+        or payload.get("target_root") not in {
+            str(mushroom_paths.mushroom_derived_data_dir()),
+            *({str(mushroom_paths.media_root() / "mushroom-derived")}
+              if mushroom_paths.organized(mushroom_paths.media_root()) else set()),
+        }
     ):
         return None
     return payload

@@ -12,6 +12,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from rainmapper_core.media_layout import organized
+
 
 @dataclass(frozen=True)
 class PredictorRuntimeArchiveLocation:
@@ -74,7 +76,7 @@ def mushroom_derived_data_dir() -> Path:
     if configured:
         return Path(configured)
     if derived_storage_enabled():
-        return media_root() / "mushroom-derived"
+        return media_root() / ("results" if organized(media_root()) else "mushroom-derived")
     # Preserve repository tooling outside HA, where /media is not mounted.
     return mushroom_data_dir()
 
@@ -87,13 +89,15 @@ def mushroom_rebuild_artifacts_dir() -> Path:
         return Path(configured)
     if not derived_storage_enabled():
         return mushroom_data_dir()
-    return mushroom_derived_data_dir() / "mushroom-artifacts"
+    return mushroom_derived_data_dir() / ("artifacts" if organized(media_root()) else "mushroom-artifacts")
 
 
 def mushroom_worker_storage_dir() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_WORKER_STORAGE_DIR", "").strip()
     if configured:
         return Path(configured)
+    if organized(media_root()) and not os.environ.get("RAINMAPPER_MUSHROOM_DERIVED_DATA_DIR", "").strip():
+        return media_root() / "transfers" / "worker"
     return mushroom_derived_data_dir() / "worker"
 
 
@@ -282,7 +286,7 @@ def mushroom_ml_models_dir() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_MODELS_DIR", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_derived_data_dir() / "ml_models"
+    return mushroom_derived_data_dir() / ("models" if organized(media_root()) else "ml_models")
 
 
 def predictor_runtime_archive_preferred_dir() -> Path:
@@ -294,7 +298,7 @@ def predictor_runtime_archive_preferred_dir() -> Path:
         return Path(configured)
     media_root = os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip()
     root = Path(media_root) if media_root else Path("/media/rainmapper")
-    return root / "runtime-cache" / "predictor-runtime-archives"
+    return root / ("cache" if organized(root) else "runtime-cache") / "predictor-runtime-archives"
 
 
 def predictor_runtime_archive_fallback_dir() -> Path:
@@ -388,7 +392,7 @@ def mushroom_ml_version_archive_dir() -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_ML_VERSION_ARCHIVE_DIR", "").strip()
     if configured:
         return Path(configured)
-    return mushroom_derived_data_dir() / "ml_version_archive"
+    return mushroom_derived_data_dir() / ("model-archive" if organized(media_root()) else "ml_version_archive")
 
 
 def mushroom_predictor_precompute_dir() -> Path:
@@ -398,7 +402,7 @@ def mushroom_predictor_precompute_dir() -> Path:
     configured_media_root = os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip()
     resolved_media_root = media_root()
     if configured_media_root or resolved_media_root.parent.exists():
-        return resolved_media_root / "predictor_precompute"
+        return resolved_media_root / ("results/predictor-precompute" if organized(resolved_media_root) else "predictor_precompute")
     return mushroom_data_dir() / "predictor_precompute"
 
 

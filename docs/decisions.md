@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-09-17 — [VIGENTE][GIS] Paridad de archivos almacenados, alcance limitado
+
+Comparados byte a byte el mapping local y el de HA real vía SMB LAN: idénticos,
+256.816 bytes, SHA-256 `054a92665b10e4d7d54801eced3657998eeab731fc31cb17b2d7d67fbc9c7f20`.
+No es necesario volver a copiar el mapping. Esta comprobación no acredita su
+consumo efectivo por HA real/worker ni revalida el JSON de auditoría. No se ha
+escrito en HA real ni reanudado la revisión GIS.
+[Evidencia y rutas](reports/gis-mapping-ha-parity-2026-09-17.json).
+
 ## 2026-09-17 — [VIGENTE][RELEASE] HA 0.2.309
 
 Publicada a petición expresa del usuario, con los cambios adicionales de mensaje
@@ -7,6 +16,8 @@ de validación y descartes por temporada pedidos durante la preparación.
 Tags `0.2.309` y `latest`, digest
 `sha256:fd181c978e48f503c18ee4a0fd1d78e88114bc1e2d18a2c413a02a1bb0c6b4b9`,
 plataformas AMD64/ARM64 verificadas y proceso de publicación terminado con 0.
+Código e informe enviados a `origin/inicial` en commit `0ce6de3`. El usuario
+anunció que iba a instalar 0.2.309, pero su finalización no está confirmada.
 HA real no se instala automáticamente. [Evidencia](reports/ha-release-0.2.309.json).
 
 - Candidata instalada en HA local y worker privado 1.1.3: 200/107 archivos

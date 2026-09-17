@@ -1,0 +1,254 @@
+{
+  "checked_at": "2026-09-17T18:15:34.980000+00:00",
+  "remote_root": "/Volumes/media/rainmapper",
+  "transport": "SMB LAN 192.168.0.121; not media-1/Tailscale",
+  "method": "Recursive directory/stat inventory; live manifests; size comparison of every legacy reference and canonical target; bounded small-file SHA256 samples. Large rasters not rehashed. No remote writes. Live directory may change during scan.",
+  "directories": {
+    "geography": {
+      "files": 3592,
+      "bytes": 15626788697,
+      "errors": []
+    },
+    "mushroom-GIS": {
+      "files": 1433,
+      "bytes": 6820316846,
+      "errors": []
+    },
+    "mushroom-derived": {
+      "files": 801,
+      "bytes": 157047104,
+      "errors": []
+    },
+    "prediction-map": {
+      "files": 3513,
+      "bytes": 14539022540,
+      "errors": []
+    },
+    "predictor_precompute": {
+      "files": 3,
+      "bytes": 28601228,
+      "errors": []
+    },
+    "runtime-cache": {
+      "files": 746,
+      "bytes": 113536246,
+      "errors": []
+    }
+  },
+  "subdirectories": {
+    "geography/imports": {
+      "files": 3,
+      "bytes": 1182315
+    },
+    "geography/map-sources-local-20260914.json": {
+      "files": 1,
+      "bytes": 1223062
+    },
+    "geography/CURRENT.json": {
+      "files": 1,
+      "bytes": 208
+    },
+    "geography/mushroom-map-GIS": {
+      "files": 2149,
+      "bytes": 8801926945
+    },
+    "geography/map-config.json": {
+      "files": 1,
+      "bytes": 728
+    },
+    "geography/generations": {
+      "files": 1,
+      "bytes": 807785
+    },
+    "geography/SHA256SUMS": {
+      "files": 1,
+      "bytes": 533484
+    },
+    "geography/mushroom-GIS": {
+      "files": 1435,
+      "bytes": 6821114170
+    },
+    "mushroom-GIS/dem-ign-mtn50-592": {
+      "files": 2,
+      "bytes": 3737724
+    },
+    "mushroom-GIS/dem-andorra": {
+      "files": 3,
+      "bytes": 31421507
+    },
+    "mushroom-GIS/model-elevacions-terreny-topografic-catalunya-5m-2009-2018": {
+      "files": 1,
+      "bytes": 5127260482
+    },
+    "mushroom-GIS/soilgrids": {
+      "files": 1415,
+      "bytes": 395714887
+    },
+    "mushroom-GIS/MVC50mil": {
+      "files": 8,
+      "bytes": 885427441
+    },
+    "mushroom-GIS/dem-france-rge-alti-5m": {
+      "files": 3,
+      "bytes": 83075701
+    },
+    "mushroom-GIS/geologia-territorial-50000-geologic-v3r0-202412": {
+      "files": 1,
+      "bytes": 293679104
+    },
+    "mushroom-derived/worker": {
+      "files": 48,
+      "bytes": 15161136
+    },
+    "mushroom-derived/mushroom-artifacts": {
+      "files": 9,
+      "bytes": 21238248
+    },
+    "mushroom-derived/.legacy-share-transition-v1.json": {
+      "files": 1,
+      "bytes": 381
+    },
+    "mushroom-derived/ml_models": {
+      "files": 743,
+      "bytes": 120647339
+    },
+    "prediction-map/prediction-map-local-20260914.tar.gz.json": {
+      "files": 1,
+      "bytes": 351
+    },
+    "prediction-map/prediction-map-local-20260914.tar.gz.sha256": {
+      "files": 1,
+      "bytes": 103
+    },
+    "prediction-map/generations": {
+      "files": 3511,
+      "bytes": 14539022086
+    },
+    "predictor_precompute/desired.json": {
+      "files": 1,
+      "bytes": 2598
+    },
+    "predictor_precompute/active-receipt.json": {
+      "files": 1,
+      "bytes": 358
+    },
+    "predictor_precompute/active.sqlite3": {
+      "files": 1,
+      "bytes": 28598272
+    },
+    "runtime-cache/predictor-runtime-archives": {
+      "files": 746,
+      "bytes": 113536246
+    }
+  },
+  "legacy_comparisons": [
+    {
+      "set": "legacy_gis",
+      "manifest_files": 1432,
+      "manifest_bytes": 6820316846,
+      "current_matching_sizes": 1432,
+      "mismatches": []
+    },
+    {
+      "set": "legacy_map",
+      "manifest_files": 3510,
+      "manifest_bytes": 14538214301,
+      "current_matching_sizes": 3510,
+      "mismatches": []
+    }
+  ],
+  "small_file_hash_samples": [
+    {
+      "old": "mushroom-GIS/dem-ign-mtn50-592/README.md",
+      "canonical": "geography/mushroom-GIS/dem-ign-mtn50-592/README.md",
+      "bytes": 1221,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "mushroom-GIS/dem-andorra/README.md",
+      "canonical": "geography/mushroom-GIS/dem-andorra/README.md",
+      "bytes": 4624,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "mushroom-GIS/soilgrids/raw-wcs/soilgrids_2.0_wcs_snapshot_v1/wv0033_0-5cm_Q0.5/x163_y84.tif",
+      "canonical": "geography/mushroom-GIS/soilgrids/raw-wcs/soilgrids_2.0_wcs_snapshot_v1/wv0033_0-5cm_Q0.5/x163_y84.tif",
+      "bytes": 195423,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shx",
+      "canonical": "geography/mushroom-GIS/MVC50mil/extracted/MVC50mil_novembre2019.shx",
+      "bytes": 931844,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "mushroom-GIS/dem-france-rge-alti-5m/README.md",
+      "canonical": "geography/mushroom-GIS/dem-france-rge-alti-5m/README.md",
+      "bytes": 2784,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "prediction-map/generations/local-20260914/mushroom-map-GIS/icgc-cobertes-2024/source/README.md",
+      "canonical": "geography/mushroom-map-GIS/icgc-cobertes-2024/source/README.md",
+      "bytes": 2091,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "prediction-map/generations/local-20260914/mushroom-map-GIS/icgc-geologia-50000/source/README.md",
+      "canonical": "geography/mushroom-map-GIS/icgc-geologia-50000/source/README.md",
+      "bytes": 4807,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "prediction-map/generations/local-20260914/mushroom-map-GIS/ign-mdt25/source/PNOA-MDT25-ETRS89-HU29-0001-LID.TIF",
+      "canonical": "geography/mushroom-map-GIS/ign-mdt25/source/PNOA-MDT25-ETRS89-HU29-0001-LID.TIF",
+      "bytes": 919010,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "prediction-map/generations/local-20260914/mushroom-map-GIS/mfe25/source/mfe_catalunia/README.md",
+      "canonical": "geography/mushroom-map-GIS/mfe25/source/mfe_catalunia/README.md",
+      "bytes": 2643,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "prediction-map/generations/local-20260914/mushroom-map-GIS/openlandmap-ph/spain-v20250204/canaries_p016.tif",
+      "canonical": "geography/mushroom-map-GIS/openlandmap-ph/spain-v20250204/canaries_p016.tif",
+      "bytes": 377386,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "prediction-map/generations/local-20260914/mushroom-map-GIS/soilgrids-shared/source/existing-retention/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.05/x160_y82.tif",
+      "canonical": "geography/mushroom-GIS/soilgrids/normalized/soilgrids_2.0_wcs_snapshot_v1/wv0010_0-5cm_Q0.05/x160_y82.tif",
+      "bytes": 219164,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    },
+    {
+      "old": "prediction-map/generations/local-20260914/mushroom-map-GIS/terrain-index/README.md",
+      "canonical": "geography/mushroom-map-GIS/terrain-index/README.md",
+      "bytes": 1287,
+      "same_sha256": true,
+      "matches_manifest_sha256": true
+    }
+  ],
+  "legacy_payload_bytes": 21358531147,
+  "ha_real_runtime_environment_verified": false,
+  "canonical_current": {
+    "fingerprint": "sha256:8ab40e26cddf9567b878611f11c39d079579eb455105839a40ac67610e3f1336",
+    "format": "map_geography_publication_v1",
+    "generation": "local-20260914",
+    "sources_file": "map-sources-local-20260914.json"
+  }
+}

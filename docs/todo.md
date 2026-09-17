@@ -1,4 +1,4 @@
-# TODO — cierre 16/09/2026
+# TODO — actualizado 18/09/2026
 
 Arranque suficiente: [codex-start-here](codex-start-here.md) y
 [active-context](active-context.md). Esta lista no autoriza trabajos ni publicaciones.
@@ -8,9 +8,9 @@ El historial y los checklists anteriores se conservan en
 ## Pendiente del usuario — observaciones GBIF (17/09/2026)
 
 - [ ] El usuario revisará las observaciones descargadas de GBIF en el visor local
-  y les asignará Pendiente, Dudosa o Aprobada. [Visor y guardado](mushrooms/GBIF/README.md).
+  y les asignará Pendiente, Dudosa, Aceptada o Rechazada. [Visor y guardado](mushrooms/GBIF/README.md).
 - [ ] Esperar su indicación tras esa revisión para preparar la incorporación de
-  las aprobadas y decidir las pruebas comparativas o zonas candidatas. Conservar
+  las aceptadas y decidir las pruebas comparativas o zonas candidatas. Conservar
   el JSON de revisión; no importar, entrenar, generar setales ni aprobar citas
   automáticamente. No se afirma que la revisión ya esté terminada.
 
@@ -25,16 +25,44 @@ El historial y los checklists anteriores se conservan en
   lo justificado, conservar registros ajenos y comprobar ambos lectores.
   Los 567 suelos aceptados anteriores no cuentan como nuevamente investigados.
 
+## Seguimiento 18/09/2026
+
+- [ ] Registrar en el log los fallos del ejecutor local del mapa, solicitado
+  por el usuario tras confirmar que reiniciar HA real recuperó el servicio.
+  Los tres lectores pasaron el diagnóstico independiente; causa inicial no
+  recuperable. Reintento controlado solo propuesto. No incluido en 0.2.310.
+- [ ] Revisar calidad de candidatas WU del primer análisis de cobertura de Catalunya.
+  143 nuevas identificadas; 12 priorizadas por geometría, ninguna aprobada ni añadida.
+  [Informe local](../tmp/station-coverage-catalunya-20260918/README.md). Preparar
+  históricos/backfill solo después de acordar el lote y aprobar estaciones.
+
 ## Próximo bloque operativo, cuando se solicite
 
-- [ ] Comprobar sin trabajos costosos que HA real/worker consumen los dos JSON
-  que el usuario ha subido. No sobrescribirlos con copias antiguas.
-- [ ] Incorporar `IFF:` del Predictor a una futura versión, tras validación local
-  proporcional y aceptación; ya está en HA local, no publicado después de 0.2.307.
-- [ ] Separar y revisar el diff documental/código antes de un eventual commit;
-  preservar observaciones y `docs/mushrooms/GBIF/` del usuario.
+- [ ] Terminar la reorganización de media autorizada: HA local migrado y validado;
+  0.2.310 publicada; falta ejecutar en HA real la operación explícita offline. Verificar
+  todas las copias por SHA antes de retirar duplicados. [Detalle](mushrooms/ha-media-organization-proposal-es.md).
+- [x] Confirmar versión efectiva de HA real: 0.2.309 por SSH LAN el 17/09.
+- [ ] Comprobar sin trabajos costosos el consumo efectivo en HA real/worker de
+  los JSON GIS subidos. El mapping almacenado **ya coincide byte a byte** con
+  HA local, comprobado el 17/09; no volver a copiarlo por rutina. La comparación
+  no acredita el runtime ni revalida el JSON de auditoría.
 
-## Completado en esta sesión
+## Completado el 17/09/2026
+
+- [x] Publicar HA 0.2.309 y enviar commit `0ce6de3` a `origin/inicial`.
+  [Informe](reports/ha-release-0.2.309.json): HA local/worker reconstruidos,
+  paridad 200/107 archivos, smoke 1.615 tests con 48 omitidos y Chrome correcto.
+- [x] Incluir aplicabilidad IFF por magnitud, tooltip, suelo no determinado,
+  error comprensible de referencia suelo/pH y descartes completos por fecha.
+  Conservar control por especie; no exigir suelo identificado globalmente.
+- [x] Comparar mapping almacenado en HA real/local, SHA y contenido idénticos.
+  [Evidencia](reports/gis-mapping-ha-parity-2026-09-17.json).
+- [x] GBIF: cuatro estados, autoguardado y herramientas versionadas; datos, fotos
+  y revisiones personales excluidos de Git e imagen. Revisión manual pendiente.
+- [x] `IFF:` del Predictor publicado en 0.2.308, instalación de esa versión
+  terminada según el usuario; conservado en 0.2.309.
+
+## Completado anteriormente (16/09/2026)
 
 - [x] Publicar HA 0.2.307; usuario confirma instalación.
   [Evidencia de release](reports/ha-release-0.2.307.json).

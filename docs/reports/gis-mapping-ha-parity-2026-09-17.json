@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-09-17T18:07:30.984837+00:00",
+  "scope": "Stored mapping files only; HA real loaded runtime and audit JSON not verified",
+  "files": [
+    {
+      "path": "docker-data/mushroom-data/mushroom_gis_mappings.json",
+      "bytes": 256816,
+      "sha256": "054a92665b10e4d7d54801eced3657998eeab731fc31cb17b2d7d67fbc9c7f20"
+    },
+    {
+      "path": "/Volumes/share/rainmapper/mushroom-data/mushroom_gis_mappings.json",
+      "bytes": 256816,
+      "sha256": "054a92665b10e4d7d54801eced3657998eeab731fc31cb17b2d7d67fbc9c7f20"
+    }
+  ],
+  "identical_bytes": true,
+  "writes_to_ha_real": false
+}

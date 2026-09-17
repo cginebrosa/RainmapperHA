@@ -109,18 +109,15 @@ fuera de esta release y no permite continuar.
    - Ejecutar una sola instancia del script. No lanzar un segundo build porque
      el primero tarde o deje de mostrar salida.
    - Si la herramienta devuelve un identificador de sesión, conservarlo y
-     consultar esa misma sesión cada 20-30 segundos **solo hasta que Buildx
-     termine las etapas de construcción y muestre que ha comenzado realmente
-     la exportación/subida de capas a GHCR**. No confundir «build iniciado» con
-     «imagen construida y push iniciado».
-   - En cuanto empiece el push, informar al usuario y detener las consultas de
-     la sesión. El usuario vigila la espera larga y avisará cuando termine; no
-     gastar tokens haciendo polling durante la subida.
-   - Si la release requiere también una versión nueva del worker, preparar y
-     lanzar su build/publicación en cuanto el push de HA haya empezado y antes
-     de detenerse. Si el worker no cambió, mantener su versión y decirlo.
-   - Cuando el usuario confirme que terminó, recuperar la misma sesión una vez,
-     comprobar su resultado y ejecutar la verificación remota del paso 10.
+     consultar esa misma sesión cada 20–30 segundos, también durante el push.
+     Informar brevemente al usuario al menos cada minuto. Un proceso activo o
+     «pushing layers» no demuestra transferencia ni publicación terminada.
+   - Si no hay avance, comprobar el registro y el progreso antes de describirlo
+     como una subida lenta. No dejar esperas largas sin diagnóstico ni lanzar
+     otro build simultáneo. Conservar logs de los intentos cancelados.
+   - Si la release requiere también una versión nueva del worker, preparar su
+     publicación sin cambiar los destinos configurados del único worker.
+   - Al terminar, recuperar la misma sesión y verificar el resultado y GHCR.
    - Si la sesión local no devuelve el control pero GHCR confirma los tags,
      digest y plataformas, documentar el estado antes de decidir si procede
      interrumpir el cliente. No lanzar nunca otro build para sustituirlo.

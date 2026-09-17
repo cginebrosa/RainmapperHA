@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.310
+
+- Support an explicitly migrated media layout with shared geography, results, worker transfers and runtime cache; keep existing installations on their current paths until migration is requested.
+- Add offline migration and verified legacy geography retirement tools, preserving files, metadata, model identities and coordinator destinations. Installation and startup do not move or delete media.
+
 ## 0.2.309
 
 - List out-of-season species with all applicable exclusion reasons and update

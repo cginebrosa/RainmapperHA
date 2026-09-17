@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.309" \
+LABEL io.hass.version="0.2.310" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.309
+ENV RAINMAPPER_APP_VERSION=0.2.310
 
 WORKDIR /app
 
@@ -35,6 +35,7 @@ COPY rainmapper-app/defaults/mushroom_observations.json /app/mushroom-data/mushr
 COPY scripts/validate-mushroom-data.py /app/scripts/validate-mushroom-data.py
 COPY scripts/prediction-map-local-geography.py scripts/prediction-map-local-weather.py scripts/prediction-map-local-model.py /app/scripts/
 COPY scripts/manage-prediction-map-volume.py scripts/manage-shared-geography.py /app/scripts/
+COPY scripts/manage-media-layout.py /app/scripts/
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
 COPY scripts/run-mushroom-ml-train-job.py /app/scripts/run-mushroom-ml-train-job.py
 COPY scripts/run-mushroom-ml-multiversion-job.py /app/scripts/run-mushroom-ml-multiversion-job.py

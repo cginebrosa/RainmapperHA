@@ -33,6 +33,7 @@ RUN pip install --no-cache-dir \
         scikit-learn==1.9.0
 
 COPY rainmapper_core/__init__.py \
+     rainmapper_core/media_layout.py \
      rainmapper_core/mushroom_prediction_map.py \
      rainmapper_core/mushroom_map_municipalities.py \
      rainmapper_core/mushroom_map_terrain.py \

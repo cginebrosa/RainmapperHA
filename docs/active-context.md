@@ -1,16 +1,91 @@
-# Contexto activo — 17/09/2026, release 0.2.309
+# Contexto activo — 18/09/2026, HA 0.2.310 publicada
 
-## Alcance y siguiente paso
+**Restricción expresa del usuario (17/09): no acceder por SSH a la RPi4 sin
+petición explícita, tampoco para consultas. Parar, instalar y arrancar Rainmapper
+en HA real queda a cargo del usuario. Las consultas SSH de esta sesión fueron
+de lectura; no se ha modificado HA real.**
 
-La revisión restante de suelos está **aplazada expresamente por el usuario**.
-No seguir investigando ni aceptar códigos ahora. Se ha dejado una tarea enlazada
-con el método en [TODO](todo.md). La próxima sesión debe partir de este estado,
-revalidarlo de forma proporcional y atender el nuevo bloque que indique el usuario.
-HA `0.2.309` publicada por petición expresa del usuario: tags de versión/latest
-con mismo digest y manifests AMD64/ARM64 verificados. Instalación de 0.2.309 en
-HA real pendiente del usuario; comunicó que la instalación anterior de 0.2.308
-había terminado. No se ha relanzado entrenamiento ni precálculo.
-[Informe de release](reports/ha-release-0.2.309.json).
+## Estado verificado y siguiente paso — 18/09/2026
+
+**HA 0.2.310 publicada y verificada en GHCR**: tags `0.2.310` y `latest`
+con digest `sha256:d0f7e78a3d6e9393bc8991ef68751b1e315e5cd0aae0a27e08bc0ed7251958f6`,
+manifests `linux/amd64` y `linux/arm64`. Script terminado con código 0; log
+`tmp/media-migration-20260917/publish-after-quit-20260918.log`. El último push
+invirtió 1.580,2 s en capas. [Informe final](reports/ha-release-0.2.310.json).
+Se reutilizó la validación del mismo código: 1.621 tests, 48 omitidos, paridad
+202/108 archivos HA/worker revalidada el 18/09. No se relanzaron entrenamientos
+ni precálculos. No atribuir la lentitud exclusivamente a Docker ni a Orange:
+la prueba directa sin Docker a GHCR también fue lenta, mientras la prueba
+Cloudflare fue rápida; causa de red exacta no determinada.
+
+La reorganización de `/media` sigue autorizada en ambos entornos, primero
+local. **HA local migrado y validado: ocho movimientos, 1.547 archivos
+conservados. HA real no se ha migrado ni modificado.** Instalar 0.2.310 no mueve
+ni borra carpetas. El usuario reserva para sí parar, instalar y arrancar HA real.
+Retirada de originales GIS pendiente de comprobar SHA completos y operación
+offline explícita. [Propuesta](mushrooms/ha-media-organization-proposal-es.md).
+
+El usuario cerró/reabrió Docker durante la subida. Después autorizó arrancar
+worker y HA local: ambos arrancados el 18/09, worker healthy, HA local HTTP 200;
+los dos archivos de coordinadores conservan exactamente sus SHA anteriores.
+No se cambió ningún destino del único worker.
+
+### Incidencia del ejecutor local de HA real
+
+El 18/09 el usuario autorizó **solo el diagnóstico por SSH de lectura** para
+esta incidencia; esa excepción no autoriza futuros accesos ni cambios. HA real
+revalidado en `0.2.309`. El worker vuelve a responder según el usuario, pero
+«Servidor local» sigue mostrando ejecutor no disponible. En ese mapa local
+significa HA real, no el Mac.
+
+Comprobación independiente dentro del contenedor real, sin iniciar un broker,
+predicciones, trabajos ni escrituras: todas las rutas de la configuración
+`/media/rainmapper/geography/map-config.json` existen; geografía preparada en
+2,416 s, meteorología en 0,440 s y modelos en 4,227 s. Evidencia:
+`tmp/ha-local-executor-20260918/readiness.json` y script de diagnóstico junto a ella.
+En código, `QueryBroker._local_loop` comprueba `ready()` una sola vez y silencia
+la excepción; `ResidentReader` descarta stderr. Un fallo transitorio inicial
+puede dejar el ejecutor indisponible, pero **la causa histórica concreta no se
+ha recuperado**. El usuario confirma que reiniciar Rainmapper recuperó el ejecutor local.
+Solicita registrar los errores: siguiente cambio autorizado, posterior a la
+release. Diagnóstico explícito pendiente de implementar; reintento controlado
+solo propuesto. **Ninguno incluido en 0.2.310**.
+
+### Exploración de cobertura Catalunya / Wunderground
+
+Usuario acepta usar base **local del 17/09 a las 11:31**, sin afirmar paridad
+con HA real. Primera exploración terminada: 735 estaciones con algún dato de
+lluvia en siete días en Catalunya, cuatro fuentes, ceros incluidos y exclusiones
+respetadas. Malla territorial de 2 km: 8.031 puntos, 175 a más de 10 km de la
+estación disponible más cercana. Estaciones vecinas incluidas en distancias.
+
+20 consultas WU near, 200 entradas, 178 IDs únicos: 143 nuevas dentro de Catalunya,
+8 conocidas, 1 excluida y 26 fuera de Catalunya. Nuevas: 75 QC=1, 65 QC desconocido,
+3 QC fallido. Lista inicial de 12 para revisar: reduciría hipotéticamente los
+175 puntos a 110; no demuestra calidad ni mejora del IDW. **Ninguna incorporada,
+ningún histórico/backfill lanzado.** Hay candidatas de QC desconocido interesantes
+que no deben descartarse solo por ese campo.
+
+[Informe local](../tmp/station-coverage-catalunya-20260918/README.md),
+[mapa MapLibre](../tmp/station-coverage-catalunya-20260918/viewer/index.html),
+[CSV completo](../tmp/station-coverage-catalunya-20260918/candidates.csv).
+Respuestas originales, scripts y resultados conservados junto al informe;
+mapa probado en Chrome: 12 prioritarias, filtro de 143 nuevas y estaciones visibles.
+Siguiente fase propuesta: revisión de calidad y continuidad de un lote pequeño;
+aprobar individualmente antes de preparar un backfill. No volver a consultar
+la API para analizar estos mismos resultados ya descargados.
+
+La revisión general GIS y la revisión/importación de GBIF siguen aplazadas.
+
+Consulta paralela sobre avisos al editar fichas: confirmado en código que el
+aviso de mantenimiento de especies usa `pending_model_species_ids`, marcado
+por cambios de observaciones; `save_profile_form` no marca pendientes. El mapa
+incorpora las fichas privadas actuales en `MapPublication`, independientemente
+del snapshot de modelos y meteorología. La comprobación rápida ML tampoco
+incluye una revisión de fichas en `REVISION_VECTOR_KEYS`. No se ha cambiado
+esta lógica ni se ha demostrado que editar un filtro de mapa requiera entrenar.
+La discrepancia local en `published-runtime.json` afecta a la ficha publicada,
+no demuestra por sí sola que el modelo entrenado de HA real esté desactualizado.
 
 La release incluye los cambios de IFF descritos debajo, aviso de suelo no
 determinado, mensaje comprensible para la referencia obligatoria de suelo/pH y
@@ -35,14 +110,15 @@ comprimir «Aereus» hasta una letra por línea. Reproducción con CSS anterior 
 comprobación del nuevo en Chrome, CA/ES/EN y anchos 430/292/252 px: nueve casos
 correctos, sin desbordamiento. Evidencias `tmp/prediction-tooltip-20260917/`.
 Instalado después en HA local el 17/09, junto con el cambio de aplicabilidad.
-HA real no actualizado; no constituye aceptación de release ni prueba en Safari.
+Incluido en la release 0.2.309 validada posteriormente con ambos contenedores.
+HA real ejecuta 0.2.309; Chrome no acredita Safari físico.
 
 ## Estado operativo y grado de comprobación
 
 ### IFF por punto — incluido en 0.2.309 (17/09/2026)
 
 Por petición del usuario, auditados dos puntos cercanos de Aereus: bloqueo al
-pasar de 6/160 a 8/160 columnas fuera de rango. La política candidata
+pasar de 6/160 a 8/160 columnas fuera de rango. La política publicada
 `magnitude_v2` elimina el veto por porcentaje y conserva el veto por magnitud
 ≥3 desviaciones en una entrada ya fuera del rango; lluvia sigue solo como aviso
 y las salidas de variables constantes se bloquean. El mapa explica ausencia de
@@ -59,14 +135,7 @@ actualizado automáticamente; cambios publicados en 0.2.309. No entrenar
 ni precalcular por rutina.
 [Decisión, cifras y límites](reports/iff-applicability-2026-09-17.md).
 
-### Investigación GBIF posterior al cierre de HA
-
-Actualización 17/09/2026: el visor instalado de la copia local permite
-Pendiente/Dudosa/Aceptada/Rechazada. `approved` se conserva como clave de Aceptada
-para compatibilidad con todas las revisiones previas; `rejected` es el nuevo
-estado. Incluido en filtro, recuentos, importación/exportación y autoguardado.
-Prueba Chrome aislada correcta (incluyendo persistencia en archivo y recarga),
-1928 registros conservados; ninguna revisión real modificada por la prueba.
+### Suelo no determinado y control por especie
 
 Investigación puntual autorizada de Tordera (41.72905, 2.74775) y Soriguera
 (42.37001, 1.06978): HA local devuelve Qt1 y Qve con geología disponible,
@@ -76,10 +145,9 @@ distinta junto al depósito de Soriguera. No basta para asignar composición al
 depósito ni reclasificar globalmente esos códigos. Por autorización posterior,
 implementada la regla general «Suelo no determinado» en cabecera y Terreno si
 faltan tendencias, en ES/CA/EN; los suelos conocidos mantienen sus etiquetas.
-Instalado después en HA local el 17/09, reconstruyendo y recreando solo su
-contenedor. Verificado por HTTP JS/CSS idénticos al worktree y traducciones
-ES/CA/EN presentes; observaciones, mappings y registro ML conservan SHA.
-Worker sin recrear; no constituye aceptación de release ni actualización de HA real.
+El despliegue local inicial se verificó por HTTP y conservó las huellas de datos.
+Después quedó incluido en la candidata definitiva 0.2.309: HA local y worker
+reconstruidos/recreados y verificados juntos, como acredita el informe de release.
 Comprobación completa del visor en Chrome aislado correcta, incluidas las
 etiquetas en los tres idiomas y el caso con suelo conocido.
 Sin cambios de mapping ni de HA real, y revisión GIS general aplazada. Evidencias
@@ -91,18 +159,30 @@ Consulta posterior del usuario: en 42.35521, 1.07764 (Soriguera, Qll),
 `hosts_match`, `altitude_match`, `ph_match`. La ficha efectiva de
 `amanita_caesarea` no contiene `soil_filter`: pH permitido 3,5–7,5 y altitud
 0–1000 m; el punto tiene roble pubescente, pH 6,8 y altitud 664,9 m.
-La ausencia de suelo no bloquea esa ficha; no se cambió esta política.
+La ausencia de suelo no bloquea esa ficha. El usuario rechazó exigir suelo
+identificado globalmente: considera suficiente el control de cada ficha.
+Se conserva esta política; no añadir un veto general por suelo desconocido.
 Evidencia y verificación de instalación: `tmp/soil-label-local-20260917/`.
 
+### GBIF: copia local y revisión pendiente del usuario
+
+Actualización 17/09/2026: el visor instalado permite
+**Pendiente/Dudosa/Aceptada/Rechazada**. `approved` conserva la clave de Aceptada
+para compatibilidad con revisiones previas; `rejected` es el nuevo estado.
+Incluido en filtro, recuentos, importación/exportación y autoguardado.
+Prueba Chrome aislada correcta: persistencia en archivo y recarga, 1.928 registros
+conservados y ninguna revisión real modificada por la prueba.
+
 **Pendiente del usuario — 17/09/2026:** revisar manualmente las observaciones
-**descargadas de GBIF** en el visor local, clasificándolas como Pendiente, Dudosa
-o Aprobada. El usuario confirma que esta revisión queda a su cargo; no se da por
+**descargadas de GBIF** en el visor local, clasificándolas como Pendiente, Dudosa,
+Aceptada o Rechazada. El usuario confirma que esta revisión queda a su cargo; no se da por
 completada ni se presupone cuántas citas ha revisado. Conservar su archivo de
 revisión y esperar su indicación antes de incorporar citas, generar zonas/setales
 o iniciar comparaciones de entrenamiento. No revisar ni aprobar por él automáticamente.
 
 Por petición del usuario, descarga local terminada y verificada el 16/09/2026,
-20:43 UTC: **1.928 registros y 2.291 fotos** de Catalunya, 19/06/2012–16/09/2026,
+20:43 UTC: **1.928 registros y 2.291 fotos** de Catalunya, 19/06/2012–16/09/2026.
+Sin filtro de proveedor FUNGCAT: se consultaron todos los proveedores disponibles
 para los 21 perfiles del catálogo local (22 taxones consultados; límites de los
 complejos documentados). Conserva todos los campos interpretados y originales
 disponibles en los endpoints consultados, metadatos y archivos de imagen.
@@ -111,10 +191,17 @@ desconocidos; la copia conserva todos. [Entrada y evidencia](mushrooms/GBIF/READ
 
 Datos y fotos excluidos de Git y Docker, unos 1,9 GB locales. Verificadas imágenes,
 enlaces offline y huellas de observaciones, setales y catálogo, sin modificaciones
-operativas. No hubo importación, entrenamiento, precálculo, publicación ni cambios
-del worker. Próximo paso: revisión manual de esta copia por parte del usuario;
-las dos vías posteriores (observaciones y puntos candidatos) quedan a la espera. No redescargar por
-rutina. Esta investigación no revalida los contenedores ni HA real descritos debajo.
+operativas. La descarga GBIF no importó datos operativos ni inició entrenamiento o precálculo.
+Sus herramientas se versionaron después en el commit de 0.2.309. Próximo paso:
+revisión manual de esta copia por parte del usuario. Las dos vías posteriores
+(observaciones y puntos candidatos) quedan a la espera. No redescargar por rutina. Esta investigación no revalida los contenedores ni HA real descritos debajo.
+
+Objetivo posterior: incorporar citas conservando procedencia GBIF e incertidumbre
+original; usar ≤1 km como criterio inicial y tratar la desconocida por separado.
+El usuario propone abundancia «Normal» si no hay abundancia publicada, pendiente
+de resolver al integrar. Comparar modelos con observaciones propias, solo GBIF
+y ambas combinadas; ninguna de esas pruebas se ha iniciado. La otra vía es
+identificar zonas de fructificación por especie, separadas de los setales propios.
 
 Visor de investigación separado en `index.html`: MapLibre 4.7.1 con los cuatro
 fondos online del mapa compartido (Satélite+, Híbrido, Topográfico, Liberty),
@@ -144,7 +231,7 @@ si hay varias; los campos secundarios quedan en «Más datos y procedencia».
 Se verifica específicamente la foto de GBIF `4978365738` visible al abrir, sin
 scroll inicial, en escritorio, portátil y móvil.
 
-Revisión manual añadida al visor: Pendiente (inicial), Dudosa y Aprobada, con
+Revisión manual del visor: Pendiente (inicial), Dudosa, Aceptada y Rechazada, con
 selector en la ficha, filtro combinado y recuentos. Guardado automático en el
 navegador (`localStorage`, huella de la copia); Exportar/Importar revisión permite
 conservar y recuperar un JSON con ID GBIF, estado y fecha. Importar fusiona por
@@ -167,8 +254,8 @@ fallos de escritura y conservación de decisiones recientes; fotos siguen visibl
 
 | Componente | Estado al cierre | Evidencia / límite |
 | --- | --- | --- |
-| HA real | Última instalación comunicada por el usuario: 0.2.308; 0.2.309 pendiente | No se ha instalado ni verificado remotamente 0.2.309 |
-| Datos GIS en HA real | Usuario confirma subida de los dos JSON actualizados | No se ha comprobado remotamente su SHA ni su consumo efectivo |
+| HA real | Última instalación terminada comunicada: 0.2.308; usuario anuncia instalación de 0.2.309 | Finalización y versión efectiva de 0.2.309 no confirmadas |
+| Datos GIS en HA real | Mapping almacenado idéntico byte a byte al local, verificado el 17/09 vía SMB LAN | Consumo efectivo de HA real/worker y JSON de auditoría no revalidados; [evidencia](reports/gis-mapping-ha-parity-2026-09-17.json) |
 | HA local | Contenedor `rainmapper-local-rainmapper-ha-ui-1`, reconstruido y recreado con candidata 0.2.309 | 200 archivos coincidentes, etiqueta local `local-ha-ui` |
 | Worker | Un único `rainmapper-worker`, imagen `rainmapper-worker:1.1.3`, reconstruido y recreado, healthy | 107 archivos coincidentes; ambos archivos de destinos conservan sus SHA; sin nueva publicación del worker |
 | Predictor local | Presentación `IFF:88/100`, tooltip conservado | Renderizado comprobado en ES/CA/EN dentro del contenedor; publicado en 0.2.308 |
@@ -209,11 +296,15 @@ Bajo `docker-data/mushroom-data/` en local y
 - `gis-mapping-reviews/unresolved-substrates-2026-09-16.json` — 985.024 bytes;
   SHA-256 `26196b1f191fd1e9d52906ff4058bdd5c50eb48b50b7bef2de724043819e70d1`.
 
-Son los dos archivos de la última subida que comunica el usuario. El catálogo
-no cambió en esta tanda. `gis-mapping-reviews` contiene justificaciones JSON,
+Son los dos archivos de la última subida comunicada por el usuario. El 17/09 se
+releyó el mapping local y `/Volumes/share/rainmapper/mushroom-data/mushroom_gis_mappings.json`
+en HA real por SMB LAN: **idénticos byte a byte**, 256.816 bytes y SHA indicado.
+No hace falta volver a copiar el mapping. Esta comparación no acredita el consumo
+en runtime ni revalida el segundo JSON de auditoría. [Comparación](reports/gis-mapping-ha-parity-2026-09-17.json).
+El catálogo no cambió en aquella tanda. `gis-mapping-reviews` contiene justificaciones JSON,
 **no copias de seguridad**: conservar las auditorías referenciadas.
 
-Al cierre se comprobó el SHA de mappings en HA local y la coincidencia de ambos
+En la validación GIS del 16/09 se comprobó la coincidencia de ambos
 lectores efectivos para los 1.055 códigos geológicos / 1.336 identidades. Esto
 valida carga e interpretación, no presencia real de setas. Detalles:
 [informe](gis-review-2026-09-16.md) y
@@ -266,9 +357,11 @@ No hacer más limpieza ni recrear paquetes de rollback no solicitados.
 
 ## Worktree y riesgos de continuidad
 
-- HA `0.2.309` publicada; código, test, metadatos e informe de release se cierran
-  en un único commit tras verificar GHCR. La documentación previa pendiente se
-  conserva en el worktree; la revisión GIS no se ha reanudado.
+- HA `0.2.309` publicada y commit `0ce6de3` enviado a `origin/inicial`.
+  Antes de este cierre documental solo estaba modificado el archivo de
+  observaciones del usuario; ahora se añaden los cambios documentales locales.
+  No hay otro cambio ejecutable pendiente verificado en el worktree.
+  La revisión GIS no se ha reanudado.
 - `mushroom-data/mushroom_observations.json` modificado es dato del usuario:
   preservado fuera del commit. Scripts y documentación GBIF revisados se
   versionan; snapshots, media y revisiones permanecen ignorados.
@@ -283,3 +376,5 @@ No hacer más limpieza ni recrear paquetes de rollback no solicitados.
 La arquitectura no ha cambiado en este cierre documental. Para contexto histórico
 opcional: [archivo anterior](reports/session-context-before-close-2026-09-16.md).
 Las decisiones vigentes de esta sesión encabezan [decisions.md](decisions.md).
+Durante cualquier trabajo, informar brevemente al usuario aproximadamente cada minuto.
+No relanzar builds, entrenamiento, precálculo ni revisión GIS para compactar documentación.

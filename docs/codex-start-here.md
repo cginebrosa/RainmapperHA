@@ -1,5 +1,10 @@
 # Codex: empezar aquí
 
+**Restricción expresa del usuario (17/09): no acceder por SSH a la RPi4 sin
+petición explícita, tampoco para consultas. Parar, instalar y arrancar Rainmapper
+en HA real queda a cargo del usuario. Las consultas SSH de esta sesión fueron
+de lectura; no se ha modificado HA real.**
+
 Este documento contiene el mapa estable del proyecto y las reglas de continuidad.
 El estado operativo está exclusivamente en [active-context.md](active-context.md).
 
@@ -141,6 +146,8 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - Narrador LLM local opcional:
   `docs/mushrooms/mushroom-worker-local-llm-narrator-design-es.md`
 - Contrato perfiles: `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
+- Investigación GBIF, visor local y revisión manual pendiente del usuario:
+  `docs/mushrooms/GBIF/README.md`. No importar ni entrenar automáticamente.
 - Observaciones/schema: `docs/mushrooms/mushroom-observations-schema-es.md`
 - GIS: `docs/mushrooms/gis-layer-inventory-es.md`
 - Fuentes y GIS para la expansión Font-Romeu--Quérigut:
@@ -150,6 +157,9 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - UI de observaciones: `docs/mushrooms/ui/profiles/mushroom-observations-ui-current-state-es.md`
 
 ## Reglas operativas críticas
+
+- Informar brevemente al usuario aproximadamente cada minuto durante cualquier
+  trabajo en curso; esta preferencia también se aplica fuera de los builds.
 
 - Conservar la cuota de tokens del usuario: las actualizaciones de proceso deben
   ser mínimas y limitarse a estado, resultado o bloqueo. No narrar pasos obvios,

@@ -1,0 +1,175 @@
+{
+  "version": "0.2.310",
+  "date": "2026-09-18",
+  "publication_status": "published_verified",
+  "image": "ghcr.io/cginebrosa/rainmapperha",
+  "remote_tags_verified": true,
+  "local_parity": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 202,
+      "mismatches": [],
+      "manifest_sha256": "0903729f8e9ce821bfbdc5b5dc0a14182436d9ea9598570ec05e6c0d06ee9722"
+    },
+    "rainmapper-worker": {
+      "checked_files": 108,
+      "mismatches": [],
+      "manifest_sha256": "9206c2041ff98d3ac75f9711f3360de7690e8aff8e24e22d201972738511058a"
+    }
+  },
+  "validation": {
+    "smoke": {
+      "tests": 1621,
+      "skipped": 48,
+      "result": "passed"
+    },
+    "api": {
+      "contract": "prediction_map_point_v1",
+      "start_date": "2026-09-17",
+      "checks": {
+        "ready": {
+          "contract": "prediction_map_point_v1",
+          "can_use_prediction_map": true,
+          "admin_only": false,
+          "data_mode": "prediction",
+          "worker_ready": true,
+          "executors": {
+            "local": true,
+            "worker": true
+          },
+          "calendar_timezone": "Europe/Madrid",
+          "max_horizon_days": 7,
+          "max_species": 32
+        },
+        "basic_user_allowed": true,
+        "unauthorized": 401,
+        "invalid_coordinate": 400,
+        "with-iff_local_worker_parity": true,
+        "without-iff_local_worker_parity": true,
+        "prediction-mode.js_sha256": "ce6ef9b0ef90d35d4f919bb938e7bf83581b2c0acd07d6fcef2c1ac48ce2456e",
+        "prediction-mode.css_sha256": "c28036e8c5d474b4917c65272c69bef69e33154562ea31604ec402723e77294f"
+      },
+      "queries": [
+        {
+          "mode": "local",
+          "point": {
+            "lat": 41.4329,
+            "lon": 2.11928
+          },
+          "elapsed_ms": 2677.84,
+          "compute_ms": 2672.339,
+          "polls": 14,
+          "state_bytes": 741,
+          "result_bytes": 23067,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 41.4329,
+            "lon": 2.11928
+          },
+          "elapsed_ms": 5398.45,
+          "compute_ms": 5223.984,
+          "polls": 27,
+          "state_bytes": 1481,
+          "result_bytes": 23068,
+          "calculated_species": 3
+        },
+        {
+          "mode": "local",
+          "point": {
+            "lat": 41.4346,
+            "lon": 2.12029
+          },
+          "elapsed_ms": 1857.61,
+          "compute_ms": 1771.022,
+          "polls": 10,
+          "state_bytes": 513,
+          "result_bytes": 23076,
+          "calculated_species": 3
+        },
+        {
+          "mode": "worker",
+          "point": {
+            "lat": 41.4346,
+            "lon": 2.12029
+          },
+          "elapsed_ms": 2059.12,
+          "compute_ms": 1877.798,
+          "polls": 11,
+          "state_bytes": 569,
+          "result_bytes": 23077,
+          "calculated_species": 3
+        }
+      ],
+      "ok": true,
+      "temporary_test_device_removed": true
+    },
+    "scope": "Offline migration, file integrity and existing inference/precompute artifacts; no operational training or precompute rerun."
+  },
+  "local_migration": {
+    "state": "complete",
+    "moves": 8,
+    "files_preserved": 1547,
+    "evidence": "tmp/media-migration-20260917/local-migration.json"
+  },
+  "worker": {
+    "version": "1.1.3",
+    "rebuilt_and_recreated": true,
+    "destinations_preserved": true,
+    "configuration_sha256": {
+      "coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+      "additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+    }
+  },
+  "ha_real": {
+    "last_verified_version": "0.2.309",
+    "migrated": false,
+    "modified_by_agent": false,
+    "operations": "User alone stops, installs and starts HA real. No further SSH without explicit request.",
+    "last_verified_at": "2026-09-18",
+    "verification": "Explicitly authorized read-only SSH diagnosis; version 0.2.309, all configured map paths exist, geography/weather/model readers individually ready. No mutation or restart.",
+    "local_executor_issue": "User confirmed their restart restored local prediction. Independent geography/weather/model checks passed. Original failure unknown; error logging requested as subsequent change, not included in 0.2.310."
+  },
+  "publication_attempts": [
+    "publish.log: cancelled after stalled push",
+    "publish-retry.log: cancelled after stalled push",
+    "push-direct.log: 66 layers present, 4 pushed, 4 large layers pending; cancelled before user-authorized Docker Desktop restart",
+    "publish-after-restart.log: cancelled after 12 minutes; slow TCP transfer persisted after restart",
+    "publish-20260918.log: ended when Docker Desktop was fully quit by the user.",
+    "publish-after-quit-20260918.log: completed, layers 1580.2 seconds; version/latest verified with both architectures."
+  ],
+  "image_size_evidence": {
+    "arm64_local_0.2.309_bytes": 506090231,
+    "arm64_local_0.2.310_bytes": 506097930,
+    "app_regular_files_bytes": 6228684,
+    "gis_or_gbif_directories_in_app": [],
+    "four_pending_layers_total_bytes": 923981696
+  },
+  "network_evidence": {
+    "docker_tcp_bytes_out_before": 15898608,
+    "docker_tcp_bytes_out_after_2s": 16078214,
+    "retransmitted_bytes_before": 4049081,
+    "retransmitted_bytes_after": 4087081,
+    "router_ping": {
+      "sent": 8,
+      "received": 8,
+      "average_ms": 4.943
+    }
+  },
+  "training_or_precompute_relaunched": false,
+  "evidence_directory": "tmp/media-migration-20260917",
+  "pending_decision": "User installs HA release; media migration in HA real remains pending explicit offline operation. No automatic migration.",
+  "parity_revalidated_on": "2026-09-18",
+  "remote_digest": "sha256:d0f7e78a3d6e9393bc8991ef68751b1e315e5cd0aae0a27e08bc0ed7251958f6",
+  "remote_tags": [
+    "0.2.310",
+    "latest"
+  ],
+  "remote_platforms": {
+    "linux/amd64": "sha256:b36a2aed0aee63a127e98b2880cbcbac1756eb4e342a9d4354ecb6b8ed68b11f",
+    "linux/arm64": "sha256:01fa445736fa810fd62b1c1be2f5fad78e79e65e155b9fff16512cb3508faf6e"
+  },
+  "publish_exit_code": 0,
+  "publish_log": "tmp/media-migration-20260917/publish-after-quit-20260918.log"
+}
