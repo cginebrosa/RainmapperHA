@@ -27,6 +27,16 @@ El historial y los checklists anteriores se conservan en
 
 ## Seguimiento 18/09/2026
 
+- [x] Corregir tamaño del campo de búsqueda a 16 px y añadir su uso a la ayuda
+  ES/CA/EN. HA local reconstruido; Chrome móvil, traducciones y huellas correctos.
+- [x] Revisar créditos del mapa: Photon/komoot, OSM, OpenTopoMap y OpenFreeMap/
+  OpenMapTiles; panel desplazable y comprobado en HA local móvil ES/CA/EN.
+- [x] Publicar 0.2.312 con corrección, ayuda y créditos: autorizada y verificada
+  en GHCR, ambos tags/digest y arquitecturas. [Informe](reports/ha-release-0.2.312.json).
+- [ ] Usuario instala 0.2.312 y comprueba el foco/zoom en Safari de iPhone.
+  La emulación móvil de Chrome no acredita el teclado/zoom de Safari físico.
+
+
 - [x] Implementar diagnóstico de errores del ejecutor local del mapa y lectores:
   componente, traceback y stderr visible. Cinco pruebas nuevas y suite dirigida
   correcta (161 casos, 48 omitidos). Cambio en worktree posterior a 0.2.310.
@@ -52,7 +62,7 @@ El historial y los checklists anteriores se conservan en
   preparados tras retirada. [Informe](reports/ha-media-migration-2026-09-18.json).
 - [x] Usuario confirma que el mapa de HA real funciona en local y worker después
   de la migración. Comprobaciones offline de datos, lectores y SQLite correctas.
-- [ ] Usuario instala 0.2.311: buscador con POI y diagnóstico de errores.
+- [x] Usuario comunica que utiliza 0.2.311 en iPhone: buscador con POI y diagnóstico de errores.
   No parar, instalar ni arrancar HA real por su cuenta.
 - [x] Confirmar versión efectiva de HA real: 0.2.309 por SSH LAN el 17/09.
 - [ ] Comprobar sin trabajos costosos el consumo efectivo en HA real/worker de

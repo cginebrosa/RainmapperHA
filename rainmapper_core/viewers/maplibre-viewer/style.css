@@ -955,6 +955,8 @@ main {
 }
 
 .map-attribution {
+  max-height: calc(100% - 166px);
+  overflow-y: auto;
   background: rgba(248, 252, 255, 0.96);
   border: 1px solid rgba(8, 21, 33, 0.12);
   border-radius: 12px;
@@ -1511,7 +1513,8 @@ main {
 .place-search-panel label{display:block;font-weight:700;margin-bottom:8px}
 .place-search-fields{display:flex;gap:6px}
 .place-search-panel input,.place-search-panel button{font:inherit;color:#173145;background:#fff;border:1px solid #bccbd4;border-radius:5px;padding:7px}
-.place-search-panel input{width:100%;min-width:0}
+/* Keep focused text readable without iPhone Safari's automatic page zoom. */
+.place-search-panel input{width:100%;min-width:0;font-size:16px}
 .place-search-panel button{cursor:pointer}
 .place-search-panel button:disabled{opacity:.6;cursor:wait}
 #place-search-status{margin:10px 0;font-size:12px}

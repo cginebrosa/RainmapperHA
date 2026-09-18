@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.312
+
+- Use a 16px place-search input to prevent automatic page zoom when focusing it on iPhone.
+- Explain place search and its named marker in the map help in all three languages.
+- Add Photon, OpenTopoMap and OpenFreeMap/OpenMapTiles credits, keeping the credits panel scrollable on small screens.
+
 ## 0.2.311
 
 - Add place search beside map settings, with a named marker replaced by each new search.

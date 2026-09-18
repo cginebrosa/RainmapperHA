@@ -176,7 +176,11 @@
     "placeSearchLoading": "Searching places online…",
     "placeSearchChoose": "Choose a place to center the map.",
     "placeSearchEmpty": "No places found. Try another name or add a region or country.",
-    "placeSearchError": "Could not query the place search service. Try again shortly."
+    "placeSearchError": "Could not query the place search service. Try again shortly.",
+    "helpPlaceSearchTitle": "Search for places",
+    "helpPlaceSearchUsage": "Tap the magnifying glass below Settings, enter a municipality or place name and press Search or Enter. Select a result to centre the map and show a marker with its name. Add a region or country if the name is ambiguous.",
+    "helpPlaceSearchMarker": "Starting another search removes the previous marker, even if no results are found. Place search uses the online Photon service and does not calculate a mushroom prediction; use prediction mode to query the area.",
+    "creditsPlaceSearch": "Place search: Photon (komoot), using OpenStreetMap data"
   },
   "es": {
     "loadingMapData": "Cargando datos del mapa...",
@@ -355,7 +359,11 @@
     "placeSearchLoading": "Buscando lugares online…",
     "placeSearchChoose": "Elige un lugar para centrar el mapa.",
     "placeSearchEmpty": "No se han encontrado lugares. Prueba otro nombre o añade provincia o país.",
-    "placeSearchError": "No se pudo consultar el buscador de lugares. Reintenta en unos momentos."
+    "placeSearchError": "No se pudo consultar el buscador de lugares. Reintenta en unos momentos.",
+    "helpPlaceSearchTitle": "Buscar lugares",
+    "helpPlaceSearchUsage": "Pulsa la lupa situada debajo de Ajustes, escribe un municipio o topónimo y pulsa Buscar o Intro. Elige un resultado para centrar el mapa y mostrar un marcador con su nombre. Añade una provincia o país si el nombre es ambiguo.",
+    "helpPlaceSearchMarker": "Al iniciar otra búsqueda desaparece el marcador anterior, aunque no se encuentren resultados. La búsqueda utiliza el servicio online Photon y no calcula una predicción de setas; usa el modo predicción para consultar la zona.",
+    "creditsPlaceSearch": "Búsqueda de lugares: Photon (komoot), con datos de OpenStreetMap"
   },
   "ca": {
     "loadingMapData": "Carregant dades del mapa...",
@@ -534,6 +542,10 @@
     "placeSearchLoading": "Cercant llocs en línia…",
     "placeSearchChoose": "Tria un lloc per centrar el mapa.",
     "placeSearchEmpty": "No s’han trobat llocs. Prova un altre nom o afegeix província o país.",
-    "placeSearchError": "No s’ha pogut consultar el cercador de llocs. Torna-ho a provar en uns moments."
+    "placeSearchError": "No s’ha pogut consultar el cercador de llocs. Torna-ho a provar en uns moments.",
+    "helpPlaceSearchTitle": "Cercar llocs",
+    "helpPlaceSearchUsage": "Prem la lupa situada sota Ajustos, escriu un municipi o topònim i prem Cerca o Retorn. Tria un resultat per centrar el mapa i mostrar un marcador amb el seu nom. Afegeix una comarca o país si el nom és ambigu.",
+    "helpPlaceSearchMarker": "En iniciar una altra cerca desapareix el marcador anterior, encara que no es trobin resultats. La cerca utilitza el servei en línia Photon i no calcula una predicció de bolets; fes servir el mode predicció per consultar la zona.",
+    "creditsPlaceSearch": "Cerca de llocs: Photon (komoot), amb dades d’OpenStreetMap"
   }
 }

@@ -1,0 +1,94 @@
+{
+  "version": "0.2.312",
+  "date": "2026-09-18",
+  "publication_status": "published_verified",
+  "image": "ghcr.io/cginebrosa/rainmapperha",
+  "scope": [
+    "16px search input to prevent iPhone Safari focus zoom",
+    "Place-search help in ES/CA/EN",
+    "Photon and basemap credits with bounded scrollable panel"
+  ],
+  "local_acceptance": {
+    "explicit_user_acceptance": true,
+    "message": "publicamos"
+  },
+  "local_parity_before_mechanical_version_bump": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 202,
+      "mismatches": [],
+      "manifest_sha256": "1873431876f0e17fbf7334cced379cb0b05d0b6a86e60c36299cdfe0c7671285"
+    },
+    "rainmapper-worker": {
+      "checked_files": 108,
+      "mismatches": [],
+      "manifest_sha256": "1f8c2b6b2ce6c4e2554ae8712e8dec0104056ae78c47b95164ce6953e9aa886d"
+    }
+  },
+  "validation": {
+    "smoke": {
+      "tests": 1639,
+      "skipped": 48,
+      "result": "passed",
+      "log": "tmp/release-0.2.312/smoke.log"
+    },
+    "browser": {
+      "result": "passed",
+      "evidence": "tmp/iphone-place-search-20260918/credits-browser.log",
+      "mobile_viewport": "360x780",
+      "input_font": "16px",
+      "horizontal_overflow": false,
+      "online_search": "Saldes, named POI",
+      "help_and_credits_languages": [
+        "es",
+        "ca",
+        "en"
+      ],
+      "js_errors": 0,
+      "limitation": "Chrome mobile emulation does not validate physical iPhone Safari keyboard/focus zoom; user validation pending after installation."
+    },
+    "scope": "UI-only change. No training, reconstruction or precompute rerun. Mechanical version/cache-buster bump after local validation."
+  },
+  "worker": {
+    "rebuilt_and_recreated": true,
+    "destinations_preserved": true,
+    "new_worker_release_published": false,
+    "configuration_before": {
+      "primary": "http://100.111.77.48:8100",
+      "additional": [
+        "http://rainmapper-ha-ui:8100"
+      ],
+      "sha256": {
+        "coordinator.json": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+        "additional-coordinators.json": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0"
+      }
+    }
+  },
+  "ha_real": {
+    "last_user_reported_version": "0.2.311",
+    "new_release_installation_confirmed": false,
+    "agent_started_or_stopped_app": false
+  },
+  "evidence_directory": "tmp/release-0.2.312",
+  "publish_log": "tmp/release-0.2.312/publish.log",
+  "release_assets_sha256": {
+    "rainmapper_core/viewers/maplibre-viewer/app.js": "c286446cedb6163d8723354ee6f2048a88736b9a36593801f7f94cc43919de69",
+    "rainmapper_core/viewers/maplibre-viewer/index.html": "7de8edea4aaf232b341bf3d0b4afe0a03a191cff5978ae8c1a1412806edde0a7",
+    "rainmapper_core/viewers/maplibre-viewer/style.css": "f614cae93025b5749e107a73a1910174e0dd6c9c578439738322e4b6288d2544",
+    "rainmapper_core/viewers/maplibre-viewer/translations.json": "8c9d655fe75f3fbcd45ba1af66f124394a43a69b32677c2a0110e8ba2cdcfc9d"
+  },
+  "publish_exit_code": 0,
+  "remote_tags_verified": true,
+  "remote_tags": [
+    "0.2.312",
+    "latest"
+  ],
+  "remote_digest": "sha256:a3fb966651370713d2c620c49c1b97d98bed6c859859488909db22f11cd754f5",
+  "remote_platforms": {
+    "linux/amd64": "sha256:7cbddecc639fee4e099552431e252d6bfcd78e3674bd2348ea822bcfa73e10ee",
+    "linux/arm64": "sha256:86208ba3ced408ee4c890c8af1c2ec4997a6d48dbb1c3341f5dd3b1c07f43d9f"
+  },
+  "push_layers_seconds": [
+    41.9,
+    3.3
+  ]
+}

@@ -541,6 +541,7 @@ function applyLanguage(language = currentLanguage) {
   setText("#password-change-fields label:nth-child(1) span", t("newPassword"));
   setText("#password-change-fields label:nth-child(2) span", t("repeatNewPassword"));
   setText("#map-attribution strong", t("credits"));
+  setText("#credits-place-search", t("creditsPlaceSearch"));
   document.querySelectorAll("input[name='station-source']").forEach((input) => {
     const label = input.closest("label")?.querySelector("span");
     if (label) {

@@ -1,4 +1,4 @@
-# Contexto activo — 18/09/2026, HA 0.2.311 publicada; media real migrado
+# Contexto activo — 18/09/2026, HA 0.2.312 publicada; media real migrado
 
 **Restricción expresa del usuario: no acceder por SSH a la RPi4 sin petición
 explícita, tampoco para consultas. El 18/09 autorizó SSH para la migración de
@@ -6,9 +6,42 @@ media, su verificación y la retirada de duplicados GIS comprobados. Esta excepc
 no autoriza otras operaciones. Parar, instalar y arrancar Rainmapper en HA real
 sigue a cargo del usuario.**
 
+## Release 0.2.312 — buscador en iPhone, ayuda y créditos
+
+El usuario comunica zoom de página persistente al enfocar el buscador en iPhone.
+El campo heredaba 13 px; se fija a 16 px, igual que la corrección de acceso de
+0.2.305 (`c188f3f`). No se cambia el viewport ni se desactiva el zoom manual.
+La ayuda del propio mapa incluye ahora búsqueda por lupa, resultados, marcador,
+sustitución al iniciar otra búsqueda y servicio online Photon, en ES/CA/EN.
+
+**0.2.312 publicada, autorizada por el usuario («publicamos») y verificada en GHCR.**
+Los tags `0.2.312` y `latest` comparten
+`sha256:a3fb966651370713d2c620c49c1b97d98bed6c859859488909db22f11cd754f5`,
+con manifests `linux/amd64` y `linux/arm64`. Script terminado con código 0;
+las dos fases de subida de capas registraron 41,9 s y 3,3 s.
+HA local y worker reconstruidos/recreados desde la candidata; 202/108 archivos
+comprobados sin diferencias y destinos del worker conservados. Smoke correcto:
+1.639 tests, 48 omitidos. El bump posterior solo cambia versión/cache-busters.
+Sin entrenamiento ni precálculo. [Informe de release](reports/ha-release-0.2.312.json).
+
+Chrome móvil (360×780): fuente efectiva 16 px, sin exceso de ancho, búsqueda real
+Saldes y POI correctos; ayuda y créditos en ES/CA/EN, cero excepciones JS.
+Evidencia en `tmp/iphone-place-search-20260918/credits-browser.log`.
+La emulación no acredita el teclado/zoom de Safari físico. El usuario comunica
+que utiliza 0.2.311 en iPhone; no puede probar HA local desde ese dispositivo.
+Validación final de Safari pendiente de que instale 0.2.312 y pruebe el buscador.
+La instalación y el arranque en HA real siguen exclusivamente a su cargo.
+
+Créditos: Photon (komoot), datos OSM, OpenTopoMap y OpenFreeMap/OpenMapTiles,
+ya usados por los fondos. Referencias: https://github.com/komoot/photon y
+https://openfreemap.org/quick_start/. Panel con altura limitada y desplazamiento
+vertical; comprobados enlaces, traducciones y límites del viewport móvil.
+
+
 ## Estado verificado y siguiente paso — 18/09/2026
 
-**HA 0.2.311 publicada y verificada en GHCR**: `0.2.311` y `latest` comparten
+**Publicación histórica de HA 0.2.311 verificada en GHCR**: en aquella publicación
+`0.2.311` y `latest` compartían
 `sha256:37d6745665923919079f8b51b98a6565ae378a2d76c0e72be266adf604702b79`,
 con manifests `linux/amd64` y `linux/arm64`. Script terminado con código 0;
 capas subidas en 38,6 s. [Informe](reports/ha-release-0.2.311.json).
@@ -19,7 +52,8 @@ idénticos entre ejecutores y smoke de 1.639 tests (48 omitidos). El bump poster
 solo cambia versión/cache-busters. No se relanzaron entrenamientos ni precálculos.
 La herramienta de investigación WU se versiona como herramienta local, sin sus
 datos ni revisiones y sin incluirla en la imagen HA. Última versión comprobada
-en HA real: 0.2.310; instalación de 0.2.311 a cargo del usuario, aún no confirmada.
+directamente en HA real: 0.2.310; posteriormente el usuario comunica el uso de
+0.2.311 en su iPhone y reporta el problema de zoom del buscador.
 
 La release anterior [0.2.310](reports/ha-release-0.2.310.json) se publicó en
 `6624660`; su push había tardado 1.580,2 s. No atribuir aquella lentitud

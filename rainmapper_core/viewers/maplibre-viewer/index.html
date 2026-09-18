@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.311">
+    <link rel="stylesheet" href="style.css?v=0.2.312">
   </head>
   <body>
     <header class="topbar">
@@ -128,7 +128,11 @@
         <strong>Credits</strong>
         <a href="https://www.esri.com/" target="_blank" rel="noopener noreferrer">Tiles © Esri</a>
         <a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">MapLibre</a>
+        <a href="https://photon.komoot.io/" id="credits-place-search" target="_blank" rel="noopener noreferrer">Place search: Photon (komoot), using OpenStreetMap data</a>
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>
+        <a href="https://opentopomap.org/" target="_blank" rel="noopener noreferrer">© OpenTopoMap</a>
+        <a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap · Liberty</a>
+        <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">© OpenMapTiles</a>
         <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener noreferrer">Elevation tiles © Mapzen</a>
         <a href="https://www.aemet.es/es/nota_legal" target="_blank" rel="noopener noreferrer">AEMET: Fuente: Agencia Estatal de Meteorología. Información elaborada por Rainmapper.</a>
         <a href="https://analisi.transparenciacatalunya.cat/Medi-Ambient/Dades-meteorol-giques-de-la-XEMA/nzvn-apee/about_data" target="_blank" rel="noopener noreferrer">Meteocat: Font: Generalitat de Catalunya. Departament de Territori, Habitatge i Transició Ecològica. METEOCAT. Dades meteorològiques de la XEMA. Dades elaborades per Rainmapper.</a>
@@ -140,6 +144,11 @@
         <section>
           <h3 data-map-help-key="helpNavigationTitle">Navigation and legend</h3>
           <p data-map-help-key="helpNavigationCopy">Drag to move, scroll or pinch to zoom. Station colours follow the scale and units at the left. The header shows the period, station counts, data timestamp and zoom.</p>
+        </section>
+        <section data-help-control="place-search-toggle">
+          <h3 data-map-help-key="helpPlaceSearchTitle">Search for places</h3>
+          <p data-map-help-key="helpPlaceSearchUsage">Tap the magnifying glass below Settings, enter a municipality or place name and press Search or Enter. Select a result to centre the map and show a marker with its name. Add a region or country if the name is ambiguous.</p>
+          <p data-map-help-key="helpPlaceSearchMarker">Starting another search removes the previous marker, even if no results are found. Place search uses the online Photon service and does not calculate a mushroom prediction; use prediction mode to query the area.</p>
         </section>
         <section data-help-control="prediction-mode-toggle">
           <h3 data-map-help-key="helpPredictionTitle">Prediction mode · IFF</h3>
@@ -396,7 +405,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.311"></script>
-  <script src="app.js?v=0.2.311"></script>
+  <script src="config.js?v=0.2.312"></script>
+  <script src="app.js?v=0.2.312"></script>
   </body>
 </html>
