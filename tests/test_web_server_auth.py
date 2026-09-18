@@ -5980,8 +5980,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertEqual(payload["selected_id"], "bergueda_obaga")
         self.assertIn("Obaga del Berguedà", payload["editor_html"])
         self.assertNotIn("Solans", payload["editor_html"])
-        self.assertIn('class="known-site-selection-data"', payload["map_html"])
-        self.assertIn('"parent_geometry":', payload["map_html"])
+        self.assertEqual("", payload["map_html"])
+        self.assertEqual(known_sites["areas"][0]["geometry"], payload["selection"]["parent_geometry"])
         self.assertIn("kind=micro_area", payload["refresh_url"])
         self.assertIn("id=bergueda_obaga", payload["refresh_url"])
 
@@ -6004,19 +6004,41 @@ class AuthDeviceLimitTests(unittest.TestCase):
             catalogs_payload={"catalogs": {}},
         )
 
-        self.assertIn('data-known-site-select data-known-site-kind="area"', page)
-        self.assertIn('data-known-site-select data-known-site-kind="micro_area"', page)
-        self.assertIn('data-known-site-id="bergueda_obaga" aria-current="true"', page)
-        self.assertIn('data-known-sites-refresh-link', page)
-        self.assertIn('class="catalog-toolbar sites-top-toolbar maintenance-top-toolbar"', page)
-        self.assertIn('class="known-site-selection-data"', page)
-        self.assertIn('/api/mushrooms/known-site-detail', page)
-        self.assertIn("loadSelection(href", page)
-        self.assertIn("history.pushState", page)
-        self.assertIn("cleanupSelection()", page)
-        self.assertIn("mapOptions.bounds=initialBounds", page)
-        self.assertIn("duration:0", page)
-        self.assertNotIn("center:[1.9,42.05]", page)
+        self.assertIn('id="sites-bootstrap"', page)
+        self.assertIn('id="known-site-map"', page)
+        self.assertIn('id="sites-detail"', page)
+        self.assertIn('/api/mushrooms/', page)
+        self.assertIn('history.pushState', page)
+        self.assertNotIn('site-observations-area-', page)
+        self.assertNotIn('site-observations-micro-', page)
+        self.assertNotIn('map.remove()', page)
+
+    def test_known_sites_workspace_excludes_reports_and_pages_observations(self) -> None:
+        ui = self.web_server.mushroom_known_sites_ui
+        sites = {"areas": [{"area_id": "a", "name": "A", "derived_context": {"huge_report": "PRIVATE"}}],
+                 "micro_areas": [{"micro_area_id": "m", "area_id": "a", "name": "M"}]}
+        observations = {"observations": [{"observation_id": str(i), "micro_area_id": "m", "observed_at": "2026-09-18", "notes": "SECRET"} for i in range(70)]}
+        workspace = ui.workspace_data(sites, observations)
+        self.assertEqual([70, 70], [r["count"] for r in workspace["rows"]])
+        self.assertNotIn("PRIVATE", json.dumps(workspace))
+        self.assertNotIn("SECRET", json.dumps(workspace))
+        page = ui.observation_page(sites, observations, {"kind": ["area"], "id": ["a"]})
+        self.assertEqual(50, len(page["items"]))
+        self.assertEqual(50, page["next"])
+        self.assertEqual(70, page["total"])
+        tail = ui.observation_page(sites, observations, {"kind": ["micro_area"], "id": ["m"], "offset": ["50"]})
+        self.assertEqual(20, len(tail["items"]))
+        self.assertIsNone(tail["next"])
+
+    def test_known_sites_new_micro_area_inherits_selected_parent_and_escapes_names(self) -> None:
+        ui = self.web_server.mushroom_known_sites_ui
+        sites = {"areas": [{"area_id": "a", "name": "</script><script>alert(1)</script>"}, {"area_id": "b", "name": "B"}], "micro_areas": []}
+        fragment = ui.render_selection_fragment(sites, {"kind": ["micro_area"], "new": ["1"], "parent": ["b"]})
+        self.assertTrue(fragment["selection"]["create"])
+        self.assertIn('<option value="b" selected>', fragment["editor_html"])
+        page = ui.render_page(sites, {"observations": []}, {})
+        self.assertNotIn('</script><script>alert(1)</script>', page)
+
 
     def test_outdated_model_notice_opens_workers_without_starting_rebuild(self) -> None:
         data_dir = Path(self.temp_dir.name)

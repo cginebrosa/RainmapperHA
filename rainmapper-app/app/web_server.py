@@ -22207,7 +22207,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         """Return one known-site editor and map without rebuilding the full page."""
         kind = (query.get("kind") or [""])[0].strip()
         selected_id = (query.get("id") or [""])[0].strip()
-        if kind not in {"area", "micro_area"} or not selected_id:
+        if kind not in {"area", "micro_area"} or (not selected_id and (query.get("new") or [""])[0] != "1"):
             self.send_json(400, {"ok": False, "error": "A valid known-site kind and ID are required."})
             return
         if (query.get("discard_gis_draft") or [""])[0] == "1":
@@ -22437,6 +22437,19 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/api/mushrooms/profile-detail":
             self.serve_mushroom_profile_detail(parse_qs(parsed.query))
+            return
+
+        if path in {"/api/mushrooms/known-sites-workspace", "/api/mushrooms/known-site-observations"}:
+            try:
+                sites = mushroom_known_sites.load_payload()
+                observations = default_store().load("observations")
+                if path.endswith("known-sites-workspace"):
+                    result = {"ok": True, "workspace": mushroom_known_sites_ui.workspace_data(sites, observations)}
+                else:
+                    result = mushroom_known_sites_ui.observation_page(sites, observations, parse_qs(parsed.query))
+                self.send_json(200, result)
+            except Exception as exc:
+                self.send_json(500, {"ok": False, "error": f"Cannot load known sites: {exc}"})
             return
 
         if path == "/api/mushrooms/known-site-detail":
@@ -22964,8 +22977,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if parsed.path.rstrip("/") == "/mushrooms/known-sites":
             redirect_target = self.handle_mushroom_known_sites_post(form)
+            if "application/json" in self.headers.get("Accept", ""):
+                result = getattr(self, "known_site_result", {"ok": True})
+                self.send_json(200 if result["ok"] else 422, {**result, "redirect": redirect_target})
+                return
             query = ("?" + parsed.query) if parsed.query else ""
-            self.redirect_to(redirect_target or query or "?")
+            # An explicit empty fragment prevents the browser retaining #new-area.
+            self.redirect_to((redirect_target or query or "?") + ("" if "#" in redirect_target else "#"))
             return
 
         if parsed.path.rstrip("/") == "/mushrooms/workers":
@@ -23451,6 +23469,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         return "./workers"
 
     def handle_mushroom_known_sites_post(self, form: dict[str, list[str]]) -> str:
+        self.known_site_result = {"ok": True}
         action = self.form_action_value(form, "known_site_action")
         return_to_value = self.form_value(form, "return_to")
         return_to = safe_known_sites_return_to(return_to_value) if return_to_value else ""
@@ -23664,8 +23683,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             set_mushroom_known_sites_flash(message + suffix)
             return redirect_target
         except (ValueError, json.JSONDecodeError) as exc:
+            self.known_site_result = {"ok": False, "error": f"No se ha guardado el setal: {exc}"}
             set_mushroom_known_sites_flash(f"Known site was not saved: {exc}")
         except Exception as exc:
+            self.known_site_result = {"ok": False, "error": f"No se ha podido completar la operación: {exc}"}
             set_mushroom_known_sites_flash(f"Known-site action failed: {exc}")
         return mushroom_known_sites_ui.query_url(return_to=return_to)
 

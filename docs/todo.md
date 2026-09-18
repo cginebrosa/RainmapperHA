@@ -33,8 +33,9 @@ El historial y los checklists anteriores se conservan en
   OpenMapTiles; panel desplazable y comprobado en HA local móvil ES/CA/EN.
 - [x] Publicar 0.2.312 con corrección, ayuda y créditos: autorizada y verificada
   en GHCR, ambos tags/digest y arquitecturas. [Informe](reports/ha-release-0.2.312.json).
-- [ ] Usuario instala 0.2.312 y comprueba el foco/zoom en Safari de iPhone.
-  La emulación móvil de Chrome no acredita el teclado/zoom de Safari físico.
+- [x] Usuario confirma el 18/09 que el buscador funciona bien en iPhone y Safari
+  del Mac después de publicar 0.2.312. Incidencia de zoom cerrada por su
+  validación en dispositivos reales.
 
 
 - [x] Implementar diagnóstico de errores del ejecutor local del mapa y lectores:
@@ -50,12 +51,22 @@ El historial y los checklists anteriores se conservan en
   estados con guardado SQLite, búsqueda por clic con modal, promoción a candidata
   y limpieza persistente de preliminares/puntos consultados. [Uso](station-research-es.md). Sin altas operativas.
 - [ ] Revisar calidad de candidatas WU del primer análisis de cobertura de Catalunya.
-  143 nuevas identificadas; 12 priorizadas por geometría, ninguna aprobada ni añadida.
+  Análisis inicial: 143 nuevas identificadas y 12 priorizadas por geometría.
+  Son recuentos históricos; comprobar el SQLite antes de afirmar estados actuales.
   [Informe local](../tmp/station-coverage-catalunya-20260918/README.md). Preparar
   históricos/backfill solo después de acordar el lote y aprobar estaciones.
 
 ## Próximo bloque operativo, cuando se solicite
 
+- [ ] Revisar y limpiar el espacio del workspace, **aplazado por el usuario**.
+  [Inventario del 18/09](reports/repository-disk-audit-2026-09-18.md): 62,4 GB,
+  con 15,6 GB de posibles copias GIS identificadas por ruta/tamaño y 4,5 GB
+  de auditorías. No sumar estas cifras como ahorro ni borrar automáticamente.
+  Antes de retirar archivos, revalidar inventario, comparar contenidos mediante
+  hashes, revisar consumidores y comprobar HA local/laboratorio. Conservar
+  fuentes únicas, observaciones, fotos GBIF, revisiones WU y trabajo GIS aplazado;
+  separar informes y entradas únicas de derivados reproducibles. La limpieza
+  queda pendiente de autorización expresa.
 - [x] Reorganizar media en HA local y real: HA real 0.2.310, seis movimientos,
   1.550 archivos conservados; 4.942 duplicados verificados y retirados (21,36 GB
   lógicos). Datos privados y runtime intactos, SQLite correcto y lectores
@@ -66,8 +77,8 @@ El historial y los checklists anteriores se conservan en
   No parar, instalar ni arrancar HA real por su cuenta.
 - [x] Confirmar versión efectiva de HA real: 0.2.309 por SSH LAN el 17/09.
 - [ ] Comprobar sin trabajos costosos el consumo efectivo en HA real/worker de
-  los JSON GIS subidos. El mapping almacenado **ya coincide byte a byte** con
-  HA local, comprobado el 17/09; no volver a copiarlo por rutina. La comparación
+  los JSON GIS subidos. El mapping almacenado **coincidía byte a byte** con
+  HA local en la comparación del 17/09; no volver a copiarlo por rutina. La comparación
   no acredita el runtime ni revalida el JSON de auditoría.
 
 ## Completado el 17/09/2026
@@ -112,9 +123,26 @@ El historial y los checklists anteriores se conservan en
   rangos antiguos ni crear vetos globales; conservar ediciones del usuario.
 - [ ] Contrastar compatibilidad y valores IFF con setales conocidos; auditar
   incertidumbre espacial de GIS/IDW y transferencia a puntos nuevos.
-- [ ] Ampliar regresión Safari/iPhone físico, estilos/gestos y convivencia de
-  modos meteorológico/predicción; no abrir administración local a la Wi-Fi.
-- [ ] Revalidar si la tarjeta del worker muestra ambos carriles de actividad.
+- [ ] Ampliar regresión de estilos/gestos y convivencia de modos en Safari/iPhone.
+  El zoom del buscador ya está validado por el usuario en 0.2.312; eso no cubre
+  toda la regresión móvil. No abrir administración local a la Wi-Fi.
+- [ ] Corregir la tarjeta del worker que muestra **«En espera» durante un
+  entrenamiento activo**. Diagnóstico confirmado el 18/09/2026 mediante
+  `GET http://127.0.0.1:8110/health`: estado general `idle`,
+  `lanes.foreground.status=idle` y `lanes.background.status=busy`, con un
+  `active_job_id` en segundo plano. Es evidencia de ese instante, no del estado
+  futuro del trabajo. En `rainmapper_core/mushroom_worker_service.py`, tanto
+  la respuesta de salud como el heartbeat toman el estado general únicamente
+  de `foreground`; `_worker_card` en `rainmapper-app/app/mushroom_workers_ui.py`
+  representa `payload.status` sin considerar `lanes`.
+  Mostrar «Ocupado» si cualquiera de los dos carriles está ocupado y distinguir
+  la disponibilidad para consultas del mapa de la actividad de entrenamiento/
+  precálculo. Revisar también la actualización automática de la tarjeta y
+  preservar los estados de desconexión y dataset no disponible. No cambiar la
+  planificación ni bloquear consultas por corregir el indicador. Añadir pruebas
+  dirigidas para ambos libres, solo segundo plano ocupado, solo primer plano
+  ocupado y ambos ocupados. **Aplazado por el usuario**; no se ha cambiado código
+  ni interrumpido el entrenamiento durante el diagnóstico.
 - [ ] Medir cola/transporte/render, RAM e IO en destino con límites RPi4; no
   extrapolar mediciones del Mac ni repetir trabajos caros para diagnosticar.
 - [ ] Completar integración nacional GEODE/MFE, esquemas regionales e índices

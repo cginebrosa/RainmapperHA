@@ -8,7 +8,21 @@ Seguimiento iniciado el 11/09/2026. **Mapa de predicción** es el desarrollo nue
 por coordenadas; **Predictor** es la herramienta actual. Las fuentes se preparan
 en `mushroom-map-GIS/`, separadas de los datos operativos.
 
-## Estado vigente: temporada visible y filtrado temporal — 14/09/2026
+## Estado vigente — revisión documental 18/09/2026
+
+El código HA 0.2.312 integra el mapa con ejecutores HA/worker, descartes por
+fecha y territorio, IFF, suelo no determinado y búsqueda Photon con POI.
+El reintento local ante rechazo 503 del worker está implementado en el cliente.
+Usuario confirma el buscador corregido en iPhone y Safari del Mac; esto no
+constituye validación científica ni prueba completa de todos los gestos móviles.
+[Fuentes contrastadas](../reports/documentation-audit-2026-09-18.md) ·
+[Estado operativo y pendientes](../active-context.md).
+
+Las entradas siguientes son resultados históricos, no comprobaciones del entorno
+actual. En particular, las especies fuera de temporada ahora sí aparecen en
+los descartes y la integración ya no está limitada a preview.
+
+## Histórico: temporada visible y filtrado temporal — 14/09/2026
 
 Último ajuste de presentación terminado: tipos de suelo antes de árboles/hábitats
 en la cabecera Terreno, usando etiquetas recibidas de los mappings. Descartadas

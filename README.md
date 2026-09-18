@@ -3,7 +3,7 @@
 ## Descripcion
 RainmapperHA empaqueta Rainmapper como app de Home Assistant.
 
-La app descarga datos meteorologicos de estaciones Meteocat, Meteoclimatic, Wunderground y AEMET opcional, conserva historicos en CSV, genera ficheros `Tomap`, crea mapas HTML clasicos y publica visores web MapLibre/Leaflet pensados para consultar lluvia acumulada desde Home Assistant o movil.
+La app descarga datos meteorologicos de estaciones Meteocat, Meteoclimatic, Wunderground y AEMET opcional, conserva historicos en CSV (o generaciones Parquet con el modo particionado), genera `Tomap` y GeoJSON y sirve mapas protegidos MapLibre. Incluye mantenimiento de especies y observaciones, Predictor por áreas y mapa de predicción por coordenadas con cálculo local o mediante worker. Bokeh y Leaflet públicos son salidas legacy opcionales.
 
 Objetivo a largo plazo: evolucionar Rainmapper hacia una plataforma de datos y mapas meteorologicos automatizada, con visores moviles y una futura app iOS/Android con autenticacion y control de acceso.
 
@@ -36,7 +36,7 @@ Instalacion en Home Assistant:
 
 1. Anadir este repositorio como repositorio de apps/add-ons en Home Assistant.
 2. Instalar la app `Rainmapper`.
-3. Configurar `gmap_api_key`.
+3. Configurar las fuentes necesarias; `gmap_api_key` solo es necesaria para funciones que utilicen Google Maps.
 4. Usar preferiblemente `mode: serve`.
 
 ## Configuracion
@@ -173,9 +173,9 @@ Build Docker local:
 docker compose build rainmapper
 ```
 
-Build de Home Assistant: desde `0.2.57`, Home Assistant debe descargar la imagen preconstruida configurada en `rainmapper-app/config.yaml` (`ghcr.io/cginebrosa/rainmapperha:<version>`). Desde `0.2.60`, el flujo normal es publicar la imagen multi-arch `amd64`/`arm64` desde el Mac con `./scripts/build-push-ha-image.sh` antes de subir el commit de version. El script publica la etiqueta versionada y `latest`; Home Assistant usa la etiqueta versionada. Tras publicar, el script limpia etiquetas locales versionadas antiguas del mismo repositorio y conserva por defecto las dos ultimas mas `latest`. GitHub Actions queda como fallback manual.
+Home Assistant descarga la imagen preconstruida configurada en `rainmapper-app/config.yaml` (`ghcr.io/cginebrosa/rainmapperha:<version>`). El flujo publica y verifica primero la imagen multi-arch `amd64`/`arm64` mediante `./scripts/build-push-ha-image.sh`; después hace commit/push de la versión. Requiere validación local y aceptación del usuario: [flujo completo](docs/release-flow.md). El script publica `<version>` y `latest`, conserva por defecto una versión local más `latest` y limita la caché reclamable de Buildx a 8 GiB. GitHub Actions queda como fallback manual.
 
-El paquete GHCR remoto se limpia manualmente despues de validar una version en HA. Estado verificado el 2026-06-24: `0.2.113` esta validada en HA y GHCR conserva solo `0.2.113`, `latest` y cuatro entradas auxiliares del push multi-arch (`sha256:b8bdf0a9b433932c4fc7af012cd7d0876ea6d821aa7131b5e81458031c831627`).
+La limpieza remota de GHCR es una operación separada y autorizada, conservando versión activa, rollback y manifests asociados. Las versiones y verificaciones de cada publicación están en [contexto activo](docs/active-context.md) e informes de release; no se deduce el inventario remoto del código.
 
 ## Despliegue
 Despliegue Home Assistant confirmado por flujo manual:
@@ -236,18 +236,32 @@ docker-data/ignore_stations_tomap.txt
 
 `ignore_stations_tomap.txt` excluye estaciones solo de los GeoJSON usados por Leaflet/MapLibre. No borra historicos.
 
+Perfiles, observaciones y revisiones operativas de setas viven en
+`/share/rainmapper/mushroom-data`. Tras la migración explícita de media,
+`/media/rainmapper` separa `geography/`, `results/`, `transfers/` y `cache/`.
+Los resolutores mantienen compatibilidad con rutas anteriores si no existe el
+marcador de migración; instalar una versión no ejecuta esa migración.
+[Rutas y procedimiento](docs/mushrooms/ha-media-organization-proposal-es.md).
+
 ## Visores de mapas
 Visor recomendado:
 
 - MapLibre: `/protected/maplibre/index.html`.
+- Mapa de predicciones: `/protected/prediction-map/index.html`.
 
-Visores mantenidos:
+Ambos comparten el buscador de municipios/topónimos Photon con marcador de lugar,
+ayuda y créditos ES/CA/EN. La consulta sale del navegador y requiere Internet.
+La [herramienta de investigación de estaciones](docs/station-research-es.md) y el
+[visor GBIF](docs/mushrooms/GBIF/README.md) son utilidades locales independientes.
+
+Visores legacy, disponibles solo al activar su publicación:
 
 - Leaflet fallback: `/local/rainmapper-leaflet/index.html`.
 - Bokeh clasico/referencia: `/local/Plots/rain_21d.html` y equivalentes para 1, 7, 14, 21, 30, 60 y 90 dias.
 
 ## Documentacion de continuidad
-- [docs/codex-handoff.md](docs/codex-handoff.md)
+- [docs/codex-start-here.md](docs/codex-start-here.md)
+- [docs/active-context.md](docs/active-context.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/todo.md](docs/todo.md)
 - [docs/decisions.md](docs/decisions.md)

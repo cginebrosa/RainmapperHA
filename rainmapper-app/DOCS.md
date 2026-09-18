@@ -2,6 +2,17 @@
 
 Rainmapper descarga datos meteorologicos de estaciones Meteoclimatic, Meteocat, Wunderground y AEMET opcional. Conserva historicos CSV, reconstruye CSV `Tomap` y publica GeoJSON para el visor MapLibre protegido. Los visores publicos legacy se generan solo si `publish_to_www` esta activado.
 
+También incluye mantenimiento de especies/observaciones, Predictor por áreas y
+mapa de predicción por coordenadas: `/protected/prediction-map/index.html`.
+Este último comparte el visor MapLibre y permite elegir servidor local o worker.
+«Local» es el servidor que sirve el mapa. Si el worker rechaza el envío por estar
+ocupado o no disponible, el visor intenta una vez en local, sin cambiar la
+preferencia guardada. Una predicción experimental no garantiza presencia de setas.
+
+La lupa entre Ajustes y 3D busca municipios/topónimos mediante Photon desde el
+navegador. Elegir un resultado centra el mapa y muestra su nombre; otra búsqueda
+válida retira el marcador. Hay ayuda y créditos ES/CA/EN en el propio visor.
+
 La app se queda abierta como un servicio ligero. Sirve una webUI para Home Assistant, permite lanzar ejecuciones manuales, muestra los mapas generados y puede ejecutar un schedule interno.
 
 ## Como funciona
@@ -16,6 +27,43 @@ Flujo habitual:
 4. Si el schedule interno esta activado, la app ejecuta la accion configurada cada dia.
 5. Los datos y mapas se guardan en `/share/rainmapper`.
 6. Si `publish_to_www` esta activado, los mapas Bokeh y el visor Leaflet legacy se publican en `/config/www`.
+
+## Mantenimiento de setales
+
+`/mushrooms/known-sites` utiliza un único mapa MapLibre con lista de áreas y
+microáreas a la izquierda y ficha a la derecha. La selección es bidireccional;
+si coinciden varios polígonos, el mapa permite elegir cuál abrir. Los setales sin
+polígono siguen accesibles en la lista. Hay filtros de texto y estado, fondos
+satélite/híbrido/topográfico, relieve 3D, norte, encuadre y búsqueda Photon con un
+único marcador que se sustituye al buscar de nuevo.
+
+«+ Área» y «+ Microárea» abren un borrador en la ficha e inician el dibujo. Una
+microárea toma el área seleccionada como padre. Guardar mantiene la selección y
+el mapa; Cancelar permite descartar cambios. Editar geometría es una acción
+explícita y admite varios polígonos. Los datos privados conservan el mismo
+formato en `mushroom_known_sites.json` y sus copias automáticas.
+
+Al guardar una geometría de microárea, se mantiene la recuperación de DEM y
+SoilGrids del servidor. «Recuperar GIS / DEM», disponible después del primer
+guardado, permite revisar los campos antes de incorporarlos al borrador. Las
+operaciones muestran un modal de espera sin porcentaje ficticio; un error
+mantiene el formulario. Incorporar una propuesta GIS requiere guardar después.
+
+Archivar/restaurar requiere confirmación. Borrar solo aparece para elementos
+archivados y exige otra confirmación; el servidor mantiene las restricciones
+por observaciones y microáreas vinculadas. Las observaciones se consultan al
+abrir su pestaña, en páginas de 50, y no se precargan sus informes o mapas. El
+contrato inicial solo incluye geometrías, identificadores, nombres y contadores;
+no transporta informes GIS/DEM/SoilGrids ni artefactos de entrenamiento.
+
+## Almacenamiento de setas y geografía
+
+Perfiles y observaciones privados se guardan en `/share/rainmapper/mushroom-data`.
+La cartografía pesada, resultados reconstruibles y transferencias se guardan en
+`/media/rainmapper`. Tras la migración explícita, las carpetas son `geography`,
+`results`, `transfers` y `cache`. Sin el marcador `.media-layout-v1.json`, los
+resolutores conservan el layout anterior. Instalar o arrancar no migra carpetas.
+[Procedimiento y rutas](../docs/mushrooms/ha-media-organization-proposal-es.md).
 
 ## Carpetas persistentes
 
@@ -150,7 +198,6 @@ Cuando ejecutas `maps` o `all`:
 - si `publish_to_www` esta activo, se publica tambien Leaflet legacy en `/config/www/rainmapper-leaflet`.
 
 Si editas `ignore_stations_tomap.txt`, ejecuta `maps` o `all` para que Leaflet y MapLibre reflejen el cambio.
-
 
 ## Usuarios del visor MapLibre protegido
 

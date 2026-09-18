@@ -1,11 +1,27 @@
 # Mapa de predicción — especificación central
 
 Fecha: 11/09/2026. **Referencia principal del diseño del Mapa de predicción.**
-Actualización técnica: 12/09/2026, inicio autorizado por el usuario.
+Actualización de estado contrastada con código: **18/09/2026, HA 0.2.312**.
+Integración HA/worker operativa en el código empaquetado. Buscador Photon con POI,
+ayuda y créditos ES/CA/EN; usuario confirma la corrección de zoom en iPhone y
+Safari del Mac. [Auditoría de fuentes](../reports/documentation-audit-2026-09-18.md).
+Los apartados fechados conservan su evolución; las reglas siguientes sustituyen
+las afirmaciones antiguas de «solo preview», «sin fallback» y ocultación total:
+
+- Worker es la preferencia inicial. El cliente reintenta una vez en local al
+  recibir 503 `worker_busy`/`executor_unavailable` durante el envío. No cambia la
+  preferencia ni reintenta consultas ya aceptadas (`prediction-mode.js:186`).
+- Las especies fuera de temporada no se infieren ni aparecen entre elegibles;
+  **sí aparecen entre descartes/información insuficiente**, con fase del día y
+  motivos territoriales disponibles (`prediction-mode.js:343`).
+- Las rutas de media dependen del marcador de migración; no se migran por
+  instalación. [Organización vigente](ha-media-organization-proposal-es.md).
+
+Actualización técnica histórica: 12/09/2026, inicio autorizado por el usuario.
 **Actualización operativa 14/09:** volumen y configuración de lectores actuales
 instalados en HA local y el worker existente; ambos reconstruidos y paridad de
-cálculo comprobada, manteniendo coordinadores y datos. RPi4 usará worker en
-principio, sin fallback local. El alcance sigue siendo nacional: los 14,54 GB
+cálculo comprobada, manteniendo coordinadores y datos. La decisión inicial prefería worker sin fallback; sustituida por la política
+de reintento acotado descrita arriba. El alcance sigue siendo nacional: los 14,54 GB
 actuales no completan GEODE ni MFE fuera de Catalunya, cuya integración sigue
 pendiente. Revisión visual a fondo y árboles vecinos aplazados al TODO.
 [Configuración, evidencia y límites](prediction-map-local-worker-setup-es.md).
@@ -21,8 +37,8 @@ preparado para HA/worker; sin construir imágenes, activar remoto o desplegar HA
 **Implementado localmente el 14/09, política `territorial_and_seasonal_windows_v6`: dos niveles.**
 El primero determina especies posibles por suelo+pH, hospedadores/hábitat y
 altitud, sin depender del mes. El predictor evalúa después fecha, fenología y
-condiciones meteorológicas. **Decisión posterior vigente: las especies fuera de
-la temporada de la ficha no aparecen en la lista ni invocan modelos para ese día.**
+condiciones meteorológicas. **Regla vigente: las especies fuera de temporada no aparecen entre elegibles
+ni invocan modelos para ese día; sí se muestran entre los descartes.**
 La clasificación territorial interna permanece independiente de los meses;
 `daily_season_phases` aplica el segundo nivel. Las filas visibles muestran
 «Temporada principal» o «Temporada secundaria». Conservar fenología en
@@ -75,7 +91,8 @@ no sustituye los hospedadores requeridos por las ectomicorrícicas.
 [informe de motor, corrección forestal y pruebas](../reports/prediction-map-engine-integration-2026-09-13.json).
 Los estados de prototipo/simulaciones que siguen conservan su contexto histórico;
 no describen la preview actual. Validación científica de nuevos puntos, visualizaciones
-restantes y aceptación integrada HA–worker siguen pendientes.
+restantes siguen pendientes; la integración HA–worker se validó posteriormente
+según los informes de release enlazados en el contexto activo.
 
 **Decisión pH aplicada el 13/09:** preview con OpenLandMap local: media 0–30 cm
 como filtro provisional de especies; límites Q16–Q84 solo informativos. SoilGrids
@@ -896,8 +913,9 @@ La primera instalación incluye recibir el paquete cartográfico preparado desde
 la máquina de preparación o un repositorio de datos autorizado. HA no reconstruye
 mapas/índices ni genera un paquete nacional para cada worker o trabajo. Un worker
 sin la generación requerida no se anuncia listo: se completa la instalación
-fuera de la consulta y sin fallback de cálculo pesado en la RPi4. Esta decisión
-no implica que las nuevas capas ya estén instaladas en el worker existente.
+fuera de la consulta. La política inicial sin fallback fue sustituida por el
+reintento acotado del cliente descrito al comienzo. Ninguna decisión de diseño
+acredita por sí sola qué generación está instalada en un worker concreto.
 
 **Portabilidad exigida por el usuario:** la exportación para otro equipo debe
 ser un paquete de instalación completo, no únicamente un TAR de la imagen.
@@ -2171,3 +2189,9 @@ lanzar cálculos ni modificar preferencias o datos científicos al navegar o
 pulsar el POI. Panel traducido a es/ca/en, cerrable con Escape, otra herramienta
 o clic fuera; presentación adaptada a móvil. La disponibilidad depende del
 servicio [Photon](https://github.com/komoot/photon).
+
+En 0.2.312 el campo de búsqueda usa 16 px para evitar zoom automático al enfocar
+en iPhone. La ayuda del mapa explica uso y renovación del POI; créditos enlazan
+Photon/komoot y OSM. Créditos y ayuda están en ES/CA/EN; el panel de créditos
+tiene altura limitada y scroll. Confirmación del usuario en iPhone y Safari Mac
+registrada en [el informe de release](../reports/ha-release-0.2.312.json).

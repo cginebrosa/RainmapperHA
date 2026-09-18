@@ -1,11 +1,15 @@
 # Architecture
 
+Revisión del 18/09/2026 contra código HA 0.2.312 / worker 1.1.3.
+[Fuentes y límites de la auditoría](reports/documentation-audit-2026-09-18.md).
+El estado desplegado y las pruebas históricas se consultan en [contexto activo](active-context.md).
+
 ## Workspace real
 
 La ruta de trabajo valida es `/Users/carlosginebrosa/Developer/RainmapperHA`. La copia antigua en iCloud/Mobile Documents no debe usarse para desarrollo, validacion ni commits porque puede estar desfasada.
 
 ## Resumen tecnico
-RainmapperHA es una aplicacion Python empaquetada en Docker y Home Assistant. El core descarga y normaliza datos meteorologicos en CSV. Una segunda capa genera GeoJSON para visores modernos y, si se activa legado publico, mapas HTML clasicos con Bokeh. La app de Home Assistant anade webUI, schedule interno, MapLibre protegido, publicacion legacy opcional a `/config/www` e integracion con ingress/sidebar.
+RainmapperHA es una aplicacion Python empaquetada en Docker y Home Assistant. El core descarga y normaliza datos meteorologicos en CSV y admite histórico particionado Parquet. Incluye Predictor por áreas y predicción por coordenadas con ejecutores local y worker. Una segunda capa genera GeoJSON para visores modernos y, si se activa legado publico, mapas HTML clasicos con Bokeh. La app de Home Assistant anade webUI, schedule interno, MapLibre protegido, publicacion legacy opcional a `/config/www` e integracion con ingress/sidebar.
 
 La arquitectura actual no separa completamente dominio, infraestructura y UI: todavia hay scripts grandes, aunque la duplicidad fisica entre raiz y `rainmapper-app/app` ya fue retirada. Aun asi, el flujo esta estabilizado y funciona como pipeline de ficheros.
 
@@ -24,9 +28,11 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - Persistencia: CSV/JSON y objetos direccionados por contenido son las fuentes
   autoritativas. SQLite se usa como artefacto regenerable del
   precálculo semanal del Predictor, activado bajo
-  `/media/rainmapper/predictor_precompute` para excluirlo del backup de
+  `/media/rainmapper/results/predictor-precompute` tras migración explícita
+  (ruta legacy `predictor_precompute` sin marcador) para excluirlo del backup de
   `/share`. El nuevo mapa añade índices SQLite locales para consultas espaciales
-  y ráster por ventanas, actualmente usados en preview, sin migrar esa persistencia.
+  y ráster por ventanas usados por los ejecutores HA/worker. La investigación WU
+  local guarda revisiones autoritativas en SQLite; no es una caché prescindible.
 - Despliegue: GitHub como repositorio de app HA y GHCR como registry de imagenes preconstruidas; Home Assistant descarga `ghcr.io/cginebrosa/rainmapperha:<version>` cuando existe la imagen publicada.
 
 ## Estructura de carpetas
@@ -51,70 +57,65 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `Tomap/`: CSV intermedios para mapas, ignorados por Git.
 - `Plots/`: HTML Bokeh generados, ignorados por Git.
 - `docker-data/`: volumenes locales Docker, ignorados por Git.
-- `mushroom-map-GIS/`: preparación local de fuentes del futuro Mapa de
-  predicción, separada de `mushroom-GIS`; datos, scripts, README y manifiestos
-  excluidos de Git y del contexto Docker. No es un dataset operativo activado.
+- `mushroom-map-GIS/`: preparación local de fuentes geográficas, excluida de
+  Git y Docker. Los ejecutores consumen publicaciones activadas mediante
+  configuración/manifiestos; la mera existencia de esta carpeta no activa un dataset.
+- `scripts/station_research.py` y `scripts/station-research/`: visor local WU;
+  no empaquetado en HA. Revisiones y caché en SQLite.
+- `docs/mushrooms/GBIF/`: código/guía del visor local; snapshots y revisiones
+  personales excluidos de Git y Docker.
 - `docs/`: documentacion de continuidad.
 
-## Mapa de predicción: lectores residentes y motor compartido (14/09/2026)
+## Mapa de predicción: lectores residentes y motor compartido
 
-[Especificación central](mushrooms/prediction-map-specification-es.md): módulo
-complementario al Predictor. `mushroom_prediction_map_ui.py` compone la plantilla
-MapLibre existente y la extensión `rainmapper_core/viewers/prediction-map/` en
-ruta nueva. No hay un segundo núcleo del visor ni un motor científico JavaScript.
+[Especificación central](mushrooms/prediction-map-specification-es.md).
+`mushroom_prediction_map_ui.py` sirve `/protected/prediction-map/index.html`
+combinando MapLibre compartido y `rainmapper_core/viewers/prediction-map/`.
+`PointExecutor` y `QueryBroker` ejecutan consultas locales; `mushroom_map_worker.py`
+y `mushroom_map_runtime.py` implementan ejecución remota/publicación de entradas.
+No hay un segundo motor científico JavaScript.
 
-La preview aislada `tests/prediction_map_browser_check.mjs --preview` sirve datos
-locales y usa tres adaptadores residentes: geografía (GDAL), modelo y meteorología
-(Python `.venv`). `PointExecutor` prepara el mismo acceso para HA/worker; `QueryBroker`
-mantiene consultas efímeras acotadas y `mushroom_map_worker.py` el canal remoto.
-Preparados en código, no activados en el worker instalado por esta entrega.
-La elección de ejecutor permite servidor local/HA o worker explícitamente.
+`EcologyReader` recarga perfiles/catálogos/mappings y separa clasificación
+territorial de `daily_season_phases`: suelo/pH, hosts/hábitat y altitud determinan
+compatibilidad; la fecha determina temporada. La lista de descartes incluye el
+complemento de las elegibles del día, también fuera de temporada. El suelo no
+identificado se muestra como tal; exigirlo depende de la regla de cada ficha.
+`PointModelRuntime` y `mushroom_map_prediction` consumen evidencia por especie
+con datos del punto. No fusionan fichas de Rovelló ni convierten un resultado
+nulo en cero. La UI expresa IFF, no probabilidad de presencia.
 
-Fuentes locales `mushroom-map-GIS/`: IGN/ICGC DEM, municipios, cubiertas, MFE25,
-geología, OpenLandMap pH y SoilGrids (comparación pH/retención). Índices y auxiliares preparados una vez; las consultas no
-reconstruyen fuentes ni hacen hashes completos o un proceso por capa. El lector
-forestal resuelve IDs por científico/alias del catálogo editable y mantiene caché
-geométrica al cambiar nombres. MFE Catalunya conectado; otros esquemas pendientes.
+El cliente prefiere worker y reintenta una vez en local si el envío recibe 503
+`worker_busy` o `executor_unavailable` (`prediction-mode.js`). No cambia la
+preferencia persistida y no reenvía una consulta ya aceptada. «Local» designa el
+servidor que sirve el mapa. `QueryBroker._local_loop` registra errores, pero no
+reintenta su inicialización fallida automáticamente.
 
-`mushroom_map_ecology.EcologyReader` carga perfiles/catálogo/mappings locales,
-compila una instantánea por consulta semanal y evalúa hosts, meses y altitud,
-pH y hábitat con mappings exactos revisados. Recarga por stat de tres JSON
-pequeños; 32 fichas, 2 MiB/archivo y 512 reglas como límites. Las equivalencias
-ICGC se agrupan para compartir materiales. Hay 21 rangos de pH locales y un
-ensayo configurable de suelo/pH en aereus (`broad_species_windows_v4`).
-Las fichas ectomicorrícicas requieren hosts; las demás pueden entrar por hábitat
-revisado. Datos ausentes no se convierten en compatibilidad.
+Geografía pesada y modelos son datos persistentes distribuidos fuera de la
+imagen; configuración explícita y manifiestos determinan lo activo. La integración
+GEODE/MFE nacional y la agregación SoilGrids para áreas siguen siendo trabajo
+separado de la lectura puntual. No deducir cobertura completa del mapa visible.
 
-El contrato `prediction_map_point_v1` admite `data_mode=prediction`, con IDs,
-punto y fechas comprobados. UI por probabilidad descendente y sin cálculo al
-final; null distinto de cero. `PointModelRuntime.predict` filtra candidatas antes
-de preparar modelos/entradas, sale si no hay ninguna y materializa las restantes
-con evidencia sellada por especie y datos propios del punto. No adopta evidencia
-del área contenedora. Compatibilidad no es probabilidad ni validación científica.
+## Rutas de media y compatibilidad
 
-`mushroom_map_prediction.resolve_species_week` reutiliza selección del Predictor,
-continuidad semanal/fallback y fenología, con materialización real y preparación
-hídrica 90/365 según modelo. No hay dos motores científicos HA/worker.
-Rovelló se presenta por cuatro IDs existentes, cada uno con su modelo si existe;
-sin agrupación derivada ni fusión de observaciones.
+`rainmapper_core/media_layout.py:organized` valida `.media-layout-v1.json` y
+rechaza journals incompletos. `mushroom_paths.py` usa el layout organizado solo
+con ese marcador; respeta overrides explícitos y mantiene las rutas legacy en
+su ausencia. `scripts/manage-media-layout.py` es una operación offline explícita:
+instalar/arrancar HA no la ejecuta.
 
-**Cambio acordado pendiente:** separar el filtro territorial (suelo/pH,
-hospedadores/hábitat, altitud) del nivel temporal del predictor. Actualmente el
-lector ecológico todavía aplica meses; retirarlos conservando la fenología en
-las fichas y el descarte antes de inferencia. La lista territorial debe permanecer
-igual entre fechas para iguales datos/perfiles. No duplicar humedad/temperatura
-ni agregar pesos ecológicos arbitrarios a la probabilidad.
+| Datos | Ruta bajo `/media/rainmapper`, con marcador |
+| --- | --- |
+| Geografía compartida | `geography/` |
+| Modelos/archivo | `results/models/`, `results/model-archive/` |
+| Artefactos | `results/artifacts/` |
+| Precálculo | `results/predictor-precompute/` |
+| Transferencia worker | `transfers/worker/` |
+| TAR runtime | `cache/predictor-runtime-archives/` |
 
-Los datos pesados e índices estarán en volumen persistente portable del worker,
-separados de imagen/código y credenciales; exportación/distribución pendientes.
-SoilGrids nacional (54 retenciones + nueve pH) descargado y huecos aceptados;
-los lectores candidatos puntuales no completan la migración de caché/agregados
-para áreas y microáreas. Caché antigua y contextos operativos se conservan.
-
-El filtro último está activo **solo en la preview**. HA local recibió antes los
-controles de mantenimiento pH; no equivale a integrar geografía/predicción en
-Docker. No despliegue en HA real. Estado/pruebas en `active-context.md`; detalle
-por componente en la especificación y [relevo](reports/prediction-map-handoff-before-compaction-2026-09-13.md).
+JSON privados de perfiles, observaciones, catálogo y mappings continúan en
+`/share/rainmapper/mushroom-data`. El Dockerfile copia defaults explícitos y una
+semilla vacía de observaciones, no el archivo personal del checkout.
+[Procedimiento y migración realizada](mushrooms/ha-media-organization-proposal-es.md).
 
 ## Punto de entrada de la aplicacion
 Hay varios entry points segun entorno:
@@ -279,7 +280,8 @@ Hay varios entry points segun entorno:
   `ml_storage_reconciliation_apply` está desactivado por defecto y requiere una
   habilitación explícita posterior a la revisión del informe.
 - Almacenamiento: la caché TAR del Predictor es regenerable y se resuelve en
-  `/media/rainmapper/runtime-cache/predictor-runtime-archives`, fuera de
+  `/media/rainmapper/cache/predictor-runtime-archives` (layout migrado;
+  `runtime-cache` en legacy), fuera de
   `/share/rainmapper` y de sus backups. El laboratorio monta el equivalente en
   `docker-media/rainmapper`.
 - Ciclo de vida ML: el mantenimiento completo autopromociona conjuntamente las
@@ -349,8 +351,8 @@ online/foreground con los trabajos principales. Su transporte efímero no crea
 un tercer carril: puede convivir con background, pero no ejecutar simultáneamente
 otro trabajo foreground. La reserva abarca reclamación y ejecución y se libera
 también al fallar. Un heartbeat `busy` distingue presencia de capacidad de
-aceptar una consulta. Copias aplicadas en local; pendientes de próxima imagen
-autorizada, sin publicación de HA real.
+aceptar una consulta. Está integrado en el código empaquetado de HA y worker;
+la evidencia de cada publicación y despliegue está en `active-context.md`.
 
 - Alcance actual: plataforma operativa tanto en laboratorio como en HA real.
   La reconstrucción calcula un único `OperationalTrainingScope` después de
@@ -659,12 +661,20 @@ autorizada, sin publicación de HA real.
 - En HA se publica directamente desde `/app/rainmapper_core/viewers/maplibre-viewer`.
 - Responsabilidad: visor web principal con mapas vectoriales/raster, filtros cliente de estaciones, terreno 3D opcional y overlays calculados en cliente.
 - Dependencias: MapLibre GL JS CDN, Esri raster Hybrid/Satellite, OpenTopoMap raster, OpenFreeMap y DEM externo Terrarium/Mapzen para terreno 3D, consultas puntuales de altitud y correccion DEM del IDW de temperatura.
-- Relacion: los assets estaticos se siguen publicando en `/local/rainmapper-maplibre`, pero la ruta operativa recomendada en HA es `/protected/maplibre/index.html`; los GeoJSON se sirven por `/protected/maplibre/data/*` con autenticacion ligera. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. Desde `0.2.71`, el filtro `Source` muestra badges de estado por fuente si existe `data/source_status.json`; en escritorio, la ficha de estacion tambien aparece por hover desde el umbral global `maplibre_hover_zoom` de HA, por defecto `6.0` y configurable con decimales, sin cambiar el comportamiento tactil de movil. En `0.2.81` la UI se moderniza con cabecera clara, controles flotantes, selector inferior de periodo, leyenda vertical dinamica y popups claros; el popup de estacion se mantiene/refresca al cambiar de periodo si la estacion sigue visible tras filtros. Los popups de estacion muestran resumen de lluvia, temperatura, humedad y viento del periodo, y un historial diario compacto cuando el GeoJSON incluye esos campos. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. Los defaults globales del heatmap para dispositivos sin settings guardados se leen de HA (`maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius`, `maplibre_heatmap_intensity`) y despues cada dispositivo puede sobrescribirlos en `devices.json` al guardar Settings. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.
+- Relacion: los assets estáticos solo se publican en `/local/rainmapper-maplibre` con `publish_to_www=true`, pero la ruta operativa recomendada en HA es `/protected/maplibre/index.html`; los GeoJSON se sirven por `/protected/maplibre/data/*` con autenticacion ligera. Satellite+ es la capa inicial recomendada; combina imagen Esri con orientacion vectorial OpenFreeMap. Desde `0.2.58`, Settings permite elegir mapa base, filtrar por lluvia minima y filtrar por fuente de estacion. Desde `0.2.71`, el filtro `Source` muestra badges de estado por fuente si existe `data/source_status.json`; en escritorio, la ficha de estacion tambien aparece por hover desde el umbral global `maplibre_hover_zoom` de HA, por defecto `6.0` y configurable con decimales, sin cambiar el comportamiento tactil de movil. En `0.2.81` la UI se moderniza con cabecera clara, controles flotantes, selector inferior de periodo, leyenda vertical dinamica y popups claros; el popup de estacion se mantiene/refresca al cambiar de periodo si la estacion sigue visible tras filtros. Los popups de estacion muestran resumen de lluvia, temperatura, humedad y viento del periodo, y un historial diario compacto cuando el GeoJSON incluye esos campos. El visor incluye un boton de orientacion norte que solo resetea el `bearing`. Los defaults globales del heatmap para dispositivos sin settings guardados se leen de HA (`maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius`, `maplibre_heatmap_intensity`) y despues cada dispositivo puede sobrescribirlos en `devices.json` al guardar Settings. El terreno 3D se activa desde Settings, esta apagado por defecto y se reaplica al cambiar de estilo porque `setStyle` reemplaza las fuentes del mapa. Una pulsacion larga sobre el mapa consulta altitud DEM leyendo directamente el tile Terrarium externo y decodificando el pixel RGB, no mediante `queryTerrainElevation`; el disparador usa eventos MapLibre y `contextmenu` para funcionar tanto en local como servido desde HA.
 - Popup de punto: una pulsacion larga muestra altitud DEM, valores IDW
   puntuales de lluvia, temperatura normal, temperatura corregida por DEM,
   humedad y viento/racha, y despues la estacion con lluvia mas cercana. Estos
   valores se calculan bajo demanda con los parametros IDW actuales y no
   dependen de la metrica seleccionada en el overlay visible.
+
+### Buscador compartido de lugares
+
+`renderPlaceSearch` en `maplibre-viewer/app.js` consulta Photon desde el navegador
+tras Buscar/Intro, con 8 resultados, timeout 20 s, separación 1 s y caché de
+50 respuestas en memoria. No hay autocomplete ni proxy HA. Crea un POI al elegir
+un resultado y lo retira al enviar otra búsqueda válida. Campo 16 px, ayuda
+y créditos en ES/CA/EN; no lanza predicciones.
 
 ### MapLibre client-computed overlays
 - Ruta principal: `rainmapper_core/viewers/maplibre-viewer/app.js`.
@@ -798,11 +808,11 @@ Home Assistant:
 - El repo se anadio como repositorio de apps/add-ons en HA cuando era publico. Desde el 2026-06-22 se decidio mantener el repo GitHub `cginebrosa/RainmapperHA` privado para no exponer codigo ni logica de descarga, abriendolo solo en ventanas operativas para que HA detecte updates. Tras validar `0.2.137` en HA, auditoria final del 2026-06-25: repo privado (`private=true`, `visibility=private`, rama `inicial`).
 - HA detecta `repository.yaml` y `rainmapper-app/config.yaml`.
 - Desde `0.2.57`, `rainmapper-app/config.yaml` define `image: ghcr.io/cginebrosa/rainmapperha`, por lo que HA debe descargar la imagen versionada en vez de construirla localmente.
-- Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh`. Flujo operativo actual: validar, hacer bump, commit/push, publicar/verificar imagen y avisar al usuario en cuanto HA pueda probarla.
+- Desde `0.2.60`, el flujo normal publica la imagen multi-arch `amd64`/`arm64` desde el Mac con `scripts/build-push-ha-image.sh`. Flujo: reconstruir/validar local, obtener aceptación, bump, publicar/verificar imagen, cerrar documentación y hacer un único commit/push. Ver `docs/release-flow.md`.
 - `scripts/build-push-ha-image.sh` publica dos tags: `<version>` y `latest`. Home Assistant instala la etiqueta versionada que corresponde a `config.yaml`; `latest` queda solo como conveniencia operativa.
-- El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto las dos ultimas versiones locales mas `latest`.
-- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Estado vigente de continuidad: `0.2.199/latest` esta publicada/verificada con digest multi-arch `sha256:527673151e74d5c7a5ae2986eea6502b0f8014699ad4fdb3812cdc5ec2d64afb`.
-- Procedimiento estandar tras publicar y validar una nueva version HA: limpiar tambien las versiones remotas antiguas del paquete GHCR, conservando la ultima version validada, `latest`, el rollback inmediato y las entradas auxiliares sin tag asociadas a los pushes multi-arch/attestations que se conserven. Esto evita acumular basura en GitHub Packages sin romper pulls de HA. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares multi-arch mientras HA pueda necesitar instalarla o reinstalarla.
+- El script limpia etiquetas locales antiguas de `ghcr.io/cginebrosa/rainmapperha` despues de un push correcto y conserva por defecto una versión local más `latest`; limita la caché reclamable Buildx a 8 GiB.
+- El paquete remoto GHCR debe seguir accesible para Home Assistant si no se configura autenticacion de registry en HA. Las verificaciones remotas de cada release se registran en `docs/reports/ha-release-*.json`; no constituyen un inventario remoto permanente.
+- Operación manual separada, solo con autorización: limpiar las versiones remotas antiguas del paquete GHCR, conservando la ultima version validada, `latest`, el rollback inmediato y las entradas auxiliares sin tag asociadas a los pushes multi-arch/attestations que se conserven. Esto evita acumular basura en GitHub Packages sin romper pulls de HA. No borrar la version que declare `rainmapper-app/config.yaml` ni sus entradas auxiliares multi-arch mientras HA pueda necesitar instalarla o reinstalarla.
 - `.github/workflows/build-rainmapper-app.yml` queda como fallback manual (`workflow_dispatch`), no como publicacion automatica en cada push.
 - Los updates se distribuyen con commit de version en GitHub e imagen GHCR publicada/verificada. Si HA necesita detectar metadata desde el repo privado, abrir el repo temporalmente, usar `Check for updates`/`Update` en HA y volver a privado tras validar.
 

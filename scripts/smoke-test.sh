@@ -121,6 +121,8 @@ check_ha_app_contains_only_ha_specific_code() {
     find rainmapper-app/app -mindepth 1 -maxdepth 1 \
       ! -name web_server.py \
       ! -name 'mushroom_*_ui.py' \
+      ! -name known-sites.js \
+      ! -name known-sites.css \
       ! -name __pycache__ \
       -print
   )"
@@ -157,6 +159,7 @@ PY
 }
 
 check_js_syntax() {
+  node --check rainmapper-app/app/known-sites.js
   node --check rainmapper_core/viewers/leaflet-viewer/app.js
   node --check rainmapper_core/viewers/leaflet-viewer/config.js
   node --check rainmapper_core/viewers/maplibre-viewer/app.js

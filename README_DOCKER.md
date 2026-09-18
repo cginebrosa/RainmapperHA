@@ -144,28 +144,17 @@ Then run:
 
     docker compose up rainmapper
 
-## Home Assistant future model
+## Home Assistant and local integration
 
-For Home Assistant, the intended model is:
+Home Assistant packaging is implemented in `rainmapper-app/`. The recommended
+mode is `serve`: the app keeps its web server and internal scheduler running.
+One-shot modes remain available. See [HA configuration](rainmapper-app/DOCS.md).
 
-    add-on starts
-    Rainmapper runs once
-    add-on stops
-
-Then a Home Assistant automation starts the add-on every day.
-
-Example idea:
-
-    alias: Run Rainmapper daily
-    trigger:
-      - platform: time
-        at: "23:50:00"
-    action:
-      - service: hassio.addon_start
-        data:
-          addon: local_rainmapper
-
-The exact add-on name will be decided when the Home Assistant add-on structure is created.
+The local `rainmapper-ha-ui` service mirrors the HA web application; the standalone
+`rainmapper` service is a separate development runner. The worker uses
+`rainmapper-local/docker-compose.worker.yml` and its persistent coordinator
+configuration must be preserved when rebuilt. For acceptance and publication,
+follow [the release flow](docs/release-flow.md).
 
 ## Persistent data
 

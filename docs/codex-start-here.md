@@ -54,6 +54,9 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   `docs/mushrooms/mushroom-map-point-prediction-feasibility-es.md`
 - Fuentes descargadas para ese módulo, separadas en `mushroom-map-GIS/` con
   README junto a los archivos: `docs/mushrooms/mushroom-map-gis-downloads-es.md`
+- Auditoría documental con referencias al código: `docs/reports/documentation-audit-2026-09-18.md`.
+- Investigación local de estaciones WU: `docs/station-research-es.md`.
+- Media, compatibilidad de rutas y migración explícita: `docs/mushrooms/ha-media-organization-proposal-es.md`.
 - Release HA: `docs/release-flow.md`
 - Arquitectura y entrypoints: `docs/architecture.md`
 - Decisiones: `docs/decisions.md`
@@ -177,8 +180,8 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - No hacer bump, build ni publicación HA sin petición explícita. Antes de una
   release, leer y seguir `docs/release-flow.md`.
 - Todo cambio ejecutable destinado a HA real debe probarse primero construyendo
-  HA local y, si interviene cálculo remoto, el worker desde el mismo source. La
-  prueba debe recorrer el circuito funcional afectado; compilar por sí solo no
+  HA local y el worker desde el mismo source antes de una release, según
+  `release-flow.md`. La prueba debe recorrer el circuito funcional afectado; compilar por sí solo no
   constituye validación. Solo después de la aceptación se publica o instala HA
   real.
 - Durante un build/push HA, vigilar la misma sesión cada 20–30 s e informar al

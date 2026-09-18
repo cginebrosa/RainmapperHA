@@ -44,9 +44,20 @@
         "en"
       ],
       "js_errors": 0,
-      "limitation": "Chrome mobile emulation does not validate physical iPhone Safari keyboard/focus zoom; user validation pending after installation."
+      "limitation": "Chrome mobile emulation does not validate physical iPhone Safari keyboard/focus zoom; subsequent user validation is recorded separately."
     },
-    "scope": "UI-only change. No training, reconstruction or precompute rerun. Mechanical version/cache-buster bump after local validation."
+    "scope": "UI-only change. No training, reconstruction or precompute rerun. Mechanical version/cache-buster bump after local validation.",
+    "user_safari_confirmation": {
+      "date": "2026-09-18",
+      "source": "User confirmation in this conversation after publication of 0.2.312",
+      "message": "vale, ya funciona bien en el iphone y en safari del mac",
+      "environments": [
+        "iPhone",
+        "Safari on Mac"
+      ],
+      "result": "passed",
+      "search_zoom_issue": "closed"
+    }
   },
   "worker": {
     "rebuilt_and_recreated": true,
@@ -64,9 +75,10 @@
     }
   },
   "ha_real": {
-    "last_user_reported_version": "0.2.311",
-    "new_release_installation_confirmed": false,
-    "agent_started_or_stopped_app": false
+    "last_user_reported_version": "0.2.312",
+    "new_release_installation_confirmed": true,
+    "agent_started_or_stopped_app": false,
+    "confirmation_basis": "User reports correct behavior after the 0.2.312 release; installed version was not independently inspected."
   },
   "evidence_directory": "tmp/release-0.2.312",
   "publish_log": "tmp/release-0.2.312/publish.log",

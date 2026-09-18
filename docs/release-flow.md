@@ -156,9 +156,7 @@ fuera de esta release y no permite continuar.
            # + cualquier otro fichero modificado en este release
    git commit -m "Release Home Assistant <version>
 
-   <descripción breve de los cambios>
-
-   Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+   <descripción breve de los cambios>"
    git push
    ```
 

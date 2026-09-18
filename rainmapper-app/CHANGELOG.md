@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.313
+
+- Replace known-site maintenance with a persistent MapLibre workspace, synchronized area/micro-area tree and detail panel.
+- Create and edit areas directly on the map, with draft protection and confirmed archive, restore and delete actions.
+- Add place search with a named marker, basemap selection, 3D and north controls.
+- Show progress while retrieving GIS/DEM/SoilGrids and preserve drafts when saving fails.
+- Load linked observations on demand in pages of 50 and omit derived reports from the initial workspace payload.
+
 ## 0.2.312
 
 - Use a 16px place-search input to prevent automatic page zoom when focusing it on iPhone.

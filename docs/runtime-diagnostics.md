@@ -829,3 +829,18 @@ diseño dos ejecuciones correlacionadas: `Runner` mide el flujo completo y
 `Runner update` aísla el hijo meteorológico. Solo deben compararse operaciones y
 acciones equivalentes; el aviso **Not a like-for-like comparison** impide
 interpretar como regresión una pareja padre/hijo.
+
+## Errores del mapa de predicción (código desde 0.2.311)
+
+`mushroom_map_execution.ResidentReader` registra respuestas inválidas y deja
+llegar stderr del subproceso al log del servicio. `QueryBroker._local_loop`
+registra con contexto/traceback los fallos de inicialización o ejecución de
+consultas locales (`mushroom_map_queries.py`). La UI recibe un error acotado;
+los detalles internos permanecen en el log. Consultar las líneas del arranque
+y del intento fallido, no solo el resumen del runner meteorológico.
+
+`executor_unavailable` no demuestra por sí solo que falten archivos GIS. Puede
+indicar que el ejecutor no quedó preparado; confirmar el diagnóstico del lector.
+El broker no reintenta automáticamente una inicialización fallida. El reintento
+worker → local del navegador se limita al rechazo del envío, no cura ese estado.
+No reiniciar HA real por iniciativa del agente: el usuario conserva esa operación.

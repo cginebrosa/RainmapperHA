@@ -99,7 +99,8 @@ Cada estación requiere su propia consulta de
 y de lectura actual. Las consultas se realizan secuencialmente, con separación
 mínima de 0,4 s. El histórico se reutiliza para la misma ventana, las lecturas
 actuales durante la misma hora UTC y la búsqueda por coordenadas durante el día.
-Abrir el visor no consulta el histórico de las 178 candidatas de golpe.
+Abrir el visor no consulta de golpe el histórico de todas las candidatas; el
+recuento cambia con la promoción y revisión guardada en SQLite.
 
 Quedan para una fase posterior la evaluación comparativa de calidad, la aprobación
 operativa y el backfill de las estaciones seleccionadas. No se modifica HA real,

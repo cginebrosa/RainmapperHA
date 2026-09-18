@@ -2,6 +2,17 @@
 
 Rainmapper es una app de Home Assistant para actualizar datos meteorologicos de Meteoclimatic, Meteocat, Wunderground y AEMET opcional, generar mapas HTML/GeoJSON y consultarlos desde la barra lateral de Home Assistant.
 
+También incluye mantenimiento de especies/observaciones, Predictor por áreas y
+mapa de predicción por coordenadas: `/protected/prediction-map/index.html`.
+Este último comparte el visor MapLibre y permite elegir servidor local o worker.
+«Local» es el servidor que sirve el mapa. Si el worker rechaza el envío por estar
+ocupado o no disponible, el visor intenta una vez en local, sin cambiar la
+preferencia guardada. Una predicción experimental no garantiza presencia de setas.
+
+La lupa entre Ajustes y 3D busca municipios/topónimos mediante Photon desde el
+navegador. Elegir un resultado centra el mapa y muestra su nombre; otra búsqueda
+válida retira el marcador. Hay ayuda y créditos ES/CA/EN en el propio visor.
+
 La app se queda abierta como un servicio ligero. Desde su webUI puedes lanzar `update`, `maps` o `all`, ver el estado de la ultima ejecucion, consultar logs recientes y abrir los mapas generados.
 
 La webUI tambien muestra estado separado para Meteoclimatic, Meteocat, Wunderground y AEMET. Si una fuente falla completamente, Rainmapper intenta continuar con su incremental previo y la marca como `STALE`; si no hay datos reutilizables la marca como `NOK`.
