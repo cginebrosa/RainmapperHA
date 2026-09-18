@@ -301,6 +301,41 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   await send("Page.navigate", { url: origin + "/protected/prediction-map/index.html" });
   await until("!!document.getElementById('prediction-mode-toggle') && !!map.getLayer('station-circles')");
+  // Place navigation is independent from prediction and preserves station data.
+  assert.equal(await evaluate("document.getElementById('settings-toggle').nextElementSibling.id"),'place-search-toggle');
+  assert.equal(await evaluate("document.getElementById('place-search-toggle').nextElementSibling.id"),'terrain-mode-toggle');
+  const beforePlaces=calls;
+  await evaluate(`window.placeTestFetch=window.fetch;window.placeTestCalls=0;
+    window.fetch=(url,options)=>String(url).startsWith('https://photon.komoot.io/api/')?
+      (window.placeTestCalls++,Promise.resolve(new Response(JSON.stringify({features:[
+        {geometry:{type:'Point',coordinates:[2.4,42.35]},properties:{name:'Molló <b>literal</b>',county:'Ripollès',country:'España',type:'city'}},
+        {geometry:{type:'Point',coordinates:[null,42]},properties:{name:'invalid'}}]}),{status:200}))):window.placeTestFetch(url,options);
+    applyLanguage('es');document.getElementById('place-search-toggle').click();
+    document.getElementById('place-search-input').value='Molló';document.getElementById('place-search-form').requestSubmit()`);
+  await until("document.querySelectorAll('#place-search-results button').length===1");
+  assert.equal(await evaluate("document.querySelectorAll('#place-search-results b').length"),0);
+  assert.equal(await evaluate("getComputedStyle(document.getElementById('place-search-panel')).backgroundColor"),'rgb(255, 255, 255)');
+  await evaluate("document.querySelector('#place-search-results button').click()");
+  await until('!map.isMoving()');
+  assert.equal(await evaluate('Math.abs(map.getCenter().lat-42.35)<.0001'),true);
+  assert.equal(await evaluate("document.querySelector('.map-place-marker').textContent"),'Molló <b>literal</b>');
+  assert.equal(await evaluate("document.querySelectorAll('.map-place-marker b').length"),0);
+  await evaluate("document.querySelector('.map-place-marker').click()");
+  assert.equal(calls,beforePlaces);
+  // Starting the next query immediately removes the previous POI, even with no result.
+  await evaluate(`window.fetch=(url,options)=>String(url).startsWith('https://photon.komoot.io/api/')?
+    new Promise(resolve=>{window.finishPlaceTest=()=>resolve(new Response('{"features":[]}',{status:200}))}):window.placeTestFetch(url,options);
+    document.getElementById('place-search-toggle').click();document.getElementById('place-search-input').value='Unknown';document.getElementById('place-search-form').requestSubmit()`);
+  assert.equal(await evaluate("document.querySelectorAll('.map-place-marker').length"),0);
+  await until("typeof window.finishPlaceTest==='function'");
+  await evaluate('window.finishPlaceTest();undefined');
+  await until("!document.getElementById('place-search-submit').disabled");
+  assert.ok(await evaluate("document.getElementById('place-search-status').textContent.includes('No se han encontrado')"));
+  await send('Emulation.setDeviceMetricsOverride',{width:360,height:640,deviceScaleFactor:1,mobile:true});
+  assert.equal(await evaluate(`(()=>{const r=document.getElementById('place-search-panel').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight})()`),true);
+  await evaluate("document.getElementById('place-search-input').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+  assert.equal(await evaluate("document.getElementById('place-search-panel').hidden"),true);
+  await evaluate("window.fetch=window.placeTestFetch; map.jumpTo({center:[1.9,42],zoom:9}); undefined");
   // iPhone login: guard the text size that triggers native focus zoom, and
   // ensure the keyboard's focused field is released before hiding the overlay.
   // Chrome emulation checks layout/focus; native iOS zoom still needs a device check.

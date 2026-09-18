@@ -4,6 +4,7 @@ from __future__ import annotations
 import atexit
 from datetime import date, timedelta
 import json
+import logging
 from pathlib import Path
 import queue
 import subprocess
@@ -14,6 +15,8 @@ import time
 from rainmapper_core import mushroom_prediction_map as contract
 from rainmapper_core.mushroom_map_ecology import prediction_candidates
 from rainmapper_core.mushroom_map_weather import map_today
+
+_LOG = logging.getLogger(__name__)
 
 
 def load_config(path):
@@ -57,7 +60,7 @@ class ResidentReader:
                     raise ValueError("reader_result_limit")
                 answers.put_nowait(json.loads(line))
         except Exception:
-            pass
+            _LOG.exception("Prediction map reader %s returned an invalid response", Path(self.command[1]).name)
         finally:
             try:
                 answers.put_nowait(None)
@@ -67,8 +70,9 @@ class ResidentReader:
     def call(self, payload):
         if self.process is None:
             self.answers = queue.Queue(maxsize=1)
+            # stdout is the JSON protocol; stderr belongs in the HA/worker log.
             self.process = subprocess.Popen(self.command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                            stderr=subprocess.DEVNULL)
+                                            stderr=None)
             threading.Thread(target=self._read, args=(self.process,self.answers), daemon=True).start()
         self.serial += 1
         raw = json.dumps({"id":self.serial, **payload}, allow_nan=False).encode()+b"\n"
@@ -82,6 +86,8 @@ class ResidentReader:
                 raise ValueError("reader_unavailable")
             return result
         except Exception:
+            _LOG.exception("Prediction map reader %s failed (response timeout: %s s)",
+                           Path(self.command[1]).name, self.timeout)
             self.close()
             raise
 
@@ -128,10 +134,21 @@ class PointExecutor:
 
     def ready(self):
         with self.lock:
-            geo = self.geography.call({"op":"capabilities"})
-            weather = self.weather.call({"op":"capabilities"})
-            model_ready = self.model is None or self.model.call({"op":"capabilities"}).get("model_ready") is True
-            return geo.get("geography_ready") is True and weather.get("weather_ready") is True and model_ready
+            ready = True
+            for name, reader, field in (("geography", self.geography, "geography_ready"),
+                                        ("weather", self.weather, "weather_ready"),
+                                        ("model", self.model, "model_ready")):
+                if name == "model" and reader is None:
+                    continue
+                try:
+                    available = reader.call({"op":"capabilities"}).get(field) is True
+                except Exception:
+                    _LOG.exception("Prediction map %s readiness check failed", name)
+                    raise
+                if not available:
+                    _LOG.error("Prediction map %s reader reported unavailable; see reader diagnostics", name)
+                ready = available and ready
+            return ready
 
     def close(self):
         with self.lock:

@@ -27,10 +27,18 @@ El historial y los checklists anteriores se conservan en
 
 ## Seguimiento 18/09/2026
 
-- [ ] Registrar en el log los fallos del ejecutor local del mapa, solicitado
-  por el usuario tras confirmar que reiniciar HA real recuperó el servicio.
-  Los tres lectores pasaron el diagnóstico independiente; causa inicial no
-  recuperable. Reintento controlado solo propuesto. No incluido en 0.2.310.
+- [x] Implementar diagnóstico de errores del ejecutor local del mapa y lectores:
+  componente, traceback y stderr visible. Cinco pruebas nuevas y suite dirigida
+  correcta (161 casos, 48 omitidos). Cambio en worktree posterior a 0.2.310.
+- [x] Instalar/validar ese cambio en HA local y worker: ambos reconstruidos,
+  paridad 202/108 archivos y dos puntos coincidentes. Suite de 1.639 tests,
+  48 omitidos. 0.2.311 aceptada, publicada y verificada en GHCR.
+  Reintento controlado solo propuesto.
+  El reinicio de HA real por el usuario recuperó el servicio; causa inicial no
+  recuperable a partir de los logs antiguos.
+- [x] Visor local de investigación WU: 3D/norte, disponibilidad X/30, cuatro
+  estados con guardado SQLite, búsqueda por clic con modal, promoción a candidata
+  y limpieza persistente de preliminares/puntos consultados. [Uso](station-research-es.md). Sin altas operativas.
 - [ ] Revisar calidad de candidatas WU del primer análisis de cobertura de Catalunya.
   143 nuevas identificadas; 12 priorizadas por geometría, ninguna aprobada ni añadida.
   [Informe local](../tmp/station-coverage-catalunya-20260918/README.md). Preparar
@@ -38,9 +46,14 @@ El historial y los checklists anteriores se conservan en
 
 ## Próximo bloque operativo, cuando se solicite
 
-- [ ] Terminar la reorganización de media autorizada: HA local migrado y validado;
-  0.2.310 publicada; falta ejecutar en HA real la operación explícita offline. Verificar
-  todas las copias por SHA antes de retirar duplicados. [Detalle](mushrooms/ha-media-organization-proposal-es.md).
+- [x] Reorganizar media en HA local y real: HA real 0.2.310, seis movimientos,
+  1.550 archivos conservados; 4.942 duplicados verificados y retirados (21,36 GB
+  lógicos). Datos privados y runtime intactos, SQLite correcto y lectores
+  preparados tras retirada. [Informe](reports/ha-media-migration-2026-09-18.json).
+- [x] Usuario confirma que el mapa de HA real funciona en local y worker después
+  de la migración. Comprobaciones offline de datos, lectores y SQLite correctas.
+- [ ] Usuario instala 0.2.311: buscador con POI y diagnóstico de errores.
+  No parar, instalar ni arrancar HA real por su cuenta.
 - [x] Confirmar versión efectiva de HA real: 0.2.309 por SSH LAN el 17/09.
 - [ ] Comprobar sin trabajos costosos el consumo efectivo en HA real/worker de
   los JSON GIS subidos. El mapping almacenado **ya coincide byte a byte** con

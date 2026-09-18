@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from copy import deepcopy
 import json
+import logging
 import secrets
 import threading
 import time
@@ -13,6 +14,7 @@ from rainmapper_core import mushroom_prediction_map as contract
 WORKER_PATH = "/api/mushrooms/workers/map-queries"
 MAX_QUERIES = 8
 TTL = 120
+_LOG = logging.getLogger(__name__)
 
 
 class QueryError(ValueError):
@@ -147,6 +149,8 @@ class QueryBroker:
     def _local_loop(self):
         try:
             self.local_ready = self.executor.ready()
+            if not self.local_ready:
+                _LOG.error("Prediction map local executor unavailable at initialization; see reader diagnostics")
             while not self.stop.is_set():
                 self.wake.wait(1)
                 self.wake.clear()
@@ -161,12 +165,14 @@ class QueryBroker:
                                   if hasattr(self.executor, "execute_snapshot") else self.executor.execute(job["request"]))
                         self.finish("_local",{**job,"result":result})
                     except Exception:
+                        _LOG.exception("Prediction map local query %s failed", job["query_id"])
                         try:
                             self.finish("_local",{**job,"failed":True})
                         except QueryError:
                             pass
                     self.wake.set()
         except Exception:
+            _LOG.exception("Prediction map local executor initialization or loop failed")
             self.local_ready = False
         finally:
             self.executor.close()

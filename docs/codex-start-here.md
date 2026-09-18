@@ -1,9 +1,10 @@
 # Codex: empezar aquí
 
-**Restricción expresa del usuario (17/09): no acceder por SSH a la RPi4 sin
-petición explícita, tampoco para consultas. Parar, instalar y arrancar Rainmapper
-en HA real queda a cargo del usuario. Las consultas SSH de esta sesión fueron
-de lectura; no se ha modificado HA real.**
+**Restricción expresa del usuario: no acceder por SSH a la RPi4 sin petición
+explícita, tampoco para consultas. El 18/09 autorizó SSH para la migración de
+media, su verificación y la retirada de duplicados GIS comprobados. Esta excepción
+no autoriza otras operaciones. Parar, instalar y arrancar Rainmapper en HA real
+sigue a cargo del usuario.**
 
 Este documento contiene el mapa estable del proyecto y las reglas de continuidad.
 El estado operativo está exclusivamente en [active-context.md](active-context.md).

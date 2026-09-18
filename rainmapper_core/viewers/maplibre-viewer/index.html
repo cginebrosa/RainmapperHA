@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.310">
+    <link rel="stylesheet" href="style.css?v=0.2.311">
   </head>
   <body>
     <header class="topbar">
@@ -72,6 +72,9 @@
         <button class="map-control-button map-settings-toggle" id="settings-toggle" type="button" aria-expanded="false" aria-controls="map-settings" aria-label="Map settings" title="Map settings">
           <span aria-hidden="true">•••</span>
         </button>
+        <button class="map-control-button place-search-toggle" id="place-search-toggle" type="button" aria-expanded="false" aria-controls="place-search-panel" aria-label="Search places" title="Search places">
+          <svg width="23" height="23" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/></svg>
+        </button>
         <button class="map-control-button terrain-mode-toggle" id="terrain-mode-toggle" type="button" aria-pressed="false" aria-label="Toggle 3D terrain" title="Toggle 3D terrain">
           2D
         </button>
@@ -112,6 +115,15 @@
           ?
         </button>
       </div>
+      <section class="place-search-panel" id="place-search-panel" aria-label="Search places" hidden>
+        <form id="place-search-form" role="search">
+          <label id="place-search-label" for="place-search-input">Municipality or place name</label>
+          <div class="place-search-fields"><input id="place-search-input" type="search" minlength="2" maxlength="160" required autocomplete="off"><button id="place-search-submit" type="submit">Search</button></div>
+        </form>
+        <p id="place-search-status" role="status" aria-live="polite"></p>
+        <div id="place-search-results"></div>
+        <small><span id="place-search-credit">Online search</span>: <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></small>
+      </section>
       <section class="map-attribution" id="map-attribution" aria-label="Map credits" hidden>
         <strong>Credits</strong>
         <a href="https://www.esri.com/" target="_blank" rel="noopener noreferrer">Tiles © Esri</a>
@@ -384,7 +396,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.310"></script>
-  <script src="app.js?v=0.2.310"></script>
+  <script src="config.js?v=0.2.311"></script>
+  <script src="app.js?v=0.2.311"></script>
   </body>
 </html>

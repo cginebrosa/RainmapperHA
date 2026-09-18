@@ -168,7 +168,15 @@
     "helpHeatmapTitle": "Heatmap",
     "helpHeatmapCopy": "The concentric-circle button toggles the heatmap. Its Settings tab controls the metric, weight curve, opacity, radius and intensity, and can restore defaults. This visual layer is separate from mushroom prediction.",
     "helpIdwTitle": "IDW · estimated weather field",
-    "helpIdwCopy": "IDW estimates values between stations; it is not a measurement at every point. Settings control opacity, influence radius, quality, smoothing, DEM zoom and altitude correction. The effective values show what is actually applied; use the ? buttons for details or restore defaults."
+    "helpIdwCopy": "IDW estimates values between stations; it is not a measurement at every point. Settings control opacity, influence radius, quality, smoothing, DEM zoom and altitude correction. The effective values show what is actually applied; use the ? buttons for details or restore defaults.",
+    "placeSearchLabel": "Municipality or place name",
+    "placeSearchPlaceholder": "Name, region or country",
+    "placeSearchSubmit": "Search",
+    "placeSearchCredit": "Online search",
+    "placeSearchLoading": "Searching places online…",
+    "placeSearchChoose": "Choose a place to center the map.",
+    "placeSearchEmpty": "No places found. Try another name or add a region or country.",
+    "placeSearchError": "Could not query the place search service. Try again shortly."
   },
   "es": {
     "loadingMapData": "Cargando datos del mapa...",
@@ -339,7 +347,15 @@
     "helpHeatmapTitle": "Mapa de calor",
     "helpHeatmapCopy": "El botón de círculos concéntricos activa el mapa de calor. Su pestaña de Ajustes controla variable, curva de ponderación, opacidad, radio e intensidad y permite restablecer valores. Esta capa visual es independiente de la predicción de setas.",
     "helpIdwTitle": "IDW · campo meteorológico estimado",
-    "helpIdwCopy": "IDW estima valores entre estaciones; no es una medida en cada punto. Ajustes permite cambiar opacidad, radio de influencia, calidad, suavizado, zoom del DEM y corrección por altitud. Los valores efectivos indican qué se aplica; usa los botones ? para más detalles o restablece los valores."
+    "helpIdwCopy": "IDW estima valores entre estaciones; no es una medida en cada punto. Ajustes permite cambiar opacidad, radio de influencia, calidad, suavizado, zoom del DEM y corrección por altitud. Los valores efectivos indican qué se aplica; usa los botones ? para más detalles o restablece los valores.",
+    "placeSearchLabel": "Municipio o topónimo",
+    "placeSearchPlaceholder": "Nombre, provincia o país",
+    "placeSearchSubmit": "Buscar",
+    "placeSearchCredit": "Búsqueda online",
+    "placeSearchLoading": "Buscando lugares online…",
+    "placeSearchChoose": "Elige un lugar para centrar el mapa.",
+    "placeSearchEmpty": "No se han encontrado lugares. Prueba otro nombre o añade provincia o país.",
+    "placeSearchError": "No se pudo consultar el buscador de lugares. Reintenta en unos momentos."
   },
   "ca": {
     "loadingMapData": "Carregant dades del mapa...",
@@ -510,6 +526,14 @@
     "helpHeatmapTitle": "Mapa de calor",
     "helpHeatmapCopy": "El botó de cercles concèntrics activa el mapa de calor. La seva pestanya d’Ajustos controla variable, corba de ponderació, opacitat, radi i intensitat i permet restablir valors. Aquesta capa visual és independent de la predicció de bolets.",
     "helpIdwTitle": "IDW · camp meteorològic estimat",
-    "helpIdwCopy": "IDW estima valors entre estacions; no és una mesura a cada punt. Ajustos permet canviar opacitat, radi d’influència, qualitat, suavitzat, zoom del DEM i correcció per altitud. Els valors efectius indiquen què s’aplica; usa els botons ? per a més detalls o restableix els valors."
+    "helpIdwCopy": "IDW estima valors entre estacions; no és una mesura a cada punt. Ajustos permet canviar opacitat, radi d’influència, qualitat, suavitzat, zoom del DEM i correcció per altitud. Els valors efectius indiquen què s’aplica; usa els botons ? per a més detalls o restableix els valors.",
+    "placeSearchLabel": "Municipi o topònim",
+    "placeSearchPlaceholder": "Nom, província o país",
+    "placeSearchSubmit": "Cerca",
+    "placeSearchCredit": "Cerca en línia",
+    "placeSearchLoading": "Cercant llocs en línia…",
+    "placeSearchChoose": "Tria un lloc per centrar el mapa.",
+    "placeSearchEmpty": "No s’han trobat llocs. Prova un altre nom o afegeix província o país.",
+    "placeSearchError": "No s’ha pogut consultar el cercador de llocs. Torna-ho a provar en uns moments."
   }
 }

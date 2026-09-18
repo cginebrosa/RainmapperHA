@@ -551,6 +551,8 @@ function applyLanguage(language = currentLanguage) {
   const labelledElements = [
     ["#login-overlay", "Rainmapper login"],
     ["#settings-toggle", "mapSettings"],
+    ["#place-search-toggle", "placeSearchLabel"],
+    ["#place-search-panel", "placeSearchLabel"],
     ["#terrain-mode-toggle", "toggle3dTerrain"],
     ["#quick-map-toggle", "mapLayer"],
     ["#quick-metric-toggle", "layerMetric"],
@@ -580,6 +582,7 @@ function applyLanguage(language = currentLanguage) {
     }
   });
 
+  updatePlaceSearchLanguage();
   updatePeriodSelectLabels();
   updateHelpPanelText();
   updateMinRainValue();
@@ -3852,6 +3855,133 @@ function renderLayerSwitcher() {
   }
 }
 
+// Place lookup is navigation only: no prediction request or operational data writes.
+let placeSearchMarker = null;
+let placeSearchController = null;
+let lastPlaceSearchAt = 0;
+const placeSearchCache = new Map();
+
+function closePlaceSearch() {
+  document.getElementById('place-search-panel').hidden = true;
+  document.getElementById('place-search-toggle').setAttribute('aria-expanded', 'false');
+  placeSearchController?.abort();
+}
+
+function updatePlaceSearchLanguage() {
+  setText('#place-search-label', t('placeSearchLabel'));
+  setText('#place-search-submit', t('placeSearchSubmit'));
+  setText('#place-search-credit', t('placeSearchCredit'));
+  document.getElementById('place-search-input').placeholder = t('placeSearchPlaceholder');
+}
+
+function showPlaceSearchMarker(place) {
+  placeSearchMarker?.remove();
+  const element = document.createElement('div');
+  element.className = 'map-place-marker';
+  element.title = place.label;
+  const name = document.createElement('span');
+  name.textContent = place.name;
+  element.append(name);
+  // Consume pointer events, including the prediction long-press gesture.
+  for (const event of ['click', 'dblclick', 'mousedown', 'touchstart', 'pointerdown']) {
+    element.addEventListener(event, e => e.stopPropagation());
+  }
+  placeSearchMarker = new maplibregl.Marker({element, anchor:'bottom'})
+    .setLngLat([place.lon, place.lat]).addTo(map);
+}
+
+function parsePlaceSearchResults(payload) {
+  if (!Array.isArray(payload?.features)) throw Error(t('placeSearchError'));
+  const results = [];
+  for (const feature of payload.features.slice(0, 8)) {
+    const p = feature?.properties, g = feature?.geometry;
+    if (!p || g?.type !== 'Point' || !Array.isArray(g.coordinates)) continue;
+    const [lon, lat] = g.coordinates;
+    if (!Number.isFinite(lon) || !Number.isFinite(lat) || Math.abs(lon)>180 || Math.abs(lat)>90) continue;
+    const names = [...new Set(['name','city','county','state','country'].map(key=>p[key]).filter(v=>typeof v==='string' && v.trim()))];
+    if (!names.length) continue;
+    results.push({name:names[0], label:names.join(' · '), lon, lat,
+      zoom:({country:5,state:8,county:10,city:12})[p.type] || 14});
+  }
+  if (payload.features.length && !results.length) throw Error(t('placeSearchError'));
+  return results;
+}
+
+function renderPlaceSearch() {
+  const toggle = document.getElementById('place-search-toggle');
+  const panel = document.getElementById('place-search-panel');
+  const form = document.getElementById('place-search-form');
+  const input = document.getElementById('place-search-input');
+  const submit = document.getElementById('place-search-submit');
+  const status = document.getElementById('place-search-status');
+  const options = document.getElementById('place-search-results');
+  toggle.addEventListener('click', event => {
+    event.stopPropagation();
+    if (!panel.hidden) { closePlaceSearch(); return; }
+    // Use the normal settings close path so edited preferences still get saved.
+    if (!document.getElementById('map-settings').hidden) document.getElementById('settings-toggle').click();
+    closeSecondaryPanels({except:'place-search'});
+    panel.hidden = false;
+    toggle.setAttribute('aria-expanded','true');
+    input.focus();
+  });
+  panel.addEventListener('click', event => event.stopPropagation());
+  panel.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.stopPropagation(); closePlaceSearch(); toggle.focus(); }
+  });
+  document.addEventListener('click', () => closePlaceSearch());
+  map.on('click', () => closePlaceSearch());
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const query = input.value.trim().replace(/\s+/g,' ');
+    if (query.length < 2 || query.length > 160) return;
+    placeSearchMarker?.remove();
+    placeSearchMarker = null;
+    placeSearchController?.abort();
+    const controller = new AbortController();
+    placeSearchController = controller;
+    const center = map.getCenter();
+    const lon = ((center.lng+180)%360+360)%360-180;
+    const params = new URLSearchParams({q:query,limit:'8',lat:center.lat.toFixed(1),lon:lon.toFixed(1)});
+    const cacheKey = params.toString();
+    submit.disabled = true;
+    options.replaceChildren();
+    status.textContent = t('placeSearchLoading');
+    const timeout = setTimeout(()=>controller.abort(), 20000);
+    try {
+      let results = placeSearchCache.get(cacheKey);
+      if (!results) {
+        const wait = Math.max(0,1000-(Date.now()-lastPlaceSearchAt));
+        if (wait) await new Promise(resolve=>setTimeout(resolve,wait));
+        if (controller.signal.aborted) return;
+        lastPlaceSearchAt = Date.now();
+        const response = await fetch('https://photon.komoot.io/api/?'+params, {signal:controller.signal,credentials:'omit'});
+        if (!response.ok) throw Error(t('placeSearchError'));
+        results = parsePlaceSearchResults(await response.json());
+        if (placeSearchCache.size >= 50) placeSearchCache.delete(placeSearchCache.keys().next().value);
+        placeSearchCache.set(cacheKey,results);
+      }
+      if (controller.signal.aborted || placeSearchController!==controller) return;
+      status.textContent = t(results.length?'placeSearchChoose':'placeSearchEmpty');
+      for (const place of results) {
+        const button = document.createElement('button');
+        button.type='button'; button.textContent=place.label;
+        button.addEventListener('click', () => {
+          closePlaceSearch(); showPlaceSearchMarker(place);
+          map.flyTo({center:[place.lon,place.lat],zoom:place.zoom,duration:1000});
+          toggle.focus();
+        });
+        options.append(button);
+      }
+    } catch (error) {
+      if (placeSearchController===controller && !panel.hidden) status.textContent=t('placeSearchError');
+    } finally {
+      clearTimeout(timeout);
+      if (placeSearchController===controller) { submit.disabled=false; placeSearchController=null; }
+    }
+  });
+}
+
 function renderQuickMapPanelOptions() {
   const panel = document.getElementById("quick-map-panel");
   if (!panel) {
@@ -3976,6 +4106,7 @@ function renderQuickMetricPanel() {
 }
 
 function closeSecondaryPanels({ except = "" } = {}) {
+  if (except !== "place-search") closePlaceSearch();
   const quickMapPanel = document.getElementById("quick-map-panel");
   const quickMapToggle = document.getElementById("quick-map-toggle");
   const quickMetricPanel = document.getElementById("quick-metric-panel");
@@ -4431,6 +4562,7 @@ map.on("load", async () => {
   renderQuickMetricPanel();
   renderPeriodTimeline();
   renderSettingsPanel();
+  renderPlaceSearch();
   applyLanguage(currentLanguage);
   setupKeyboardShortcuts();
   setupLongPressElevation();

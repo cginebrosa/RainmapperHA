@@ -3,6 +3,7 @@
 import argparse
 from datetime import date, timedelta
 import json
+import logging
 from pathlib import Path
 import sys
 
@@ -27,6 +28,7 @@ def main():
                 reader._refresh()
                 ready=True
             except Exception:
+                logging.getLogger(__name__).exception("Prediction map weather initialization failed")
                 ready=False
             print(json.dumps({"id":request["id"],"weather_ready":ready}),flush=True)
             continue
@@ -35,9 +37,9 @@ def main():
                        map_today(request.get('calendar_timezone',args.calendar_timezone))-timedelta(days=1))
             weather=reader.lookup(request["lat"],request["lon"],request.get("altitude_m"),
                 end_day=cutoff,days=request.get("days",60))
-        except Exception as error:
+        except Exception:
             # Failure is explicit and does not discard municipality/terrain.
-            print(f"Weather unavailable: {type(error).__name__}",file=sys.stderr)
+            logging.getLogger(__name__).exception("Prediction map weather query failed")
             weather={"status":"unavailable"}
         print(json.dumps({"id":request["id"],"weather":weather},ensure_ascii=False,allow_nan=False),flush=True)
 

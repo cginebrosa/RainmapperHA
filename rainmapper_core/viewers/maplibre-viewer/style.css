@@ -1503,3 +1503,25 @@ main {
 .terrain-nearest-title {
   margin-top: 8px;
 }
+
+/* Place search stays separate from prediction and operational map layers. */
+.place-search-toggle[aria-expanded="true"]{background:#dff4ff;color:#076caa}
+.place-search-panel{position:absolute;right:62px;top:62px;z-index:11;width:min(380px,calc(100% - 76px));max-height:calc(100% - 90px);overflow:auto;padding:14px;border:1px solid #bccbd4;border-radius:12px;background:#fff;color:#173145;box-shadow:var(--shadow);font-size:13px;color-scheme:light}
+.place-search-panel[hidden]{display:none}
+.place-search-panel label{display:block;font-weight:700;margin-bottom:8px}
+.place-search-fields{display:flex;gap:6px}
+.place-search-panel input,.place-search-panel button{font:inherit;color:#173145;background:#fff;border:1px solid #bccbd4;border-radius:5px;padding:7px}
+.place-search-panel input{width:100%;min-width:0}
+.place-search-panel button{cursor:pointer}
+.place-search-panel button:disabled{opacity:.6;cursor:wait}
+#place-search-status{margin:10px 0;font-size:12px}
+#place-search-results button{display:block;text-align:left;width:100%;margin-bottom:6px;line-height:1.4;overflow-wrap:anywhere}
+#place-search-results button:hover,#place-search-results button:focus-visible{background:#edf5fa}
+.place-search-panel small{font-size:11px}
+.place-search-panel a{color:#006fa5}
+.map-place-marker{display:flex;flex-direction:column;align-items:center;max-width:250px;filter:drop-shadow(0 2px 3px #0006)}
+.map-place-marker span{background:#fff;color:#173145;border:2px solid #087eb7;border-radius:5px;padding:5px 9px;font:600 13px system-ui;text-align:center;overflow-wrap:anywhere;max-width:100%}
+.map-place-marker::after{content:'';width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:13px solid #087eb7}
+/* Account for the new control between settings and terrain. */
+.quick-map-panel{top:154px}.quick-metric-panel{top:202px}
+@media(max-width:720px){.place-search-panel{right:50px;top:45px;width:calc(100% - 62px);max-height:calc(100% - 60px)}.quick-map-panel{top:121px}.quick-metric-panel{top:163px}}

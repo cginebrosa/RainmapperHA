@@ -2156,3 +2156,18 @@ nueve especies de la captura ni prometer cálculo para una ficha no disponible.
 La captura no demuestra el motivo de exclusión de cada una de las demás fichas.
 Para Rovelló, compatibilidad de un miembro y modelo de otro no habilitan una curva:
 la ficha que aporta el resultado debe ser compatible y tener cálculo aplicable.
+
+### Búsqueda de municipios y topónimos (18/09/2026)
+
+La lupa está entre ajustes y 3D en el visor compartido. Abre una lista blanca
+de resultados de Photon/OpenStreetMap tras Enter o Buscar; no consulta mientras
+se escribe. La consulta va directamente del navegador al proveedor público
+(sin clave), con timeout, separación mínima de un segundo y hasta 50 respuestas
+en caché de sesión. La zona visible orienta los resultados, sin limitar países.
+
+Elegir un lugar centra el mapa y muestra un POI con su nombre. Iniciar otra
+búsqueda retira el anterior, incluso si falla o no devuelve resultados. No
+lanzar cálculos ni modificar preferencias o datos científicos al navegar o
+pulsar el POI. Panel traducido a es/ca/en, cerrable con Escape, otra herramienta
+o clic fuera; presentación adaptada a móvil. La disponibilidad depende del
+servicio [Photon](https://github.com/komoot/photon).

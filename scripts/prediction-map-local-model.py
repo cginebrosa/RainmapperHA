@@ -2,6 +2,7 @@
 """Resident offline point-model adapter; no jobs or dataset mutation."""
 import argparse
 import json
+import logging
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -22,13 +23,14 @@ def main():
                 runtime._refresh()
                 ready = True
             except Exception:
+                logging.getLogger(__name__).exception("Prediction map model initialization failed")
                 ready = False
             print(json.dumps({'id':request['id'],'model_ready':ready}),flush=True)
             continue
         try:
             result=runtime.predict(request['request'],request['geography'])
-        except Exception as error:
-            print(f'Point model unavailable: {type(error).__name__}: {error}',file=sys.stderr)
+        except Exception:
+            logging.getLogger(__name__).exception("Prediction map model query failed")
             result={'data_mode':'prediction','species':[], 'model_status':'unavailable',
                 'provenance':{'engine':'existing_python_predictor','scientifically_validated':False}}
         raw=json.dumps({'id':request['id'],**result},allow_nan=False)

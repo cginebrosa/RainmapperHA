@@ -1,20 +1,37 @@
 # Organización de media en HA — propuesta 17/09/2026
 
-**Restricción expresa del usuario (17/09): no acceder por SSH a la RPi4 sin
-petición explícita, tampoco para consultas. Parar, instalar y arrancar Rainmapper
-en HA real queda a cargo del usuario. Las consultas SSH de esta sesión fueron
-de lectura; no se ha modificado HA real.**
+**Restricción expresa del usuario: no acceder por SSH a la RPi4 sin petición
+explícita, tampoco para consultas. El 18/09 autorizó SSH para la migración de
+media, su verificación y la retirada de duplicados GIS comprobados. Esta excepción
+no autoriza otras operaciones. Parar, instalar y arrancar Rainmapper en HA real
+sigue a cargo del usuario.**
 
-Estado: **ejecución autorizada por el usuario; migración local validada**.
-El usuario pidió ambos pasos, primero en HA local y después en HA real,
-conservando todos los archivos necesarios. HA real aún pendiente de migración.
-La instalación/arranque de la nueva imagen NO mueve ni borra carpetas.
+Estado al 18/09: **HA local migrado y validado; HA real con seis movimientos
+completados y duplicados GIS retirados tras verificación íntegra**. El usuario confirmó 0.2.310
+instalada y Rainmapper parado; se revalidó con HA CLI antes de actuar. Autorizó
+SSH para calcular hashes en la Raspberry sin transferir los rásteres al Mac.
+La instalación/arranque de una imagen NO mueve ni borra carpetas.
 **El usuario reserva para sí parar, instalar y arrancar Rainmapper en HA real.**
-Codex no debe ejecutar esas operaciones. Publicar y preparar la migración;
-esperar confirmación del usuario de actualización y parada antes de mover/borrar
-carpetas de HA real. No se ha ejecutado ninguna de esas operaciones en HA real.
 
-## Evidencia actual
+Geografía, meteorología y modelos abren las rutas nuevas usando la imagen
+instalada 0.2.310 en un contenedor de diagnóstico sin red, con share de solo
+lectura y recursos limitados. No se arranca Rainmapper ni se generan artefactos.
+Recibo en `/media/rainmapper/media-migration-receipt.json`; evidencia local
+`tmp/ha-media-migration-20260918/`.
+
+[Informe final](../reports/ha-media-migration-2026-09-18.json): 1.550 archivos
+reubicados con integridad comprobada; 4.942 duplicados retirados después de
+verificar todos los SHA de origen/copia/manifiesto. Tamaño lógico retirado:
+21.358.531.147 bytes, sin afirmar que sea el espacio físico liberado. Los cuatro
+metadatos adicionales se conservan en `geography/imports/retired-legacy-metadata`.
+Diez ficheros privados intactos, identidad del runtime conservada y ninguna
+fuente publicada ausente; `active.sqlite3` pasa `quick_check`. Los tres lectores
+vuelven a abrir correctamente después de retirar las carpetas antiguas.
+Se indicó al usuario que puede arrancar Rainmapper; después confirmó que el
+mapa de HA real funciona con ejecutor local y worker. Sin entrenamiento ni
+precálculo nuevo.
+
+## Inventario histórico previo — 17/09
 
 Inspección por SMB LAN `192.168.0.121`, `/Volumes/media/rainmapper`, equivalente
 a `/media/rainmapper` dentro de HA. No se utilizó el montaje `media-1` por Tailscale.
@@ -51,7 +68,7 @@ Los dos subárboles `geography/mushroom-GIS` y `geography/mushroom-map-GIS`
 conservan fuentes complementarias y referencias compartidas; no borrar uno por
 parecerse sus nombres.
 
-## Rutas y límites de la comprobación
+## Rutas y límites de la comprobación previa
 
 El código de `mushroom_gis_lab.gis_root` y `mushroom_soilgrids.default_cache_root`
 prefiere la geografía consolidada salvo configuración explícita. El broker de

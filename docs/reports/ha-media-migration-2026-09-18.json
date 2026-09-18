@@ -1,0 +1,148 @@
+{
+  "version": "0.2.310",
+  "private_hashes": {
+    "/share/rainmapper/stations.txt": "6d2b8765f2ad63268d53e74aa5f24d6aca3ad5921122cb53a3c84c22868ff348",
+    "/share/rainmapper/ignore_stations_tomap.txt": "dbf354b162ac8b4ccb5add9ab45d637ee10b6b8e6f2bd2161ad77631ed297274",
+    "/share/rainmapper/users.json": "ee94a589367ee7d0b78d5197713c423cb8af8b92beccb9904fccda656bd79658",
+    "/share/rainmapper/devices.json": "40509753d60183ef2f9cb8c9244f76040197d98cc3dc700d59f1f70d93089632",
+    "/share/rainmapper/mushroom-data/mushroom_observations.json": "7ce058bce2b28ca30ec613e2cc66ee0045f140895e54d930d812af9d5ab85227",
+    "/share/rainmapper/mushroom-data/mushroom_known_sites.json": "b5e23a5e3661a86b7496bdbc6732beecf6c3030ef8550f376dba23a615268c17",
+    "/share/rainmapper/mushroom-data/mushroom_profiles.json": "49794d70dcd7554338d787aaa5b14b288fc87da11e4a14e24ea3a4afc2a466cf",
+    "/share/rainmapper/mushroom-data/mushroom_gis_mappings.json": "054a92665b10e4d7d54801eced3657998eeab731fc31cb17b2d7d67fbc9c7f20",
+    "/share/rainmapper/mushroom-data/mushroom_ml_version_registry.json": "e096f2ce4704df1ccb3cb97e546a85ac911842b6bec4f5b966fd142aa25124a4",
+    "/share/rainmapper/mushroom-data/mushroom_reference_catalogs.json": "470df4bad9174974f7c69c96023aeed484b5ba1f65a30a70656e9e0b3fc0b9fe"
+  },
+  "private_files_unchanged": true,
+  "marker": {
+    "version": 1,
+    "state": "complete"
+  },
+  "migration_state": "complete",
+  "moves": [
+    {
+      "source": "/media/rainmapper/mushroom-derived/.legacy-share-transition-v1.json",
+      "target": "/media/rainmapper/results/.legacy-share-transition-v1.json",
+      "files": 1,
+      "bytes": 381
+    },
+    {
+      "source": "/media/rainmapper/mushroom-derived/ml_models",
+      "target": "/media/rainmapper/results/models",
+      "files": 743,
+      "bytes": 120647339
+    },
+    {
+      "source": "/media/rainmapper/mushroom-derived/mushroom-artifacts",
+      "target": "/media/rainmapper/results/artifacts",
+      "files": 9,
+      "bytes": 21238248
+    },
+    {
+      "source": "/media/rainmapper/mushroom-derived/worker",
+      "target": "/media/rainmapper/transfers/worker",
+      "files": 48,
+      "bytes": 15161138
+    },
+    {
+      "source": "/media/rainmapper/predictor_precompute",
+      "target": "/media/rainmapper/results/predictor-precompute",
+      "files": 3,
+      "bytes": 28445580
+    },
+    {
+      "source": "/media/rainmapper/runtime-cache",
+      "target": "/media/rainmapper/cache",
+      "files": 746,
+      "bytes": 113536246
+    }
+  ],
+  "config": {
+    "ecology_catalogs": "/share/rainmapper/mushroom-data/mushroom_reference_catalogs.json",
+    "forest_catalogs": "/share/rainmapper/mushroom-data/mushroom_reference_catalogs.json",
+    "geography_publication_root": ".",
+    "geography_python": "/usr/bin/python3",
+    "gis_mappings": "/share/rainmapper/mushroom-data/mushroom_gis_mappings.json",
+    "model_python": "/usr/local/bin/python",
+    "model_registry": "/share/rainmapper/mushroom-data/mushroom_ml_version_registry.json",
+    "models_root": "/media/rainmapper/results/models",
+    "private_runtime": true,
+    "profiles": "/share/rainmapper/mushroom-data/mushroom_profiles.json",
+    "weather_data": "/share/rainmapper/Data",
+    "weather_python": "/usr/local/bin/python",
+    "weather_stations": "/share/rainmapper/stations.txt"
+  },
+  "publication_identity_preserved": true,
+  "missing_publication_sources": [],
+  "sqlite": [
+    {
+      "path": "/media/rainmapper/results/predictor-precompute/active.sqlite3",
+      "quick_check": [
+        [
+          "ok"
+        ]
+      ]
+    }
+  ],
+  "retirement": {
+    "state": "complete",
+    "files": 4942,
+    "logical_bytes": 21358531147,
+    "metadata_preserved": [
+      [
+        "/media/rainmapper/mushroom-GIS/soilgrids/.cache.lock",
+        "/media/rainmapper/geography/imports/retired-legacy-metadata/mushroom-GIS/soilgrids/.cache.lock"
+      ],
+      [
+        "/media/rainmapper/prediction-map/generations/local-20260914/manifest.json",
+        "/media/rainmapper/geography/imports/retired-legacy-metadata/prediction-map/generations/local-20260914/manifest.json"
+      ],
+      [
+        "/media/rainmapper/prediction-map/prediction-map-local-20260914.tar.gz.json",
+        "/media/rainmapper/geography/imports/retired-legacy-metadata/prediction-map/prediction-map-local-20260914.tar.gz.json"
+      ],
+      [
+        "/media/rainmapper/prediction-map/prediction-map-local-20260914.tar.gz.sha256",
+        "/media/rainmapper/geography/imports/retired-legacy-metadata/prediction-map/prediction-map-local-20260914.tar.gz.sha256"
+      ]
+    ]
+  },
+  "remaining_root_entries": [
+    ".media-layout-v1.json",
+    "cache",
+    "geography",
+    "media-migration-20260918.json",
+    "media-migration-receipt.json",
+    "results",
+    "transfers"
+  ],
+  "disk_available_bytes": 65117241344,
+  "date": "2026-09-18",
+  "verification_transport": "SSH; full hashes computed on Raspberry Pi, not SMB",
+  "files_preserved_by_migration": 1550,
+  "agent_started_or_stopped_rainmapper": false,
+  "training_or_precompute_relaunched": false,
+  "evidence_directory": "tmp/ha-media-migration-20260918",
+  "limitations": "Offline checks used installed 0.2.310. User subsequently confirmed map predictions work via local and worker. Retirement bytes are logical size, not measured physical space reclaimed.",
+  "readers_after_retirement": {
+    "geography": {
+      "returncode": 0,
+      "stdout": "{\"id\": 1, \"terrain_ready\": true, \"geography_ready\": true}\n",
+      "stderr": "/usr/lib/python3/dist-packages/osgeo/ogr.py:601: FutureWarning: Neither ogr.UseExceptions() nor ogr.DontUseExceptions() has been explicitly called. In GDAL 4.0, exceptions will be enabled by default.\n  warnings.warn(\n",
+      "seconds": 2.805
+    },
+    "weather": {
+      "ready": true,
+      "seconds": 0.596
+    },
+    "model": {
+      "ready": true,
+      "seconds": 5.932
+    }
+  },
+  "user_post_migration_validation": {
+    "prediction_map_local": true,
+    "prediction_map_worker": true,
+    "source": "User confirmation in conversation on 2026-09-18",
+    "predictor_precompute_ui": "not reported"
+  }
+}

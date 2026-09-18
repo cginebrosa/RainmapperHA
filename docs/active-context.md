@@ -1,34 +1,77 @@
-# Contexto activo — 18/09/2026, HA 0.2.310 publicada
+# Contexto activo — 18/09/2026, HA 0.2.311 publicada; media real migrado
 
-**Restricción expresa del usuario (17/09): no acceder por SSH a la RPi4 sin
-petición explícita, tampoco para consultas. Parar, instalar y arrancar Rainmapper
-en HA real queda a cargo del usuario. Las consultas SSH de esta sesión fueron
-de lectura; no se ha modificado HA real.**
+**Restricción expresa del usuario: no acceder por SSH a la RPi4 sin petición
+explícita, tampoco para consultas. El 18/09 autorizó SSH para la migración de
+media, su verificación y la retirada de duplicados GIS comprobados. Esta excepción
+no autoriza otras operaciones. Parar, instalar y arrancar Rainmapper en HA real
+sigue a cargo del usuario.**
 
 ## Estado verificado y siguiente paso — 18/09/2026
 
-**HA 0.2.310 publicada y verificada en GHCR**: tags `0.2.310` y `latest`
-con digest `sha256:d0f7e78a3d6e9393bc8991ef68751b1e315e5cd0aae0a27e08bc0ed7251958f6`,
-manifests `linux/amd64` y `linux/arm64`. Script terminado con código 0; log
-`tmp/media-migration-20260917/publish-after-quit-20260918.log`. El último push
-invirtió 1.580,2 s en capas. [Informe final](reports/ha-release-0.2.310.json).
-Se reutilizó la validación del mismo código: 1.621 tests, 48 omitidos, paridad
-202/108 archivos HA/worker revalidada el 18/09. No se relanzaron entrenamientos
-ni precálculos. No atribuir la lentitud exclusivamente a Docker ni a Orange:
-la prueba directa sin Docker a GHCR también fue lenta, mientras la prueba
-Cloudflare fue rápida; causa de red exacta no determinada.
+**HA 0.2.311 publicada y verificada en GHCR**: `0.2.311` y `latest` comparten
+`sha256:37d6745665923919079f8b51b98a6565ae378a2d76c0e72be266adf604702b79`,
+con manifests `linux/amd64` y `linux/arm64`. Script terminado con código 0;
+capas subidas en 38,6 s. [Informe](reports/ha-release-0.2.311.json).
+Incluye buscador con POI en el visor compartido y logs de errores de predicción.
+Usuario aceptó explícitamente la validación local antes de publicar. HA local y
+worker reconstruidos; 202/108 archivos comprobados, dos puntos con resultados
+idénticos entre ejecutores y smoke de 1.639 tests (48 omitidos). El bump posterior
+solo cambia versión/cache-busters. No se relanzaron entrenamientos ni precálculos.
+La herramienta de investigación WU se versiona como herramienta local, sin sus
+datos ni revisiones y sin incluirla en la imagen HA. Última versión comprobada
+en HA real: 0.2.310; instalación de 0.2.311 a cargo del usuario, aún no confirmada.
 
-La reorganización de `/media` sigue autorizada en ambos entornos, primero
-local. **HA local migrado y validado: ocho movimientos, 1.547 archivos
-conservados. HA real no se ha migrado ni modificado.** Instalar 0.2.310 no mueve
-ni borra carpetas. El usuario reserva para sí parar, instalar y arrancar HA real.
-Retirada de originales GIS pendiente de comprobar SHA completos y operación
-offline explícita. [Propuesta](mushrooms/ha-media-organization-proposal-es.md).
+La release anterior [0.2.310](reports/ha-release-0.2.310.json) se publicó en
+`6624660`; su push había tardado 1.580,2 s. No atribuir aquella lentitud
+exclusivamente a Docker ni a Orange: causa de red exacta no determinada.
+
+El usuario confirmó **0.2.310 instalada y Rainmapper detenido**; estado revalidado
+con HA CLI. Autorizó SSH para verificar hashes en la Raspberry. **HA real migrado:
+seis movimientos y 1.550 archivos conservados; 4.942 duplicados GIS retirados
+tras verificar íntegramente origen y copia canónica** (21.358.531.147 bytes lógicos).
+Cuatro metadatos adicionales conservados en `geography/imports/retired-legacy-metadata`.
+Diez archivos privados mantienen su SHA, identidad del runtime conservada,
+ninguna fuente publicada ausente y SQLite activo `quick_check=ok`.
+Tras retirar originales, geografía/meteorología/modelos siguen preparados usando
+la imagen instalada 0.2.310. Se indicó al usuario que puede arrancar Rainmapper;
+Codex no lo paró ni arrancó. **El usuario confirma después que el mapa de
+HA real funciona con ejecutor local y worker.**
+[Informe](reports/ha-media-migration-2026-09-18.json) y
+[organización](mushrooms/ha-media-organization-proposal-es.md).
+HA local tenía ocho movimientos y 1.547 archivos conservados. Instalar una imagen
+no mueve ni borra carpetas. La revisión científica GIS sigue aplazada.
 
 El usuario cerró/reabrió Docker durante la subida. Después autorizó arrancar
 worker y HA local: ambos arrancados el 18/09, worker healthy, HA local HTTP 200;
 los dos archivos de coordinadores conservan exactamente sus SHA anteriores.
 No se cambió ningún destino del único worker.
+
+### Buscador de lugares en mapa de predicciones — 18/09
+
+Incorporado al visor compartido MapLibre: lupa después de ajustes y antes de
+3D; panel blanco en español/catalán/inglés. Consulta Photon directamente desde
+el navegador, por Enter/Buscar, sin claves ni dependencia del servidor de
+investigación del Mac. Preferencia suave por la zona visible, hasta ocho
+resultados y caché limitada a 50 consultas durante la sesión de la página.
+Seleccionar un lugar centra el mapa en un segundo y crea un POI con nombre;
+iniciar otra búsqueda lo elimina, también si no hay resultados. Navegación
+separada del cálculo: no consulta predicciones ni cambia filtros o revisiones.
+
+Pruebas dirigidas: traducciones (2 tests) y circuito Chrome del visor compartido,
+incluyendo lupa/orden, resultados, coordenadas, texto escapado, POI, limpieza,
+panel móvil y ausencia de consultas de predicción por navegación. Evidencia de
+trabajo en `tmp/prediction-place-search-20260918/`. HA local reconstruido y
+recreado; los SHA256 de app.js/index.html/style.css/translations.json dentro
+del contenedor coinciden con los probados. Búsqueda real «Saldes» desde el
+visor servido en `127.0.0.1:8101/protected/prediction-map/index.html` verificada
+en Chrome con POI, sin errores JS ni consultas de predicción. Esa prueba de
+navegación no autentica ni comprueba datos privados; el circuito de predicción
+se validó con el fixture aislado y después mediante el coordinador local y el
+worker reales: dos puntos, cuatro consultas, resultados científicos coincidentes.
+HA local y worker reconstruidos/recreados; paridad de 202/108 archivos sin diferencias.
+Suite completa: 1.639 tests, 48 omitidos, correcta. Usuario acepta expresamente
+publicar 0.2.311 al terminar la migración; publicada y verificada. El bump posterior
+solo cambia versión/cache-busters; no se repite el smoke por esos metadatos.
 
 ### Incidencia del ejecutor local de HA real
 
@@ -47,9 +90,14 @@ En código, `QueryBroker._local_loop` comprueba `ready()` una sola vez y silenci
 la excepción; `ResidentReader` descarta stderr. Un fallo transitorio inicial
 puede dejar el ejecutor indisponible, pero **la causa histórica concreta no se
 ha recuperado**. El usuario confirma que reiniciar Rainmapper recuperó el ejecutor local.
-Solicita registrar los errores: siguiente cambio autorizado, posterior a la
-release. Diagnóstico explícito pendiente de implementar; reintento controlado
-solo propuesto. **Ninguno incluido en 0.2.310**.
+Solicita registrar los errores. Cambio posterior a la release **implementado
+en HA local y worker reconstruidos, publicado en 0.2.311**: stderr de los lectores llega al log
+de HA/worker; inicialización, lectura de protocolo y consultas registran el
+componente y traceback. Se conserva el contrato JSON y el comportamiento de
+ejecución/fallback. Cinco pruebas nuevas, suite dirigida de 161 casos con 48
+omitidos, sin fallos (`tmp/ha-local-executor-20260918/logging-tests.log`).
+HA local y worker ya ejecutan este cambio; HA real conserva 0.2.310.
+Reintento controlado solo propuesto. **Ninguno incluido en 0.2.310**.
 
 ### Exploración de cobertura Catalunya / Wunderground
 
@@ -62,8 +110,7 @@ estación disponible más cercana. Estaciones vecinas incluidas en distancias.
 20 consultas WU near, 200 entradas, 178 IDs únicos: 143 nuevas dentro de Catalunya,
 8 conocidas, 1 excluida y 26 fuera de Catalunya. Nuevas: 75 QC=1, 65 QC desconocido,
 3 QC fallido. Lista inicial de 12 para revisar: reduciría hipotéticamente los
-175 puntos a 110; no demuestra calidad ni mejora del IDW. **Ninguna incorporada,
-ningún histórico/backfill lanzado.** Hay candidatas de QC desconocido interesantes
+175 puntos a 110; no demuestra calidad ni mejora del IDW. **Ninguna incorporada ni backfill operativo lanzado.** Hay candidatas de QC desconocido interesantes
 que no deben descartarse solo por ese campo.
 
 [Informe local](../tmp/station-coverage-catalunya-20260918/README.md),
@@ -71,9 +118,63 @@ que no deben descartarse solo por ese campo.
 [CSV completo](../tmp/station-coverage-catalunya-20260918/candidates.csv).
 Respuestas originales, scripts y resultados conservados junto al informe;
 mapa probado en Chrome: 12 prioritarias, filtro de 143 nuevas y estaciones visibles.
+Tras un bloqueo 403 de OSM mostrado por el usuario, el visor usa los mismos
+cuatro fondos de predicciones/GBIF, con Satélite+ por defecto y conservación
+de filtros/capas al cambiar. Las consultas WU y el análisis no se repitieron.
 Siguiente fase propuesta: revisión de calidad y continuidad de un lote pequeño;
 aprobar individualmente antes de preparar un backfill. No volver a consultar
 la API para analizar estos mismos resultados ya descargados.
+
+El usuario autoriza convertir el mapa en herramienta de investigación local:
+implementación en `scripts/station_research.py`, interfaz en
+`scripts/station-research/`, lanzador `scripts/station-research.command`.
+[Uso y límites](station-research-es.md). Guarda revisiones/candidatas/preliminares
+con SQLite fuera de Git, en el mismo directorio de investigación. Controles
+3D/norte, filtro de cuatro estados, disponibilidad X/30, búsqueda WU por clic
+con modal de progreso, promoción a candidata y eliminación solo de preliminares.
+No incorpora estaciones operativas. Consultas nuevas autorizadas expresamente
+para esta herramienta; no se ha lanzado backfill operativo. IOLIOL3 verificada
+online: 30/30 días (19/08–17/09), altitud publicada 425,8 m. La base de estaciones
+actuales sigue siendo el snapshot local; no se afirma paridad con HA real.
+Se retira el filtro ambiguo «Nuevas para la red»: en la descarga inicial
+seleccionaba las nuevas de Catalunya, pero las nuevas búsquedas no aplicaban
+ese límite. Quedan «Prioritarias iniciales» y «Todas las candidatas», sin
+distinción geográfica implícita y con filtro de revisión independiente.
+Cabecera reorganizada: selección/revisión y acciones en primera fila;
+controles de visibilidad/fuentes y recuento en segunda. Selector de fondo
+tras un botón de capas a la izquierda, inmediatamente antes del botón 3D.
+Al abrirlo muestra directamente las cuatro opciones con el fondo activo
+marcado, sin un segundo desplegable.
+Buscador de municipios/topónimos en la cabecera: Enter/Buscar consulta Photon,
+lista blanca de hasta ocho resultados y selección para centrar el mapa con
+un POI rotulado. El POI se retira al iniciar la siguiente búsqueda, incluso
+si no hay resultados; no dispara investigación al pulsarlo. Global,
+con preferencia suave por la zona visible; caché SQLite persistente y una
+petición/segundo, sin autocompletado ni clave WU. No modifica estaciones,
+filtros o revisiones ni activa consultas WU al elegir lugar. Verificado con
+Molló y Pedraforca; trece tests dirigidos y Chrome: centrado en Molló incluso
+con investigación activa, sin llamadas WU ni cambios de datos. Captura
+`tmp/station-coverage-catalunya-20260918/place-search-verified.png`.
+Servidor del visor recargado; cambio solo local, sin publicar ni tocar HA/worker.
+Título general «Cobertura meteorológica», sin limitar la investigación a
+Catalunya; la búsqueda admite coordenadas de cualquier lugar. La red de
+referencia y los huecos conservan el ámbito del análisis inicial.
+«Fuentes actuales» permite cualquier combinación de Meteocat, AEMET,
+Meteoclimatic y Wunderground mediante casillas independientes en un desplegable,
+con recuento de actuales según selección. Marcadores actuales ampliados de
+4 a 7 px de radio, borde blanco de 2 px. Es un filtro visual: conserva la
+capa de huecos calculada con todas las fuentes.
+El visor omite por ID las estaciones WU ya incorporadas en la base local,
+tanto en nuevas búsquedas como en candidatas iniciales. Conserva en disco y
+exportación sus registros/revisiones; las estaciones distintas con coordenadas
+iguales no se fusionan.
+Validación del visor: once tests dirigidos y Chrome con servidor de pruebas
+aislado (persistencia tras recarga, estados, 3D/norte, búsqueda, promoción,
+modal, limpieza de preliminares/puntos consultados y cambio de fondo). Evidencia visual en
+`tmp/station-coverage-catalunya-20260918/research-verified.png`. Búsqueda real
+por coordenadas comprobada; consultas y revisiones personales fuera de Git.
+La herramienta de investigación sigue siendo local; no modifica HA real.
+La migración de media es una operación distinta, terminada y documentada arriba.
 
 La revisión general GIS y la revisión/importación de GBIF siguen aplazadas.
 
@@ -87,7 +188,7 @@ esta lógica ni se ha demostrado que editar un filtro de mapa requiera entrenar.
 La discrepancia local en `published-runtime.json` afecta a la ficha publicada,
 no demuestra por sí sola que el modelo entrenado de HA real esté desactualizado.
 
-La release incluye los cambios de IFF descritos debajo, aviso de suelo no
+La release 0.2.309 incluyó los cambios de IFF descritos debajo, aviso de suelo no
 determinado, mensaje comprensible para la referencia obligatoria de suelo/pH y
 listado de descartes completo: temporada, pH, altitud, hospedadores, suelo y
 datos insuficientes. La lista se recalcula para la fecha seleccionada y conserva

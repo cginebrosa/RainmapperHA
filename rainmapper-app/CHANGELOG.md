@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.311
+
+- Add place search beside map settings, with a named marker replaced by each new search.
+- Record prediction reader and executor failures, including component details and tracebacks, in HA and worker logs.
+
 ## 0.2.310
 
 - Support an explicitly migrated media layout with shared geography, results, worker transfers and runtime cache; keep existing installations on their current paths until migration is requested.
