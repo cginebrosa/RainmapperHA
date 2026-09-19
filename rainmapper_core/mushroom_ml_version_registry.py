@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from rainmapper_core import mushroom_paths
+from rainmapper_core import mushroom_ml_prediction_policy
 
 
 SCHEMA_VERSION = "2.0"
@@ -80,6 +81,7 @@ def training_contract_revision(payload: object) -> str:
     contract = copy.deepcopy(checked)
     contract.pop("preferred_version_id", None)
     contract.pop("retention_policy", None)
+    contract.pop(mushroom_ml_prediction_policy.FIELD, None)
     for version in contract["versions"]:
         for key in (
             "status",
@@ -103,6 +105,10 @@ def validate_registry(payload: object) -> dict[str, Any]:
     if payload.get("kind") != REGISTRY_KIND:
         raise ValueError("Unsupported ML version registry kind.")
     normalized = copy.deepcopy(payload)
+    if mushroom_ml_prediction_policy.FIELD in normalized:
+        normalized[mushroom_ml_prediction_policy.FIELD] = mushroom_ml_prediction_policy.validate_rules(
+            normalized[mushroom_ml_prediction_policy.FIELD]
+        )
     rows = _version_rows(normalized)
     seen_versions: set[str] = set()
     seen_generations: set[str] = set()
@@ -602,6 +608,10 @@ def merge_packaged_definitions(
     )
     merged["versions"] = merged_versions
     merged["preferred_version_id"] = current.get("preferred_version_id")
+    if mushroom_ml_prediction_policy.FIELD in current:
+        merged[mushroom_ml_prediction_policy.FIELD] = copy.deepcopy(
+            current[mushroom_ml_prediction_policy.FIELD]
+        )
     return validate_registry(merged)
 
 

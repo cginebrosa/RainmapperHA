@@ -993,6 +993,8 @@ def _render_multiversion_result(payload: dict[str, Any] | None) -> str:
 
     def unavailable_reason(member: dict[str, Any]) -> str:
         reason = str(member.get("reason") or "")
+        if reason == "model_suspended":
+            return _lbl("ui.model_settings_suspended_reason") + ": " + str((member.get("suspension") or {}).get("reason") or "")
         quality = member.get("quality") or {}
         exclusions = quality.get("inference_exclusion_reasons") or []
         codes = {
@@ -1439,6 +1441,7 @@ _ABSTENTION_REASON_LABELS = {
     "roc_auc_below_minimum": "ui.predictor_abstention_auc_below_minimum",
     "roc_auc_unavailable": "ui.predictor_abstention_auc_unavailable",
     "member_unavailable": "ui.predictor_abstention_model_unavailable",
+    "model_suspended": "ui.model_settings_suspended_reason",
     "invalid_probability": "ui.predictor_abstention_invalid_probability",
 }
 

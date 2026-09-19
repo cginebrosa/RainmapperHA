@@ -790,6 +790,7 @@ def render_page(
     selected_benchmark_report: dict[str, object] | None = None,
     benchmark_report_error: str = "",
     precompute_summary: dict[str, object] | None = None,
+    model_settings_html: str = "",
 ) -> str:
     default_worker_status = next(
         (
@@ -1060,6 +1061,7 @@ def render_page(
     </div>
     <div class="workers-head"><h1>{_text(_label('ui.workers_jobs'))}</h1><p>{_text(_label('ui.workers_jobs_help'))}</p></div>
     {benchmark_report_html}
+    {model_settings_html}
     <div id="worker-flash-region" data-clear-when-idle="{'1' if flash_clear_when_idle else '0'}">{render_worker_flash(flash, error=flash_error)}</div>
     {f'<div class="catalog-alert error worker-default-issue"><strong>{_text(_label("ui.worker_default_attention"))}</strong><br>{_text(default_issue)}<br>{_text(_label("ui.worker_choose_available"))}</div>' if default_issue else ''}
     <div class="workers-grid">

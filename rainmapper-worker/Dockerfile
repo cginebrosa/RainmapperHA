@@ -71,6 +71,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_ml_input_identity.py \
      rainmapper_core/mushroom_ml_version_registry.py \
      rainmapper_core/mushroom_ml_model_catalog.py \
+     rainmapper_core/mushroom_ml_prediction_policy.py \
      rainmapper_core/mushroom_ml_tuning_catalog.py \
      rainmapper_core/mushroom_operational_training_scope.py \
      rainmapper_core/mushroom_ml_weather_workspace.py \

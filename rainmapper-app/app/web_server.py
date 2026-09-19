@@ -72,6 +72,8 @@ from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core import mushroom_ml_training_freshness
 from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_ml_prediction_policy
+import mushroom_model_settings_ui
 from rainmapper_core import mushroom_local_full_update
 from rainmapper_core import mushroom_operational_training_scope
 from rainmapper_core.mushroom_predictor_service import REQUEST_KIND as PREDICTOR_REQUEST_KIND
@@ -11939,6 +11941,8 @@ def predictor_precompute_worker_is_compatible(
     model_selection_policy: str | None = None,
 ) -> bool:
     capabilities = set(payload.get("capabilities") or [])
+    if not prediction_policy_worker_compatible(payload):
+        return False
     if mushroom_worker_registry.PREDICTOR_PRECOMPUTE_CAPABILITY not in capabilities:
         return False
     policy = model_selection_policy or (
@@ -11951,6 +11955,14 @@ def predictor_precompute_worker_is_compatible(
         and mushroom_worker_registry.PREDICTOR_WEEKLY_MODEL_SELECTION_CAPABILITY
         not in capabilities
     )
+
+
+def prediction_policy_worker_compatible(payload: Mapping[str, object]) -> bool:
+    path = mushroom_paths.mushroom_ml_version_registry_path()
+    if not path.is_file():
+        return True
+    registry = mushroom_ml_version_registry.load_registry(path)
+    return mushroom_ml_prediction_policy.worker_compatible(registry, payload.get("capabilities"))
 
 
 def mushroom_worker_supports(payload: object, capability: str) -> bool:
@@ -12341,6 +12353,7 @@ def available_predictor_executors(
             row.get("reachable")
             and payload.get("status") == "idle"
             and mushroom_worker_supports(payload, mushroom_worker_registry.PREDICTOR_CAPABILITY)
+            and prediction_policy_worker_compatible(payload)
         ):
             worker_id = str(payload.get("worker_id", ""))
             executors.append(
@@ -21658,6 +21671,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 selected_benchmark_report=selected_benchmark_report,
                 benchmark_report_error=benchmark_report_error,
                 precompute_summary=predictor_precompute_summary(),
+                model_settings_html=mushroom_model_settings_ui.render(
+                    benchmark_registry, store.load("profiles")
+                ),
             )
             rebuild_job_id = (query.get("rebuild_job") or [""])[0]
             body += render_mushroom_rebuild_progress_modal(rebuild_job_id, "./workers")
@@ -23117,6 +23133,33 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
     def handle_mushroom_workers_post(self, form: dict[str, list[str]]) -> str:
         action = self.form_action_value(form, "worker_action")
+        if action == "set_prediction_model_policy":
+            try:
+                with MUSHROOM_WORKER_PROMOTION_LOCK:
+                    registry_path = mushroom_paths.mushroom_ml_version_registry_path()
+                    registry = mushroom_ml_version_registry.load_registry(registry_path)
+                    scope = self.form_value(form, "species_scope")
+                    enabled = self.form_value(form, "model_enabled")
+                    if enabled not in {"true", "false"}:
+                        raise ValueError("Invalid model state.")
+                    species = {
+                        row["species_id"] for row in default_store().load("profiles").get("species_profiles", [])
+                    }
+                    # Allow removing a suspension for an archived species too.
+                    if enabled == "false" and scope != "*" and scope not in species:
+                        raise ValueError("Unknown species.")
+                    updated = mushroom_ml_prediction_policy.update(
+                        registry, model_key=self.form_value(form, "model_key"),
+                        species_id=scope, enabled=enabled == "true",
+                        reason=self.form_value(form, "suspension_reason"),
+                        actor="workers_ui",
+                        expected_revision=self.form_value(form, "policy_revision"),
+                    )
+                    mushroom_ml_version_registry.save_registry(registry_path, updated)
+                set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.model_settings_saved"))
+            except (OSError, ValueError) as exc:
+                set_mushroom_workers_flash(str(exc), error=True)
+            return "./workers#prediction-model-settings"
         if action == "create_worker_pairing":
             try:
                 pairing = create_mushroom_worker_pairing()

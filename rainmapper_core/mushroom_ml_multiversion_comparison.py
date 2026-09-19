@@ -13,6 +13,7 @@ from time import monotonic
 from typing import Any, Mapping, MutableMapping, Sequence
 
 from rainmapper_core import mushroom_ml_model_catalog as catalog
+from rainmapper_core import mushroom_ml_prediction_policy
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_raw_weather
 from rainmapper_core import mushroom_ml_smooth_hierarchical
@@ -233,6 +234,13 @@ def compare_prepared(
             else catalog.validate_model_ref(registry, raw_ref)
         )
         base = {"model_ref": model_ref.as_dict(), "model_ref_key": model_ref.key}
+        suspended = mushroom_ml_prediction_policy.suspension(registry, model_ref.as_dict())
+        if suspended:
+            results[result_index] = {
+                **base, "available": False, "reason": "model_suspended",
+                "suspension": suspended,
+            }
+            continue
         area_series = area_series_by_horizon.get(model_ref.horizon_days)
         if area_series is None:
             results[result_index] = {
@@ -488,6 +496,8 @@ def _finite_number(value: object) -> float | None:
 def _operational_gate_failures(member: Mapping[str, object]) -> list[str]:
     """Explain why one runtime member cannot enter operational ranking."""
     if member.get("available") is not True:
+        if member.get("reason") == "model_suspended":
+            return ["model_suspended"]
         return ["member_unavailable"]
     failures: list[str] = []
     prediction = member.get("prediction") or {}
@@ -1918,6 +1928,8 @@ def prewarm_selection_predictions(
             prepared_weather_cache[weather_key] = prepared_tuple
         area_context, prepared, stations = prepared_tuple
         for model_ref in refs:
+            if mushroom_ml_prediction_policy.suspension(registry, model_ref.as_dict()):
+                continue
             cache_key = (area_id, target_date.isoformat(), model_ref.key)
             if cache_key in prediction_cache:
                 continue

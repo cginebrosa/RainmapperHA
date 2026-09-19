@@ -96,7 +96,8 @@ class QueryTests(unittest.TestCase):
             return {"query":None}
         worker.run_loop([{"coordinator_id":"a"}],"worker-A",{"a":NoExecution()},stop,
                         busy=lambda:True,transport=transport)
-        self.assertEqual(messages,[{"worker_id":"worker-A","action":"busy"}])
+        self.assertEqual(messages,[{"worker_id":"worker-A","action":"busy",
+                                    "capabilities":["prediction_model_policy_v1"]}])
 
     def setUp(self):
         self.broker = QueryBroker()

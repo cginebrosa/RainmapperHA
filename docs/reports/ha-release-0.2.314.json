@@ -1,0 +1,618 @@
+{
+  "version": "0.2.314",
+  "ghcr": {
+    "0.2.314": {
+      "digest": "sha256:bc4324b83141fb8719f1d18b770c5dc0db816966e5b2ce344f1a8c375c9d12bc",
+      "platforms": {
+        "linux/amd64": "sha256:1f52e0c72d03176c15d57a7b4750a5f2cd58bc13b68e8b7981518d0142993c66",
+        "linux/arm64": "sha256:8f6db99df43c461e40c15ae6d1e37af251ec9b80f44bb6602ef9f10caaa1bd73"
+      }
+    },
+    "latest": {
+      "digest": "sha256:bc4324b83141fb8719f1d18b770c5dc0db816966e5b2ce344f1a8c375c9d12bc",
+      "platforms": {
+        "linux/amd64": "sha256:1f52e0c72d03176c15d57a7b4750a5f2cd58bc13b68e8b7981518d0142993c66",
+        "linux/arm64": "sha256:8f6db99df43c461e40c15ae6d1e37af251ec9b80f44bb6602ef9f10caaa1bd73"
+      }
+    }
+  },
+  "build_exit_code": 0,
+  "parity_before_mechanical_version_bump": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 206,
+      "mismatches": [],
+      "manifest_sha256": "1bb93a3fa0cb9a23f9eb7e5a41a4ba486fdf9c7499438029351285adc5309bb7"
+    },
+    "rainmapper-worker": {
+      "checked_files": 109,
+      "mismatches": [],
+      "manifest_sha256": "8edaa18bbce6ac118447fafb09e49cde33547c1709fe9dc5baa84f392af2dd49"
+    }
+  },
+  "smoke": {
+    "tests": 1649,
+    "skipped": 48,
+    "passed": true,
+    "source_log": "/tmp/rainmapper-policy-smoke.log",
+    "no_executable_source_changes_since_smoke": true
+  },
+  "training": {
+    "batch_id": "operational_20260919T014018Z",
+    "total_artifacts": 714,
+    "suspended_models_trained": [
+      {
+        "version": "altitude_v2",
+        "profile": "common_idw",
+        "estimator": "hist_gradient_boosting_restricted_v1",
+        "artifacts": 2,
+        "hashes_verified": true
+      },
+      {
+        "version": "altitude_v2",
+        "profile": "common_idw",
+        "estimator": "knn_distance_beta_smoothed_v2",
+        "artifacts": 2,
+        "hashes_verified": true
+      },
+      {
+        "version": "altitude_v2",
+        "profile": "common_idw",
+        "estimator": "rbf_svm_calibrated_v1",
+        "artifacts": 2,
+        "hashes_verified": true
+      },
+      {
+        "version": "biology_v3",
+        "profile": "common_idw_plus_physical_state",
+        "estimator": "hist_gradient_boosting_restricted_v1",
+        "artifacts": 2,
+        "hashes_verified": true
+      },
+      {
+        "version": "biology_v3",
+        "profile": "core",
+        "estimator": "hist_gradient_boosting_restricted_v1",
+        "artifacts": 2,
+        "hashes_verified": true
+      },
+      {
+        "version": "biology_v4",
+        "profile": "climatic_balance",
+        "estimator": "hist_gradient_boosting_restricted_v1",
+        "artifacts": 2,
+        "hashes_verified": true
+      },
+      {
+        "version": "biology_v4",
+        "profile": "extended_weather",
+        "estimator": "hist_gradient_boosting_restricted_v1",
+        "artifacts": 2,
+        "hashes_verified": true
+      }
+    ],
+    "rules_preserved": 7
+  },
+  "runtime": {
+    "batch_id": "operational_20260919T014018Z",
+    "rule_count": 7,
+    "suspended_horizon_checks": 56,
+    "points": [
+      {
+        "point": "Pradell",
+        "iff": [
+          70.217,
+          71.2,
+          72.162,
+          73.102,
+          74.02,
+          74.914,
+          75.787
+        ],
+        "models": [
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 1,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 2,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 3,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 4,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 5,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 6,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 7,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          }
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      },
+      {
+        "point": "Capolat",
+        "iff": [
+          36.637,
+          37.746,
+          38.866,
+          39.996,
+          41.133,
+          42.277,
+          43.427
+        ],
+        "models": [
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 1,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 2,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 3,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 4,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 5,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 6,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 7,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          }
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      },
+      {
+        "point": "Vallcebre",
+        "iff": [
+          51.737,
+          52.922,
+          54.101,
+          55.273,
+          56.436,
+          57.589,
+          58.732
+        ],
+        "models": [
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 1,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 2,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 3,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 4,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 5,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 6,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 7,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          }
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      },
+      {
+        "point": "Gosol",
+        "iff": [
+          57.526,
+          58.682,
+          59.826,
+          60.957,
+          62.074,
+          63.176,
+          64.261
+        ],
+        "models": [
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 1,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 2,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 3,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 4,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 5,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 6,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 7,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          }
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      },
+      {
+        "point": "Urus",
+        "iff": [
+          71.408,
+          72.368,
+          73.305,
+          74.22,
+          75.113,
+          75.982,
+          76.829
+        ],
+        "models": [
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 1,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 2,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 3,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 4,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 5,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 6,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          },
+          {
+            "version_id": "biology_v6_windowed_smooth_hierarchical",
+            "profile_id": "smooth_window_30d_plus_physical_state",
+            "temporal_contract_id": "lag_event_biology_v6_smooth_hierarchical_v2",
+            "temporal_family": "lag",
+            "horizon_days": 7,
+            "estimator_id": "smooth_partial_pooling_logistic_v1"
+          }
+        ],
+        "reasons": [
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated",
+          "calculated"
+        ]
+      }
+    ],
+    "ok": true
+  },
+  "api_validation": {
+    "contract": "prediction_map_point_v1",
+    "start_date": "2026-09-19",
+    "checks": {
+      "ready": {
+        "contract": "prediction_map_point_v1",
+        "can_use_prediction_map": true,
+        "admin_only": false,
+        "data_mode": "prediction",
+        "worker_ready": true,
+        "executors": {
+          "local": true,
+          "worker": true
+        },
+        "calendar_timezone": "Europe/Madrid",
+        "max_horizon_days": 7,
+        "max_species": 32
+      },
+      "basic_user_allowed": true,
+      "unauthorized": 401,
+      "invalid_coordinate": 400,
+      "pradell_local_worker_parity": true,
+      "capolat_local_worker_parity": true,
+      "prediction-mode.js_sha256": "ce6ef9b0ef90d35d4f919bb938e7bf83581b2c0acd07d6fcef2c1ac48ce2456e",
+      "prediction-mode.css_sha256": "c28036e8c5d474b4917c65272c69bef69e33154562ea31604ec402723e77294f"
+    },
+    "queries": [
+      {
+        "mode": "local",
+        "point": {
+          "lat": 42.20207,
+          "lon": 1.77766
+        },
+        "elapsed_ms": 1656.24,
+        "compute_ms": 1459.667,
+        "polls": 9,
+        "state_bytes": 456,
+        "result_bytes": 19565,
+        "calculated_species": 1
+      },
+      {
+        "mode": "worker",
+        "point": {
+          "lat": 42.20207,
+          "lon": 1.77766
+        },
+        "elapsed_ms": 4596.94,
+        "compute_ms": 3950.056,
+        "polls": 23,
+        "state_bytes": 1251,
+        "result_bytes": 19566,
+        "calculated_species": 1
+      },
+      {
+        "mode": "local",
+        "point": {
+          "lat": 42.07612,
+          "lon": 1.75017
+        },
+        "elapsed_ms": 2273.41,
+        "compute_ms": 2269.113,
+        "polls": 12,
+        "state_bytes": 627,
+        "result_bytes": 22185,
+        "calculated_species": 3
+      },
+      {
+        "mode": "worker",
+        "point": {
+          "lat": 42.07612,
+          "lon": 1.75017
+        },
+        "elapsed_ms": 3298.2,
+        "compute_ms": 2504.087,
+        "polls": 17,
+        "state_bytes": 908,
+        "result_bytes": 22186,
+        "calculated_species": 3
+      }
+    ],
+    "ok": true,
+    "temporary_test_device_removed": true
+  },
+  "precompute": {
+    "job_id": "worker_job_O7yzs0AqVMK6",
+    "receipt": {
+      "artifact_id": "sha256:3482ad9b167795ad158ed089491b6fb291f1342ef0f223f24d8f72b62086a5fa",
+      "desired_revision": 68,
+      "file_sha256": "sha256:682305b7d9ab880088cb9b55150a3c690cf4313f40a2fb6cd171212f20912f6f",
+      "receipt_id": "sha256:a46d9e25afa678ac9a1eac3094ac5adef5ebea8cd98cbb0456b6719d0b091f0f",
+      "schema_version": "1.0",
+      "size_bytes": 25231360
+    },
+    "file_hash_verified": true,
+    "publication_state": "complete",
+    "members_checked": 525,
+    "suspended_members_unavailable": 14,
+    "selected_winner_occurrences_checked": 2229,
+    "sample_winner": {
+      "batch_id": "operational_20260919T014018Z",
+      "estimator_id": "extra_trees_restricted_v1",
+      "generation_id": "altitude_v2_operational_20260919T014018Z",
+      "horizon_days": 1,
+      "profile_id": "common_idw",
+      "species_id": "boletus_pinophilus",
+      "temporal_contract_id": "lag_event_altitude_v2",
+      "version_id": "altitude_v2"
+    },
+    "ok": true
+  },
+  "ha_real": {
+    "installation": "user_pending",
+    "suspensions_applied": false,
+    "note": "Seven rules are private HA-local data; configure in HA real after installation."
+  },
+  "worker": {
+    "existing_worker_rebuilt_and_verified": true,
+    "coordinator_destinations_preserved": true,
+    "new_worker_release_published": false
+  }
+}

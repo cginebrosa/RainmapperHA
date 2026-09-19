@@ -361,6 +361,7 @@ def worker_status(
         "status": (runtime_status or "idle") if cache_ready else "needs_dataset",
         "job_api": "candidate_rebuild_v0",
         "capabilities": [
+            "prediction_model_policy_v1",
             "rebuild_v0",
             mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY,
             mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY,

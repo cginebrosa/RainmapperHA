@@ -183,7 +183,9 @@ class MapPublication:
                 self.wake.set()
                 raise QueryError('map_data_not_ready', 503)
             self.snapshots[self.current]['used'] = time.monotonic()
-            return {'fingerprint': self.current}
+            return {'fingerprint': self.current,
+                    **({'required_capabilities': ['prediction_model_policy_v1']}
+                       if self.snapshots[self.current].get('model_suspensions') else {})}
 
     def _prune(self):
         now = time.monotonic()
@@ -281,7 +283,8 @@ class MapPublication:
                 if previous: previous['lease'].__exit__(None, None, None)
                 self.snapshots[manifest['fingerprint']] = {'root': destination, 'manifest': manifest,
                     'used': time.monotonic(), 'lease': lease, 'lease_started': time.monotonic(),
-                    'generation_id': generation.generation_id}
+                    'generation_id': generation.generation_id,
+                    'model_suspensions': bool(registry.get('prediction_model_suspensions'))}
                 retained = True
                 self.current = manifest['fingerprint']; self.signature = signature; self.last_error = None
                 self.metrics['publications'] += 1

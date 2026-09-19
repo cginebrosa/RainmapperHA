@@ -7176,5 +7176,65 @@
     "en": "Training range",
     "es": "Rango de entrenamiento",
     "ca": "Rang d’entrenament"
+  },
+  "ui.model_settings_suspended_reason": {
+    "en": "Model manually suspended",
+    "es": "Modelo suspendido manualmente",
+    "ca": "Model suspès manualment"
+  },
+  "ui.model_settings_title": {
+    "en": "Prediction models",
+    "es": "Modelos de predicción",
+    "ca": "Models de predicció"
+  },
+  "ui.model_settings_all_species": {
+    "en": "All species",
+    "es": "Todas las especies",
+    "ca": "Totes les espècies"
+  },
+  "ui.model_settings_model": {
+    "en": "Model",
+    "es": "Modelo",
+    "ca": "Model"
+  },
+  "ui.model_settings_scope": {
+    "en": "Scope",
+    "es": "Ámbito",
+    "ca": "Àmbit"
+  },
+  "ui.model_settings_reason": {
+    "en": "Reason",
+    "es": "Motivo",
+    "ca": "Motiu"
+  },
+  "ui.model_settings_reactivate": {
+    "en": "Reactivate in this scope",
+    "es": "Reactivar en este ámbito",
+    "ca": "Reactivar en aquest àmbit"
+  },
+  "ui.model_settings_suspend": {
+    "en": "Suspend model",
+    "es": "Suspender modelo",
+    "ca": "Suspendre model"
+  },
+  "ui.model_settings_suspended": {
+    "en": "suspensions",
+    "es": "suspensiones",
+    "ca": "suspensions"
+  },
+  "ui.model_settings_none": {
+    "en": "No manual suspensions. Models still have to pass prediction gates.",
+    "es": "Sin suspensiones manuales. Los modelos siguen sujetos a los filtros de predicción.",
+    "ca": "Sense suspensions manuals. Els models continuen subjectes als filtres de predicció."
+  },
+  "ui.model_settings_help": {
+    "en": "Suspensions apply to the map and species predictor, on HA and workers. They persist after retraining and updates, without deleting models. Global suspensions also apply to every species; remove all matching suspensions to reactivate. Saving makes previous precomputes stale; prepare the week again. The next eligible model is used, or no IFF if none qualifies.",
+    "es": "Las suspensiones afectan al mapa y al predictor por especie, en HA y workers. Se conservan al reentrenar y actualizar, sin borrar modelos. Una suspensión global afecta a todas las especies; para reactivar, retira todas las suspensiones aplicables. Guardar deja obsoletos los precálculos anteriores; prepara la semana de nuevo. Se usa el siguiente modelo admisible, o no se calcula IFF si ninguno lo es.",
+    "ca": "Les suspensions afecten el mapa i el predictor per espècie, a HA i workers. Es conserven en reentrenar i actualitzar, sense esborrar models. Una suspensió global afecta totes les espècies; per reactivar, retira totes les suspensions aplicables. Desar deixa obsolets els precàlculs anteriors; prepara la setmana de nou. Es fa servir el següent model admissible, o no es calcula IFF si cap ho és."
+  },
+  "ui.model_settings_saved": {
+    "en": "Model settings saved. Prepare the week again to update precomputed predictions.",
+    "es": "Configuración de modelos guardada. Prepara la semana de nuevo para actualizar las predicciones precalculadas.",
+    "ca": "Configuració de models desada. Prepara la setmana de nou per actualitzar les prediccions precalculades."
   }
 }

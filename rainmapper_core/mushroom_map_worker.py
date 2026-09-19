@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 from rainmapper_core.mushroom_map_execution import PointExecutor, load_config
 from rainmapper_core.mushroom_map_queries import WORKER_PATH
 from rainmapper_core import mushroom_prediction_map as contract
+from rainmapper_core import mushroom_ml_prediction_policy as model_policy
 
 PROTOCOL = "map_report_v1"
 
@@ -33,7 +34,8 @@ def run_loop(coordinators, worker_id, executors, stop, busy=lambda:False, transp
             geography.request(response['geography'])
 
     def readiness(executor):
-        return {**({'ready_fingerprint': executor.fingerprint} if hasattr(executor, 'prepare') else {}),
+        return {'capabilities': [model_policy.CAPABILITY],
+                **({'ready_fingerprint': executor.fingerprint} if hasattr(executor, 'prepare') else {}),
                 **({'ready_geography': executor.executor_geography} if getattr(executor, 'geography', None) else {})}
 
     ready = {}
@@ -62,6 +64,7 @@ def run_loop(coordinators, worker_id, executors, stop, busy=lambda:False, transp
                         announce(executors[key], transport(coordinator,{"worker_id":worker_id,"action":"busy", **readiness(executors[key])}))
                         continue
                     response = transport(coordinator,{"worker_id":worker_id,"action":"poll",
+                        "capabilities": [model_policy.CAPABILITY],
                         **({"ready_fingerprint":executors[key].fingerprint} if hasattr(executors[key], "prepare") else {}),
                         **({"ready_geography":executors[key].executor_geography} if getattr(executors[key], 'geography', None) else {})})
                     announce(executors[key], response)

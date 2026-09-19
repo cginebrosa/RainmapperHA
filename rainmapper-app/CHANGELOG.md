@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.314
+
+- Add model suspension and reactivation settings by species or globally in Workers and jobs.
+- Apply suspensions to Predictor and point-map model selection before using cached predictions; retain models for training and comparison.
+- Preserve suspension rules during model installation and synchronize them with worker runtimes and weekly precomputation.
+- Require worker support for model policies when suspensions are configured.
+
 ## 0.2.313
 
 - Replace known-site maintenance with a persistent MapLibre workspace, synchronized area/micro-area tree and detail panel.

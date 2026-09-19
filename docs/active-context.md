@@ -18,7 +18,7 @@ limpiar archivos o iniciar entrenamiento/precálculo por mantener documentación
 
 ## Versiones y validación
 
-- HA del repositorio: **0.2.313**, coincidente en `rainmapper-app/config.yaml`,
+- HA del repositorio: **0.2.314**, coincidente en `rainmapper-app/config.yaml`,
   Dockerfile (LABEL/ENV) y cache-busters de ambos visores.
 - Worker: **1.1.3** como valor por defecto en su Dockerfile y Compose. Versionado
   independiente de HA; una etiqueta no demuestra la imagen efectiva en ejecución.
@@ -32,6 +32,36 @@ limpiar archivos o iniciar entrenamiento/precálculo por mantener documentación
 - **Usuario confirma que funciona bien en iPhone y Safari del Mac tras la
   publicación 0.2.312.** Incidencia de zoom del buscador cerrada por esa validación.
   No se ha inspeccionado remotamente la versión instalada.
+
+## Suspensiones de modelos — publicado en 0.2.314
+
+Nueva sección en Workers y trabajos para suspender/reactivar modelos por especie
+o globalmente, con motivo persistido. Afecta a la selección de predicciones;
+no elimina artefactos ni impide entrenarlos. Registro transportado al worker,
+identidad de runtime/precálculo renovada y caché filtrada antes de servir IFF.
+[Funcionamiento y validación](mushrooms/model-suspensions-es.md).
+
+HA local y el único worker reconstruidos: paridad efectiva 206/109 archivos;
+smoke de 1.649 tests, 48 omitidos (validación anterior; no se modificó código
+ejecutable al ampliar las reglas). Siete suspensiones para rovelló solo en HA
+local: HGB/KNN/SVM-V2 y HGB de ambos perfiles V3/V4. Las cuatro últimas se
+guardaron mediante el formulario tras autorización. Precálculo con las tres
+reglas V2 terminado/activado y mapa local/worker coincidentes en dos puntos.
+La nueva cadena lanzada por el usuario terminó: lote `operational_20260919T014018Z`
+instalado, 714 artefactos, siete reglas conservadas. Los 14 artefactos de los siete
+modelos suspendidos existen y pasan hash. 56 combinaciones suspendidas bloqueadas;
+35 selecciones en cinco puntos respetan la política (Smooth Partial V6-30).
+Paridad mapa local/worker correcta en Pradell y Capolat. Precálculo
+`worker_job_O7yzs0AqVMK6` completo y activado, revisión 68, SHA verificado y
+ningún ganador suspendido en los resultados persistidos.
+
+Publicación autorizada: GHCR `0.2.314` y `latest` verificados con el mismo digest
+`sha256:bc4324b83141fb8719f1d18b770c5dc0db816966e5b2ce344f1a8c375c9d12bc`,
+AMD64 y ARM64. [Informe de release](reports/ha-release-0.2.314.json).
+Pendiente instalación por el usuario y aplicación de las siete reglas en HA real:
+son configuración privada y no viajan dentro de la imagen. El único worker ya
+está reconstruido con soporte, conservando coordinadores; no se publicó otro worker.
+[Auditoría ampliada y límites](reports/rovello-model-sensitivity-expanded-2026-09-19.md).
 
 ## Mantenimiento de setales — publicado en 0.2.313
 

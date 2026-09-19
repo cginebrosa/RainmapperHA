@@ -199,6 +199,26 @@ class MapRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'model_publication_pending'): self.publisher.refresh()
         with self.assertRaisesRegex(QueryError,'map_data_not_ready'): self.publisher.reference()
 
+    def test_suspension_changes_snapshot_and_is_transported_to_worker(self):
+        from rainmapper_core import mushroom_ml_prediction_policy as policy
+        previous = self.publisher.reference()['fingerprint']
+        registry = json.loads(Path(self.config['model_registry']).read_text())
+        registry[policy.FIELD] = [{'version_id':'altitude_v2','profile_id':'common_idw',
+            'estimator_id':'hist_gradient_boosting_restricted_v1','species_id':'lactarius_deliciosus',
+            'reason':'audit','updated_at':'2026-09-19','updated_by':'test'}]
+        Path(self.config['model_registry']).write_bytes(maps.encode(registry))
+        with self.assertRaisesRegex(QueryError, 'map_data_not_ready'):
+            self.publisher.reference()
+        self.sources['data/mushroom_ml_version_registry.json'].write_bytes(maps.encode(registry))
+        self.publish_base()
+        self.publisher.refresh()
+        reference = self.publisher.reference()
+        self.assertNotEqual(reference['fingerprint'], previous)
+        self.assertEqual(reference['required_capabilities'], [policy.CAPABILITY])
+        self.executor.prepare(reference)
+        received = json.loads(Path(self.executor.executor.config['model_registry']).read_text())
+        self.assertEqual(received[policy.FIELD], registry[policy.FIELD])
+
     def test_limits_and_authorization_before_materialization(self):
         with self.assertRaises(QueryError): self.publisher.object('sha256:'+'f'*64,'data/mushroom_profiles.json')
         with self.assertRaises(QueryError): self.publisher.object(self.publisher.current,'../../etc/passwd')

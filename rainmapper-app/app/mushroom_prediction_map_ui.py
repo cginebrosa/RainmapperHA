@@ -96,6 +96,8 @@ def serve_worker_api(handler, authenticate):
                 try: reference = current.publication.reference()
                 except QueryError: reference = None
                 eligible = eligible and reference is not None and payload.get("ready_fingerprint") == reference['fingerprint']
+                if reference:
+                    eligible = eligible and set(reference.get('required_capabilities', [])) <= set(payload.get('capabilities') or [])
             if current.geography:
                 try: geo_ref = current.geography.reference()
                 except QueryError: geo_ref = None

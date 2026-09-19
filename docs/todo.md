@@ -1,9 +1,38 @@
-# TODO — actualizado 18/09/2026
+# TODO — actualizado 19/09/2026
 
 Arranque suficiente: [codex-start-here](codex-start-here.md) y
 [active-context](active-context.md). Esta lista no autoriza trabajos ni publicaciones.
 El historial y los checklists anteriores se conservan en
 [archivo documental](reports/session-context-before-close-2026-09-16.md).
+
+## Suspensiones de modelos — 19/09/2026
+
+- [x] Implementar suspensión/reactivación por especie o global desde Workers y
+  trabajos; persistencia y transporte al worker, filtro anterior a la caché.
+  [Contrato y estado local](mushrooms/model-suspensions-es.md).
+- [x] Validar precálculo y mapa local/worker con HGB/KNN/SVM-V2 suspendidos.
+- [x] Ampliar a HGB de ambos perfiles V3/V4 para rovelló: siete reglas en HA local,
+  guardadas mediante el formulario tras autorización. No aplicadas a HA real.
+- [x] Verificar la cadena de entrenamiento lanzada por el usuario: lote nuevo
+  instalado, siete reglas conservadas, 14 artefactos suspendidos entrenados y
+  verificados por SHA; 56 combinaciones excluidas y 35 selecciones válidas en
+  cinco puntos. Paridad mapa local/worker correcta en dos puntos.
+- [x] Verificar resultado y activación del precálculo `worker_job_O7yzs0AqVMK6`: recibo,
+  SHA, siete reglas y ausencia de ganadores suspendidos.
+- [x] Publicar HA 0.2.314: GHCR versión/latest, mismo digest, AMD64 y ARM64
+  verificados. [Informe](reports/ha-release-0.2.314.json).
+- [ ] Tras instalar 0.2.314 en HA real, configurar allí las siete suspensiones y
+  renovar su precálculo. Las reglas locales no se distribuyen con la imagen.
+- [x] Verificar las siete reglas en el snapshot de entrada del entrenamiento,
+  tanto en HA local como dentro del worker. Pendiente su resultado, no confundir
+  transporte correcto con validación completa de la cadena.
+- [ ] Revisar científicamente los modelos cuestionados antes de reactivarlos:
+  estabilidad ante trazas de lluvia, independencia de vecinos de KNN,
+  calibración y respuesta temporal. Suavidad por sí sola no prueba precisión.
+- [ ] Corregir y versionar de forma coherente el criterio de día lluvioso/racha
+  seca en entrenamiento e inferencia; evaluar umbrales con evidencia, sin cambiar
+  la semántica de artefactos existentes. KNN: comprobar independencia por ID de
+  observación, no solo igualdad de atributos. [Resultados y límites](reports/rovello-model-sensitivity-expanded-2026-09-19.md).
 
 ## Pendiente del usuario — observaciones GBIF (17/09/2026)
 
