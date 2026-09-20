@@ -156,6 +156,7 @@ def compare_prepared(
     stations: Mapping[tuple[str, str], Any],
     checked_manifest: Mapping[str, object] | None = None,
     comparison_cache: MutableMapping[str, Any] | None = None,
+    model_inputs_observer=None,
     quality_catalog_cache: MutableMapping[
         tuple[str, str], dict[str, Any]
     ]
@@ -357,6 +358,9 @@ def compare_prepared(
                 validated_model_ref=first["model_ref"],
             )
             record_phase("artifact_load", phase_started)
+            if model_inputs_observer is not None:
+                for row in pending:
+                    model_inputs_observer(row["model_ref"].as_dict(), bundle.get("feature_cols", []))
             phase_started = monotonic()
             predictions = mushroom_ml_runtime_inference.predict_bundle_many(
                 bundle,
@@ -1657,7 +1661,9 @@ def _weather_requirements(
     )
     lookback_days = (
         mushroom_ml_raw_weather.LOOKBACK_DAYS
-        if any(ref.version_id in long_raw_versions for ref in model_refs)
+        if any(ref.version_id in long_raw_versions or any(
+            token in ref.profile_id.lower() for token in ("physical_state", "soil_water", "smi")
+        ) for ref in model_refs)
         else biology_v3.EVENT_LOOKBACK_DAYS
     )
     include_physical_state = any(

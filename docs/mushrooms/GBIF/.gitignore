@@ -1,6 +1,2 @@
-# Local research observations and photos; scripts and reports remain reviewable.
-snapshot-*/
-gbif-counts-*.json
-gbif-sample-*.json
-__pycache__/
-gbif-revision-*.json
+# Legacy file URLs: symlinks only; all data live in local-apps/gbif/data.
+snapshot-*

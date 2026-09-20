@@ -14,6 +14,7 @@ import numpy as np
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_smooth_hierarchical as smooth
 from rainmapper_core.mushroom_ml_predictor import _label
+from .mushroom_water_physics import validate_water_contract
 
 
 _ARTIFACT_CACHE_MAX_ENTRIES = 128
@@ -119,12 +120,14 @@ def load_exact_artifact(
         actual = catalog.ModelArtifactRef.from_mapping(bundle.get("artifact_ref") or {})
         if actual != expected:
             raise ValueError("Runtime model bundle identity mismatch")
+        validate_water_contract(bundle, bundle.get("feature_cols", []))
         return bundle
 
     with _artifact_cache_lock:
         cached = _artifact_cache.get(cache_key)
         if cached is not None:
             _artifact_cache.move_to_end(cache_key)
+            validate_water_contract(cached,cached.get("feature_cols", []))
             return cached
 
         if _sha256(path) != declared_digest:
@@ -135,6 +138,8 @@ def load_exact_artifact(
         actual = catalog.ModelArtifactRef.from_mapping(bundle.get("artifact_ref") or {})
         if actual != expected:
             raise ValueError("Runtime model bundle identity mismatch")
+
+        validate_water_contract(bundle,bundle.get("feature_cols", []))
 
         # A replaced immutable runtime must not retain an older object for the
         # same pathname. Digest and stat identity still guard every cache hit.
@@ -174,6 +179,7 @@ def predict_bundle_many(
     columns = [str(value) for value in bundle.get("feature_cols", [])]
     if not columns:
         raise ValueError("Runtime model bundle has no feature columns")
+    validate_water_contract(bundle,columns)
     row = np.asarray(
         [
             [

@@ -43,7 +43,27 @@
 .pm-summary-values strong { color:#235e4d; font-size:14px; white-space:nowrap; }
 .pm-ph-short-label { display:none; }
 .pm-summary-trees { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:0; font-size:11px; }
-.pm-summary-trees-label { width:100%; color:#526678; }
+.pm-summary-trees-label { width:100%; color:#526678; display:flex; flex-wrap:wrap; align-items:baseline; gap:3px 8px; }
+.pm-place-with-water { grid-template-columns:minmax(0,1fr) auto auto; gap:5px 8px; }
+.pm-place-with-water .pm-terrain-summary { padding-left:6px; }
+.pm-place-with-water .pm-summary-values { gap:7px; }
+.pm-water-brief { display:flex; flex-direction:column; gap:3px; align-items:flex-start; min-width:0; max-width:100%; font:inherit; font-size:11px; color:#235e4d; background:transparent; border:0; padding:0; cursor:pointer; text-align:left; }
+.pm-water-brief span { white-space:nowrap; }
+.pm-water-brief:hover { text-decoration:underline; }
+.pm-water-brief:focus-visible { outline:2px solid #087baa; outline-offset:2px; }
+@media (min-width:481px) {
+  .pm-place-with-water { grid-template-columns:minmax(125px,1fr) max-content max-content; }
+  .pm-place-with-water .pm-municipality { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pm-place-with-water .pm-coordinates { white-space:nowrap; font-size:11px; }
+  .pm-place-with-water .pm-terrain-summary { border:0; padding:0; }
+  .pm-place-with-water .pm-summary-values { display:flex; flex-direction:column; gap:3px; }
+  .pm-place-with-water .pm-summary-values > div { flex-direction:row; align-items:baseline; gap:3px; position:relative; }
+  .pm-place-with-water .pm-summary-values strong { font-size:12px; }
+  .pm-place-with-water .pm-summary-altitude > span, .pm-place-with-water .pm-ph-full-label { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  .pm-place-with-water .pm-ph-short-label { display:inline; }
+  .pm-place-with-water .pm-summary-ph .pm-ph-nearby { display:none; }
+  .pm-place-with-water .pm-water-brief { align-self:center; }
+}
 .pm-tree-chip { background:#e4f1ea; border:1px solid #b0cebf; border-radius:5px; padding:2px 6px; color:#235e4d; overflow-wrap:anywhere; max-width:100%; box-sizing:border-box; }
 .pm-tree-chip-muted { background:transparent; border-color:#d2dce1; color:#637482; }
 .pm-soil-chip { background:#f4ecdd; border-color:#d2bd99; color:#71522a; }
@@ -62,6 +82,12 @@
     position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap;
   }
   .pm-ph-short-label { display:inline; }
+  .pm-place-with-water { grid-template-columns:auto minmax(0,1fr) auto; row-gap:2px; }
+  .pm-place-with-water .pm-municipality { grid-column:1 / -1; grid-row:1; }
+  .pm-place-with-water .pm-coordinates { grid-column:1 / 3; grid-row:2; }
+  .pm-place-with-water .pm-summary-altitude { grid-column:1; grid-row:3; }
+  .pm-place-with-water .pm-summary-ph { grid-column:2; grid-row:3; }
+  .pm-place-with-water .pm-water-brief { grid-column:3; grid-row:2 / 4; align-self:center; }
 }
 .pm-result p { margin:3px 0 5px; }
 .pm-close { float:right; font-size:24px; border:0; background:transparent; color:inherit; cursor:pointer; min-width:30px; min-height:30px; }
@@ -84,7 +110,7 @@
   .pm-calendar select { grid-column:3; appearance:none; -webkit-appearance:none; font:inherit; line-height:18px; width:140px; height:24px; min-width:0; padding:2px 18px 2px 6px; color:#22313f; background-color:#edf3f7; border:1px solid #b8c7d2; border-radius:5px; background-image:linear-gradient(45deg, transparent 50%, #526678 50%),linear-gradient(135deg, #526678 50%, transparent 50%); background-position:calc(100% - 9px) 50%,calc(100% - 5px) 50%; background-size:4px 4px; background-repeat:no-repeat; }
 }
 .pm-species { list-style:none; padding:0; margin:6px 0; }
-.pm-species li { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 8px; border-bottom:1px solid #ccd6df; padding:6px 0; }
+.pm-species li { display:grid; grid-template-columns:minmax(40%,1fr) minmax(0,auto); gap:2px 8px; border-bottom:1px solid #ccd6df; padding:6px 0; }
 .pm-species small { grid-column:1 / -1; }
 .pm-species small { line-height:1.3; }
 .pm-applicability { grid-column:1 / -1; font-size:12px; color:#765000; overflow-wrap:anywhere; }
@@ -93,7 +119,10 @@
 .pm-season-phase { white-space:nowrap; }
 .pm-species li { position:relative; }
 .pm-iff-value { display:contents; }
-.pm-iff-score { grid-column:2; grid-row:1; justify-self:end; }
+.pm-iff-heading { grid-column:2; grid-row:1; display:flex; flex-wrap:wrap; align-items:baseline; justify-content:flex-end; gap:2px 6px; min-width:0; text-align:right; }
+.pm-model-name { appearance:none; border:0; border-bottom:1px dotted #708797; padding:0; margin:0; background:none; color:#526678; font:11px system-ui; overflow-wrap:anywhere; cursor:help; }
+.pm-model-name:focus-visible { outline:2px solid #087baa; outline-offset:2px; }
+.pm-iff-score { max-width:100%; }
 .pm-species-name { grid-column:1; grid-row:1; min-width:0; overflow-wrap:anywhere; }
 .pm-species-name + .pm-iff-value + small { grid-column:1; grid-row:2; min-width:0; overflow-wrap:anywhere; }
 .pm-iff-score { appearance:none; -webkit-appearance:none; border:0; padding:0; margin:0; background:none; color:inherit; font:inherit; cursor:help; border-bottom:1px dotted #708797; }
@@ -108,9 +137,11 @@
 .pm-iff-value[data-iff-band] .pm-iff-score,
 .pm-iff-value[data-iff-band] .pm-iff-band,
 .pm-iff-peak-value { color:var(--pm-iff-color); font-weight:600; }
-.pm-iff-help { display:none; position:absolute; z-index:4; right:0; top:32px; box-sizing:border-box; width:min(300px,100%); padding:8px 10px; border-radius:6px; background:#142c3b; color:white; text-align:left; font:12px/1.4 system-ui; box-shadow:0 2px 8px #0004; }
-.pm-iff-open .pm-iff-help, .pm-iff-value:focus-within .pm-iff-help { display:block; }
-@media (hover:hover) { .pm-iff-value:hover .pm-iff-help { display:block; } }
+.pm-iff-help, .pm-model-help { display:none; position:absolute; z-index:4; right:0; top:32px; box-sizing:border-box; width:min(300px,100%); padding:8px 10px; border-radius:6px; background:#142c3b; color:white; text-align:left; font:12px/1.4 system-ui; box-shadow:0 2px 8px #0004; }
+.pm-model-help:not([hidden]) { display:block; }
+.pm-model-help > span { display:block; margin-top:4px; }
+.pm-iff-open .pm-iff-help, .pm-iff-value:has(.pm-iff-score:focus-visible) .pm-iff-help { display:block; }
+@media (hover:hover) { .pm-iff-value:has(.pm-iff-score:hover) .pm-iff-help { display:block; } }
 .pm-result details { border-top:1px solid #ccd6df; padding:8px 0; }
 .pm-result summary { cursor:pointer; font-weight:600; }
 .pm-ecology-exclusions ul { list-style:none; padding:0; margin:8px 0 0; }
@@ -122,7 +153,7 @@
 .pm-ph-table, .pm-ph-openlandmap { width:100%; border-collapse:collapse; font-size:12px; }
 .pm-ph-table th, .pm-ph-table td, .pm-ph-openlandmap th, .pm-ph-openlandmap td { padding:5px 3px; text-align:left; border-bottom:1px solid #ccd6df; }
 .pm-summary-ph .pm-ph-nearby { display:block; font-size:10px; color:#526678; }
-.pm-weather-figure { margin:14px 0; }
+.pm-weather-figure { margin:14px 0; position:relative; }
 .pm-weather-figure figcaption { font-weight:600; }
 .pm-weather-figure svg { display:block; width:100%; height:auto; background:#edf3f7; border-radius:8px; }
 .pm-weather-legend { display:flex; gap:14px; font-size:12px; }
@@ -136,6 +167,8 @@
   .pm-result h2 { font-size:16px; line-height:1.2; margin:2px 28px 4px 0; }
   .pm-result-header { padding-bottom:6px; }
   .pm-place-heading { padding:1px 0 2px; gap:3px 6px; }
+  .pm-place-with-water { row-gap:0; }
+  .pm-place-with-water .pm-water-brief { font-size:10px; }
   .pm-result p { margin:3px 0 6px; }
   .pm-result .pm-coordinates { margin:0; }
   .pm-result .pm-execution { font-size:11.5px; line-height:1.3; margin:2px 0; }
@@ -146,3 +179,9 @@
   .pm-species li { gap:2px 8px; padding:6px 0; }
   .pm-species small { font-size:11.5px; line-height:1.3; }
 }
+
+.pm-history-tooltip { top:24px; left:42px; max-width:calc(100% - 42px); background:#fff; color:#183746; border:1px solid #a9bdc9; }
+
+.pm-weather-legend { position:relative; }
+.pm-legend-help { appearance:none; background:none; border:0; border-bottom:1px dotted currentColor; padding:0; font:inherit; cursor:help; }
+.pm-legend-tooltip { bottom:100%; left:0; width:max-content; max-width:100%; margin-bottom:5px; white-space:normal; }

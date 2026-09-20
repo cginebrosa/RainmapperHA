@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from datetime import date
 
-spec = importlib.util.spec_from_file_location('station_research', Path(__file__).resolve().parents[1] / 'scripts/station_research.py')
+spec = importlib.util.spec_from_file_location('station_research', Path(__file__).resolve().parents[1] / 'local-apps/wunderground/code/station_research.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 

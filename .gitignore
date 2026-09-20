@@ -44,3 +44,6 @@ MERGED_*.csv
 
 # Local GBIF review decisions and manual exports
 gbif-revision-*.json
+
+# Private local viewer snapshots, reviews, caches and logs
+/local-apps/*/data/

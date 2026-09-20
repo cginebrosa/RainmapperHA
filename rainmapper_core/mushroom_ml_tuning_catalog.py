@@ -188,12 +188,19 @@ def validate_catalog(
     training_plan: Mapping[str, object] | None = None,
     allow_superset: bool = False,
 ) -> dict[str, Any]:
+    return _validate_catalog(registry, payload, training_plan=training_plan,
+                             allow_superset=allow_superset,
+                             expected_fingerprint=compatibility_fingerprint(registry))
+
+
+def _validate_catalog(registry, payload, *, training_plan=None, allow_superset=False,
+                      expected_fingerprint):
     if not isinstance(payload, Mapping):
         raise ValueError("Tuning catalog must be an object")
     if payload.get("schema_version") != SCHEMA_VERSION or payload.get("kind") != KIND:
         raise ValueError("Tuning catalog contract is invalid")
     fingerprint = str(payload.get("compatibility_fingerprint") or "")
-    if fingerprint != compatibility_fingerprint(registry):
+    if fingerprint != expected_fingerprint:
         raise ValueError("Tuning catalog is incompatible with the training contract")
     source_batch_id = str(payload.get("source_batch_id") or "").strip()
     source_snapshot_id = str(payload.get("source_snapshot_id") or "").strip()
@@ -254,6 +261,22 @@ def validate_catalog(
         "catalog_id": catalog_id,
         **identity_payload,
     }
+
+
+def migrate_pre_water_catalog(registry, payload):
+    """Carry forward verified hyperparameters, never old data, weights or scores.
+
+    Only the known SMI contract transition is accepted. Unrelated revisions,
+    tampering and schema differences still fail closed. Existing artifact hashes
+    retain provenance; operational fitting and evaluation run again from scratch.
+    """
+    legacy = "sha256:" + hashlib.sha256(_canonical({
+        "implementation_revision": IMPLEMENTATION_REVISION,
+        "training_contract_revision": mushroom_ml_version_registry.pre_water_training_contract_revision(registry),
+    })).hexdigest()
+    checked = _validate_catalog(registry, payload, expected_fingerprint=legacy)
+    return build_from_decisions(registry, source_batch_id=checked['source_batch_id'],
+        source_snapshot_id=checked['source_snapshot_id'], decisions=checked['decisions'])
 
 
 def build_from_batch(

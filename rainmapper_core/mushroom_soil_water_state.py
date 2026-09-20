@@ -1,6 +1,6 @@
-"""Uncalibrated SoilGrids water-state component for Mushroom Biology V4.
+"""Shared SoilGrids regulated water state for physical prediction profiles.
 
-The component is intentionally a transparent one-bucket experiment, not a
+The accepted component is a transparent one-layer reference, not a
 replacement for a calibrated forest water-balance model. It uses SoilGrids
 fine-earth available-water capacity and publishes every limitation outside X.
 """
@@ -12,8 +12,8 @@ from datetime import date
 from typing import Mapping, Sequence
 
 
-SOIL_WATER_STATE_CONTRACT_ID = "microarea_soil_water_state_v1"
-BUCKET_METHOD_ID = "bounded_fine_earth_bucket_v1"
+SOIL_WATER_STATE_CONTRACT_ID = "microarea_soil_water_state_v2"
+BUCKET_METHOD_ID = "regulated_pm_single_layer_v1"
 VALIDATION_STATE = "uncalibrated_physical_index"
 DEFAULT_FIELD_CAPACITY_PROPERTY = "wv0033_mm_per_m"
 WILTING_POINT_PROPERTY = "wv1500_mm_per_m"
@@ -187,155 +187,73 @@ def build_soil_water_state(
         quantile=quantile,
     )
     capacity = float(capacity_context["capacity_mm"])
-    convergence_limit = max(
-        CONVERGENCE_ABSOLUTE_MM, capacity * CONVERGENCE_CAPACITY_FRACTION
-    )
-    convergence: dict[str, dict[str, object]] = {}
-    selected_days: int | None = None
-    selected_run: dict[str, list[float] | float] | None = None
-    longest_converged_days: int | None = None
-    longest_converged_run: dict[str, list[float] | float] | None = None
-    missing_reasons: dict[str, int] = {}
+    from .mushroom_water_physics import regulated_history, WATER_STATE_CONTRACT_ID
 
-    for spinup_days in SPINUP_CANDIDATES_DAYS:
-        if len(dates) < spinup_days:
-            convergence[str(spinup_days)] = {
-                "available": False,
-                "reason": "insufficient_history",
-            }
-            continue
-        rain_slice = rain_idw_mm[-spinup_days:]
-        eto_slice = reference_evapotranspiration_mm[-spinup_days:]
-        missing_rain = sum(value is None for value in rain_slice)
-        missing_eto = sum(value is None for value in eto_slice)
-        if missing_rain or missing_eto:
-            if missing_rain:
-                missing_reasons["missing_area_idw_rain"] = max(
-                    missing_reasons.get("missing_area_idw_rain", 0), missing_rain
-                )
-            if missing_eto:
-                missing_reasons["missing_reference_evapotranspiration"] = max(
-                    missing_reasons.get("missing_reference_evapotranspiration", 0), missing_eto
-                )
-            convergence[str(spinup_days)] = {
-                "available": False,
-                "reason": "missing_daily_inputs",
-                "missing_rain_days": missing_rain,
-                "missing_evapotranspiration_days": missing_eto,
-            }
-            continue
-        rain_values = [float(value) for value in rain_slice if value is not None]
-        eto_values = [float(value) for value in eto_slice if value is not None]
-        dry = simulate_bounded_bucket(
-            rain_mm=rain_values,
-            reference_evapotranspiration_mm=eto_values,
-            capacity_mm=capacity,
-            initial_storage_mm=0.0,
-        )
-        saturated = simulate_bounded_bucket(
-            rain_mm=rain_values,
-            reference_evapotranspiration_mm=eto_values,
-            capacity_mm=capacity,
-            initial_storage_mm=capacity,
-        )
-        final_difference = abs(
-            float(dry["storage_mm"][-1]) - float(saturated["storage_mm"][-1])
-        )
-        converged = final_difference <= convergence_limit
-        convergence[str(spinup_days)] = {
-            "available": True,
-            "converged": converged,
-            "dry_initial_final_storage_mm": dry["storage_mm"][-1],
-            "saturated_initial_final_storage_mm": saturated["storage_mm"][-1],
-            "final_difference_mm": round(final_difference, ROUND_DIGITS),
-            "limit_mm": round(convergence_limit, ROUND_DIGITS),
-        }
-        if converged and selected_days is None:
-            selected_days = spinup_days
-            selected_run = dry
-        if converged:
-            longest_converged_days = spinup_days
-            longest_converged_run = dry
-
-    reasons: list[dict[str, str]] = []
-    if selected_days is None or selected_run is None:
-        any_available = any(bool(row.get("available")) for row in convergence.values())
-        reasons.append(
-            {
-                "code": (
-                    "soil_water_spinup_not_converged"
-                    if any_available
-                    else "soil_water_spinup_inputs_incomplete"
-                ),
-                "message": (
-                    "Los calentamientos disponibles no borran la dependencia del estado inicial."
-                    if any_available
-                    else "Ningún calentamiento 90/180/365 días dispone de lluvia y ET0 diarias completas."
-                ),
-            }
-        )
-    storage_values = selected_run["storage_mm"] if selected_run is not None else []
-    cutoff_storage = float(storage_values[-1]) if storage_values else None
-    cutoff_fraction = cutoff_storage / capacity if cutoff_storage is not None else None
-
-    def change(days: int) -> float | None:
-        if len(storage_values) <= days:
-            return None
-        return round((float(storage_values[-1]) - float(storage_values[-1 - days])) / capacity, ROUND_DIGITS)
-
-    predictive_features = {
-        "soil_water_at_cutoff_fraction": round(cutoff_fraction, ROUND_DIGITS)
-        if cutoff_fraction is not None
-        else None,
-        "soil_water_change_7d_fraction": change(7),
-        "soil_water_change_14d_fraction": change(14),
-    }
+    # Use the full bounded history, as the map does. Never start afresh at the
+    # display/feature window, and never publish unconverged early daily states.
+    dates = list(dates[-365:])
+    rain = list(rain_idw_mm[-365:])
+    eto = list(reference_evapotranspiration_mm[-365:])
+    history = regulated_history(rain, eto, capacity)
+    cutoff = history['storage_mm'][-1]
+    end_reason = history['reasons'][-1]
+    reasons = [] if end_reason is None else [{
+        'code': 'soil_water_spinup_not_converged' if end_reason == 'not_converged' else 'soil_water_spinup_inputs_incomplete',
+        'message': 'El estado requiere al menos 90 días consecutivos y convergencia de los estados iniciales seco y lleno.',
+    }]
+    # Consecutive usable tail for area changes; the raw daily ML channel below
+    # retains every valid date, including segments preceding an observed gap.
+    first = len(dates)
+    while first > 0 and history['storage_mm'][first-1] is not None:
+        first -= 1
+    values = history['storage_mm'][first:]
+    def change(age):
+        return round((values[-1]-values[-1-age])/capacity,ROUND_DIGITS) if len(values)>age else None
+    usable = [(day,value) for day,value in zip(dates,history['storage_mm']) if value is not None]
+    convergence = {'full_history': {
+        'available': end_reason not in ('inputs_incomplete','spinup_incomplete'),
+        'converged': end_reason is None,
+        'contiguous_days': history['contiguous_days'][-1],
+        'limit_mm': max(CONVERGENCE_ABSOLUTE_MM, capacity*CONVERGENCE_CAPACITY_FRACTION),
+    }}
     return {
-        "contract_id": SOIL_WATER_STATE_CONTRACT_ID,
-        "predictive_features": predictive_features,
-        "quality": {
-            "training_eligible": not reasons,
-            "training_exclusion_reasons": reasons,
-            "missing_input_reason_counts": missing_reasons,
-            "spinup_convergence": convergence,
-            "water_balance_mass_error_max_mm": (
-                selected_run["mass_error_max_mm"] if selected_run is not None else None
-            ),
+        'contract_id': SOIL_WATER_STATE_CONTRACT_ID,
+        'predictive_features': {
+            'soil_water_at_cutoff_fraction': round(cutoff/capacity,ROUND_DIGITS) if cutoff is not None else None,
+            'soil_water_change_7d_fraction': change(7),
+            'soil_water_change_14d_fraction': change(14),
         },
-        "metadata": {
-            "validation_state": VALIDATION_STATE,
-            "bucket_method": BUCKET_METHOD_ID,
-            "soilgrids_context_hash": soilgrids_context.get("context_hash"),
-            "capacity": capacity_context,
-            "selected_spinup_days": selected_days,
-            "cutoff_date": dates[-1].isoformat(),
-            "daily_dates": [day.isoformat() for day in dates[-selected_days:]] if selected_days else [],
-            "daily_storage_mm": storage_values,
-            "daily_storage_fraction": [round(float(value) / capacity, ROUND_DIGITS) for value in storage_values],
-            "longest_converged_daily_dates": (
-                [day.isoformat() for day in dates[-longest_converged_days:]]
-                if longest_converged_days
-                else []
-            ),
-            "longest_converged_daily_storage_fraction": (
-                [
-                    round(float(value) / capacity, ROUND_DIGITS)
-                    for value in longest_converged_run["storage_mm"]
-                ]
-                if longest_converged_run is not None
-                else []
-            ),
-            "daily_actual_evapotranspiration_mm": (
-                selected_run["actual_evapotranspiration_mm"] if selected_run is not None else []
-            ),
-            "daily_drainage_mm": selected_run["drainage_mm"] if selected_run is not None else [],
-            "daily_unmet_evaporative_demand_mm": (
-                selected_run["unmet_evaporative_demand_mm"] if selected_run is not None else []
-            ),
-            "limitations": [
-                "SoilGrids is a 250 m prediction, not a plot measurement.",
-                "Capacity currently describes fine earth because coarse-fragment context is unavailable.",
-                "The bucket has no calibrated forest interception, runoff, roots or vegetation demand.",
+        'quality': {
+            'training_eligible': not reasons,
+            'training_exclusion_reasons': reasons,
+            'missing_input_reason_counts': {
+                'missing_area_idw_rain': sum(v is None for v in rain),
+                'missing_reference_evapotranspiration': sum(v is None for v in eto),
+            },
+            'spinup_convergence': convergence,
+            'water_balance_mass_error_max_mm': history['mass_error_max_mm'],
+        },
+        'metadata': {
+            'water_state_contract_id': WATER_STATE_CONTRACT_ID,
+            'validation_state': VALIDATION_STATE,
+            'bucket_method': BUCKET_METHOD_ID,
+            'soilgrids_context_hash': soilgrids_context.get('context_hash'),
+            'capacity': capacity_context,
+            'selected_spinup_days': history['contiguous_days'][-1] if cutoff is not None else None,
+            'cutoff_date': dates[-1].isoformat(),
+            'daily_dates': [day.isoformat() for day in dates[first:]],
+            'daily_storage_mm': values,
+            'daily_storage_fraction': [round(v/capacity,ROUND_DIGITS) for v in values],
+            'longest_converged_daily_dates': [day.isoformat() for day,v in usable],
+            'longest_converged_daily_storage_fraction': [round(v/capacity,ROUND_DIGITS) for day,v in usable],
+            'daily_actual_evapotranspiration_mm': history['actual_evapotranspiration_mm'][first:],
+            'daily_drainage_mm': history['drainage_mm'][first:],
+            'daily_unmet_evaporative_demand_mm': history['unmet_evaporative_demand_mm'][first:],
+            'reference_parameters': {'evaporation_share':.5,'depletion_fraction':.5},
+            'limitations': [
+                'SoilGrids is a 250 m prediction, not a plot measurement.',
+                'Capacity describes fine earth; no coarse-fragment correction.',
+                'No calibrated forest interception, runoff, deep roots or canopy demand.',
             ],
         },
     }

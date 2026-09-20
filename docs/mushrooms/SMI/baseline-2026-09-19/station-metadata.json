@@ -1,0 +1,662 @@
+[
+  {
+    "name": "Ribera de Sió",
+    "code": "RDS",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_RDS.pdf",
+    "published_geometry": [
+      0.909805297852833,
+      41.802798518572025
+    ],
+    "published_xy": [
+      326348.0,
+      4630002.0
+    ],
+    "sha256": "1594bcc4323650ee2c476903c3409db1f07ee0a3667233de6694d7114ebeb095",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "RIBERA DE\n\n“asec Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\nCatalunya\n\nCartogréfic i Geolbgic\nde\n\nEstacio de Ribera de Sid\nReferéncia estacid RDS\nLocalitzacié (UTM_ETRS89)\nX= 326.350\n\nY= 4.630.033\nZ= 283 m.s.n.m.\n\nComarca: Noguera (Lleida)\nA Localitzaci6 de l’Estacié de\n\nMunicipi: Balaguer Ribera de Si6 (RDS)\nMapa de sols de Catalunya\nData d’alta: 11/02/2020 1:250.000 (MSC250M)\nWorld Reference Base for Soil Resources\n(WRB)\nDades edafologiques\n\nClassificacié Soil Taxonomy (SSS, 1999): Xerorthent tipic, llimosa fina, mesclada (calcaria), térmica.\nClasificacié World Reference Base (IUSS, 2007): Haplic Regosol (Siltic).\nMaterial originari: Sediments detritics terrigens amb graves. Material subjacent: Gres\n\nProfunditat HoritzsColor_-—=—Matria_‘Humitat gravimétrica Arena Lim Argila_Textura —_Horitz6\n\n(cm) organica ( (%) total total (%) USDA _diagnéstic\n*) — .33Kpa_—-1500 (%) —(%)\nkPa\n000-030 Ap —sSYR4/4 3,6 7 B 19 37 ls A Ocric\n030-070 Bw SYRS/4 13 2B 10 6 3945 A s\n\n070-075/099 2c\n\nA: Argilosa Enllag al visor: https:/ /visors.icgc.cat/ mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 326.350",
+      "Y= 4.630.033",
+      "Z= 283 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 326350.0,
+      "Y": 4630033.0,
+      "Z": 283.0
+    },
+    "lat": 41.80315448,
+    "lon": 0.90970647,
+    "geometry_difference_m": 40.42,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Clot de Les Peres",
+    "code": "CDLP",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_CDLP.pdf",
+    "published_geometry": [
+      0.837707519532014,
+      42.156277517901096
+    ],
+    "published_xy": [
+      321354.5,
+      4669385.8
+    ],
+    "sha256": "df7185004855d6d5e468ac6770d46cd9611e65301958d2be064d2f2c72f7ed39",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "caigse Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nde Catalunya\n\nTRMP-007\n\nEstacio de Clot de les Peres\nReferéncia estacid CDLP\nLocalitzacié (UTM_ETRS89)\n\nX= 321.354\n\nY= 4.669.386\n\nZ= 602 m.s.n.m.\n\nComarca: Pallars Jussa (Lleida)\n\nMunicipi: Tremp A Localitzaci6é de l'Estaci6 de Clot de\nles Peres (CDLP)\n\nData d’alta: 09/10/2017 Mapa de sols de Catalunya 1:250.000\n(MSC250M)\nWorld Reference Base for Soil Resources (WRB)\n\nDades edafologiques\n\nClassificacié: Soil Taxonomy (SSS, 1999): Haploxerept tipic, llimosa fina, mesclada, mésica.\nClasificacié World Reference Base (IUSS, 2007): Calcaric Cambisol.\nMaterial originari: Sediments detritics terrigens/ Material subjacent: Sediments detritics terrigens\n\nProfunditat  Horitzo Color Matéria —_- Humitat gravimétrica Arena Lim Argila Textura Horitzo\n\n(cm) organica (%) total total + —«(%) USDA _diagnésti\n() —33kpa -1500kPa Ss (™) SS «%) c\n000-030 «= Ap —Ss«25Y53 1.2 a 12 19 51 30 FAgL Ocric\n030-060 «BWI «-25Y53 1,7 a 12 18 48 34 FAgL\n060-070 Bw2 = 2,5Y 5/4 08 21 12 18 46 36 FAgL\n070-092 Bwkl 25Y54 07 a 12 15 45 40 FAgL —_Cambic\n\nFAgL: Francoargil-lollimosa Enllag al visor: https://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 321.354",
+      "Y= 4.669.386",
+      "Z= 602 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 321354.0,
+      "Y": 4669386.0,
+      "Z": 602.0
+    },
+    "lat": 42.1562339,
+    "lon": 0.83765295,
+    "geometry_difference_m": 6.61,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Serra de Costa Ampla",
+    "code": "SCA",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_SCA.pdf",
+    "published_geometry": [
+      0.894012451169185,
+      42.21122801156994
+    ],
+    "published_xy": [
+      326158.51,
+      4675374.15
+    ],
+    "sha256": "5dedde4ac281efb70fc90040cd0aa28d968506120730455dd8c356d69b3d307d",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "“asec Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nCartogréfic i Geolbgic\nde Catalunya\n\nEstacio Serra de Costa Ampla\nReferéncia estacid SCA\n\nLocalitzacié (UTM_ETRS89)\nX= 326.151\n\nY= 4.675.373\n\nZ= 922 m.s.n.m.\n\nComarca: Pallars Jussa (Lleida)\n\nMunicipt: Tremp A Localitzacio de l’Estacié Serra de\nData d’alta: Costa Ampla\natta: 01/07/2016 Mapa de sdls de Catalunya\n1:250.000 (MSC250M)\n- World Bas ‘Soil Resour\nDades edafolégiques Reference Bese for tees (wns)\n\nClassificacié Soil Taxonomy (SSS, 1999): Calcixerept tipic, llimosa fina, carbonatica, mésica.\nClassificacié World Reference Base (IUSS, 2007): Calcisol haplic.\nMaterial originari: Sediments detritics terrigens. / Material subjacent: Margues i gresos.\n\nProfunditat  Horitzo Color Matéria © Humitat gravimétrica. Arena Llimtotal Argila  Textura —HoritzO\n\n(cm) organica (%) total (%) (%) USDA —_diagnéstic\n(%) ——33kpa -1500kPa(™)\n000-006 AL 10YR4/4 3,3 21 36 43 2 F Ocric\n006-021 A2 -10YR4/3 3,5 25 26 47 a FAg Ocric\n021-051 Bw 25Y4/4 05 2B R 58 30 FAgL\n051-083 = BCk1._—-2,5Y 5/2 W 23 18 50 32 FAgL Calcic\n083-132 = BCK2.—-2,5Y 5/2 0,4 26 9 58 33 FAgL Calcic\nF: Franca\nFAg: Francoargilosa Enllag al visor:\n\nFAgL: Francoargil-lollimosa https://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 326.151",
+      "Y= 4.675.373",
+      "Z= 922 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 326151.0,
+      "Y": 4675373.0,
+      "Z": 922.0
+    },
+    "lat": 42.21119802,
+    "lon": 0.89388937,
+    "geometry_difference_m": 10.67,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Camí dels Nerets",
+    "code": "CMN",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_CMN.pdf",
+    "published_geometry": [
+      0.925598144527499,
+      42.15551398034558
+    ],
+    "published_xy": [
+      328607.3,
+      4669114.0
+    ],
+    "sha256": "f20b4d0c030112d04a707737f2ecb6879ce0dab6f1faf56de8a77271f3f8bf90",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "Garegeteicestsic - Xara de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nEstaci6 Cami dels Nerets\nReferéncia estacid CMN\nLocalitzacié (UTM_ETRS89)\n\nX= 328,609\n\nY= 4.669.113\nZ= 489 m.s.n.m.\n\nComarca: Pallars Jussa (Lleida)\nA Localitzacié de l’Estacié de Cami dels\n\nMunicipi: Tremp Nerets (CMN)\nMapa de sols de Catalunya 1:250.000\nData d’alta: 19/07/2016 (MSC250M)\n\nWorld Reference Base for Soil Resources (WRB)\n\nDades edafologiques\n\nClassificacié Soil Taxonomy (SSS, 1999): Calcixerept tipic, franca grossa, mesclada, mésica.\nClassificacié World Reference Base (IUSS, 2007): Calcisol haplic.\n\nMaterial originari: Sediments detritics terrigens / Material subjacent: Sediments detritics terrigens\n\nProfunditat _Horitzo Color Matéria Humitat gravimétrica Arena Lim Argila Textura Horitzo\n(cm) organica (%) total(%) — total (%) (%) USDA diagnéstic\n\n(%) -33 Kpa -1500 kPa\n0-30 Ap 7,SYR4/4 41 8 9 47 a 2 F Ocric\n30-76 Bwk1 —7,SYR5/6 07 16 7 39 46 16 F Calcic\n76-139 Bwk2 —_7,5YR5/6 0,2 5 7 43 35 2 F calcic\n139-161 2Bk ——7,5YR5/6\n161-180 3Bwk —7,5YR5/6\n180-199/999 4Bk 7,5 YR5/6\nF: Franca Enllag al visor:\n\nhttps://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 328,609",
+      "Y= 4.669.113",
+      "Z= 489 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 328609.0,
+      "Y": 4669113.0,
+      "Z": 489.0
+    },
+    "lat": 42.1553979,
+    "lon": 0.92549148,
+    "geometry_difference_m": 15.62,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "El Boixer",
+    "code": "EBX",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_EBX.pdf",
+    "published_geometry": [
+      0.958213806152672,
+      42.398615093672525
+    ],
+    "published_xy": [
+      331973.3,
+      4696061.78
+    ],
+    "sha256": "495d80e6f8392089eb8d394187d0bf2ff79ca9af5a85242195ec6c4361ad7d31",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "“asec Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nCartogréfic i Geolbgic\nde Catalunya\n\nEstacio El Boixer\nReferéncia estacio EBX\nLocalitzacié (UTM_ETRS89)\nX= 331.975\n\nY= 4.696.065\n\nZ= 1217 ms.n.m.\n\nComarca: Pallars Jussa (Lleida)\n\nMunicipi: Astell (EBX)\nMapa de sols de Catalunya 1:250.000\n\n(MSC250M)\nWorld Reference Base for Soil Resources (WRB)\n\nData d’alta: 14/02/2019\n\nDades edafologiques\nClassificacié Soil Taxonomy (SSS, 1999): Udorthent tipic, esquelética franca, mesclada, mésica.\nClassificacié World Reference Base (IUSS, 2007): Regosol endoléptic, (Dystric/Eutric esquelétic).\n\nMaterial originari: Sediments detritics terrigens / Material subjacent: Pissarra\n\nProfunditat Horitzs Color + -—=—Matéria.~«=SsHumitatgravimétrica = Arena. ~—SsLlim ~— Agila’ ~—‘Textura’ ~—Horitz6\n(cm) organica (%) total total (%) USDA _—_diagnéstic\n\n(%) -33Kpa = -1500 kPa (%) (*)\n\n000-017 A TOYR 3/2 7 32 16 39 30 31 FA Ocric\n017-032 Bwl = 10YR 4/3 28 20 8 51 35 4 F\n\n032-054 Bw2  10YR4/2 24 23 8 48 35 7 F\n\n054-064 2R\n\n064-074\" 3g\n\nFA: Francoargil-losa F: Franca .\nEnllag al visor:\n\n*Nivell Freatic a 70 cm. a data 7/2/2019 https://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 331.975",
+      "Y= 4.696.065",
+      "Z= 1217 ms.n.m."
+    ],
+    "pdf_utm": {
+      "X": 331975.0,
+      "Y": 4696065.0,
+      "Z": 1217.0
+    },
+    "lat": 42.39870932,
+    "lon": 0.95838973,
+    "geometry_difference_m": 17.85,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Los Coscolls",
+    "code": "LCS",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_LCS.pdf",
+    "published_geometry": [
+      0.98293304443153,
+      42.145587153806986
+    ],
+    "published_xy": [
+      333337.85,
+      4667904.41
+    ],
+    "sha256": "ed31f67a181850a890aff2f792239acb25cd62c6c4e7845fd343addcffa910d3",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "caigse Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nde Catalunya\n\nEstacio Los Coscolls\nReferéncia estacid LCS\nLocalitzacié (UTM_ETRS89)\nX= 333349\n\nY= 4667923\n\nZ= 560 m.s.n.m.\n\nComarca: Pallars Jussa (Lleida)\n\nMunicipi: Tremp\nA. Localitzaci6 de l’Estacié de Los Coscolls\nData d’alta: 01/01/2018 (LCs)\nMapa de sols de Catalunya 1:250.000\n(MSC250M)\nne forld Soil\nDades edafologiques Word Reference Base for Sol Resources (WRB)\n\nClassificacié Soil Taxonomy (SSS, 1999): Calciustept tipic, esqueletica franca, mesclada, mésica.\nClassificacié World Reference Base (IUSS, 2007): Haplic Calcisol (Skeletic).\n\nMaterial originari: Sediments detritics terrigens/ Material subjacent: Sediments detritics terrigens\n\nProfunditat  Horitzo Color Matéria = Humitat gravimétrica Arena Uim Argila — Textura Horitz6\n(cm) organica (%) total total (%) USDA _diagndstic\n\n() — a3kpa -1500kPa Ss (™#)— (HD)\n\n000-014 Ap 7,SYR 4/4 1,5 7 8 49 30 21 F Ocric\n\n014-050 Bk1 7,5YR 5/8 0,4 20 9 35 40 2 F Calcic\n\n050-065 Bk2 10YR 5/6 0,1 15 6 53 28 19 FA Calcic\nF: Franca FA: Francoarenosa Enllag al visor:\n\nhttps://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 333349",
+      "Y= 4667923",
+      "Z= 560 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 333349.0,
+      "Y": 4667923.0,
+      "Z": 560.0
+    },
+    "lat": 42.14570974,
+    "lon": 0.98316949,
+    "geometry_difference_m": 23.79,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Pessonada",
+    "code": "PSN",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_PSN.pdf",
+    "published_geometry": [
+      1.01966857909719,
+      42.218093465070325
+    ],
+    "published_xy": [
+      336549.99,
+      4675883.89
+    ],
+    "sha256": "bfec619c80374951469877ab4ad92fec413a7ef47053a0a506d53a2071103dfa",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "Estacio de Pessonada\n\nReferéncia estacid PSN\nLocalitzacié (UTM_ETRS89)\nX= 336.545\n\nY= 4.675.880\n\nZ= 911 m.s.n.m.\n\nComarca: Pallars Jussa (Lleida)\n\nMunicipi: Conca de Dalt A Localitzacié de l’Estacié de\n\nralene Pessonada (CLLP)\nData d'alta: 20/07/2016 Mapa de sdls de Catalunya 1:250.000\n(MSC250M)\na World Reference Base for Soil Resources (WRB)\nDades edafologiques\n\nClassificacié Soil Taxonomy (SSS, 1999): Haploxeroll tipic, esquelétic arenosa, mesclada, mésica.\nClassificacid World Reference Base (IUSS, 2007): Regosol haplic (esquelétic, calcaric).\nMaterial originari: Sediments detritics terrigens/ Material subjacent: Sediments detritics terrigens\nProfunditat  Horitzo Color Matéria —- Humitat gravimétrica| Arena Lim Argila — Textura Horitzo\n(cm) organica (%) total total © (%) | USDA _diagnéstic\n(%) — a3kpa -1500kPa(™) (8)\n\n0-019 Ap 4OYR 3/2 4] 18 9 46 38 16 F Mollic\n019-051 Bw 10YR 4/4 1,2 13, 6 50 35 15 F\n\n051-150/999  Bwk ~—7,SYR 4/4 05 1B 6 52 34 4 F\n\nF Franca Enllag al visor:\n\nhttps://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 336.545",
+      "Y= 4.675.880",
+      "Z= 911 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 336545.0,
+      "Y": 4675880.0,
+      "Z": 911.0
+    },
+    "lat": 42.21800392,
+    "lon": 1.01959067,
+    "geometry_difference_m": 11.85,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Batlliu de Sort",
+    "code": "BDS",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_BDS.pdf",
+    "published_geometry": [
+      1.124382019043183,
+      42.42852498752392
+    ],
+    "published_xy": [
+      345710.25,
+      4699051.33
+    ],
+    "sha256": "9c1b03355ca47ff702af4443862c65cae6a17c66ee8baf40b1e8e2366bd7f5b6",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "Estacio de Batlliu de Sort\nReferéncia estacid BDS\nLocalitzacié (UTM_ETRS89)\n\nX= 345.711\nY= 4.699.048\nZ= 890 m.s.n.m.\n\nComarca: Pallars Sobira (Lleida)\n\nMunicipi: Sort A Localitzacié de l'Estaci6 de Batlliu de\nSort (BDS)\n\nData d’alta: 20/06/2017 Mapa de sols de Catalunya 1:250.000\n(MSC250M)\nWorld Reference Base for Soil Resources (WRB)\n\nDades edafologiques\n\nClassificacié Soil Taxonomy (SSS, 1999): Haplustoll litic, esquelética franca, mesclada (no dcida), mésica.\nClassificacié World Reference Base (IUSS, 2007): Pheozem epiléptic.\n\nMaterial originari: Coluvis de vessant / Material subjacent: Lutites i fil-lites.\n\nProfunditat  Horitzo Color Matéria  - Humitat gravimétrica. Arena Llimtotal Argila Textura Horitzo\n\n(cm) organica (%) total  (%) (%) USDA — diagnastic\n(*) — 33Kpa_-1500kPa__—«&)\n0-012 Ap sy3/1 6 28 16 “7 25 28 FAgA Mallic\n012-025 Cc\n025-999 R\n\nFAgA: Francoargil-loarenosa Enlla ¢ al visor:\n\nhttps://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n\n",
+    "coordinate_lines": [
+      "X= 345.711",
+      "Y= 4.699.048",
+      "Z= 890 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 345711.0,
+      "Y": 4699048.0,
+      "Z": 890.0
+    },
+    "lat": 42.42841021,
+    "lon": 1.12440001,
+    "geometry_difference_m": 12.85,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Coll de Paller",
+    "code": "CDPA",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_CDPA.pdf",
+    "published_geometry": [
+      1.246948242188578,
+      42.19749486565773
+    ],
+    "published_xy": [
+      355250.78,
+      4673185.91
+    ],
+    "sha256": "0dd871592c6d638c85e367e8f506a307d4818014bde90d12e81b594b969de82f",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "Laigee Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\nde Catalunya\n\nEstacié de Coll de Paller\nReferéncia estacid CDPA\nLocalitzacié (UTM_ETRS89)\nX= 355.258\n\nY= 4.673.190\n\nZ= 1164 m.s.n.m.\n\nComarca: Alt Urgell (Lleida)\n\nMunicipi: Coll de Nargo A Localitzacié de l'Estacié de Coll de\n\nPaller (CDPA)\nData d’alta: 14/02/2019 Mapa de sols de Catalunya 1:250.000\n(MSC250M)\nWorld Reference Base for Soil Resources (WRB)\nDades edafologiques\n\nClassificacié: Soil Taxonomy (SSS, 1999): Udorthent tipic, esquelética argilosa, mesclada (calcaria).\nClasificacié World Reference Base (IUSS, 2007): Endolepetic regosol, (Calcaric Skeletic).\nMaterial originari: Sediments detritics terrigens / Material subjacent: Calcaria\n\nProfunditat  Horitz6 Color Matéria © Humitatgravimétrica Arena  Llimtotal Argila  Textura Horitz6\n(cm) organica (%) total (%) (%) USDA _—_diagnéstic\n\n(%) -33Kpa -1500 kPa (%)\n0-18 A(p)  10YR 3/5 4 25 4 23 34 43 A Ocric\n018-052 Bw 10YR 3/6 1,7 20 10 29 36 35 FA\n052-99 2R - - - - - - - - -\nA: Argilosa Enllag al visor:\n\nFA: Francoargilosa https://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 355.258",
+      "Y= 4.673.190",
+      "Z= 1164 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 355258.0,
+      "Y": 4673190.0,
+      "Z": 1164.0
+    },
+    "lat": 42.19747814,
+    "lon": 1.24687643,
+    "geometry_difference_m": 6.2,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "La Cultia d'Àreu",
+    "code": "LCDA",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_LCDA.pdf",
+    "published_geometry": [
+      1.330032348629341,
+      42.587971985214494
+    ],
+    "published_xy": [
+      362964.99999999994,
+      4716420.0
+    ],
+    "sha256": "924b61ef7a0a2067caf7300da4ee2eb59fee29e60ac6113e4cc92e52b2afa3dc",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "“asec Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nCartogréfic i Geolbgic\nde Catalunya\n\nEstacié de La Cultia d’Areu\nReferéncia estacid LCDA\nLocalitzacié (UTM_ETRS89)\n\nX= 362.965\n\nY= 4.716.420\n\nZ= 1236 m.s.n.m.\n\nComarca: Pallars Sobira (Lleida)\n\nMunicipi: Alins oo . |\nA Localitzacio de l’Estacio de La Cultia\n\nData d’alta: 10/02/2020 d’Areu ( LCDA)\nMapa de sols de Catalunya 1:250.000\n(MSC250M)\nse World | Base for Soil Re :B)\nDades edafolégiques Reference Base for Soll Resources (WRB)\n\nClassificacié Soil Taxonomy (SSS, 1999): Udorthent tipic, esquelética franca, mesclada, frigida.\nClassificacié World Reference Base (IUSS, 2007): Haplic Regosol (esquelétic).\nMaterial originari: Dipdsits col-luvials / Material subjacent: Dipdsits col-luvials\n\nProfunditat  Horitzé Color Matéria © Humitat gravimétrica Arena —Llim Argila Textura Horitz6\n(cm) organica (%) total _ total (%) USDA _diagnéstic\n\n() —33kpa -1500kea(%)—(™#)\n000-025 Ap = 10YR3/2. 3 a B 4034 6 F Ocric\n025-099 = Bw 10YR 3/2. 17 20 6 23 30 a F\n\nF: Franca .\nEnllag al visor:\n\nhttps://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 362.965",
+      "Y= 4.716.420",
+      "Z= 1236 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 362965.0,
+      "Y": 4716420.0,
+      "Z": 1236.0
+    },
+    "lat": 42.5880333,
+    "lon": 1.32989592,
+    "geometry_difference_m": 13.09,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "El Miracle",
+    "code": "EML",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_EML.pdf",
+    "published_geometry": [
+      1.527442932125541,
+      41.91403033799614
+    ],
+    "published_xy": [
+      377894.0,
+      4641268.0
+    ],
+    "sha256": "8bbf552892c498a9403b9e718ba342f7728912b59d6e1e7e663c239613768481",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "Us ICGC\nInstitut\n\nCartogréfic i Geol\nCartogritic i Geologie\n\nRINE-001\n\nEstacio El Miracle\nReferéncia estacid EML\nLocalitzacié (UTM_ETRS89)\nX= 377.894\n\nY= 4.641.268\n\nZ= 811 m.s.n.m.\n\nComarca: Solsonés (Lleida)\nMunicipi: Riner\n\nData d’alta: 01/08/2021\n\nDades edafologiques\n\nXarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nA Localitzaci6 de l’Estacio EL Miracle\n\na (EML)\n\nMapa de sols de Catalunya 1:250.000\n(MSC250M)\nWorld Reference Base for Soil Resources (WRB)\n\nClassificacié: Soil Taxonomy (SSS, 1999): Haplic Regosol, calcaria.\nClasificacié World Reference Base (IUSS, 2007): Entisol Orthent.\n\nMaterial originari: Dipdsits col-luvials / Material subjacent: Gres i conglomerats.\n\nProfunditat  Horitz6 Color Matéria\n\n(cm) organica\n(%)\n0-015 Ap TYR 3/3 6,37\n015-020 Bw TYR 4/4 1,81\n020-043 Bc 7,5YR 6/8 0,64\n\n043-099 cR 7,5YR 5/2\n\nF: Franca; FL: Francollimosa\n\nHumitat gravimétrica Arena Llimtotal Argila  Textura Horitz6\n(%)\n\n-33 Kpa\n25\n5\n\n27\n\n-1500 kPa\n12\n8\n9\n\ntotal (%) (%) USDA _diagnéstic\n(%)\n37 46 18 F Ocric\n41 45 4 F\n21 60 20 FL cambric\n\nEnllag al visor: https://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 377.894",
+      "Y= 4.641.268",
+      "Z= 811 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 377894.0,
+      "Y": 4641268.0,
+      "Z": 811.0
+    },
+    "lat": 41.91392779,
+    "lon": 1.52760395,
+    "geometry_difference_m": 17.54,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Borda Coll",
+    "code": "BCLL",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_BCLL.pdf",
+    "published_geometry": [
+      1.465301513675772,
+      42.414078768916745
+    ],
+    "published_xy": [
+      373727.00000000006,
+      4696907.0
+    ],
+    "sha256": "9b57602370f40cf04403782f64aa26a87db3e844294b0b48da9bf3322fd87375",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "caigse Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nde Catalunya\n\nEstacié de Borda Coll\nReferéncia estacid BCLL\nLocalitzacié (UTM_ETRS89)\nX= 373.725\n\nY= 4.696.905\n\nZ= 818 m.s.n.m.\n\nComarca: Alt Urgell (Lleida)\n\nMunicipi: Les Valls del Valira A Localitzacié de l'Estacié de Borda\n\nColl (BCLL)\nData d’alta: 17/11/2021 Mapa de sols de Catalunya 1:250.000\n(MSC250M)\nWorld Reference Base for Soil Resources (WRB)\nDades edafologiques\n\nClassificacié Soil Taxonomy (SSS, 1999): Udorthent tipic esquelética, mesclada.\nClassificacié World Reference Base (IUSS, 2007): Dystric Regosol (col-luvi, esquelétic).\nMaterial originari: Coluvis de vessant / Material subjacent: Esquist\n\nProfunditat Horitzs Color += Matéria_-«=«Humitat gravimétrica Arena Llimtotal Argila‘Textura —_Horitzd\n(cm) organica (%) total (%) (%) ‘USDA _diagndstic\n\n() — 33kpa -1500kPa.™)\n000-025 Ap 1OYR 4/4 421 B 5 B 16 u FA Ocric\n025-055, B1 JOYR 4/4 0,04 n 6 79 12 nN FA\n055-099 B2 7,5SYR 4/4 0,04 n 6 80 8 12 FA\n\nEnllag al visor:\n\nFA: Francoarenosa . .\nhttps://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 373.725",
+      "Y= 4.696.905",
+      "Z= 818 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 373725.0,
+      "Y": 4696905.0,
+      "Z": 818.0
+    },
+    "lat": 42.4141832,
+    "lon": 1.46528842,
+    "geometry_difference_m": 11.66,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Llivia",
+    "code": "LLA",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_LLA.pdf",
+    "published_geometry": [
+      1.972045898437264,
+      42.46931124005666
+    ],
+    "published_xy": [
+      415515.00000000006,
+      4702392.0
+    ],
+    "sha256": "7ef659d9780892189e93176eed2cf9b255dd0a10fd7b5d37df0e1027c8d4a059",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "Us ICGC\nInstitut\n\nCartogréfic i Geolbgic\nde Catalunya\n\nEstacié de Llivia\nReferénciaestacid LLA\nLocalitzacié (UTM_ETRS89)\nX= 415.520\n\nY= 4.702.379\n\nZ= 1219 m.s.n.m.\n\nComarca: Cerdanya (Girona)\n\nMunicipi: Llivia\n\nData d’alta: 21/06/2021\n\nDades edafologiques\n\nXarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nSy a A Localitzacié de l’Estacié de Llivia\ngt wed id (LLA)\n. Mapa de sdls de Catalunya 1:250.000\nA Ss Be sw (MSC250M)\n= — World Reference Base for Soil Resources (WRB)\n\nClassificacié Soil Taxonomy (SSS, 1999): Usthortent tipic.\nClassificacié World Reference Base (IUSS, 2007): Eutric Regosdl.\n\nMaterial originari: Detritics terrigens. / Material subjacent: Dipdsits al-luvials.\n\nProfunditat — Horitz Color Matéria Humitat gravimétrica Arena Llim == Agila’ = Textura Horitz6\n(cm) organica ( total total  (%) USDA _diagndstic\n(*) —-a3kpa_-1500kPa.—s«(#):—S(%*)\n000-028 Ap 1OYR 3/3 2,98 3 7 68 23 9 FA -\n028-067 B 1OYR 3/4 0,63 9 4 73 20 7 FA -\n067-092 2B 1OYR 4/4 0,61 10 5 69 22 8 FA\n\nFA: Francoarenosa\n\nEnllag al visor:\nNivell Freatic a 90 cm a 21/06/2021\n\nhttps://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 415.520",
+      "Y= 4.702.379",
+      "Z= 1219 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 415520.0,
+      "Y": 4702379.0,
+      "Z": 1219.0
+    },
+    "lat": 42.46914899,
+    "lon": 1.97234917,
+    "geometry_difference_m": 30.73,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Clarella",
+    "code": "CLLA",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_CLLA.pdf",
+    "published_geometry": [
+      2.282409667969416,
+      42.11936266559134
+    ],
+    "published_xy": [
+      440676.99999999994,
+      4663289.0
+    ],
+    "sha256": "6483d5d558c17fc45f7bac465b8393081b64e61cd52cbf25c07929ce9d63bb01",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "“asec Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nCartogréfic i Geolbgic\nde Catalunya\n\nEstacio de Clarella\nReferéncia estacid CLLA\nLocalitzacié (UTM_ETRS89)\nX= 440.677\n\nY= 4.663.289\n\nZ= 922 m.s.n.m.\n\nComarca: Osona (Barcelona)\n\nMunicipi: Santa Maria de Besora A Localitzacié de l'Estacié de Clarella\n(. (CLLA)\nData d’alta: 30/11/2021 ¥, eA Mapa de sols de Catalunya 1:250.000\n\n(MSC250M)\nWorld Reference Base for Soil Resources (WRB)\n\nDades edafologiques\n\nClassificacié: Soil Taxonomy (SSS, 1999): Usti Orthent tipic.\nClassificacié World Reference Base (IUSS, 2007): Calcaric Loamic Regosol\nMaterial originari: Margues / Material subjacent: Margues\n\nProfunditat Horitzo Color +=» Matéria_--Humitat gravimétrica Arena Llimtotal Argila Textura —_Horitz6\n(cm) organica (%) total (%) (%) USDA _—_diagnastic\n\n(*) — 33kpa -1500kPa_—-(%)\n\n000-011 Al 10YR 3/3 3,55 22 9 34 44 22 F Ocric\n011-023 A2 10YR 3/4 3,55 22 9 39 49 12 F Ocric\n023-040 BIC 10YR 5/3 1,95 23 8 31 56 13 FL\n\n040-99 CR\n\n, Enllag al visor:\nFA: Francoarenosa; — FL: Francollimosa https://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 440.677",
+      "Y= 4.663.289",
+      "Z= 922 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 440677.0,
+      "Y": 4663289.0,
+      "Z": 922.0
+    },
+    "lat": 42.11945956,
+    "lon": 2.28234918,
+    "geometry_difference_m": 11.87,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Cantallops",
+    "code": "CLLP",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_CLLP.pdf",
+    "published_geometry": [
+      2.941246032718864,
+      42.419908345403776
+    ],
+    "published_xy": [
+      495172.0,
+      4696388.179
+    ],
+    "sha256": "306389e7e1ebbe95692fa871fb7c7eba71f353b4aec0dbcc26194a6adccd4ecc",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "Estacié de Cantallops\nReferéncia estacié CLLP\nLocalitzacié (UTM_ETRS89)\nX= 495.169\n\nY= 4.696.390\n\nZ= 179 m.s.n.m.\n\nComarca: Alt Emporda (Girona)\n\nMunicipi: Cantallops A Localitzacié de l'Estacié de\nCantallops (CLLP)\n\nData d’alta: 25/01/2023 Mapa de sols de Catalunya 1:250.000\n(MSC250M)\nWorld Reference Base for Soil Resources (WRB)\n\nDades edafologiques\n\nClassificacié Soil Taxonomy (SSS, 1999): Xerofulvent tipic, esquelética arenosa, mesclada, mésica.\nClassificacié World Reference Base (IUSS, 2007): Skeletic Fluvisol.\nMaterial originari: Dipdsits al-Luvials / Material subjacent: Diposits al-luvials\n\nProfunditat — Horitzo Color Matéria = Humitat gravimétrica = Arena Lim Argila — Textura Horitz6\n\n(cm) organica (%) total total (%) USDA _diagnéstic\n(*) —33Kpa -1500kPa Ss (#) (HD\n000-025 Ap 10YR4/4 0. “ 7 63 B 4 FA -\n025-045 «= B12 SY 4/4 1,62 B 6 57 30 B FA\n\n045-80/099 B2 2,5Y 5/4 - - - - - - -\n\nEnllag al visor:\nFA: Francoarenosa https:/ /visors.icgc.cat/ mesurasols/#7.57/42.247/1.351\n\n",
+    "coordinate_lines": [
+      "X= 495.169",
+      "Y= 4.696.390",
+      "Z= 179 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 495169.0,
+      "Y": 4696390.0,
+      "Z": 179.0
+    },
+    "lat": 42.41980433,
+    "lon": 2.94127947,
+    "geometry_difference_m": 11.89,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Bolvir",
+    "code": "BOLV",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_BOLV.pdf",
+    "published_geometry": [
+      1.891008,
+      42.413461
+    ],
+    "published_xy": [
+      440677.0,
+      4663289.0
+    ],
+    "sha256": "cab77ddd0632803a71820f8b9db2e9695e34ab32497b581c3b8259f705ac19c2",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "“asec Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\n\nCartogréfic i Geolbgic\nde Catalunya\n\nEstacié de Bolvir ¥\n\nReferéncia estacid BOLV\nLocalitzacié (UTM_ETRS89)\nX= 408.750\n\nY= 4.696.273\nZ= 1137 m.s.n.m.\n\nComarca: Cerdanya (Girona)\n\nMunicipi: Bolvir 4 Localitzacié de l’Estacié de Bolvir\n\n(BOLV)\nData d’alta: 22/08/2023 Mapa de sols de Catalunya\n1:250.000 (MSC250M)\nWorld Reference Base for Soil Resources (WRB)\nDades edafolégiques\n\nClassificacié Soil Taxonomy (SSS, 1999): Haplustept tipic, esquelética franca, mesclada (no acida), térmica.\nClassificacié World Reference Base (IUSS, 2007): Skeletic Cambisol.\nMaterial originari: Dipdsits al-luvials. / Material subjacent: Dipdsits al-luvials.\nProfunditat _Horitzo Color Matéria Humitat gravimétrica Arena —Llim Argila Textura Horitzo\n(cm) organica (%) total total (%) USDA _diagnéstic\n() 33kpa -1500kPa(™) =~ (%)\n\n000-025 AP TOYR 4/4 4,98 7 5 70 21 9 FA Ocric\n\n025-055 Bwi 1OYR 4/4 0,7 15 5 74 18 8 FA >\n055-\n\n400/999 Bw2 10YR 4/6 0,59 18 9 13 20 10 FA\n\nEnllag al visor:\n\nFA: Francoarenosa https:/ /visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n",
+    "coordinate_lines": [
+      "X= 408.750",
+      "Y= 4.696.273",
+      "Z= 1137 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 408750.0,
+      "Y": 4696273.0,
+      "Z": 1137.0
+    },
+    "lat": 42.41340096,
+    "lon": 1.89098058,
+    "geometry_difference_m": 7.05,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Garriguella",
+    "code": "GGUE",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_GGUE.pdf",
+    "published_geometry": [
+      3.064805,
+      42.336777
+    ],
+    "published_xy": [
+      495172.0,
+      4696388.179
+    ],
+    "sha256": "bf3eaa1f0b24df90b4594e98748902ec2eb79364c46d49bc713501540f3809da",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "“asec Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\nCatalunya\n\nCartogréfic i Geolbgic\nde\n\nEstacio de Garriguella\n\nReferénciaestacié © GGUE\nLocalitzacié (UTM_ETRS89)\nX= 505337\n\nY= 4687166\nZ= 38 m.s.n.m.\n\nComarca: Alt Emporda (Girona)\n\n‘A Localitzacié de l’Estacié de\n\nMunicipi: Garriguella Garriguella (GGUE)\n\npata d’atta: 12/07/2023 eee ge on de Catalunya 1:250.000\ntin World Reference Base for Sol Resources (WRB)\n\nDades edafologiques\n\nClassificacié: Soil Taxonomy (SSS, 1999): Xerorthent tipic, esquelética franca, mesclada (no dcida), térmica.\nClasificacié World Reference Base (IUSS, 2007): Skeletic Regosol (Eutric).\nMaterial originari: Dipdsits al-Luvials/ Material subjacent: Dipdsits al-luvials.\nProfunditat Horitzo © Color = Matéria. ~«sHumitat gravimétrica. Arena ~—s Llim_~—S Agila’ Textura —_—Horitzo\n(cm) organica (%) total total © (%) | USDA _diagnéstic\n() ~— 33Kpa -1500kPa | (™)—(%)\n\n0-020 Ap 1OYR 3/4 3,51 14 7 61 3 8 FA Ocric\n020-037 Bw1 JOYR 4/4 1,02 10 5 59 32 9 FA\n037-065 B2 TOYR 4/4 0,54 12 6 69 18 13 FA\n\nEnllag al visor:\nhttps://visors.icgc.cat/mesurasols/#7.57/42.247/1.351\n\nFA: Francoarenosa\n",
+    "coordinate_lines": [
+      "X= 505337",
+      "Y= 4687166",
+      "Z= 38 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 505337.0,
+      "Y": 4687166.0,
+      "Z": 38.0
+    },
+    "lat": 42.33672906,
+    "lon": 3.06478548,
+    "geometry_difference_m": 5.57,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Aguilar de Segarra",
+    "code": "AGDS",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_AGDS.pdf",
+    "published_geometry": [
+      1.623079,
+      41.751531
+    ],
+    "published_xy": [
+      495172.0,
+      4696388.179
+    ],
+    "sha256": "9703a2792e09c581f59c21b26ceaaf39703b9dd7c43de32f84fe95393f271d38",
+    "extraction": "PDF text",
+    "sheet_text": "Xarxa de Mesura de paràmetres físics dels Sòls de Catalunya (XMS-Cat)\n\n\n               Estació d’Aguilar de Segarra\n\n               Referència estació AGdS\n\n               Localització (UTM_ETRS89)\n\n               X = 385.519\n               Y = 4.623.097\n               Z = 527 m.s.n.m.\n\n               Comarca: Bages (Barcelona)\n\n               Municipi: Aguilar de Segarra                                                      Localització de l’Estació d’Aguilar\n                                                                                                 de Segarra (AGdS)\n               Data d’alta: 07/09/2023                                                           Mapa de sòls de Catalunya\n                                                                                                 1:250.000 (MSC250M)\n                                                                                                 World Reference Base for Soil Resources (WRB)\n\n               Dades edafològiques\n               Classificació Soil Taxonomy (SSS, 2014): Xerofluvent típic, llimosa fina, mesclada (no àcida), mèsica.\n               Classificació World Reference Base (IUSS, 2014): Haplic Fluvisol (Calcaric, Siltic).\n               Material originari: Sediments detrítics. / Material subjacent: Sediments detrítics.\n\n                 Profunditat   Horitzó     Color      Matèria   Humitat gravimètrica   Arena   Llim       Argila       Textura       Horitzó\n                     (cm)                            orgànica           (%)            total   total       (%)          USDA        diagnòstic\n                                                        (%)                              (%)    (%)\n                                                                -33 Kpa   -1500 kPa\n\n                   000-025       AP      7,5YR 3/4     3,44       20         13         44       42         14             F           Òcric\n                  025-070       Bw1      7,5YR 4/4     1,11       21          8         39       41         20             F             -\n                070-100/999     Bw2      7,5YR 4/4    0,69        24          11        34       49         17             F\n\n\n               F: Franca.                                                                      Més informació: https://www.icgc.cat/xms\n\f",
+    "coordinate_lines": [
+      "               X = 385.519",
+      "               Y = 4.623.097",
+      "               Z = 527 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 385519.0,
+      "Y": 4623097.0,
+      "Z": 527.0
+    },
+    "lat": 41.7514524,
+    "lon": 1.62303408,
+    "geometry_difference_m": 9.5,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Torre del Lluvià",
+    "code": "TDLL",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_TDLL.pdf",
+    "published_geometry": [
+      1.790613,
+      41.725333
+    ],
+    "published_xy": [
+      399414.3,
+      4619984.5
+    ],
+    "sha256": "dbc4916051219409de14133ca35aa4cf51992b1690e8657de7243b5cb3c30070",
+    "extraction": "OCR; coordinate digits require cross-check",
+    "sheet_text": "~aisge Xarxa de Mesura de parametres fisics dels Sols de Catalunya (XMS-Cat)\nje Catalurya\n\nEstacio Torre del Lluvia\n\nReferéncia estacid TdLL\nLocalitzacié (UTM_ETRS89)\nX= 399414,3\n\nY= 4619985\nZ=258 m.s.n.m.\n\nComarca: Bages (Barcelona)\n\n localitzacié de l’Estaci6 de Torre\n\nMunicipi: Manresa ac\ndel Lluvia (TdLL)\nData d’alta: 20/06/2024 Mapa de sols de Catalunya\n1:250.000 (MSC250M)\nWorld Reference Base for Soil Resources (WRB)\nDades edafologiques\n\nClassificacié Soil Taxonomy (SSS, 2014): Calcixerept tipic, franca grossa, mesclada.\nClassificacié World Reference Base (IUSS, 2014): Haplic Calcisol.\n\nMaterial originari: Sediments detritics terrigens. / Material subjacent: Sediments detritics\n\nProfunditat  Horitzo Color Matéria Humitat gravimétrica Arena —Llim Argila Textura Horitz6\n(cm) organica (%) total total (%) USDA _diagnstic\n\n()  a3kpa -1500kPa | (*)—(%)\n\n000-030 AP 7,5YR 4/4 1,8 22 10 33 48 18 F Ochric\n\n030-050 Bw 7,5YR4/6 0,66 32 16 29 54 7 FL\n\n050-080 Bwk1 SYR 4/6 0 34 18 32 52 7 FL Calcic\n\n080-110 Bwk2 SYR 4/6 () 22 10 50 36 4 F Calcic\n110-150/999 Bk SYR 4/6 0 14 5 71 21 9 fa\n\nF: Franca. FL: Franco Llimosa FA: Franco Arenosa Més informacio: https://www.icgc.cat/xms\n",
+    "coordinate_lines": [
+      "X= 399414,3",
+      "Y= 4619985",
+      "Z=258 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 399414.3,
+      "Y": 4619985.0,
+      "Z": 258.0
+    },
+    "lat": 41.72530989,
+    "lon": 1.79065292,
+    "geometry_difference_m": 4.19,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Pobla de Cérvoles",
+    "code": "PDCE",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_PDCE.pdf",
+    "published_geometry": [
+      0.921879,
+      41.365268
+    ],
+    "published_xy": [
+      326190.381,
+      4581390.194
+    ],
+    "sha256": "d8fd0138e982fe70b8e6e161bb09a491cbed21880cc1fb26a99b761f259c7f59",
+    "extraction": "PDF text",
+    "sheet_text": "Xarxa de Mesura de paràmetres físics dels Sòls de Catalunya (XMS-Cat)\n\n\n                Estació Pobla de Cérvoles\n\n               Referència estació PdCE\n\n               Localització (UTM_ETRS89)\n\n               X = 326190,381\n               Y = 4581390,194\n               Z = 694,114 m.s.n.m.\n\n               Comarca: Garrigues (Lleida)\n                                                                                                           Localització de l’Estació de Pobla\n               Municipi: Pobla de Cérvoles                                                                 de Cérvoles (PdCE)\n                                                                                                           Mapa de sòls de Catalunya\n               Data d’alta: 17/06/2025                                                                     1:250.000 (MSC250M)\n                                                                                                           World Reference Base for Soil Resources (WRB)\n\n\n               Dades edafològiques\n               Classificació Soil Taxonomy (SSS, 2014): Haploxerept càlcic, franca grossa, mesclada.\n               Classificació World Reference Base (IUSS, 2014): Cambisol calcaric.\n               Material originari: Sediments detrítics / Material subjacent: Lutita\n                 Profunditat    Horitzó      Color      Matèria   Humitat gravimètrica   Arena     Llim           Argila       Textura      Horitzó\n                     (cm)                              orgànica           (%)            total     total           (%)          USDA       diagnòstic\n                                                          (%)                              (%)      (%)\n                                                                  -33 Kpa   -1500 kPa\n\n                    000-020         Ap1    7,5YR 3/4     1,9        30         15         29        54              17            Fl          Òcric\n                   020-045          Ap2    7,5YR 3/3     1,3        31         16         22        56             22             Fl          Òcric\n                   045-083          Bk1    7,5YR 3/4     1,1        30         15         27        53             20             Fl         Càmbic\n                   083-100          BCk2   10YR 5/4      0,61       29         15         33        52             15             Fl\n                 100-110/999         C     10YR 5/6      0,51       30         15         26        58             16             Fl\n\n               Fl: Franco Llimosa                                                                Més informació: https://www.icgc.cat/xms\n\f",
+    "coordinate_lines": [
+      "               X = 326190,381",
+      "               Y = 4581390,194",
+      "               Z = 694,114 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 326190.381,
+      "Y": 4581390.194,
+      "Z": 694.114
+    },
+    "lat": 41.36526882,
+    "lon": 0.92187917,
+    "geometry_difference_m": 0.09,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Vilosell",
+    "code": "VIL",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_VIL.pdf",
+    "published_geometry": [
+      0.965261,
+      41.374364
+    ],
+    "published_xy": [
+      329843.97,
+      4582314.583
+    ],
+    "sha256": "2263296a876c7389bbdd2e37d0eb91576e2523b169d135d5be5518e55f91ed04",
+    "extraction": "PDF text",
+    "sheet_text": "Xarxa de Mesura de paràmetres físics dels Sòls de Catalunya (XMS-Cat)\n\n\n               Estació Vilosell\n\n               Referència estació VIL\n\n               Localització (UTM_ETRS89)\n\n               X = 329844\n               Y = 4582315\n               Z = 678 m.s.n.m.\n\n               Comarca: Garrigues (Lleida)\n                                                                                                          Localització de l’Estació de\n               Municipi: El Vilosell                                                                      Vilosell (VIL)\n                                                                                                          Mapa de sòls de Catalunya\n               Data d’alta: 28/11/2025                                                                    1:250.000 (MSC250M)\n                                                                                                          World Reference Base for Soil Resources (WRB)\n\n\n               Dades edafològiques\n               Classificació Soil Taxonomy (SSS, 2014): Xerofluvent tipic, franca fina, carbonàtica, mésica.\n               Classificació World Reference Base (IUSS, 2014): Fluvisol eutric.\n               Material originari: Sediments detrítics / Material subjacent: Sediments detrítics\n                  Profunditat   Horitzó     Color      Matèria   Humitat gravimètrica   Arena     Llim           Argila       Textura      Horitzó\n                      (cm)                            orgànica           (%)            total     total           (%)          USDA       diagnòstic\n                                                         (%)                              (%)      (%)\n                                                                 -33 Kpa   -1500 kPa\n\n                   000-025          Ap    10YR 4/4      2,6        31         15         29        52             19             Fl          Òcric\n                   020-055          Bw1   7,5YR 4/4     0,95       31         15         31        56              13            Fl\n                   055-080          Bw2   7,5YR 4/4      1         22          11        31        46             23             F\n                 080-120/999        Bw3   7,5YR 4/6      1         32         15         28        50             22             Fl\n\n               FL: Franco-llimosa\n               F: Franca                                                                        Més informació: https://www.icgc.cat/xms\n\f",
+    "coordinate_lines": [
+      "               X = 329844",
+      "               Y = 4582315",
+      "               Z = 678 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 329844.0,
+      "Y": 4582315.0,
+      "Z": 678.0
+    },
+    "lat": 41.37437429,
+    "lon": 0.96527677,
+    "geometry_difference_m": 1.74,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  },
+  {
+    "name": "Mas dels Frares",
+    "code": "MDF",
+    "source": "https://datacloud.icgc.cat/datacloud/descarregues-web/bd/sols/xms_cat_MDF.pdf",
+    "published_geometry": [
+      1.198861,
+      41.146015
+    ],
+    "published_xy": [
+      348853.346,
+      4556530.01
+    ],
+    "sha256": "c4f5327339b2259b33f0072c0363871788172f819b81d6fac813f738188b0371",
+    "extraction": "PDF text",
+    "sheet_text": "Xarxa de Mesura de paràmetres físics dels Sòls de Catalunya (XMS-Cat)\n\n\n               Estació Mas dels Frares\n               Referència estació MdF\n\n               Localització (UTM_ETRS89)\n\n               X = 348853\n               Y = 4556530\n               Z = 57 m.s.n.m.\n               Comarca: Tarragonès (Tarragona)\n                                                                                                         Localització de l’Estació de Mas\n               Municipi: Constantí                                                                       dels Frares (MdF)\n                                                                                                         Mapa de sòls de Catalunya\n               Data d’alta: 08/06/2026                                                                   1:250.000 (MSC250M)\n                                                                                                         World Reference Base for Soil Resources (WRB)\n\n\n               Dades edafològiques\n               Classificació Soil Taxonomy (SSS, 2022): Typic Calcixerept, franca fina, mesclada, termica.\n               Classificació World Reference Base (IUSS, 2022): Haplic Calcisol (loamic, aric, ochric).\n               Material originari: Sediments detrítics. / Material subjacent: Sediments detrítics.\n\n                 Profunditat     Horitzó     Color      Matèria   Humitat gravimètrica   Arena   Llim           Argila       Textura      Horitzó\n                     (cm)                              orgànica           (%)            total   total           (%)          USDA       diagnòstic\n                                                          (%)                              (%)    (%)\n                                                                  -33 Kpa   -1500 kPa\n\n                   000-050         Ap      7,5YR 4/4     0,97       27         13        42,4    26,6             31           FAg         Ochric\n                   050-080        Bw       7,5YR 5/6     <0,5       27         14        43,9    25,6           30,5           FAg          Càlcic\n                   080-130        Bk1      5YR 4/6       <0,5       22         10        40,2    32,9           26,9            F           Càlcic\n                 130-150/999      Bk2      7YR 5/6       <0,5       21         10        41,1    32,4           26,4            F           Càlcic\n\n                FAg: Franco-Argilosa\n                  F: Franca                                                                      Més informació: https://www.icgc.cat/xms\n\f",
+    "coordinate_lines": [
+      "               X = 348853",
+      "               Y = 4556530",
+      "               Z = 57 m.s.n.m."
+    ],
+    "pdf_utm": {
+      "X": 348853.0,
+      "Y": 4556530.0,
+      "Z": 57.0
+    },
+    "lat": 41.14601711,
+    "lon": 1.19886275,
+    "geometry_difference_m": 0.28,
+    "coordinate_check": "PDF coordinates projected EPSG:25831 to EPSG:4326; all agree within 100 m with published markers"
+  }
+]

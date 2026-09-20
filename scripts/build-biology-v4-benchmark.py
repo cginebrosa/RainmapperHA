@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rainmapper_core import mushroom_climatic_water_balance as climate
+from rainmapper_core.mushroom_water_physics import point_reference_et, WATER_STATE_CONTRACT_ID
 from rainmapper_core import mushroom_known_sites
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_biology_v4 as biology_v4
@@ -232,21 +233,7 @@ def main() -> int:
                 context.micro_area_id, start_day=earliest, end_day=latest
             )
             if workspace is not None
-            else [
-                (
-                    climate.hargreaves_reference_evapotranspiration_mm(
-                        day, context.lat, low, high
-                    )
-                    if low is not None and high is not None
-                    else None
-                )
-                for day, low, high in zip(
-                    cache_dates,
-                    weather["daily_temp_min_idw_c"],
-                    weather["daily_temp_max_idw_c"],
-                    strict=True,
-                )
-            ]
+            else point_reference_et(weather,context,stations)['et0_mm']
         )
         if cache_index % 5 == 0 or cache_index == len(cached_contexts):
             print(
@@ -359,7 +346,22 @@ def main() -> int:
         variant[0]: Counter() for variant in soil_variants
     }
     for source_sample in source_samples:
-        metadata = source_sample.get("metadata", {})
+        # Attach the shared micro-area ET0 mean to this immutable source view.
+        # Physics is evaluated before area averaging, exactly as at inference.
+        source_sample = dict(source_sample)
+        metadata = dict(source_sample.get("metadata", {}))
+        weather_view = dict(metadata.get("weather_series") or {})
+        area_id = str(metadata.get("area_id") or "")
+        et_rows = [microarea_eto_cache[c.micro_area_id] for c in micros_by_area.get(area_id, [])
+                   if c.micro_area_id in microarea_eto_cache]
+        daily_et = []
+        for day in weather_view.get("daily_dates", []):
+            offset = (date.fromisoformat(day)-earliest).days
+            vals = [row[offset] for row in et_rows if 0 <= offset < len(row) and row[offset] is not None]
+            daily_et.append(sum(vals)/len(vals) if vals else None)
+        weather_view.update(daily_eto0_mean_mm=daily_et,water_state_contract_id=WATER_STATE_CONTRACT_ID)
+        metadata['weather_series'] = weather_view
+        source_sample['metadata'] = metadata
         state_key = f"{metadata.get('area_id') or ''}|{metadata.get('cutoff_date') or ''}"
         base = biology_v4.build_biology_v4_sample(
             source_sample,
@@ -383,6 +385,7 @@ def main() -> int:
 
     report = {
         "kind": "mushroom_biology_v4_benchmark",
+        "water_state_contract_id": WATER_STATE_CONTRACT_ID,
         "schema_version": 1,
         "temporal_contract_id": temporal_id,
         "feature_blocks": {

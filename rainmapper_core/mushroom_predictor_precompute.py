@@ -33,7 +33,7 @@ from rainmapper_core.mushroom_predictor_service import (
 )
 
 
-ARTIFACT_SCHEMA_VERSION = "1.6"
+ARTIFACT_SCHEMA_VERSION = "1.7"
 ARTIFACT_KIND = "rainmapper_mushroom_predictor_precompute"
 SQLITE_USER_VERSION = 6
 PRECOMPUTED_VIEWS = {"recommender", "week", "query"}

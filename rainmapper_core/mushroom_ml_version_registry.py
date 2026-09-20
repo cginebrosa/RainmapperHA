@@ -13,6 +13,7 @@ from typing import Any
 
 from rainmapper_core import mushroom_paths
 from rainmapper_core import mushroom_ml_prediction_policy
+from rainmapper_core import mushroom_ml_policy_store
 
 
 SCHEMA_VERSION = "2.0"
@@ -77,11 +78,24 @@ def validate_revision_vector(value: object) -> dict[str, str]:
 
 def training_contract_revision(payload: object) -> str:
     """Hash code-owned training definitions without installation lifecycle state."""
+    from .mushroom_water_physics import WATER_STATE_CONTRACT_ID
+    return _training_contract_revision(payload, water_state_contract_id=WATER_STATE_CONTRACT_ID)
+
+
+def pre_water_training_contract_revision(payload: object) -> str:
+    """Exact pre-SMI fingerprint, only for migrating hyperparameter catalogs."""
+    return _training_contract_revision(payload, water_state_contract_id=None)
+
+
+def _training_contract_revision(payload: object, *, water_state_contract_id: str | None) -> str:
     checked = validate_registry(payload)
     contract = copy.deepcopy(checked)
+    if water_state_contract_id is not None:
+        contract["water_state_contract_id"] = water_state_contract_id
     contract.pop("preferred_version_id", None)
     contract.pop("retention_policy", None)
     contract.pop(mushroom_ml_prediction_policy.FIELD, None)
+    contract.pop(mushroom_ml_policy_store.REFERENCE, None)
     for version in contract["versions"]:
         for key in (
             "status",
@@ -234,7 +248,7 @@ def _read_registry_payload(path: Path) -> dict[str, Any]:
 
 
 def load_registry(path: Path) -> dict[str, Any]:
-    return validate_registry(_read_registry_payload(path))
+    return validate_registry(mushroom_ml_policy_store.resolve(path, _read_registry_payload(path)))
 
 
 def _migrate_legacy_registry_v1(
@@ -639,15 +653,17 @@ def ensure_seeded(
         persistent = (
             _migrate_legacy_registry_v1(raw_persistent, packaged)
             if legacy_migration
-            else validate_registry(raw_persistent)
+            else load_registry(destination)
         )
         merged = merge_packaged_definitions(packaged, persistent)
         if legacy_migration:
             _preserve_legacy_registry_backup(destination)
         if legacy_migration or merged != persistent:
             save_registry(destination, merged)
+        mushroom_ml_policy_store.migrate(destination)
         return destination
     save_registry(destination, packaged)
+    mushroom_ml_policy_store.migrate(destination)
     return destination
 
 
@@ -655,6 +671,12 @@ def save_registry(path: Path, payload: object) -> None:
     """Atomically write a validated registry. Existing generations are retained."""
     destination = Path(path)
     checked = validate_registry(payload)
+    if destination.is_file():
+        current = _read_registry_payload(destination)
+        if mushroom_ml_policy_store.referenced_path(destination, current) is not None:
+            # Generation promotion/seed merges must never replace user rules.
+            checked.pop(mushroom_ml_prediction_policy.FIELD, None)
+            checked[mushroom_ml_policy_store.REFERENCE] = mushroom_ml_policy_store.FILENAME
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent

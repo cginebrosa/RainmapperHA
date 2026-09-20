@@ -216,8 +216,10 @@ class ProjectionTests(unittest.TestCase):
                 self.assertEqual(kwargs['season_phase'](day),season_phase_for_months(day,[9],[10]))
                 kwargs['materialize'](target_date=day,selections=[{}])
                 return {'days':[{'operational_comparison':{'selected_winners':[{'probability':v}]},
-                                  'reliability_selection':{'runtime_selection_status':'winner'}}
-                                for v in (0,.7,None,None,None,None,None)]}
+                                  'reliability_selection':{'runtime_selection_status':'winner' if n != 3 else 'abstain',
+                                      'candidate':{'version_id':'altitude_v2' if n==0 else 'biology_v6_windowed_smooth_hierarchical',
+                                                   'estimator_id':'extra_trees_restricted_v1' if n==0 else 'smooth_partial_pooling_logistic_v1'}}}
+                                for n,v in enumerate((0,.7,None,None,None,None,None))]}
             module='rainmapper_core.mushroom_map_model_runtime.'
             with patch.object(r,'_refresh'), patch.object(r.weather,'_refresh'), \
                  patch.object(r.weather,'prepare_model_inputs',return_value=(SimpleNamespace(area_id='point'),[],[])) as prepare, \
@@ -230,6 +232,9 @@ class ProjectionTests(unittest.TestCase):
                     self.assertEqual([x['species_id'] for x in out['species']],['no_model','allowed'])
                     self.assertEqual(out['species'][0]['probabilities'],[None]*7)
                     self.assertEqual(out['species'][1]['probabilities'][:3],[0,.7,None])
+                    self.assertEqual(out['species'][1]['model_labels'],['ET–V2','Smooth Partial–V6w'])
+                    self.assertEqual(out['species'][1]['models'][:4],[0,1,1,None])
+                    self.assertNotIn('models',out['species'][0])
                 self.assertEqual(inference.call_count,2)
                 self.assertEqual(prepare.call_count,2)
                 self.assertEqual(resolve.call_count,2)
@@ -246,6 +251,31 @@ class ResultTests(unittest.TestCase):
             ecology={'status':'available','species':[{'species_id':'one','status':'compatible','daily_statuses':['compatible']*7,'daily_season_phases':['main']*7}]},
             species=[{'species_id':'one','status':'available','probabilities':[0,.9,None,None,None,None,None],
                 'reasons':['calculated','calculated','model_abstained','model_abstained','model_abstained','model_abstained','model_abstained']}])
+
+    def test_model_labels_are_bounded_and_never_claim_a_missing_model(self):
+        row=self.result['species'][0]
+        row.update(models=[0,1,1,None,None,None,None],model_labels=['ET–V2','Smooth Partial–V6w'])
+        contract.validate_result(self.result,self.request)
+        for defect in ('reference','length','label','no_model','unavailable'):
+            result=copy.deepcopy(self.result); r=result['species'][0]
+            if defect=='reference': r['models'][0]=2
+            if defect=='length': r['models'].pop()
+            if defect=='label': r['model_labels'][0]='X'*97
+            if defect=='no_model': r['status']='no_model'
+            if defect=='unavailable': r['reasons'][0]='model_unavailable'
+            with self.subTest(defect=defect), self.assertRaisesRegex(ValueError,'invalid_result_models'):
+                contract.validate_result(result,self.request)
+
+    def test_model_details_are_optional_bounded_and_aligned(self):
+        row=self.result['species'][0]
+        row.update(models=[0]*7, model_labels=['ET–V2'], model_details=[{
+            'estimator':'extra_trees_restricted_v1', 'inputs':['rain'], 'window_days':60}])
+        contract.validate_result(self.result,self.request)
+        for invalid in ([], [None, None], [{'inputs':['rain']}],
+                        [{'estimator':{}, 'inputs':[], 'window_days':60}]):
+            result=copy.deepcopy(self.result); result['species'][0]['model_details']=invalid
+            with self.assertRaisesRegex(ValueError,'invalid_result_model_details'):
+                contract.validate_result(result,self.request)
 
     def test_real_result_preserves_zero_and_abstention(self):
         contract.validate_result(self.result,self.request)

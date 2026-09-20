@@ -437,9 +437,12 @@ def materialize_operational_tuning_catalog(
                 if not identity_matches:
                     pass
                 else:
-                    catalog = mushroom_ml_tuning_catalog.validate_catalog(
-                        registry, loaded
-                    )
+                    try:
+                        catalog = mushroom_ml_tuning_catalog.validate_catalog(registry, loaded)
+                    except ValueError:
+                        # One explicit semantic migration. This reads only the
+                        # small, hash-verified catalog, not hundreds of models.
+                        catalog = mushroom_ml_tuning_catalog.migrate_pre_water_catalog(registry, loaded)
                     mushroom_ml_tuning_catalog.save(destination, catalog)
                     return catalog
     catalog = mushroom_ml_tuning_catalog.build_from_batch(

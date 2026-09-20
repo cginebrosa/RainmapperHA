@@ -18,7 +18,11 @@ from rainmapper_core import mushroom_paths
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_quality_catalog
 from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_ml_prediction_policy
+from rainmapper_core import mushroom_ml_policy_store
 
+
+from .mushroom_water_physics import WATER_STATE_CONTRACT_ID
 
 SCHEMA_VERSION = "1.0"
 MANIFEST_KIND = "rainmapper_mushroom_predictor_runtime"
@@ -29,7 +33,7 @@ WEATHER_CONTRACT = "weather_parquet_v1"
 PARTITIONED_WEATHER_CONTRACT = "partitioned_weather_history_v1"
 VERIFIED_RECEIPT_SCHEMA_VERSION = "1.0"
 VERIFIED_RECEIPT_KIND = "rainmapper_mushroom_predictor_runtime_verified"
-PUBLICATION_SCHEMA_VERSION = "1.2"
+PUBLICATION_SCHEMA_VERSION = "1.3"
 PUBLICATION_KIND = "rainmapper_mushroom_predictor_runtime_publication"
 RUNTIME_REGISTRY_SNAPSHOT_NAME = "mushroom_ml_version_registry.runtime.json"
 _DIGEST_CACHE: dict[tuple[str, int, int], str] = {}
@@ -301,6 +305,7 @@ def build_manifest(
         "kind": MANIFEST_KIND,
         "contracts": {
             "features": FEATURE_CONTRACT,
+            "water_state": WATER_STATE_CONTRACT_ID,
             "models": model_contract,
             "weather": weather_contract,
         },
@@ -393,6 +398,15 @@ def publish_manifest(
         },
         "source_state": _publication_source_state(manifest, sources),
     }
+    if "data/mushroom_ml_version_registry.json" in sources:
+        registry_path = Path(build_options.get("version_registry_path")
+                             or mushroom_paths.mushroom_ml_version_registry_path())
+        # Bind the policy to the actual sealed bytes, not a later live read.
+        sealed = json.loads(sources["data/mushroom_ml_version_registry.json"].read_text())
+        publication["policy_source"] = {
+            "registry_path": str(registry_path.resolve()),
+            "revision": mushroom_ml_prediction_policy.revision(sealed),
+        }
     with _PUBLICATION_LOCK:
         _atomic_write_json(destination, publication)
         dirty = _dirty_publication_path(destination)
@@ -400,6 +414,15 @@ def publish_manifest(
             dirty.unlink()
             _fsync_directory(destination.parent)
     return manifest, sources
+
+
+def _check_published_policy(payload: dict) -> None:
+    reference = payload.get("policy_source")
+    if reference is not None:
+        path = Path(reference["registry_path"])
+        registry = mushroom_ml_policy_store.resolve(path, mushroom_ml_version_registry._read_registry_payload(path))
+        if mushroom_ml_prediction_policy.revision(registry) != reference["revision"]:
+            raise ValueError("Predictor runtime model settings changed.")
 
 
 def load_published_manifest(
@@ -417,6 +440,7 @@ def load_published_manifest(
     ):
         raise ValueError("Predictor runtime publication is invalid.")
     manifest = validate_manifest(payload.get("manifest"))
+    _check_published_policy(payload)
     raw_sources = payload.get("sources")
     raw_state = payload.get("source_state")
     if not isinstance(raw_sources, dict) or set(raw_sources) != {
@@ -450,7 +474,7 @@ def load_published_manifest(
 
 
 def load_published_manifest_metadata(publication_path: Path) -> dict[str, Any]:
-    """Load only the persisted manifest, without statting or hashing runtime files."""
+    """Read manifest and small live policy, without scanning runtime objects."""
     source = Path(publication_path)
     if _dirty_publication_path(source).exists():
         raise ValueError("Predictor runtime publication is dirty.")
@@ -461,6 +485,7 @@ def load_published_manifest_metadata(publication_path: Path) -> dict[str, Any]:
         or payload.get("kind") != PUBLICATION_KIND
     ):
         raise ValueError("Predictor runtime publication is invalid.")
+    _check_published_policy(payload)
     return validate_manifest(payload.get("manifest"))
 
 

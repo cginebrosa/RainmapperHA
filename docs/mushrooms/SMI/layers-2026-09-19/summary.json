@@ -1,0 +1,5089 @@
+{
+  "stations": [
+    {
+      "code": "RDS",
+      "name": "Ribera de Sió",
+      "capacity_mm": 43.95,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.5838109869659585,
+          "transpiration": 7.167621973931917,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.5838109946343537,
+          "transpiration": 7.167621989268707,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.484038580100422,
+          "transpiration": 4.322693871301792,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.19616436754948,
+          "transpiration": 2.592373714625108,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 5.40250496092015,
+          "transpiration": 5.4025058302195275,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 2.6952439759073346,
+          "evaporation": 4.8630289350753,
+          "transpiration": 5.8527747706053175,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.5731892848799203,
+          "transpiration": 7.1463785697598405,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.573189316670619,
+          "transpiration": 7.146378633341238,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.488121341453986,
+          "transpiration": 4.32541753905188,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.203724287606647,
+          "transpiration": 2.5910993384317047,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 5.401595203724795,
+          "transpiration": 5.40159713335267,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 2.6952439759073346,
+          "evaporation": 4.866091006090381,
+          "transpiration": 5.825777332544915,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.1895852470240706,
+          "transpiration": 4.37917049404814,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.1895852546924655,
+          "transpiration": 4.379170509384931,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.977505097876546,
+          "transpiration": 2.651671549819208,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.958897810671496,
+          "transpiration": 1.6529862296417643,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.3120424294991375,
+          "transpiration": 3.312043298798513,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 1.65,
+          "evaporation": 2.9831288234073927,
+          "transpiration": 3.567059349743493,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.1800635664931733,
+          "transpiration": 4.360127132986347,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.1800635982838714,
+          "transpiration": 4.360127196567743,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.980750285651647,
+          "transpiration": 2.6538368351836543,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.963503051495595,
+          "transpiration": 1.6545454367044052,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.3103249985495053,
+          "transpiration": 3.3103269281773806,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 1.65,
+          "evaporation": 2.985562714238627,
+          "transpiration": 3.547420253498558,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 3.979039320256561e-13
+    },
+    {
+      "code": "CDLP",
+      "name": "Clot de Les Peres",
+      "capacity_mm": 52.6,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 11.952638574075637,
+          "transpiration": 23.905277148151274,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.570685825002684,
+          "transpiration": 23.16056293147924,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 22.042068574786153,
+          "transpiration": 14.18509139861468,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 4.165778609969189,
+          "direct_lower": 0.0,
+          "evaporation": 24.618027085104924,
+          "transpiration": 11.018916603191355,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 18.097490984390053,
+          "transpiration": 18.05214242029348,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 9.074012313274325,
+          "evaporation": 16.342179420148437,
+          "transpiration": 19.535139584791455,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.01901881803166,
+          "transpiration": 24.03803763606332,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.658210892306094,
+          "transpiration": 23.290639174765875,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 22.07432005553301,
+          "transpiration": 14.207524523636097,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 4.153325345895338,
+          "direct_lower": 0.0,
+          "evaporation": 24.669787888044215,
+          "transpiration": 11.038400824456511,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 18.14738074208697,
+          "transpiration": 18.104489846004157,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 9.074012313274325,
+          "evaporation": 16.365176200165795,
+          "transpiration": 19.648573340580743,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 15.286660920500651,
+          "transpiration": 30.42818262141144,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 12.211310932015742,
+          "direct_lower": 0.0,
+          "evaporation": 15.99255520958282,
+          "transpiration": 29.54386888172206,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 9.946643458172048,
+          "direct_lower": 0.0,
+          "evaporation": 22.893125796442103,
+          "transpiration": 22.462468122712256,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 17.539910407891046,
+          "direct_lower": 0.0,
+          "evaporation": 22.60404482288137,
+          "transpiration": 21.69621642453879,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 2.027178706391016,
+          "direct_lower": 0.0,
+          "evaporation": 23.46520819153256,
+          "transpiration": 22.704441121017098,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 3.076649260295703,
+          "direct_lower": 11.75,
+          "evaporation": 19.965183967299904,
+          "transpiration": 25.51860944594242,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 15.387155895463101,
+          "transpiration": 30.638316581228164,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 12.100418255233102,
+          "direct_lower": 0.0,
+          "evaporation": 16.105189671259698,
+          "transpiration": 29.76566434617734,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 9.878586900287562,
+          "direct_lower": 0.0,
+          "evaporation": 22.97175520759788,
+          "transpiration": 22.59393678579432,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 17.512508071865064,
+          "direct_lower": 0.0,
+          "evaporation": 22.644369959059095,
+          "transpiration": 21.915646648501337,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 1.9379748728901944,
+          "direct_lower": 0.0,
+          "evaporation": 23.589542300767874,
+          "transpiration": 22.779670509152822,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 3.025606841882375,
+          "direct_lower": 11.75,
+          "evaporation": 20.02948161267755,
+          "transpiration": 25.706114119104956,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 7.389644451905042e-13
+    },
+    {
+      "code": "SCA",
+      "name": "Serra de Costa Ampla",
+      "capacity_mm": 51.75,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 14.921809353624319,
+          "transpiration": 29.691801071761468,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 12.108697243740327,
+          "direct_lower": 0.0,
+          "evaporation": 15.614263031858854,
+          "transpiration": 28.866073313097377,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 10.567990131225319,
+          "direct_lower": 0.0,
+          "evaporation": 21.707528070989454,
+          "transpiration": 22.480140328957756,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 18.289366153237747,
+          "direct_lower": 0.0,
+          "evaporation": 20.711819474781798,
+          "transpiration": 22.53285270315328,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 2.5209173343675886,
+          "direct_lower": 0.0,
+          "evaporation": 22.586649870151785,
+          "transpiration": 22.34778929380691,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 3.613492598419164,
+          "direct_lower": 11.375598696220093,
+          "evaporation": 19.039538371447897,
+          "transpiration": 25.254586174622244,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 14.983158908226514,
+          "transpiration": 29.82500756808593,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 11.984249359865753,
+          "direct_lower": 0.0,
+          "evaporation": 15.687165376604106,
+          "transpiration": 29.011878002587874,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 10.493996706946866,
+          "direct_lower": 0.0,
+          "evaporation": 21.75956849329704,
+          "transpiration": 22.61569973281187,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 18.241988327369132,
+          "direct_lower": 0.0,
+          "evaporation": 20.741908181853542,
+          "transpiration": 22.792585161548896,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 2.4274145610289892,
+          "direct_lower": 0.0,
+          "evaporation": 22.67278856540901,
+          "transpiration": 22.3903846024547,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 3.5579975302102334,
+          "direct_lower": 11.375598696220093,
+          "evaporation": 19.083022938634418,
+          "transpiration": 25.396966924461765,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 22.32449599860388,
+          "transpiration": 39.14571956047801,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 31.720897196129016,
+          "direct_lower": 0.0,
+          "evaporation": 22.65051237870595,
+          "transpiration": 38.77618797222453,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 28.693652407568194,
+          "direct_lower": 0.0,
+          "evaporation": 21.814817125782614,
+          "transpiration": 37.557005724389036,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 37.31714217991471,
+          "direct_lower": 0.0,
+          "evaporation": 20.288388343014045,
+          "transpiration": 37.93426894164496,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 21.04525948481502,
+          "direct_lower": 0.0,
+          "evaporation": 22.3355661235047,
+          "transpiration": 37.92128392174437,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 17.103460065361958,
+          "direct_lower": 15.900000000000002,
+          "evaporation": 19.064160975113154,
+          "transpiration": 40.235141845583584,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 22.429106446319206,
+          "transpiration": 39.4611354108611,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 31.453576158967294,
+          "direct_lower": 0.0,
+          "evaporation": 22.74719771327493,
+          "transpiration": 39.10906420891068,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 28.445448262927272,
+          "direct_lower": 0.0,
+          "evaporation": 21.967072452687706,
+          "transpiration": 38.00322053796831,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 37.13618220559042,
+          "direct_lower": 0.0,
+          "evaporation": 20.419387921633326,
+          "transpiration": 38.52957643185062,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 20.808207427318337,
+          "direct_lower": 0.0,
+          "evaporation": 22.49604031150276,
+          "transpiration": 38.274985056260334,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 16.92623428522603,
+          "direct_lower": 15.900000000000002,
+          "evaporation": 19.182615610758347,
+          "transpiration": 40.732313392754236,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 6.821210263296962e-13
+    },
+    {
+      "code": "CMN",
+      "name": "Camí dels Nerets",
+      "capacity_mm": 52.3,
+      "gauge_days": 59,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 13.350710965504227,
+          "transpiration": 26.70142193100845,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 14.152003295819554,
+          "transpiration": 25.858445093678604,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 24.340801899794034,
+          "transpiration": 15.791565732300276,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 4.5276114230160065,
+          "direct_lower": 0.0,
+          "evaporation": 27.558111374688743,
+          "transpiration": 12.241283405294036,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.073579581243884,
+          "transpiration": 20.07360518763024,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 10.01143089304127,
+          "evaporation": 18.060336343645623,
+          "transpiration": 21.887228159383266,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 13.339026635160412,
+          "transpiration": 26.67805327032082,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 14.274205604026172,
+          "transpiration": 25.680574410434946,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 24.398658642020035,
+          "transpiration": 15.750983029696105,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 4.866273629425699,
+          "direct_lower": 0.0,
+          "evaporation": 27.340710889355723,
+          "transpiration": 12.40994168018162,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.07725016156957,
+          "transpiration": 20.077283261078936,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 10.01143089304127,
+          "evaporation": 18.069187983074357,
+          "transpiration": 21.84914566598641,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 4.263256414560601e-13
+    },
+    {
+      "code": "EBX",
+      "name": "El Boixer",
+      "capacity_mm": 47.1,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 52.2776366133574,
+          "transpiration": 76.95026325479299,
+          "drainage": 26.332013355872007
+        },
+        "idw_hg_cascade": {
+          "transfer": 106.33746882972319,
+          "direct_lower": 0.0,
+          "evaporation": 52.43935789357338,
+          "transpiration": 76.11958469685196,
+          "drainage": 27.013964712997335
+        },
+        "idw_hg_surface": {
+          "transfer": 83.58444479396033,
+          "direct_lower": 0.0,
+          "evaporation": 50.11671006393506,
+          "transpiration": 77.90122554383177,
+          "drainage": 24.865806984003157
+        },
+        "idw_hg_surface5": {
+          "transfer": 103.58784630803609,
+          "direct_lower": 0.0,
+          "evaporation": 43.42427940228976,
+          "transpiration": 81.18367245606491,
+          "drainage": 26.022332632312832
+        },
+        "idw_hg_surface15": {
+          "transfer": 66.59960486031908,
+          "direct_lower": 0.0,
+          "evaporation": 53.45345249546008,
+          "transpiration": 75.66751879524682,
+          "drainage": 25.14100114119357
+        },
+        "idw_hg_bypass25": {
+          "transfer": 47.28181803874119,
+          "direct_lower": 39.70195109653546,
+          "evaporation": 47.65930559807263,
+          "transpiration": 79.62926426654508,
+          "drainage": 25.38143825520993
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 52.211975377304704,
+          "transpiration": 76.51077987300906,
+          "drainage": 27.228356116051977
+        },
+        "idw_pm_cascade": {
+          "transfer": 106.72681994228647,
+          "direct_lower": 0.0,
+          "evaporation": 52.36460941429179,
+          "transpiration": 75.70284237857932,
+          "drainage": 27.89564288407267
+        },
+        "idw_pm_surface": {
+          "transfer": 84.30088674748936,
+          "direct_lower": 0.0,
+          "evaporation": 49.617284314585795,
+          "transpiration": 78.01652405620989,
+          "drainage": 25.76554655521877
+        },
+        "idw_pm_surface5": {
+          "transfer": 103.8537686750254,
+          "direct_lower": 0.0,
+          "evaporation": 43.1880727223032,
+          "transpiration": 81.52240522977019,
+          "drainage": 26.784334029139032
+        },
+        "idw_pm_surface15": {
+          "transfer": 67.5130069052822,
+          "direct_lower": 0.0,
+          "evaporation": 52.94397291378022,
+          "transpiration": 75.63282872930657,
+          "drainage": 26.06687625581995
+        },
+        "idw_pm_bypass25": {
+          "transfer": 47.97579344833941,
+          "direct_lower": 39.70195109653546,
+          "evaporation": 47.18608270746104,
+          "transpiration": 79.77352799861539,
+          "drainage": 26.264468083359247
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 46.23925376492734,
+          "transpiration": 76.70756799982644,
+          "drainage": 10.707754875231256
+        },
+        "gauge_hg_cascade": {
+          "transfer": 81.9736639930288,
+          "direct_lower": 0.0,
+          "evaporation": 48.41589604980256,
+          "transpiration": 71.51548408223178,
+          "drainage": 12.680972346311272
+        },
+        "gauge_hg_surface": {
+          "transfer": 60.40576579588182,
+          "direct_lower": 0.0,
+          "evaporation": 52.01826382279138,
+          "transpiration": 72.24492352840053,
+          "drainage": 7.588451844805057
+        },
+        "gauge_hg_surface5": {
+          "transfer": 87.46738170930783,
+          "direct_lower": 0.0,
+          "evaporation": 41.81554491871392,
+          "transpiration": 77.33927420775679,
+          "drainage": 9.698006040602422
+        },
+        "gauge_hg_surface15": {
+          "transfer": 44.52335503554927,
+          "direct_lower": 0.0,
+          "evaporation": 52.823335605498656,
+          "transpiration": 71.73806449517448,
+          "drainage": 7.7852256397415935
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 32.22768568643215,
+          "direct_lower": 35.15,
+          "evaporation": 47.00546776506933,
+          "transpiration": 75.78491575437997,
+          "drainage": 8.561559689669409
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 46.57545434897463,
+          "transpiration": 76.94680274986678,
+          "drainage": 10.66450526644239
+        },
+        "gauge_pm_cascade": {
+          "transfer": 81.83044246240411,
+          "direct_lower": 0.0,
+          "evaporation": 48.69247109637226,
+          "transpiration": 71.88141629618787,
+          "drainage": 12.587906556418616
+        },
+        "gauge_pm_surface": {
+          "transfer": 60.74001269977893,
+          "direct_lower": 0.0,
+          "evaporation": 51.83943578630425,
+          "transpiration": 73.15032369471118,
+          "drainage": 7.6991654161100485
+        },
+        "gauge_pm_surface5": {
+          "transfer": 87.59067043690035,
+          "direct_lower": 0.0,
+          "evaporation": 41.70984469669944,
+          "transpiration": 78.42157749247092,
+          "drainage": 9.854343058791457
+        },
+        "gauge_pm_surface15": {
+          "transfer": 44.92875910765805,
+          "direct_lower": 0.0,
+          "evaporation": 52.71993768326369,
+          "transpiration": 72.46761357901813,
+          "drainage": 7.895280563762672
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 32.35938762691595,
+          "direct_lower": 35.15,
+          "evaporation": 46.95763526771324,
+          "transpiration": 76.61223588025314,
+          "drainage": 8.602178735792577
+        }
+      },
+      "mass_error_max_mm": 7.389644451905042e-13
+    },
+    {
+      "code": "LCS",
+      "name": "Los Coscolls",
+      "capacity_mm": 43.7,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.640945902206449,
+          "transpiration": 25.281891804412897,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 0.9268808402710604,
+          "direct_lower": 0.0,
+          "evaporation": 13.915218924137532,
+          "transpiration": 24.002023004760442,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 23.315734795558143,
+          "transpiration": 14.619514714468089,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 5.213277764231815,
+          "direct_lower": 0.0,
+          "evaporation": 25.497106764844972,
+          "transpiration": 12.359091053578602,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 19.025511429597056,
+          "transpiration": 18.9225973478397,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 9.473486111781,
+          "evaporation": 17.116601137967677,
+          "transpiration": 20.736478723995646,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.64348780382051,
+          "transpiration": 25.28697560764102,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 1.462846393928043,
+          "direct_lower": 0.0,
+          "evaporation": 13.947656842034139,
+          "transpiration": 23.975845614150504,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 23.422813413763322,
+          "transpiration": 14.51982976075204,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 5.752762996209195,
+          "direct_lower": 0.0,
+          "evaporation": 25.09704205543639,
+          "transpiration": 12.750100677337095,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 19.059546617356915,
+          "transpiration": 18.897822176410287,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 9.473486111781,
+          "evaporation": 17.142802877223126,
+          "transpiration": 20.71218970639729,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.266422060808713,
+          "transpiration": 24.532844121617426,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 13.65446783830699,
+          "transpiration": 23.141458567471638,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 22.624363880551297,
+          "transpiration": 14.091404441428093,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 6.291863182356252,
+          "direct_lower": 0.0,
+          "evaporation": 23.434309892624952,
+          "transpiration": 13.206707911965033,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 18.463682699880913,
+          "transpiration": 18.297099316622795,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 9.175,
+          "evaporation": 16.642834141538064,
+          "transpiration": 20.04710596728614,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.269509826463894,
+          "transpiration": 24.539019652927788,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 13.826456463049047,
+          "transpiration": 22.977191817747375,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 22.6885583390607,
+          "transpiration": 14.035736090569763,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 6.520166284343831,
+          "direct_lower": 0.0,
+          "evaporation": 23.277825685817824,
+          "transpiration": 13.361733856558004,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 18.47490839423834,
+          "transpiration": 18.296403082815473,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 9.175,
+          "evaporation": 16.65216947469036,
+          "transpiration": 20.041136321142577,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 3.126388037344441e-13
+    },
+    {
+      "code": "PSN",
+      "name": "Pessonada",
+      "capacity_mm": 47.8,
+      "gauge_days": 58,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 17.851497498648996,
+          "transpiration": 35.19813176908485,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 14.325591357297276,
+          "direct_lower": 0.0,
+          "evaporation": 18.54637635258823,
+          "transpiration": 34.42449307059752,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 11.526058025313977,
+          "direct_lower": 0.0,
+          "evaporation": 26.452859474813224,
+          "transpiration": 26.822031676936522,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 18.417075081962768,
+          "direct_lower": 0.0,
+          "evaporation": 27.93187443418433,
+          "transpiration": 25.004214961236197,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 4.559827625623946,
+          "direct_lower": 0.0,
+          "evaporation": 25.853197660432254,
+          "transpiration": 27.707911634075895,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 4.654492369727146,
+          "direct_lower": 13.705826941773045,
+          "evaporation": 22.370686405986653,
+          "transpiration": 30.569543337885772,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 17.891099829529022,
+          "transpiration": 35.278068795422385,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 14.319733695501986,
+          "direct_lower": 0.0,
+          "evaporation": 18.587247280385792,
+          "transpiration": 34.51106353951008,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 11.521619186884818,
+          "direct_lower": 0.0,
+          "evaporation": 26.471707051495954,
+          "transpiration": 26.909300500948984,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 18.385432168997887,
+          "direct_lower": 0.0,
+          "evaporation": 27.96015456294644,
+          "transpiration": 25.10749294938767,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 4.555249632955807,
+          "direct_lower": 0.0,
+          "evaporation": 25.884713443953366,
+          "transpiration": 27.765588382243838,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 4.651383286690416,
+          "direct_lower": 13.705826941773045,
+          "evaporation": 22.386915784533535,
+          "transpiration": 30.666284868129065,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 4.547473508864641e-13
+    },
+    {
+      "code": "BDS",
+      "name": "Batlliu de Sort",
+      "capacity_mm": 50.0,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 32.62384087924622,
+          "transpiration": 56.074290265137634,
+          "drainage": 0.5179384312434259
+        },
+        "idw_hg_cascade": {
+          "transfer": 43.76086349025936,
+          "direct_lower": 0.0,
+          "evaporation": 34.121493131098006,
+          "transpiration": 51.59627752383743,
+          "drainage": 2.989997193194611
+        },
+        "idw_hg_surface": {
+          "transfer": 32.61451418243979,
+          "direct_lower": 0.0,
+          "evaporation": 38.31904870279468,
+          "transpiration": 49.31464950454127,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 45.56423391126996,
+          "direct_lower": 0.0,
+          "evaporation": 36.12719564462913,
+          "transpiration": 50.249263520943906,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 23.504852642070055,
+          "direct_lower": 0.0,
+          "evaporation": 37.21106033415578,
+          "transpiration": 50.96194690085734,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 17.350660615588737,
+          "direct_lower": 22.78892779421307,
+          "evaporation": 32.835413472459194,
+          "transpiration": 54.02511180319819,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 31.88145302822934,
+          "transpiration": 53.29273461757896,
+          "drainage": 3.1149348415409897
+        },
+        "idw_pm_cascade": {
+          "transfer": 47.86308491866111,
+          "direct_lower": 0.0,
+          "evaporation": 32.860262286918605,
+          "transpiration": 49.53749467877277,
+          "drainage": 5.474176154111326
+        },
+        "idw_pm_surface": {
+          "transfer": 35.82636827846163,
+          "direct_lower": 0.0,
+          "evaporation": 36.709506943417715,
+          "transpiration": 49.08916475255929,
+          "drainage": 0.042717924438314014
+        },
+        "idw_pm_surface5": {
+          "transfer": 47.99932701007613,
+          "direct_lower": 0.0,
+          "evaporation": 34.494910424545914,
+          "transpiration": 49.846996302997404,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 26.830068918496536,
+          "direct_lower": 0.0,
+          "evaporation": 35.96120712985257,
+          "transpiration": 49.34681274642682,
+          "drainage": 1.5003815033141379
+        },
+        "idw_pm_bypass25": {
+          "transfer": 19.989918335579834,
+          "direct_lower": 22.78892779421307,
+          "evaporation": 31.48081364410522,
+          "transpiration": 52.59549350931592,
+          "drainage": 0.8105222071211884
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 45.91700469101777,
+          "transpiration": 71.97444548789863,
+          "drainage": 32.597769826170875
+        },
+        "gauge_hg_cascade": {
+          "transfer": 104.13125823087675,
+          "direct_lower": 0.0,
+          "evaporation": 46.49854573761205,
+          "transpiration": 68.32632531850464,
+          "drainage": 35.1331303961537
+        },
+        "gauge_hg_surface": {
+          "transfer": 82.04377803898527,
+          "direct_lower": 0.0,
+          "evaporation": 51.50335789091596,
+          "transpiration": 65.75263542797295,
+          "drainage": 30.10016607443295
+        },
+        "gauge_hg_surface5": {
+          "transfer": 104.34182937493206,
+          "direct_lower": 0.0,
+          "evaporation": 45.121004716933285,
+          "transpiration": 65.9134025988908,
+          "drainage": 30.966156768757777
+        },
+        "gauge_hg_surface15": {
+          "transfer": 67.7658637455227,
+          "direct_lower": 0.0,
+          "evaporation": 50.87715167793987,
+          "transpiration": 66.73603221142326,
+          "drainage": 31.083537357285906
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 49.70999299861089,
+          "direct_lower": 40.375,
+          "evaporation": 45.36510905833445,
+          "transpiration": 68.33612087847666,
+          "drainage": 32.62310972992627
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 43.39199484613722,
+          "transpiration": 66.01665122655214,
+          "drainage": 39.38910242825416
+        },
+        "gauge_pm_cascade": {
+          "transfer": 108.29346021017844,
+          "direct_lower": 0.0,
+          "evaporation": 43.80406727438284,
+          "transpiration": 62.89268921241035,
+          "drainage": 41.542638261623665
+        },
+        "gauge_pm_surface": {
+          "transfer": 86.98957620622329,
+          "direct_lower": 0.0,
+          "evaporation": 48.39850193367455,
+          "transpiration": 60.272026411910396,
+          "drainage": 36.82829038456834
+        },
+        "gauge_pm_surface5": {
+          "transfer": 107.65266992502302,
+          "direct_lower": 0.0,
+          "evaporation": 42.62097848941494,
+          "transpiration": 59.88812366582794,
+          "drainage": 37.35889576769719
+        },
+        "gauge_pm_surface15": {
+          "transfer": 73.51156575919495,
+          "direct_lower": 0.0,
+          "evaporation": 47.83125902380854,
+          "transpiration": 61.14143452734078,
+          "drainage": 37.98948299663107
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 53.58077154775866,
+          "direct_lower": 40.375,
+          "evaporation": 43.20263766716542,
+          "transpiration": 62.41426616936156,
+          "drainage": 38.892227089285704
+        }
+      },
+      "mass_error_max_mm": 6.252776074688882e-13
+    },
+    {
+      "code": "CDPA",
+      "name": "Coll de Paller",
+      "capacity_mm": 53.05,
+      "gauge_days": 56,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 18.154506244896695,
+          "transpiration": 36.30901248979338,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 8.84806965607952,
+          "direct_lower": 0.0,
+          "evaporation": 20.470714055036854,
+          "transpiration": 33.811140509155265,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 6.4286182828206755,
+          "direct_lower": 0.0,
+          "evaporation": 30.234264962418834,
+          "transpiration": 23.95787367927586,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 16.18166436685955,
+          "direct_lower": 0.0,
+          "evaporation": 29.584518031221766,
+          "transpiration": 24.290492700610233,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 28.77566028644525,
+          "transpiration": 25.71900864846963,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.40062611241951984,
+          "direct_lower": 13.572232948421,
+          "evaporation": 25.335515093775687,
+          "transpiration": 28.936333870423727,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 18.241200550626942,
+          "transpiration": 36.482401101253885,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 7.967712837304745,
+          "direct_lower": 0.0,
+          "evaporation": 20.564256871420536,
+          "transpiration": 34.0195898851886,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 6.047017903501654,
+          "direct_lower": 0.0,
+          "evaporation": 30.456941059858096,
+          "transpiration": 23.895248352654658,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 15.932746719280892,
+          "direct_lower": 0.0,
+          "evaporation": 29.77220838812556,
+          "transpiration": 24.281404176548772,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 28.70139748165296,
+          "transpiration": 25.95426883562547,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.11442694348430038,
+          "direct_lower": 13.572232948421,
+          "evaporation": 25.506308255226376,
+          "transpiration": 28.979569936949613,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 5.684341886080801e-13
+    },
+    {
+      "code": "LCDA",
+      "name": "La Cultia d'Àreu",
+      "capacity_mm": 54.35,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 26.701220146990117,
+          "transpiration": 50.6639338565121,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 36.38093645887993,
+          "direct_lower": 0.0,
+          "evaporation": 28.955995305050916,
+          "transpiration": 47.35495109997681,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 21.1055205911305,
+          "direct_lower": 0.0,
+          "evaporation": 39.332043846637006,
+          "transpiration": 37.676275133972084,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 36.93044060689701,
+          "direct_lower": 0.0,
+          "evaporation": 34.645699177258614,
+          "transpiration": 39.54316935304907,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 11.36948503691369,
+          "direct_lower": 0.0,
+          "evaporation": 37.953475359280056,
+          "transpiration": 39.7771257954109,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 8.26352674255039,
+          "direct_lower": 20.11094490592695,
+          "evaporation": 33.722682510803246,
+          "transpiration": 43.36111728196162,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 27.4706743839493,
+          "transpiration": 50.698310578304174,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 38.962224992049045,
+          "direct_lower": 0.0,
+          "evaporation": 29.391643339856696,
+          "transpiration": 48.04848809025448,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 24.163032428651267,
+          "direct_lower": 0.0,
+          "evaporation": 37.883664198592854,
+          "transpiration": 39.41596738432436,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 39.1412507430619,
+          "direct_lower": 0.0,
+          "evaporation": 33.16867821975423,
+          "transpiration": 41.32637304825457,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 14.089595878755247,
+          "direct_lower": 0.0,
+          "evaporation": 37.148221536823904,
+          "transpiration": 41.105056827205225,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 10.317691068579737,
+          "direct_lower": 20.11094490592695,
+          "evaporation": 32.877483664061614,
+          "transpiration": 44.67334651600426,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 49.59642152088832,
+          "transpiration": 67.94665649078156,
+          "drainage": 37.70736294193094
+        },
+        "gauge_hg_cascade": {
+          "transfer": 120.95236964997635,
+          "direct_lower": 0.0,
+          "evaporation": 49.6433768396131,
+          "transpiration": 67.58453729731717,
+          "drainage": 37.9478036836665
+        },
+        "gauge_hg_surface": {
+          "transfer": 100.62595042215202,
+          "direct_lower": 0.0,
+          "evaporation": 45.7623650244492,
+          "transpiration": 65.54232913617041,
+          "drainage": 37.47369835957843
+        },
+        "gauge_hg_surface5": {
+          "transfer": 119.59257476949415,
+          "direct_lower": 0.0,
+          "evaporation": 39.38058103940851,
+          "transpiration": 65.22914408885825,
+          "drainage": 40.56332106885658
+        },
+        "gauge_hg_surface15": {
+          "transfer": 83.74451852769349,
+          "direct_lower": 0.0,
+          "evaporation": 48.6462127627455,
+          "transpiration": 65.58482239384634,
+          "drainage": 37.089614181549905
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 61.038924901256046,
+          "direct_lower": 42.2,
+          "evaporation": 43.494094785970866,
+          "transpiration": 66.33624979959974,
+          "drainage": 39.42572921060117
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 48.385354587328536,
+          "transpiration": 65.57508003426778,
+          "drainage": 44.05329374294396
+        },
+        "gauge_pm_cascade": {
+          "transfer": 123.7003979639652,
+          "direct_lower": 0.0,
+          "evaporation": 48.43953395876921,
+          "transpiration": 65.3743444058358,
+          "drainage": 44.19848412071354
+        },
+        "gauge_pm_surface": {
+          "transfer": 103.81193546597854,
+          "direct_lower": 0.0,
+          "evaporation": 44.42550630767912,
+          "transpiration": 63.609543654336726,
+          "drainage": 43.298743986658835
+        },
+        "gauge_pm_surface5": {
+          "transfer": 121.51289951838692,
+          "direct_lower": 0.0,
+          "evaporation": 38.216196349308206,
+          "transpiration": 63.628108235503575,
+          "drainage": 45.94046024053965
+        },
+        "gauge_pm_surface15": {
+          "transfer": 88.02729552389278,
+          "direct_lower": 0.0,
+          "evaporation": 47.069301714087636,
+          "transpiration": 63.61724493379819,
+          "drainage": 43.24924153831021
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 63.7713600675814,
+          "direct_lower": 42.2,
+          "evaporation": 42.492799499660016,
+          "transpiration": 64.41025412220138,
+          "drainage": 44.9613840074351
+        }
+      },
+      "mass_error_max_mm": 9.663381206337363e-13
+    },
+    {
+      "code": "EML",
+      "name": "El Miracle",
+      "capacity_mm": 48.25,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.83790397071186,
+          "transpiration": 17.67580794142372,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.976084848796496,
+          "transpiration": 17.53293061958012,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 16.120909753140655,
+          "transpiration": 10.716425067251238,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 0.5883799045463523,
+          "direct_lower": 0.0,
+          "evaporation": 20.27221257740983,
+          "transpiration": 6.673414419230089,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 13.368481927336399,
+          "transpiration": 13.36850722551209,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 6.7478154993904855,
+          "evaporation": 12.0766318879866,
+          "transpiration": 14.504420524497387,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.819273118052665,
+          "transpiration": 17.63854623610533,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.996290245872872,
+          "transpiration": 17.45374654876444,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 16.121506282586974,
+          "transpiration": 10.700205792432186,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 0.590794932498051,
+          "direct_lower": 0.0,
+          "evaporation": 20.298835258443486,
+          "transpiration": 6.639641246921208,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 13.355295394206625,
+          "transpiration": 13.355337718948835,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 6.7478154993904855,
+          "evaporation": 12.06944426017227,
+          "transpiration": 14.464305476081067,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 5.633210680278717,
+          "transpiration": 11.266421360557434,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 5.752918727274937,
+          "transpiration": 11.146349001162315,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 10.359975554653358,
+          "transpiration": 6.704604886407399,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 3.058345199917335,
+          "direct_lower": 0.0,
+          "evaporation": 10.812084739923945,
+          "transpiration": 6.293776806933722,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.505477821042707,
+          "transpiration": 8.505503119218393,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 4.300000000000001,
+          "evaporation": 7.680073010886624,
+          "transpiration": 9.260537383071771,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 5.625346246801911,
+          "transpiration": 11.250692493603822,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 5.745153893771959,
+          "transpiration": 11.130328789053948,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 10.356710994293904,
+          "transpiration": 6.702762607875545,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 3.0583556430838232,
+          "direct_lower": 0.0,
+          "evaporation": 10.810919948133936,
+          "transpiration": 6.2841555212532905,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.500458515799401,
+          "transpiration": 8.500500840541614,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 4.300000000000001,
+          "evaporation": 7.677612009418248,
+          "transpiration": 9.243290859980066,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 5.684341886080801e-13
+    },
+    {
+      "code": "BCLL",
+      "name": "Borda Coll",
+      "capacity_mm": 52.95,
+      "gauge_days": 55,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 33.148316858038925,
+          "transpiration": 54.687726932731536,
+          "drainage": 14.065060183738765
+        },
+        "idw_hg_cascade": {
+          "transfer": 57.600717142128104,
+          "direct_lower": 0.0,
+          "evaporation": 34.45981119362319,
+          "transpiration": 51.743220257622276,
+          "drainage": 15.385291054795431
+        },
+        "idw_hg_surface": {
+          "transfer": 50.05283015950579,
+          "direct_lower": 0.0,
+          "evaporation": 34.386871888252145,
+          "transpiration": 54.99466180396601,
+          "drainage": 10.724544730245135
+        },
+        "idw_hg_surface5": {
+          "transfer": 62.94855020692469,
+          "direct_lower": 0.0,
+          "evaporation": 31.270389734869184,
+          "transpiration": 56.509640113432425,
+          "drainage": 11.400788573714998
+        },
+        "idw_hg_surface15": {
+          "transfer": 41.02513398698768,
+          "direct_lower": 0.0,
+          "evaporation": 33.88916140148532,
+          "transpiration": 55.07569390224585,
+          "drainage": 11.802772870349884
+        },
+        "idw_hg_bypass25": {
+          "transfer": 30.964247560961162,
+          "direct_lower": 25.723689017960098,
+          "evaporation": 29.797719333260968,
+          "transpiration": 58.2478624764171,
+          "drainage": 11.633560384205204
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 32.60420719417635,
+          "transpiration": 53.3140409732167,
+          "drainage": 15.772954526148919
+        },
+        "idw_pm_cascade": {
+          "transfer": 58.57756748130361,
+          "direct_lower": 0.0,
+          "evaporation": 34.07732046104132,
+          "transpiration": 50.08213151800962,
+          "drainage": 17.095875832945026
+        },
+        "idw_pm_surface": {
+          "transfer": 51.53591200110043,
+          "direct_lower": 0.0,
+          "evaporation": 33.56227308647873,
+          "transpiration": 53.451341721657585,
+          "drainage": 12.690961920520387
+        },
+        "idw_pm_surface5": {
+          "transfer": 63.90118006957847,
+          "direct_lower": 0.0,
+          "evaporation": 30.60871465420413,
+          "transpiration": 54.92660274542773,
+          "drainage": 13.142022789270804
+        },
+        "idw_pm_surface15": {
+          "transfer": 42.59952578632087,
+          "direct_lower": 0.0,
+          "evaporation": 33.11503514416582,
+          "transpiration": 53.68147513565479,
+          "drainage": 13.646682974595258
+        },
+        "idw_pm_bypass25": {
+          "transfer": 32.25671304914325,
+          "direct_lower": 25.723689017960098,
+          "evaporation": 29.012827173889047,
+          "transpiration": 56.64354468637738,
+          "drainage": 13.53252090172736
+        }
+      },
+      "mass_error_max_mm": 3.410605131648481e-13
+    },
+    {
+      "code": "LLA",
+      "name": "Llivia",
+      "capacity_mm": 47.05,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.91072284874827,
+          "transpiration": 41.67762634173338,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 14.99900789523915,
+          "direct_lower": 0.0,
+          "evaporation": 23.89805976847942,
+          "transpiration": 38.53774121265438,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 8.309590684592758,
+          "direct_lower": 0.0,
+          "evaporation": 34.622343593483755,
+          "transpiration": 28.501426744392045,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 18.253612406301347,
+          "direct_lower": 0.0,
+          "evaporation": 35.411013578385656,
+          "transpiration": 27.87649230459003,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 1.5744465482246497,
+          "direct_lower": 0.0,
+          "evaporation": 32.51857216975447,
+          "transpiration": 30.509741398014754,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 2.214519109190336,
+          "direct_lower": 16.182596481599365,
+          "evaporation": 28.122127322469925,
+          "transpiration": 34.5715045762994,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.79789400734306,
+          "transpiration": 41.352842236334254,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 18.7511441479488,
+          "direct_lower": 0.0,
+          "evaporation": 23.66302516127096,
+          "transpiration": 38.220577745349594,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 9.311759206173255,
+          "direct_lower": 0.0,
+          "evaporation": 34.393681580757644,
+          "transpiration": 28.41404327249233,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 20.38906738672044,
+          "direct_lower": 0.0,
+          "evaporation": 33.782064167050464,
+          "transpiration": 28.95331587630123,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 2.5468514834358373,
+          "direct_lower": 0.0,
+          "evaporation": 32.3834810381479,
+          "transpiration": 30.36172695049558,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 2.9249659730643227,
+          "direct_lower": 16.182596481599365,
+          "evaporation": 27.855568998197786,
+          "transpiration": 34.38990331439574,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 51.486821640007065,
+          "transpiration": 79.73972053675912,
+          "drainage": 46.6518673877289
+        },
+        "gauge_hg_cascade": {
+          "transfer": 125.05426055184745,
+          "direct_lower": 0.0,
+          "evaporation": 52.08751098213991,
+          "transpiration": 75.8013378751329,
+          "drainage": 49.98956171008753
+        },
+        "gauge_hg_surface": {
+          "transfer": 104.64499111034561,
+          "direct_lower": 0.0,
+          "evaporation": 49.26311141100467,
+          "transpiration": 80.95226048232597,
+          "drainage": 45.27108473880954
+        },
+        "gauge_hg_surface5": {
+          "transfer": 125.9676459398726,
+          "direct_lower": 0.0,
+          "evaporation": 42.35095746121325,
+          "transpiration": 83.97131584031659,
+          "drainage": 48.35039717778682
+        },
+        "gauge_hg_surface15": {
+          "transfer": 90.21478012590757,
+          "direct_lower": 0.0,
+          "evaporation": 49.52363337297042,
+          "transpiration": 81.0418044311196,
+          "drainage": 45.68434518410346
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 67.22582582526742,
+          "direct_lower": 44.949999999999996,
+          "evaporation": 43.55335467768202,
+          "transpiration": 83.18350627983428,
+          "drainage": 48.78352633492184
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 48.39201819977644,
+          "transpiration": 73.09440734485592,
+          "drainage": 55.34844873895917
+        },
+        "gauge_pm_cascade": {
+          "transfer": 129.98738605731026,
+          "direct_lower": 0.0,
+          "evaporation": 48.73340522067703,
+          "transpiration": 69.83515125753459,
+          "drainage": 58.26632084308756
+        },
+        "gauge_pm_surface": {
+          "transfer": 109.52885859493827,
+          "direct_lower": 0.0,
+          "evaporation": 46.512700944348545,
+          "transpiration": 73.47529813245171,
+          "drainage": 53.814802813056
+        },
+        "gauge_pm_surface5": {
+          "transfer": 129.2822872205068,
+          "direct_lower": 0.0,
+          "evaporation": 39.82546729020476,
+          "transpiration": 75.73832204618768,
+          "drainage": 57.107639574594714
+        },
+        "gauge_pm_surface15": {
+          "transfer": 95.93059300372481,
+          "direct_lower": 0.0,
+          "evaporation": 46.916780507300956,
+          "transpiration": 73.65961650534061,
+          "drainage": 54.2330405229297
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 70.96569729689615,
+          "direct_lower": 44.949999999999996,
+          "evaporation": 41.45728704279275,
+          "transpiration": 75.08770600597751,
+          "drainage": 57.32300589912267
+        }
+      },
+      "mass_error_max_mm": 4.263256414560601e-13
+    },
+    {
+      "code": "CLLA",
+      "name": "Clarella",
+      "capacity_mm": 53.2,
+      "gauge_days": 51,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 32.04482050351964,
+          "transpiration": 51.47099878013378,
+          "drainage": 4.977537817972436
+        },
+        "idw_hg_cascade": {
+          "transfer": 50.466568898694256,
+          "direct_lower": 0.0,
+          "evaporation": 32.13753801980325,
+          "transpiration": 51.24637310980996,
+          "drainage": 4.97761003547128
+        },
+        "idw_hg_surface": {
+          "transfer": 45.39133326207186,
+          "direct_lower": 0.0,
+          "evaporation": 29.45396091668636,
+          "transpiration": 56.24429196697856,
+          "drainage": 4.236154120558837
+        },
+        "idw_hg_surface5": {
+          "transfer": 58.38945858356644,
+          "direct_lower": 0.0,
+          "evaporation": 26.976412251184193,
+          "transpiration": 58.558005279459806,
+          "drainage": 4.748417246274201
+        },
+        "idw_hg_surface15": {
+          "transfer": 34.96471680186472,
+          "direct_lower": 0.0,
+          "evaporation": 30.477660476639787,
+          "transpiration": 54.68320738984111,
+          "drainage": 4.098332445729959
+        },
+        "idw_hg_bypass25": {
+          "transfer": 27.081801135156397,
+          "direct_lower": 23.69344978737505,
+          "evaporation": 26.709939097846835,
+          "transpiration": 57.67686522987437,
+          "drainage": 4.456634870817467
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 31.443260694677214,
+          "transpiration": 50.48601669636284,
+          "drainage": 5.99897531478824
+        },
+        "idw_pm_cascade": {
+          "transfer": 50.870705772425104,
+          "direct_lower": 0.0,
+          "evaporation": 31.5448811664176,
+          "transpiration": 50.227078511273234,
+          "drainage": 5.999086751688672
+        },
+        "idw_pm_surface": {
+          "transfer": 46.01789103709925,
+          "direct_lower": 0.0,
+          "evaporation": 28.79252741786093,
+          "transpiration": 55.25364213216419,
+          "drainage": 5.262064189991193
+        },
+        "idw_pm_surface5": {
+          "transfer": 58.808650254754454,
+          "direct_lower": 0.0,
+          "evaporation": 26.48675916189678,
+          "transpiration": 57.552862043265215,
+          "drainage": 5.668781095738716
+        },
+        "idw_pm_surface15": {
+          "transfer": 35.72778153590916,
+          "direct_lower": 0.0,
+          "evaporation": 29.79764641729962,
+          "transpiration": 53.68139774748717,
+          "drainage": 5.160911400578126
+        },
+        "idw_pm_bypass25": {
+          "transfer": 27.69599389522053,
+          "direct_lower": 23.69344978737505,
+          "evaporation": 26.11730436879183,
+          "transpiration": 56.59819998172995,
+          "drainage": 5.487142860978665
+        }
+      },
+      "mass_error_max_mm": 4.547473508864641e-13
+    },
+    {
+      "code": "CLLP",
+      "name": "Cantallops",
+      "capacity_mm": 53.55,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 7.867784165624913,
+          "transpiration": 15.735568331249826,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 7.88358157617304,
+          "transpiration": 15.69417413187817,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 15.543186437445476,
+          "transpiration": 10.389785202099775,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 0.4913169639539863,
+          "direct_lower": 0.0,
+          "evaporation": 20.531863006785056,
+          "transpiration": 6.733164422038143,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.484971495671237,
+          "transpiration": 12.509933537639029,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 7.357181103766906,
+          "evaporation": 11.65342862016335,
+          "transpiration": 13.15746600528087,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.13950297037463,
+          "transpiration": 16.27900594074926,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 8.155097721287463,
+          "transpiration": 16.24438811066052,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 15.95055039604982,
+          "transpiration": 10.654511571770032,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 0.4848404148326573,
+          "direct_lower": 0.0,
+          "evaporation": 20.899381195557936,
+          "transpiration": 6.861139805717365,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.861263413290487,
+          "transpiration": 12.881371573349695,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 7.357181103766906,
+          "evaporation": 11.959046467827207,
+          "transpiration": 13.56115877346086,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 12.166094218716559,
+          "transpiration": 21.784510765750397,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 27.040296890384134,
+          "direct_lower": 0.0,
+          "evaporation": 12.345755669377647,
+          "transpiration": 20.124644147011832,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 21.95715187945162,
+          "direct_lower": 0.0,
+          "evaporation": 16.60981122624121,
+          "transpiration": 19.03280732353226,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 35.02744189976324,
+          "direct_lower": 0.0,
+          "evaporation": 15.22200474138858,
+          "transpiration": 19.495045037891735,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 12.81563382983424,
+          "direct_lower": 0.0,
+          "evaporation": 16.60765503991116,
+          "transpiration": 18.401012035021907,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 11.497708043482287,
+          "direct_lower": 14.95,
+          "evaporation": 15.103404516886187,
+          "transpiration": 20.267249008648527,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 13.241908940216272,
+          "transpiration": 24.400989512270904,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 25.793620492301358,
+          "direct_lower": 0.0,
+          "evaporation": 13.55031185388178,
+          "transpiration": 22.10384218150543,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 21.20170454621399,
+          "direct_lower": 0.0,
+          "evaporation": 18.288597206483534,
+          "transpiration": 20.98633024171013,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 34.13612996691336,
+          "direct_lower": 0.0,
+          "evaporation": 16.62879564975818,
+          "transpiration": 21.779183914060464,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 11.932371043625775,
+          "direct_lower": 0.0,
+          "evaporation": 18.40032142829849,
+          "transpiration": 20.286966402486115,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 10.744863449812712,
+          "direct_lower": 14.95,
+          "evaporation": 16.615024271185753,
+          "transpiration": 22.353729016483058,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 8.526512829121202e-13
+    },
+    {
+      "code": "BOLV",
+      "name": "Bolvir",
+      "capacity_mm": 44.8,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 59.2724607918284,
+          "transpiration": 92.27352694924767,
+          "drainage": 10.87236782419889
+        },
+        "idw_hg_cascade": {
+          "transfer": 97.70086850919772,
+          "direct_lower": 0.0,
+          "evaporation": 59.73324097538582,
+          "transpiration": 89.66549604131139,
+          "drainage": 13.037814474128716
+        },
+        "idw_hg_surface": {
+          "transfer": 74.07361058756521,
+          "direct_lower": 0.0,
+          "evaporation": 58.89679824868699,
+          "transpiration": 92.60728188510184,
+          "drainage": 9.421089308411851
+        },
+        "idw_hg_surface5": {
+          "transfer": 99.16247566874046,
+          "direct_lower": 0.0,
+          "evaporation": 51.136741248053944,
+          "transpiration": 95.03940863336014,
+          "drainage": 14.781421475288248
+        },
+        "idw_hg_surface15": {
+          "transfer": 54.957639758513835,
+          "direct_lower": 0.0,
+          "evaporation": 61.39913751508782,
+          "transpiration": 91.64029387059601,
+          "drainage": 8.265415053552566
+        },
+        "idw_hg_bypass25": {
+          "transfer": 39.48205486852197,
+          "direct_lower": 41.24825597910665,
+          "evaporation": 54.581593024815824,
+          "transpiration": 94.86456142963868,
+          "drainage": 11.461492391850484
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 58.17970016666512,
+          "transpiration": 88.28123308183365,
+          "drainage": 15.580708420784562
+        },
+        "idw_pm_cascade": {
+          "transfer": 100.64341665188337,
+          "direct_lower": 0.0,
+          "evaporation": 58.548775652349505,
+          "transpiration": 85.91182665292445,
+          "drainage": 17.5994293260788
+        },
+        "idw_pm_surface": {
+          "transfer": 77.45399721940244,
+          "direct_lower": 0.0,
+          "evaporation": 56.78633279941736,
+          "transpiration": 88.07393288487643,
+          "drainage": 15.469348884349593
+        },
+        "idw_pm_surface5": {
+          "transfer": 101.13938579216753,
+          "direct_lower": 0.0,
+          "evaporation": 49.62522789468563,
+          "transpiration": 89.80053017955169,
+          "drainage": 20.852011564744274
+        },
+        "idw_pm_surface15": {
+          "transfer": 59.49561128396362,
+          "direct_lower": 0.0,
+          "evaporation": 59.01086916577534,
+          "transpiration": 87.76859578647671,
+          "drainage": 14.003228258563805
+        },
+        "idw_pm_bypass25": {
+          "transfer": 42.17926651503476,
+          "direct_lower": 41.24825597910665,
+          "evaporation": 52.9981254363277,
+          "transpiration": 89.94065284066343,
+          "drainage": 17.360244101037054
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 54.03676020563883,
+          "transpiration": 87.16375037491946,
+          "drainage": 0.8435395184196519
+        },
+        "gauge_hg_cascade": {
+          "transfer": 80.47466520268613,
+          "direct_lower": 0.0,
+          "evaporation": 55.437288540285046,
+          "transpiration": 84.1842507332643,
+          "drainage": 2.440725581790538
+        },
+        "gauge_hg_surface": {
+          "transfer": 57.56763052059504,
+          "direct_lower": 0.0,
+          "evaporation": 56.16467289720191,
+          "transpiration": 84.07279405945297,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 82.2214452794858,
+          "direct_lower": 0.0,
+          "evaporation": 47.87703346133117,
+          "transpiration": 90.34474140410177,
+          "drainage": 1.418693225338835
+        },
+        "gauge_hg_surface15": {
+          "transfer": 40.8794882703468,
+          "direct_lower": 0.0,
+          "evaporation": 57.23220058926549,
+          "transpiration": 83.56838895638761,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 29.818933277162436,
+          "direct_lower": 35.75,
+          "evaporation": 50.30229359882183,
+          "transpiration": 89.56504745429237,
+          "drainage": 0.3759174036759916
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 53.79681812417301,
+          "transpiration": 84.05332446484034,
+          "drainage": 3.854500425172528
+        },
+        "gauge_pm_cascade": {
+          "transfer": 83.38175117123946,
+          "direct_lower": 0.0,
+          "evaporation": 54.336781990239444,
+          "transpiration": 81.06945242710394,
+          "drainage": 6.316822517773147
+        },
+        "gauge_pm_surface": {
+          "transfer": 60.68614362155635,
+          "direct_lower": 0.0,
+          "evaporation": 54.241025246371144,
+          "transpiration": 83.24808735346248,
+          "drainage": 1.955518848760569
+        },
+        "gauge_pm_surface5": {
+          "transfer": 84.08571686374175,
+          "direct_lower": 0.0,
+          "evaporation": 46.462205632334275,
+          "transpiration": 86.90818916597112,
+          "drainage": 5.591570031703128
+        },
+        "gauge_pm_surface15": {
+          "transfer": 44.62232277648195,
+          "direct_lower": 0.0,
+          "evaporation": 55.47746657280383,
+          "transpiration": 82.77882908046115,
+          "drainage": 1.8753341737839229
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 32.11114420995191,
+          "direct_lower": 35.75,
+          "evaporation": 49.011970110701164,
+          "transpiration": 86.77511169939409,
+          "drainage": 3.8735554438719717
+        }
+      },
+      "mass_error_max_mm": 3.694822225952521e-13
+    },
+    {
+      "code": "GGUE",
+      "name": "Garriguella",
+      "capacity_mm": 57.5,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 11.042579909057071,
+          "transpiration": 22.085159818114143,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 11.353768724228555,
+          "transpiration": 21.521609647485338,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 21.93921765907793,
+          "transpiration": 14.324289276673296,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 5.039688665227244,
+          "direct_lower": 0.0,
+          "evaporation": 25.654347717734602,
+          "transpiration": 11.480117677078463,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 17.500194987747697,
+          "transpiration": 17.54672429040668,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 10.154425478190104,
+          "evaporation": 16.30318476923785,
+          "transpiration": 18.417111444678547,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 11.05170622039165,
+          "transpiration": 22.1034124407833,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 11.409180521220081,
+          "transpiration": 21.4126238965662,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 22.055432533062845,
+          "transpiration": 14.392981067011279,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 5.129875128372991,
+          "direct_lower": 0.0,
+          "evaporation": 25.74582261074236,
+          "transpiration": 11.55133777384396,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 17.561730241755377,
+          "transpiration": 17.618908624809055,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 10.154425478190104,
+          "evaporation": 16.38211751288486,
+          "transpiration": 18.444559783516006,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 15.991895940813965,
+          "transpiration": 31.983791881627926,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 6.893232434649761,
+          "direct_lower": 0.0,
+          "evaporation": 17.16844943471455,
+          "transpiration": 29.32814679170435,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 6.427914236342517,
+          "direct_lower": 0.0,
+          "evaporation": 28.568722423928225,
+          "transpiration": 22.714895894593145,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 20.69548471278879,
+          "direct_lower": 0.0,
+          "evaporation": 26.74777583328395,
+          "transpiration": 23.69121298840007,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 26.18747043590381,
+          "transpiration": 24.37934000827282,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 0.02926670606167292,
+          "direct_lower": 14.425,
+          "evaporation": 24.33694922762607,
+          "transpiration": 25.68016291380093,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 15.981927502240666,
+          "transpiration": 31.963855004481328,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 7.1472934241551584,
+          "direct_lower": 0.0,
+          "evaporation": 17.207636673269267,
+          "transpiration": 28.963624995014314,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 6.496503445061208,
+          "direct_lower": 0.0,
+          "evaporation": 28.678692625626436,
+          "transpiration": 22.71022791837801,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 20.748408534914326,
+          "direct_lower": 0.0,
+          "evaporation": 26.904838996052472,
+          "transpiration": 23.570621953188265,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 26.276386044020768,
+          "transpiration": 24.398323010179894,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 0.08070520098728196,
+          "direct_lower": 14.425,
+          "evaporation": 24.40469316404454,
+          "transpiration": 25.68615492846926,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 5.684341886080801e-13
+    },
+    {
+      "code": "AGDS",
+      "name": "Aguilar de Segarra",
+      "capacity_mm": 47.75,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.40411960984949,
+          "transpiration": 39.541660178131025,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 23.770476257194048,
+          "direct_lower": 0.0,
+          "evaporation": 21.804069176929072,
+          "transpiration": 38.10104686588919,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 20.961134140820363,
+          "direct_lower": 0.0,
+          "evaporation": 25.24958453700161,
+          "transpiration": 35.153748871364094,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 35.703176688218534,
+          "direct_lower": 0.0,
+          "evaporation": 19.69675056276299,
+          "transpiration": 40.88772179011329,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 9.778377959264517,
+          "direct_lower": 0.0,
+          "evaporation": 27.144633998304293,
+          "transpiration": 33.18784082692734,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 9.247612618338342,
+          "direct_lower": 15.636455893179276,
+          "evaporation": 22.98101926507746,
+          "transpiration": 37.073648808384334,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.38977093736986,
+          "transpiration": 39.47611171731491,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 24.42268323580182,
+          "direct_lower": 0.0,
+          "evaporation": 21.851084693580813,
+          "transpiration": 37.95901573370082,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 21.297206047215198,
+          "direct_lower": 0.0,
+          "evaporation": 25.053773478981448,
+          "transpiration": 35.245939324826914,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 35.80504581055218,
+          "direct_lower": 0.0,
+          "evaporation": 19.63062956508787,
+          "transpiration": 40.791867757390754,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 9.815161218774719,
+          "direct_lower": 0.0,
+          "evaporation": 27.204560023478706,
+          "transpiration": 33.07045409697695,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 9.27723921350241,
+          "direct_lower": 15.636455893179276,
+          "evaporation": 22.999034375339715,
+          "transpiration": 36.945985935689656,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.174850201075285,
+          "transpiration": 12.34970040215057,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.565623551453233,
+          "transpiration": 11.933700277512873,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 11.590165833873739,
+          "transpiration": 7.237060685890223,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 4.263626680821658,
+          "direct_lower": 0.0,
+          "evaporation": 11.246964879141471,
+          "transpiration": 7.360115379672888,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 9.385266664189444,
+          "transpiration": 9.365911603755592,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 4.7250000000000005,
+          "evaporation": 8.504297096867022,
+          "transpiration": 10.048890885752154,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.156907004824656,
+          "transpiration": 12.313814009649308,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.566172974055369,
+          "transpiration": 11.8724493402585,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 11.597694744939973,
+          "transpiration": 7.221325667920948,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 4.312118207292387,
+          "direct_lower": 0.0,
+          "evaporation": 11.211298737139197,
+          "transpiration": 7.354843986805447,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 9.377714887729299,
+          "transpiration": 9.353222908194251,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 4.7250000000000005,
+          "evaporation": 8.504692451735188,
+          "transpiration": 10.008436328046315,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 4.547473508864641e-13
+    },
+    {
+      "code": "TDLL",
+      "name": "Torre del Lluvià",
+      "capacity_mm": 49.2,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.563081187338447,
+          "transpiration": 39.36212273651258,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 20.519567264838656,
+          "direct_lower": 0.0,
+          "evaporation": 22.084885214075648,
+          "transpiration": 37.79558974711874,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 20.09182283243667,
+          "direct_lower": 0.0,
+          "evaporation": 25.93978296241865,
+          "transpiration": 35.17848841860738,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 33.54184773357321,
+          "direct_lower": 0.0,
+          "evaporation": 22.584746660902137,
+          "transpiration": 39.463903995640464,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 11.895479900837664,
+          "direct_lower": 0.0,
+          "evaporation": 25.7319690683033,
+          "transpiration": 34.885715355615964,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 10.968867124327794,
+          "direct_lower": 16.527954636007514,
+          "evaporation": 21.834330987010684,
+          "transpiration": 38.59842363096953,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.420184605797562,
+          "transpiration": 39.07206362716801,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 21.76005098188993,
+          "direct_lower": 0.0,
+          "evaporation": 22.13464122510408,
+          "transpiration": 37.230859443741465,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 20.094502240267204,
+          "direct_lower": 0.0,
+          "evaporation": 26.018897839259267,
+          "transpiration": 34.68228142070239,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 33.65619907196716,
+          "direct_lower": 0.0,
+          "evaporation": 22.449396050525667,
+          "transpiration": 38.942768359938334,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 11.898836336645942,
+          "direct_lower": 0.0,
+          "evaporation": 25.735355947859336,
+          "transpiration": 34.512595373725894,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 10.97087668021127,
+          "direct_lower": 16.527954636007514,
+          "evaporation": 21.804325595023407,
+          "transpiration": 38.0824533967058,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 37.25993538104565,
+          "transpiration": 63.764675422725624,
+          "drainage": 14.000245734879414
+        },
+        "gauge_hg_cascade": {
+          "transfer": 75.05589926899569,
+          "direct_lower": 0.0,
+          "evaporation": 38.000058284200264,
+          "transpiration": 62.99745351844062,
+          "drainage": 14.000245902778929
+        },
+        "gauge_hg_surface": {
+          "transfer": 68.69760485322101,
+          "direct_lower": 0.0,
+          "evaporation": 30.808038852648604,
+          "transpiration": 69.85778893953677,
+          "drainage": 14.000106766169658
+        },
+        "gauge_hg_surface5": {
+          "transfer": 89.15695222264645,
+          "direct_lower": 0.0,
+          "evaporation": 21.83439245015343,
+          "transpiration": 78.4861041635685,
+          "drainage": 14.000180833784356
+        },
+        "gauge_hg_surface15": {
+          "transfer": 50.171015494915814,
+          "direct_lower": 0.0,
+          "evaporation": 36.43468826442044,
+          "transpiration": 64.50876782003353,
+          "drainage": 14.000095192920817
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 40.46091800387394,
+          "direct_lower": 29.725,
+          "evaporation": 30.27416280822779,
+          "transpiration": 70.05106040983667,
+          "drainage": 14.000756942836027
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 37.849404489160115,
+          "transpiration": 62.17753822037281,
+          "drainage": 14.000563168752414
+        },
+        "gauge_pm_cascade": {
+          "transfer": 77.75830023798372,
+          "direct_lower": 0.0,
+          "evaporation": 38.26489191679903,
+          "transpiration": 61.726416686456425,
+          "drainage": 14.000564088068309
+        },
+        "gauge_pm_surface": {
+          "transfer": 70.74339870825258,
+          "direct_lower": 0.0,
+          "evaporation": 29.477157657213763,
+          "transpiration": 68.68784915906592,
+          "drainage": 14.000390486812265
+        },
+        "gauge_pm_surface5": {
+          "transfer": 89.76313955899417,
+          "direct_lower": 0.0,
+          "evaporation": 21.291350395801356,
+          "transpiration": 71.86725339766598,
+          "drainage": 18.822548941148064
+        },
+        "gauge_pm_surface15": {
+          "transfer": 53.72588866506193,
+          "direct_lower": 0.0,
+          "evaporation": 34.53150809298966,
+          "transpiration": 64.5889444955356,
+          "drainage": 14.000287389302578
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 42.50003354463096,
+          "direct_lower": 29.725,
+          "evaporation": 28.968419379785047,
+          "transpiration": 68.80402641417167,
+          "drainage": 14.052857744302159
+        }
+      },
+      "mass_error_max_mm": 4.831690603168681e-13
+    },
+    {
+      "code": "PDCE",
+      "name": "Pobla de Cérvoles",
+      "capacity_mm": 45.6,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.6226551619467573,
+          "transpiration": 5.245310323893515,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.6226760006821856,
+          "transpiration": 5.245352001364371,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.843111353556711,
+          "transpiration": 3.2287823116732937,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.113404193656862,
+          "transpiration": 2.043720376468234,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.00384148551399,
+          "transpiration": 4.003872542490606,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 2.062356617301228,
+          "evaporation": 3.6323334956877806,
+          "transpiration": 4.296383872792184,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.6452355889737484,
+          "transpiration": 5.290471177947497,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.645245122618763,
+          "transpiration": 5.290490245237526,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.856199703957317,
+          "transpiration": 3.2374877818833068,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.121156482565227,
+          "transpiration": 2.0435509820615443,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.021506541580241,
+          "transpiration": 4.021522526014064,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 2.062356617301228,
+          "evaporation": 3.6421497725431715,
+          "transpiration": 4.337628865013913,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.710382094100268,
+          "transpiration": 5.420764188200536,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.710402932835697,
+          "transpiration": 5.420805865671394,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 5.039835991000533,
+          "transpiration": 3.3599320699691733,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.423071434141641,
+          "transpiration": 2.1238300233940226,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.15394306134522,
+          "transpiration": 4.153974118321836,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 2.1999999999999997,
+          "evaporation": 3.779876973770647,
+          "transpiration": 4.445870082000739,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.737053706558637,
+          "transpiration": 5.474107413117274,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.7370632402036517,
+          "transpiration": 5.474126480407303,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 5.058794903982856,
+          "transpiration": 3.3725512485670013,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.438792887084251,
+          "transpiration": 2.1263940349676234,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.176692998079209,
+          "transpiration": 4.1767089825130315,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 2.1999999999999997,
+          "evaporation": 3.794096172562327,
+          "transpiration": 4.494200786048506,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 7.958078640513122e-13
+    },
+    {
+      "code": "VIL",
+      "name": "Vilosell",
+      "capacity_mm": 45.7,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.554241578115963,
+          "transpiration": 5.108483156231926,
+          "drainage": 0.0
+        },
+        "idw_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.5542910980933353,
+          "transpiration": 5.108582196186671,
+          "drainage": 0.0
+        },
+        "idw_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.766104407784313,
+          "transpiration": 3.1774398420862817,
+          "drainage": 0.0
+        },
+        "idw_hg_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.043956275647497,
+          "transpiration": 2.025120630275251,
+          "drainage": 0.0
+        },
+        "idw_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.9250750440631874,
+          "transpiration": 3.925102721735742,
+          "drainage": 0.0
+        },
+        "idw_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 2.0424189541507745,
+          "evaporation": 3.5745782729323836,
+          "transpiration": 4.188310947804608,
+          "drainage": 0.0
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.5693727458773012,
+          "transpiration": 5.138745491754602,
+          "drainage": 0.0
+        },
+        "idw_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.5694042659888807,
+          "transpiration": 5.138808531977761,
+          "drainage": 0.0
+        },
+        "idw_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.774519185821837,
+          "transpiration": 3.183039234993825,
+          "drainage": 0.0
+        },
+        "idw_pm_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 6.047724070448152,
+          "transpiration": 2.0236470326952944,
+          "drainage": 0.0
+        },
+        "idw_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.9370067085999,
+          "transpiration": 3.937026541934349,
+          "drainage": 0.0
+        },
+        "idw_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 2.0424189541507745,
+          "evaporation": 3.5808893741381866,
+          "transpiration": 4.214239419986208,
+          "drainage": 0.0
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 1.9124939745623077,
+          "transpiration": 3.8249879491246155,
+          "drainage": 0.0
+        },
+        "gauge_hg_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 1.9125434945396795,
+          "transpiration": 3.8250869890793595,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.625609803033244,
+          "transpiration": 2.4171101055855684,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.616335032823107,
+          "transpiration": 1.5492468826671206,
+          "drainage": 0.0
+        },
+        "gauge_hg_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.970333552831772,
+          "transpiration": 2.9703612305043268,
+          "drainage": 0.0
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 1.5499999999999998,
+          "evaporation": 2.7192073193690813,
+          "transpiration": 3.1361111159660284,
+          "drainage": 0.0
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 1.9286763425665454,
+          "transpiration": 3.857352685133091,
+          "drainage": 0.0
+        },
+        "gauge_pm_cascade": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 1.9287078626781253,
+          "transpiration": 3.8574157253562507,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 3.635395094537404,
+          "transpiration": 2.4236231741375356,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface5": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 4.619869858544702,
+          "transpiration": 1.5476956287274781,
+          "drainage": 0.0
+        },
+        "gauge_pm_surface15": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 2.9839512658813727,
+          "transpiration": 2.9839710992158235,
+          "drainage": 0.0
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 0.0,
+          "direct_lower": 1.5499999999999998,
+          "evaporation": 2.726546305674861,
+          "transpiration": 3.1617895078312315,
+          "drainage": 0.0
+        }
+      },
+      "mass_error_max_mm": 4.547473508864641e-13
+    },
+    {
+      "code": "MDF",
+      "name": "Mas dels Frares",
+      "capacity_mm": 53.3,
+      "gauge_days": 60,
+      "support": {
+        "idw_hg_control": 60,
+        "idw_hg_cascade": 60,
+        "idw_hg_surface": 60,
+        "idw_hg_surface5": 60,
+        "idw_hg_surface15": 60,
+        "idw_hg_bypass25": 60,
+        "idw_pm_control": 60,
+        "idw_pm_cascade": 60,
+        "idw_pm_surface": 60,
+        "idw_pm_surface5": 60,
+        "idw_pm_surface15": 60,
+        "idw_pm_bypass25": 60,
+        "gauge_hg_control": 60,
+        "gauge_hg_cascade": 60,
+        "gauge_hg_surface": 60,
+        "gauge_hg_surface5": 60,
+        "gauge_hg_surface15": 60,
+        "gauge_hg_bypass25": 60,
+        "gauge_pm_control": 60,
+        "gauge_pm_cascade": 60,
+        "gauge_pm_surface": 60,
+        "gauge_pm_surface5": 60,
+        "gauge_pm_surface15": 60,
+        "gauge_pm_bypass25": 60
+      },
+      "fluxes_mm": {
+        "idw_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.247959100862545,
+          "transpiration": 33.19546529752567,
+          "drainage": 1.9804806697652744
+        },
+        "idw_hg_cascade": {
+          "transfer": 37.77178679093004,
+          "direct_lower": 0.0,
+          "evaporation": 20.258901385807103,
+          "transpiration": 32.926678223763325,
+          "drainage": 2.2384543754524486
+        },
+        "idw_hg_surface": {
+          "transfer": 36.34511769898073,
+          "direct_lower": 0.0,
+          "evaporation": 14.529182429256288,
+          "transpiration": 36.0816507281052,
+          "drainage": 0.8118154982222521
+        },
+        "idw_hg_surface5": {
+          "transfer": 45.018621579640424,
+          "direct_lower": 0.0,
+          "evaporation": 11.110136076542814,
+          "transpiration": 38.193607708476385,
+          "drainage": 0.21232055119986626
+        },
+        "idw_hg_surface15": {
+          "transfer": 27.942456179231655,
+          "direct_lower": 0.0,
+          "evaporation": 16.58740678421274,
+          "transpiration": 34.96361687207968,
+          "drainage": 1.2924795286628026
+        },
+        "idw_hg_bypass25": {
+          "transfer": 22.709947710809608,
+          "direct_lower": 14.470728282181437,
+          "evaporation": 13.707290741331036,
+          "transpiration": 36.58742750584683,
+          "drainage": 1.1987754867404306
+        },
+        "idw_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 19.673225955284202,
+          "transpiration": 32.045974230460644,
+          "drainage": 2.323740854811188
+        },
+        "idw_pm_cascade": {
+          "transfer": 38.09905480683652,
+          "direct_lower": 0.0,
+          "evaporation": 19.681616048230474,
+          "transpiration": 31.795868266651205,
+          "drainage": 2.565725381878174
+        },
+        "idw_pm_surface": {
+          "transfer": 36.82808495992229,
+          "direct_lower": 0.0,
+          "evaporation": 14.19427333403687,
+          "transpiration": 34.133859112088885,
+          "drainage": 1.2948257018942684
+        },
+        "idw_pm_surface5": {
+          "transfer": 45.48063387616412,
+          "direct_lower": 0.0,
+          "evaporation": 10.79697216054192,
+          "transpiration": 35.906012700611335,
+          "drainage": 0.731089377400842
+        },
+        "idw_pm_surface15": {
+          "transfer": 28.353707481049042,
+          "direct_lower": 0.0,
+          "evaporation": 16.21486536898569,
+          "transpiration": 33.29821439081519,
+          "drainage": 1.7037630375280273
+        },
+        "idw_pm_bypass25": {
+          "transfer": 23.065838909024222,
+          "direct_lower": 14.470728282181437,
+          "evaporation": 13.440239498958466,
+          "transpiration": 34.63309827683114,
+          "drainage": 1.6255326314813985
+        },
+        "gauge_hg_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 20.148847770928143,
+          "transpiration": 32.99805892689607,
+          "drainage": 9.95362108316392
+        },
+        "gauge_hg_cascade": {
+          "transfer": 45.51283877430099,
+          "direct_lower": 0.0,
+          "evaporation": 20.150537699307023,
+          "transpiration": 32.97061264769766,
+          "drainage": 9.9795063588234
+        },
+        "gauge_hg_surface": {
+          "transfer": 44.3420444265831,
+          "direct_lower": 0.0,
+          "evaporation": 14.220339239758932,
+          "transpiration": 36.04642470827602,
+          "drainage": 8.808742225824624
+        },
+        "gauge_hg_surface5": {
+          "transfer": 52.386914440199696,
+          "direct_lower": 0.0,
+          "evaporation": 11.31178089731427,
+          "transpiration": 37.95218455304891,
+          "drainage": 7.889419670049378
+        },
+        "gauge_hg_surface15": {
+          "transfer": 35.99227998169609,
+          "direct_lower": 0.0,
+          "evaporation": 16.39353096834081,
+          "transpiration": 34.77025727589945,
+          "drainage": 9.34230333112724
+        },
+        "gauge_hg_bypass25": {
+          "transfer": 28.808263669164816,
+          "direct_lower": 16.375,
+          "evaporation": 13.491884686548362,
+          "transpiration": 36.39306649437062,
+          "drainage": 9.272807877658714
+        },
+        "gauge_pm_control": {
+          "transfer": 0.0,
+          "direct_lower": 0.0,
+          "evaporation": 19.59007021707505,
+          "transpiration": 31.880503819189887,
+          "drainage": 10.25253694008438
+        },
+        "gauge_pm_cascade": {
+          "transfer": 45.81528469370186,
+          "direct_lower": 0.0,
+          "evaporation": 19.591639857237166,
+          "transpiration": 31.849784517192514,
+          "drainage": 10.281955268743516
+        },
+        "gauge_pm_surface": {
+          "transfer": 44.743507136962165,
+          "direct_lower": 0.0,
+          "evaporation": 13.93596970003523,
+          "transpiration": 34.132036522332925,
+          "drainage": 9.21024787893414
+        },
+        "gauge_pm_surface5": {
+          "transfer": 52.86660615394385,
+          "direct_lower": 0.0,
+          "evaporation": 10.9860115838335,
+          "transpiration": 35.70746875564944,
+          "drainage": 8.378809552851877
+        },
+        "gauge_pm_surface15": {
+          "transfer": 36.34401144535173,
+          "direct_lower": 0.0,
+          "evaporation": 16.05226074089355,
+          "transpiration": 33.13614882259511,
+          "drainage": 9.694067001830717
+        },
+        "gauge_pm_bypass25": {
+          "transfer": 29.10839793220927,
+          "direct_lower": 16.375,
+          "evaporation": 13.259362072466637,
+          "transpiration": 34.47173095251593,
+          "drainage": 9.636439970904398
+        }
+      },
+      "mass_error_max_mm": 5.684341886080801e-13
+    }
+  ],
+  "comparisons": [
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "control",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.6770334204504884,
+      "median_candidate_r": 0.6770334204504884,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": 5.551115123125783e-17
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "control",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.4685853981372287,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 8.673617379884035e-18
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "control",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.4685853981372288,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.0
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "cascade",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 12,
+      "lower": 9,
+      "median_delta_r": 5.982944296677173e-06,
+      "median_reference_r": 0.6770334204504884,
+      "median_candidate_r": 0.6723531270360209,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": 1.3228318440638986e-10
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "cascade",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 11,
+      "lower": 11,
+      "median_delta_r": 0.0010584358758450874,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.6451705463840973,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.020091016721543134
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "cascade",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 12,
+      "lower": 10,
+      "median_delta_r": 3.8000813007976753e-06,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.5064393157233001,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 3.296897513067193e-07
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "surface",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 3,
+      "lower": 18,
+      "median_delta_r": -0.10197218553546822,
+      "median_reference_r": 0.6770334204504884,
+      "median_candidate_r": 0.4243865615874626,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": -0.028609474915154476
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "surface",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 13,
+      "lower": 9,
+      "median_delta_r": 0.0497256530001413,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.7433851820021162,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.05776026999175313
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "surface",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 15,
+      "lower": 7,
+      "median_delta_r": 0.013215376999065987,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.4747292523761097,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": -0.004478140508832926
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "surface5",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 3,
+      "lower": 18,
+      "median_delta_r": -0.19649675817307533,
+      "median_reference_r": 0.6770334204504884,
+      "median_candidate_r": 0.3561787402141111,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": -0.07205062394937928
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "surface5",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 18,
+      "lower": 4,
+      "median_delta_r": 0.103670014618377,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.7867099797842512,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.06328730330508617
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "surface5",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 14,
+      "lower": 8,
+      "median_delta_r": 0.05325284770698924,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.5704866906233167,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.0002571381848504306
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "surface15",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 4,
+      "lower": 17,
+      "median_delta_r": -0.04521497299721444,
+      "median_reference_r": 0.6770334204504884,
+      "median_candidate_r": 0.5029729653837136,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": -0.015461633950944687
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "surface15",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 13,
+      "lower": 9,
+      "median_delta_r": 0.06332519982474782,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.7304194648567444,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.05538461974436303
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "surface15",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 13,
+      "lower": 9,
+      "median_delta_r": 0.0070838387560585026,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.4483735573721673,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": -0.0002941315079396378
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "bypass25",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 3,
+      "lower": 18,
+      "median_delta_r": -0.1039282833700012,
+      "median_reference_r": 0.6770334204504884,
+      "median_candidate_r": 0.40628845571023564,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": -0.03067048524536256
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "bypass25",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 13,
+      "lower": 9,
+      "median_delta_r": 0.02200461459530806,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.5677066670487572,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.02049699209133906
+    },
+    {
+      "forcing": "idw",
+      "et": "hg",
+      "scenario": "bypass25",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 11,
+      "lower": 11,
+      "median_delta_r": -0.0009237978871864949,
+      "median_reference_r": 0.46858539813722894,
+      "median_candidate_r": 0.47402219615438645,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": -0.0034167440662047563
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "control",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": -6.938893903907228e-18,
+      "median_reference_r": 0.6871194546107631,
+      "median_candidate_r": 0.6871194546107631,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": 2.0816681711721685e-17
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "control",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.5116156742513747,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": -3.469446951953614e-18
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "control",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.5116156742513747,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": -1.0408340855860843e-17
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "cascade",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 11,
+      "lower": 10,
+      "median_delta_r": 6.8473058820184285e-09,
+      "median_reference_r": 0.6871194546107631,
+      "median_candidate_r": 0.6761226653313077,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": 1.3297551729185564e-07
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "cascade",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 12,
+      "lower": 10,
+      "median_delta_r": 0.006372898189321435,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.6391390325158874,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.015780709651662506
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "cascade",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 11,
+      "lower": 11,
+      "median_delta_r": -4.329363209182313e-07,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.5508456579416818,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 6.136552100216575e-07
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "surface",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 3,
+      "lower": 18,
+      "median_delta_r": -0.10663171414454997,
+      "median_reference_r": 0.6871194546107631,
+      "median_candidate_r": 0.47985341434527806,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": -0.034235110098295995
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "surface",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 14,
+      "lower": 8,
+      "median_delta_r": 0.053110041940116356,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.7694547159910066,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.05528275220000782
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "surface",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 14,
+      "lower": 8,
+      "median_delta_r": 0.012399109440253318,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.47180772326007214,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": -0.0042710683911827
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "surface5",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 3,
+      "lower": 18,
+      "median_delta_r": -0.21386283762475244,
+      "median_reference_r": 0.6871194546107631,
+      "median_candidate_r": 0.3645867344751442,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": -0.06975452368762852
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "surface5",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 18,
+      "lower": 4,
+      "median_delta_r": 0.10108042024854919,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.7983029268971984,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.0593789853653979
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "surface5",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 14,
+      "lower": 8,
+      "median_delta_r": 0.0673085410165637,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.5493517495401402,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.001400223020604982
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "surface15",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 3,
+      "lower": 18,
+      "median_delta_r": -0.03400678563603188,
+      "median_reference_r": 0.6871194546107631,
+      "median_candidate_r": 0.555955241422909,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": -0.016896525989950784
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "surface15",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 13,
+      "lower": 9,
+      "median_delta_r": 0.0753313312260484,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.7575507522908592,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.05335939408401764
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "surface15",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 13,
+      "lower": 9,
+      "median_delta_r": 0.007440908100231458,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.4671794766418166,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": -0.0011085501024858946
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "bypass25",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 21,
+      "higher": 3,
+      "lower": 18,
+      "median_delta_r": -0.09097595565535,
+      "median_reference_r": 0.6871194546107631,
+      "median_candidate_r": 0.45713282215804707,
+      "daily_change_pairs": 21,
+      "median_delta_change_r": -0.034115204387504816
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "bypass25",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 22,
+      "higher": 13,
+      "lower": 9,
+      "median_delta_r": 0.012563028350717598,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.5598963020352345,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": 0.015388680111130662
+    },
+    {
+      "forcing": "idw",
+      "et": "pm",
+      "scenario": "bypass25",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 22,
+      "higher": 12,
+      "lower": 10,
+      "median_delta_r": 0.0024730403304346338,
+      "median_reference_r": 0.5116156742513747,
+      "median_candidate_r": 0.4987313084866738,
+      "daily_change_pairs": 22,
+      "median_delta_change_r": -0.003841817324288059
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "control",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.7767798640046567,
+      "median_candidate_r": 0.7767798640046562,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": 4.163336342344337e-17
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "control",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 1.1102230246251565e-16,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.7085884341287807,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 2.7755575615628914e-17
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "control",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.7085884341287807,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.0
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "cascade",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 6,
+      "lower": 10,
+      "median_delta_r": -0.008513489968839664,
+      "median_reference_r": 0.7767798640046567,
+      "median_candidate_r": 0.7106514968644899,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.0006861207768299044
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "cascade",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 11,
+      "lower": 6,
+      "median_delta_r": 0.0348510906607471,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.78858267957381,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.039573599816049576
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "cascade",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 10,
+      "lower": 7,
+      "median_delta_r": 6.796889820304131e-06,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.7034375557702415,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 1.4243752656240005e-06
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "surface",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 4,
+      "lower": 12,
+      "median_delta_r": -0.12483893458546405,
+      "median_reference_r": 0.7767798640046567,
+      "median_candidate_r": 0.5940343111424771,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.06647905433396992
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "surface",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 12,
+      "lower": 5,
+      "median_delta_r": 0.07997962668566161,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.786672889667565,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.06967400601543083
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "surface",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 11,
+      "lower": 6,
+      "median_delta_r": 0.030564457939548206,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.649716677431684,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.004641199198215262
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "surface5",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 4,
+      "lower": 12,
+      "median_delta_r": -0.269440503366562,
+      "median_reference_r": 0.7767798640046567,
+      "median_candidate_r": 0.44354417105513044,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.09453165624383793
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "surface5",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 12,
+      "lower": 5,
+      "median_delta_r": 0.10712538031206964,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.7961252417363919,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.05876251105070118
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "surface5",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 13,
+      "lower": 4,
+      "median_delta_r": 0.05577691240021687,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.7233404567509008,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.008285891436375703
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "surface15",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 5,
+      "lower": 11,
+      "median_delta_r": -0.060037725756391325,
+      "median_reference_r": 0.7767798640046567,
+      "median_candidate_r": 0.6754760981052963,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.031066893109356675
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "surface15",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 10,
+      "lower": 7,
+      "median_delta_r": 0.05906023584981879,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.7624943626919887,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.058761625528579
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "surface15",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 10,
+      "lower": 7,
+      "median_delta_r": 0.006396260439885948,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.6813567640711964,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.003666716349383037
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "bypass25",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 4,
+      "lower": 12,
+      "median_delta_r": -0.11554825850705494,
+      "median_reference_r": 0.7767798640046567,
+      "median_candidate_r": 0.6137249247979472,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.057888248241006454
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "bypass25",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 7,
+      "lower": 10,
+      "median_delta_r": -0.014184792959479497,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.6944036411693011,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.024451845443683395
+    },
+    {
+      "forcing": "gauge",
+      "et": "hg",
+      "scenario": "bypass25",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 11,
+      "lower": 6,
+      "median_delta_r": 0.009223074503778711,
+      "median_reference_r": 0.7085884341287806,
+      "median_candidate_r": 0.6749905561156979,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.0037285988347709187
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "control",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.797247923830395,
+      "median_candidate_r": 0.7972479238303949,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -9.71445146547012e-17
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "control",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.6896951013232653,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.0
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "control",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 0,
+      "lower": 0,
+      "median_delta_r": 0.0,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.6896951013232653,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": -2.0816681711721685e-17
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "cascade",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 5,
+      "lower": 11,
+      "median_delta_r": -0.011427113459237526,
+      "median_reference_r": 0.797247923830395,
+      "median_candidate_r": 0.7108163431046342,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.0008980646440224921
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "cascade",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 13,
+      "lower": 4,
+      "median_delta_r": 0.03445569671558879,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.768731213290825,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.036518036922118635
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "cascade",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 9,
+      "lower": 8,
+      "median_delta_r": 9.920788301975847e-09,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.686133737222206,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 8.948854322288202e-07
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "surface",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 4,
+      "lower": 12,
+      "median_delta_r": -0.10837128696733228,
+      "median_reference_r": 0.797247923830395,
+      "median_candidate_r": 0.6070118821313,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.06767382358807542
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "surface",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 12,
+      "lower": 5,
+      "median_delta_r": 0.0943593666141107,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.8072226758700942,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.06850280029111555
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "surface",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 11,
+      "lower": 6,
+      "median_delta_r": 0.024153942295077613,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.6677939863259312,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.004178956407007162
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "surface5",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 3,
+      "lower": 13,
+      "median_delta_r": -0.25315622374598445,
+      "median_reference_r": 0.797247923830395,
+      "median_candidate_r": 0.4639348972239145,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.10547837239072844
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "surface5",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 12,
+      "lower": 5,
+      "median_delta_r": 0.10149048716575926,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.8107496622012655,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.05913560876164484
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "surface5",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 13,
+      "lower": 4,
+      "median_delta_r": 0.029983536899509167,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.7319870689408526,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.008590687327974134
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "surface15",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 3,
+      "lower": 13,
+      "median_delta_r": -0.04830221744423063,
+      "median_reference_r": 0.797247923830395,
+      "median_candidate_r": 0.6858530689784175,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.0321925513279923
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "surface15",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 10,
+      "lower": 7,
+      "median_delta_r": 0.03258519840648211,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.7977035034792302,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.06220828940163303
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "surface15",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 10,
+      "lower": 7,
+      "median_delta_r": 0.010879322572509453,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.6652748212793165,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.004363482607896825
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "bypass25",
+      "channel": "VWC_005",
+      "target": "upper",
+      "paired_stations": 16,
+      "higher": 3,
+      "lower": 13,
+      "median_delta_r": -0.09668907575060193,
+      "median_reference_r": 0.797247923830395,
+      "median_candidate_r": 0.6305731264340597,
+      "daily_change_pairs": 16,
+      "median_delta_change_r": -0.05915973414978416
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "bypass25",
+      "channel": "VWC_020",
+      "target": "lower",
+      "paired_stations": 17,
+      "higher": 7,
+      "lower": 10,
+      "median_delta_r": -0.021088859207196387,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.6941636484525942,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.02441759448060521
+    },
+    {
+      "forcing": "gauge",
+      "et": "pm",
+      "scenario": "bypass25",
+      "channel": "VWC_020",
+      "target": "total",
+      "paired_stations": 17,
+      "higher": 11,
+      "lower": 6,
+      "median_delta_r": 0.011547507064817636,
+      "median_reference_r": 0.6896951013232651,
+      "median_candidate_r": 0.6853989062242049,
+      "daily_change_pairs": 17,
+      "median_delta_change_r": 0.003612442899208146
+    }
+  ],
+  "metric_rows": 2340,
+  "daily_rows": 1320,
+  "episode_rows": 72,
+  "sha256": {
+    "baseline-2026-09-19/local-inputs.json.gz": "4d984c1bb1d622f6a3c89e72aa342ebb4c652db6d065b8d0dd1c7b17f1a8aa65",
+    "baseline-2026-09-19/series.csv": "3def212eeab137b8c20af54512a20c65e2707a7d0c877a543857a58a7b3b6607",
+    "contrast-2026-09-19/evidence.json.gz": "318fd6d48c56ad1fd0eae27bc5a99ef3fa09dc1a622aba869b8df532aa269b2a",
+    "contrast-2026-09-19/expanded-stations.json.gz": "b0402a574497399b01d191edbc4c255e8685096d79e7dee3d571a247196c2d31",
+    "layers-2026-09-19/PROTOCOL.md": "1dcdd2ee8c67038468edc410713a3c0c453ea0da6bada4b8b89462362dadeca7",
+    "layers-2026-09-19/model.py": "f6b0589641d30674a5960b8998faf1a6e4eba07ac969e73b7733e2b2f91ebbef",
+    "layers-2026-09-19/analyse.py": "94ea4c53b4421a8e1ee866b5dabf201c9b4264d0c3cfe30aaf7c21720c995882",
+    "layers-2026-09-19/test_model.py": "4fa24746a81fb64526ddc2ab10bb65b6ba39f58b44322fc2da6e71a4c0cd7152",
+    "baseline-2026-09-19/snapshot/rainmapper_core/mushroom_map_water_physics.py": "f053eae6f5215ab8792f1f953fe59761c2ca711e7775ef57ad1acc3b82806fb5",
+    "baseline-2026-09-19/snapshot/rainmapper_core/__init__.py": "f39a1b92fbeb48b9f6275b3db15d1f6a1ed107a571bd883b1e300c89f2787336",
+    "baseline-2026-09-19/snapshot/rainmapper_core/mushroom_soil_water_state.py": "1d34153d1875f8841185b7a2b28d3f74cda19e67ecbaf0915e5a5cacee1733fa",
+    "baseline-2026-09-19/snapshot/rainmapper_core/mushroom_climatic_water_balance.py": "7de75259337d3b5f195702a34edfccb9dfed747630c1ca1662e212c20a4bc260"
+  }
+}

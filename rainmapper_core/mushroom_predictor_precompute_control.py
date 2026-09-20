@@ -99,7 +99,7 @@ def load_desired_state(path: Path) -> dict[str, Any] | None:
 
 
 def _desired_revision_for_advance(path: Path) -> int:
-    """Read the monotonic revision, accepting the immediately previous artifact schema."""
+    """Carry the revision across known schema upgrades; never reuse old results."""
     if not path.is_file():
         return 0
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -116,7 +116,7 @@ def _desired_revision_for_advance(path: Path) -> int:
             isinstance(legacy_identity, dict)
             and legacy_identity.get("kind") == "rainmapper_mushroom_predictor_precompute"
             and legacy_identity.get("schema_version")
-            in {"1.0", "1.1", "1.2", "1.3", "1.4", "1.5"}
+            in {"1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6"}
         ):
             raise
     return revision

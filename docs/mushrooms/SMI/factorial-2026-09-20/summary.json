@@ -1,0 +1,1776 @@
+{
+  "stations": 22,
+  "models": 8,
+  "rankings": [
+    {
+      "target_mode": "depth",
+      "metric": "r",
+      "model": "simple_hg_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.3819594308232187,
+      "mean": 0.3936550355300054
+    },
+    {
+      "target_mode": "depth",
+      "metric": "r",
+      "model": "simple_hg_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.3850215684476137,
+      "mean": 0.37166290777526684
+    },
+    {
+      "target_mode": "depth",
+      "metric": "r",
+      "model": "simple_pm_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.518124288657116,
+      "mean": 0.4417275825864747
+    },
+    {
+      "target_mode": "depth",
+      "metric": "r",
+      "model": "simple_pm_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.5069937660179429,
+      "mean": 0.40442439931970753
+    },
+    {
+      "target_mode": "depth",
+      "metric": "r",
+      "model": "regulated_hg_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.6410425090793415,
+      "mean": 0.6462026763262406
+    },
+    {
+      "target_mode": "depth",
+      "metric": "r",
+      "model": "regulated_hg_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.6456039099999266,
+      "mean": 0.5910028771714537
+    },
+    {
+      "target_mode": "depth",
+      "metric": "r",
+      "model": "regulated_pm_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.6944262777349938,
+      "mean": 0.6607437353788743
+    },
+    {
+      "target_mode": "depth",
+      "metric": "r",
+      "model": "regulated_pm_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.6422378211568245,
+      "mean": 0.6071177600778503
+    },
+    {
+      "target_mode": "depth",
+      "metric": "change_r",
+      "model": "simple_hg_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.17053426243574715,
+      "mean": 0.16623212414948038
+    },
+    {
+      "target_mode": "depth",
+      "metric": "change_r",
+      "model": "simple_hg_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.17221632726989528,
+      "mean": 0.14004024952640093
+    },
+    {
+      "target_mode": "depth",
+      "metric": "change_r",
+      "model": "simple_pm_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.1749715696055309,
+      "mean": 0.18651871405045548
+    },
+    {
+      "target_mode": "depth",
+      "metric": "change_r",
+      "model": "simple_pm_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.2002420692941383,
+      "mean": 0.1583803325628961
+    },
+    {
+      "target_mode": "depth",
+      "metric": "change_r",
+      "model": "regulated_hg_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.23014706355395065,
+      "mean": 0.22804491174930538
+    },
+    {
+      "target_mode": "depth",
+      "metric": "change_r",
+      "model": "regulated_hg_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.18275598255697548,
+      "mean": 0.2034323618629283
+    },
+    {
+      "target_mode": "depth",
+      "metric": "change_r",
+      "model": "regulated_pm_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.235962024494835,
+      "mean": 0.23851319591427966
+    },
+    {
+      "target_mode": "depth",
+      "metric": "change_r",
+      "model": "regulated_pm_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.20064848626076037,
+      "mean": 0.21313553337901453
+    },
+    {
+      "target_mode": "depth",
+      "metric": "rho",
+      "model": "simple_hg_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.4311583330152623,
+      "mean": 0.4035205508515626
+    },
+    {
+      "target_mode": "depth",
+      "metric": "rho",
+      "model": "simple_hg_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.4401341576108045,
+      "mean": 0.4072058220573601
+    },
+    {
+      "target_mode": "depth",
+      "metric": "rho",
+      "model": "simple_pm_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.49631174984011356,
+      "mean": 0.4413534495395635
+    },
+    {
+      "target_mode": "depth",
+      "metric": "rho",
+      "model": "simple_pm_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.47999104663957237,
+      "mean": 0.4253787077695384
+    },
+    {
+      "target_mode": "depth",
+      "metric": "rho",
+      "model": "regulated_hg_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.7639684177259359,
+      "mean": 0.6497986399345728
+    },
+    {
+      "target_mode": "depth",
+      "metric": "rho",
+      "model": "regulated_hg_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.705642779353483,
+      "mean": 0.6208910419816931
+    },
+    {
+      "target_mode": "depth",
+      "metric": "rho",
+      "model": "regulated_pm_one",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.7703033330659612,
+      "mean": 0.6549800276405258
+    },
+    {
+      "target_mode": "depth",
+      "metric": "rho",
+      "model": "regulated_pm_two",
+      "n": 13,
+      "codes": [
+        "SCA",
+        "EBX",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "BOLV",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.7094487392589344,
+      "mean": 0.6247843426309081
+    },
+    {
+      "target_mode": "total",
+      "metric": "r",
+      "model": "simple_hg_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.32117394279970796,
+      "mean": 0.28611084625633165
+    },
+    {
+      "target_mode": "total",
+      "metric": "r",
+      "model": "simple_hg_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.4489158500591375,
+      "mean": 0.35487115258170376
+    },
+    {
+      "target_mode": "total",
+      "metric": "r",
+      "model": "simple_pm_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.37599906404103567,
+      "mean": 0.3252119609371561
+    },
+    {
+      "target_mode": "total",
+      "metric": "r",
+      "model": "simple_pm_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.4677786732246405,
+      "mean": 0.382295468767441
+    },
+    {
+      "target_mode": "total",
+      "metric": "r",
+      "model": "regulated_hg_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.6244975571462712,
+      "mean": 0.506873947089218
+    },
+    {
+      "target_mode": "total",
+      "metric": "r",
+      "model": "regulated_hg_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.6145948743272924,
+      "mean": 0.5024619349907069
+    },
+    {
+      "target_mode": "total",
+      "metric": "r",
+      "model": "regulated_pm_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.666785044439645,
+      "mean": 0.521683752410068
+    },
+    {
+      "target_mode": "total",
+      "metric": "r",
+      "model": "regulated_pm_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.6404260618941147,
+      "mean": 0.5181552262934791
+    },
+    {
+      "target_mode": "total",
+      "metric": "change_r",
+      "model": "simple_hg_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.14520570054132798,
+      "mean": 0.11154878362805376
+    },
+    {
+      "target_mode": "total",
+      "metric": "change_r",
+      "model": "simple_hg_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.15461850479824485,
+      "mean": 0.11569270792844463
+    },
+    {
+      "target_mode": "total",
+      "metric": "change_r",
+      "model": "simple_pm_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.16221100964787755,
+      "mean": 0.13615950070702093
+    },
+    {
+      "target_mode": "total",
+      "metric": "change_r",
+      "model": "simple_pm_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.1467828199200138,
+      "mean": 0.13813977759423343
+    },
+    {
+      "target_mode": "total",
+      "metric": "change_r",
+      "model": "regulated_hg_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.18798439153435037,
+      "mean": 0.1573179986390197
+    },
+    {
+      "target_mode": "total",
+      "metric": "change_r",
+      "model": "regulated_hg_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.17761032636202917,
+      "mean": 0.15004400036279597
+    },
+    {
+      "target_mode": "total",
+      "metric": "change_r",
+      "model": "regulated_pm_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.20375217951405525,
+      "mean": 0.1665323957619865
+    },
+    {
+      "target_mode": "total",
+      "metric": "change_r",
+      "model": "regulated_pm_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.1905147439061774,
+      "mean": 0.15986002608532793
+    },
+    {
+      "target_mode": "total",
+      "metric": "rho",
+      "model": "simple_hg_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.3544824099586483,
+      "mean": 0.30332949855245595
+    },
+    {
+      "target_mode": "total",
+      "metric": "rho",
+      "model": "simple_hg_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.4241120863799259,
+      "mean": 0.3813205449064705
+    },
+    {
+      "target_mode": "total",
+      "metric": "rho",
+      "model": "simple_pm_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.35129158394685844,
+      "mean": 0.3272109928421569
+    },
+    {
+      "target_mode": "total",
+      "metric": "rho",
+      "model": "simple_pm_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.4411150802884352,
+      "mean": 0.39063276524626434
+    },
+    {
+      "target_mode": "total",
+      "metric": "rho",
+      "model": "regulated_hg_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.7179874370946255,
+      "mean": 0.5154836965521332
+    },
+    {
+      "target_mode": "total",
+      "metric": "rho",
+      "model": "regulated_hg_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.71852801655004,
+      "mean": 0.5102073709194883
+    },
+    {
+      "target_mode": "total",
+      "metric": "rho",
+      "model": "regulated_pm_one",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.7271748747541187,
+      "mean": 0.5231591726428463
+    },
+    {
+      "target_mode": "total",
+      "metric": "rho",
+      "model": "regulated_pm_two",
+      "n": 18,
+      "codes": [
+        "SCA",
+        "CMN",
+        "EBX",
+        "LCS",
+        "PSN",
+        "BDS",
+        "CDPA",
+        "LCDA",
+        "EML",
+        "BCLL",
+        "LLA",
+        "CLLA",
+        "CLLP",
+        "BOLV",
+        "GGUE",
+        "AGDS",
+        "TDLL",
+        "MDF"
+      ],
+      "median": 0.7322535139476353,
+      "mean": 0.5185455554348196
+    }
+  ],
+  "coverage": [
+    {
+      "target_mode": "depth",
+      "model": "simple_hg_one",
+      "channel": "VWC_005",
+      "defined": 19,
+      "median": 0.37067421457724625
+    },
+    {
+      "target_mode": "depth",
+      "model": "simple_hg_one",
+      "channel": "VWC_020",
+      "defined": 20,
+      "median": 0.23600495192764845
+    },
+    {
+      "target_mode": "depth",
+      "model": "simple_hg_two",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.057563682121586204
+    },
+    {
+      "target_mode": "depth",
+      "model": "simple_hg_two",
+      "channel": "VWC_020",
+      "defined": 13,
+      "median": 0.4568941942130645
+    },
+    {
+      "target_mode": "depth",
+      "model": "simple_pm_one",
+      "channel": "VWC_005",
+      "defined": 18,
+      "median": 0.5028460905098288
+    },
+    {
+      "target_mode": "depth",
+      "model": "simple_pm_one",
+      "channel": "VWC_020",
+      "defined": 19,
+      "median": 0.2768723611900641
+    },
+    {
+      "target_mode": "depth",
+      "model": "simple_pm_two",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.06293201759717164
+    },
+    {
+      "target_mode": "depth",
+      "model": "simple_pm_two",
+      "channel": "VWC_020",
+      "defined": 13,
+      "median": 0.46289983049986205
+    },
+    {
+      "target_mode": "depth",
+      "model": "regulated_hg_one",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.6770334204504884
+    },
+    {
+      "target_mode": "depth",
+      "model": "regulated_hg_one",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.46858539813722894
+    },
+    {
+      "target_mode": "depth",
+      "model": "regulated_hg_two",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.4243865615874626
+    },
+    {
+      "target_mode": "depth",
+      "model": "regulated_hg_two",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.7433851820021162
+    },
+    {
+      "target_mode": "depth",
+      "model": "regulated_pm_one",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.6871194546107631
+    },
+    {
+      "target_mode": "depth",
+      "model": "regulated_pm_one",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.5116156742513747
+    },
+    {
+      "target_mode": "depth",
+      "model": "regulated_pm_two",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.47985341434527806
+    },
+    {
+      "target_mode": "depth",
+      "model": "regulated_pm_two",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.7694547159910066
+    },
+    {
+      "target_mode": "total",
+      "model": "simple_hg_one",
+      "channel": "VWC_005",
+      "defined": 19,
+      "median": 0.37067421457724625
+    },
+    {
+      "target_mode": "total",
+      "model": "simple_hg_one",
+      "channel": "VWC_020",
+      "defined": 20,
+      "median": 0.23600495192764845
+    },
+    {
+      "target_mode": "total",
+      "model": "simple_hg_two",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.49584632891159297
+    },
+    {
+      "target_mode": "total",
+      "model": "simple_hg_two",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.3237269166592065
+    },
+    {
+      "target_mode": "total",
+      "model": "simple_pm_one",
+      "channel": "VWC_005",
+      "defined": 18,
+      "median": 0.5028460905098288
+    },
+    {
+      "target_mode": "total",
+      "model": "simple_pm_one",
+      "channel": "VWC_020",
+      "defined": 19,
+      "median": 0.2768723611900641
+    },
+    {
+      "target_mode": "total",
+      "model": "simple_pm_two",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.5993844763902999
+    },
+    {
+      "target_mode": "total",
+      "model": "simple_pm_two",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.309257805222524
+    },
+    {
+      "target_mode": "total",
+      "model": "regulated_hg_one",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.6770334204504884
+    },
+    {
+      "target_mode": "total",
+      "model": "regulated_hg_one",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.46858539813722894
+    },
+    {
+      "target_mode": "total",
+      "model": "regulated_hg_two",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.7117245884624913
+    },
+    {
+      "target_mode": "total",
+      "model": "regulated_hg_two",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.4747292523761097
+    },
+    {
+      "target_mode": "total",
+      "model": "regulated_pm_one",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.6871194546107631
+    },
+    {
+      "target_mode": "total",
+      "model": "regulated_pm_one",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.5116156742513747
+    },
+    {
+      "target_mode": "total",
+      "model": "regulated_pm_two",
+      "channel": "VWC_005",
+      "defined": 21,
+      "median": 0.7376065888817247
+    },
+    {
+      "target_mode": "total",
+      "model": "regulated_pm_two",
+      "channel": "VWC_020",
+      "defined": 22,
+      "median": 0.47180772326007214
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "RDS",
+      "et": "hg",
+      "mass_error_max_mm": 1.1368683772161603e-13,
+      "one_drain_first_error_mm": 7.105427357601002e-14,
+      "valid_days": 60
+    },
+    {
+      "code": "RDS",
+      "et": "pm",
+      "mass_error_max_mm": 1.1368683772161603e-13,
+      "one_drain_first_error_mm": 9.947598300641403e-14,
+      "valid_days": 60
+    },
+    {
+      "code": "CDLP",
+      "et": "hg",
+      "mass_error_max_mm": 1.7053025658242404e-13,
+      "one_drain_first_error_mm": 4.263256414560601e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "CDLP",
+      "et": "pm",
+      "mass_error_max_mm": 3.979039320256561e-13,
+      "one_drain_first_error_mm": 3.694822225952521e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "SCA",
+      "et": "hg",
+      "mass_error_max_mm": 1.4210854715202004e-13,
+      "one_drain_first_error_mm": 5.684341886080802e-14,
+      "valid_days": 60
+    },
+    {
+      "code": "SCA",
+      "et": "pm",
+      "mass_error_max_mm": 2.8421709430404007e-13,
+      "one_drain_first_error_mm": 1.7053025658242404e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "CMN",
+      "et": "hg",
+      "mass_error_max_mm": 1.4210854715202004e-13,
+      "one_drain_first_error_mm": 3.694822225952521e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "CMN",
+      "et": "pm",
+      "mass_error_max_mm": 3.126388037344441e-13,
+      "one_drain_first_error_mm": 4.547473508864641e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "EBX",
+      "et": "hg",
+      "mass_error_max_mm": 5.684341886080801e-13,
+      "one_drain_first_error_mm": 9.094947017729282e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "EBX",
+      "et": "pm",
+      "mass_error_max_mm": 5.115907697472721e-13,
+      "one_drain_first_error_mm": 1.0800249583553523e-12,
+      "valid_days": 60
+    },
+    {
+      "code": "LCS",
+      "et": "hg",
+      "mass_error_max_mm": 1.1368683772161603e-13,
+      "one_drain_first_error_mm": 5.684341886080802e-14,
+      "valid_days": 60
+    },
+    {
+      "code": "LCS",
+      "et": "pm",
+      "mass_error_max_mm": 2.2737367544323206e-13,
+      "one_drain_first_error_mm": 1.4210854715202004e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "PSN",
+      "et": "hg",
+      "mass_error_max_mm": 2.5579538487363607e-13,
+      "one_drain_first_error_mm": 2.2737367544323206e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "PSN",
+      "et": "pm",
+      "mass_error_max_mm": 8.526512829121202e-14,
+      "one_drain_first_error_mm": 1.9895196601282805e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "BDS",
+      "et": "hg",
+      "mass_error_max_mm": 3.126388037344441e-13,
+      "one_drain_first_error_mm": 4.831690603168681e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "BDS",
+      "et": "pm",
+      "mass_error_max_mm": 1.7053025658242404e-13,
+      "one_drain_first_error_mm": 5.115907697472721e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "CDPA",
+      "et": "hg",
+      "mass_error_max_mm": 5.684341886080802e-14,
+      "one_drain_first_error_mm": 1.7053025658242404e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "CDPA",
+      "et": "pm",
+      "mass_error_max_mm": 1.4210854715202004e-13,
+      "one_drain_first_error_mm": 1.9895196601282805e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "LCDA",
+      "et": "hg",
+      "mass_error_max_mm": 3.979039320256561e-13,
+      "one_drain_first_error_mm": 6.252776074688882e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "LCDA",
+      "et": "pm",
+      "mass_error_max_mm": 2.2737367544323206e-13,
+      "one_drain_first_error_mm": 1.7053025658242404e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "EML",
+      "et": "hg",
+      "mass_error_max_mm": 1.1368683772161603e-13,
+      "one_drain_first_error_mm": 1.7053025658242404e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "EML",
+      "et": "pm",
+      "mass_error_max_mm": 7.105427357601002e-14,
+      "one_drain_first_error_mm": 1.9895196601282805e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "BCLL",
+      "et": "hg",
+      "mass_error_max_mm": 1.1368683772161603e-13,
+      "one_drain_first_error_mm": 3.126388037344441e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "BCLL",
+      "et": "pm",
+      "mass_error_max_mm": 1.7053025658242404e-13,
+      "one_drain_first_error_mm": 1.9895196601282805e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "LLA",
+      "et": "hg",
+      "mass_error_max_mm": 8.526512829121202e-14,
+      "one_drain_first_error_mm": 1.5631940186722204e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "LLA",
+      "et": "pm",
+      "mass_error_max_mm": 2.984279490192421e-13,
+      "one_drain_first_error_mm": 2.0605739337042905e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "CLLA",
+      "et": "hg",
+      "mass_error_max_mm": 5.115907697472721e-13,
+      "one_drain_first_error_mm": 3.410605131648481e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "CLLA",
+      "et": "pm",
+      "mass_error_max_mm": 4.263256414560601e-13,
+      "one_drain_first_error_mm": 3.694822225952521e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "CLLP",
+      "et": "hg",
+      "mass_error_max_mm": 1.1368683772161603e-13,
+      "one_drain_first_error_mm": 1.7053025658242404e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "CLLP",
+      "et": "pm",
+      "mass_error_max_mm": 2.2737367544323206e-13,
+      "one_drain_first_error_mm": 1.7053025658242404e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "BOLV",
+      "et": "hg",
+      "mass_error_max_mm": 7.105427357601002e-14,
+      "one_drain_first_error_mm": 1.9895196601282805e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "BOLV",
+      "et": "pm",
+      "mass_error_max_mm": 7.105427357601002e-14,
+      "one_drain_first_error_mm": 4.831690603168681e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "GGUE",
+      "et": "hg",
+      "mass_error_max_mm": 2.2737367544323206e-13,
+      "one_drain_first_error_mm": 2.2737367544323206e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "GGUE",
+      "et": "pm",
+      "mass_error_max_mm": 3.410605131648481e-13,
+      "one_drain_first_error_mm": 3.979039320256561e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "AGDS",
+      "et": "hg",
+      "mass_error_max_mm": 1.4210854715202004e-13,
+      "one_drain_first_error_mm": 1.7053025658242404e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "AGDS",
+      "et": "pm",
+      "mass_error_max_mm": 1.4210854715202004e-13,
+      "one_drain_first_error_mm": 1.4210854715202004e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "TDLL",
+      "et": "hg",
+      "mass_error_max_mm": 4.263256414560601e-13,
+      "one_drain_first_error_mm": 1.9895196601282805e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "TDLL",
+      "et": "pm",
+      "mass_error_max_mm": 1.4210854715202004e-13,
+      "one_drain_first_error_mm": 1.1368683772161603e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "PDCE",
+      "et": "hg",
+      "mass_error_max_mm": 1.7053025658242404e-13,
+      "one_drain_first_error_mm": 1.7053025658242404e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "PDCE",
+      "et": "pm",
+      "mass_error_max_mm": 3.979039320256561e-13,
+      "one_drain_first_error_mm": 2.8421709430404007e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "VIL",
+      "et": "hg",
+      "mass_error_max_mm": 3.410605131648481e-13,
+      "one_drain_first_error_mm": 3.410605131648481e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "VIL",
+      "et": "pm",
+      "mass_error_max_mm": 2.2737367544323206e-13,
+      "one_drain_first_error_mm": 3.979039320256561e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "MDF",
+      "et": "hg",
+      "mass_error_max_mm": 1.9895196601282805e-13,
+      "one_drain_first_error_mm": 3.694822225952521e-13,
+      "valid_days": 60
+    },
+    {
+      "code": "MDF",
+      "et": "pm",
+      "mass_error_max_mm": 2.8421709430404007e-13,
+      "one_drain_first_error_mm": 4.547473508864641e-13,
+      "valid_days": 60
+    }
+  ],
+  "sha256": {
+    "factorial-2026-09-20/PROTOCOL.md": "8ac01746d8bf9ee9c43e50d299d9d791e5b1723179778af2b8588c9540ee8dd6",
+    "factorial-2026-09-20/compare.py": "6ea5571158bb7a648971693b449eaadc6526f2bb3ae02cbe825b9dab6ee9857b",
+    "factorial-2026-09-20/simple_layers.py": "1b02efcab0bbc7a9687180eb7595dcfda736a87bdcede686b1f7187aea8c5224",
+    "factorial-2026-09-20/test_simple_layers.py": "de06a9231b98aa6fac53ba22877fa3016b98ba5482487fdd247bb9ceea333c39",
+    "baseline-2026-09-19/local-inputs.json.gz": "4d984c1bb1d622f6a3c89e72aa342ebb4c652db6d065b8d0dd1c7b17f1a8aa65",
+    "baseline-2026-09-19/series.csv": "3def212eeab137b8c20af54512a20c65e2707a7d0c877a543857a58a7b3b6607",
+    "layers-2026-09-19/series.csv.gz": "18b084531dc8beaf1f049c6b5df338ad4cee4ac2cd939ccbbcb9b0fd3290a3ff",
+    "layers-2026-09-19/summary.json": "477c93d3b91680cd5f9911e0bf302b15ba0be7584687fd563d44bd58e028a78a"
+  }
+}

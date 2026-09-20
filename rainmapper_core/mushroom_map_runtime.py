@@ -19,6 +19,7 @@ import time
 from urllib.request import Request, urlopen
 
 from rainmapper_core import mushroom_predictor_runtime as runtime
+from rainmapper_core import mushroom_ml_policy_store as policy_store
 from rainmapper_core.mushroom_map_execution import PointExecutor
 from rainmapper_core.mushroom_map_queries import WORKER_PATH, QueryError, TTL, MAX_QUERIES
 from rainmapper_core.mushroom_worker_config import validate_coordinator_id
@@ -52,7 +53,9 @@ def model_registry_identity(registry):
     those notes do not select model files. Keep installed_generation_id and all
     generation contracts/artifact metadata in the comparison.
     """
-    result = {k: v for k, v in registry.items() if k != 'preferred_version_id'}
+    # Rules are a mutable small map input, independent of the sealed model files.
+    result = {k: v for k, v in registry.items()
+              if k not in {'preferred_version_id', 'prediction_model_suspensions', policy_store.REFERENCE}}
     result['versions'] = [
         {k: v for k, v in row.items() if k != 'installation'}
         if isinstance(row, dict) else row for row in registry.get('versions', [])
@@ -147,6 +150,11 @@ class MapPublication:
         for p in dict.fromkeys([self.publication, self.current_path, *self.inputs.values()]):
             stat = p.stat()
             result.append((str(p), stat.st_size, stat.st_mtime_ns, stat.st_ino))
+        # Optional on sealed snapshots, required when the live registry points to it.
+        policy_path = self.inputs['model_registry'].parent / policy_store.FILENAME
+        if policy_path.exists():
+            stat = policy_path.stat()
+            result.append((str(policy_path), stat.st_size, stat.st_mtime_ns, stat.st_ino))
         return tuple(result)
 
     def _small(self, path):
@@ -221,6 +229,11 @@ class MapPublication:
         publication = json.loads(read_small(self.publication, MAX_METADATA))
         base = checked_manifest(publication['manifest'])
         inputs = {k: self._small(p) for k, p in self.inputs.items()}
+        registry_raw = inputs['model_registry'][0]
+        effective = policy_store.resolve(self.inputs['model_registry'], json.loads(registry_raw))
+        if policy_store.REFERENCE in json.loads(registry_raw):
+            registry_raw = policy_store.encode(effective)
+            inputs['model_registry'] = (registry_raw, digest(registry_raw))
         raw_inputs = {k: v[0] for k, v in inputs.items()}
         sources = publication['sources']
         base_rows = {r['path']: r for r in base['files']}

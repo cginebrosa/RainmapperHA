@@ -1,5 +1,5 @@
 /* Point-query presentation. Scientific probabilities come from the executor. */
-import { renderPointWeather, formatCalendarDate } from "./prediction-weather.js";
+import { renderPointWeather, renderPointHydrology, formatCalendarDate } from "./prediction-weather.js";
 // Presentation only: retain the executor's original values and ordering.
 export function iffScore(value) {
   return Number.isFinite(value) && value >= 0 && value <= 1 ? Math.round(value * 100) : null;
@@ -18,6 +18,16 @@ export function createPredictionMode(bridge) {
   let dayIndex = 0;
   let remoteQuery = null;
   let elapsedMs = null;
+  let tooltipId = 0;
+  const estimatorHelp = {
+    logistic_regression_reduced_v1: "lr", random_forest_restricted_v1: "rf",
+    extra_trees_restricted_v1: "et", hist_gradient_boosting_restricted_v1: "hgb",
+    knn_distance_v1: "knn", knn_distance_beta_smoothed_v2: "knn",
+    rbf_svm_calibrated_v1: "svm", elastic_net_logistic_raw365_v1: "elastic",
+    sparse_group_logistic_raw365_v1: "sparse", smooth_species_logistic_v1: "smooth_species",
+    smooth_shared_logistic_v1: "smooth_shared", smooth_partial_pooling_logistic_v1: "smooth_partial",
+  };
+  const modelInputs = ["smi", "balance", "et", "rain", "temperature", "humidity", "season"];
   const colors = ["#087baa", "#993f76", "#6b7180"];
   const make = (tag, content, className) => {
     const node = document.createElement(tag);
@@ -77,6 +87,30 @@ export function createPredictionMode(bridge) {
     const band = iffBand(value);
     return band === null ? text("prediction_uncalculated") : `IFF:${indexText(value)} · ${text(`iff_band_${band}`)}`;
   }
+  function modelHelp(label, details) {
+    const help = make("span", undefined, "pm-model-help");
+    help.id = `pm-model-help-${++tooltipId}`;
+    help.setAttribute("role", "tooltip");
+    help.hidden = true;
+    help.append(make("strong", label));
+    if (!details) {
+      help.append(make("span", text("model_inputs_unknown")));
+      return help;
+    }
+    help.append(make("span", text(`model_algorithm_${estimatorHelp[details.estimator]}`)));
+    for (const input of ["smi", "balance"]) {
+      help.append(make("span", `${text(`model_input_${input}`)}: ${text(details.inputs.includes(input) ? "model_yes" : "model_no")}`));
+    }
+    if (details.inputs.includes("smi") && !details.inputs.includes("balance")) {
+      help.append(make("span", text("model_balance_indirect")));
+    }
+    const others = details.inputs.filter(input => !["smi", "balance"].includes(input));
+    if (others.length) help.append(make("span", `${text("model_other_inputs")}: ${others.map(input => text(`model_input_${input}`)).join(", ")}.`));
+    if (details.window_days) help.append(make("span", text("model_window").replace("{days}", details.window_days)));
+    if (details.inputs.includes("smi")) help.append(make("span", text("model_smi_history")));
+    help.append(make("span", text("model_inputs_note")));
+    return help;
+  }
   function indexValue(value, model) {
     const score = iffScore(value);
     const wrap = make("span", undefined, "pm-iff-value");
@@ -97,7 +131,27 @@ export function createPredictionMode(bridge) {
     });
     button.addEventListener("blur", () => { wrap.classList.remove("pm-iff-open"); button.setAttribute("aria-expanded", "false"); });
     button.addEventListener("keydown", event => { if (event.key === "Escape") button.blur(); });
-    wrap.append(button);
+    const source = make("span", undefined, "pm-iff-heading");
+    const modelRef = model?.models?.[dayIndex];
+    const label = Number.isInteger(modelRef) ? model?.model_labels?.[modelRef] : null;
+    if (typeof label === "string" && label && model?.status !== "no_model" && reason !== "model_unavailable") {
+      const trigger = make("button", label, "pm-model-name");
+      const tip = modelHelp(label, model?.model_details?.[modelRef]);
+      trigger.type = "button";
+      trigger.setAttribute("aria-describedby", tip.id);
+      trigger.setAttribute("aria-expanded", "false");
+      let pinned = false;
+      const show = open => { tip.hidden = !open; trigger.setAttribute("aria-expanded", String(open)); };
+      trigger.addEventListener("mouseenter", () => show(true));
+      trigger.addEventListener("mouseleave", () => { if (!pinned) show(false); });
+      trigger.addEventListener("focus", () => show(true));
+      trigger.addEventListener("blur", () => { pinned = false; show(false); });
+      trigger.addEventListener("click", () => { pinned = !pinned; show(pinned); });
+      trigger.addEventListener("keydown", event => { if (event.key === "Escape") { pinned = false; show(false); trigger.blur(); } });
+      source.append(trigger, tip);
+    }
+    source.append(button);
+    wrap.append(source);
     if (score !== null) wrap.append(make("span", text(`iff_band_${iffBand(value)}`), "pm-iff-band"));
     wrap.append(help);
     return wrap;
@@ -150,6 +204,17 @@ export function createPredictionMode(bridge) {
       validEcology(data.ecology, data.dates) &&
       Array.isArray(data.species) && data.species.length <= 32 && data.species.every((row) =>
         typeof row.label_key === "string" && ["available", "no_model"].includes(row.status) &&
+        (row.model_details === undefined || (Array.isArray(row.model_details) &&
+          row.model_details.length === row.model_labels?.length && row.model_details.every(detail => detail === null ||
+            (detail && Object.keys(detail).sort().join() === "estimator,inputs,window_days" &&
+             Object.hasOwn(estimatorHelp, detail.estimator) && Array.isArray(detail.inputs) &&
+             detail.inputs.every(input => modelInputs.includes(input)) && new Set(detail.inputs).size === detail.inputs.length &&
+             (detail.window_days === null || (Number.isInteger(detail.window_days) && detail.window_days > 0 && detail.window_days <= 365)))))) &&
+        ((row.models === undefined && row.model_labels === undefined) ||
+          (Array.isArray(row.models) && row.models.length === data.dates.length &&
+           Array.isArray(row.model_labels) && row.model_labels.length <= data.dates.length &&
+           row.model_labels.every(label => typeof label === "string" && label.length > 0 && label.length <= 96) &&
+           row.models.every(ref => ref === null || (Number.isInteger(ref) && ref >= 0 && ref < row.model_labels.length)))) &&
         Array.isArray(row.probabilities) && row.probabilities.length === data.dates.length &&
         row.probabilities.every((value) => value === null ||
           (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1)));
@@ -492,7 +557,9 @@ export function createPredictionMode(bridge) {
     const location = result.location;
     if (location?.status === "available" && typeof location.name === "string" &&
         location.name.length > 0 && location.name.length <= 256) {
-      place.append(make("strong", location.name, "pm-municipality"));
+      const municipality = make("strong", location.name, "pm-municipality");
+      municipality.title = location.name;
+      place.append(municipality);
     }
     place.append(make("p", `${result.point.lat.toFixed(5)}, ${result.point.lon.toFixed(5)}`, "pm-coordinates"));
     const summary = make("div", undefined, "pm-terrain-summary");
@@ -519,10 +586,31 @@ export function createPredictionMode(bridge) {
     ph.title = text("ph_comparison_help");
     if (openland?.lookup?.method === "nearest" && Number.isFinite(openland.lookup.distance_m)) {
       ph.append(make("small", `${text("ph_nearby")}: ${Math.round(openland.lookup.distance_m)} m`, "pm-ph-nearby"));
+      ph.title += ` · ${text("ph_nearby")}: ${Math.round(openland.lookup.distance_m)} m`;
     }
     values.append(altitude, ph);
     const trees = make("div", undefined, "pm-summary-trees");
-    trees.append(make("span", text("terrain"), "pm-summary-trees-label"));
+    const terrainCaption = make("div", undefined, "pm-summary-trees-label");
+    terrainCaption.append(make("span", text("terrain")));
+    const water = result.weather?.water_balance;
+    let waterBrief;
+    if (water?.data_mode === "estimated_water_balance") {
+      const capacity = Number.isFinite(water.capacity_mm) && water.capacity_mm > 0 ? water.capacity_mm : null;
+      const last = Array.isArray(water.smi_pct) ? water.smi_pct.at(-1) : null;
+      const fraction = Number.isFinite(last) && last >= 0 && last <= 100 ? last : null;
+      const brief = make("button", undefined, "pm-water-brief"); brief.type = "button";
+      waterBrief = brief;
+      brief.append(make("span", `${text("hydrology_capacity_short")}: ${capacity === null ? "—" : capacity.toFixed(1)} L/m²`),
+        make("span", `${text("hydrology_remaining_short")}: ≈ ${fraction === null ? "—" : fraction.toFixed(1)} % · ${fraction === null || capacity === null ? "—" : (capacity*fraction/100).toFixed(1)} L/m²`));
+      const asOf = formatCalendarDate(result.weather?.dates?.at(-1),bridge.language(),"short");
+      brief.title = text("hydrology_brief_help").replace("{date}",asOf);
+      brief.ariaLabel = `${brief.textContent}. ${brief.title}`;
+      brief.addEventListener("click", () => {
+        const details = body.querySelector(".pm-hydrology");
+        if (details) { details.open=true; details.scrollIntoView({block:"start"}); }
+      });
+    }
+    trees.append(terrainCaption);
     const soilTendencies = contextNames("soil_tendencies");
     for (const name of new Set(soilTendencies)) {
       const chip = make("span", name, "pm-tree-chip pm-soil-chip");
@@ -546,7 +634,9 @@ export function createPredictionMode(bridge) {
       trees.append(make("span", text(pending ? "trees_pending" : "terrain_context_no_data"), "pm-tree-chip pm-tree-chip-muted"));
     }
     summary.append(values);
-    heading.append(place, summary, trees);
+    heading.append(place, summary);
+    if (waterBrief) { heading.classList.add("pm-place-with-water"); heading.append(waterBrief); }
+    heading.append(trees);
     header.append(heading);
     if (["local", "worker"].includes(result.execution?.mode)) {
       const timing = `${text(result.execution.mode === "local" ? "execution_local_short" : "execution_worker")} · ${text("query_time")}: ${(elapsedMs/1000).toFixed(2)} s`;
@@ -726,7 +816,19 @@ export function createPredictionMode(bridge) {
       }
       terrainDetail.append(make("p", text(result.ecology ? "ecology_land_note" : "land_descriptive"), "pm-terrain-note"));
     }
-    body.append(terrainDetail, weatherDetail);
+    const hydrologyDetail = renderPointHydrology(result.weather, text, bridge.language());
+    // Both selectors operate locally and share the same dates, without a new API call.
+    const weatherRange = weatherDetail.querySelector("select"), waterRange = hydrologyDetail.querySelector("select");
+    if (weatherRange && waterRange) {
+      let syncing = false;
+      for (const [source,target] of [[weatherRange,waterRange],[waterRange,weatherRange]]) {
+        source.addEventListener("change",()=>{
+          if (syncing) return;
+          syncing=true; target.value=source.value;target.dispatchEvent(new Event("change"));syncing=false;
+        });
+      }
+    }
+    body.append(weatherDetail, hydrologyDetail, terrainDetail);
     popup = bridge.openPopup(lngLat, container);
     const ownPopup = popup;
     ownPopup.on("close", () => { if (popup === ownPopup) { popup = null; result = null; } });

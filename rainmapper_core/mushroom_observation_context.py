@@ -184,6 +184,7 @@ class DailyWeatherRecord:
     wind_avg_kmh: float | None
     wind_gust_kmh: float | None
     wind_direction_deg: float | None
+    wind_source_height_m: float | None = None
 
 
 @dataclass(frozen=True)
@@ -291,6 +292,7 @@ def normalized_record(source: str, row: dict[str, str]) -> DailyWeatherRecord | 
         humidity_max_pct=parse_float(row.get("max_humidity_percent")),
         humidity_min_pct=parse_float(row.get("min_humidity_percent")),
         wind_avg_kmh=parse_float(row.get("wind_avg_kmh")),
+        wind_source_height_m=parse_float(row.get("wind_source_height_m")),
         wind_gust_kmh=parse_float(row.get("wind_gust_kmh") or row.get("wind_max_kmh")),
         wind_direction_deg=parse_float(row.get("wind_direction_deg")),
     )
@@ -615,7 +617,7 @@ def load_daily_weather_parquet(
             "source", "station_code", "station_name", "local_date", "lat", "lon",
             "altitude", "rain_mm", "max_temp_celsius", "min_temp_celsius",
             "max_humidity_percent", "min_humidity_percent", "wind_avg_kmh",
-            "wind_gust_kmh",
+            "wind_gust_kmh", "wind_source_height_m",
         ]
         df = read_weather_history(
             data_dir,
@@ -724,6 +726,7 @@ def load_daily_weather_parquet(
         h_min     = _col_list(grp, "min_humidity_percent")
         w_avg     = _col_list(grp, "wind_avg_kmh")
         w_gst     = _col_list(grp, "wind_gust_kmh")
+        w_height  = _col_list(grp, "wind_source_height_m")
 
         records_by_day = {
             day_dates[i]: DailyWeatherRecord(
@@ -741,6 +744,7 @@ def load_daily_weather_parquet(
                 wind_avg_kmh=_f(w_avg[i]),
                 wind_gust_kmh=_f(w_gst[i]),
                 wind_direction_deg=None,
+                wind_source_height_m=_f(w_height[i]),
             )
             for i in range(len(grp))
         }

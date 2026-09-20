@@ -252,7 +252,7 @@ Visor recomendado:
 Ambos comparten el buscador de municipios/topónimos Photon con marcador de lugar,
 ayuda y créditos ES/CA/EN. La consulta sale del navegador y requiere Internet.
 La [herramienta de investigación de estaciones](docs/station-research-es.md) y el
-[visor GBIF](docs/mushrooms/GBIF/README.md) son utilidades locales independientes.
+[visor GBIF](local-apps/gbif/docs/guide.md) son utilidades locales independientes.
 
 Visores legacy, disponibles solo al activar su publicación:
 

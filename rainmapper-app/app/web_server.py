@@ -72,6 +72,7 @@ from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core import mushroom_ml_training_freshness
 from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
+from rainmapper_core import mushroom_ml_policy_store
 from rainmapper_core import mushroom_ml_prediction_policy
 import mushroom_model_settings_ui
 from rainmapper_core import mushroom_local_full_update
@@ -14981,7 +14982,7 @@ def create_mushroom_ml_multiversion_job(
             species_ids = list(operational_scope["admitted_species_ids"])
         else:
             species_ids = mushroom_local_full_update.eligible_training_species(feature_path)
-        registry = json.loads(sources["registry.json"].read_text(encoding="utf-8"))
+        registry = mushroom_ml_version_registry.load_registry(sources["registry.json"])
         if purpose == "benchmark":
             selected_profiles = mushroom_ml_version_registry.resolve_benchmark_profiles(
                 registry, profile_keys
@@ -22260,6 +22261,20 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         if not self.allow_listener_path("GET", path):
             return
 
+        if path == "/mushrooms/workers/model-policy.json":
+            if not self.require_trusted_worker_control():
+                return
+            try:
+                registry = mushroom_ml_version_registry.load_registry(mushroom_paths.mushroom_ml_version_registry_path())
+                raw = mushroom_ml_policy_store.encode(mushroom_ml_policy_store.document(registry))
+                self.send_bytes(200, raw, "application/json; charset=utf-8", {
+                    "Content-Disposition": 'attachment; filename="mushroom_ml_prediction_policy.json"',
+                    "Cache-Control": "no-store",
+                })
+            except (OSError, ValueError) as exc:
+                self.send_json(422, {"ok": False, "error": str(exc)})
+            return
+
         if path.startswith(mushroom_prediction_map.API_PATH + "/"):
             mushroom_prediction_map_ui.serve_api(self, path)
             return
@@ -22973,6 +22988,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.send_json(200, {"ok": True, **preview_payload})
             return
 
+        if parsed.path.rstrip("/") == "/mushrooms/workers/model-policy":
+            if not self.require_trusted_worker_control():
+                return
+            # URL encoding can triple the bytes; reject before reading a large body.
+            form = parse_qs(self.read_request_body(
+                max_bytes=3 * mushroom_ml_policy_store.MAX_BYTES + 4096
+            ).decode("utf-8"))
+            self.handle_mushroom_model_policy_import(form)
+            self.redirect_to("../workers#prediction-model-settings")
+            return
+
         form, files = self.read_form_and_files()
         if parsed.path.rstrip("/") == "/users":
             self.handle_user_admin_post(form)
@@ -23131,6 +23157,24 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             message = "Unknown user management action."
         admin_message(message)
 
+    def handle_mushroom_model_policy_import(self, form: dict[str, list[str]]) -> None:
+        try:
+            if self.form_value(form, "confirm_replace") != "true":
+                raise ValueError("Confirm replacement of the current suspensions.")
+            with MUSHROOM_WORKER_PROMOTION_LOCK:
+                path = mushroom_paths.mushroom_ml_version_registry_path()
+                registry = mushroom_ml_version_registry.load_registry(path)
+                species = {row["species_id"] for row in default_store().load("profiles").get("species_profiles", [])}
+                revision = self.form_value(form, "policy_revision")
+                updated = mushroom_ml_policy_store.import_rules(
+                    self.form_value(form, "policy_json").encode("utf-8"), registry, species,
+                    expected_revision=revision,
+                )
+                mushroom_ml_policy_store.save(path, updated, expected_revision=revision)
+            set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.model_settings_saved"))
+        except (OSError, ValueError) as exc:
+            set_mushroom_workers_flash(str(exc), error=True)
+
     def handle_mushroom_workers_post(self, form: dict[str, list[str]]) -> str:
         action = self.form_action_value(form, "worker_action")
         if action == "set_prediction_model_policy":
@@ -23155,7 +23199,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         actor="workers_ui",
                         expected_revision=self.form_value(form, "policy_revision"),
                     )
-                    mushroom_ml_version_registry.save_registry(registry_path, updated)
+                    mushroom_ml_policy_store.save(
+                        registry_path, updated,
+                        expected_revision=self.form_value(form, "policy_revision"),
+                    )
                 set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.model_settings_saved"))
             except (OSError, ValueError) as exc:
                 set_mushroom_workers_flash(str(exc), error=True)

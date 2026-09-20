@@ -177,6 +177,15 @@ const server = createServer(async (req, res) => {
         const values = value => weatherDates.map((_,i)=>i===57 ? null : value);
         response.weather = { status:"partial", data_mode:"observed_idw", dates:weatherDates,
           radius_km:15, sources:["meteocat"], nearby_stations:2,
+          water_balance:{data_mode:"estimated_water_balance",profile_depth_cm:30,capacity_mm:60,
+            method_id:"regulated_pm_single_layer_v1",history_start:"2025-09-13",history_days:365,
+            et0_methods:weatherDates.map(()=>"pm_station_wind"),wind_stations:{WM:{name:"Estació prova",distance_km:4,altitude_m:1600}},
+            smi_low_pct:weatherDates.map((_,i)=>i===57?null:i===0?0:i===1?95:35+i/2),
+            smi_high_pct:weatherDates.map((_,i)=>i===57?null:i===0?5:i===1?100:45+i/2),
+            balance_mm:weatherDates.map((_,i)=>i===57?null:i%2?4:-3),
+            smi_legacy_pct:weatherDates.map((_,i)=>i===57?null:20+i/2),
+            smi_pct:weatherDates.map((_,i)=>i===57?null:i===0?0:i===1?100:40+i/2),
+            smi_reasons:weatherDates.map((_,i)=>i===57?"inputs_incomplete":null)},
           series:{rain_mm:values(2),temp_min_c:values(10),temp_max_c:values(20),humidity_min_pct:values(40),humidity_max_pct:values(80)},
           ...(richTerrain ? {wind:{station_name:"Viento <b>literal</b>",distance_km:2,avg_kmh:values(0),gust_kmh:values(12)}} : {}) };
         response.location = calls === 1 ? { status: "available", name: "Municipio de prueba <b>literal</b>" } : { status: "ambiguous" };
@@ -436,6 +445,11 @@ try {
   }
   assert.equal(calls,beforeHostLanguage);
   assert.ok(await evaluate("document.querySelector('.pm-terrain-summary').getBoundingClientRect().left > document.querySelector('.pm-municipality').getBoundingClientRect().left"));
+  assert.ok(await evaluate(`(()=>{
+    const coords=document.querySelector('.pm-coordinates'), name=document.querySelector('.pm-municipality');
+    const range=document.createRange();range.selectNodeContents(coords);
+    return range.getClientRects().length===1 && coords.getBoundingClientRect().bottom-name.getBoundingClientRect().top<44;
+  })()`),'Coordinates stay on one line and place block uses two rows');
   await evaluate("document.querySelector('.pm-terrain').open=true");
   assert.ok(await evaluate("document.querySelector('.pm-altitude').textContent.includes('765.3 m')"));
   assert.equal(await evaluate("document.querySelectorAll('.pm-ph-table tbody tr').length"), 3);
@@ -470,6 +484,42 @@ try {
   await evaluate("document.querySelector('.pm-weather-range').value='60';document.querySelector('.pm-weather-range').dispatchEvent(new Event('change'))");
   assert.equal(await evaluate("document.querySelectorAll('.pm-weather tbody tr').length"),60);
   assert.equal(calls,beforeWeather);
+  assert.equal(await evaluate("document.querySelector('.pm-hydrology-range').value"),'60');
+  assert.ok(await evaluate("document.querySelector('.pm-water-brief').textContent.includes('60.0 L/m²')"));
+  assert.ok(await evaluate("document.querySelector('.pm-water-brief').textContent.includes('69.5 % · 41.7 L/m²')"));
+  assert.ok(await evaluate("document.querySelector('.pm-water-brief').title.includes('11/09/26')"));
+  assert.ok(await evaluate("document.querySelector('.pm-hydrology-history-start').textContent.includes('13/09/25')"));
+  assert.equal(await evaluate("document.querySelector('.pm-hydrology-assumptions').open"),false);
+  await evaluate("document.querySelector('.pm-water-brief').click()");
+  assert.equal(await evaluate("document.querySelector('.pm-hydrology').open"),true);
+  await evaluate("document.querySelector('.pm-weather').open=false;document.querySelector('.pm-hydrology').open=true;document.querySelector('.pm-hydrology').scrollIntoView({block:'start'})");
+  assert.equal(await evaluate("document.querySelectorAll('.pm-hydrology-smi polyline').length"),4);
+  assert.equal(await evaluate("document.querySelectorAll('.pm-hydrology-smi polygon').length"),2);
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.pm-hydrology-smi .pm-legend-help')].map(n=>n.textContent)"),['Extracción regulada','Depósito simple']);
+  assert.equal(await evaluate("new Set([...document.querySelectorAll('.pm-hydrology-smi polyline')].map(n=>n.getAttribute('stroke'))).size"),2);
+  await evaluate("document.querySelector('.pm-hydrology-smi .pm-legend-help').click()");
+  assert.ok(await evaluate("!document.querySelector('.pm-hydrology-smi .pm-legend-tooltip').hidden && document.querySelector('.pm-hydrology-smi .pm-legend-tooltip').textContent.includes('Penman–Monteith')"));
+  await evaluate("document.querySelectorAll('.pm-hydrology-smi .pm-legend-help')[1].click()");
+  assert.ok(await evaluate("document.querySelector('.pm-hydrology-smi .pm-legend-tooltip').textContent.includes('Hargreaves–Samani') && !document.querySelector('.pm-hydrology-smi .pm-legend-tooltip').textContent.includes('Penman–Monteith')"));
+  await evaluate("document.querySelectorAll('.pm-hydrology-smi .pm-legend-help')[1].dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))");
+  assert.equal(await evaluate("document.querySelector('.pm-hydrology-smi .pm-legend-tooltip').hidden"),true);
+  assert.ok(await evaluate("[...document.querySelectorAll('.pm-hydrology-balance rect')].every(r=>Number(r.getAttribute('height'))>=0)"));
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.pm-hydrology-smi svg > text')].slice(0,3).map(n=>n.textContent)"),['0.0','50.0','100.0']);
+  await evaluate("document.querySelector('.pm-hydrology-smi svg').dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}))");
+  assert.ok(await evaluate("document.querySelector('.pm-hydrology-smi .pm-history-tooltip').textContent.includes('69.5 %')"));
+  assert.ok(await evaluate("document.querySelector('.pm-hydrology-smi .pm-history-tooltip').textContent.includes('41.7 L/m²')"));
+  assert.ok(await evaluate("document.querySelector('.pm-hydrology-reserve').textContent.includes('69.5 % · 41.7 L/m²')"));
+  for (const [keys,expected] of [[['Home'],'0.0 % · 0.0 L/m²'],[['ArrowRight'],'100.0 % · 60.0 L/m²'],[['End','ArrowLeft','ArrowLeft'],'— % · — L/m²']]) {
+    await evaluate(`for(const key of ${JSON.stringify(keys)}) document.querySelector('.pm-hydrology-smi svg').dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true}))`);
+    assert.ok(await evaluate(`document.querySelector('.pm-hydrology-smi .pm-history-tooltip').textContent.includes(${JSON.stringify(expected)})`));
+  }
+  await evaluate("document.querySelector('.pm-hydrology-smi svg').dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}))");
+  const hydrologyShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'hydrology-desktop.png'),Buffer.from(hydrologyShot.data,'base64'));
+  await evaluate("document.querySelector('.pm-hydrology-range').value='15';document.querySelector('.pm-hydrology-range').dispatchEvent(new Event('change'))");
+  assert.equal(await evaluate("document.querySelector('.pm-weather-range').value"),'15');
+  assert.equal(calls,beforeWeather);
+  await evaluate("document.querySelector('.pm-hydrology').open=false");
   richTerrain = false;
   await evaluate("document.getElementById('settings-toggle').click();document.getElementById('settings-tab-prediction').click();document.getElementById('prediction-execution-selector').value='worker';document.getElementById('prediction-execution-selector').dispatchEvent(new Event('change'))");
   assert.equal(settingsSaves,1); // Calendar was saved on the first settings close.
@@ -579,6 +629,12 @@ try {
   await fs.writeFile(path.join(profile,"weather-mobile.png"),Buffer.from(weatherMobile.data,"base64"));
   await evaluate("document.querySelector('.pm-weather-records').open=true;document.querySelector('.pm-result-body').scrollTop=document.querySelector('.pm-result-body').scrollHeight");
   assert.ok(await evaluate("(()=>{const n=document.querySelector('.pm-result');return n.scrollWidth<=n.clientWidth && document.documentElement.scrollWidth<=innerWidth})()"));
+  await evaluate("document.querySelector('.pm-weather').open=false;document.querySelector('.pm-hydrology').open=true;document.querySelector('.pm-hydrology').scrollIntoView({block:'start'})");
+  assert.ok(await evaluate("(()=>{const n=document.querySelector('.pm-result');return n.scrollWidth<=n.clientWidth && document.documentElement.scrollWidth<=innerWidth})()"));
+  await evaluate("(()=>{const s=document.querySelector('.pm-hydrology-smi svg'),r=s.getBoundingClientRect();s.dispatchEvent(new MouseEvent('click',{clientX:r.right-10,bubbles:true}))})()");
+  assert.equal(await evaluate("document.querySelector('.pm-hydrology-smi .pm-history-tooltip').hidden"),false);
+  const waterMobile=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'hydrology-mobile.png'),Buffer.from(waterMobile.data,'base64'));
   // Real ecological eligibility must suppress every simulated percentage.
   richTerrain = false;
   ecologyFixture = {status:"available", abstention_reason:null, mapped_context:{
@@ -766,8 +822,10 @@ try {
     })()`);
     assert.ok(seasonLayout.sameFirstLine && !seasonLayout.overflow && seasonLayout.phaseColor!==seasonLayout.peakColor && seasonLayout.text.includes(' — ') && seasonLayout.height<=seasonLayout.lineHeight*2+1,JSON.stringify(seasonLayout));
     compactMeasurements.push(compact);
+    const layoutShot=await send('Page.captureScreenshot',{format:'png'});
+    await fs.writeFile(path.join(os.tmpdir(),'rainmapper-water-header.png'),Buffer.from(layoutShot.data,'base64'));
     assert.ok(compact.noticeHidden && compact.timezoneCaptionHidden && compact.noOverflow,JSON.stringify(compact));
-    assert.ok(Math.abs(compact.coordinatesTop-compact.altitudeTop)<3 && Math.abs(compact.coordinatesTop-compact.phTop)<3,JSON.stringify(compact));
+    assert.ok(compact.altitudeTop>compact.coordinatesTop && Math.abs(compact.altitudeTop-compact.phTop)<3,JSON.stringify(compact));
     assert.ok(Math.abs(compact.dateBaseline-compact.timezoneBaseline)<1 && Math.abs(compact.dateCenter-compact.selectCenter)<4,JSON.stringify(compact));
     assert.ok(compact.bodyFraction>=.45 && compact.selectFont>=11 && compact.selectHeight<=24 && compact.selectWidth<=140,JSON.stringify(compact));
     assert.ok(compact.zoneFirst && compact.zoneCaptionVisible,JSON.stringify(compact));
@@ -792,7 +850,7 @@ try {
           scrollable:p.scrollHeight>p.clientHeight,titles,text:p.textContent};
       })()`);
       assert.ok(help.top>=0 && help.bottom<=height && help.left>=0 && help.right<=width && help.scrollable,JSON.stringify(help));
-      assert.deepEqual(help.titles,['prediction-mode-toggle','quick-metric-toggle','heatmap-toggle','estimated-field-toggle']);
+      assert.deepEqual(help.titles,['place-search-toggle','prediction-mode-toggle','quick-metric-toggle','heatmap-toggle','estimated-field-toggle']);
       const beforeZoom=await evaluate('map.getZoom()');
       await send('Input.dispatchMouseEvent',{type:'mouseWheel',x:(help.left+help.right)/2,y:(help.top+help.bottom)/2,deltaX:0,deltaY:10000});
       await pause(500);
@@ -844,6 +902,9 @@ try {
     ...Array.from({length:18},(_,i)=>({species_id:`unplotted_${i}`,name:`Unplotted ${i}`,scientific_name:`Taxon ${i}`,
       status:'unknown',daily_statuses:Array(7).fill('unknown'),daily_season_phases:Array(7).fill('main')}))]};
   modelFixture={data_mode:'prediction',species:plottedIds.map((id,i)=>({species_id:id,label_key:id,status:'available',
+    models:[0,1,0,0,0,0,0],model_labels:['Smooth Partial–V6w','ET–V2'],
+    model_details:[{estimator:'smooth_partial_pooling_logistic_v1',inputs:['smi','rain','temperature','humidity','season'],window_days:30},
+      {estimator:'extra_trees_restricted_v1',inputs:['rain','temperature','humidity'],window_days:60}],
     probabilities:Array.from({length:7},(_,day)=>[.54,.4,.6][i]+day*.006)}))};
   await evaluate("document.querySelector('.pm-close').click()");
   await send('Emulation.setDeviceMetricsOverride',{width:1280,height:1000,deviceScaleFactor:1,mobile:false});
@@ -909,6 +970,48 @@ try {
   await evaluate("(()=>{const s=document.querySelector('.pm-calendar select');s.value='1';s.dispatchEvent(new Event('change'))})()");
   assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-iff-score').textContent"),'Fuera de rango');
   assert.ok(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-applicability').textContent.includes('IFF descartado')"));
+  // Provenance follows the selected date and is independent of whether an IFF exists.
+  assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-model-name').textContent"),'ET–V2');
+  assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_pinophilus] .pm-model-name')"),null);
+  for (const width of [1280,375,320]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<500});
+    await evaluate("document.querySelector('.pm-close')?.click();map.resize();map.jumpTo({center:[1.9,42],zoom:8});void 0");
+    await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-iff-heading')");
+    for (const day of [0,3]) {
+      await evaluate(`(()=>{const s=document.querySelector('.pm-calendar select');s.value='${day}';s.dispatchEvent(new Event('change'))})()`);
+      assert.equal(await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-model-name').textContent"),'Smooth Partial–V6w');
+      assert.equal(await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-iff-score').textContent"),day===0?'IFF:60/100':'Sin IFF calculado');
+      const layout=await evaluate(`Array.from(document.querySelectorAll('.pm-species li'),row=>{
+        const heading=row.querySelector('.pm-iff-heading'),r=row.getBoundingClientRect(),h=heading.getBoundingClientRect();
+        const name=row.querySelector('.pm-species-name').getBoundingClientRect();
+        return {overflow:row.scrollWidth>row.clientWidth+1,bounded:h.left>=r.left-1&&h.right<=r.right+1,separate:name.right<=h.left+1};
+      })`);
+      assert.ok(layout.every(r=>!r.overflow&&r.bounded&&r.separate),JSON.stringify({width,day,layout}));
+    }
+    const shot=await send('Page.captureScreenshot',{format:'png'});
+    await fs.writeFile(path.join(profile,`model-labels-${width}.png`),Buffer.from(shot.data,'base64'));
+  }
+  // Model help is distinct from IFF help, translated, and usable on touch/keyboard.
+  for (const [lang,smi,balance] of [['es','Usa SMI: Sí','entrada directa: No'],['ca','Usa SMI: Sí','entrada directa: No'],['en','Uses SMI: Yes','direct input: No']]) {
+    await evaluate(`applyLanguage('${lang}')`);
+    await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-model-name').click()");
+    const tip = await evaluate(`(()=>{const row=document.querySelector('.pm-species [data-species-id=lactarius_deliciosus]');
+      const tip=row.querySelector('.pm-model-help'),box=tip.getBoundingClientRect();
+      return {text:tip.textContent,visible:!tip.hidden,iff:getComputedStyle(row.querySelector('.pm-iff-help')).display,
+        bounded:box.left>=0&&box.right<=innerWidth};})()`);
+    assert.ok(tip.visible && tip.bounded && tip.iff==='none',JSON.stringify(tip));
+    assert.ok(tip.text.includes(smi)&&tip.text.includes(balance)&&tip.text.includes('30'),tip.text);
+    await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-model-name').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))");
+    assert.equal(await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-model-help').hidden"),true);
+  }
+  await evaluate("applyLanguage('es')");
+  await evaluate("(()=>{const s=document.querySelector('.pm-calendar select');s.value='1';s.dispatchEvent(new Event('change'))})()");
+  assert.ok(await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-model-help').textContent.includes('Usa SMI: No')"));
+  // Hovering or focusing the model cannot expose IFF help.
+  await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-model-name').dispatchEvent(new MouseEvent('mouseenter'))");
+  assert.equal(await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-model-help').hidden"),false);
+  await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-model-name').dispatchEvent(new MouseEvent('mouseleave'))");
+  assert.equal(await evaluate("document.querySelector('[data-species-id=lactarius_deliciosus] .pm-model-help').hidden"),true);
   modelFixture=null;
   ecologyFixture=null;
   await evaluate("document.querySelector('.pm-close').click();map.jumpTo({center:[2.15,42.2],zoom:9});document.getElementById('settings-toggle').click();document.getElementById('settings-tab-general').click();document.getElementById('save-map-view-default').click();document.getElementById('settings-toggle').click()");

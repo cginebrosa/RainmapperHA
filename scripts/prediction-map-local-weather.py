@@ -36,7 +36,8 @@ def main():
             cutoff=min(date.fromisoformat(request["end_day"]),
                        map_today(request.get('calendar_timezone',args.calendar_timezone))-timedelta(days=1))
             weather=reader.lookup(request["lat"],request["lon"],request.get("altitude_m"),
-                end_day=cutoff,days=request.get("days",60))
+                end_day=cutoff,days=request.get("days",60),water_history=request.get('water_history',False),
+                water_capacity_mm=request.get('water_capacity_mm'))
         except Exception:
             # Failure is explicit and does not discard municipality/terrain.
             logging.getLogger(__name__).exception("Prediction map weather query failed")

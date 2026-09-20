@@ -1,0 +1,173 @@
+{
+  "kind": "accepted_smi_parity",
+  "contract": "regulated_pm_single_layer_v1",
+  "source_sha256": "4d984c1bb1d622f6a3c89e72aa342ebb4c652db6d065b8d0dd1c7b17f1a8aa65",
+  "code_sha256": {
+    "rainmapper_core/mushroom_water_physics.py": "ca22d0a682518c50ffa6361a27c03407c1e55ade06921916a5169ac4d20ba17f",
+    "rainmapper_core/mushroom_map_hydrology.py": "60f6f83f6123faffec780c6b71a7d75c5f66097bb87e1027c9c3573f4d839a89",
+    "rainmapper_core/mushroom_soil_water_state.py": "ccbc1fac296f7f0d7aeb0d22cf69e020bf91d1976c0f3252de84e2f1bf4e2476",
+    "rainmapper_core/mushroom_climatic_water_balance.py": "cf6c82dbf3b6091b4210321b538ffbc3b053069a27b319decd1fc13bad4c12b8",
+    "rainmapper_core/mushroom_ml_area_weather_runtime.py": "bf4e318d7c163c5a873fb978428e383c258a4e6cf9f00fa23a3475937ec51659",
+    "rainmapper_core/mushroom_ml_weather_workspace.py": "3f7710b7ab002bebdd3f0c14a3561cae010398865f4b9a35c5297f5b55bef56b",
+    "rainmapper_core/mushroom_ml_runtime_trainer.py": "913b301bc48f3f961304fff82b8c490feba93b75c1817b498b9ddfbfac91d14f",
+    "rainmapper_core/mushroom_ml_runtime_inference.py": "ab2d17fa1c7c283385d59130328806aa5f85bb341a43374da9ab144260f99832"
+  },
+  "station_count": 22,
+  "chart_days": 1320,
+  "points": [
+    {
+      "code": "RDS",
+      "name": "Ribera de Sió",
+      "days": 60,
+      "mass_error_max_mm": 1.887379141862766e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "CDLP",
+      "name": "Clot de Les Peres",
+      "days": 60,
+      "mass_error_max_mm": 1.4210854715202004e-14,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "SCA",
+      "name": "Serra de Costa Ampla",
+      "days": 60,
+      "mass_error_max_mm": 1.7763568394002505e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "CMN",
+      "name": "Camí dels Nerets",
+      "days": 60,
+      "mass_error_max_mm": 1.7208456881689926e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "EBX",
+      "name": "El Boixer",
+      "days": 60,
+      "mass_error_max_mm": 1.4210854715202004e-14,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "LCS",
+      "name": "Los Coscolls",
+      "days": 60,
+      "mass_error_max_mm": 2.220446049250313e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "PSN",
+      "name": "Pessonada",
+      "days": 60,
+      "mass_error_max_mm": 1.6653345369377348e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "BDS",
+      "name": "Batlliu de Sort",
+      "days": 60,
+      "mass_error_max_mm": 1.887379141862766e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "CDPA",
+      "name": "Coll de Paller",
+      "days": 60,
+      "mass_error_max_mm": 2.220446049250313e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "LCDA",
+      "name": "La Cultia d'Àreu",
+      "days": 60,
+      "mass_error_max_mm": 1.887379141862766e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "EML",
+      "name": "El Miracle",
+      "days": 60,
+      "mass_error_max_mm": 1.887379141862766e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "BCLL",
+      "name": "Borda Coll",
+      "days": 60,
+      "mass_error_max_mm": 1.9984014443252818e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "LLA",
+      "name": "Llivia",
+      "days": 60,
+      "mass_error_max_mm": 1.9984014443252818e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "CLLA",
+      "name": "Clarella",
+      "days": 60,
+      "mass_error_max_mm": 1.7763568394002505e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "CLLP",
+      "name": "Cantallops",
+      "days": 60,
+      "mass_error_max_mm": 1.7763568394002505e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "BOLV",
+      "name": "Bolvir",
+      "days": 60,
+      "mass_error_max_mm": 1.9984014443252818e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "GGUE",
+      "name": "Garriguella",
+      "days": 60,
+      "mass_error_max_mm": 1.9984014443252818e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "AGDS",
+      "name": "Aguilar de Segarra",
+      "days": 60,
+      "mass_error_max_mm": 1.887379141862766e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "TDLL",
+      "name": "Torre del Lluvià",
+      "days": 60,
+      "mass_error_max_mm": 1.9984014443252818e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "PDCE",
+      "name": "Pobla de Cérvoles",
+      "days": 60,
+      "mass_error_max_mm": 1.887379141862766e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "VIL",
+      "name": "Vilosell",
+      "days": 60,
+      "mass_error_max_mm": 1.8318679906315083e-15,
+      "equal_to_frozen_map": true
+    },
+    {
+      "code": "MDF",
+      "name": "Mas dels Frares",
+      "days": 60,
+      "mass_error_max_mm": 1.7763568394002505e-15,
+      "equal_to_frozen_map": true
+    }
+  ]
+}

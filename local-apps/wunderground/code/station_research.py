@@ -15,10 +15,12 @@ import time
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 STATES = ('pending', 'doubtful', 'accepted', 'rejected')
-ASSETS = Path(__file__).with_name('station-research')
+ASSETS = Path(__file__).with_name('web')
+VENDOR = Path(__file__).with_name('vendor')
+DATA = Path(__file__).resolve().parents[1] / 'data'
 
 
 def valid_number(value):
@@ -369,8 +371,8 @@ def handler(research):
                 return self.send_json(research.state() if path.endswith('state') else {'records': research.records(include_current=True)})
             fixed = {'/': ASSETS / 'index.html', '/app.js': ASSETS / 'app.js', '/style.css': ASSETS / 'style.css',
                      '/base-styles.js': research.root / 'viewer/base-styles.js',
-                     '/maplibre-gl.js': research.root / 'viewer/maplibre-gl.js',
-                     '/maplibre-gl.css': research.root / 'viewer/maplibre-gl.css'}
+                     '/maplibre-gl.js': VENDOR / 'maplibre-gl.js',
+                     '/maplibre-gl.css': VENDOR / 'maplibre-gl.css'}
             file = fixed.get(path)
             if file is None:
                 return self.send_json({'error': 'No encontrado'}, 404)
@@ -417,7 +419,7 @@ def handler(research):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--data', type=Path, default=ROOT / 'tmp/station-coverage-catalunya-20260918')
+    parser.add_argument('--data', type=Path, default=DATA)
     parser.add_argument('--port', type=int, default=8123)
     args = parser.parse_args()
     source = (ROOT / 'rainmapper_core/viewers/maplibre-viewer/app.js').read_text()

@@ -78,9 +78,9 @@ class MushroomMLAreaWeatherRuntimeTests(TestCase):
                 side_effect=weather_rows,
             ),
             patch.object(
-                runtime.climate,
-                "hargreaves_reference_evapotranspiration_mm",
-                side_effect=lambda _day, _lat, low, _high: float(low),
+                runtime,
+                "point_reference_et",
+                side_effect=lambda weather, _context, _stations: {"et0_mm": weather["daily_temp_min_idw_c"]},
             ),
             patch.object(
                 runtime.mushroom_soil_water_state,
@@ -121,8 +121,8 @@ class MushroomMLAreaWeatherRuntimeTests(TestCase):
                 return_value=weather,
             ) as build_idw,
             patch.object(
-                runtime.climate,
-                "hargreaves_reference_evapotranspiration_mm",
+                runtime,
+                "point_reference_et",
             ) as build_eto,
             patch.object(
                 runtime.mushroom_soil_water_state,

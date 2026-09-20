@@ -13,9 +13,12 @@ from pathlib import Path
 
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_version_registry as versions
+from rainmapper_core import mushroom_ml_policy_store as policy_store
+from rainmapper_core import mushroom_ml_prediction_policy as policy
 from rainmapper_core import mushroom_ml_multiversion_comparison as comparison
 from rainmapper_core import mushroom_ml_quality_catalog as quality
 from rainmapper_core.mushroom_map_prediction import resolve_species_week
+from rainmapper_core.mushroom_model_labels import model_source_label, model_input_details
 from rainmapper_core.mushroom_map_ecology import prediction_candidates
 from rainmapper_core.mushroom_phenology import season_phase_for_months
 from rainmapper_core.mushroom_map_weather import PointWeatherReader, fingerprint, map_today
@@ -135,7 +138,7 @@ class PointModelRuntime:
         self.last_diagnostics = {}
 
     def _refresh(self):
-        registry = small_json(self.registry_path, 256*1024)
+        registry = policy_store.resolve(self.registry_path, small_json(self.registry_path, 256*1024))
         path = versions.operational_manifest_path(registry, models_root=self.models_root)
         if path is None:
             raise ValueError('no_installed_batch')
@@ -144,7 +147,8 @@ class PointModelRuntime:
         qpath = (self.models_root/qref['path']).resolve()
         if not qpath.is_relative_to(self.models_root):
             raise ValueError('quality_path_outside_root')
-        signature = (fingerprint(self.registry_path), str(path), fingerprint(path), fingerprint(qpath))
+        signature = (fingerprint(self.registry_path), policy.revision(registry),
+                     str(path), fingerprint(path), fingerprint(qpath))
         if signature == self.signature:
             return
         checked = catalog.validate_batch_manifest(registry,manifest)
@@ -193,6 +197,10 @@ class PointModelRuntime:
         calendar_timezone = request.get('calendar_timezone',self.weather.calendar_timezone)
         today = map_today(calendar_timezone)
         self.last_diagnostics = {}
+        input_details = {}
+        def observe_inputs(reference, columns):
+            input_details[catalog.ModelRef.from_mapping(reference).key] = model_input_details(
+                reference, columns, self.catalog_profiles)
         def materializer(species_id):
             def materialize(*,target_date,selections):
                 phenology = profiles.get(species_id, {}).get('phenology', {})
@@ -228,7 +236,7 @@ class PointModelRuntime:
                 return comparison.compare_prepared(self.registry,self.manifest,refs,models_root=self.models_root,
                     target_date=target_date,area_id=context.area_id,area_context=context,
                     area_series_by_horizon=series_by_horizon,stations=stations,checked_manifest=self.manifest,
-                    comparison_cache={'quality_catalog':self.quality})
+                    comparison_cache={'quality_catalog':self.quality}, model_inputs_observer=observe_inputs)
             return materialize
         for source,row in zip(selected,rows):
             sid=row['species_id']; resolutions=self.resolutions.get(sid)
@@ -245,6 +253,9 @@ class PointModelRuntime:
             row['status']='available'
             row['applicability']=[None]*horizon
             row['applicability_details']=[]
+            row['model_labels']=[]
+            row['model_details']=[]
+            row['models']=[None]*horizon
             diagnostic=[]
             for i,day in enumerate(week['days'][:horizon]):
                 operational=day['operational_comparison']; active=day['reliability_selection']
@@ -261,6 +272,26 @@ class PointModelRuntime:
                     if (day.get('applicability') or {}).get('status') == 'outside_domain':
                         reason='outside_domain'
                 row['probabilities'][i]=probability;row['reasons'][i]=reason
+                # Do not present a rejected/preferred candidate as the chosen model.
+                reference = {}
+                if active.get('runtime_selection_status') != 'abstain':
+                    if len(winners) == 1:
+                        reference = winners[0].get('model_ref') or {}
+                    if not reference and active.get('runtime_selection_status') == 'winner':
+                        reference = candidate
+                label = model_source_label(reference)
+                if label:
+                    try:
+                        inputs = input_details.get(catalog.ModelRef.from_mapping(reference).key)
+                    except ValueError:
+                        inputs = None
+                    index = next((j for j, existing in enumerate(row['model_labels'])
+                                  if existing == label and row['model_details'][j] == inputs), None)
+                    if index is None:
+                        index = len(row['model_labels'])
+                        row['model_labels'].append(label)
+                        row['model_details'].append(inputs)
+                    row['models'][i]=index
                 detail=day.get('applicability')
                 if detail:
                     if detail not in row['applicability_details']:

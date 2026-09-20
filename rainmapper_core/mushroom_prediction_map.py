@@ -12,6 +12,7 @@ import math
 import re
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from rainmapper_core.mushroom_model_labels import valid_model_details
 
 VIEWER_PATH = "/protected/prediction-map"
 API_PATH = "/api/mushrooms/prediction-map"
@@ -187,6 +188,21 @@ def validate_result(result, request):
             not isinstance(reasons,list) or len(reasons)!=len(expected_dates)):
             raise ValueError('invalid_result_species')
         seen.add(sid)
+        if 'model_details' in row:
+            details = row['model_details']
+            if (not isinstance(details, list) or not isinstance(row.get('model_labels'), list)
+                    or len(details) != len(row['model_labels'])
+                    or any(not valid_model_details(detail) for detail in details)):
+                raise ValueError('invalid_result_model_details')
+        if 'models' in row or 'model_labels' in row:
+            refs=row.get('models'); labels=row.get('model_labels')
+            if (not isinstance(refs,list) or len(refs)!=len(expected_dates) or
+                    not isinstance(labels,list) or len(labels)>len(expected_dates) or
+                    any(not isinstance(label,str) or not 0<len(label)<=96 for label in labels) or
+                    any(ref is not None and (type(ref) is not int or not 0<=ref<len(labels)) for ref in refs) or
+                    any(ref is not None and (row['status']=='no_model' or reasons[i]=='model_unavailable')
+                        for i,ref in enumerate(refs))):
+                raise ValueError('invalid_result_models')
         if 'applicability' in row or 'applicability_details' in row:
             refs=row.get('applicability'); details=row.get('applicability_details')
             if (not isinstance(refs,list) or len(refs)!=len(expected_dates) or

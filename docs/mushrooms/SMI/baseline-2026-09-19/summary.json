@@ -1,0 +1,530 @@
+[
+  {
+    "code": "RDS",
+    "name": "Ribera de Sió",
+    "capacity_mm": 43.95,
+    "altitude_m": 283.4,
+    "pdf_altitude_m": 283.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 6.6,
+    "rain_idw_common_mm": 10.78097590362934,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.887379141862766e-15,
+    "model_count": 8
+  },
+  {
+    "code": "CDLP",
+    "name": "Clot de Les Peres",
+    "capacity_mm": 52.6,
+    "altitude_m": 603.6,
+    "pdf_altitude_m": 602.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 46.99999999999999,
+    "rain_idw_common_mm": 36.29604925309731,
+    "sensor_zero_counts": {
+      "VWC_005": 2046,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 15,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.4210854715202004e-14,
+    "model_count": 8
+  },
+  {
+    "code": "SCA",
+    "name": "Serra de Costa Ampla",
+    "capacity_mm": 51.75,
+    "altitude_m": 924.0,
+    "pdf_altitude_m": 922.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 63.60000000000001,
+    "rain_idw_common_mm": 45.502394784880366,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.887379141862766e-15,
+    "model_count": 8
+  },
+  {
+    "code": "CMN",
+    "name": "Camí dels Nerets",
+    "capacity_mm": 52.3,
+    "altitude_m": 486.8,
+    "pdf_altitude_m": 489.0,
+    "gauge_complete_days": 59,
+    "rain_common_days": 59,
+    "rain_gauge_common_mm": 46.5,
+    "rain_idw_common_mm": 40.04572357216508,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.887379141862766e-15,
+    "model_count": 4
+  },
+  {
+    "code": "EBX",
+    "name": "El Boixer",
+    "capacity_mm": 47.1,
+    "altitude_m": 1220.0,
+    "pdf_altitude_m": 1217.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 140.60000000000002,
+    "rain_idw_common_mm": 158.8078043861418,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.4210854715202004e-14,
+    "model_count": 8
+  },
+  {
+    "code": "LCS",
+    "name": "Los Coscolls",
+    "capacity_mm": 43.7,
+    "altitude_m": 560.5,
+    "pdf_altitude_m": 560.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 36.70000000000001,
+    "rain_idw_common_mm": 37.893944447124,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 2.220446049250313e-15,
+    "model_count": 8
+  },
+  {
+    "code": "PSN",
+    "name": "Pessonada",
+    "capacity_mm": 47.8,
+    "altitude_m": 910.3,
+    "pdf_altitude_m": 911.0,
+    "gauge_complete_days": 58,
+    "rain_common_days": 58,
+    "rain_gauge_common_mm": 81.8,
+    "rain_idw_common_mm": 54.82330776709219,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 58,
+      "VWC_020": 58,
+      "VWC_050": 58
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.7763568394002505e-15,
+    "model_count": 4
+  },
+  {
+    "code": "BDS",
+    "name": "Batlliu de Sort",
+    "capacity_mm": 50.0,
+    "altitude_m": 891.2,
+    "pdf_altitude_m": 890.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 161.5,
+    "rain_idw_common_mm": 91.15571117685228,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 2.220446049250313e-15,
+    "model_count": 8
+  },
+  {
+    "code": "CDPA",
+    "name": "Coll de Paller",
+    "capacity_mm": 53.05,
+    "altitude_m": 1164.1,
+    "pdf_altitude_m": 1164.0,
+    "gauge_complete_days": 56,
+    "rain_common_days": 56,
+    "rain_gauge_common_mm": 108.59999999999998,
+    "rain_idw_common_mm": 54.28893179368401,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 56,
+      "VWC_020": 56,
+      "VWC_050": 56
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 2.220446049250313e-15,
+    "model_count": 4
+  },
+  {
+    "code": "LCDA",
+    "name": "La Cultia d'Àreu",
+    "capacity_mm": 54.35,
+    "altitude_m": 1236.0,
+    "pdf_altitude_m": 1236.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 168.8,
+    "rain_idw_common_mm": 80.44377962370777,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 3.552713678800501e-15,
+    "model_count": 8
+  },
+  {
+    "code": "EML",
+    "name": "El Miracle",
+    "capacity_mm": 48.25,
+    "altitude_m": 811.1,
+    "pdf_altitude_m": 811.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 17.200000000000003,
+    "rain_idw_common_mm": 26.991261997561942,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.9984014443252818e-15,
+    "model_count": 8
+  },
+  {
+    "code": "BCLL",
+    "name": "Borda Coll",
+    "capacity_mm": 52.95,
+    "altitude_m": 816.2,
+    "pdf_altitude_m": 818.0,
+    "gauge_complete_days": 55,
+    "rain_common_days": 55,
+    "rain_gauge_common_mm": 204.19999999999993,
+    "rain_idw_common_mm": 102.48714121974118,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 55,
+      "VWC_020": 55,
+      "VWC_050": 55
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.9984014443252818e-15,
+    "model_count": 4
+  },
+  {
+    "code": "LLA",
+    "name": "Llivia",
+    "capacity_mm": 47.05,
+    "altitude_m": 1219.5,
+    "pdf_altitude_m": 1219.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 179.79999999999995,
+    "rain_idw_common_mm": 64.73038592639746,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.9984014443252818e-15,
+    "model_count": 8
+  },
+  {
+    "code": "CLLA",
+    "name": "Clarella",
+    "capacity_mm": 53.2,
+    "altitude_m": 921.1,
+    "pdf_altitude_m": 922.0,
+    "gauge_complete_days": 51,
+    "rain_common_days": 51,
+    "rain_gauge_common_mm": 139.4,
+    "rain_idw_common_mm": 93.20390612310132,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 51,
+      "VWC_020": 51,
+      "VWC_050": 51
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.7763568394002505e-15,
+    "model_count": 4
+  },
+  {
+    "code": "CLLP",
+    "name": "Cantallops",
+    "capacity_mm": 53.55,
+    "altitude_m": 179.0,
+    "pdf_altitude_m": 179.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 59.800000000000004,
+    "rain_idw_common_mm": 29.428724415067624,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.8318679906315083e-15,
+    "model_count": 8
+  },
+  {
+    "code": "BOLV",
+    "name": "Bolvir",
+    "capacity_mm": 44.8,
+    "altitude_m": 1137.0,
+    "pdf_altitude_m": 1137.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 142.99999999999997,
+    "rain_idw_common_mm": 164.99302391642664,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 1260,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 33,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.9984014443252818e-15,
+    "model_count": 8
+  },
+  {
+    "code": "GGUE",
+    "name": "Garriguella",
+    "capacity_mm": 57.5,
+    "altitude_m": 37.8,
+    "pdf_altitude_m": 38.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 57.699999999999996,
+    "rain_idw_common_mm": 40.61770191276041,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.9984014443252818e-15,
+    "model_count": 8
+  },
+  {
+    "code": "AGDS",
+    "name": "Aguilar de Segarra",
+    "capacity_mm": 47.75,
+    "altitude_m": 526.9,
+    "pdf_altitude_m": 527.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 18.9,
+    "rain_idw_common_mm": 62.54582357271711,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.887379141862766e-15,
+    "model_count": 8
+  },
+  {
+    "code": "TDLL",
+    "name": "Torre del Lluvià",
+    "capacity_mm": 49.2,
+    "altitude_m": 258.1,
+    "pdf_altitude_m": 258.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 118.90000000000002,
+    "rain_idw_common_mm": 66.11181854403009,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.9984014443252818e-15,
+    "model_count": 8
+  },
+  {
+    "code": "PDCE",
+    "name": "Pobla de Cérvoles",
+    "capacity_mm": 45.6,
+    "altitude_m": 694.8,
+    "pdf_altitude_m": 694.114,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 8.8,
+    "rain_idw_common_mm": 8.249426469204915,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.9984014443252818e-15,
+    "model_count": 8
+  },
+  {
+    "code": "VIL",
+    "name": "Vilosell",
+    "capacity_mm": 45.7,
+    "altitude_m": 678.4,
+    "pdf_altitude_m": 678.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 6.2,
+    "rain_idw_common_mm": 8.169675816603096,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.887379141862766e-15,
+    "model_count": 8
+  },
+  {
+    "code": "MDF",
+    "name": "Mas dels Frares",
+    "capacity_mm": 53.3,
+    "altitude_m": 56.7,
+    "pdf_altitude_m": 57.0,
+    "gauge_complete_days": 60,
+    "rain_common_days": 60,
+    "rain_gauge_common_mm": 65.5,
+    "rain_idw_common_mm": 57.882913128725754,
+    "sensor_zero_counts": {
+      "VWC_005": 0,
+      "VWC_020": 0,
+      "VWC_050": 0
+    },
+    "sensor_valid_days": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "map_smi_valid_days": 60,
+    "mass_error_max_mm": 1.9984014443252818e-15,
+    "model_count": 8
+  }
+]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import copy
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -83,6 +84,31 @@ class MushroomMLTuningCatalogTests(TestCase):
         )
         self.assertEqual(first["source_batch_id"], "batch-source")
         self.assertEqual(len(first["decisions"]), 1)
+
+    def test_water_migration_preserves_only_verified_tuning_without_opening_models(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary) / "batches" / "batch-source"
+            registry, _, manifest, plan = self._fixture(root)
+            legacy_revision = mushroom_ml_version_registry.pre_water_training_contract_revision(registry)
+            with mock.patch.object(mushroom_ml_version_registry, "training_contract_revision", return_value=legacy_revision):
+                old = tuning_catalog.build_from_batch(registry, manifest, batch_root=root, training_plan=plan)
+            with self.assertRaisesRegex(ValueError, "incompatible"):
+                tuning_catalog.validate_catalog(registry, old)
+            with mock.patch.object(tuning_catalog.joblib, "load", side_effect=AssertionError("Must not reopen models")):
+                migrated = tuning_catalog.migrate_pre_water_catalog(registry, old)
+            tuning_catalog.validate_catalog(registry, migrated, training_plan=plan)
+            self.assertEqual(migrated["decisions"], old["decisions"])
+            self.assertEqual(migrated["source_batch_id"], old["source_batch_id"])
+            self.assertEqual(migrated["source_snapshot_id"], old["source_snapshot_id"])
+            self.assertNotEqual(migrated["catalog_id"], old["catalog_id"])
+            for defect in ("fingerprint", "tamper"):
+                broken = copy.deepcopy(old)
+                if defect == "fingerprint":
+                    broken["compatibility_fingerprint"] = "sha256:" + "e" * 64
+                else:
+                    broken["decisions"][0]["fit_config"]["C"] = 99
+                with self.subTest(defect=defect), self.assertRaises(ValueError):
+                    tuning_catalog.migrate_pre_water_catalog(registry, broken)
 
     def test_missing_plan_decision_is_rejected(self) -> None:
         with TemporaryDirectory() as temporary:

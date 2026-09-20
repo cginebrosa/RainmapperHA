@@ -1,4 +1,64 @@
 {
+  "ui.prediction_map_hydrology": {
+    "es": "Estado hídrico del suelo",
+    "ca": "Estat hídric del sòl",
+    "en": "Soil water history"
+  },
+  "ui.prediction_map_hydrology_unavailable": {
+    "es": "Histórico hídrico no disponible en esta consulta.",
+    "ca": "Històric hídric no disponible en aquesta consulta.",
+    "en": "Water history is unavailable for this query."
+  },
+  "ui.prediction_map_hydrology_balance": {
+    "es": "Balance climático diario: lluvia − ET₀",
+    "ca": "Balanç climàtic diari: pluja − ET₀",
+    "en": "Daily climatic balance: rain − ET₀"
+  },
+  "ui.prediction_map_hydrology_smi": {
+    "es": "Reserva estimada del suelo (SMI)",
+    "ca": "Reserva estimada del sòl (SMI)",
+    "en": "Estimated soil reserve (SMI)"
+  },
+  "ui.prediction_map_hydrology_method": {
+    "es": "SMI experimental de esta ficha; no alimenta el IFF. Histórico estimado hasta el último día completo anterior a la consulta. Balance = lluvia IDW − evapotranspiración de referencia (ET₀). No es una previsión meteorológica ni el IFF. Toca la gráfica para ver fecha y valor.",
+    "ca": "SMI experimental d’aquesta fitxa; no alimenta l’IFF. Històric estimat fins a l’últim dia complet anterior a la consulta. Balanç = pluja IDW − evapotranspiració de referència (ET₀). No és una previsió meteorològica ni l’IFF. Toca el gràfic per veure data i valor.",
+    "en": "Experimental SMI for this panel; not an IFF input. Estimated history through the last complete day before the query date. Balance = IDW rain − reference evapotranspiration (ET₀). This is not a weather forecast or IFF. Tap the chart for date and value."
+  },
+  "ui.prediction_map_hydrology_capacity": {
+    "es": "Capacidad de agua disponible estimada (0–30 cm): {amount} L/m².",
+    "ca": "Capacitat d’aigua disponible estimada (0–30 cm): {amount} L/m².",
+    "en": "Estimated available water capacity (0–30 cm): {amount} L/m²."
+  },
+  "ui.prediction_map_hydrology_reserve": {
+    "es": "Último día ({date}): {percent} % · {amount} L/m² de agua disponible estimada.",
+    "ca": "Últim dia ({date}): {percent} % · {amount} L/m² d’aigua disponible estimada.",
+    "en": "Last day ({date}): {percent}% · {amount} L/m² of estimated available water."
+  },
+  "ui.prediction_map_hydrology_limits": {
+    "es": "SMI: 0 % = reserva disponible estimada agotada; 100 % = capacidad de campo, no inundación. SoilGrids a 250 m, perfil de 0–30 cm. Estimación orientativa sin calibración forestal. Los huecos no son ceros.",
+    "ca": "SMI: 0 % = reserva disponible estimada esgotada; 100 % = capacitat de camp, no inundació. SoilGrids a 250 m, perfil de 0–30 cm. Estimació orientativa sense calibratge forestal. Els buits no són zeros.",
+    "en": "SMI: 0% = estimated available reserve exhausted; 100% = field capacity, not flooding. SoilGrids at 250 m, 0–30 cm profile. Indicative estimate without forest calibration. Gaps are not zeros."
+  },
+  "ui.prediction_map_hydrology_soil_unavailable": {
+    "es": "SMI no disponible: faltan datos válidos de retención de agua del suelo.",
+    "ca": "SMI no disponible: falten dades vàlides de retenció d’aigua del sòl.",
+    "en": "SMI unavailable: valid soil water-retention data are missing."
+  },
+  "ui.prediction_map_hydrology_inputs_incomplete": {
+    "es": "Hay días sin lluvia o temperatura completas; no se inventa su balance ni su SMI.",
+    "ca": "Hi ha dies sense pluja o temperatura completes; no s’inventa el seu balanç ni el seu SMI.",
+    "en": "Some days lack complete rain or temperature inputs; their balance and SMI are not fabricated."
+  },
+  "ui.prediction_map_hydrology_spinup_incomplete": {
+    "es": "Algunos días no tienen 90 días consecutivos previos completos, incluido el propio día, para inicializar el SMI.",
+    "ca": "Alguns dies no tenen 90 dies consecutius previs complets, inclòs el mateix dia, per inicialitzar l’SMI.",
+    "en": "Some dates lack 90 consecutive complete days, including that date, to initialize SMI."
+  },
+  "ui.prediction_map_hydrology_not_converged": {
+    "es": "SMI oculto en algunas fechas: el cálculo aún depende de cuánto agua se suponga al inicio.",
+    "ca": "SMI ocult en algunes dates: el càlcul encara depèn de quanta aigua se suposi a l’inici.",
+    "en": "SMI hidden on some dates: the calculation still depends on the assumed initial water reserve."
+  },
   "ui.prediction_map_calendar_zone": {
     "es": "Zona",
     "ca": "Zona",
@@ -29,11 +89,15 @@
     "ca": "El worker està connectat, però està ocupat amb una altra feina. Torna-ho a provar quan acabi.",
     "en": "The worker is connected but busy with another job. Try again when it finishes."
   },
-  "ui.soil_help_support_title": {"es":"Si Silíceo ya está en Soil Affinities, ¿por qué repetirlo?", "ca":"Si Silici ja és a Soil Affinities, per què repetir-lo?", "en":"If Siliceous is already in Soil Affinities, why select it again?"},
+  "ui.soil_help_support_title": {
+    "es": "Si Silíceo ya está en Soil Affinities, ¿por qué repetirlo?",
+    "ca": "Si Silici ja és a Soil Affinities, per què repetir-lo?",
+    "en": "If Siliceous is already in Soil Affinities, why select it again?"
+  },
   "ui.soil_help_support": {
-    "es":"Son dos usos del mismo dato. Silíceo en Soil Affinities describe una preferencia; en el filtro territorial esa preferencia no permite saltarse el límite de pH. Silíceo en Suelos de apoyo autoriza expresamente a usarlo como respaldo para la excepción, si está activada y cumple las demás condiciones. No hace falta ponerlo en ambos para que la especie aparezca en suelo silíceo con pH válido. La segunda selección hace falta para permitir esa excepción. Se separan para no convertir automáticamente una preferencia en permiso para admitir un pH fuera del rango.",
-    "ca":"Són dos usos de la mateixa dada. Silici a Soil Affinities descriu una preferència; al filtre territorial aquesta preferència no permet saltar-se el límit de pH. Silici a Sòls de suport autoritza expressament a usar-lo com a suport per a l'excepció, si està activada i compleix la resta de condicions. No cal posar-lo als dos llocs perquè l'espècie aparegui en sòl silici amb pH vàlid. La segona selecció cal per permetre aquesta excepció. Se separen per no convertir automàticament una preferència en permís per admetre un pH fora del rang.",
-    "en":"These are two uses of the same data. Siliceous in Soil Affinities describes a preference; in the territorial filter that preference cannot override the pH bound. Siliceous in Supporting soils explicitly authorizes its use to support the exception, if enabled and all other conditions are met. It need not be in both lists for the species to appear on siliceous soil with valid pH. The second selection is needed to allow that exception. This separation prevents a preference from automatically becoming permission to admit out-of-range pH."
+    "es": "Son dos usos del mismo dato. Silíceo en Soil Affinities describe una preferencia; en el filtro territorial esa preferencia no permite saltarse el límite de pH. Silíceo en Suelos de apoyo autoriza expresamente a usarlo como respaldo para la excepción, si está activada y cumple las demás condiciones. No hace falta ponerlo en ambos para que la especie aparezca en suelo silíceo con pH válido. La segunda selección hace falta para permitir esa excepción. Se separan para no convertir automáticamente una preferencia en permiso para admitir un pH fuera del rango.",
+    "ca": "Són dos usos de la mateixa dada. Silici a Soil Affinities descriu una preferència; al filtre territorial aquesta preferència no permet saltar-se el límit de pH. Silici a Sòls de suport autoritza expressament a usar-lo com a suport per a l'excepció, si està activada i compleix la resta de condicions. No cal posar-lo als dos llocs perquè l'espècie aparegui en sòl silici amb pH vàlid. La segona selecció cal per permetre aquesta excepció. Se separen per no convertir automàticament una preferència en permís per admetre un pH fora del rang.",
+    "en": "These are two uses of the same data. Siliceous in Soil Affinities describes a preference; in the territorial filter that preference cannot override the pH bound. Siliceous in Supporting soils explicitly authorizes its use to support the exception, if enabled and all other conditions are met. It need not be in both lists for the species to appear on siliceous soil with valid pH. The second selection is needed to allow that exception. This separation prevents a preference from automatically becoming permission to admit out-of-range pH."
   },
   "ui.soil_help_open": {
     "es": "Ayuda: cómo funcionan el suelo y el pH",
@@ -85,25 +149,41 @@
     "ca": "Registra el document o evidència que justifica la configuració. És obligatòria per desar una regla activa i no modifica el càlcul per si mateixa.",
     "en": "Records the document or evidence supporting the configuration. Required when saving an active rule; it does not itself change the calculation."
   },
-  "ui.soil_help_example_title": {"es":"Ejemplo de excepción de pH", "ca":"Exemple d'excepció de pH", "en":"pH exception example"},
+  "ui.soil_help_example_title": {
+    "es": "Ejemplo de excepción de pH",
+    "ca": "Exemple d'excepció de pH",
+    "en": "pH exception example"
+  },
   "ui.soil_help_example": {
     "es": "Ejemplo hipotético: máximo de ficha 6,8, estimación 7,0 e intervalo 6,4–7,6. Con suelo de apoyo, excepción activada y sin bloqueos, puede admitirse de forma condicionada. No amplía el máximo de la ficha ni afirma que el pH real sea 6,4: reconoce incertidumbre. No demuestra descalcificación.",
     "ca": "Exemple hipotètic: màxim de fitxa 6,8, estimació 7,0 i interval 6,4–7,6. Amb sòl de suport, excepció activada i sense bloquejos, es pot admetre de manera condicionada. No amplia el màxim de la fitxa ni afirma que el pH real sigui 6,4: reconeix incertesa. No demostra descalcificació.",
     "en": "Hypothetical example: species maximum 6.8, estimate 7.0 and interval 6.4–7.6. With supporting soil, the exception enabled and no blockers, conditional admission is possible. This neither raises the species maximum nor establishes that actual pH is 6.4: it acknowledges uncertainty. It does not prove decalcification."
   },
-  "ui.soil_help_affinities_title": {"es":"Diferencia con Soil Affinities y Litología", "ca":"Diferència amb Soil Affinities i Litologia", "en":"Difference from Soil Affinities and Lithology"},
+  "ui.soil_help_affinities_title": {
+    "es": "Diferencia con Soil Affinities y Litología",
+    "ca": "Diferència amb Soil Affinities i Litologia",
+    "en": "Difference from Soil Affinities and Lithology"
+  },
   "ui.soil_help_affinities": {
     "es": "Las afinidades de debajo describen tipo, relación, procedencia y valor. En el filtro territorial una coincidencia positiva puede indicar preferencia, pero no obliga a pertenecer a esas preferencias. Un valor 0,85 no es un 85 % de probabilidad. Evitar en Litología no se convierte automáticamente en prohibición. Los vetos explícitos se configuran arriba, en Suelos excluidos.",
     "ca": "Les afinitats de sota descriuen tipus, relació, procedència i valor. Al filtre territorial una coincidència positiva pot indicar preferència, però no obliga a pertànyer a aquestes preferències. Un valor 0,85 no és un 85 % de probabilitat. Evitar a Litologia no es converteix automàticament en prohibició. Els vetos explícits es configuren a dalt, a Sòls exclosos.",
     "en": "The affinities below describe type, relationship, origin and value. In the territorial filter, a positive match may indicate preference without requiring that preference to be met. A value of 0.85 is not an 85% probability. Avoid under Lithology is not an automatic prohibition. Explicit exclusions are configured above under Excluded soils."
   },
-  "ui.soil_help_comparison_title": {"es":"Por qué puede aparecer ou de reig y no aereus", "ca":"Per què pot aparèixer ou de reig i no aereus", "en":"Why ou de reig may appear while aereus does not"},
+  "ui.soil_help_comparison_title": {
+    "es": "Por qué puede aparecer ou de reig y no aereus",
+    "ca": "Per què pot aparèixer ou de reig i no aereus",
+    "en": "Why ou de reig may appear while aereus does not"
+  },
   "ui.soil_help_comparison": {
     "es": "Caso comprobado el 14/09/2026 en 42.02746, 1.73187: ambos cumplían hospedadores, altitud, pH 6,4 y temporada principal. El mapping identificaba brechas y conglomerados, pero no una categoría de suelo. Aereus exigía suelo identificado y quedó con información insuficiente; ou de reig no tenía esa exigencia. Es una diferencia de reglas, no evidencia de ausencia. Con esos datos, poner solo Exigir tipo de suelo identificado en No para aereus elimina ese bloqueo y conserva los demás controles. El ejemplo describe aquella configuración, no fija los valores de las fichas actuales.",
     "ca": "Cas comprovat el 14/09/2026 a 42.02746, 1.73187: tots dos complien hostes, altitud, pH 6,4 i temporada principal. El mapping identificava bretxes i conglomerats, però no una categoria de sòl. Aereus exigia sòl identificat i va quedar amb informació insuficient; ou de reig no tenia aquesta exigència. És una diferència de regles, no evidència d'absència. Amb aquestes dades, posar només Exigir tipus de sòl identificat en No per a aereus elimina aquest bloqueig i conserva la resta. L'exemple descriu aquella configuració, no fixa els valors de les fitxes actuals.",
     "en": "Case checked on 14 September 2026 at 42.02746, 1.73187: both passed hosts, elevation, pH 6.4 and main season. The mapping identified breccias and conglomerates but no soil category. Aereus required identified soil and had insufficient information; ou de reig had no such requirement. This is a difference in rules, not evidence of absence. With those data, setting only Require identified soil type to No for aereus removes that block and preserves other checks. This example describes that configuration, not fixed values for current profiles."
   },
-  "ui.soil_help_save_title": {"es":"Guardar y resultado en el mapa", "ca":"Desar i resultat al mapa", "en":"Saving and map results"},
+  "ui.soil_help_save_title": {
+    "es": "Guardar y resultado en el mapa",
+    "ca": "Desar i resultat al mapa",
+    "en": "Saving and map results"
+  },
   "ui.soil_help_save": {
     "es": "Abrir esta ayuda no cambia ni guarda nada. Los ajustes se aplican al pulsar Guardar perfil de especie. Poner Aplicar regla en No y guardar elimina la regla de la ficha; conserva pH y afinidades. Consulta de nuevo el punto para evaluar los cambios. Incompatible y con información insuficiente son resultados distintos, aunque ninguno aparece entre las compatibles. Las descartadas no invocan modelos; las compatibles sin modelo permanecen al final con Sin IFF calculado, que no significa cero. La fecha filtra las temporadas principal y secundaria y el predictor calcula el IFF temporal.",
     "ca": "Obrir aquesta ajuda no canvia ni desa res. Els ajustos s'apliquen en prémer Desar perfil d'espècie. Posar Aplicar regla en No i desar elimina la regla de la fitxa; conserva pH i afinitats. Consulta de nou el punt per avaluar els canvis. Incompatible i amb informació insuficient són resultats diferents, tot i que cap apareix entre les compatibles. Les descartades no invoquen models; les compatibles sense model queden al final amb Sense IFF calculat, que no significa zero. La data filtra les temporades principal i secundària i el predictor calcula l’IFF temporal.",
@@ -400,34 +480,54 @@
     "en": "This rule affects the map filter. Requiring identified soil leaves the species unevaluated when that information is missing, even if pH, trees and elevation match. Supporting soils are not an exhaustive list; only excluded soils impose a veto. Affinities below and Avoid under Lithology are not automatic exclusions. Other filters remain active without this rule. Enabling or editing the rule requires a supporting reference."
   },
   "ui.soil_filter_enabled": {
-    "es": "Aplicar regla conjunta de suelo/pH", "ca": "Aplicar regla conjunta de sòl/pH", "en": "Apply joint soil/pH rule"
+    "es": "Aplicar regla conjunta de suelo/pH",
+    "ca": "Aplicar regla conjunta de sòl/pH",
+    "en": "Apply joint soil/pH rule"
   },
   "ui.soil_filter_require_soil_context": {
-    "es": "Exigir tipo de suelo identificado", "ca": "Exigir tipus de sòl identificat", "en": "Require identified soil type"
+    "es": "Exigir tipo de suelo identificado",
+    "ca": "Exigir tipus de sòl identificat",
+    "en": "Require identified soil type"
   },
   "ui.soil_filter_ph_conflict": {
-    "es": "Si el pH estimado queda fuera del rango", "ca": "Si el pH estimat queda fora del rang", "en": "When estimated pH falls outside the range"
+    "es": "Si el pH estimado queda fuera del rango",
+    "ca": "Si el pH estimat queda fora del rang",
+    "en": "When estimated pH falls outside the range"
   },
   "ui.soil_filter_ph_strict": {
-    "es": "No admitir excepciones", "ca": "No admetre excepcions", "en": "Allow no exceptions"
+    "es": "No admitir excepciones",
+    "ca": "No admetre excepcions",
+    "en": "Allow no exceptions"
   },
   "ui.soil_filter_ph_overlap": {
-    "es": "Admitir solapamiento del intervalo con suelo de apoyo", "ca": "Admetre solapament de l'interval amb sòl de suport", "en": "Allow interval overlap with supporting soil"
+    "es": "Admitir solapamiento del intervalo con suelo de apoyo",
+    "ca": "Admetre solapament de l'interval amb sòl de suport",
+    "en": "Allow interval overlap with supporting soil"
   },
   "ui.soil_filter_accepted_soil_ids": {
-    "es": "Suelos de apoyo (lista no exhaustiva)", "ca": "Sòls de suport (llista no exhaustiva)", "en": "Supporting soils (non-exhaustive)"
+    "es": "Suelos de apoyo (lista no exhaustiva)",
+    "ca": "Sòls de suport (llista no exhaustiva)",
+    "en": "Supporting soils (non-exhaustive)"
   },
   "ui.soil_filter_conditional_soil_ids": {
-    "es": "Suelos con admisión condicionada al pH", "ca": "Sòls amb admissió condicionada al pH", "en": "Soils with admission conditional on pH"
+    "es": "Suelos con admisión condicionada al pH",
+    "ca": "Sòls amb admissió condicionada al pH",
+    "en": "Soils with admission conditional on pH"
   },
   "ui.soil_filter_excluded_soil_ids": {
-    "es": "Suelos excluidos explícitamente", "ca": "Sòls exclosos explícitament", "en": "Explicitly excluded soils"
+    "es": "Suelos excluidos explícitamente",
+    "ca": "Sòls exclosos explícitament",
+    "en": "Explicitly excluded soils"
   },
   "ui.soil_filter_ph_override_blocked_soil_ids": {
-    "es": "Suelos que bloquean la excepción de pH", "ca": "Sòls que bloquegen l'excepció de pH", "en": "Soils blocking the pH exception"
+    "es": "Suelos que bloquean la excepción de pH",
+    "ca": "Sòls que bloquegen l'excepció de pH",
+    "en": "Soils blocking the pH exception"
   },
   "ui.soil_filter_review_ref": {
-    "es": "Referencia que justifica la regla", "ca": "Referència que justifica la regla", "en": "Supporting reference for the rule"
+    "es": "Referencia que justifica la regla",
+    "ca": "Referència que justifica la regla",
+    "en": "Supporting reference for the rule"
   },
   "ui.soil_filter_review_required": {
     "es": "No se ha guardado la ficha. Para activar o modificar la regla de suelo/pH, completa «Referencia que justifica la regla» en Ecología → Suelos con la fuente o el criterio que la justifica (máximo 512 caracteres).",
@@ -435,7 +535,9 @@
     "en": "The profile was not saved. To enable or change the soil/pH rule, fill in ‘Supporting reference for the rule’ under Ecology → Soils with the supporting source or rationale (maximum 512 characters)."
   },
   "ui.species_map_display_name": {
-    "es": "Nombre en el mapa (vacío: primer nombre común)", "ca": "Nom al mapa (buit: primer nom comú)", "en": "Map name (blank: first common name)"
+    "es": "Nombre en el mapa (vacío: primer nombre común)",
+    "ca": "Nom al mapa (buit: primer nom comú)",
+    "en": "Map name (blank: first common name)"
   },
   "ui.prediction_map_weekly_chart": {
     "es": "IFF por especie durante siete días, escala de 0 a 100; selecciona una fecha para ver los valores",
@@ -7236,5 +7338,265 @@
     "en": "Model settings saved. Prepare the week again to update precomputed predictions.",
     "es": "Configuración de modelos guardada. Prepara la semana de nuevo para actualizar las predicciones precalculadas.",
     "ca": "Configuració de models desada. Prepara la setmana de nou per actualitzar les prediccions precalculades."
+  },
+  "ui.model_settings_export": {
+    "en": "Export suspensions (JSON)",
+    "es": "Exportar suspensiones (JSON)",
+    "ca": "Exportar suspensions (JSON)"
+  },
+  "ui.model_settings_import": {
+    "en": "Import suspensions",
+    "es": "Importar suspensiones",
+    "ca": "Importar suspensions"
+  },
+  "ui.model_settings_import_file": {
+    "en": "Choose JSON file",
+    "es": "Elegir archivo JSON",
+    "ca": "Triar fitxer JSON"
+  },
+  "ui.model_settings_json": {
+    "en": "Rules to import (editable JSON)",
+    "es": "Reglas a importar (JSON editable)",
+    "ca": "Regles a importar (JSON editable)"
+  },
+  "ui.model_settings_confirm_replace": {
+    "en": "Replace all current suspensions with these rules",
+    "es": "Sustituir todas las suspensiones actuales por estas reglas",
+    "ca": "Substituir totes les suspensions actuals per aquestes regles"
+  },
+  "ui.model_settings_import_apply": {
+    "en": "Apply imported rules",
+    "es": "Aplicar reglas importadas",
+    "ca": "Aplicar regles importades"
+  },
+  "ui.model_settings_invalid_file": {
+    "en": "Invalid JSON or file too large (maximum 256 KiB).",
+    "es": "JSON no válido o archivo demasiado grande (máximo 256 KiB).",
+    "ca": "JSON no vàlid o fitxer massa gran (màxim 256 KiB)."
+  },
+  "ui.model_settings_transfer_help": {
+    "en": "Transfer only the rules between installations, keeping their models and generations. Import replaces all current rules; an empty list reactivates all manually suspended models. Review the file before confirming.",
+    "es": "Transfiere solo las reglas entre instalaciones, conservando sus modelos y generaciones. La importación sustituye todas las reglas actuales; una lista vacía reactiva todos los modelos suspendidos manualmente. Revisa el archivo antes de confirmar.",
+    "ca": "Transfereix només les regles entre instal·lacions, conservant els models i les generacions. La importació substitueix totes les regles actuals; una llista buida reactiva tots els models suspesos manualment. Revisa el fitxer abans de confirmar."
+  },
+  "ui.prediction_map_hydrology_capacity_short": {
+    "es": "Capacidad",
+    "ca": "Capacitat",
+    "en": "Capacity"
+  },
+  "ui.prediction_map_hydrology_remaining_short": {
+    "es": "Disponible",
+    "ca": "Disponible",
+    "en": "Available"
+  },
+  "ui.prediction_map_hydrology_brief_help": {
+    "es": "Extracción regulada (experimental). Reserva estimada de 0–30 cm al {date}; no es una medición ni la previsión de la fecha seleccionada. Abrir detalle hídrico.",
+    "ca": "Extracció regulada (experimental). Reserva estimada de 0–30 cm a {date}; no és una mesura ni la previsió de la data seleccionada. Obrir detall hídric.",
+    "en": "Regulated extraction (experimental). Estimated 0–30 cm reserve as of {date}; not a measurement or a forecast for the selected date. Open water history."
+  },
+  "ui.prediction_map_hydrology_history_start": {
+    "es": "Cálculo desde {date}, con comprobación de inicialización. Elegir 7/15/30/60 días solo recorta la gráfica: conserva la lluvia anterior.",
+    "ca": "Càlcul des de {date}, amb comprovació de la inicialització. Triar 7/15/30/60 dies només retalla el gràfic: conserva la pluja anterior.",
+    "en": "Calculated from {date}, with initialization checks. Selecting 7/15/30/60 days only crops the chart: earlier rain is retained."
+  },
+  "ui.prediction_map_hydrology_assumptions": {
+    "es": "Método y supuestos",
+    "ca": "Mètode i supòsits",
+    "en": "Method and assumptions"
+  },
+  "ui.prediction_map_hydrology_reference_model": {
+    "es": "ET₀ de referencia: Penman–Monteith con radiación estimada por temperaturas (coeficiente continental 0,16). Viento XEMA en 15 km, priorizando altitud similar y normalizado a 2 m; exposición local desconocida; sin dato válido se estima 2 m/s. Si faltan humedad o altitud, Hargreaves. Reserva: escenario de referencia con reparto evaporación/transpiración 50/50; evaporación limitada por reserva relativa y transpiración reducida por sequedad a partir del 50 % de agotamiento. No es un modelo forestal calibrado. No corrige sombra, orientación, nieve, raíces profundas ni interceptación.",
+    "ca": "ET₀ de referència: Penman–Monteith amb radiació estimada per temperatures (coeficient continental 0,16). Vent XEMA en 15 km, prioritzant altitud similar i normalitzat a 2 m; exposició local desconeguda; sense dada vàlida s’estima 2 m/s. Si falten humitat o altitud, Hargreaves. Reserva: escenari de referència amb repartiment evaporació/transpiració 50/50; evaporació limitada per reserva relativa i transpiració reduïda per sequedat a partir del 50 % d’esgotament. No és un model forestal calibrat. No corregeix ombra, orientació, neu, arrels profundes ni intercepció.",
+    "en": "Reference ET₀: Penman–Monteith with temperature-estimated radiation (inland coefficient 0.16). XEMA wind within 15 km, prioritizing similar altitude and normalized to 2 m; local exposure unknown; without valid data, 2 m/s is estimated. Missing humidity or elevation uses Hargreaves. Reserve: reference scenario with a 50/50 evaporation/transpiration split; evaporation limited by relative reserve and transpiration reduced after 50% depletion. Not a calibrated forest model. No shade, aspect, snow, deep-root or interception correction."
+  },
+  "ui.prediction_map_hydrology_et0_methods": {
+    "es": "En todo el histórico de cálculo: PM con viento de estación: {station}; PM con viento estimado: {estimated}; Hargreaves: {fallback}. Estaciones usadas durante la inicialización o el periodo mostrado:",
+    "ca": "En tot l’històric de càlcul: PM amb vent d’estació: {station}; PM amb vent estimat: {estimated}; Hargreaves: {fallback}. Estacions usades durant la inicialització o el període mostrat:",
+    "en": "Across the full calculation history: PM with station wind: {station}; PM with estimated wind: {estimated}; Hargreaves: {fallback}. Stations used during initialization or displayed history:"
+  },
+  "ui.prediction_map_hydrology_sensitivity_short": {
+    "es": "Escenarios",
+    "ca": "Escenaris",
+    "en": "Scenarios"
+  },
+  "ui.prediction_map_hydrology_sensitivity": {
+    "es": "Banda: sensibilidad al reparto evaporación/transpiración (0/50/100 %) y al umbral de sequedad (30/50/70 % de agotamiento). No es un intervalo de confianza ni incluye todos los errores del suelo y la meteorología. Sin banda: algún escenario no converge.",
+    "ca": "Banda: sensibilitat al repartiment evaporació/transpiració (0/50/100 %) i al llindar de sequedat (30/50/70 % d’esgotament). No és un interval de confiança ni inclou tots els errors del sòl i la meteorologia. Sense banda: algun escenari no convergeix.",
+    "en": "Band: sensitivity to the evaporation/transpiration split (0/50/100%) and stress threshold (30/50/70% depletion). Not a confidence interval; it excludes other soil and weather errors. No band means some scenarios have not converged."
+  },
+  "ui.prediction_map_hydrology_smi_legacy": {
+    "es": "Hargreaves · depósito simple",
+    "ca": "Hargreaves · dipòsit simple",
+    "en": "Hargreaves · simple store"
+  },
+  "ui.prediction_map_hydrology_smi_pm": {
+    "es": "Penman–Monteith · extracción regulada",
+    "ca": "Penman–Monteith · extracció regulada",
+    "en": "Penman–Monteith · regulated extraction"
+  },
+  "ui.prediction_map_hydrology_smi_hs": {
+    "es": "Hargreaves · extracción regulada",
+    "ca": "Hargreaves · extracció regulada",
+    "en": "Hargreaves · regulated extraction"
+  },
+  "ui.prediction_map_hydrology_smi_mixed": {
+    "es": "Penman–Monteith/Hargreaves · extracción regulada",
+    "ca": "Penman–Monteith/Hargreaves · extracció regulada",
+    "en": "Penman–Monteith/Hargreaves · regulated extraction"
+  },
+  "ui.prediction_map_hydrology_comparison": {
+    "es": "La extracción regulada es el SMI de referencia. El depósito simple con Hargreaves se conserva solo para comparación visual. Ambos usan la misma lluvia, capacidad e histórico del punto. El IFF puede usar otras variables y un día de corte anterior.",
+    "ca": "L’extracció regulada és l’SMI de referència. El dipòsit simple amb Hargreaves es conserva només per a comparació visual. Tots dos usen la mateixa pluja, capacitat i històric del punt. L’IFF pot usar altres variables i un dia de tall anterior.",
+    "en": "Regulated extraction is the reference SMI. The simple Hargreaves store remains only for visual comparison. Both use the same point rainfall, capacity and history. IFF may use other variables and an earlier cutoff day."
+  },
+  "ui.prediction_map_hydrology_smi_simple": {
+    "es": "Depósito simple",
+    "ca": "Dipòsit simple",
+    "en": "Simple store"
+  },
+  "ui.prediction_map_hydrology_smi_regulated": {
+    "es": "Extracción regulada",
+    "ca": "Extracció regulada",
+    "en": "Regulated extraction"
+  },
+  "ui.prediction_map_hydrology_simple_help": {
+    "es": "Hargreaves–Samani estima la evapotranspiración con temperatura y radiación astronómica. El depósito descuenta esa demanda mientras quede agua, sin reducirla progresivamente al secarse.",
+    "ca": "Hargreaves–Samani estima l’evapotranspiració amb temperatura i radiació astronòmica. El dipòsit descompta aquesta demanda mentre quedi aigua, sense reduir-la progressivament en assecar-se.",
+    "en": "Hargreaves–Samani estimates evapotranspiration from temperature and astronomical radiation. The store subtracts that demand while water remains, without progressively reducing it as soil dries."
+  },
+  "ui.prediction_map_hydrology_regulated_help": {
+    "es": "Estimación experimental: Penman–Monteith usa temperatura, humedad, altitud y viento; la radiación es estimada. Si faltan datos, usa Hargreaves. La extracción disminuye con la reserva disponible; no está calibrada para este bosque. Métodos usados en el histórico:",
+    "ca": "Estimació experimental: Penman–Monteith usa temperatura, humitat, altitud i vent; la radiació és estimada. Si falten dades, usa Hargreaves. L’extracció disminueix amb la reserva disponible; no està calibrada per a aquest bosc. Mètodes usats a l’històric:",
+    "en": "Experimental estimate: Penman–Monteith uses temperature, humidity, elevation and wind; radiation is estimated. Missing inputs trigger Hargreaves. Extraction decreases with available storage; it is not calibrated for this forest. Methods used in the history:"
+  },
+  "ui.prediction_map_model_algorithm_lr": {
+    "en": "LR — Regularized logistic regression. Learns an interpretable linear combination; it may saturate outside its training range.",
+    "es": "LR — Regresión logística regularizada. Aprende una combinación lineal interpretable; puede saturarse fuera de su rango de entrenamiento.",
+    "ca": "LR — Regressió logística regularitzada. Aprèn una combinació lineal interpretable; es pot saturar fora del rang d'entrenament."
+  },
+  "ui.prediction_map_model_algorithm_rf": {
+    "en": "RF — Restricted Random Forest. Averages shallow decision trees to capture nonlinear interactions conservatively.",
+    "es": "RF — Random Forest restringido. Promedia árboles poco profundos para captar interacciones no lineales de forma prudente.",
+    "ca": "RF — Random Forest restringit. Mitjana arbres poc profunds per captar interaccions no lineals de manera prudent."
+  },
+  "ui.prediction_map_model_algorithm_et": {
+    "en": "ET — Extra Trees. Uses more randomized trees to capture stable nonlinear interactions.",
+    "es": "ET — Extra Trees. Usa árboles más aleatorios para captar interacciones no lineales estables.",
+    "ca": "ET — Extra Trees. Usa arbres més aleatoris per captar interaccions no lineals estables."
+  },
+  "ui.prediction_map_model_algorithm_hgb": {
+    "en": "HGB — Histogram gradient boosting. Builds small trees sequentially to learn nonlinear interactions.",
+    "es": "HGB — Gradient boosting por histogramas. Construye pequeños árboles sucesivos para aprender interacciones no lineales.",
+    "ca": "HGB — Gradient boosting per histogrames. Construeix petits arbres successius per aprendre interaccions no lineals."
+  },
+  "ui.prediction_map_model_algorithm_knn": {
+    "en": "KNN — Nearest neighbours. Changes little while the same neighbours remain closest; far outside the domain it still copies those distant cases.",
+    "es": "KNN — Vecinos más próximos. Cambia poco mientras conserve los mismos vecinos; fuera del dominio sigue copiando esos casos aunque estén lejos.",
+    "ca": "KNN — Veïns més propers. Canvia poc mentre conservi els mateixos veïns; fora del domini continua copiant aquests casos encara que siguin lluny."
+  },
+  "ui.prediction_map_model_algorithm_svm": {
+    "en": "SVM — Calibrated RBF SVM. Learns a nonlinear boundary; far outside its training domain it may flatten to an almost constant score.",
+    "es": "SVM — SVM RBF calibrada. Aprende una frontera no lineal; muy fuera de su dominio puede quedar casi constante.",
+    "ca": "SVM — SVM RBF calibrada. Aprèn una frontera no lineal; molt fora del domini pot quedar gairebé constant."
+  },
+  "ui.prediction_map_model_algorithm_elastic": {
+    "es": "Regresión logística con Elastic Net: combina penalizaciones para regularizar las variables meteorológicas.",
+    "ca": "Regressió logística amb Elastic Net: combina penalitzacions per regularitzar les variables meteorològiques.",
+    "en": "Logistic regression with Elastic Net: combines penalties to regularize weather inputs."
+  },
+  "ui.prediction_map_model_algorithm_sparse": {
+    "es": "Regresión logística con selección de variables y grupos meteorológicos.",
+    "ca": "Regressió logística amb selecció de variables i grups meteorològics.",
+    "en": "Logistic regression with selection of weather variables and groups."
+  },
+  "ui.prediction_map_model_algorithm_smooth_species": {
+    "es": "Modelo temporal suavizado, ajustado por separado para cada especie.",
+    "ca": "Model temporal suavitzat, ajustat per separat per a cada espècie.",
+    "en": "Smoothed temporal model fitted separately for each species."
+  },
+  "ui.prediction_map_model_algorithm_smooth_shared": {
+    "es": "Modelo temporal suavizado con efectos compartidos entre especies.",
+    "ca": "Model temporal suavitzat amb efectes compartits entre espècies.",
+    "en": "Smoothed temporal model with effects shared across species."
+  },
+  "ui.prediction_map_model_algorithm_smooth_partial": {
+    "es": "Modelo temporal suavizado: combina efectos compartidos con ajustes por especie.",
+    "ca": "Model temporal suavitzat: combina efectes compartits amb ajustos per espècie.",
+    "en": "Smoothed temporal model combining shared effects with species-specific adjustments."
+  },
+  "ui.prediction_map_model_yes": {
+    "es": "Sí",
+    "ca": "Sí",
+    "en": "Yes"
+  },
+  "ui.prediction_map_model_no": {
+    "es": "No",
+    "ca": "No",
+    "en": "No"
+  },
+  "ui.prediction_map_model_input_smi": {
+    "es": "Usa SMI",
+    "ca": "Usa SMI",
+    "en": "Uses SMI"
+  },
+  "ui.prediction_map_model_input_balance": {
+    "es": "Usa balance hídrico como entrada directa",
+    "ca": "Usa balanç hídric com a entrada directa",
+    "en": "Uses water balance as a direct input"
+  },
+  "ui.prediction_map_model_input_et": {
+    "es": "ET₀",
+    "ca": "ET₀",
+    "en": "ET₀"
+  },
+  "ui.prediction_map_model_input_rain": {
+    "es": "lluvia",
+    "ca": "pluja",
+    "en": "rainfall"
+  },
+  "ui.prediction_map_model_input_temperature": {
+    "es": "temperatura",
+    "ca": "temperatura",
+    "en": "temperature"
+  },
+  "ui.prediction_map_model_input_humidity": {
+    "es": "humedad del aire",
+    "ca": "humitat de l’aire",
+    "en": "air humidity"
+  },
+  "ui.prediction_map_model_input_season": {
+    "es": "época del año",
+    "ca": "època de l’any",
+    "en": "time of year"
+  },
+  "ui.prediction_map_model_other_inputs": {
+    "es": "Otras entradas identificadas",
+    "ca": "Altres entrades identificades",
+    "en": "Other identified inputs"
+  },
+  "ui.prediction_map_model_balance_indirect": {
+    "es": "La lluvia y la evapotranspiración sí intervienen en el cálculo previo del SMI.",
+    "ca": "La pluja i l’evapotranspiració sí que intervenen en el càlcul previ de l’SMI.",
+    "en": "Rainfall and evapotranspiration do contribute to the preceding SMI calculation."
+  },
+  "ui.prediction_map_model_window": {
+    "es": "Ventana meteorológica del perfil: {days} días.",
+    "ca": "Finestra meteorològica del perfil: {days} dies.",
+    "en": "Profile weather window: {days} days."
+  },
+  "ui.prediction_map_model_inputs_unknown": {
+    "es": "No hay información de las entradas del modelo en esta respuesta.",
+    "ca": "No hi ha informació de les entrades del model en aquesta resposta.",
+    "en": "Model input information is unavailable in this response."
+  },
+  "ui.prediction_map_model_inputs_note": {
+    "es": "Describe las variables de entrada; no su importancia ni una garantía de encontrar setas.",
+    "ca": "Descriu les variables d’entrada; no la seva importància ni una garantia de trobar bolets.",
+    "en": "Describes the input variables, not their importance or a guarantee of finding mushrooms."
+  },
+  "ui.prediction_map_model_smi_history": {
+    "es": "El SMI conserva la historia anterior necesaria.",
+    "ca": "L’SMI conserva la història anterior necessària.",
+    "en": "SMI retains the preceding history it needs."
   }
 }

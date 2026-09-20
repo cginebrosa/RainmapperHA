@@ -329,7 +329,7 @@ para los 21 perfiles del catálogo local (22 taxones consultados; límites de lo
 complejos documentados). Conserva todos los campos interpretados y originales
 disponibles en los endpoints consultados, metadatos y archivos de imagen.
 Hay 593 registros con incertidumbre declarada ≤1 km, 154 superiores y 1.181
-desconocidos; la copia conserva todos. [Entrada y evidencia](../mushrooms/GBIF/README.md).
+desconocidos; la copia conserva todos. [Entrada y evidencia](../../local-apps/gbif/docs/guide.md).
 
 Datos y fotos excluidos de Git y Docker, unos 1,9 GB locales. Verificadas imágenes,
 enlaces offline y huellas de observaciones, setales y catálogo, sin modificaciones

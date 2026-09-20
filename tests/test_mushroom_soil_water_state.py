@@ -51,7 +51,7 @@ class MushroomSoilWaterStateTests(unittest.TestCase):
         self.assertEqual(result["unmet_evaporative_demand_mm"][-1], 45.0)
         self.assertEqual(result["mass_error_max_mm"], 0.0)
 
-    def test_spinup_selects_shortest_converged_candidate(self) -> None:
+    def test_spinup_uses_full_history_and_masks_unconverged_days(self) -> None:
         cutoff = date(2026, 8, 15)
         dates = [cutoff - timedelta(days=age) for age in reversed(range(365))]
         # Saturating rain inside the latest 90 days erases both initial states.
@@ -63,7 +63,7 @@ class MushroomSoilWaterStateTests(unittest.TestCase):
             reference_evapotranspiration_mm=[1.0] * 365,
             soilgrids_context=self.context(),
         )
-        self.assertEqual(result["metadata"]["selected_spinup_days"], 90)
+        self.assertEqual(result["metadata"]["selected_spinup_days"], 365)
         self.assertTrue(result["quality"]["training_eligible"])
         self.assertTrue(all(value is not None for value in result["predictive_features"].values()))
 

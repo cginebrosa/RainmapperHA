@@ -1315,11 +1315,16 @@ def _build_biology_v3_sample(
             "daily_humidity_max_pct": humidity_max,
             "daily_humidity_min_pct": humidity_min,
             "daily_humidity_mean_pct": humidity_mean,
+            **({"daily_eto0_mean_mm": [value for day,value in zip(area_rainfall.get("daily_dates",[]),area_rainfall["daily_eto0_mean_mm"])
+                                          if cutoff_day is not None and cutoff_day-timedelta(days=EVENT_LOOKBACK_DAYS-1) <= date.fromisoformat(str(day)) <= cutoff_day],
+                "water_state_contract_id": area_rainfall.get("water_state_contract_id")}
+               if isinstance(area_rainfall,Mapping) and "daily_eto0_mean_mm" in area_rainfall else {}),
         },
         "area_representative_location": {
             "lat": area_context.lat if area_context is not None else None,
             "lon": area_context.lon if area_context is not None else None,
             "source": area_context.location_source if area_context is not None else None,
+            "altitude_m": area_altitude,
         },
         "area_altitude_source": (
             area_context.altitude_source if area_context is not None else None

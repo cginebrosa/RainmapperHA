@@ -151,7 +151,7 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   `docs/mushrooms/mushroom-worker-local-llm-narrator-design-es.md`
 - Contrato perfiles: `docs/mushrooms/mushroom-profiles-v0-operational-contract-es.md`
 - Investigación GBIF, visor local y revisión manual pendiente del usuario:
-  `docs/mushrooms/GBIF/README.md`. No importar ni entrenar automáticamente.
+  `local-apps/gbif/docs/guide.md`. No importar ni entrenar automáticamente.
 - Observaciones/schema: `docs/mushrooms/mushroom-observations-schema-es.md`
 - GIS: `docs/mushrooms/gis-layer-inventory-es.md`
 - Fuentes y GIS para la expansión Font-Romeu--Quérigut:

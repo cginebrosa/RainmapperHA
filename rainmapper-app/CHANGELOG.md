@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.315
+
+- Show the selected model beside each point-map IFF, following the selected day and preserving unavailable/uncalculated states. Explain its actual SMI, water-balance and weather inputs in separate touch/keyboard tooltips in Spanish, Catalan and English.
+- Migrate verified pre-SMI tuning decisions without reusing old weights or evaluation scores.
+- Allow precompute requests with a persisted schema 1.6 identity to advance to schema 1.7 without reusing obsolete results.
+
+- Share regulated soil-water extraction with Penman–Monteith and one 0–30 cm layer across training, precomputation and point predictions; retain explicit missing-input fallbacks.
+- Version hydric feature contracts and require rebuilt inputs and retraining before using old physical models with the new calculation.
+- Show available soil water in the point header and compare the accepted SMI with the original simple store in the historical chart.
+- Keep history independent of chart windows, preserve missing values and expose weather sources and calculation assumptions.
+- Export and import model suspension rules independently of model generations; collapse suspension settings by default.
+
 ## 0.2.314
 
 - Add model suspension and reactivation settings by species or globally in Workers and jobs.

@@ -1,5 +1,58 @@
 # Contexto activo — 19/09/2026
 
+## Último desarrollo local: adopción del SMI · 20/09/2026
+
+Referencia aceptada por el usuario: extracción regulada + Penman–Monteith +
+una capa de 0–30 cm, compartida por entrenamiento/precálculo/mapa. El simple
+queda como comparación visual. [SMI-07: decisión, código, consumidores y pruebas](mushrooms/SMI/adoption-2026-09-20/README.md).
+Contratos nuevos invalidan datos/pesos físicos antiguos y precálculos anteriores;
+requiere reconstruir entradas, reentrenar y precalcular antes de desplegar.
+
+**0.2.315 publicada en GHCR; pendiente de instalación por el usuario en HA real.**
+Tags versión/latest verificados con digest común
+`sha256:8d064cef61c9e24fe283796b71aa37ad4d3eea2924141f4be554de1cc1a1f885`,
+manifests AMD64/ARM64. [Informe de release](reports/ha-release-0.2.315.json).
+El usuario autorizó preparar la release y reconstruir los servicios existentes.
+HA local y el worker existente se reconstruyeron; sus dos coordinadores se
+conservaron sin cambios. Primer circuito: reconstrucción y entrenamiento base
+completos; multiversión rechazó el catálogo de ajustes por el cambio de contrato.
+Se ha añadido una migración acotada del catálogo anterior: conserva únicamente
+hiperparámetros/procedencia, nunca pesos ni métricas antiguas. Prueba con catálogo
+persistido local: 714 decisiones, 403258 bytes, sin abrir modelos.
+
+También se añade el modelo seleccionado por fecha antes del IFF en el mapa,
+con nombres compartidos con Predictor y referencias compactas por especie.
+Su tooltip separado (ratón/táctil/teclado), ES/CA/EN, explica algoritmo, SMI,
+balance como entrada directa, otras entradas y ventana. Se inspeccionan las
+columnas del artefacto ya cargado: no inferir estas propiedades por versión.
+
+Segundo circuito local completado: reconstrucción/base promovidos y multiversión
+verificada, 714 ajustes previstos/714 correctos/0 fallidos, lote
+`operational_20260920T020702Z`. Después se reconstruyeron/recrearon HA local y
+el mismo worker con los últimos tooltips; 211/114 archivos idénticos al checkout,
+coordinadores intactos. Smoke final: 1690 tests, 48 omitidos, OK; navegador
+ES/CA/EN y 1280/375/320 px, OK. Una predicción real local de Bellver confirmó
+ese lote y `Smooth Shared–V6w`, SMI sí/balance directo no, ventana 30 días.
+
+**Última instrucción del usuario: el precálculo lo lanzará él. NO lanzarlo desde
+Codex.** Su primer intento falló antes de encolar: `desired.json` conservaba
+revisión 68/esquema 1.6 y faltaba admitir esa versión al avanzar a 1.7.
+Corregido en `_desired_revision_for_advance`, sin aceptar resultados antiguos.
+418 pruebas dirigidas y smoke 1690/48 omitidas OK. Ambos contenedores existentes
+reconstruidos/recreados; paridad 211/114 archivos OK, coordinadores intactos y
+ambas colas libres. Comprobado dentro de HA que la revisión 68 puede avanzar;
+el fichero real permaneció intacto hasta el reintento del usuario.
+El reintento `worker_job_7YWJHNU9LAaR` terminó correctamente a las 02:55:34 UTC;
+recibido y activado esquema 1.7/revisión 69, lote nuevo, 749 respuestas y
+28.004.352 bytes. Recibo, identidad deseada y SHA del archivo coinciden;
+SQLite íntegro. El usuario solicitó publicar tras finalizar: aceptación local
+completada. HA real no se ha actualizado. Tras instalar, el usuario lanzará
+la reconstrucción/entrenamiento y el precálculo de HA real, sin reutilizar los
+artefactos físicos anteriores. Evidencia en `tmp/release-0.2.315` y el informe SMI-07; no repetir
+entrenamientos completos para probar sólo presentación.
+
+[Continuación de auditorías](mushrooms/SMI/continuation.md).
+
 ## Alcance y fuentes de verdad
 
 Este contexto se ha contrastado con el checkout `81a6b0b` (HA 0.2.312) y sus
@@ -169,7 +222,7 @@ con ejecutores local y worker. No repetir la operación por este documento.
 
 ## Herramientas locales de investigación
 
-**Wunderground:** `scripts/station_research.py` y `scripts/station-research/`,
+**Wunderground:** `local-apps/wunderground/code/station_research.py` y `local-apps/wunderground/code/web/`,
 no incluidos por el Dockerfile HA. Consultas por clic, preliminares y candidatas,
 revisión Pendiente/Dudosa/Aceptada/Rechazada guardada en SQLite, filtros combinables
 por fuente, relieve/norte, fondos y búsqueda de lugares. Días con lluvia válida
@@ -181,14 +234,14 @@ La base de referencia inicial es local, no el estado en vivo de HA real.
 Los recuentos iniciales (143 nuevas/12 priorizadas) son históricos del análisis;
 las revisiones del usuario pueden cambiar. No afirmar que actualmente ninguna
 esté aceptada sin consultar su SQLite. Conservar
-`tmp/station-coverage-catalunya-20260918/` y su `research.sqlite3`.
+`local-apps/wunderground/data/` y su `research.sqlite3`.
 
-**GBIF:** visor y herramientas en `docs/mushrooms/GBIF/`; snapshot, fotografías y
+**GBIF:** visor y herramientas en `local-apps/gbif/code/`; datos en `local-apps/gbif/data/`. Snapshot, fotografías y
 revisiones excluidos de Git e imagen. Cuatro estados; clave interna `approved`
 para Aceptada, diferente de `accepted` en WU. Persistencia de revisión en navegador
 más guardado en archivo opcional; no se ha simulado un crash físico de Chrome.
 El usuario dejó pendiente revisar **observaciones GBIF**, no estaciones.
-No importar ni entrenar automáticamente. [Guía](mushrooms/GBIF/README.md).
+No importar ni entrenar automáticamente. [Guía](../local-apps/gbif/docs/guide.md).
 
 ## Pendientes y límites conservados
 

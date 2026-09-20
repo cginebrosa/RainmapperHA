@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rainmapper_core import mushroom_climatic_water_balance as climate
+from rainmapper_core.mushroom_water_physics import point_reference_et, WATER_STATE_CONTRACT_ID
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_raw_weather as raw_weather
 from rainmapper_core import mushroom_ml_weather_workspace
@@ -155,19 +156,7 @@ def main() -> int:
                 context.micro_area_id, start_day=earliest, end_day=latest
             )
             if workspace is not None
-            else [
-                climate.hargreaves_reference_evapotranspiration_mm(
-                    day, context.lat, low, high
-                )
-                if low is not None and high is not None
-                else None
-                for day, low, high in zip(
-                    cache_dates,
-                    weather["daily_temp_min_idw_c"],
-                    weather["daily_temp_max_idw_c"],
-                    strict=True,
-                )
-            ]
+            else point_reference_et(weather,context,stations)['et0_mm']
         )
         if index % 5 == 0 or index == len(contexts):
             print(json.dumps({"cached_microareas": index, "total_microareas": len(contexts)}), flush=True)
@@ -232,6 +221,7 @@ def main() -> int:
                         "metadata": {"cutoff_date": cutoff.isoformat()},
                     }
         area = biology_v3.aggregate_area_rainfall_series(sliced)
+        area["water_state_contract_id"] = WATER_STATE_CONTRACT_ID
         area["daily_eto0_mean_mm"] = _mean_series(
             micro_eto, raw_weather.LOOKBACK_DAYS
         )
@@ -306,6 +296,7 @@ def main() -> int:
             built.append(raw_weather.build_v5_sample(source, area_series, temporal_contract_id=contract_id))
         output = {
             "kind": "mushroom_biology_v5_raw_weather_benchmark",
+            "water_state_contract_id": WATER_STATE_CONTRACT_ID,
             "schema_version": 1,
             "version_id": raw_weather.VERSION_ID,
             "feature_set": raw_weather.feature_set_contract(contract_id),

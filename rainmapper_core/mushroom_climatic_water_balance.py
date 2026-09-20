@@ -13,8 +13,8 @@ from datetime import date
 from typing import Sequence
 
 
-CLIMATIC_WATER_BALANCE_CONTRACT_ID = "microarea_climatic_water_balance_v1"
-EVAPOTRANSPIRATION_METHOD_ID = "hargreaves_samani_fao56_temperature_v1"
+CLIMATIC_WATER_BALANCE_CONTRACT_ID = "microarea_climatic_water_balance_v2"
+EVAPOTRANSPIRATION_METHOD_ID = "penman_monteith_hargreaves_fallback_v1"
 SOLAR_CONSTANT_MJ_M2_MIN = 0.0820
 MJ_M2_TO_EQUIVALENT_EVAPORATION_MM = 0.408
 HARGREAVES_COEFFICIENT = 0.0023
@@ -132,6 +132,10 @@ def build_climatic_water_balance(
     temp_min_corrected_c: Sequence[float | None],
     temp_max_corrected_c: Sequence[float | None],
     latitude_deg: float,
+    altitude_m: float | None = None,
+    humidity_min_pct: Sequence[float | None] | None = None,
+    humidity_max_pct: Sequence[float | None] | None = None,
+    reference_evapotranspiration_mm: Sequence[float | None] | None = None,
 ) -> dict[str, object]:
     """Build daily balance plus the four V4 cutoff-window features.
 
@@ -146,13 +150,27 @@ def build_climatic_water_balance(
     if not -90.0 <= latitude <= 90.0:
         raise ValueError("latitude_deg must be between -90 and 90")
 
+    from .mushroom_water_physics import reference_et_series, WATER_STATE_CONTRACT_ID
+    if reference_evapotranspiration_mm is None:
+        weather = {'daily_dates': [day.isoformat() for day in dates],
+                   'daily_temp_min_idw_c':temp_min_corrected_c, 'daily_temp_max_idw_c':temp_max_corrected_c}
+        if humidity_min_pct is not None: weather['daily_humidity_min_idw_pct'] = humidity_min_pct
+        if humidity_max_pct is not None: weather['daily_humidity_max_idw_pct'] = humidity_max_pct
+        reference = reference_et_series(weather,latitude,altitude_m=altitude_m)
+        daily_reference = reference['et0_mm']
+        methods = reference['et0_methods']
+    else:
+        _validate_series(dates,reference_evapotranspiration_mm)
+        daily_reference = list(reference_evapotranspiration_mm)
+        methods = ['shared_microarea_et0' if v is not None else 'unavailable' for v in daily_reference]
+
     daily_eto: list[float | None] = []
     daily_balance: list[float | None] = []
     daily_reasons: list[list[str]] = []
     mass_errors: list[float] = []
 
-    for day, rain_value, min_value, max_value in zip(
-        dates, rain_idw_mm, temp_min_corrected_c, temp_max_corrected_c
+    for day, rain_value, min_value, max_value, reference_value in zip(
+        dates, rain_idw_mm, temp_min_corrected_c, temp_max_corrected_c, daily_reference
     ):
         rain = _optional_finite(rain_value)
         temp_min = _optional_finite(min_value)
@@ -169,6 +187,8 @@ def build_climatic_water_balance(
         if temp_min is not None and temp_max is not None and temp_max < temp_min:
             reasons.append("temp_max_below_temp_min")
 
+        if reference_value is None or not math.isfinite(reference_value) or reference_value < 0:
+            reasons.append('missing_reference_evapotranspiration')
         if reasons:
             daily_eto.append(None)
             daily_balance.append(None)
@@ -176,9 +196,7 @@ def build_climatic_water_balance(
             continue
 
         assert rain is not None and temp_min is not None and temp_max is not None
-        eto = hargreaves_reference_evapotranspiration_mm(
-            day, latitude, temp_min, temp_max
-        )
+        eto = reference_value
         balance = round(rain - eto, ROUND_DIGITS)
         daily_eto.append(eto)
         daily_balance.append(balance)
@@ -229,6 +247,8 @@ def build_climatic_water_balance(
             "cutoff_day": cutoff_day.isoformat(),
             "daily_dates": [day.isoformat() for day in dates],
             "daily_reference_evapotranspiration_mm": daily_eto,
+            "water_state_contract_id": WATER_STATE_CONTRACT_ID,
+            "et0_methods": methods,
             "daily_climatic_water_balance_mm": daily_balance,
             "daily_exclusion_reasons": daily_reasons,
             "window_age_bounds_inclusive": {

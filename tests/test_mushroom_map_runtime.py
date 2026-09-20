@@ -219,6 +219,35 @@ class MapRuntimeTests(unittest.TestCase):
         received = json.loads(Path(self.executor.executor.config['model_registry']).read_text())
         self.assertEqual(received[policy.FIELD], registry[policy.FIELD])
 
+    def test_external_policy_is_live_but_worker_snapshot_is_frozen(self):
+        from rainmapper_core import mushroom_ml_policy_store as store
+        from rainmapper_core import mushroom_ml_prediction_policy as policy
+        registry_path = Path(self.config['model_registry'])
+        raw = json.loads(registry_path.read_text())
+        raw[store.REFERENCE] = store.FILENAME
+        registry_path.write_bytes(maps.encode(raw))
+        row = {'version_id':'altitude_v2','profile_id':'common_idw',
+               'estimator_id':'hist_gradient_boosting_restricted_v1','species_id':'lactarius_deliciosus',
+               'reason':'audit','updated_at':'2026-09-19','updated_by':'test'}
+        path = registry_path.parent/store.FILENAME
+        path.write_bytes(store.encode(store.document({policy.FIELD:[row]})))
+        self.publisher.refresh()  # sealed model publication still has no rules
+        reference = self.publisher.reference()
+        self.executor.prepare(reference)
+        sealed = Path(self.executor.executor.config['model_registry'])
+        self.assertEqual(json.loads(sealed.read_bytes())[policy.FIELD], [row])
+        self.assertNotIn(store.REFERENCE, json.loads(sealed.read_bytes()))
+        path.write_bytes(store.encode(store.document({})))
+        with self.assertRaisesRegex(QueryError, 'map_data_not_ready'):
+            self.publisher.reference()
+        self.publisher.refresh()
+        self.assertNotEqual(reference, self.publisher.reference())
+        self.assertEqual(json.loads(sealed.read_bytes())[policy.FIELD], [row])
+        self.assertNotIn('required_capabilities', self.publisher.reference())
+        path.unlink()
+        with self.assertRaises(OSError): self.publisher.refresh()
+        with self.assertRaises(QueryError): self.publisher.reference()
+
     def test_limits_and_authorization_before_materialization(self):
         with self.assertRaises(QueryError): self.publisher.object('sha256:'+'f'*64,'data/mushroom_profiles.json')
         with self.assertRaises(QueryError): self.publisher.object(self.publisher.current,'../../etc/passwd')

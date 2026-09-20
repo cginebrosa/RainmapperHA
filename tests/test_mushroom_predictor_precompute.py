@@ -1404,7 +1404,7 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "desired.json"
             legacy_identity = self.identity().as_dict()
-            legacy_identity["schema_version"] = "1.5"
+            legacy_identity["schema_version"] = "1.6"
             path.write_text(
                 json.dumps(
                     {
@@ -1415,6 +1415,9 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
                 ),
                 encoding="utf-8",
             )
+
+            with self.assertRaisesRegex(OSError, "Unsupported Predictor precompute schema"):
+                load_desired_state(path)
 
             desired = advance_desired_state(
                 path,

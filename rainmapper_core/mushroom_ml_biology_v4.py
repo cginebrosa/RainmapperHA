@@ -328,6 +328,7 @@ def materialize_comparison_benchmark(
     return {
         "schema_version": "1.0-v4-comparison-profile",
         "kind": "mushroom_ml_biology_v4_comparison_benchmark",
+        "water_state_contract_id": payload.get("water_state_contract_id"),
         "feature_set": {
             "id": f"{temporal_contract_id}:{profile_id}",
             "predictive_feature_cols": columns,
@@ -642,6 +643,10 @@ def build_biology_v4_sample(
             temp_min_corrected_c=temp_min,
             temp_max_corrected_c=temp_max,
             latitude_deg=float(location["lat"]),
+            altitude_m=location.get("altitude_m"),
+            humidity_min_pct=humidity_min,
+            humidity_max_pct=humidity_max,
+            reference_evapotranspiration_mm=weather.get("daily_eto0_mean_mm"),
         )
         predictive.update(climate_result["predictive_features"])
     except (KeyError, TypeError, ValueError):

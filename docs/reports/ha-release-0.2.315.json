@@ -1,0 +1,54 @@
+{
+  "version": "0.2.315",
+  "verified_at": "2026-09-20T03:02:32.445220+00:00",
+  "image": "ghcr.io/cginebrosa/rainmapperha",
+  "tags": [
+    "0.2.315",
+    "latest"
+  ],
+  "digest": "sha256:8d064cef61c9e24fe283796b71aa37ad4d3eea2924141f4be554de1cc1a1f885",
+  "platforms": {
+    "linux/amd64": "sha256:3e5bea60e5158c5b20a8ee9f40a949fbb6f1b090db7412899a4e78a1185a0328",
+    "linux/arm64": "sha256:373e197dd5cbbc00e0177281c81feceb22ccdb7c3f8f33f612867d9b04cd45d3"
+  },
+  "build_exit_code": 0,
+  "build_log": "/private/tmp/release-0.2.315-publish.log",
+  "smoke": {
+    "tests": 1690,
+    "skipped": 48,
+    "result": "OK",
+    "log": "/private/tmp/release-precompute-schema-smoke.log"
+  },
+  "local_parity": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 211,
+      "mismatches": [],
+      "manifest_sha256": "06af1a59ce298986a89074ae6330431862f86f32435a5eb86b3dcd12892e1910"
+    },
+    "rainmapper-worker": {
+      "checked_files": 114,
+      "mismatches": [],
+      "manifest_sha256": "2a3eb7c9f914bb7a6612429973dd77b5f9ffd06de850491dfa083cf0f72fbc8e"
+    }
+  },
+  "local_training_batch": "operational_20260920T020702Z",
+  "local_training": {
+    "planned": 714,
+    "successful": 714,
+    "failed": 0
+  },
+  "local_precompute": {
+    "job_id": "worker_job_7YWJHNU9LAaR",
+    "status": "complete",
+    "activated": true,
+    "schema": "1.7",
+    "desired_revision": 69,
+    "artifact_id": "sha256:5e5c2ff1fc3a0ffc81834f29ce67a53ccafc67e2f9a6e4b8686c69a989b81f39",
+    "file_sha256": "sha256:e6d3b2321a4641d2489bbff7f329b7190cb2d5a7cb452ddd056f325d0ac10515",
+    "bytes": 28004352,
+    "responses": 749,
+    "sqlite_quick_check": "ok"
+  },
+  "ha_real_installed_by_codex": false,
+  "next_step": "User installs HA release, then runs reconstruction/training and precompute on HA real."
+}

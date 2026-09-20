@@ -51,8 +51,21 @@ def render(registry: dict, profiles: dict) -> str:
              f'<th>{label("scope")}</th><th>{label("reason")}</th><th></th></tr></thead>'
              f'<tbody>{"".join(rules)}</tbody></table></div>') if rules else f'<p>{label("none")}</p>'
     return f'''<section class="workers-panel" id="prediction-model-settings">
-      <details open><summary><strong>{label('title')}</strong> · {len(rules)} {label('suspended')}</summary>
+      <details><summary><strong>{label('title')}</strong> · {len(rules)} {label('suspended')}</summary>
       <p class="meta">{label('help')}</p>{table}
+      <p><a href="./workers/model-policy.json">{label('export')}</a></p>
+      <details><summary>{label('import')}</summary>
+        <p class="meta">{label('transfer_help')}</p>
+        <form method="post" action="./workers/model-policy" style="display:grid;gap:10px;max-width:850px">
+          <input type="hidden" name="policy_revision" value="{revision}">
+          <label>{label('import_file')}<input type="file" accept=".json,application/json" id="model-policy-file"></label>
+          <label>{label('json')}<textarea id="model-policy-json" name="policy_json" required rows="8"
+            style="width:100%;font-size:16px" maxlength="262144"></textarea></label>
+          <p id="model-policy-preview" role="status"></p>
+          <label><input type="checkbox" name="confirm_replace" value="true" required> {label('confirm_replace')}</label>
+          <button type="submit">{label('import_apply')}</button>
+        </form>
+      </details>
       <form method="post" action="" style="display:grid;gap:10px;max-width:850px">
         <input type="hidden" name="worker_action" value="set_prediction_model_policy">
         <input type="hidden" name="policy_revision" value="{revision}">
@@ -61,4 +74,30 @@ def render(registry: dict, profiles: dict) -> str:
         <label>{label('scope')}<select name="species_scope" style="width:100%">{species_options}</select></label>
         <label>{label('reason')}<input name="suspension_reason" required maxlength="500" style="width:100%;font-size:16px"></label>
         <button type="submit">{label('suspend')}</button>
-      </form></details></section>'''
+      </form></details></section>
+      <script>
+      (() => {{
+        const file = document.getElementById('model-policy-file');
+        const input = document.getElementById('model-policy-json');
+        const preview = document.getElementById('model-policy-preview');
+        function check() {{
+          file.form.querySelector('[name=confirm_replace]').checked = false;
+          try {{
+            const value = JSON.parse(input.value);
+            if (value.kind !== 'mushroom_ml_prediction_policy' || !Array.isArray(value.suspensions)) throw new Error();
+            preview.textContent = value.suspensions.length + ' {label('suspended')}';
+            input.setCustomValidity('');
+          }} catch (_) {{
+            preview.textContent = '{label('invalid_file')}';
+            input.setCustomValidity('{label('invalid_file')}');
+          }}
+        }}
+        input.addEventListener('input', check);
+        file.addEventListener('change', async () => {{
+          const selected = file.files[0];
+          input.value = '';
+          if (selected && selected.size <= 262144) input.value = await selected.text();
+          check();
+        }});
+      }})();
+      </script>'''

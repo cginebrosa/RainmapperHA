@@ -164,6 +164,7 @@ class PointExecutor:
             result = contract.prediction_result(request) if self.model else contract.demo_result(request)
             result.update(self.geography.call({**request["point"], "start_date":request["start_date"],
                                               "horizon_days":request["horizon_days"],"model_inputs":self.model is not None,
+                                              "water_history":True,
                                               "species_ids":request['species_ids']}))
             if self.model and prediction_candidates(result.get('ecology', {}), request['species_ids']):
                 result.update(self.model.call({'request':request,'geography':result}))
@@ -172,6 +173,7 @@ class PointExecutor:
                       map_today(request['calendar_timezone'])-timedelta(days=1))
             result.update(self.weather.call({**request["point"], "altitude_m":result.get("terrain",{}).get("elevation",{}).get("value_m"),
                 "end_day":end.isoformat(),"days":request["history_days"],
+                "water_history":True,"water_capacity_mm":result.pop('water_capacity_mm',None),
                 "calendar_timezone":request['calendar_timezone']}))
             result["execution"] = {"mode":request.get("execution","local"),"compute_ms":round((time.perf_counter()-started)*1000,3)}
             contract.validate_result(result,request)

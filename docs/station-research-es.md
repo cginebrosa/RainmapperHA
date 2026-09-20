@@ -4,14 +4,14 @@ Herramienta separada de HA, del worker y de los catálogos operativos. Se abre e
 [127.0.0.1:8123](http://127.0.0.1:8123/). Para arrancarla tras cerrar el servidor:
 
 ```sh
-./scripts/station-research.command
+./local-apps/wunderground/start.command
 ```
 
 El lanzador usa `.venv`, la clave configurada de Wunderground y el conjunto local
-`tmp/station-coverage-catalunya-20260918/`. La clave se utiliza exclusivamente en
+`local-apps/wunderground/data/`. La clave se utiliza exclusivamente en
 el servidor, nunca se entrega al navegador. El servidor escucha solo en loopback.
 Los fondos y el relieve requieren Internet; las decisiones se guardan en el Mac.
-El código está en `scripts/station_research.py` y `scripts/station-research/`.
+El código está en `local-apps/wunderground/code/station_research.py` y `local-apps/wunderground/code/web/`.
 
 ## Uso
 

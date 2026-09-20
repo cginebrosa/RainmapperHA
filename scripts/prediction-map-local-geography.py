@@ -16,6 +16,7 @@ from rainmapper_core.mushroom_map_forest import ForestReader
 from rainmapper_core.mushroom_map_ecology import EcologyReader, POLICY, prediction_candidates
 from rainmapper_core.mushroom_map_ph import OpenLandMapPHReader
 from rainmapper_core.mushroom_geography_store import SourceIdentities
+from rainmapper_core.mushroom_soil_water_state import available_water_capacity_mm
 
 
 def main():
@@ -139,10 +140,18 @@ def main():
                         result["ecology"] = ecology.evaluate(result, request["start_date"], request.get("horizon_days",7))
                     except (ValueError, KeyError, TypeError):
                         logging.getLogger(__name__).exception("Prediction map geography: ecology evaluation failed")
-            if (request.get('model_inputs') is True and terrain
-                    and prediction_candidates(result.get('ecology', {}), request.get('species_ids'))):
+            model_inputs = (request.get('model_inputs') is True
+                            and prediction_candidates(result.get('ecology', {}), request.get('species_ids')))
+            if terrain and (model_inputs or request.get('water_history') is True):
                 try:
-                    result['model_soil_water'] = terrain.soil_water_context(request['lat'],request['lon'])
+                    soil = terrain.soil_water_context(request['lat'],request['lon'])
+                    if model_inputs:
+                        result['model_soil_water'] = soil
+                    if request.get('water_history') is True:
+                        try:
+                            result['water_capacity_mm'] = available_water_capacity_mm(soil, profile_depth_cm=30)['capacity_mm']
+                        except (TypeError, ValueError, KeyError):
+                            result['water_capacity_mm'] = None
                 except (ValueError,RuntimeError,OSError,sqlite3.Error):
                     logging.getLogger(__name__).exception("Prediction map geography: soil water query failed")
                     result['model_soil_water'] = None

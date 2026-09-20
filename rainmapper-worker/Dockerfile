@@ -44,9 +44,13 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_map_ph.py \
      rainmapper_core/mushroom_map_prediction.py \
      rainmapper_core/mushroom_map_model_runtime.py \
+     rainmapper_core/mushroom_model_labels.py \
      rainmapper_core/mushroom_soilgrids.py \
      rainmapper_core/mushroom_map_land_parts.py \
      rainmapper_core/mushroom_map_weather.py \
+     rainmapper_core/mushroom_map_hydrology.py \
+     rainmapper_core/mushroom_map_water_physics.py \
+     rainmapper_core/mushroom_water_physics.py \
      rainmapper_core/mushroom_map_execution.py \
      rainmapper_core/mushroom_map_queries.py \
      rainmapper_core/mushroom_map_worker.py \
@@ -72,6 +76,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_ml_version_registry.py \
      rainmapper_core/mushroom_ml_model_catalog.py \
      rainmapper_core/mushroom_ml_prediction_policy.py \
+     rainmapper_core/mushroom_ml_policy_store.py \
      rainmapper_core/mushroom_ml_tuning_catalog.py \
      rainmapper_core/mushroom_operational_training_scope.py \
      rainmapper_core/mushroom_ml_weather_workspace.py \
@@ -168,6 +173,7 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/rainmapper_core/mushroom_ml_probability_calibration.py \
         /app/rainmapper_core/mushroom_ml_quality_catalog.py \
         /app/rainmapper_core/mushroom_climatic_water_balance.py \
+        /app/rainmapper_core/mushroom_water_physics.py \
         /app/rainmapper_core/mushroom_soil_water_state.py \
         /app/rainmapper_core/mushroom_rebuild_comparison.py \
         /app/rainmapper_core/mushroom_rebuild_pipeline.py \

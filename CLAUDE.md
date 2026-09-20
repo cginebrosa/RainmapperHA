@@ -76,7 +76,6 @@ rainmapper-local/           # Docker local Mac
   docker-compose.yml        # servicios: rainmapper (runner) + rainmapper-ha-ui (WebUI local)
   docker-compose.worker.yml        # servicio rainmapper-worker (worker externo, local o real, según --rainmapper-url)
   docker-compose.worker-test.yml   # test del worker
-  docker-compose.rebuild-test.yml  # test de rebuild
   Dockerfile                # imagen local del runner
   options.local-ha-ui.json  # perfil versionado de opciones para la WebUI local
 

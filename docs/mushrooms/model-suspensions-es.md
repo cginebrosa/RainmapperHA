@@ -1,6 +1,7 @@
 # Suspensión manual de modelos de predicción
 
-Implementación local del 19/09/2026, todavía sin publicar en HA real.
+Suspensiones disponibles en HA 0.2.314. La separación en JSON independiente y
+su exportación/importación se publican en 0.2.315, validada en HA local.
 
 En **Workers y trabajos → Modelos de predicción** se puede suspender un
 estimador/perfil/versión para una especie o para todas, indicando el motivo.
@@ -20,8 +21,13 @@ nuevo la semana para disponer de un precálculo acorde con ella.
 
 ## Persistencia y transporte
 
-- Reglas en `prediction_model_suspensions` del registro privado
+- En HA 0.2.314, reglas en `prediction_model_suspensions` del registro privado
   `mushroom_ml_version_registry.json`; no en las semillas del repositorio.
+- Desde 0.2.315, archivo hermano `mushroom_ml_prediction_policy.json`,
+  con `schema_version`, `kind` y `suspensions`. El registro guarda únicamente
+  `prediction_policy_file` como referencia. La migración escribe primero las
+  reglas y después la referencia; un archivo referenciado ausente o inválido
+  produce error, sin reactivar silenciosamente los modelos.
 - Identidad: versión, perfil, estimador y especie (`*` significa todas).
   Motivo, fecha y actor acompañan a cada regla.
 - El registro viaja en los contratos existentes del worker. Las reglas forman
@@ -33,12 +39,34 @@ nuevo la semana para disponer de un precálculo acorde con ella.
 - Máximo 512 reglas y registro serializado limitado a 256 KiB al guardar.
   No se incorporan informes de auditoría ni datos GIS a esta configuración.
 
+### Exportación/importación desde 0.2.315
+
+El panel aparece cerrado inicialmente. **Exportar** descarga solo las reglas;
+**Importar** permite seleccionar un JSON o pegarlo y exige confirmar el reemplazo
+de todas las reglas actuales (una lista vacía las retira). Se validan modelos,
+especies y revisión antes de guardar. No se copian generaciones ni rutas de
+artefactos. No importar este formato como registro completo en HA 0.2.314.
+
+Los snapshots sellados del worker conservan las reglas efectivas dentro del
+contrato, sin referencias al archivo vivo del coordinador. El mapa incorpora la
+política actual a su identidad y caché sin republicar los modelos pesados.
+Una política distinta invalida la reutilización del precálculo publicado.
+
+Comprobación del 19/09: smoke de 1.660 tests, 48 omitidos; HA local reconstruido
+y ocho archivos modificados cotejados con el contenedor por SHA-256. Chrome:
+panel cerrado, selección de archivo, vista previa de siete reglas, confirmación,
+POST real y exportación posterior coincidente; registro de generaciones idéntico
+antes/después. Posteriormente, el 20/09, se reconstruyeron ambos contenedores
+y se completó reconstrucción, entrenamiento base/multiversión y precálculo
+recibido/activado. [Validación integrada de 0.2.315](SMI/adoption-2026-09-20/validation.md).
+
 Fuentes: `rainmapper_core/mushroom_ml_prediction_policy.py`,
+`mushroom_ml_policy_store.py`,
 `mushroom_ml_version_registry.py`, `mushroom_ml_multiversion_comparison.py`,
 `mushroom_map_runtime.py`, `rainmapper-app/app/mushroom_model_settings_ui.py`
 y el handler `set_prediction_model_policy` de `web_server.py`.
 
-## Validación local completada
+## Validación de 0.2.314 y aplicación en HA real
 
 HA local y el único worker reconstruidos con el mismo código candidato.
 Paridad efectiva de 206 archivos HA y 109 worker, sin diferencias, revalidada
@@ -49,8 +77,9 @@ Siete reglas guardadas mediante el formulario en HA local para
 `lactarius_deliciosus`: HGB/KNN/SVM-V2, HGB-V3 core y físico, HGB-V4
 meteorología extendida y balance climático. El usuario confirmó el comportamiento
 del mapa local y autorizó publicar. Estas reglas son datos privados de cada
-instalación: la imagen no las copia a HA real. Tras instalar hay que configurarlas
-en Workers y trabajos de HA real; no requiere reentrenar. El mapa las aplica
+instalación: la imagen no las copia a HA real. El 19/09 se aplicaron las siete
+reglas mediante el formulario de HA real 0.2.314, conservando sus generaciones;
+se revalidó su presencia por SMB. No requiere reentrenar. El mapa las aplica
 al sincronizar su runtime, y el Predictor necesita renovar su precálculo.
 
 ### Resultado del entrenamiento comprobado

@@ -1,0 +1,794 @@
+[
+  {
+    "name": "Aguilar de Segarra",
+    "station": "tremp_aguilar_tremp_aguilar",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        10.9
+      ],
+      "VWC_005": [
+        0.074,
+        0.101
+      ],
+      "VWC_020": [
+        0.099,
+        0.109
+      ],
+      "VWC_050": [
+        0.134,
+        0.148
+      ],
+      "VWC_100": [
+        0.155,
+        0.172
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Borda Coll",
+    "station": "tremp_borda_coll_tremp_borda_coll",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 55,
+      "VWC_005": 55,
+      "VWC_020": 55,
+      "VWC_050": 55,
+      "VWC_100": 55
+    },
+    "paired_days_5_20_rain": 55,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        33.0
+      ],
+      "VWC_005": [
+        0.056,
+        0.145
+      ],
+      "VWC_020": [
+        0.044,
+        0.105
+      ],
+      "VWC_050": [
+        0.062,
+        0.235
+      ],
+      "VWC_100": [
+        0.055,
+        0.179
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Batlliu de Sort",
+    "station": "tremp_batlliusort_tremp_basort",
+    "days_with_44_valid_records": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "Pluja_Tot": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "VWC_005": [
+        0.094,
+        0.127
+      ],
+      "VWC_020": [
+        0.173,
+        0.289
+      ],
+      "VWC_050": [
+        0.214,
+        0.241
+      ],
+      "Pluja_Tot": [
+        0.0,
+        21.7
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Bolvir",
+    "station": "tremp_bolvir_tremp_bolvir",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        16.4
+      ],
+      "VWC_005": [
+        0.024,
+        0.227
+      ],
+      "VWC_020": [
+        0.0,
+        0.05
+      ],
+      "VWC_050": [
+        0.031,
+        0.206
+      ],
+      "VWC_100": [
+        0.058,
+        0.066
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Clot de les Peres",
+    "station": "tremp_clot_de_les_peres_clotperes",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_010": 60,
+      "VWC_020": 60,
+      "VWC_030": 60,
+      "VWC_040": 60,
+      "VWC_050": 60,
+      "VWC_060": 60,
+      "VWC_075": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        11.8
+      ],
+      "VWC_005": [
+        0.0,
+        0.100276
+      ],
+      "VWC_010": [
+        0.0224523,
+        0.237006
+      ],
+      "VWC_020": [
+        0.110895,
+        0.270753
+      ],
+      "VWC_030": [
+        0.12041,
+        0.297873
+      ],
+      "VWC_040": [
+        0.182949,
+        0.291243
+      ],
+      "VWC_050": [
+        0.0648756,
+        0.0913224
+      ],
+      "VWC_060": [
+        0.0,
+        0.0
+      ],
+      "VWC_075": [
+        0.0470135,
+        0.0770667
+      ],
+      "VWC_100": [
+        0.283552,
+        0.339134
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Coll de Paller",
+    "station": "tremp_coll_de_paller",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 56,
+      "VWC_005": 56,
+      "VWC_020": 56,
+      "VWC_050": 56
+    },
+    "paired_days_5_20_rain": 56,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        32.9
+      ],
+      "VWC_005": [
+        0.136,
+        0.163
+      ],
+      "VWC_020": [
+        0.1,
+        0.478
+      ],
+      "VWC_050": [
+        0.148,
+        0.421
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Clarella",
+    "station": "tremp_clavella_tremp_clarella",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 51,
+      "VWC_005": 51,
+      "VWC_020": 51,
+      "VWC_050": 51
+    },
+    "paired_days_5_20_rain": 51,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        27.3
+      ],
+      "VWC_005": [
+        0.043,
+        0.195
+      ],
+      "VWC_020": [
+        0.081,
+        0.385
+      ],
+      "VWC_050": [
+        0.14,
+        0.316
+      ]
+    },
+    "coverage_candidate": false
+  },
+  {
+    "name": "Cantallops",
+    "station": "tremp_cantallops_tremp_cantallops",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        3.4
+      ],
+      "VWC_005": [
+        0.06,
+        0.079
+      ],
+      "VWC_020": [
+        0.084,
+        0.108
+      ],
+      "VWC_050": [
+        0.081,
+        0.118
+      ],
+      "VWC_100": [
+        0.066,
+        0.081
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Camí dels Nerets",
+    "station": "tremp_vilacorana_tremp_vico",
+    "days_with_44_valid_records": {
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "Pluja_Tot": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "VWC_005": [
+        0.078,
+        0.091
+      ],
+      "VWC_020": [
+        0.069,
+        0.075
+      ],
+      "VWC_050": [
+        0.066,
+        0.069
+      ],
+      "Pluja_Tot": [
+        0.0,
+        14.4
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "El Boixer",
+    "station": "tremp_boixer",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_075": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        12.3
+      ],
+      "VWC_005": [
+        0.067,
+        0.272
+      ],
+      "VWC_020": [
+        0.109,
+        0.27
+      ],
+      "VWC_050": [
+        0.438,
+        0.46
+      ],
+      "VWC_075": [
+        0.387,
+        0.387
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "El Miracle",
+    "station": "tremp_miracle_tremp_miracle",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        11.0
+      ],
+      "VWC_005": [
+        0.055,
+        0.07
+      ],
+      "VWC_020": [
+        0.119,
+        0.147
+      ],
+      "VWC_050": [
+        0.029,
+        0.033
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Garriguella",
+    "station": "tremp_garriguella_tremp_garriguella",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        21.1
+      ],
+      "VWC_005": [
+        0.037,
+        0.112
+      ],
+      "VWC_020": [
+        0.078,
+        0.119
+      ],
+      "VWC_050": [
+        0.067,
+        0.069
+      ],
+      "VWC_100": [
+        0.075,
+        0.076
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "La Cultia d'Àreu",
+    "station": "tremp_areu_tremp_areu",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        25.5
+      ],
+      "VWC_005": [
+        0.044,
+        0.198
+      ],
+      "VWC_020": [
+        0.048,
+        0.198
+      ],
+      "VWC_050": [
+        0.031,
+        0.125
+      ],
+      "VWC_100": [
+        0.038,
+        0.103
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Los Coscolls",
+    "station": "tremp_coscolls_tremp_coscolls",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        8.2
+      ],
+      "VWC_005": [
+        0.064,
+        0.126
+      ],
+      "VWC_020": [
+        0.081,
+        0.148
+      ],
+      "VWC_050": [
+        0.082,
+        0.14
+      ],
+      "VWC_100": [
+        0.241,
+        0.258
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Llívia",
+    "station": "tremp_llivia_llivia",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_070": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        23.0
+      ],
+      "VWC_005": [
+        0.057,
+        0.259
+      ],
+      "VWC_020": [
+        0.083,
+        0.359
+      ],
+      "VWC_050": [
+        0.134,
+        0.342
+      ],
+      "VWC_070": [
+        0.191,
+        0.306
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Mas dels Frares",
+    "station": "tremp_frares_tremp_frares",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        28.8
+      ],
+      "VWC_005": [
+        0.015,
+        0.077
+      ],
+      "VWC_020": [
+        0.098,
+        0.115
+      ],
+      "VWC_050": [
+        0.15,
+        0.153
+      ],
+      "VWC_100": [
+        0.252,
+        0.264
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Pessonada",
+    "station": "tremp_pessonada_tremp_pessonada",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 58,
+      "VWC_005": 58,
+      "VWC_020": 58,
+      "VWC_050": 58,
+      "VWC_100": 58
+    },
+    "paired_days_5_20_rain": 58,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        29.4
+      ],
+      "VWC_005": [
+        0.051,
+        0.208
+      ],
+      "VWC_020": [
+        0.075,
+        0.165
+      ],
+      "VWC_050": [
+        0.09,
+        0.12
+      ],
+      "VWC_100": [
+        0.119,
+        0.128
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Ribera de Sió",
+    "station": "tremp_ribera_de_sio_tremp_sio",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        2.0
+      ],
+      "VWC_005": [
+        0.05,
+        0.067
+      ],
+      "VWC_020": [
+        0.134,
+        0.164
+      ],
+      "VWC_050": [
+        0.179,
+        0.19
+      ],
+      "VWC_100": [
+        0.189,
+        0.192
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Serra de Costa Ampla",
+    "station": "tremp_castellencus_tremp_casen",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        15.8
+      ],
+      "VWC_005": [
+        0.154,
+        0.188
+      ],
+      "VWC_020": [
+        0.232,
+        0.304
+      ],
+      "VWC_050": [
+        0.269,
+        0.294
+      ],
+      "VWC_100": [
+        0.324,
+        0.358
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Torre del Lluvià",
+    "station": "tremp_lluvia_tremp_lluvia",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_100": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        25.1
+      ],
+      "VWC_005": [
+        0.075,
+        0.254
+      ],
+      "VWC_020": [
+        0.071,
+        0.191
+      ],
+      "VWC_050": [
+        0.065,
+        0.083
+      ],
+      "VWC_100": [
+        0.108,
+        0.116
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Pobla de Cérvoles",
+    "station": "tremp_cervoles_tremp_cervoles",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_090": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        4.0
+      ],
+      "VWC_005": [
+        0.046,
+        0.062
+      ],
+      "VWC_020": [
+        0.123,
+        0.141
+      ],
+      "VWC_050": [
+        0.189,
+        0.203
+      ],
+      "VWC_090": [
+        0.178,
+        0.195
+      ]
+    },
+    "coverage_candidate": true
+  },
+  {
+    "name": "Vilosell",
+    "station": "tremp_vilosell_tremp_vilosell",
+    "days_with_44_valid_records": {
+      "Pluja_Tot": 60,
+      "VWC_005": 60,
+      "VWC_020": 60,
+      "VWC_050": 60,
+      "VWC_075": 60
+    },
+    "paired_days_5_20_rain": 60,
+    "duplicate_timestamps": 0,
+    "raw_ranges": {
+      "Pluja_Tot": [
+        0.0,
+        3.3
+      ],
+      "VWC_005": [
+        0.057,
+        0.071
+      ],
+      "VWC_020": [
+        0.135,
+        0.155
+      ],
+      "VWC_050": [
+        0.144,
+        0.152
+      ],
+      "VWC_075": [
+        0.153,
+        0.156
+      ]
+    },
+    "coverage_candidate": true
+  }
+]

@@ -60,10 +60,10 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `mushroom-map-GIS/`: preparación local de fuentes geográficas, excluida de
   Git y Docker. Los ejecutores consumen publicaciones activadas mediante
   configuración/manifiestos; la mera existencia de esta carpeta no activa un dataset.
-- `scripts/station_research.py` y `scripts/station-research/`: visor local WU;
-  no empaquetado en HA. Revisiones y caché en SQLite.
-- `docs/mushrooms/GBIF/`: código/guía del visor local; snapshots y revisiones
-  personales excluidos de Git y Docker.
+- `local-apps/wunderground/code/`: visor local WU;
+  no empaquetado en HA. Revisiones y caché en SQLite bajo `local-apps/wunderground/data/`.
+- `local-apps/gbif/code/`: código del visor local; snapshots y fotografías en
+  `local-apps/gbif/data/`, excluidos de Git y Docker. Guía e informes en `local-apps/gbif/docs/`.
 - `docs/`: documentacion de continuidad.
 
 ## Mapa de predicción: lectores residentes y motor compartido

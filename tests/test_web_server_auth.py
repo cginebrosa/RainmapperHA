@@ -89,6 +89,16 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
         data_dir = Path(self.temp_dir.name)
+        # Never inherit the developer's live model suspensions in auth/queue
+        # fixtures. Each policy test supplies its own registry explicitly.
+        registry_env = mock.patch.dict(os.environ, {
+            "RAINMAPPER_MUSHROOM_ML_VERSION_REGISTRY_PATH": str(data_dir / "registry.json")
+        })
+        registry_env.start()
+        self.addCleanup(registry_env.stop)
+        (data_dir / "registry.json").write_bytes(
+            (ROOT_DIR / "mushroom-data/mushroom_ml_version_registry.json").read_bytes()
+        )
         self.web_server.USERS_JSON_PATH = data_dir / "users.json"
         self.web_server.DEVICES_PATH = data_dir / "devices.json"
         self.real_worker_storage_reconcile = (
@@ -2038,9 +2048,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
                     "build_weekly_artifact",
                 ) as build_batch,
             ):
+                # Upgrade a persisted pre-SMI desire without accepting its artifact.
+                old_identity = identity.as_dict()
+                old_identity["schema_version"] = "1.6"
+                (root / "desired.json").write_text(json.dumps({
+                    "schema_version": "1.0", "revision": 68, "identity": old_identity,
+                }))
                 first_status, first = self.web_server.start_mushroom_predictor_precompute(
                     "worker_aaaaaaaa"
                 )
+                self.assertEqual(202, first_status, first)
+                upgraded = self.web_server.mushroom_predictor_precompute_control.load_desired_state(root / "desired.json")
+                self.assertEqual(69, upgraded["revision"])
+                self.assertEqual(identity.as_dict(), upgraded["identity"])
                 reused_status, reused = self.web_server.start_mushroom_predictor_precompute(
                     "worker_aaaaaaaa"
                 )

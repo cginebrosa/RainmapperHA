@@ -1372,10 +1372,10 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         self.assertEqual(comparison._weather_requirements([raw]), (90, False))
         self.assertEqual(
             comparison._weather_requirements([physical]),
-            (90, True),
+            (365, True),
         )
 
-    def test_365_day_runtime_is_limited_to_v5_v6(self) -> None:
+    def test_balance_only_keeps_90_days_while_soil_state_needs_365(self) -> None:
         v4 = catalog.ModelRef(
             batch_id="batch-a",
             generation_id="generation-v4",
@@ -1717,8 +1717,10 @@ class MushroomMLMultiversionComparisonTests(TestCase):
         bundle = {
             "evaluation": {"brier_score": 0.2},
             "artifact_ref": artifact_ref.as_dict(),
+            "feature_cols": ["soil_water_area_mean_at_cutoff", "rain_mm__lag_000"],
         }
         prediction = {"probability": 0.61, "ensemble_used": False}
+        observer = mock.Mock()
         with mock.patch.object(
             comparison.mushroom_ml_runtime_inference,
             "load_exact_artifact",
@@ -1738,8 +1740,10 @@ class MushroomMLMultiversionComparisonTests(TestCase):
                 area_context=None,
                 area_series_by_horizon={3: area_series},
                 stations={},
+                model_inputs_observer=observer,
             )
 
+        observer.assert_called_once_with(model_ref.as_dict(), bundle["feature_cols"])
         self.assertEqual(len(result["members"]), 1)
         self.assertTrue(result["members"][0]["available"])
         self.assertEqual(result["members"][0]["prediction"]["probability"], 0.61)

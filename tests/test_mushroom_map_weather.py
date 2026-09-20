@@ -10,6 +10,23 @@ from rainmapper_core import mushroom_ml_area_weather_runtime as runtime
 
 
 class PointWeatherTests(unittest.TestCase):
+    def test_reference_wind_never_uses_unknown_height_or_non_daily_provider(self):
+        from dataclasses import replace
+        self.reader._refresh()
+        nearby=self.reader._nearby(42.,2.)
+        stations,_,_=self.reader._load(nearby,date(2026,1,1),date(2026,1,1),max_days=1)
+        station=next(s for s in stations.values() if s.source=='meteocat')
+        day=date(2026,1,1)
+        original=station.records_by_day[day]
+        # No sensor height -> no observed PM wind. Calm wind is a valid zero.
+        self.assertEqual(weather.reference_wind({('meteocat','A'):station},42.,2.,['2026-01-01'])[0],[None])
+        station.records_by_day[day]=replace(original,wind_source_height_m=10.,wind_avg_kmh=0.)
+        self.assertEqual(weather.reference_wind({('meteocat','A'):station},42.,2.,['2026-01-01'])[0],[0.])
+        station.records_by_day[day]=replace(original,wind_source_height_m=10.,wind_avg_kmh=10.)
+        value=weather.reference_wind({('meteocat','A'):station},42.,2.,['2026-01-01'])[0][0]
+        self.assertAlmostEqual(value,2.078,delta=.003)
+        self.assertEqual(weather.reference_wind({('x','A'):replace(station,source='meteoclimatic')},42.,2.,['2026-01-01'])[0],[None])
+
     def test_midnight_calendar_ignores_executor_timezone_and_keeps_future_guard(self):
         # UTC is still yesterday: Madrid has already closed that weather day.
         for instant in (datetime(2026,9,14,22,10,tzinfo=timezone.utc),
@@ -68,6 +85,31 @@ class PointWeatherTests(unittest.TestCase):
         self.assertEqual(result["series"]["temp_min_c"], [None]*7)
         self.assertEqual(result["series"]["rain_mm"][0], 2.0)
         self.assertEqual(result["series"]["humidity_max_pct"][0], 90.0)
+
+    def test_water_history_keeps_weather_and_has_bounded_independent_cache(self):
+        plain=self.query()
+        with mock.patch.object(self.reader,'_load',wraps=self.reader._load) as load:
+            result=self.query(water_history=True,water_capacity_mm=60.)
+        self.assertEqual(load.call_count,1)
+        self.assertEqual(load.call_args.kwargs['max_days'],366)
+        self.assertEqual(result['series'],plain['series'])
+        self.assertEqual(result['dates'],plain['dates'])
+        self.assertEqual(len(result['water_balance']['balance_mm']),7)
+        self.assertEqual(result['water_balance']['smi_pct'],[None]*7)
+        self.assertEqual(self.reader.last_metrics['lookback_days'],365)
+        self.assertLess(self.reader.last_metrics['result_bytes'],weather.MAX_RESULT_BYTES)
+        with mock.patch.object(self.reader,'_load',side_effect=AssertionError('cache miss')):
+            self.assertEqual(self.query(water_history=True,water_capacity_mm=60.),result)
+        self.query(water_history=True,water_capacity_mm=61.)
+        self.assertFalse(self.reader.last_metrics['cache_hit'])
+        self.query(water_history=True)
+        self.assertEqual(self.reader.last_metrics['lookback_days'],7)
+
+    def test_invalid_capacity_rejected_before_loading(self):
+        with mock.patch.object(self.reader,'_load',side_effect=AssertionError('unexpected I/O')):
+            for value in (True,0,301,float('nan')):
+                with self.assertRaisesRegex(ValueError,'invalid_water_history'):
+                    self.query(water_history=True,water_capacity_mm=value)
 
     def test_read_only_cache_and_return_value_isolation(self):
         before = self.signatures()

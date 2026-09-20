@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Mapping
 
-from rainmapper_core import mushroom_climatic_water_balance as climate
+from rainmapper_core.mushroom_water_physics import point_reference_et, WATER_STATE_CONTRACT_ID
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_observation_context as weather_context
 from rainmapper_core import mushroom_soil_water_state
@@ -79,6 +79,10 @@ def materialize_area_series(
     micro_balance: list[list[float | None]] = []
     micro_soil_states: dict[str, dict[str, object]] = {}
     axis = list(weather_context.date_window(end_day, days))
+    wind_stations = {
+        key: station for key, station in stations.items()
+        if key not in excluded_station_keys
+    } if excluded_station_keys else stations
     for context in contexts:
         weather = mushroom_weather_idw.build_daily_weather_idw_series(
             stations,
@@ -93,19 +97,8 @@ def materialize_area_series(
         micro_weather[context.micro_area_id] = weather
         if not include_physical_state:
             continue
-        eto = [
-            climate.hargreaves_reference_evapotranspiration_mm(
-                day, context.lat, low, high
-            )
-            if low is not None and high is not None
-            else None
-            for day, low, high in zip(
-                axis,
-                weather["daily_temp_min_idw_c"],
-                weather["daily_temp_max_idw_c"],
-                strict=True,
-            )
-        ]
+        reference = point_reference_et(weather,context,wind_stations)
+        eto = reference['et0_mm']
         micro_eto.append(eto)
         micro_balance.append(
             [
@@ -140,6 +133,7 @@ def materialize_area_series(
     area = biology_v3.aggregate_area_rainfall_series(micro_weather)
     if not include_physical_state:
         return area
+    area["water_state_contract_id"] = WATER_STATE_CONTRACT_ID
     area["daily_eto0_mean_mm"] = _mean_series(micro_eto, days)
     area["daily_climatic_balance_mean_mm"] = _mean_series(micro_balance, days)
     soil_state = mushroom_soil_water_state.aggregate_area_soil_water_states(

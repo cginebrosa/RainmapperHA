@@ -94,20 +94,11 @@ _ESTIMATOR_HELP_KEYS = {
     "smooth_shared_logistic_v1": "ui.predictor_help_estimator_generic",
     "smooth_partial_pooling_logistic_v1": "ui.predictor_help_estimator_generic",
 }
-_ESTIMATOR_SHORT_NAMES = {
-    estimator_id: short_name
-    for estimator_id, short_name, _experimental in _COMPARISON_ESTIMATORS
-}
-
-_VERSION_SHORT_NAMES = {
-    "altitude_v2": "V2",
-    "biology_v3": "V3",
-    "biology_v4": "V4",
-    "biology_v5_raw_weather_discovery": "V5",
-    "biology_v6_smooth_hierarchical": "V6",
-    "biology_v5_windowed_raw_weather": "V5w",
-    "biology_v6_windowed_smooth_hierarchical": "V6w",
-}
+from rainmapper_core.mushroom_model_labels import (
+    ESTIMATOR_SHORT_NAMES as _ESTIMATOR_SHORT_NAMES,
+    VERSION_SHORT_NAMES as _VERSION_SHORT_NAMES,
+    model_source_label,
+)
 
 _VERSION_COMPACT_NAMES = {
     "altitude_v2": "Altitud y meteo común",
@@ -118,16 +109,6 @@ _VERSION_COMPACT_NAMES = {
     "biology_v5_windowed_raw_weather": "Meteo cruda por ventana 30/60/90d",
     "biology_v6_windowed_smooth_hierarchical": "Curvas suaves por ventana 30/60/90d",
 }
-_ESTIMATOR_SHORT_NAMES.update(
-    {
-        "elastic_net_logistic_raw365_v1": "Elastic Net",
-        "sparse_group_logistic_raw365_v1": "Sparse Group",
-        "smooth_species_logistic_v1": "Smooth Species",
-        "smooth_shared_logistic_v1": "Smooth Shared",
-        "smooth_partial_pooling_logistic_v1": "Smooth Partial",
-    }
-)
-
 _OUT_OF_DOMAIN_FEATURE_LABEL_KEYS = {
     "horizon_days": "ui.predictor_feature_horizon_days",
     "target_month_sin": "ui.predictor_feature_target_month_sin",
@@ -1425,10 +1406,7 @@ def _selected_model_source(comparison: dict[str, Any] | None) -> str:
         version_id = str(ref.get("version_id") or "")
         if not estimator_id or not version_id:
             continue
-        source = (
-            f"{_ESTIMATOR_SHORT_NAMES.get(estimator_id, estimator_id)}–"
-            f"{_VERSION_SHORT_NAMES.get(version_id, version_id)}"
-        )
+        source = model_source_label(ref)
         if source not in sources:
             sources.append(source)
     return " · ".join(sources)

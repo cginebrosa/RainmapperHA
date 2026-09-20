@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 from typing import Iterable, Mapping
 
-from . import mushroom_climatic_water_balance as climate
+from .mushroom_water_physics import point_reference_et
 from . import mushroom_known_sites
 from . import mushroom_ml_biology_v3 as biology_v3
 from . import mushroom_observation_context as weather_context
@@ -188,19 +188,7 @@ class OperationalWeatherWorkspace:
                 )
                 self._weather_base[context.micro_area_id] = base
                 axis = weather_context.date_window(self.end_day, self.days)
-                self._eto_base[context.micro_area_id] = [
-                    climate.hargreaves_reference_evapotranspiration_mm(
-                        day, context.lat, low, high
-                    )
-                    if low is not None and high is not None
-                    else None
-                    for day, low, high in zip(
-                        axis,
-                        base["daily_temp_min_idw_c"],
-                        base["daily_temp_max_idw_c"],
-                        strict=True,
-                    )
-                ]
+                self._eto_base[context.micro_area_id] = point_reference_et(base,context,self.stations)['et0_mm']
                 self.series_built += 1
             else:
                 self.series_reused += 1

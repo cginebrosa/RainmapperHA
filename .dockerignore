@@ -36,3 +36,6 @@ docs/mushrooms/GBIF/snapshot-*
 **/gbif-revision-*.json
 README_DOCKER.md
 .gitignore
+
+# Standalone local research apps are not part of HA or worker images
+local-apps

@@ -11,7 +11,7 @@ from rainmapper_core import mushroom_ml_biology_v4 as biology_v4
 PROFILE_ID = "common_idw_plus_physical_state"
 DISPLAY_NAME = "Biology V3+ physical"
 SOIL_VARIANT_ID = "wv0033_0_30cm"
-FEATURE_CONTRACT_ID = "biology_v3_common_idw_plus_physical_state_v1"
+FEATURE_CONTRACT_ID = "biology_v3_common_idw_plus_physical_state_v2"
 
 
 def _v4_contract(temporal_contract_id: str) -> str:
@@ -199,6 +199,7 @@ def materialize_benchmark(payload: Mapping[str, object]) -> dict[str, object]:
     return {
         "schema_version": "1.0-v3-physical",
         "kind": "mushroom_ml_biology_v3_physical_benchmark",
+        "water_state_contract_id": payload.get("water_state_contract_id"),
         "feature_set": {
             "id": FEATURE_CONTRACT_ID,
             "temporal_contract_id": temporal_contract_id,

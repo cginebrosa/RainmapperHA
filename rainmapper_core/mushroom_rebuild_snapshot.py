@@ -253,6 +253,20 @@ def _copy_snapshot_file(
         if required:
             raise FileNotFoundError(f"required snapshot input not found: {source}")
         return {"role": role, "path": logical_path, "exists": False}
+    if role == "extra:registry.json":
+        from rainmapper_core import mushroom_ml_policy_store as policy_store
+        with source.open('rb') as stream:
+            raw = stream.read(policy_store.MAX_BYTES + 1)
+        if len(raw) > policy_store.MAX_BYTES:
+            raise ValueError('Model registry exceeds snapshot metadata limit.')
+        if ('"' + policy_store.REFERENCE + '"').encode() in raw:
+            registry = json.loads(raw)
+            # Freeze the effective policy into this job. It must not follow a
+            # later edit of the coordinator's separate configuration file.
+            raw = policy_store.encode(policy_store.resolve(source, registry))
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(raw)
+            return _stable_file_record(destination, logical_path=logical_path, role=role)
     source_record = _stable_file_record(source, logical_path=logical_path, role=role)
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, destination)

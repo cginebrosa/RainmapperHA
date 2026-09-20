@@ -1,0 +1,794 @@
+{
+  "coverage": {
+    "Urus": {
+      "days": 60,
+      "valid_t10": 0,
+      "ssf_raw_counts": {
+        "255.0": 60
+      },
+      "pixel_bbox": [
+        1.8482142857142847,
+        42.3125,
+        1.857142857142856,
+        42.32142857142857
+      ]
+    },
+    "Vallcebre": {
+      "days": 60,
+      "valid_t10": 60,
+      "ssf_raw_counts": {
+        "2.0": 60
+      },
+      "pixel_bbox": [
+        1.803571428571427,
+        42.22321428571429,
+        1.8124999999999984,
+        42.23214285714286
+      ]
+    },
+    "Bellver_1572m": {
+      "days": 60,
+      "valid_t10": 0,
+      "ssf_raw_counts": {
+        "255.0": 60
+      },
+      "pixel_bbox": [
+        1.7857142857142847,
+        42.30357142857143,
+        1.794642857142856,
+        42.3125
+      ]
+    },
+    "Bellver_1825m": {
+      "days": 60,
+      "valid_t10": 0,
+      "ssf_raw_counts": {
+        "255.0": 60
+      },
+      "pixel_bbox": [
+        1.7946428571428559,
+        42.3125,
+        1.8035714285714273,
+        42.32142857142857
+      ]
+    },
+    "Olvan": {
+      "days": 60,
+      "valid_t10": 60,
+      "ssf_raw_counts": {
+        "2.0": 60
+      },
+      "pixel_bbox": [
+        1.9375,
+        42.05357142857143,
+        1.9464285714285714,
+        42.0625
+      ]
+    }
+  },
+  "satellite": {
+    "Vallcebre": [
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=2",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.6871074263780053,
+        "spearman": 0.7016067579059694,
+        "daily_change_r": 0.1474543046879994,
+        "r_external_day_-2": 0.5498412423038943,
+        "r_external_day_-1": 0.6123814243454548,
+        "r_external_day_+1": 0.7070915433447207,
+        "r_external_day_+2": 0.5799400204587877,
+        "r_first30": 0.7372312431118351,
+        "r_last30": 0.47548934427385825
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=2",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.7998392787768064,
+        "spearman": 0.7687454586141231,
+        "daily_change_r": 0.1545904137603874,
+        "r_external_day_-2": 0.786738600542749,
+        "r_external_day_-1": 0.7943553063341817,
+        "r_external_day_+1": 0.7790861450981021,
+        "r_external_day_+2": 0.6716245365180202,
+        "r_first30": 0.9079443063001131,
+        "r_last30": 0.5343692251457924
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=5",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.6185737722769923,
+        "spearman": 0.645432137654279,
+        "daily_change_r": 0.17216068402266976,
+        "r_external_day_-2": 0.4375310966078798,
+        "r_external_day_-1": 0.5272669999579326,
+        "r_external_day_+1": 0.6664731127328201,
+        "r_external_day_+2": 0.6287597977789798,
+        "r_first30": 0.7265192622663412,
+        "r_last30": 0.41650408862454275
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=5",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.884333506874901,
+        "spearman": 0.8730048321242622,
+        "daily_change_r": 0.21682242439935773,
+        "r_external_day_-2": 0.8112966670499703,
+        "r_external_day_-1": 0.8528969611624593,
+        "r_external_day_+1": 0.892738919787893,
+        "r_external_day_+2": 0.8469221355436389,
+        "r_first30": 0.9059460513107112,
+        "r_last30": 0.8161158843023564
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=10",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.4689854015175331,
+        "spearman": 0.5296869850258406,
+        "daily_change_r": 0.2039524254477069,
+        "r_external_day_-2": 0.25704386353000297,
+        "r_external_day_-1": 0.35895855294076395,
+        "r_external_day_+1": 0.5365110815437275,
+        "r_external_day_+2": 0.5404488564362918,
+        "r_first30": 0.6957414112237714,
+        "r_last30": 0.29381664369622285
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=10",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.8346333112294991,
+        "spearman": 0.8366786324915139,
+        "daily_change_r": 0.27645146355589056,
+        "r_external_day_-2": 0.6963393229285575,
+        "r_external_day_-1": 0.7684243867070539,
+        "r_external_day_+1": 0.8763451924083262,
+        "r_external_day_+2": 0.8747977857929861,
+        "r_first30": 0.8576933059271616,
+        "r_last30": 0.8476216551309299
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=15",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.3653920214557087,
+        "spearman": 0.41868156005506274,
+        "daily_change_r": 0.15011951849948932,
+        "r_external_day_-2": 0.14218730666166896,
+        "r_external_day_-1": 0.25173685043604827,
+        "r_external_day_+1": 0.44661251523337764,
+        "r_external_day_+2": 0.46974919891720157,
+        "r_first30": 0.6554881386139607,
+        "r_last30": 0.24792199222718583
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=15",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.7579541861161397,
+        "spearman": 0.7575727873401096,
+        "daily_change_r": 0.22305833783167295,
+        "r_external_day_-2": 0.5880540331701032,
+        "r_external_day_-1": 0.6765406305992459,
+        "r_external_day_+1": 0.8198225816819222,
+        "r_external_day_+2": 0.8412030308286345,
+        "r_first30": 0.8037237566595735,
+        "r_last30": 0.822572751442542
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=20",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.30950342813867115,
+        "spearman": 0.3499754840134399,
+        "daily_change_r": 0.20499733579800875,
+        "r_external_day_-2": 0.0841502289116425,
+        "r_external_day_-1": 0.19396794169862241,
+        "r_external_day_+1": 0.3844285464834776,
+        "r_external_day_+2": 0.41193140074857376,
+        "r_first30": 0.6205886155132094,
+        "r_last30": 0.2546557697218258
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=20",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.7034746084533843,
+        "spearman": 0.7004721917339516,
+        "daily_change_r": 0.2726579013441735,
+        "r_external_day_-2": 0.5200563767424642,
+        "r_external_day_-1": 0.6144371523366363,
+        "r_external_day_+1": 0.7691991380098631,
+        "r_external_day_+2": 0.8013218848595637,
+        "r_first30": 0.7566817260952983,
+        "r_last30": 0.8166951838184019
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=40",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.20252284938552959,
+        "spearman": 0.23224426628084988,
+        "daily_change_r": 0.19000667764511622,
+        "r_external_day_-2": -0.029521847528283032,
+        "r_external_day_-1": 0.08228939881447103,
+        "r_external_day_+1": 0.2820806202552636,
+        "r_external_day_+2": 0.3124565845277556,
+        "r_first30": 0.5272180723366542,
+        "r_last30": 0.22681153537865517
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=40",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.589015928345088,
+        "spearman": 0.5835175109342899,
+        "daily_change_r": 0.23584274904498592,
+        "r_external_day_-2": 0.38183560792993354,
+        "r_external_day_-1": 0.48725316783162764,
+        "r_external_day_+1": 0.6701664046189871,
+        "r_external_day_+2": 0.715781831743391,
+        "r_first30": 0.6267091394791187,
+        "r_last30": 0.7929752228233314
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=60",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.1398979739672371,
+        "spearman": 0.17341615577954628,
+        "daily_change_r": 0.030165679610449518,
+        "r_external_day_-2": -0.09860976846271664,
+        "r_external_day_-1": 0.017307680849191306,
+        "r_external_day_+1": 0.2493117125837649,
+        "r_external_day_+2": 0.2861191216966702,
+        "r_first30": 0.42669250329364816,
+        "r_last30": 0.16280074559958138
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=60",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.5103597020162561,
+        "spearman": 0.5177913367596262,
+        "daily_change_r": 0.08413177956644387,
+        "r_external_day_-2": 0.2861800214413317,
+        "r_external_day_-1": 0.4016147470321556,
+        "r_external_day_+1": 0.6171257052762196,
+        "r_external_day_+2": 0.6786491030387272,
+        "r_first30": 0.5010553840983266,
+        "r_last30": 0.7536748709678083
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=100",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.11723753161015654,
+        "spearman": 0.16517843287645584,
+        "daily_change_r": 0.04047440132794976,
+        "r_external_day_-2": -0.12529195403410848,
+        "r_external_day_-1": -0.008972130868302917,
+        "r_external_day_+1": 0.22839781081952748,
+        "r_external_day_+2": 0.2648451354591914,
+        "r_first30": 0.4108249075573077,
+        "r_last30": 0.2031719507247774
+      },
+      {
+        "point": "Vallcebre",
+        "reference": "SWI T=100",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.47468022485682615,
+        "spearman": 0.4977009985410564,
+        "daily_change_r": 0.05688735602786304,
+        "r_external_day_-2": 0.2556970600216129,
+        "r_external_day_-1": 0.3659849956964708,
+        "r_external_day_+1": 0.5858802698041962,
+        "r_external_day_+2": 0.6418602664954338,
+        "r_first30": 0.4826097394980366,
+        "r_last30": 0.7012565122555972
+      }
+    ],
+    "Olvan": [
+      {
+        "point": "Olvan",
+        "reference": "SWI T=2",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.7481926613223718,
+        "spearman": 0.7994768850389207,
+        "daily_change_r": 0.05030563679604459,
+        "r_external_day_-2": 0.7036814843034507,
+        "r_external_day_-1": 0.7155871759839474,
+        "r_external_day_+1": 0.7676760673790997,
+        "r_external_day_+2": 0.705758092578332,
+        "r_first30": 0.8686778490059874,
+        "r_last30": 0.6297753946502682
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=2",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.8028358141101591,
+        "spearman": 0.8048638443159493,
+        "daily_change_r": 0.06709312882145543,
+        "r_external_day_-2": 0.7485908438553917,
+        "r_external_day_-1": 0.7721406304179195,
+        "r_external_day_+1": 0.8209952532478041,
+        "r_external_day_+2": 0.7671297449460575,
+        "r_first30": 0.8960066026891723,
+        "r_last30": 0.5502095631055473
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=5",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.6774425299304336,
+        "spearman": 0.7581845378853886,
+        "daily_change_r": 0.06467463125120211,
+        "r_external_day_-2": 0.5499465712537339,
+        "r_external_day_-1": 0.6131105732015085,
+        "r_external_day_+1": 0.7303631966369281,
+        "r_external_day_+2": 0.7346838460922832,
+        "r_first30": 0.9054638370899912,
+        "r_last30": 0.5438099121644231
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=5",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.7462384280292642,
+        "spearman": 0.7575185256535526,
+        "daily_change_r": 0.0777581742818081,
+        "r_external_day_-2": 0.6151549500339962,
+        "r_external_day_-1": 0.6831182365218236,
+        "r_external_day_+1": 0.796726185409717,
+        "r_external_day_+2": 0.8039566774023765,
+        "r_first30": 0.8903345197368431,
+        "r_last30": 0.508036416121197
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=10",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.5018659094420137,
+        "spearman": 0.5544382722307963,
+        "daily_change_r": 0.026511481453197712,
+        "r_external_day_-2": 0.3430691614042481,
+        "r_external_day_-1": 0.42286486652322985,
+        "r_external_day_+1": 0.5735332899360756,
+        "r_external_day_+2": 0.6115197153912189,
+        "r_first30": 0.8794040441877822,
+        "r_last30": 0.3461175947712448
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=10",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.5898250844509476,
+        "spearman": 0.5926488900599428,
+        "daily_change_r": 0.029450922750433765,
+        "r_external_day_-2": 0.42899545550832124,
+        "r_external_day_-1": 0.5118166948421523,
+        "r_external_day_+1": 0.6574134119980063,
+        "r_external_day_+2": 0.6956460472811876,
+        "r_first30": 0.8295112079225356,
+        "r_last30": 0.3350407575279751
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=15",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.3974047221550565,
+        "spearman": 0.4439530536992194,
+        "daily_change_r": 0.1342372423344859,
+        "r_external_day_-2": 0.2340808517665455,
+        "r_external_day_-1": 0.3121103012406673,
+        "r_external_day_+1": 0.4683386185270093,
+        "r_external_day_+2": 0.5119363030574995,
+        "r_first30": 0.8504443455506805,
+        "r_last30": 0.34521492459325587
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=15",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.49696477048348653,
+        "spearman": 0.501823912914326,
+        "daily_change_r": 0.1356605517564433,
+        "r_external_day_-2": 0.33140733863728544,
+        "r_external_day_-1": 0.4124921056321762,
+        "r_external_day_+1": 0.5632863930752697,
+        "r_external_day_+2": 0.6058460219120128,
+        "r_first30": 0.7792553946079495,
+        "r_last30": 0.36987845739014225
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=20",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.3296075255648557,
+        "spearman": 0.36970002673283364,
+        "daily_change_r": 0.031031942890929524,
+        "r_external_day_-2": 0.1708480925157979,
+        "r_external_day_-1": 0.24948198115202647,
+        "r_external_day_+1": 0.40409687292835517,
+        "r_external_day_+2": 0.4548651062916217,
+        "r_first30": 0.8064370550960855,
+        "r_last30": 0.3995371919413464
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=20",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.43325364195752114,
+        "spearman": 0.43305060845895327,
+        "daily_change_r": 0.022408197480908165,
+        "r_external_day_-2": 0.2719510115205298,
+        "r_external_day_-1": 0.3535433112964084,
+        "r_external_day_+1": 0.5023955300882755,
+        "r_external_day_+2": 0.5508079859639131,
+        "r_first30": 0.7204824341545872,
+        "r_last30": 0.4587060422940888
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=40",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.2258811729715887,
+        "spearman": 0.2673964104834082,
+        "daily_change_r": 0.00557565932596703,
+        "r_external_day_-2": 0.06732958332801404,
+        "r_external_day_-1": 0.1453401306985287,
+        "r_external_day_+1": 0.3056229502427032,
+        "r_external_day_+2": 0.35890925701808474,
+        "r_first30": 0.6666636055993449,
+        "r_last30": 0.43781034229601734
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=40",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.3321117353032492,
+        "spearman": 0.362295699771284,
+        "daily_change_r": 0.030439747737373138,
+        "r_external_day_-2": 0.16848650431540363,
+        "r_external_day_-1": 0.2498866643146947,
+        "r_external_day_+1": 0.4057545074885621,
+        "r_external_day_+2": 0.4562453444743576,
+        "r_first30": 0.554866483583873,
+        "r_last30": 0.5704963990321928
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=60",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.1641472334014017,
+        "spearman": 0.20974733038056761,
+        "daily_change_r": 0.035758100391935874,
+        "r_external_day_-2": 0.00036026323602674284,
+        "r_external_day_-1": 0.07943432674846476,
+        "r_external_day_+1": 0.2458495806199023,
+        "r_external_day_+2": 0.3085221657471901,
+        "r_first30": 0.5222722723763809,
+        "r_last30": 0.28094965980148645
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=60",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.25968971200766194,
+        "spearman": 0.2962181749993271,
+        "daily_change_r": 0.028915792563318665,
+        "r_external_day_-2": 0.09078868105332139,
+        "r_external_day_-1": 0.17476559000408437,
+        "r_external_day_+1": 0.3354851068793416,
+        "r_external_day_+2": 0.3962148628342525,
+        "r_first30": 0.3888613424335837,
+        "r_last30": 0.4110804786911004
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=100",
+        "model": "smi_legacy_pct",
+        "n": 60,
+        "pearson": 0.16308473817404184,
+        "spearman": 0.20617850171719143,
+        "daily_change_r": -0.10624428413757014,
+        "r_external_day_-2": -0.00019546846187187134,
+        "r_external_day_-1": 0.07591761705904983,
+        "r_external_day_+1": 0.26867532517918374,
+        "r_external_day_+2": 0.3248132396232404,
+        "r_first30": 0.3691767988929737,
+        "r_last30": 0.5123662195454124
+      },
+      {
+        "point": "Olvan",
+        "reference": "SWI T=100",
+        "model": "smi_pct",
+        "n": 60,
+        "pearson": 0.24065563261740963,
+        "spearman": 0.2785683461126916,
+        "daily_change_r": -0.10973808352188515,
+        "r_external_day_-2": 0.07883487439465606,
+        "r_external_day_-1": 0.1560351437066428,
+        "r_external_day_+1": 0.33862108165411575,
+        "r_external_day_+2": 0.3932219383728244,
+        "r_first30": 0.22664589941324698,
+        "r_last30": 0.589061556420573
+      }
+    ]
+  },
+  "stations": {
+    "XMS_Batlliu_de_Sort": {
+      "results": [
+        {
+          "point": "XMS_Batlliu_de_Sort",
+          "reference": "VWC_005",
+          "model": "smi_legacy_pct",
+          "n": 60,
+          "pearson": 0.31162620698038257,
+          "spearman": 0.36406106492551893,
+          "daily_change_r": 0.1388970595688783,
+          "r_external_day_-2": 0.05720781338079286,
+          "r_external_day_-1": 0.17433452299196248,
+          "r_external_day_+1": 0.41363689362835254,
+          "r_external_day_+2": 0.4114698672729653,
+          "r_first30": 0.682960400890561,
+          "r_last30": 0.3312812320796803
+        },
+        {
+          "point": "XMS_Batlliu_de_Sort",
+          "reference": "VWC_005",
+          "model": "smi_pct",
+          "n": 60,
+          "pearson": 0.7962175374219544,
+          "spearman": 0.8279359258360248,
+          "daily_change_r": 0.250232102102211,
+          "r_external_day_-2": 0.6208023130227014,
+          "r_external_day_-1": 0.7065623000371863,
+          "r_external_day_+1": 0.8557969999311599,
+          "r_external_day_+2": 0.8611471379165221,
+          "r_first30": 0.8523634924900527,
+          "r_last30": 0.8996076585348151
+        },
+        {
+          "point": "XMS_Batlliu_de_Sort",
+          "reference": "VWC_020",
+          "model": "smi_legacy_pct",
+          "n": 60,
+          "pearson": 0.4062696160191369,
+          "spearman": 0.4003998690598914,
+          "daily_change_r": 0.21157142722185984,
+          "r_external_day_-2": 0.1158030624659605,
+          "r_external_day_-1": 0.24936953453073002,
+          "r_external_day_+1": 0.49970423960884947,
+          "r_external_day_+2": 0.4344846106859374,
+          "r_first30": 0.7790069296004247,
+          "r_last30": 0.26086826449176953
+        },
+        {
+          "point": "XMS_Batlliu_de_Sort",
+          "reference": "VWC_020",
+          "model": "smi_pct",
+          "n": 60,
+          "pearson": 0.8051914721558874,
+          "spearman": 0.8024118483744482,
+          "daily_change_r": 0.2709714373542157,
+          "r_external_day_-2": 0.6166792312762922,
+          "r_external_day_-1": 0.7108357125139214,
+          "r_external_day_+1": 0.8581744289127897,
+          "r_external_day_+2": 0.8329119394322175,
+          "r_first30": 0.8602520029929571,
+          "r_last30": 0.8570007110535265
+        },
+        {
+          "point": "XMS_Batlliu_de_Sort",
+          "reference": "VWC_050",
+          "model": "smi_legacy_pct",
+          "n": 60,
+          "pearson": 0.023690258007056934,
+          "spearman": 0.13427256755470257,
+          "daily_change_r": -0.0688762799528464,
+          "r_external_day_-2": -0.14185058622173174,
+          "r_external_day_-1": -0.06315792775388585,
+          "r_external_day_+1": 0.10017763907493524,
+          "r_external_day_+2": 0.160172465780534,
+          "r_first30": 0.5608414700437393,
+          "r_last30": 0.19069271845311486
+        },
+        {
+          "point": "XMS_Batlliu_de_Sort",
+          "reference": "VWC_050",
+          "model": "smi_pct",
+          "n": 60,
+          "pearson": 0.5988688317049518,
+          "spearman": 0.685765095154837,
+          "daily_change_r": 0.0695392583218265,
+          "r_external_day_-2": 0.4211078406225216,
+          "r_external_day_-1": 0.5111099769511784,
+          "r_external_day_+1": 0.6676431733660562,
+          "r_external_day_+2": 0.7248385534395888,
+          "r_first30": 0.7981868193624585,
+          "r_last30": 0.8012584952765403
+        }
+      ],
+      "half_hour_counts": {
+        "48": 60
+      },
+      "rain_measured_mm": 161.5,
+      "rain_idw_mm": 91.23207691429913,
+      "coordinates": [
+        42.42852498752392,
+        1.124382019043183
+      ],
+      "soil_capacity_mm": 50.0,
+      "volume_ranges": {
+        "VWC_005": [
+          0.09627083333333335,
+          0.12272916666666667
+        ],
+        "VWC_020": [
+          0.17416666666666666,
+          0.2641875
+        ],
+        "VWC_050": [
+          0.214125,
+          0.24016666666666667
+        ]
+      }
+    },
+    "XMS_Cami_dels_Nerets": {
+      "results": [
+        {
+          "point": "XMS_Cami_dels_Nerets",
+          "reference": "VWC_005",
+          "model": "smi_legacy_pct",
+          "n": 60,
+          "pearson": -0.12446706497387049,
+          "spearman": -0.1667802928403829,
+          "daily_change_r": 0.13171257699100403,
+          "r_external_day_-2": -0.14510165251738283,
+          "r_external_day_-1": -0.10595544499927159,
+          "r_external_day_+1": -0.19893600763216654,
+          "r_external_day_+2": -0.15531415127112402,
+          "r_first30": -0.17171942704244036,
+          "r_last30": -0.19240563070779135
+        },
+        {
+          "point": "XMS_Cami_dels_Nerets",
+          "reference": "VWC_005",
+          "model": "smi_pct",
+          "n": 60,
+          "pearson": -0.2827930525980784,
+          "spearman": -0.20236739011396587,
+          "daily_change_r": -0.11579866143564205,
+          "r_external_day_-2": -0.4413469966224695,
+          "r_external_day_-1": -0.3537164128687582,
+          "r_external_day_+1": -0.20495643866657165,
+          "r_external_day_+2": -0.04514557004866311,
+          "r_first30": -0.5258583782421333,
+          "r_last30": -0.1890240317142634
+        },
+        {
+          "point": "XMS_Cami_dels_Nerets",
+          "reference": "VWC_020",
+          "model": "smi_legacy_pct",
+          "n": 60,
+          "pearson": -0.11115052803903072,
+          "spearman": -0.15862738860317133,
+          "daily_change_r": 0.2212551139262593,
+          "r_external_day_-2": -0.1332444132626463,
+          "r_external_day_-1": -0.09803098390809892,
+          "r_external_day_+1": -0.2460763896178806,
+          "r_external_day_+2": -0.2771536151030076,
+          "r_first30": -0.013769803982580287,
+          "r_last30": -0.19143573820177648
+        },
+        {
+          "point": "XMS_Cami_dels_Nerets",
+          "reference": "VWC_020",
+          "model": "smi_pct",
+          "n": 60,
+          "pearson": -0.6892879171992287,
+          "spearman": -0.7262268704898165,
+          "daily_change_r": 0.03845638451056489,
+          "r_external_day_-2": -0.6992275414467315,
+          "r_external_day_-1": -0.6879655014068439,
+          "r_external_day_+1": -0.7097349784152319,
+          "r_external_day_+2": -0.6069269129157286,
+          "r_first30": -0.8227263917119197,
+          "r_last30": -0.5654662984063057
+        },
+        {
+          "point": "XMS_Cami_dels_Nerets",
+          "reference": "VWC_050",
+          "model": "smi_legacy_pct",
+          "n": 60,
+          "pearson": -0.008635478198848134,
+          "spearman": -0.0011100271575284716,
+          "daily_change_r": 0.08186236297680216,
+          "r_external_day_-2": 0.028257111031237674,
+          "r_external_day_-1": -0.03147634323934452,
+          "r_external_day_+1": -0.03649552908641965,
+          "r_external_day_+2": -0.05283519973210021,
+          "r_first30": 0.24492102570176064,
+          "r_last30": -0.02759181950910177
+        },
+        {
+          "point": "XMS_Cami_dels_Nerets",
+          "reference": "VWC_050",
+          "model": "smi_pct",
+          "n": 60,
+          "pearson": -0.03206455467276784,
+          "spearman": -0.09245807666034563,
+          "daily_change_r": 0.020143123060752416,
+          "r_external_day_-2": 0.07872501167812607,
+          "r_external_day_-1": 0.004726263035361524,
+          "r_external_day_+1": -0.10202814210797416,
+          "r_external_day_+2": -0.14466757793342178,
+          "r_first30": -0.002119741089557356,
+          "r_last30": -0.14073226118493387
+        }
+      ],
+      "half_hour_counts": {
+        "48": 59,
+        "44": 1
+      },
+      "rain_measured_mm": 46.5,
+      "rain_idw_mm": 40.089844158185706,
+      "coordinates": [
+        42.15551398034558,
+        0.925598144527499
+      ],
+      "soil_capacity_mm": 52.3,
+      "volume_ranges": {
+        "VWC_005": [
+          0.079,
+          0.08868749999999997
+        ],
+        "VWC_020": [
+          0.07054166666666667,
+          0.0738125
+        ],
+        "VWC_050": [
+          0.06604166666666667,
+          0.069
+        ]
+      }
+    }
+  }
+}

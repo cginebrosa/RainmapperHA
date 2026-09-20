@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from dataclasses import dataclass
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 import json
@@ -13,6 +14,8 @@ from zoneinfo import ZoneInfo
 from rainmapper_core import mushroom_observation_context as context
 from rainmapper_core import mushroom_weather_idw as idw
 from rainmapper_core.weather_history_dataset import resolve_weather_generation
+from rainmapper_core import mushroom_map_hydrology as hydrology
+from rainmapper_core.mushroom_water_physics import reference_wind
 
 CHANNELS = {
     "rain_mm": "daily_rain_idw_mm",
@@ -28,6 +31,13 @@ MAX_RESULT_BYTES = 32 * 1024
 COLUMNS = ["source", "station_code", "station_name", "local_date", "lat", "lon", "altitude",
            "rain_mm", "min_temp_celsius", "max_temp_celsius", "min_humidity_percent",
            "max_humidity_percent", "wind_avg_kmh", "wind_gust_kmh"]
+
+
+@dataclass(frozen=True)
+class MapWeatherRecord(context.DailyWeatherRecord):
+    # Compatibility name for map readers; wind height is shared with training.
+    wind_source_height_m: float | None = None
+
 
 
 def map_today(calendar_timezone="Europe/Madrid"):
@@ -120,7 +130,8 @@ class PointWeatherReader:
                 raise ValueError("weather_partition_changed")
             checks[path] = signature
             dataset = ds.dataset(path, format="parquet")
-            scanner = dataset.scanner(columns=COLUMNS, filter=(ds.field("station_code").isin(codes) &
+            columns = COLUMNS + (["wind_source_height_m"] if "wind_source_height_m" in dataset.schema.names else [])
+            scanner = dataset.scanner(columns=columns, filter=(ds.field("station_code").isin(codes) &
                 (ds.field("local_date") >= first) & (ds.field("local_date") <= last)),
                 batch_size=1024, batch_readahead=0, fragment_readahead=0, use_threads=False)
             for batch in scanner.to_batches():
@@ -142,11 +153,12 @@ class PointWeatherReader:
                     station = stations[key]
                     if day in station.records_by_day:
                         raise ValueError("duplicate_weather_station_day")
-                    station.records_by_day[day] = context.DailyWeatherRecord(
+                    station.records_by_day[day] = MapWeatherRecord(
                         station.source, station.station_code, row["station_name"] or "", day, station.lat, station.lon,
                         finite(row["rain_mm"]), finite(row["max_temp_celsius"]), finite(row["min_temp_celsius"]),
                         finite(row["max_humidity_percent"]), finite(row["min_humidity_percent"]),
-                        finite(row["wind_avg_kmh"]), finite(row["wind_gust_kmh"]), None)
+                        finite(row["wind_avg_kmh"]), finite(row["wind_gust_kmh"]), None,
+                        finite(row.get("wind_source_height_m")))
         self._check_files(checks)
         return stations, checks, count
 
@@ -207,7 +219,8 @@ class PointWeatherReader:
             "elapsed_ms":round((time.perf_counter()-started)*1000,3)}
         return area,series,stations
 
-    def lookup(self, lat, lon, altitude_m, *, end_day: date, days: int = 60):
+    def lookup(self, lat, lon, altitude_m, *, end_day: date, days: int = 60,
+               water_history=False, water_capacity_mm=None):
         start_time = time.perf_counter()
         if type(days) is not int or days not in (7, 15, 30, 60):
             raise ValueError("invalid_weather_days")
@@ -217,7 +230,9 @@ class PointWeatherReader:
         altitude_m = finite(altitude_m)
         self._refresh()
         self._check_files({self._catalog_path:self._catalog_stat})
-        key = (lat,lon,altitude_m,end_day,days)
+        if type(water_history) is not bool or (water_capacity_mm is not None and not hydrology.valid_capacity(water_capacity_mm)):
+            raise ValueError('invalid_water_history')
+        key = (lat,lon,altitude_m,end_day,days,water_history,water_capacity_mm)
         if key in self._cache:
             result,checks = self._cache[key]
             self._check_files(checks)
@@ -225,9 +240,19 @@ class PointWeatherReader:
             self.last_metrics = {"cache_hit":True,"elapsed_ms":round((time.perf_counter()-start_time)*1000,3)}
             return deepcopy(result)
         nearby = self._nearby(lat,lon)
-        stations,checks,row_count = self._load(nearby,end_day-timedelta(days=days),end_day)
+        lookback = hydrology.MAX_HISTORY_DAYS if water_history and water_capacity_mm is not None else days
+        stations,checks,row_count = self._load(nearby,end_day-timedelta(days=lookback),end_day,max_days=lookback+1)
         interpolated = idw.build_daily_weather_idw_series(stations, target_lat=lat,target_lon=lon,
-            target_altitude_m=altitude_m,end_day=end_day,days=days,excluded_station_keys=self.disabled)
+            target_altitude_m=altitude_m,end_day=end_day,days=lookback,excluded_station_keys=self.disabled)
+        water = None
+        if water_history:
+            eligible = {k:s for k,s in stations.items() if k not in self.disabled}
+            wind, wind_sources = reference_wind(eligible, lat, lon, interpolated['daily_dates'],altitude_m)
+            water = hydrology.build_history(interpolated,lat,days,water_capacity_mm,
+                                            altitude_m=altitude_m,wind_u2_m_s=wind)
+            water['wind_stations'] = wind_sources
+        # Keep only the requested chart window in the public response/cache.
+        interpolated = {key: value[-days:] if isinstance(value,list) else value for key,value in interpolated.items()}
         series = {key: interpolated[field] for key,field in CHANNELS.items()}
         usable = sum(value is not None for values in series.values() for value in values)
         result = {"status":"available" if usable == 5*days else "partial" if usable else "no_data",
@@ -238,6 +263,8 @@ class PointWeatherReader:
             "generation_id":self.generation.generation_id,"radius_km":idw.RAINFALL_IDW_RADIUS_KM,
             "rainfall_contract_id":idw.RAINFALL_IDW_CONTRACT_ID,"weather_contract_id":idw.WEATHER_IDW_CONTRACT_ID,
             "sources":sorted({key[0] for key in stations}),"nearby_stations":len(nearby)}
+        if water is not None:
+            result['water_balance'] = water
         dates = [date.fromisoformat(day) for day in result["dates"]]
         for station in sorted(stations.values(),key=lambda s:(context.haversine_km(lat,lon,s.lat,s.lon),s.source,s.station_code)):
             distance = context.haversine_km(lat,lon,station.lat,station.lon)
@@ -258,5 +285,6 @@ class PointWeatherReader:
         if len(self._cache)>4:
             self._cache.popitem(last=False)
         self.last_metrics = {"cache_hit":False,"station_count":len(nearby),"rows_loaded":row_count,
+            "lookback_days":lookback,
             "result_bytes":len(raw),"elapsed_ms":round((time.perf_counter()-start_time)*1000,3)}
         return deepcopy(result)

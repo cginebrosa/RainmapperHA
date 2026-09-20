@@ -400,6 +400,11 @@ que un cambio de dominio hace fallar la comparacion.
 
 ### 5.3 Integracion en una imagen HA local aislada (2026-07-19)
 
+Nota de mantenimiento (19/09/2026): se retiraron el Compose y las opciones de
+este entorno de pruebas antiguo por autorización del usuario. No existían ya
+su contenedor ni su imagen etiquetada. Lo que sigue documenta la prueba histórica,
+no un entorno disponible actualmente. HA local y el worker operativo se conservan.
+
 `web_server.py` puede despachar ahora al modulo comun cuando
 `RAINMAPPER_MUSHROOM_REBUILD_PIPELINE=shared`. El valor por defecto es
 `legacy`: no existe fallback automatico despues de un fallo parcial, porque

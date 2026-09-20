@@ -56,7 +56,7 @@ asignación por defecto.
 Se examinaron hasta tres registros por combinación especie/dataset: 9 de
 Observation.org, 9 de iNaturalist, 8 de SIM y el único FungaCAT reciente, 27 en total.
 Muestra por conveniencia, no aleatoria; no representa estadísticamente los 482.
-Evidencia seleccionada y URLs: [gbif-sample-2026-09-16.json](gbif-sample-2026-09-16.json).
+Evidencia seleccionada y URLs: [gbif-sample-2026-09-16.json](../data/gbif-sample-2026-09-16.json).
 
 - Los nueve de Observation.org traen `individualCount=1`; los otros 18 no informan
   ese campo en la respuesta de búsqueda. Ninguno de los 27 trae `organismQuantity`
@@ -108,7 +108,7 @@ este criterio para diseñar el piloto; todavía no se ha aplicado a datos operat
 | Ausente | Desconocida; pendiente de revisión, fuera del entrenamiento inicial | 306 |
 
 Recuentos de la consulta del 16/09/2026 conservada en
-[la evidencia inicial](gbif-counts-2026-09-16.json), para Catalunya desde 19/06/2012.
+[la evidencia inicial](../data/gbif-counts-2026-09-16.json), para Catalunya desde 19/06/2012.
 No trasladar estos números al histórico ampliado sin consultar ese conjunto.
 Valores inválidos o contradictorios, si aparecen al descargar, quedan en revisión.
 

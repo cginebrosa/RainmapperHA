@@ -1,0 +1,68 @@
+{
+  "date": "2026-09-19",
+  "canonical_root": "docker-media/rainmapper/geography",
+  "validation": "SHA-256 of both copies immediately before selective unlink; no symlinks followed",
+  "disk_free_before": 101420826624,
+  "roots": [
+    {
+      "root": "mushroom-GIS",
+      "removed_files": 1422,
+      "logical_bytes_removed": 6818850765,
+      "reported_allocated_bytes_removed": 6821736448,
+      "preserved_duplicate_metadata_files": 10,
+      "surviving_files": 111,
+      "different_or_changed_skipped": [],
+      "removed_bytes_by_directory": {
+        "dem-france-rge-alti-5m": 83072534,
+        "MVC50mil": 885393110,
+        "dem-ign-mtn50-592": 3736503,
+        "soilgrids": 394292523,
+        "model-elevacions-terreny-topografic-catalunya-5m-2009-2018": 5127260482,
+        "geologia-territorial-50000-geologic-v3r0-202412": 293679104,
+        "dem-andorra": 31416509
+      }
+    },
+    {
+      "root": "mushroom-map-GIS",
+      "removed_files": 2079,
+      "logical_bytes_removed": 8801880146,
+      "reported_allocated_bytes_removed": 8806309888,
+      "preserved_duplicate_metadata_files": 70,
+      "surviving_files": 5777,
+      "different_or_changed_skipped": [],
+      "removed_bytes_by_directory": {
+        "terrain-index": 2162688,
+        "ign-municipios": 78630912,
+        "soilgrids-shared": 401229517,
+        "ign-mdt25": 4588247091,
+        "openlandmap-ph": 376526984,
+        "mfe25": 1638277322,
+        "icgc-cobertes-2024": 1716805632
+      }
+    }
+  ],
+  "disk_free_after": 101919395840,
+  "observed_net_free_increase": 498569216,
+  "limitations": "Free-space delta is an observation with other services running; st_blocks does not prove exclusive ownership of APFS blocks.",
+  "post_cleanup_check": {
+    "container": "rainmapper-local-rainmapper-ha-ui-1",
+    "geography_root": "/media/rainmapper/geography",
+    "terrain_ready": true,
+    "geography_ready": true,
+    "point": {
+      "lat": 42.07612,
+      "lon": 1.75017,
+      "start_date": "2026-09-19",
+      "horizon_days": 7
+    },
+    "available": [
+      "location",
+      "terrain",
+      "trees",
+      "vegetation",
+      "geology",
+      "ecology"
+    ],
+    "services_restarted": false
+  }
+}

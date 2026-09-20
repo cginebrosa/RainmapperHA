@@ -29,7 +29,7 @@ para estas especies. **No se ha contado ni sincronizado el fichero de HA real.**
 ## Cómo se han contado
 
 Evidencia con respuestas agregadas, parámetros y URLs exactas:
-[gbif-counts-2026-09-16.json](gbif-counts-2026-09-16.json).
+[gbif-counts-2026-09-16.json](../data/gbif-counts-2026-09-16.json).
 Todas las búsquedas de ocurrencias llevan `limit=0`; `results` está vacío.
 
 - Región verificada: [GADM ESP.6_1 = Cataluña](https://api.gbif.org/v1/geocode/gadm/ESP.6_1).

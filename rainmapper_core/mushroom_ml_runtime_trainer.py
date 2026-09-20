@@ -30,6 +30,8 @@ from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core.mushroom_ml_sparse_group import SparseGroupLogisticClassifier
 
 
+from .mushroom_water_physics import WATER_STATE_CONTRACT_ID, validate_water_contract, uses_water_features
+
 ARTIFACT_SCHEMA_VERSION = "1.0"
 ARTIFACT_KIND = "mushroom_ml_runtime_model"
 
@@ -426,6 +428,7 @@ def fit_artifact(
     if tuple(prepared_inputs.get("scope") or ()) != scope:
         raise ValueError("Prepared runtime matrix does not match the artifact scope")
     columns = list(prepared_inputs["columns"])
+    validate_water_contract(benchmark, columns)
     samples = list(prepared_inputs["samples"])
     X = prepared_inputs["X"]
     y = prepared_inputs["y"]
@@ -470,6 +473,7 @@ def fit_artifact(
         "artifact_ref": artifact_ref.as_dict(),
         "snapshot_id": snapshot_id,
         "feature_cols": columns,
+        **({"water_state_contract_id": WATER_STATE_CONTRACT_ID} if uses_water_features(columns) else {}),
         "training_row_count": len(samples),
         "training_species_ids": list(prepared_inputs["training_species_ids"]),
         "feature_support": feature_support,
@@ -483,6 +487,7 @@ def _prepare_fit_inputs(
 ) -> dict[str, Any]:
     """Build one reusable in-memory matrix per profile/contract/species scope."""
     columns = _columns(artifact_ref, benchmark)
+    validate_water_contract(benchmark, columns)
     if not columns:
         raise ValueError(f"Benchmark has no runtime columns: {artifact_ref.key}")
     samples = [dict(row) for row in mushroom_ml_holdout.eligible_samples(dict(benchmark))]

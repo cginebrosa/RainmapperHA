@@ -50,7 +50,7 @@ def main():
             assert (detail['geography']['latitude'], detail['geography']['longitude']) == (
                 row['decimalLatitude'], row['decimalLongitude']), 'Geography coordinates changed'
         compact.append(detail)
-    source_path = Path('rainmapper_core/viewers/maplibre-viewer/app.js')
+    source_path = Path(__file__).resolve().parents[3] / 'rainmapper_core/viewers/maplibre-viewer/app.js'
     source = source_path.read_text()
     styles = source.split('const baseStyles = ', 1)[1].split('\nlet currentStyle', 1)[0].strip()
     assert styles.startswith('[') and styles.endswith(';')
