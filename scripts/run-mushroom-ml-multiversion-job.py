@@ -722,4 +722,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except mushroom_ml_runtime_trainer.BatchFitError as exc:
+        # The worker persists a bounded stderr excerpt. Put the actual failure
+        # first rather than filling that excerpt with a generic traceback.
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1)

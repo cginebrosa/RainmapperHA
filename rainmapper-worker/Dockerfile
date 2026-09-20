@@ -60,6 +60,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_geography_store.py \
      rainmapper_core/mushroom_geography_import.py \
      rainmapper_core/mushroom_gis_lab.py \
+     rainmapper_core/mushroom_gis_recovery.py \
      rainmapper_core/mushroom_gis_inventory.py \
      rainmapper_core/mushroom_known_sites.py \
      rainmapper_core/mushroom_learned_model.py \
@@ -141,6 +142,7 @@ COPY scripts/manage-mushroom-worker-datasets.py /app/scripts/manage-mushroom-wor
 COPY scripts/manage-mushroom-worker-config.py /app/scripts/manage-mushroom-worker-config.py
 COPY scripts/run-mushroom-worker-service.py /app/scripts/run-mushroom-worker-service.py
 COPY scripts/prediction-map-local-geography.py scripts/prediction-map-local-weather.py scripts/prediction-map-local-model.py /app/scripts/
+COPY scripts/recover-mushroom-forest.py /app/scripts/
 COPY scripts/manage-prediction-map-volume.py scripts/manage-shared-geography.py /app/scripts/
 COPY rainmapper-worker/entrypoint.sh /usr/local/bin/rainmapper-worker
 

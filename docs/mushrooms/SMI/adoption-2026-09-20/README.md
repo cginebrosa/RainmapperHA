@@ -145,12 +145,13 @@ con `ok: true`; `git diff --check`, sin incidencias. Comandos reproducibles en
 Hargreaves no forman parte del circuito operativo; sus informes históricos no
 se regeneraron ni se reinterpretaron como resultados de este contrato.
 
-**Implementado y comprobado en el checkout local. No desplegado.** No se ha
-reconstruido ninguna imagen, tocado el worker activo ni HA real, ni lanzado un
-entrenamiento/precálculo operativo. Se añadió el módulo al empaquetado del worker
-para la próxima construcción. Estos tests no sustituyen el circuito de paridad
-HA+worker obligatorio antes de publicar: reconstrucción desde el mismo worktree,
-entrenamiento y promoción de artefactos, precálculo y activación, y aceptación del
-usuario según `AGENTS.md`. Mantener el destino persistido del worker.
+**Publicado en HA 0.2.315; instalación confirmada por el usuario al cierre del
+20/09.** Los resultados anteriores describen las pruebas iniciales del checkout.
+Después se reconstruyeron HA local y worker desde el mismo código, conservando
+coordinadores; reconstrucción/base promovidos, 714 ajustes correctos y precálculo
+recibido/activado revisión 69. Smoke final 1690 pruebas/48 omitidas y paridad
+efectiva 211/114 archivos. [Circuito, hashes y publicación](validation.md).
+Los nuevos trabajos y artefactos de HA real aún no se han verificado: la
+confirmación de instalación no acredita reconstrucción, entrenamiento o precálculo.
 
 Ver también [la revisión pública de Mycora](mycora.md).

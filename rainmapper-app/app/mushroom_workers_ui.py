@@ -1001,6 +1001,7 @@ def render_page(
       .worker-local-note{{margin:0;padding-top:5px;border-top:1px solid var(--line);color:var(--muted);font-size:10px}}
       .worker-empty-card{{align-items:center;justify-content:center;min-height:120px;color:var(--muted);text-align:center}}
       .workers-panel{{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:10px 11px;margin:7px 0;box-shadow:0 6px 16px rgba(0,0,0,.06)}}.workers-panel h2{{margin:0;font-size:16px}}
+      .worker-action-panel>summary{{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none}}.worker-action-panel>summary::-webkit-details-marker{{display:none}}.worker-action-panel>summary::before{{content:'▶';flex:none;font-size:11px;color:var(--muted)}}.worker-action-panel[open]>summary::before{{content:'▼'}}.worker-action-panel[open]>summary{{margin-bottom:8px}}.worker-action-panel>summary:focus-visible{{outline:2px solid var(--accent);outline-offset:4px;border-radius:3px}}.worker-action-title{{flex:1;min-width:0;font-size:16px;font-weight:700}}.worker-action-panel>summary .worker-metrics{{flex-shrink:0}}
       .worker-default-issue{{margin:10px 0 0}}
       .worker-panel-head{{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:5px}}
       .worker-metrics{{display:flex;gap:5px;flex-wrap:wrap;margin:0}}.worker-metrics span{{padding:2px 6px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:10px;color:var(--muted)}}.worker-metrics strong{{color:var(--fg)}}
@@ -1075,8 +1076,8 @@ def render_page(
       </article>
       <div id="worker-status-cards" class="worker-status-cards" data-refresh-signature="{worker_cards_signature}">{worker_cards}</div>
     </div>
-    <section id="new-worker-rebuild" class="workers-panel">
-      <div class="worker-panel-head"><h2>{_text(_label('ui.worker_new_rebuild'))}</h2><div class="worker-metrics"><span>{_text(_label('ui.worker_eligible_observations'))}: <strong>{eligible_observation_count}</strong></span></div></div>
+    <details id="new-worker-rebuild" class="workers-panel worker-action-panel">
+      <summary><span class="worker-action-title">{_text(_label('ui.worker_new_rebuild'))}</span><span class="worker-metrics"><span>{_text(_label('ui.worker_eligible_observations'))}: <strong>{eligible_observation_count}</strong></span></span></summary>
       <form class="worker-rebuild-form" method="post" action="">
         <input type="hidden" name="worker_action" value="start_rebuild">
         <input type="hidden" name="scope" value="all">
@@ -1090,14 +1091,14 @@ def render_page(
         <div class="worker-form-section"><div class="worker-form-heading"><strong>3 · {_text(_label('ui.worker_operational_versions'))}</strong><small>{_text(_label('ui.worker_operational_versions_help'))}</small></div><div class="operational-version-grid">{operational_version_controls}</div></div>
         <div class="worker-submit-row"><button class="primary" type="submit"{" disabled" if not selected_executor else ""}>{_text(_label('ui.start_rebuild'))}</button></div>
       </form>
-    </section>
+    </details>
     <section class="workers-panel precompute-panel">
       <div class="worker-panel-head"><h2>{_text(_label('ui.worker_precompute_title'))}</h2></div>
       <p class="meta">{_text(_label('ui.worker_precompute_help_local') if precompute_summary.get('local_executor') else _label('ui.worker_precompute_help'))}</p>
       <div id="worker-precompute-state" class="precompute-state" data-refresh-signature="{precompute_state_signature}">{precompute_state}</div>
     </section>
-    <section class="workers-panel">
-      <div class="worker-panel-head"><h2>{_text(_label('ui.worker_scientific_benchmark'))}</h2></div>
+    <details id="new-worker-benchmark" class="workers-panel worker-action-panel">
+      <summary><span class="worker-action-title">{_text(_label('ui.worker_scientific_benchmark'))}</span></summary>
       <p class="meta">{_text(_label('ui.worker_scientific_benchmark_help'))}</p>
       <form class="benchmark-form" method="post" action="">
         <input type="hidden" name="worker_action" value="run_ml_benchmark">
@@ -1113,7 +1114,7 @@ def render_page(
       </form>
       <h3>{_text(_label('ui.worker_benchmark_history'))}</h3>
       {benchmark_history_html}
-    </section>
+    </details>
     <section class="workers-panel"><h2>{_text(_label('ui.worker_recent_jobs'))}</h2><div id="worker-recent-jobs" data-refresh-signature="{recent_jobs_signature}">{recent_jobs}</div></section>
     <dialog id="worker-discard-candidate-dialog" class="worker-discard-dialog">
       <form method="post" action="">

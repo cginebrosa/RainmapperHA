@@ -95,6 +95,40 @@ imagen; configuración explícita y manifiestos determinan lo activo. La integra
 GEODE/MFE nacional y la agregación SoilGrids para áreas siguen siendo trabajo
 separado de la lectura puntual. No deducir cobertura completa del mapa visible.
 
+## Estado hídrico compartido y metadatos de modelos (0.2.315)
+
+`rainmapper_core/mushroom_water_physics.py` es el núcleo de ET₀ y extracción
+regulada en una capa 0–30 cm, contrato `regulated_pm_single_layer_v1`.
+`mushroom_map_water_physics.py` reexporta por compatibilidad, no duplica ecuaciones.
+`mushroom_soil_water_state.py` integra capacidad SoilGrids, calentamiento y
+variables; `mushroom_ml_weather_workspace.py` y `mushroom_ml_area_weather_runtime.py`
+lo usan en entrenamiento e inferencia/precálculo. `mushroom_map_hydrology.py`
+adapta al punto y añade la comparación visual con el depósito simple anterior.
+HA y worker empaquetan el mismo núcleo. No hay dependencia de Copernicus/ICGC
+para calcular; sus datos sólo forman parte de auditorías.
+
+Se simula por microárea antes de agregar al área. Hasta 365 días de historia,
+con al menos 90 días completos y convergencia inicial; recortar una gráfica no
+reinicia el depósito. El balance climático P−ET₀ se mantiene separado de ΔS.
+Cambiar contrato exige reconstruir/reentrenar datos y pesos físicos. Precálculo
+1.7 y publicación runtime 1.3 invalidan semánticas antiguas; migrar revisión de
+una solicitud o hiperparámetros no equivale a aceptar resultados antiguos.
+[Fórmulas, entradas, límites y consumidores](mushrooms/SMI/adoption-2026-09-20/README.md).
+
+`mushroom_model_labels.py` comparte nombres y descriptores entre capas de
+presentación. Un observador opcional de `compare_prepared` obtiene las columnas
+del artefacto ya cargado; `PointModelRuntime` asocia el descriptor al ganador
+diario real. El protocolo del mapa deduplica `model_labels`/`model_details` y
+referencia índices por fecha. UI ES/CA/EN presenta SMI y balance directo por
+separado, sin recalcular modelos ni transportar columnas completas.
+
+`mushroom_ml_policy_store.py` separa reglas en `mushroom_ml_prediction_policy.json`
+y deja referencia en el registro de generaciones. `load_registry` resuelve
+reglas vivas; snapshots/runtime transportan política efectiva sellada. Cambiar
+reglas invalida caché/publicación; promoción no las sobrescribe. Exportación e
+importación desde Workers sólo contienen reglas y requieren validar revisión.
+[Contrato y migración](mushrooms/model-suspensions-es.md).
+
 ## Rutas de media y compatibilidad
 
 `rainmapper_core/media_layout.py:organized` valida `.media-layout-v1.json` y

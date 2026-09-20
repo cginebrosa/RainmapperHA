@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.316
+
+- Collapse operational rebuild/training and scientific benchmark controls by default in Workers and jobs, keeping recent jobs easier to reach.
+- Report the failed model fits before validating an incomplete tuning catalog, preserving bounded diagnostic details in worker errors.
+
+- Recover MFE25 hosts from forest polygons intersecting each micro-area, with bounded geometry queries and explicit coverage states.
+- Default micro-area GIS/DEM decisions to Replace when values differ, and keep decision labels fully visible on desktop and mobile.
+- Review observation GIS/DEM recovery in a separate modal with Keep, Merge and Replace choices; default to Replace for different values and focus Apply to draft.
+- Highlight accepted GIS hosts and soils separately from field evidence, preserve their provenance when saving and rebuilding, and invalidate recovered values when coordinates change.
+- Inspect GIS/DEM data for clicked observation-map points beside the photo without modifying the observation.
+- Fix recovery-dialog contrast and prevent status messages from overlapping observation actions.
+
 ## 0.2.315
 
 - Show the selected model beside each point-map IFF, following the selected day and preserving unavailable/uncalculated states. Explain its actual SMI, water-balance and weather inputs in separate touch/keyboard tooltips in Spanish, Catalan and English.

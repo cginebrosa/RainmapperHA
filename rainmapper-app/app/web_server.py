@@ -18511,6 +18511,15 @@ def observation_payload_from_form(
     existing_media = existing.get("media")
     if isinstance(existing_media, list):
         observation["media"] = [item for item in existing_media if isinstance(item, dict)]
+    from rainmapper_core.mushroom_gis_recovery import valid_recovery
+    raw_recovery = catalog_form_string(form, "gis_recovery_json")
+    if len(raw_recovery.encode()) > 60000:
+        raise ValueError("gis_recovery_result_limit")
+    prior_context = existing.get("site_context") or {}
+    candidate = json.loads(raw_recovery) if raw_recovery else prior_context.get("gis_recovery")
+    recovery = valid_recovery(candidate, observation["location"])
+    if recovery:
+        observation["site_context"]["gis_recovery"] = recovery
     return mushroom_observations.finalize_observation_payload(observation)
 
 
@@ -22466,6 +22475,29 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.serve_mushroom_observation_detail(parse_qs(parsed.query))
             return
 
+        if path == "/api/mushrooms/observation-gis-preview":
+            # Same backend listener protection as observation-exif-preview.
+            # Read-only draft coordinates; never persists or queues a job.
+            try:
+                from rainmapper_core.mushroom_gis_recovery import observation_preview
+                _, lat, lon, _ = parse_observation_coordinates(parse_qs(parsed.query))
+                store = default_store()
+                catalogs_payload = store.load("catalogs")
+                report = observation_preview(lat, lon, store.load("gis"), catalogs_payload)
+                from rainmapper_core.mushroom_gis_recovery import FIELDS
+                catalogs = catalogs_payload.get("catalogs", {})
+                labels = {}
+                for key, group in FIELDS.items():
+                    names = (mushroom_profiles_ui.host_observation_label_map(catalogs) if key == "host_ids"
+                             else mushroom_profiles_ui.catalog_label_map(catalogs, group))
+                    labels[key] = {item: names.get(item, item) for item in report["values"].get(key, [])}
+                self.send_json(200, {"ok": True, "report": report, "labels": labels})
+            except (ValueError, TypeError) as exc:
+                self.send_json(422, {"ok": False, "error": str(exc)})
+            except Exception:
+                self.send_json(503, {"ok": False, "error": "GIS / DEM no disponible."})
+            return
+
         if path == "/api/mushrooms/profile-detail":
             self.serve_mushroom_profile_detail(parse_qs(parsed.query))
             return
@@ -23603,6 +23635,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 preview_id = self.form_value(form, "known_site_id")
                 report = json.loads(self.form_value(form, "gis_report_json"))
                 selected_fields = set(catalog_form_list(form, "gis_apply_field"))
+                from rainmapper_core.mushroom_gis_recovery import merge_value
+                modes = {key.removeprefix("gis_mode_"): self.form_value(form, key)
+                         for key in form if key.startswith("gis_mode_")}
+                for field, mode in modes.items():
+                    allowed = {"keep", "replace", "merge"} if field.endswith("_ids") else {"keep", "replace"}
+                    if mode not in allowed:
+                        raise ValueError("Invalid GIS recovery decision.")
+                report["review_decisions"] = modes
+                selected_fields.update(key for key, mode in modes.items() if mode != "keep")
                 rows = areas if preview_kind == "area" else micro_areas
                 id_key = "area_id" if preview_kind == "area" else "micro_area_id"
                 row = next((item for item in rows if isinstance(item, dict) and str(item.get(id_key, "")) == preview_id), None)
@@ -23626,13 +23667,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     if {"altitude_min_m", "altitude_max_m"} & selected_fields:
                         altitude["source"] = "dem_5m_polygon"
                     if "aspect_ids" in selected_fields:
-                        topography["aspect_ids"] = report.get("dominant_aspect_ids", [])
+                        topography["aspect_ids"] = merge_value(topography.get("aspect_ids", []), report.get("dominant_aspect_ids", []), modes.get("aspect_ids", "replace"))
                     if "slope_notes" in selected_fields:
                         topography["slope_notes"] = f"DEM: media {report.get('slope_mean_deg', '-')}°, rango {report.get('slope_min_deg', '-')}°-{report.get('slope_max_deg', '-')}°"
                     gis = report.get("gis") if isinstance(report.get("gis"), dict) else {}
                     for field in ("host_ids", "forest_type_ids", "soil_tendency_ids", "habitat_feature_ids"):
                         if field in selected_fields:
-                            ecology[field] = gis.get(field, [])
+                            ecology[field] = merge_value(ecology.get(field, []), gis.get(field, []), modes.get(field, "replace"))
                     row.update({"altitude": altitude, "topography": topography, "ecology": ecology})
                 set_mushroom_known_sites_gis_preview({"kind": preview_kind, "id": preview_id, "report": report, "draft": row})
                 return mushroom_known_sites_ui.query_url(preview_kind, preview_id, return_to=return_to)

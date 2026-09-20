@@ -1214,6 +1214,19 @@ def validate_observations(
             )
 
         site_context = observation.get("site_context")
+        if isinstance(site_context, dict) and site_context.get("gis_recovery"):
+            from rainmapper_core.mushroom_gis_recovery import FIELDS, valid_recovery
+            recovery_location = f"{location}.site_context.gis_recovery"
+            try:
+                recovered = valid_recovery(site_context["gis_recovery"], observation.get("location", {}))
+                if not recovered:
+                    messages.append(error(recovery_location, "GIS recovery does not match the observation coordinates or version"))
+                for field, ids in recovered.get("values", {}).items():
+                    for recovered_id in ids:
+                        validate_id(recovered_id, FIELDS[field], ids_by_catalog,
+                                    recovery_location + ".values." + field, messages, used_ids)
+            except (ValueError, TypeError) as exc:
+                messages.append(error(recovery_location, str(exc)))
         if isinstance(site_context, dict) and "observed_host_ids" in site_context:
             observed_host_ids = site_context.get("observed_host_ids")
             if not isinstance(observed_host_ids, list):

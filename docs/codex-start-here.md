@@ -17,7 +17,8 @@ El estado operativo está exclusivamente en [active-context.md](active-context.m
    su estado actual. Los informes anteriores acreditan la revisión indicada,
    no el estado de otra imagen o de HA real después de una subida manual.
 4. Consultar anexos técnicos únicamente cuando lo requiera la tarea elegida.
-   Un pendiente no autoriza ejecutarlo: la revisión GIS quedó aplazada por el usuario.
+   Un pendiente no autoriza ejecutarlo; consultar el estado y alcance vigente
+   de GIS y releases en `active-context.md`.
 
 ## Qué es el proyecto
 
@@ -46,6 +47,13 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   `docs/mushrooms/mushroom-prediction-map-soilgrids-coverage-es.md`
 - SoilGrids, alcance nacional y migración controlada:
   `docs/mushrooms/mushroom-prediction-map-soilgrids-plan-es.md`
+- Estado hídrico compartido, decisión aceptada, consumidores y migración:
+  `docs/mushrooms/SMI/adoption-2026-09-20/README.md`.
+  Extracción regulada + Penman–Monteith + una capa; historial independiente de
+  ventanas. Simple sólo visual. Auditorías en `docs/mushrooms/SMI/README.md`;
+  no convertir fuentes externas de contraste en dependencias operativas.
+- Suspensiones en JSON independiente y transferencia entre instalaciones:
+  `docs/mushrooms/model-suspensions-es.md`.
 
 - Mapa de predicción, pasos completados y pendientes:
   `docs/mushrooms/mushroom-prediction-map-progress-es.md`
@@ -191,6 +199,10 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   capacidades y contratos, no números iguales.
 - No borrar `docker-data/`, `tmp/`, `mushroom-GIS/`, backups, históricos,
   artefactos o imágenes sin autorización explícita.
+- El usuario se reserva el lanzamiento del precálculo. No deducir permiso para
+  lanzarlo de una solicitud de release, diagnóstico o cierre. No crear otro
+  worker, volumen o imagen auxiliar para pruebas; utilizar servicios existentes
+  sólo dentro del alcance autorizado, sin modificar sus coordinadores.
 - Codex no debe usar Tailscale ni abrir SMB mediante Tailscale. Esta restricción
   no autoriza a retirar la URL Tailscale persistida que el worker real necesita
   cuando opera fuera de la red local.
@@ -222,6 +234,11 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - Media de observaciones:
   `/share/rainmapper/mushroom-data/media/observation-photos/`.
 - Resolver canónico: `rainmapper_core/mushroom_paths.py`.
+- Geografía local canónica organizada: `docker-media/rainmapper/geography/`.
+  Las carpetas GIS raíz conservan descargas/pruebas/fuentes aún no integradas;
+  no asumir duplicación por nombre. Ver manifiestos y consumidores antes de mover.
+- Visores locales: `local-apps/{wunderground,gbif}/code/`; sus datos/fotos/revisiones
+  en `data/`, fuera de Git e imágenes. No volver a alojarlos en docs o tmp.
 - `tmp/mushroom-lab/` es laboratorio, no fuente operativa.
 
 ## Validación habitual

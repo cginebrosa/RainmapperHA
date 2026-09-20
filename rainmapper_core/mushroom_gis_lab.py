@@ -1127,6 +1127,12 @@ def derive_site_gis_dem(
         "review_suggested_ids": {key: sorted(value) for key, value in suggested_ids.items()},
         **{key: sorted(value | suggested_ids[key]) for key, value in mapped_ids.items()},
     }
+    from .mushroom_gis_recovery import forest_lookup
+    forest = forest_lookup(geometry=geometry)
+    report["gis"]["mfe25"] = forest
+    forest_hosts = forest.get("host_ids", [])
+    report["gis"]["host_ids"] = sorted(set(report["gis"]["host_ids"]) | set(forest_hosts))
+    report["gis"]["accepted_exact_ids"]["host_ids"] = sorted(mapped_ids["host_ids"] | set(forest_hosts))
     return report
 
 
@@ -1148,6 +1154,7 @@ def reconstruct_observation(
     catalogs_payload: dict[str, Any] | None = None,
     gis_root_path: Path | None = None,
 ) -> dict[str, Any]:
+    from .mushroom_gis_recovery import reviewed_context
     observation_id = str(row.get("observation_id", "") or "")
     location = observation_location(row)
     base: dict[str, Any] = {
@@ -1177,6 +1184,7 @@ def reconstruct_observation(
         base["status"] = "error"
         base["gaps"].append("coordinate_transform_error")
         base["error"] = str(exc)
+        base["gis_context_v0"] = reviewed_context(build_gis_context_v0(base), row)
         return base
     for layer in vector_layers(gis_root_path):
         layer_result = first_vector_feature(layer, x, y)
@@ -1195,7 +1203,9 @@ def reconstruct_observation(
     ]
     base["gaps"] = gaps
     base["status"] = "complete_with_gaps" if gaps else "complete"
-    base["gis_context_v0"] = build_gis_context_v0(base)
+    # Explicitly recovered data travels with the frozen observation inputs.
+    # Never query an unsnapshotted map publication during a worker rebuild.
+    base["gis_context_v0"] = reviewed_context(build_gis_context_v0(base), row)
     return base
 
 

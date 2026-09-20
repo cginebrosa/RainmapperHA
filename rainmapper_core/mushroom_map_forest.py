@@ -18,6 +18,7 @@ import threading
 
 MAX_GEOMETRY = 2 * 1024 * 1024
 MAX_CANDIDATES = 64
+MAX_QUERY_VERTICES = 2048
 
 
 def stamp(path):
@@ -322,6 +323,103 @@ class ForestReader:
         if len(matches)>1:
             return {'status':'ambiguous'}
         return matches[0] if matches else {'status':'not_covered'}
+
+    def lookup_polygon(self, geometry):
+        """Union recorded taxa over positive-area intersections, never sample a grid.
+
+        Coverage belongs to an MFE polygon, not to each of its tree species.
+        Reuse the point index and its existing geometry/candidate byte limits.
+        Touching boundaries contribute no hosts. Holes remain excluded.
+        """
+        if not isinstance(geometry, dict) or geometry.get('type') not in ('Polygon', 'MultiPolygon'):
+            raise ValueError('forest_polygon_required')
+        vertices = 0
+        def check(value, depth=0):
+            nonlocal vertices
+            if not isinstance(value, list) or not value or depth > 3:
+                raise ValueError('invalid_forest_polygon')
+            if isinstance(value[0], (int, float)):
+                vertices += 1
+                if (vertices > MAX_QUERY_VERTICES or len(value) != 2 or
+                        any(isinstance(v, bool) or not isinstance(v, (int, float)) or
+                            not math.isfinite(v) or abs(v) > limit
+                            for v, limit in zip(value, (180, 90)))):
+                    raise ValueError('forest_polygon_limit_or_coordinates')
+            else:
+                if len(value) > MAX_QUERY_VERTICES:
+                    raise ValueError('forest_polygon_limit_or_coordinates')
+                for child in value:
+                    check(child, depth + 1)
+        check(geometry.get('coordinates'))
+        with self._lock:
+            base = {'source_id': 'mfe25', 'exhaustive': False,
+                    'method': 'polygon_intersection', 'coverage_semantics': 'forest_polygon_area'}
+            if stamp(self._index) != self._index_stamp or source_stamps(self._path, self._sources) != self._identity:
+                return {**base, 'status': 'unavailable', 'reason': 'dataset_changed'}
+            self._refresh_catalog()
+            area = self._ogr.CreateGeometryFromJson(json.dumps(geometry, allow_nan=False))
+            if area is None or area.IsEmpty() or not area.IsValid():
+                raise ValueError('invalid_forest_polygon')
+            if area.Transform(self._transform) != 0 or not area.IsValid() or area.GetArea() <= 0:
+                raise ValueError('invalid_projected_forest_polygon')
+            minx, maxx, miny, maxy = area.GetEnvelope()
+            bounds = (maxx, minx, maxy, miny, MAX_CANDIDATES + 1)
+            rows = self._db.execute('SELECT r.fid,r.size FROM bounds b JOIN records r ON r.fid=b.fid '
+                'WHERE minx<=? AND maxx>=? AND miny<=? AND maxy>=? '
+                'AND r.fid NOT IN (SELECT fid FROM large_attributes) LIMIT ?', bounds).fetchall()
+            parts = self._db.execute('SELECT p.pid,p.fid,length(p.geom) FROM part_bounds b JOIN parts p ON p.pid=b.pid '
+                'WHERE minx<=? AND maxx>=? AND miny<=? AND maxy>=? LIMIT ?', bounds).fetchall()
+            sizes = [size for _, size in rows] + [size for _, _, size in parts]
+            if len(sizes) > MAX_CANDIDATES or any(size > MAX_GEOMETRY for size in sizes) or sum(sizes) > 8*1024*1024:
+                return {**base, 'status': 'resource_limit'}
+            clipped, attributes = {}, {}
+            def add(fid, geom, attrs, key):
+                geom = self._valid_geometry(geom, key)
+                if geom is None:
+                    raise ValueError('invalid_forest_geometry')
+                intersection = geom.Intersection(area)
+                if intersection is None or not intersection.IsValid():
+                    raise ValueError('invalid_forest_intersection')
+                if intersection.GetArea() > 0:
+                    clipped[fid] = clipped.get(fid, 0.0) + intersection.GetArea()
+                    attributes[fid] = attrs
+            fields = ('Poligon', 'FormArbol', *[f'Especie{i}' for i in range(1,4)], *[f'n_sp{i}' for i in range(1,4)])
+            for fid, _ in rows:
+                feature = self._layer.GetFeature(fid)
+                if feature is None:
+                    raise ValueError('missing_forest_feature')
+                add(fid, feature.GetGeometryRef(), {k: feature.GetField(k) for k in fields}, ('source', fid))
+            for pid, fid, _ in parts:
+                raw = self._db.execute('SELECT geom FROM parts WHERE pid=?', (pid,)).fetchone()[0]
+                attrs = attributes.get(fid)
+                if attrs is None:
+                    attrs = json.loads(self._db.execute('SELECT value FROM large_attributes WHERE fid=?', (fid,)).fetchone()[0])
+                add(fid, self._ogr.CreateGeometryFromWkb(raw), attrs, ('part', pid))
+            polygons, items = [], {}
+            for fid in sorted(clipped):
+                attrs = attributes[fid]
+                keys = []
+                for slot in range(1, 4):
+                    name, code = str(attrs.get(f'Especie{slot}') or '').strip(), attrs.get(f'n_sp{slot}')
+                    if name and len(name) <= 128 and code:
+                        key = str(code)[:32] + ':' + name
+                        keys.append(key)
+                        items[key] = {'scientific_name': name, 'code': str(code)[:32],
+                                      'host_id': self._host_ids.get(name.casefold())}
+                polygons.append({'polygon_id': str(attrs.get('Poligon'))[:64],
+                                 'formation': str(attrs.get('FormArbol') or '')[:256],
+                                 'intersection_m2': round(clipped[fid], 3),
+                                 'microarea_fraction': round(clipped[fid] / area.GetArea(), 8),
+                                 'item_keys': keys})
+            if stamp(self._index) != self._index_stamp or source_stamps(self._path, self._sources) != self._identity:
+                return {**base, 'status': 'unavailable', 'reason': 'dataset_changed'}
+            result = {**base, 'status': 'available' if items else 'no_trees_recorded' if polygons else 'not_covered',
+                    'catalog_revision': self._catalog_revision, 'query_area_m2': round(area.GetArea(), 3),
+                    'items': items, 'polygons': polygons,
+                    'host_ids': sorted({i['host_id'] for i in items.values() if i['host_id']})}
+            if len(json.dumps(result, ensure_ascii=False).encode()) > 60000:
+                return {**base, 'status': 'resource_limit'}
+            return result
 
     def _valid_geometry(self, geom, key):
         """Repair a bounded candidate once, never changing the source shapefile.

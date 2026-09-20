@@ -71,6 +71,35 @@ class ForestTests(unittest.TestCase):
         self.assertEqual(r.lookup(3.5,3.5)['status'],'ambiguous')
         self.assertEqual(r.lookup(8,8)['status'],'not_covered')
 
+    def polygon(self, coordinates):
+        # Fixture coordinates are small projected metres; use an identity
+        # transform so exact intersection areas can be asserted.
+        crs = osr.SpatialReference(); crs.ImportFromEPSG(25830)
+        self.reader._transform = osr.CoordinateTransformation(crs, crs)
+        return self.reader.lookup_polygon({'type':'Polygon','coordinates':coordinates})
+
+    def test_polygon_unions_hosts_and_preserves_holes_and_positive_area(self):
+        result = self.polygon([[[0,0],[3,0],[3,3],[0,3],[0,0]]])
+        self.assertEqual(result['host_ids'], ['host_quercus_ilex'])
+        self.assertEqual([p['polygon_id'] for p in result['polygons']], ['0', '1'])
+        self.assertEqual([p['intersection_m2'] for p in result['polygons']], [8, 1])
+        self.assertEqual(len(result['items']), 2)  # unknown taxa remain visible
+        self.assertFalse(result['exhaustive'])
+        hole = self.polygon([[[1.1,1.1],[1.9,1.1],[1.9,1.9],[1.1,1.9],[1.1,1.1]]])
+        self.assertEqual(hole['status'], 'no_trees_recorded')
+        self.assertEqual(hole['host_ids'], [])
+
+    def test_polygon_resource_limit_returns_no_partial_host_list(self):
+        with patch('rainmapper_core.mushroom_map_forest.MAX_CANDIDATES', 1):
+            result = self.polygon([[[0,0],[5,0],[5,5],[0,5],[0,0]]])
+        self.assertEqual(result['status'], 'resource_limit')
+        self.assertNotIn('host_ids', result)
+
+    def test_polygon_hole_excludes_forest_even_inside_bounding_box(self):
+        result = self.polygon([[[-1,-1],[6,-1],[6,6],[-1,6],[-1,-1]],
+                               [[-.5,-.5],[-.5,5.5],[5.5,5.5],[5.5,-.5],[-.5,-.5]]])
+        self.assertEqual(result['status'], 'not_covered')
+
     def test_gdal_self_touching_ring_preserves_both_lobes(self):
         geom=ogr.CreateGeometryFromWkt('POLYGON ((0 0,2 0,2 2,0 2,0 0,-2 0,-2 -2,0 -2,0 0))')
         original=bytes(geom.ExportToWkb())
@@ -199,5 +228,17 @@ class ForestTests(unittest.TestCase):
             for point in [(.5,.5),(1,1),(1.5,1.5),(3.5,3.5),(8,8)]:
                 self.assertEqual(r.lookup(*point),self.reader.lookup(*point))
             layer.GetFeature.assert_not_called()
+
+    def test_polygon_parts_equal_full_geometry_without_reading_large_original(self):
+        index=Path(self.tmp.name)/'polygon-parts.sqlite'
+        with patch('rainmapper_core.mushroom_map_forest.MAX_GEOMETRY',1):
+            prepare_index(self.source,index)
+        expected=self.polygon([[[0,0],[3,0],[3,3],[0,3],[0,0]]])
+        reader=self.open(index)
+        reader._transform=self.reader._transform
+        with patch.object(reader,'_layer') as layer:
+            actual=reader.lookup_polygon({'type':'Polygon','coordinates':[[[0,0],[3,0],[3,3],[0,3],[0,0]]]})
+            layer.GetFeature.assert_not_called()
+        self.assertEqual(actual,expected)
 
 if __name__=='__main__': unittest.main()

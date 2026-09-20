@@ -182,16 +182,16 @@ def _gis_review_modal(preview: dict[str, object] | None, selected_row: dict[str,
     base_row = preview.get("base") if isinstance(preview.get("base"), dict) else selected_row
     kind = str(preview.get("kind", ""))
     site_id = str(preview.get("id", ""))
-    altitude = selected_row.get("altitude") if isinstance(selected_row.get("altitude"), dict) else {}
-    topography = selected_row.get("topography") if isinstance(selected_row.get("topography"), dict) else {}
-    ecology = selected_row.get("ecology") if isinstance(selected_row.get("ecology"), dict) else {}
+    altitude = base_row.get("altitude") if isinstance(base_row.get("altitude"), dict) else {}
+    topography = base_row.get("topography") if isinstance(base_row.get("topography"), dict) else {}
+    ecology = base_row.get("ecology") if isinstance(base_row.get("ecology"), dict) else {}
     gis = report.get("gis") if isinstance(report.get("gis"), dict) else {}
     fields = [
         ("altitude_min_m", label("ui.altitude_min"), altitude.get("min_m"), report.get("altitude_min_m"), "DEM 5 m"),
         ("altitude_max_m", label("ui.altitude_max"), altitude.get("max_m"), report.get("altitude_max_m"), "DEM 5 m"),
-        ("slope_notes", label("ui.slope_notes"), topography.get("slope_notes"), f"Media {report.get('slope_mean_deg', '-')}°, {report.get('slope_min_deg', '-')}°-{report.get('slope_max_deg', '-')}°", "DEM 5 m"),
+        ("slope_notes", label("ui.slope_notes"), topography.get("slope_notes"), f"DEM: media {report.get('slope_mean_deg', '-')}°, rango {report.get('slope_min_deg', '-')}°-{report.get('slope_max_deg', '-')}°", "DEM 5 m"),
         ("aspect_ids", label("ui.aspect_ids"), topography.get("aspect_ids"), report.get("dominant_aspect_ids"), "DEM 5 m"),
-        ("host_ids", label("ui.host_ids"), ecology.get("host_ids"), gis.get("host_ids"), "MVC50"),
+        ("host_ids", label("ui.host_ids"), ecology.get("host_ids"), gis.get("host_ids"), "MVC50 + MFE25: " + str(gis.get("mfe25", {}).get("status", "not_connected"))),
         ("forest_type_ids", label("ui.forest_type_ids"), ecology.get("forest_type_ids"), gis.get("forest_type_ids"), "MVC50"),
         ("soil_tendency_ids", label("ui.soil_tendency_ids"), ecology.get("soil_tendency_ids"), gis.get("soil_tendency_ids"), "Geología/GIS"),
         ("habitat_feature_ids", label("ui.habitat_feature_ids"), ecology.get("habitat_feature_ids"), gis.get("habitat_feature_ids"), "MVC50/GIS"),
@@ -202,14 +202,20 @@ def _gis_review_modal(preview: dict[str, object] | None, selected_row: dict[str,
     for field, field_label, current, proposed, source in fields:
         if proposed in (None, [], ""):
             continue
-        current_text = ", ".join(map(str, current)) if isinstance(current, list) else str(current or "-")
+        current_text = ", ".join(map(str, current)) if isinstance(current, list) else str(current if current not in (None, "") else "-")
         proposed_text = ", ".join(map(str, proposed)) if isinstance(proposed, list) else str(proposed)
-        discrepancy = current not in (None, [], "") and current_text != proposed_text
-        checked = " checked" if current in (None, [], "") else ""
+        empty = current in (None, [], "")
+        same = set(map(str, current or [])) == set(map(str, proposed)) if isinstance(proposed, list) else current == proposed
+        if field in {"altitude_min_m", "altitude_max_m"} and not empty:
+            same = float(current) == float(proposed)
+        discrepancy = not empty and not same
+        options = (f'<option value="keep"{" selected" if same else ""}>Mantener</option>'
+                   + ('<option value="merge">Fusionar</option>' if isinstance(proposed, list) else '')
+                   + f'<option value="replace"{" selected" if not same else ""}>Reemplazar</option>')
         rows.append(
             f'<tr class="{"gis-discrepancy" if discrepancy else ""}"><td><strong>{html.escape(field_label)}</strong></td>'
-            f'<td>{html.escape(current_text)}</td><td>{html.escape(proposed_text)}<small>{html.escape(source)}</small></td>'
-            f'<td><label class="gis-review-choice"><input type="checkbox" name="gis_apply_field" value="{_text(field)}" data-current-empty="{str(current in (None, [], "")).lower()}"{checked}><span>Aceptar GIS/DEM</span></label></td></tr>'
+            f'<td data-gis-label="Valor actual">{html.escape(current_text)}</td><td data-gis-label="Propuesta">{html.escape(proposed_text)}<small>{html.escape(source)}</small></td>'
+            f'<td data-gis-label="Decisión"><select name="gis_mode_{_text(field)}" data-gis-mode data-current-empty="{str(empty).lower()}" aria-label="{_text(field_label)}">{options}</select></td></tr>'
         )
     metrics = (
         f"Centroide y métricas geométricas · {report.get('sample_count', 0)} muestras · "
@@ -225,7 +231,8 @@ def _gis_review_modal(preview: dict[str, object] | None, selected_row: dict[str,
         <form method="post">
           <input type="hidden" name="known_site_action" value="apply_gis_dem"><input type="hidden" name="known_site_kind" value="{_text(kind)}"><input type="hidden" name="known_site_id" value="{_text(site_id)}"><input type="hidden" name="return_to" value="{_text(return_to)}"><input type="hidden" name="gis_report_json" value="{_text(json.dumps(report, ensure_ascii=False))}"><input type="hidden" name="gis_base_row_json" value="{_text(json.dumps(base_row, ensure_ascii=False))}">
           {f'<table class="gis-review-table"><thead><tr><th>Campo</th><th>Valor actual</th><th>Propuesta</th><th>Decisión</th></tr></thead><tbody>{"".join(rows)}</tbody></table>' if rows else '<div class="catalog-alert">Los datos derivados se guardarán como contexto propio del área. No hay campos manuales equivalentes que sustituir.</div>'}
-          <div class="gis-review-actions"><button type="button" data-gis-select="empty">Aceptar campos vacíos</button><button type="button" data-gis-select="all">Aceptar todo GIS/DEM</button><button type="button" data-gis-select="none">Mantener actuales</button><button class="primary">Aplicar selección</button></div>
+          <p>La cobertura MFE25 corresponde al polígono forestal, no a la abundancia de cada árbol. Aplicar deja la ficha abierta para revisar antes de Guardar.</p>
+          <div class="gis-review-actions"><button type="button" data-gis-select="empty">Completar campos vacíos</button><button type="button" data-gis-select="merge">Fusionar listas</button><button type="button" data-gis-select="all">Reemplazar todo GIS/DEM</button><button type="button" data-gis-select="none">Mantener actuales</button><button class="primary">Aplicar al borrador</button></div>
         </form>
       </div>
     </div>

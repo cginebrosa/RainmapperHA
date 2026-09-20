@@ -1,0 +1,61 @@
+{
+  "version": "0.2.316",
+  "verified_at": "2026-09-20T22:07:39.439344+00:00",
+  "image": "ghcr.io/cginebrosa/rainmapperha",
+  "tags": [
+    "0.2.316",
+    "latest"
+  ],
+  "digest": "sha256:df35341875f9c227276c2a1f3c2094f54ce54ca4cf846050b03cd6c4f590302c",
+  "platforms": {
+    "linux/amd64": "sha256:28e06e860ddb6662289274cbbdc7354dc7a7d3aef9b243f05dffb2ae081624e7",
+    "linux/arm64": "sha256:401a6e11e92a2fd9e9f70fcf1bdc162f8294caf88050244d306575025ad64094"
+  },
+  "build_exit_code": 0,
+  "build_log": "tmp/release-0.2.316/publish.log",
+  "smoke": {
+    "tests": 1704,
+    "skipped": 52,
+    "result": "OK",
+    "seconds": 80.72,
+    "log": "tmp/release-0.2.316/smoke-release-final.log"
+  },
+  "local_parity": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 216,
+      "mismatches": [],
+      "manifest_sha256": "89d18580f35e36ffa2e4601a684aa1f73f95f34231951038508770ff2ab08259"
+    },
+    "rainmapper-worker": {
+      "checked_files": 116,
+      "mismatches": [],
+      "manifest_sha256": "b0eeb58149702b5ab9d63321aa797a04b1e9ce5977c3674a0af4b95ba7c11bfb"
+    }
+  },
+  "local_training_batch": "operational_20260920T204548Z",
+  "local_training": {
+    "planned": 792,
+    "successful": 792,
+    "failed": 0,
+    "artifact_hash_mismatches": []
+  },
+  "local_precompute": {
+    "job_id": "worker_job_tvVmB0Np_qaP",
+    "status": "complete",
+    "activated": true,
+    "schema": "1.7",
+    "desired_revision": 71,
+    "artifact_id": "sha256:50f4b49a7937776cc8c5b530e9b3068af13b1fb0aa9774ee623f4fb30b22ede4",
+    "file_sha256": "sha256:503b56ac03d87be3a5a5a6f065a31fb65f40add27e1984286e09c092d57aa5f2",
+    "bytes": 37773312,
+    "responses": 903,
+    "sqlite_integrity_check": "ok",
+    "suspensions_preserved": 7,
+    "suspended_operational_members": 0
+  },
+  "worker_preserved_during_final_ui_and_publication": true,
+  "worker_container_id": "87d8521bac614c4d8acb45df9dbf24c0ae3c5d89ab6c96a0f2334a701e09ebad",
+  "worker_started_at": "2026-09-20T20:42:12.424361676Z",
+  "ha_real_installed_by_codex": false,
+  "next_step": "User installs HA release after the running HA-real training finishes, then verifies real UI and persisted results."
+}

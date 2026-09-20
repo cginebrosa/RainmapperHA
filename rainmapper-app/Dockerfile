@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.315" \
+LABEL io.hass.version="0.2.316" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.315
+ENV RAINMAPPER_APP_VERSION=0.2.316
 
 WORKDIR /app
 
@@ -34,6 +34,7 @@ COPY mushroom-data/mushroom_profiles.json \
 COPY rainmapper-app/defaults/mushroom_observations.json /app/mushroom-data/mushroom_observations.json
 COPY scripts/validate-mushroom-data.py /app/scripts/validate-mushroom-data.py
 COPY scripts/prediction-map-local-geography.py scripts/prediction-map-local-weather.py scripts/prediction-map-local-model.py /app/scripts/
+COPY scripts/recover-mushroom-forest.py /app/scripts/
 COPY scripts/manage-prediction-map-volume.py scripts/manage-shared-geography.py /app/scripts/
 COPY scripts/manage-media-layout.py /app/scripts/
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
@@ -52,6 +53,7 @@ COPY rainmapper-app/app/mushroom_gis_mappings_ui.py /app/mushroom_gis_mappings_u
 COPY rainmapper-app/app/mushroom_known_sites_ui.py /app/mushroom_known_sites_ui.py
 COPY rainmapper-app/app/known-sites.js rainmapper-app/app/known-sites.css /app/
 COPY rainmapper-app/app/mushroom_profiles_ui.py /app/mushroom_profiles_ui.py
+COPY rainmapper-app/app/mushroom_observation_gis_ui.py rainmapper-app/app/observation-gis.js rainmapper-app/app/observation-map-gis.js /app/
 COPY rainmapper-app/app/mushroom_predictor_ui.py /app/mushroom_predictor_ui.py
 COPY rainmapper-app/app/mushroom_predictor_weather_ui.py /app/mushroom_predictor_weather_ui.py
 COPY rainmapper-app/app/mushroom_prediction_map_ui.py /app/mushroom_prediction_map_ui.py

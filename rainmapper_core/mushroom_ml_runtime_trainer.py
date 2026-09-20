@@ -526,6 +526,25 @@ def _prepare_fit_inputs(
     }
 
 
+class BatchFitError(ValueError):
+    """A frozen-tuning batch failed before it could emit a complete catalog."""
+
+    def __init__(self, failed_fits: list[dict[str, Any]]) -> None:
+        # Keep terminal diagnostics bounded and independent of temporary files.
+        details = []
+        for failure in failed_fits[:8]:
+            ref = failure["artifact_ref"]
+            scope = "/".join(str(ref[key]) for key in (
+                "version_id", "temporal_contract_id", "profile_id",
+                "species_id", "estimator_id",
+            ))
+            reason = " ".join(str(failure["reason"]).split())[:240]
+            details.append(f"{scope}: {reason}")
+        if len(failed_fits) > 8:
+            details.append(f"{len(failed_fits) - 8} additional failures omitted")
+        super().__init__(f"Runtime batch has {len(failed_fits)} failed fits; " + "; ".join(details))
+
+
 def write_batch(
     registry: Mapping[str, Any],
     training_plan: Mapping[str, Any],
@@ -690,6 +709,8 @@ def write_batch(
         output_tuning_catalog = None
         tuning_catalog_reference = None
         if checked_tuning_catalog is not None:
+            if failed_fits:
+                raise BatchFitError(failed_fits)
             output_tuning_catalog = mushroom_ml_tuning_catalog.build_from_decisions(
                 checked_registry,
                 source_batch_id=batch_id,

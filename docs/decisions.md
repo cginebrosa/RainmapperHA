@@ -1,5 +1,106 @@
 # Decisions
 
+## 2026-09-20 — [VIGENTE][SMI] Referencia compartida regulada + PM + una capa
+
+El usuario acepta extracción regulada + Penman–Monteith + una capa 0–30 cm
+para entrenamiento, precálculo y mapa. Contrato `regulated_pm_single_layer_v1`.
+Se prioriza cálculo propio creíble con meteorología IDW; Copernicus/ICGC sirven
+para contraste, no como dependencia operativa. El simple queda sólo como curva
+visual de referencia, pendiente de retirada explícita.
+
+Justificación: 22 estaciones examinadas; factorial de ocho combinaciones con
+18 estaciones comunes, mediana de correlación 0,667 frente a 0,640/0,624/0,615
+para las otras reguladas. Auditoría de cantidades: 1.206 cambios diarios,
+68 recargas y 27 secados; residuos absolutos medianos 1,034/3,252/1,692 L/m²
+respectivamente. Son medidas condicionadas de variación, **no precisión de litros
+restantes**. La alternativa elegida no gana toda métrica; no se adopta el
+multicapa ensayado sólo por su mayor complejidad. [SMI-07 y enlaces a protocolos,
+alternativas y resultados](mushrooms/SMI/adoption-2026-09-20/README.md).
+
+Semántica conservada:
+
+- Capa única C derivada de SoilGrids Q0.50: suma de `(wv0033−wv1500) × espesor_m`
+  en 0–5/5–15/15–30 cm. Tierra fina, sin corrección por piedras. SMI=100×S/C;
+  litros disponibles=S en L/m², distintos del agua volumétrica total de sondas.
+- Extracción: evaporación proporcional a S/C y transpiración con
+  `Ks=min(1,S/((1−p)C))`, p=0,5; reparto 50/50, integración analítica diaria.
+  Lluvia al inicio, exceso drena antes de extraer. ΔS=P−extracción−drenaje.
+- Balance climático permanece P−ET₀. No se presenta como ΔS.
+- PM de referencia, radiación estimada k=0,16; viento observado admisible a 2 m
+  o 2 m/s estimados; Hargreaves explícito si PM no calculable. Sin temperatura
+  no se inventa ET₀ cero. No modela dosel, sombras, orientación, raíces profundas,
+  nieve, interceptación o escorrentía; no se certifica ET real del bosque.
+- Hasta 365 días previos, ≥90 completos y convergencia seco/lleno
+  ≤max(1 mm,1%C). Huecos reinician incertidumbre. Ventana del gráfico/predictiva
+  no reinicia la reserva. Por área se calcula microárea antes de agregar.
+- Un módulo `mushroom_water_physics.py`; adaptadores comunes para mapa,
+  `mushroom_soil_water_state.py`, entrenamiento e inferencia/precálculo.
+  No duplicar ecuaciones para worker o JavaScript.
+
+Revisar la decisión ante evidencia nueva que mida errores útiles y con entrada
+IDW comparable, sin convertir una mejora de correlación en calibración absoluta.
+Aceptación funcional: cadena local de 714 ajustes y precálculo activado,
+1690 tests/48 omitidos. [Validación](mushrooms/SMI/adoption-2026-09-20/validation.md).
+
+## 2026-09-20 — [REEMPLAZADA][SMI] Depósito simple operativo y PM sólo visual
+
+La etapa inicial mantenía el cálculo antiguo para ML y el regulado/PM como
+comparación del mapa. Sustituida por el contrato compartido anterior en 0.2.315.
+Sus experimentos permanecen históricos reproducibles; no reinterpretar métricas
+anteriores con código nuevo. El simple sigue visible, sin ser SMI operativo.
+
+## 2026-09-20 — [VIGENTE][CONTRATOS] Migrar sin mezclar semánticas hídricas
+
+Reconstruir entradas y reentrenar pesos físicos antes de precalcular. Versionar
+contratos/identidades: precálculo 1.7, publicación runtime 1.3 y contrato hídrico
+explícito. `mushroom_ml_tuning_catalog.py` conserva sólo hiperparámetros y
+procedencia verificados del contrato anterior, no pesos ni scores antiguos.
+`_desired_revision_for_advance` admite la revisión de identidades 1.0–1.6 para
+crear la siguiente solicitud actual; el lector estricto sigue rechazando
+artefactos incompatibles. Regresión de solicitud 68→69 y activación real local
+verificadas. No sustituir este control por cambiar un número en datos antiguos.
+
+## 2026-09-20 — [VIGENTE][UI] Modelo elegido y entradas observadas en el artefacto
+
+Mostrar modelo antes del IFF, actualizado por fecha; ayuda independiente ES/CA/EN
+con algoritmo, SMI, balance directo, otras entradas y ventana. Extraer metadatos
+de las columnas del artefacto ya abierto mediante observador de comparación;
+deduplicar etiquetas/descriptores por especie. No recargar modelos ni transportar
+columnas completas. No inferir uso de SMI por nombre del estimador ni atribuir un
+modelo rechazado a una abstención. Sin IFF, sin modelo y cero permanecen distintos.
+Fuentes: `mushroom_model_labels.py`, `mushroom_map_model_runtime.py`,
+`mushroom_prediction_map.py` y `viewers/prediction-map/`.
+
+## 2026-09-20 — [VIGENTE][POLÍTICA] Suspensiones independientes de generaciones
+
+Desde 0.2.315, `mushroom_ml_policy_store.py` conserva reglas en JSON hermano del
+registro, referenciado y validado. Migración escribe reglas antes de referencia;
+referencia ausente/inválida falla sin reactivar modelos. Exportar/importar sólo
+reglas, no copiar registros de generaciones para sincronizar entornos. Los
+snapshots transportan reglas efectivas selladas; una revisión distinta invalida
+runtime/precálculo. Suspensiones no borran modelos ni impiden entrenarlos.
+Panel cerrado inicialmente. [Contrato](mushrooms/model-suspensions-es.md).
+
+## 2026-09-20 — [DUDA][WORKER] Indicador ocupado por carril y coordinador
+
+El usuario cuestiona que una cancelación local mantenga ocupados ambos paneles;
+luego confirmó recuperación a espera. Su interpretación es que «ocupado» cuenta
+background por coordinador. No se ha acordado ni implementado una nueva semántica.
+La propuesta previa «cualquier carril ocupado» no debe asumirse aceptada. Separar
+capacidad global de ejecución, cola/trabajo de cada asociación y retardo de
+heartbeat/refresco al investigar; no modificar planificación como arreglo visual.
+
+## 2026-09-20 — [VIGENTE][RELEASE Y CONTINUIDAD] 0.2.315 y aceptación local
+
+Publicación y push `6bbd0e8` completados tras circuito local íntegro; GHCR
+versión/latest y ambas arquitecturas verificados. [Informe](reports/ha-release-0.2.315.json).
+Usuario confirma instalación («Hecho»), no equivale a verificar nuevos resultados
+remotos. El precálculo lo lanza el usuario; no relanzar cálculos para el cierre.
+Reutilizar servicios existentes, conservar coordinadores, no crear workers ni
+imágenes auxiliares. SMB/API para archivos/consulta autorizados; SSH requiere
+petición expresa. Cierre sólo documental: estado en active-context, historia
+archivada, pendientes priorizados; futuras sesiones arrancan con dos documentos.
+
 ## 2026-09-17 — [VIGENTE][GIS] Paridad de archivos almacenados, alcance limitado
 
 Comparados byte a byte el mapping local y el de HA real vía SMB LAN: idénticos,
@@ -2111,10 +2212,10 @@ definiciones V5/V6-365 legacy.
   agregados — nunca las series diarias completas de balance/SMI/ETO. Lo único
   que se recorta a 30/60/90 días son las columnas crudas de lluvia,
   temperatura y humedad (`RAW_CHANNELS`).
-  **Pendiente de investigar** (no implementado): si recalcular balance/SMI de
-  forma independiente por cada ventana (en vez de compartir el mismo valor de
-  365 días entre las tres) aísla mejor cuánta señal aporta cada ventana, a
-  costa de dejar de ser comparable con V3+ físico.
+  **[OBSOLETA como siguiente paso desde 20/09/2026]** La propuesta de reiniciar
+  balance/SMI por ventana no se adopta: la reserva conserva historia independiente
+  del periodo visible/predictivo según la referencia SMI compartida. Se conserva
+  esta anotación como antecedente, no como instrucción de implementación.
 - Implementación: `mushroom_ml_raw_weather.windowed_feature_columns`/
   `windowed_profile_id` (V5) y los parámetros nuevos `channels`/`window_days`
   de `mushroom_ml_smooth_hierarchical.smooth_lag_basis`/`raw_columns`/
@@ -2891,7 +2992,11 @@ multiidioma mediante labels `en`, `es` y `ca`.
   no borrándola. Se sigue calculando, validando, comparando y documentando para
   que pueda reactivarse sin reconstruir su significado.
 
-## 2026-08-15 - [VIGENTE][BIOLOGY V4] Cierre local sin candidatura operativa
+## 2026-08-15 - [REEMPLAZADA EN ESTADO OPERATIVO][BIOLOGY V4] Cierre local sin candidatura operativa
+
+Estado histórico del experimento; sus métricas siguen siendo evidencia de aquel
+contrato. No describe el catálogo operativo ni el SMI de 0.2.315. Ver adopción
+compartida del 20/09/2026; no convertir retrospectivamente estos resultados.
 
 - Biology V4 queda técnicamente cerrada y permanece `proposed`: no se elimina,
   no sustituye V2/V3 y conserva contratos, benchmarks, informes y variables

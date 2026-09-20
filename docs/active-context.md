@@ -1,275 +1,214 @@
-# Contexto activo — 19/09/2026
+# Contexto activo — cierre 21/09/2026
 
-## Último desarrollo local: adopción del SMI · 20/09/2026
+Leer primero [codex-start-here.md](codex-start-here.md). Este documento contiene
+lo necesario para retomar; [todo.md](todo.md) amplía prioridades. El
+[contexto anterior](reports/session-context-before-close-2026-09-20.md) es archivo,
+no una segunda fuente de estado actual.
 
-Referencia aceptada por el usuario: extracción regulada + Penman–Monteith +
-una capa de 0–30 cm, compartida por entrenamiento/precálculo/mapa. El simple
-queda como comparación visual. [SMI-07: decisión, código, consumidores y pruebas](mushrooms/SMI/adoption-2026-09-20/README.md).
-Contratos nuevos invalidan datos/pesos físicos antiguos y precálculos anteriores;
-requiere reconstruir entradas, reentrenar y precalcular antes de desplegar.
+## Estado y siguiente paso
 
-**0.2.315 publicada en GHCR; pendiente de instalación por el usuario en HA real.**
-Tags versión/latest verificados con digest común
-`sha256:8d064cef61c9e24fe283796b71aa37ad4d3eea2924141f4be554de1cc1a1f885`,
-manifests AMD64/ARM64. [Informe de release](reports/ha-release-0.2.315.json).
-El usuario autorizó preparar la release y reconstruir los servicios existentes.
-HA local y el worker existente se reconstruyeron; sus dos coordinadores se
-conservaron sin cambios. Primer circuito: reconstrucción y entrenamiento base
-completos; multiversión rechazó el catálogo de ajustes por el cambio de contrato.
-Se ha añadido una migración acotada del catálogo anterior: conserva únicamente
-hiperparámetros/procedencia, nunca pesos ni métricas antiguas. Prueba con catálogo
-persistido local: 714 decisiones, 403258 bytes, sin abrir modelos.
+### HA 0.2.316 publicada
 
-También se añade el modelo seleccionado por fecha antes del IFF en el mapa,
-con nombres compartidos con Predictor y referencias compactas por especie.
-Su tooltip separado (ratón/táctil/teclado), ES/CA/EN, explica algoritmo, SMI,
-balance como entrada directa, otras entradas y ventana. Se inspeccionan las
-columnas del artefacto ya cargado: no inferir estas propiedades por versión.
+Publicación autorizada tras la aceptación local. GHCR `0.2.316` y `latest`
+verificados con el mismo digest
+`sha256:df35341875f9c227276c2a1f3c2094f54ce54ca4cf846050b03cd6c4f590302c`,
+AMD64 y ARM64. [Informe de release](reports/ha-release-0.2.316.json).
+**Siguiente paso: el usuario instala en HA real cuando termine su entrenamiento
+en curso.** No se ha instalado ni reiniciado HA real desde esta publicación;
+no tocar el worker activo ni lanzar precálculos. Después, verificar resultados
+persistidos y la interfaz real, sin atribuirle automáticamente la evidencia local.
 
-Segundo circuito local completado: reconstrucción/base promovidos y multiversión
-verificada, 714 ajustes previstos/714 correctos/0 fallidos, lote
-`operational_20260920T020702Z`. Después se reconstruyeron/recrearon HA local y
-el mismo worker con los últimos tooltips; 211/114 archivos idénticos al checkout,
-coordinadores intactos. Smoke final: 1690 tests, 48 omitidos, OK; navegador
-ES/CA/EN y 1280/375/320 px, OK. Una predicción real local de Bellver confirmó
-ese lote y `Smooth Shared–V6w`, SMI sí/balance directo no, ventana 30 días.
+El usuario ha autorizado publicar 0.2.316. La candidata incorpora recuperación
+GIS/DEM en observaciones, inspector de puntos y agregación MFE25 en microáreas;
+[informe de interfaz](reports/gis-recovery-review-2026-09-20.md).
+**Incidencia inicial resuelta:** la primera aceptación local completó reconstrucción
+y entrenamiento base, pero el multiversión terminó con cinco ajustes fallidos,
+ocultos por `Tuning catalog does not cover the plan: 5 missing, 0 unexpected`.
+No hubo promoción de esa cadena. Las siete suspensiones se conservaron.
 
-**Última instrucción del usuario: el precálculo lo lanzará él. NO lanzarlo desde
-Codex.** Su primer intento falló antes de encolar: `desired.json` conservaba
-revisión 68/esquema 1.6 y faltaba admitir esa versión al avanzar a 1.7.
-Corregido en `_desired_revision_for_advance`, sin aceptar resultados antiguos.
-418 pruebas dirigidas y smoke 1690/48 omitidas OK. Ambos contenedores existentes
-reconstruidos/recreados; paridad 211/114 archivos OK, coordinadores intactos y
-ambas colas libres. Comprobado dentro de HA que la revisión 68 puede avanzar;
-el fichero real permaneció intacto hasta el reintento del usuario.
-El reintento `worker_job_7YWJHNU9LAaR` terminó correctamente a las 02:55:34 UTC;
-recibido y activado esquema 1.7/revisión 69, lote nuevo, 749 respuestas y
-28.004.352 bytes. Recibo, identidad deseada y SHA del archivo coinciden;
-SQLite íntegro. El usuario solicitó publicar tras finalizar: aceptación local
-completada. HA real no se ha actualizado. Tras instalar, el usuario lanzará
-la reconstrucción/entrenamiento y el precálculo de HA real, sin reutilizar los
-artefactos físicos anteriores. Evidencia en `tmp/release-0.2.315` y el informe SMI-07; no repetir
-entrenamientos completos para probar sólo presentación.
+Se corrigió el diagnóstico para comunicar las causas y ámbitos afectados antes
+de validar el catálogo incompleto; no se modificaron criterios de entrenamiento
+ni admisión. 24 pruebas dirigidas correctas; smoke posterior: 1704 pruebas,
+52 omitidas, correcto. HA local y worker reconstruidos/recreados: 216/116 archivos
+efectivos coincidentes y huellas de sus coordinadores sin cambios.
 
-[Continuación de auditorías](mushrooms/SMI/continuation.md).
+El usuario autorizó **una repetición local del multiversión para identificar los
+cinco fallos**, ya terminada: todos corresponden a `rbf_svm_calibrated_v1` de
+`lactarius_sanguifluus` en los contratos de ventana fija de V2, ambos perfiles
+V3 y ambos perfiles V4. Motivo confirmado: `calibration requires at least two
+training examples of each class`. Las entradas V3 fijas contenían diez casos
+favorables elegibles y uno desfavorable. La repetición usó el mismo snapshot,
+58 archivos y el mismo catálogo de ajustes; terminó fallida y limpia, sin
+promoción. Evidencia privada ignorada por Git: `tmp/release-0.2.316/`, incluidos
+`diagnostic-results.json`, `diagnostic-progress.json` y
+`diagnostic-input-parity.json`.
 
-## Alcance y fuentes de verdad
+**Reanudado tras confirmar el usuario que las nuevas observaciones están en HA
+local.** Comprobado el archivo actual: 505 observaciones, 19 de sanguifluus;
+10 episodios favorables y 5 desfavorables válidos/incluidos. La reconstrucción
+nueva conserva esos recuentos en las features y está verificada (nueve
+artefactos); el entrenamiento base de diez especies está completo/verificado.
+El multiversión ha terminado: **792 ajustes correctos, ninguno fallido**;
+lote `operational_20260920T204548Z`. Reconstrucción y base promovidos; las cinco
+versiones V2–V6 instaladas desde ese lote, con puerta de promoción superada y
+revisiones de entrada coincidentes. Recalculadas las huellas de los 792 modelos
+y del catálogo de ajustes: ninguna discrepancia. Observaciones privadas,
+observaciones/sites locales y las siete suspensiones conservan sus huellas
+anteriores. Evidencia actual en `tmp/release-0.2.316/new-data/`, incluidos
+`chain-jobs.json` y `promotion-audit.json`; no confundirla con la cadena fallida
+anterior. HA local y worker se han reconstruido y recreado después del ajuste de
+microáreas; paridad 216/116 archivos, coordinadores sin cambios, smoke final
+1704 pruebas/52 omisiones correcto (`smoke-final-ui.log`).
 
-Este contexto se ha contrastado con el checkout `81a6b0b` (HA 0.2.312) y sus
-cambios documentales locales. La sección de setales recoge además el desarrollo
-posterior pendiente de publicación. [Auditoría y fuentes](reports/documentation-audit-2026-09-18.md).
-Código disponible, prueba anterior e instalación comunicada son evidencias
-distintas: no se ha accedido a HA real ni inspeccionado contenedores para esta
-revisión documental. El código no prueba el estado de un servicio en ejecución.
-La release 0.2.313 y su validación local posterior se recogen debajo.
+No se ha cambiado el contrato de disponibilidad por modelo. No lanzar
+precálculos: siguen a cargo del usuario, después de verificar la promoción.
+El precálculo lanzado por el usuario ha terminado: `worker_job_tvVmB0Np_qaP`,
+recibido y activo, revisión 71/esquema 1.7, generación nueva y diez especies.
+SHA/tamaño, integridad SQLite, identidad deseada y recuentos comprobados:
+903 respuestas, 756 coberturas, 574 miembros operativos, 37.773.312 bytes.
+Ningún miembro operativo coincide con las siete reglas de suspensión.
+Evidencia: `tmp/release-0.2.316/new-data/precompute-audit.json`.
+El usuario aceptó el último ajuste visual y autorizó publicar.
+Las observaciones privadas se conservan fuera del commit; la documentación
+anterior pendiente se incluye en el cierre de la release.
 
-**No acceder por SSH a la RPi4 sin petición expresa, tampoco para lectura.**
-La autorización del 18/09 cubrió únicamente la migración y verificación ya
-terminadas. Parar, instalar y arrancar Rainmapper en HA real corresponde al
-usuario. No cambiar destinos del worker, copiar semillas sobre datos privados,
-limpiar archivos o iniciar entrenamiento/precálculo por mantener documentación.
+El ajuste posterior de microáreas (Reemplazar si difiere, Mantener si coincide y
+selector completo con disposición móvil) ya está en HA local y comprobado con
+fixture en navegador a 1600/375 px. Véase el informe GIS enlazado arriba. El smoke final y la reconstrucción de ambos contenedores indicados arriba ya
+incluyen este ajuste.
 
-## Versiones y validación
+**Último ajuste visual incluido en la release:** «Reconstruir y reentrenar operativo» y
+«Ejecutar benchmark científico» son desplegables cerrados por defecto en
+Workers y trabajos. Actualizada únicamente la imagen/contenedor HA local;
+el usuario prohíbe reconstruir/reiniciar el worker porque entrena para HA real.
+Se conserva su contenedor y arranque, comprobados antes/después. El cambio
+afecta solo a HTML/CSS de `mushroom_workers_ui.py`, que no se incluye en el
+worker; paridad efectiva actual 216/116 archivos sin diferencias.
+Validación proporcional: 16 pruebas existentes de la pantalla y navegador real
+en HA local a 1600/375 px, apertura con teclado, selecciones conservadas y sin
+POST. Evidencia: `tmp/workers-folds-20260920/`. No se han repetido entrenamientos
+ni precálculos por este ajuste. Smoke completo final con estos desplegables:
+1704 pruebas, 52 omitidas, correcto en 80,720 s (`smoke-release-final.log`).
 
-- HA del repositorio: **0.2.314**, coincidente en `rainmapper-app/config.yaml`,
-  Dockerfile (LABEL/ENV) y cache-busters de ambos visores.
-- Worker: **1.1.3** como valor por defecto en su Dockerfile y Compose. Versionado
-  independiente de HA; una etiqueta no demuestra la imagen efectiva en ejecución.
-- La publicación 0.2.312 se verificó en esta sesión: tags de versión y `latest`,
-  mismo digest, AMD64/ARM64; commit `81a6b0b` enviado a `origin/inicial`.
-  [Informe](reports/ha-release-0.2.312.json). No confundir ese resultado con un
-  nuevo inventario remoto realizado durante esta auditoría.
-- Validación de la candidata: HA local y worker reconstruidos, 202/108 archivos
-  sin diferencias, smoke de 1.639 tests (48 omitidos), búsqueda real y UI móvil
-  ES/CA/EN. Después solo se modificaron versión/cache-busters y documentación.
-- **Usuario confirma que funciona bien en iPhone y Safari del Mac tras la
-  publicación 0.2.312.** Incidencia de zoom del buscador cerrada por esa validación.
-  No se ha inspeccionado remotamente la versión instalada.
+### Cierre histórico de HA 0.2.315
 
-## Suspensiones de modelos — publicado en 0.2.314
+**HA 0.2.315 publicada; instalación en HA real confirmada por el usuario con
+«Hecho» antes de pedir este cierre.** No se inspeccionó HA real para comprobar
+su versión efectiva ni se confirmaron sus nuevos entrenamientos/precálculo.
+La siguiente tarea útil es verificar esa cadena cuando el usuario la haya
+lanzado, mediante registros y artefactos persistidos; no iniciarla por el cierre.
 
-Nueva sección en Workers y trabajos para suspender/reactivar modelos por especie
-o globalmente, con motivo persistido. Afecta a la selección de predicciones;
-no elimina artefactos ni impide entrenarlos. Registro transportado al worker,
-identidad de runtime/precálculo renovada y caché filtrada antes de servir IFF.
-[Funcionamiento y validación](mushrooms/model-suspensions-es.md).
+- Release `6bbd0e8`, enviada a `origin/inicial`; GHCR `0.2.315` y `latest`, mismo
+  digest `sha256:8d064cef61c9e24fe283796b71aa37ad4d3eea2924141f4be554de1cc1a1f885`,
+  AMD64 y ARM64 verificados. [Informe](reports/ha-release-0.2.315.json).
+- HA local: `rainmapper-local-rainmapper-ha-ui-1`, imagen `rainmapperha:local-ha-ui`,
+  puerto 8101. Worker existente: `rainmapper-worker`, etiqueta 1.1.3 independiente
+  de HA, puerto 8110. Ambos arrancados al cierre; worker healthy y sus dos
+  carriles idle según `/health`. Revalidar al comenzar otra operación.
+- El worker conserva el coordinador principal `http://100.111.77.48:8100` y
+  la asociación local `http://rainmapper-ha-ui:8100`. Huellas de ambos archivos
+  de configuración comprobadas sin cambios; no redirigirlo ni crear otro worker.
+- HA local/worker reconstruidos desde el código publicado; 211/114 archivos
+  efectivos coincidentes. Smoke: 1690 pruebas, 48 omitidas, OK. UI ES/CA/EN
+  probada a 1280/375/320 px. Evidencia detallada en
+  [validación SMI-07](mushrooms/SMI/adoption-2026-09-20/validation.md).
+- Cadena local: reconstrucción y base promovidos; multiversión del lote
+  `operational_20260920T020702Z`, 714 ajustes correctos, ninguno fallido.
+- Precálculo lanzado por el usuario `worker_job_7YWJHNU9LAaR`: completo,
+  recibido y activado. Al cierre siguen activos revisión 69/esquema 1.7,
+  cobertura 20–26/09, 749 respuestas, archivo de 28.004.352 bytes.
+  `active-receipt.json` y metadatos de `active.sqlite3` reconsultados; SHA e
+  integridad se comprobaron al publicar. No trasladar este resultado local a HA real.
 
-HA local y el único worker reconstruidos: paridad efectiva 206/109 archivos;
-smoke de 1.649 tests, 48 omitidos (validación anterior; no se modificó código
-ejecutable al ampliar las reglas). Siete suspensiones para rovelló solo en HA
-local: HGB/KNN/SVM-V2 y HGB de ambos perfiles V3/V4. Las cuatro últimas se
-guardaron mediante el formulario tras autorización. Precálculo con las tres
-reglas V2 terminado/activado y mapa local/worker coincidentes en dos puntos.
-La nueva cadena lanzada por el usuario terminó: lote `operational_20260919T014018Z`
-instalado, 714 artefactos, siete reglas conservadas. Los 14 artefactos de los siete
-modelos suspendidos existen y pasan hash. 56 combinaciones suspendidas bloqueadas;
-35 selecciones en cinco puntos respetan la política (Smooth Partial V6-30).
-Paridad mapa local/worker correcta en Pradell y Capolat. Precálculo
-`worker_job_O7yzs0AqVMK6` completo y activado, revisión 68, SHA verificado y
-ningún ganador suspendido en los resultados persistidos.
+## Qué incorpora la versión y decisiones que conservar
 
-Publicación autorizada: GHCR `0.2.314` y `latest` verificados con el mismo digest
-`sha256:bc4324b83141fb8719f1d18b770c5dc0db816966e5b2ce344f1a8c375c9d12bc`,
-AMD64 y ARM64. [Informe de release](reports/ha-release-0.2.314.json).
-Pendiente instalación por el usuario y aplicación de las siete reglas en HA real:
-son configuración privada y no viajan dentro de la imagen. El único worker ya
-está reconstruido con soporte, conservando coordinadores; no se publicó otro worker.
-[Auditoría ampliada y límites](reports/rovello-model-sensitivity-expanded-2026-09-19.md).
+**SMI común:** extracción regulada + Penman–Monteith + una capa 0–30 cm,
+contrato `regulated_pm_single_layer_v1`, para entrenamiento, precálculo y mapa.
+El simple original sigue sólo como comparación visual; no es una segunda
+variable operativa. La decisión fue aceptada por el usuario tras contrastes
+con 22 estaciones, incluyendo ocho combinaciones; no reabrir la investigación
+para evitar tomar una decisión práctica. [Justificación y consumidores](mushrooms/SMI/adoption-2026-09-20/README.md).
 
-## Mantenimiento de setales — publicado en 0.2.313
+- La entrada operativa es IDW; Copernicus/ICGC son referencias de auditoría,
+  no dependencias del cálculo. Referencia orientativa, sin validación absoluta
+  de litros restantes ni de evapotranspiración real del bosque.
+- PM usa temperatura/humedad, altitud y viento admisible; radiación estimada,
+  viento de 2 m/s estimado cuando falta y Hargreaves como alternativa explícita
+  si PM no se puede calcular. No se ha implementado sombra/orientación/dosel.
+- Reserva calentada con hasta 365 días, ≥90 días completos y convergencia entre
+  arranque seco/lleno; cambiar la ventana del gráfico no reinicia el suelo.
+  Los huecos no son ceros. Capacidad SoilGrids 250 m, diferencia entre capacidad
+  de campo y marchitez integrada en 0–30 cm. SMI = disponible/capacidad.
+- Balance climático sigue siendo lluvia−ET₀; no equivale a cambio de reserva
+  (lluvia−extracción regulada−drenaje).
+- V2/V3 core/V4 extended no usan SMI; V3+ físico usa SMI y balance; V4 climatic
+  usa balance sin SMI; V5/V6 físicos completos usan ambos; V5w/V6w usan escalares
+  SMI sin los canales físicos diarios completos. El perfil y las columnas
+  reales determinan las entradas, no el nombre del estimador.
+- **Migración:** reconstruir entradas y reentrenar modelos físicos antiguos;
+  sólo precalcular no basta. Se preservan hiperparámetros verificados del
+  catálogo previo, nunca pesos ni métricas. Solicitudes precálculo 1.6 pueden
+  avanzar a 1.7 conservando revisión; artefactos 1.6 no se aceptan como actuales.
 
-Implementado en `mushroom_known_sites_ui.py`, `known-sites.js` y `known-sites.css`,
-con rutas privadas de workspace/detalle/observaciones en `web_server.py`.
-Mapa MapLibre persistente, árbol y selección bidireccionales, ficha lateral,
-altas con dibujo inmediato, buscador Photon con POI y controles de mapa.
-Archivo/restauración/borrado conservan las restricciones del backend y piden
-confirmación; los borradores ofrecen guardar, descartar o seguir editando.
+**Mapa:** nombre del modelo elegido antes del IFF, por fecha; tooltip propio
+ES/CA/EN con algoritmo, SMI, balance directo, otras entradas y ventana. Metadatos
+obtenidos del artefacto ya cargado y deduplicados por especie. Mantiene distintos
+«Sin IFF calculado», «Sin modelo disponible» y abstención. Cabecera con capacidad
+y disponible; SMI antes del balance y Terreno al final de los desplegables.
 
-La recuperación GIS/DEM/SoilGrids sigue disponible: modal de trabajo durante
-las peticiones, propuesta GIS seleccionable antes de aplicar/guardar y errores
-sin perder el borrador. No se consulta el raster por navegar entre fichas.
-Las observaciones se cargan bajo demanda, con páginas de 50; el workspace omite
-los informes derivados y comparte una sola colección de geometrías.
+**Suspensiones:** panel cerrado por defecto, JSON independiente
+`mushroom_ml_prediction_policy.json` y exportación/importación en Workers.
+La migración conserva reglas y generaciones; la imagen no contiene reglas
+privadas. Siete reglas de rovelló se aplicaron a HA real en 0.2.314 según la
+verificación anterior; confirmar que siguen efectivas tras instalar/entrenar.
+No reactivar por rutina. [Contrato](mushrooms/model-suspensions-es.md).
 
-Validación local del 18/09: 349 tests dirigidos correctos; recorrido real de
-navegador con alta de área/microárea, Polygon/MultiPolygon, error de guardado,
-GIS aplicado y persistido, cancelación, archivo/restauración/borrado protegido,
-buscador y anchura móvil. Datos originales y anillo de backups restaurados;
-observaciones sin cambios. Script reproducible: `tests/known_sites_browser_check.mjs`
-(requiere `--allow-local-writes`, solo HA local).
+## Pendientes prioritarios y dudas
 
-Respuesta HTML medida: 7.342.163 → aproximadamente 424.000 bytes; respuesta del servidor local
-~1,51 s → ~0,025 s. No representa el tiempo de descargar/renderizar cartografía
-ni una medición en RPi4. El usuario confirmó la edición de un área y una microárea y autorizó publicar.
-HA local y worker reconstruidos para la release: 204/108 archivos sin diferencias,
-URLs y hashes de configuración del worker conservados. Smoke de 1.641 tests
-(48 omitidos) correcto. GHCR verificado para 0.2.313/latest con el mismo digest
-y manifests AMD64/ARM64; [informe](reports/ha-release-0.2.313.json). Worker sigue
-1.1.3 sin nueva publicación; no se repitió entrenamiento/precálculo por este cambio
-de UI. Instalación/parada/arranque de HA real a cargo del usuario, pendiente de
-confirmación. UI local: `http://127.0.0.1:8101/mushrooms/known-sites`.
+1. **HA real:** verificar versión, reconstrucción/base/multiversión, recepción y
+   promoción; después precálculo y activación, contratos nuevos y siete reglas.
+   No sabemos si el usuario ya inició esa cadena. Revisar primero, no repetir
+   cálculos caros ni copiar resultados locales.
+2. **Falsos positivos:** tres visitas sin setas frente a IFF 86/84/100 del 18/09.
+   Puntos: Vallcebre 42.20292/1.84242, Vallcebre 42.18669/1.82177,
+   Bellver/Riu 42.31110/1.79167. Fecha de visita y esfuerzo no confirmados;
+   las capturas no identificaban el modelo. No se demuestra que el nuevo SMI
+   los haya corregido. No convertir visitas incompletas en negativos de entrenamiento.
+3. **Indicador del worker:** usuario observó «ocupado» después de cancelar y
+   luego confirmó ambos coordinadores en espera. Hay carriles foreground/background
+   y asociaciones por coordinador. Semántica del indicador pendiente: el usuario
+   cree que debe contar background por coordinador. No imponer «cualquier carril
+   ocupado» ni cambiar planificación como arreglo visual. Revisar sólo si se retoma.
+4. GIS aplazado, revisión manual GBIF, candidatas WU y nueva limpieza de disco
+   no se reabren automáticamente; prioridades y fuentes en `todo.md`.
 
-## Mapa meteorológico y mapa de predicciones
+## Archivos y accesos para continuar
 
-Entradas protegidas `/protected/maplibre/index.html` y
-`/protected/prediction-map/index.html`. Comparten los assets de
-`rainmapper_core/viewers/maplibre-viewer`; la extensión de predicción vive en
-`rainmapper_core/viewers/prediction-map` y se sirve mediante
-`rainmapper-app/app/mushroom_prediction_map_ui.py`.
+- Física: `rainmapper_core/mushroom_water_physics.py`, `mushroom_soil_water_state.py`.
+- Adaptadores: `mushroom_map_hydrology.py`, `mushroom_ml_weather_workspace.py`,
+  `mushroom_ml_area_weather_runtime.py`; `mushroom_map_water_physics.py` sólo reexporta.
+- Modelos/tooltip: `mushroom_model_labels.py`, `mushroom_map_model_runtime.py`,
+  `viewers/prediction-map/prediction-mode.{js,css}`, `prediction-weather.js`, labels.
+- Migraciones: `mushroom_ml_tuning_catalog.py`, `mushroom_ml_policy_store.py`,
+  `mushroom_predictor_precompute_control.py` (todos bajo `rainmapper_core/`).
+- Local: `http://127.0.0.1:8101/protected/maplibre/index.html` (modo predicción)
+  o `/protected/prediction-map/index.html`; Workers `/mushrooms/workers`.
+- Estado local: `docker-data/mushroom-data/`; GIS canónico
+  `docker-media/rainmapper/geography/`; resultados/precálculo
+  `docker-media/rainmapper/results/`. HA real usa sus propios `/share` y `/media`.
+- Visores independientes: `local-apps/{wunderground,gbif}/{code,data}`;
+  los datos/fotos/revisiones quedan excluidos de Git e imágenes. No duplicarlos
+  en `docs/mushrooms/GBIF` ni reimportar observaciones automáticamente.
 
-- Lupa entre Ajustes y 3D. Photon público consultado directamente desde el
-  navegador al enviar Buscar/Intro; no hay autocomplete. Hasta 8 resultados,
-  timeout 20 s, separación mínima 1 s, caché en memoria de 50 consultas.
-  La posición del mapa orienta la búsqueda sin limitarla a Catalunya.
-- Selección centra el mapa y crea un POI con nombre. Una nueva búsqueda válida
-  retira el marcador anterior. Navegar no lanza inferencia. Campo de 16 px,
-  ayuda de búsqueda y créditos Photon/OSM/OpenTopoMap/OpenFreeMap/OpenMapTiles.
-- Predicción con ejecutor local o worker. La preferencia inicial es worker.
-  Si el envío al worker recibe 503 `executor_unavailable` o `worker_busy`, el
-  cliente intenta **una vez** en local sin cambiar la preferencia guardada.
-  No es recuperación general de fallos de una consulta ya aceptada.
-- «Servidor local» es el servidor que sirve ese mapa, no necesariamente el Mac.
-  Inicialización fallida y excepciones de consultas locales se registran en log;
-  el broker no incorpora un reintento automático de inicialización. El reinicio
-  del usuario recuperó la incidencia anterior, sin diagnóstico causal concluyente.
-- Ecología territorial (suelo/pH, hosts/hábitat, altitud) separada de fenología
-  diaria. Compatibles en temporada aparecen en la lista; el complemento aparece
-  en descartes/información insuficiente, incluidos los descartes por temporada.
-- IFF expresa favorabilidad relativa, no probabilidad de encontrar setas.
-  Cero, modelo ausente e inaplicabilidad son distintos. Cada ficha de Rovelló
-  conserva su ID/modelo; no fusionar observaciones ni prestar modelos.
-- Ausencia de suelo identificado muestra «Suelo no determinado». Exigirlo sigue
-  siendo decisión de cada ficha; no introducir un veto global ni derivarlo del pH.
+## Permisos y preservación
 
-[Especificación central](mushrooms/prediction-map-specification-es.md) y
-[arquitectura](architecture.md). La validación funcional no acredita precisión
-micológica ni cobertura GIS nacional completa.
+El usuario lanza el precálculo; instalar/parar/arrancar HA real le corresponde.
+Preferir archivos compartidos/API autorizada; no usar SSH sin petición expresa
+ni alterar destinos del worker. No crear imágenes/volúmenes/workers auxiliares.
+Respetar recursos RPi4 y el circuito local obligatorio antes de otra release.
 
-## Fichas y vigencia de modelos
-
-El mapa consume perfiles privados actuales a través de `MapPublication` y el
-lector ecológico. El aviso `pending_model_species_ids` y
-`mushroom_model_state` se relaciona con cambios de observaciones;
-`save_profile_form` no marca pendientes de reconstrucción. El vector rápido
-`REVISION_VECTOR_KEYS` no incluye revisión de perfiles. Confirmado en código,
-no una promesa de que cualquier edición requiera reentrenar. La distinción entre
-filtros consultados en vivo y entradas del entrenamiento necesita mantenerse.
-
-## Almacenamiento y migración completada
-
-`mushroom_paths.py` resuelve rutas nuevas cuando `media_layout.organized()` valida
-`/media/rainmapper/.media-layout-v1.json`. Sin marcador conserva rutas antiguas;
-con journal incompleto rechaza continuar. La migración es una operación CLI
-explícita, no una acción automática de instalación o arranque.
-
-| Contenido tras migración | Ruta bajo `/media/rainmapper` |
-| --- | --- |
-| Fuentes geográficas canónicas y manifiestos | `geography/` |
-| Modelos | `results/models/` |
-| Artefactos de reconstrucción | `results/artifacts/` |
-| Archivo de versiones | `results/model-archive/` |
-| Precálculo activo y recibos | `results/predictor-precompute/` |
-| Transferencias del worker | `transfers/worker/` |
-| TAR de runtime | `cache/predictor-runtime-archives/` |
-
-HA real: operación del 18/09 con 0.2.310, seis movimientos, 1.550 archivos
-conservados y 4.942 duplicados GIS retirados solo tras hashes íntegros
-(21.358.531.147 bytes lógicos, no medida de espacio físico). Datos privados,
-identidad del runtime y SQLite verificados. El usuario confirmó después el mapa
-con ejecutores local y worker. No repetir la operación por este documento.
-[Informe](reports/ha-media-migration-2026-09-18.json) ·
-[Procedimiento](mushrooms/ha-media-organization-proposal-es.md).
-
-## Herramientas locales de investigación
-
-**Wunderground:** `local-apps/wunderground/code/station_research.py` y `local-apps/wunderground/code/web/`,
-no incluidos por el Dockerfile HA. Consultas por clic, preliminares y candidatas,
-revisión Pendiente/Dudosa/Aceptada/Rechazada guardada en SQLite, filtros combinables
-por fuente, relieve/norte, fondos y búsqueda de lugares. Días con lluvia válida
-X/30 incluye 0 mm: mide disponibilidad, no calidad. Deduplicación por ID frente
-a la red de referencia; aceptar una candidata no la añade al IDW ni hace backfill.
-La base de referencia inicial es local, no el estado en vivo de HA real.
-[Uso y persistencia](station-research-es.md). No asumir que el servidor esté arrancado.
-
-Los recuentos iniciales (143 nuevas/12 priorizadas) son históricos del análisis;
-las revisiones del usuario pueden cambiar. No afirmar que actualmente ninguna
-esté aceptada sin consultar su SQLite. Conservar
-`local-apps/wunderground/data/` y su `research.sqlite3`.
-
-**GBIF:** visor y herramientas en `local-apps/gbif/code/`; datos en `local-apps/gbif/data/`. Snapshot, fotografías y
-revisiones excluidos de Git e imagen. Cuatro estados; clave interna `approved`
-para Aceptada, diferente de `accepted` en WU. Persistencia de revisión en navegador
-más guardado en archivo opcional; no se ha simulado un crash físico de Chrome.
-El usuario dejó pendiente revisar **observaciones GBIF**, no estaciones.
-No importar ni entrenar automáticamente. [Guía](../local-apps/gbif/docs/guide.md).
-
-## Pendientes y límites conservados
-
-- Revisión GIS **aplazada expresamente**: tanda histórica de 488, 145 aceptados y
-  343 pendientes (331 sin investigación suficiente y 12 con limitación documentada,
-  no declarados irresolubles). Los 567 códigos previamente aceptados no cuentan
-  como nueva revisión. Revalidar archivos antes de retomar; no se reauditan ahora.
-- Conservar `tmp/soil-review-after-0.2.307/` completo, sus fuentes y auditorías.
-  [Método](mushrooms/gis-soil-review-method-es.md) · [Informe](gis-review-2026-09-16.md).
-  Copias GIS comparadas históricamente no prueban su consumo actual en HA/worker.
-- Calidad/backfill de candidatas WU solo tras revisión y lote aprobado.
-- Árboles vecinos, cobertura GEODE/MFE fuera de Catalunya y validación científica
-  en puntos nuevos siguen pendientes. SoilGrids puntual no completa integración
-  general por áreas ni implica geología/ecología disponible fuera de Catalunya.
-- El resto de pendientes de producto/ciencia se conserva en [todo.md](todo.md).
-- `docs/ui/rainmapper-geocoding-options-review.md` es un encargo/propuesta sin
-  seguimiento Git al auditar; no se ha ejecutado ni convertido en decisión técnica.
-
-## Worktree y continuidad
-
-Al iniciar esta auditoría, HEAD y `origin/inicial` eran `81a6b0b`. Había cambios
-locales documentales de confirmación Safari y el archivo personal
-`mushroom-data/mushroom_observations.json`, que se preserva sin editar ni incluir
-por arrastre. No había cambios ejecutables versionados pendientes.
-Esta revisión añade solo documentación, sin build, publicación ni acceso remoto.
-
-El [archivo previo a esta auditoría](reports/session-context-before-doc-audit-2026-09-18.md)
-conserva el detalle de las sesiones, huellas y decisiones; es histórico, no una
-fuente de estado actual. Las decisiones científicas y operativas siguen en
-[decisions.md](decisions.md) y especificaciones temáticas. No inferir cambios de
-código o datos a partir de los pendientes.
+Antes del cierre documental, único cambio sin commit:
+`mushroom-data/mushroom_observations.json`, privado/preexistente; no editar ni
+incluir. Este cierre cambia sólo documentación, sin nueva versión/build,
+entrenamiento ni precálculo. No asumir commit/push de este cierre: comprobar Git.
+Conservar auditorías SMI, datos de los visores y `tmp/soil-review-after-0.2.307/`.

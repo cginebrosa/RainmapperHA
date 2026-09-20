@@ -376,6 +376,44 @@ class MushroomMLRuntimeTrainerTests(TestCase):
             "batches/batch-output-tuning/tuning-catalog.json",
         )
 
+        # A failed fit must remain identifiable even after staging is cleaned;
+        # validating the incomplete tuning catalog used to mask its cause.
+        with TemporaryDirectory() as temporary, mock.patch.object(
+            trainer, "fit_artifact", side_effect=ValueError("simulated fit failure")
+        ) as fit, mock.patch.object(
+            trainer.mushroom_ml_tuning_catalog, "build_from_decisions"
+        ) as build_catalog:
+            with self.assertRaises(trainer.BatchFitError) as raised:
+                trainer.write_batch(
+                    registry,
+                    training_plan,
+                    {key: benchmark},
+                    models_root=Path(temporary),
+                    tuning_catalog=input_tuning,
+                )
+            fit.assert_called_once()
+            build_catalog.assert_not_called()
+            self.assertEqual(list((Path(temporary) / "batches").iterdir()), [])
+        message = str(raised.exception)
+        self.assertIn("1 failed fits", message)
+        self.assertIn("boletus_edulis/logistic_regression_reduced_v1", message)
+        self.assertIn("simulated fit failure", message)
+
+    def test_batch_failure_diagnostics_are_bounded(self) -> None:
+        failure = {
+            "artifact_ref": {
+                "version_id": "version", "temporal_contract_id": "contract",
+                "profile_id": "profile", "species_id": "species",
+                "estimator_id": "estimator",
+            },
+            "reason": "long failure\n" * 1000,
+        }
+        message = str(trainer.BatchFitError([failure] * 1000))
+        self.assertIn("1000 failed fits", message)
+        self.assertIn("992 additional failures omitted", message)
+        self.assertLess(len(message), 3000)
+        self.assertNotIn("\n", message)
+
     def test_batch_reuses_one_matrix_across_estimators_of_the_same_scope(self) -> None:
         registry = mushroom_ml_version_registry.load_registry(REGISTRY_PATH)
         base = {
