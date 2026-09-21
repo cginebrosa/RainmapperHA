@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from rainmapper_core.mushroom_map_model_runtime import PointModelRuntime
+from rainmapper_core.mushroom_prediction_map import MODEL_ERROR_CODES
 
 
 def main():
@@ -29,9 +30,11 @@ def main():
             continue
         try:
             result=runtime.predict(request['request'],request['geography'])
-        except Exception:
-            logging.getLogger(__name__).exception("Prediction map model query failed")
+        except Exception as error:
+            logging.getLogger(__name__).exception("Prediction map model query failed (request %s)",
+                                                 request['request'].get('request_id', request['id']))
             result={'data_mode':'prediction','species':[], 'model_status':'unavailable',
+                'model_error': str(error) if str(error) in MODEL_ERROR_CODES else 'model_runtime_failed',
                 'provenance':{'engine':'existing_python_predictor','scientifically_validated':False}}
         raw=json.dumps({'id':request['id'],**result},allow_nan=False)
         if len(raw.encode())>32768: raise ValueError('model_response_limit')

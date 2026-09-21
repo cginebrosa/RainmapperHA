@@ -18,6 +18,26 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MapLoggingTests(unittest.TestCase):
+    def test_model_query_reports_safe_error_code_and_logs_request(self):
+        script = ROOT/'scripts'/'prediction-map-local-model.py'
+        args = [str(script), *[arg for key in ('registry-path', 'models-root', 'profiles-path', 'data-root', 'stations-file')
+                              for arg in ('--' + key, '/missing')]]
+        for message, code in [('quality_read_limit', 'quality_read_limit'),
+                              ('private path /secret/token', 'model_runtime_failed')]:
+            with self.subTest(message=message):
+                output = io.StringIO()
+                request = {'id': 9, 'request': {'request_id': 'test_query_123'}, 'geography': {}}
+                with patch.object(sys, 'argv', args), patch.object(sys, 'stdin', io.StringIO(json.dumps(request)+'\n')), \
+                        patch('rainmapper_core.mushroom_map_model_runtime.PointModelRuntime.predict', side_effect=ValueError(message)), \
+                        contextlib.redirect_stdout(output), self.assertLogs('__main__', level='ERROR') as logs:
+                    runpy.run_path(str(script), run_name='__main__')
+                result = json.loads(output.getvalue())
+                self.assertEqual(result['model_error'], code)
+                self.assertEqual(result['model_status'], 'unavailable')
+                self.assertEqual(result['species'], [])
+                self.assertNotIn('/secret', output.getvalue())
+                self.assertIn('test_query_123', '\n'.join(logs.output))
+
     def test_broker_initialization_preserves_original_exception_in_log(self):
         executor = Mock()
         executor.ready.side_effect = OSError("missing_catalog_fixture")

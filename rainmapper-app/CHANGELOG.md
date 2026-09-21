@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.317
+
+- Stop reading the unused area-selection tail after collecting point-model evidence, preserving full-file integrity checks and existing resource limits.
+- Show map calculation failures in a modal with a translated cause, executor, bounded error code and query reference instead of silently displaying all species without IFF.
+- Recognize unavailable-model responses from older workers and keep legitimate missing-model and out-of-domain results distinct from technical errors.
+- Update the local worker to 1.1.4 with the shared reader fix and safe diagnostics; preserve its configured coordinators.
+
 ## 0.2.316
 
 - Collapse operational rebuild/training and scientific benchmark controls by default in Workers and jobs, keeping recent jobs easier to reach.

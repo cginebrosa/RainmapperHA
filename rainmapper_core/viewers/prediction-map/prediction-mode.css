@@ -3,6 +3,7 @@
 .pm-wait { border:0; border-radius:16px; padding:24px; max-width:min(400px,calc(100vw - 48px)); background:#f4f8fc; color:#1a2834; font:15px system-ui; box-shadow:0 12px 48px #0005; }
 .pm-wait::backdrop { background:#14233366; }
 .pm-wait h2 { margin:8px 0; font-size:20px; }
+.pm-error-detail { overflow-wrap:anywhere; font-size:12px; white-space:pre-line; }
 .pm-wait button { appearance:none; -webkit-appearance:none; min-height:26px; margin-top:8px; padding:3px 8px; border:1px solid #b8c7d2; border-radius:5px; font:12px/18px system-ui; cursor:pointer; color:#344b5b; background:#edf3f7; box-shadow:none; }
 .pm-wait button:focus { outline:1px solid #6c98b2; outline-offset:2px; }
 .pm-wait button:focus-visible { outline-width:2px; }

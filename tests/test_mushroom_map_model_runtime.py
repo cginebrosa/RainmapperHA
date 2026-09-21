@@ -120,6 +120,46 @@ class ProjectionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'quality_read_limit'):
                 projected_quality(p,hashlib.sha256(p.read_bytes()).hexdigest())
 
+    def test_verified_point_prefix_does_not_decompress_large_area_tail(self):
+        from rainmapper_core import mushroom_ml_quality_catalog as q
+        data={'kind':q.KIND,'schema_version':q.SCHEMA_VERSION,
+              'snapshot_id':'test-snapshot','split_id':'fruiting_groups_7d',
+              'selection_schema_version':'1.2','selection_status':'complete',
+              'selection_id':'test-selection','selection_prediction_days':list(range(1,8)),
+              'selection_split_id':q.mushroom_ml_reliability_audit.OFFICIAL_SELECTION_SPLIT_ID,
+              'entries':[{'literal':'point evidence'}],'species_selections':[]}
+        with tempfile.TemporaryDirectory() as folder:
+            p=Path(folder)/'q.json.gz'
+            # More than the reader's 64 MiB scan budget, but no large allocation.
+            with gzip.open(p,'wt') as stream:
+                stream.write(json.dumps(data)[:-1]+',"species_area_selections":[')
+                row=json.dumps({'unused_area_evidence':'x'*16384})
+                for index in range(4200):
+                    stream.write((',' if index else '')+row)
+                stream.write(']}')
+            opener=gzip.open
+            read_sizes=[]
+            def bounded_open(*args,**kwargs):
+                stream=opener(*args,**kwargs)
+                original=stream.read
+                def read(size=-1):
+                    value=original(size)
+                    read_sizes.append(len(value))
+                    self.assertLessEqual(sum(read_sizes),65536)
+                    return value
+                stream.read=read
+                return stream
+            digest=hashlib.sha256(p.read_bytes()).hexdigest()
+            with patch('rainmapper_core.mushroom_map_model_runtime.gzip.open',side_effect=bounded_open):
+                result=projected_quality(p,digest)
+            self.assertEqual(result['entries'],data['entries'])
+            self.assertEqual(result['species_selections'],data['species_selections'])
+            self.assertEqual(result['species_area_selections'],[])
+            # Integrity still covers bytes that the projection never decompresses.
+            p.write_bytes(p.read_bytes()+b'changed-tail')
+            with self.assertRaisesRegex(ValueError,'quality_digest_mismatch'):
+                projected_quality(p,digest)
+
     def test_missing_species_does_not_borrow_a_model(self):
         with tempfile.TemporaryDirectory() as folder:
             profiles=Path(folder)/'p.json';profiles.write_text('{"species_profiles":[]}')

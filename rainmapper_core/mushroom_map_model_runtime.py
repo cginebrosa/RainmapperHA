@@ -37,6 +37,10 @@ def projected_quality(path, expected_sha):
 
     Preserves species resolutions verbatim. Does not manufacture a new sealed
     catalog identity; provenance remains the hash of the original full source.
+    The producer writes the complete point evidence before area selections.
+    Once that prefix is complete, stop decompressing: the trailing area audit
+    is not a point-runtime dependency. Hash verification covers the WHOLE source;
+    this projection is not a replacement for producer-side catalog validation.
     """
     if Path(path).stat().st_size > 16 * 1024 * 1024:
         raise ValueError('quality_compressed_limit')
@@ -85,7 +89,15 @@ def projected_quality(path, expected_sha):
                 except json.JSONDecodeError:
                     if not more():
                         raise ValueError('invalid_quality_json')
-        result = {}; keys = set(); kept_bytes = 0
+        # These are all sealed fields needed by _refresh, species resolution and
+        # the default-split quality lookup. Older/reordered catalogs keep using
+        # the bounded full scan until their point evidence has been collected.
+        point_fields = {
+            'schema_version', 'kind', 'snapshot_id', 'split_id', 'entries',
+            'selection_schema_version', 'selection_status', 'selection_id',
+            'selection_split_id', 'selection_prediction_days', 'species_selections',
+        }
+        result = {}; keys = set(); kept_bytes = 0; point_complete = False
         take('{')
         while peek() != '}':
             key = value()
@@ -108,11 +120,16 @@ def projected_quality(path, expected_sha):
                 take(']'); result[key] = rows
             else:
                 result[key] = value()
+            if point_fields <= result.keys():
+                point_complete = True
+                break
             if peek() == '}': break
             take(',')
-        take('}')
-        if buffer.strip() or stream.read(1):
-            raise ValueError('quality_trailing_data')
+        if not point_complete:
+            take('}')
+            if buffer.strip() or stream.read(1):
+                raise ValueError('quality_trailing_data')
+        result.setdefault('species_area_selections', [])
     if result.get('kind') != quality.KIND or result.get('schema_version') != quality.SCHEMA_VERSION:
         raise ValueError('quality_contract')
     if (result.get('selection_prediction_days') != list(range(1,8)) or

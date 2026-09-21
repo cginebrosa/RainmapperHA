@@ -7,6 +7,67 @@ no una segunda fuente de estado actual.
 
 ## Estado y siguiente paso
 
+### HA 0.2.317 publicada — instalar en HA real y retomar comparación
+
+El usuario autorizó desplegar la corrección y pidió retomar después la auditoría
+científica de cinco especies. GHCR `0.2.317` y `latest` verificados con el mismo
+digest `sha256:3454cacfe4c3776e2d254c96f8e85bff4035f3e96ec750161da8a0a6dae72e79`,
+AMD64 y ARM64. [Informe de release](reports/ha-release-0.2.317.json).
+**HA real queda pendiente de instalación por el usuario.** Worker local 1.1.4
+reconstruido y recreado estando ambas colas en reposo; coordinadores y sus huellas
+exactamente conservados. No se ha accedido por SSH ni repetido entrenamiento o
+precálculo. Observaciones privadas y setales preservados por SHA y excluidos del
+commit y de la imagen.
+
+La incidencia del mapa era `quality_read_limit`: el lector recorría más de
+64 MiB del catálogo nuevo, incluida una cola por áreas que descartaba. La
+corrección verifica el SHA del archivo completo y termina al reunir la evidencia
+por punto, sin elevar límites. Afectaba al modo «Servidor local» de HA real y al
+worker; no al Predictor que estaba sirviendo su precálculo. El lector proyectado
+no sustituye la validación completa del productor/promoción. Se conservan las
+70 resoluciones por especie y las 3.600 métricas originales.
+
+El mapa ahora muestra un modal ante un fallo técnico, con causa traducida
+ES/CA/EN, ejecutor, código acotado y referencia de consulta; el traceback queda en
+el log. También reconoce respuestas antiguas `model_status=unavailable` sin
+código. No expone excepciones arbitrarias/rutas privadas, ni confunde errores con
+la ausencia legítima de modelo o abstenciones. Sigue existiendo un límite si
+crece la evidencia necesaria; un catálogo compacto específico del mapa sería
+una mejora futura, no implementada ni necesaria para esta corrección.
+
+Aceptación local: HA y worker construidos desde el código candidato, 216/116
+archivos efectivos coincidentes antes del bump mecánico de HA; smoke 1.707 tests,
+52 omitidos, correcto. Navegador correcto, 39 consultas con ambos ejecutores,
+fallos conocidos, respuesta antigua y códigos no admitidos. Consultas completas
+con geografía real y el lote nuevo en ambos contenedores devuelven exactamente
+los mismos IFF: C Ou 64,2481/Aereus 32,9455; D Ou 56,0425/Aereus 30,7147.
+No se ha repetido la cadena de entrenamiento/precálculo: restricción explícita
+del usuario y cambio acotado al lector/presentación. Evidencia privada en
+`tmp/release-0.2.317/` y `tmp/model-robustness-20260921/map-quality-failure.md`.
+
+Datos del lote real nuevo `operational_20260921T134830Z`: 518 observaciones,
+47 áreas, 84 microáreas; entradas locales/real/snapshot coincidentes por SHA en
+la comprobación anterior. 792 ajustes correctos, cero fallidos; cinco generaciones
+promovidas y siete suspensiones conservadas. El precálculo del usuario
+`worker_job_B6SNHSRjJFEP` terminó el 21/09 a las 14:34:03 UTC. En esta sesión se
+verificó por SMB que el activo (revisión 210, 45.449.216 bytes) coincide por tamaño
+y SHA con su recibo. No implica aún auditoría semántica de todas sus respuestas.
+Última consulta de montajes: `/Volumes/media` presente; `/Volumes/share` ausente.
+
+**Trabajo a retomar inmediatamente tras la release:** comparar Ou de reig,
+Aereus, Lactarius deliciosus, Edulis y Pinícola (B. pinophilus), con los modelos
+NUEVOS ya copiados de HA real y verificados. Auditoría preliminar preparada en
+`tmp/model-robustness-20260921/`: `report.md`, `new-ranking-audit.json`,
+`humidity-new-results.json`, `humidity-case-selection.json`,
+`olvan-new-results.json` y `fixed-point-runtime.json`. Ranking semanal reproducido,
+sensibilidad directa a humedad en cuatro contextos por especie y estabilidad
+al omitir grupos de validación, sin reentrenar. Falta ampliar perturbaciones a
+lluvia, temperatura y estado hídrico, revisar cobertura/calibración y presentar
+qué decisiones permite tomar. No cambiar IDW, selector, suspensiones ni modelos.
+Los cuatro contextos son cribado, no certificación de robustez; los ajustes
+operativos pueden haber visto esos casos. Precisión histórica exclusivamente
+con hold-out sellado. No adoptar umbrales a posteriori para favorecer candidatos.
+
 ### HA 0.2.316 publicada
 
 Publicación autorizada tras la aceptación local. GHCR `0.2.316` y `latest`

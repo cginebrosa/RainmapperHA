@@ -22,6 +22,17 @@ def request(**changes):
 
 
 class PredictionMapContractTests(unittest.TestCase):
+    def test_model_error_is_bounded_and_cannot_accompany_predictions(self):
+        req = request()
+        result = contract.prediction_result(req)
+        result.update(execution={'mode': 'local'}, model_status='unavailable', model_error='quality_read_limit')
+        contract.validate_result(result, req)
+        for value in ('/private/exception', 'x'*5000, {}, None):
+            with self.subTest(value=str(value)[:40]), self.assertRaisesRegex(ValueError, 'invalid_result_model_error'):
+                contract.validate_result({**result, 'model_error': value}, req)
+        with self.assertRaisesRegex(ValueError, 'invalid_result_model_error'):
+            contract.validate_result({**result, 'species': [{'probabilities': [.9]}]}, req)
+
     def test_calendar_timezone_is_validated_and_bound_to_response(self):
         for zone in ('Europe/Madrid','Atlantic/Canary','UTC'):
             req=contract.parse_request(json.dumps(request(calendar_timezone=zone)).encode())

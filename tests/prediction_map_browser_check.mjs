@@ -542,6 +542,26 @@ try {
   await until("document.querySelector('.pm-wait h2')?.textContent.includes('No se ha podido')");
   await evaluate("document.querySelector('.pm-wait button').click()");
   failure = false;
+  // A successful transport carrying a failed model reader must not look like
+  // a scientific result without IFF. Test both executors and old workers.
+  for (const execution of ['worker', 'local']) {
+    await evaluate(`document.getElementById('prediction-execution-selector').value='${execution}';document.getElementById('prediction-execution-selector').dispatchEvent(new Event('change'))`);
+    for (const code of ['quality_read_limit', null, '<script>private</script>']) {
+      modelFixture = {data_mode:'prediction', species:[], model_status:'unavailable',
+        ...(code ? {model_error:code} : {})};
+      await clickAt(2.04,42.08);
+      await until("document.querySelector('.pm-wait h2')?.textContent.includes('No se ha podido')");
+      const detail = await evaluate("document.querySelector('.pm-error-detail').textContent");
+      assert.ok(detail.includes(code === 'quality_read_limit' ? code : 'model_runtime_failed'));
+      assert.ok(detail.includes(execution === 'worker' ? 'Worker' : 'Servidor local'));
+      assert.ok(detail.includes(executionRequests.at(-1).request_id));
+      assert.ok(!detail.includes('private'));
+      assert.equal(await evaluate("!!document.querySelector('.pm-result')"), false);
+      await evaluate("document.querySelector('.pm-wait button').click()");
+    }
+  }
+  modelFixture = null;
+  await evaluate("document.getElementById('prediction-execution-selector').value='worker';document.getElementById('prediction-execution-selector').dispatchEvent(new Event('change'))");
   const savesBeforeFallback=settingsSaves;
   for (const unavailable of ['busy','offline']) {
     busyWorker=unavailable==='busy'; unavailableWorker=unavailable==='offline';

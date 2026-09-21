@@ -1,0 +1,158 @@
+{
+  "version": "0.2.317",
+  "verified_at": "2026-09-21T18:04:12.465800+00:00",
+  "image": "ghcr.io/cginebrosa/rainmapperha",
+  "tags": [
+    "0.2.317",
+    "latest"
+  ],
+  "digest": "sha256:3454cacfe4c3776e2d254c96f8e85bff4035f3e96ec750161da8a0a6dae72e79",
+  "platforms": {
+    "linux/amd64": "sha256:2ccad0bc41f393bde43e28b9ae76c4b7c31209f7a6ba0c69718218865808c0b1",
+    "linux/arm64": "sha256:b6571c9bc703f993d5bc80c2899c0e42cccab1bde0a49bb00b26d764a557ed99"
+  },
+  "build_exit_code": 0,
+  "build_log": "tmp/release-0.2.317/publish.log",
+  "smoke": {
+    "tests": 1707,
+    "skipped": 52,
+    "result": "OK",
+    "seconds": 80.85,
+    "log": "tmp/release-0.2.317/smoke-unrestricted.log"
+  },
+  "local_parity_before_mechanical_ha_version_bump": {
+    "rainmapper-local-rainmapper-ha-ui-1": {
+      "checked_files": 216,
+      "mismatches": [],
+      "manifest_sha256": "e73af6df700bac7ca004669f758376e1cefe7dfb29b0c63698fec8b3cd085e59"
+    },
+    "rainmapper-worker": {
+      "checked_files": 116,
+      "mismatches": [],
+      "manifest_sha256": "367a4427a709fdeb74693b86ebca5a8b6401c56e3a29107c9c1c15c53404440c"
+    }
+  },
+  "worker_version_installed": "1.1.4",
+  "worker_coordinator_configuration_preserved": true,
+  "browser_checks": {
+    "result": "OK",
+    "queries": 39,
+    "includes": [
+      "local and worker technical-error modal",
+      "legacy unavailable response",
+      "safe error codes",
+      "legitimate no-model/out-of-domain results"
+    ]
+  },
+  "point_validation": {
+    "batch_id": "operational_20260921T134830Z",
+    "ha": [
+      {
+        "point": "C",
+        "batch": "operational_20260921T134830Z",
+        "execution": {
+          "mode": "local",
+          "compute_ms": 3392.389
+        },
+        "species": [
+          {
+            "species_id": "amanita_caesarea",
+            "status": "available",
+            "probabilities": [
+              0.642481
+            ]
+          },
+          {
+            "species_id": "boletus_aereus",
+            "status": "available",
+            "probabilities": [
+              0.329455
+            ]
+          }
+        ]
+      },
+      {
+        "point": "D",
+        "batch": "operational_20260921T134830Z",
+        "execution": {
+          "mode": "local",
+          "compute_ms": 773.339
+        },
+        "species": [
+          {
+            "species_id": "amanita_caesarea",
+            "status": "available",
+            "probabilities": [
+              0.560425
+            ]
+          },
+          {
+            "species_id": "boletus_aereus",
+            "status": "available",
+            "probabilities": [
+              0.307147
+            ]
+          }
+        ]
+      }
+    ],
+    "worker": [
+      {
+        "point": "C",
+        "batch": "operational_20260921T134830Z",
+        "execution": {
+          "mode": "worker",
+          "compute_ms": 3451.876
+        },
+        "species": [
+          {
+            "species_id": "amanita_caesarea",
+            "status": "available",
+            "probabilities": [
+              0.642481
+            ]
+          },
+          {
+            "species_id": "boletus_aereus",
+            "status": "available",
+            "probabilities": [
+              0.329455
+            ]
+          }
+        ]
+      },
+      {
+        "point": "D",
+        "batch": "operational_20260921T134830Z",
+        "execution": {
+          "mode": "worker",
+          "compute_ms": 665.404
+        },
+        "species": [
+          {
+            "species_id": "amanita_caesarea",
+            "status": "available",
+            "probabilities": [
+              0.560425
+            ]
+          },
+          {
+            "species_id": "boletus_aereus",
+            "status": "available",
+            "probabilities": [
+              0.307147
+            ]
+          }
+        ]
+      }
+    ],
+    "note": "Actual installed readers and geography. HA test uses the hash-verified private copy of the new batch; worker uses its existing primary cache. No training or precompute repeated."
+  },
+  "private_data_preserved": {
+    "mushroom-data/mushroom_observations.json": true,
+    "docker-data/mushroom-data/mushroom_observations.json": true,
+    "docker-data/mushroom-data/mushroom_known_sites.json": true
+  },
+  "ha_real_installed_by_codex": false,
+  "next_step": "User installs HA 0.2.317; resume the five-species robustness audit using the new real batch."
+}

@@ -47,9 +47,11 @@ export function createPredictionMode(bridge) {
   spinner.setAttribute("aria-hidden", "true");
   const status = make("p", "");
   status.setAttribute("role", "status");
+  const diagnostic = make("p", "", "pm-error-detail");
+  diagnostic.hidden = true;
   const cancel = make("button", text("cancel"));
   cancel.type = "button";
-  dialog.append(spinner, title, notice, status, cancel);
+  dialog.append(spinner, title, notice, status, diagnostic, cancel);
 
   function closePopup() {
     const old = popup;
@@ -229,6 +231,9 @@ export function createPredictionMode(bridge) {
     title.textContent = text("calculating");
     cancel.textContent = text("cancel");
     status.textContent = "";
+    diagnostic.hidden = true;
+    diagnostic.textContent = "";
+    notice.hidden = false;
     spinner.hidden = false;
     dialog.showModal();
     cancel.focus();
@@ -287,6 +292,12 @@ export function createPredictionMode(bridge) {
       const data = JSON.parse(raw);
       if (!validResponse(data, request)) throw new Error("invalid_response");
       if (!enabled || revision !== ownRevision) return;
+      if (data.model_status === "unavailable") {
+        const codes = ["quality_read_limit", "quality_compressed_limit", "quality_digest_mismatch", "no_installed_batch"];
+        const error = new Error("model_runtime_failed");
+        error.modelCode = codes.includes(data.model_error) ? data.model_error : "model_runtime_failed";
+        throw error;
+      }
       pending = null;
       dialog.close();
       result = data;
@@ -297,8 +308,16 @@ export function createPredictionMode(bridge) {
       if (!enabled || revision !== ownRevision) return;
       pending = null;
       spinner.hidden = true;
+      notice.hidden = true;
       title.textContent = text("error");
-      status.textContent = text(error.message === "worker_busy" ? "worker_busy" : error.message === "unavailable" ? "executor_unavailable" : "retry");
+      status.textContent = text(error.modelCode ? `error_${error.modelCode}` :
+        error.message === "worker_busy" ? "worker_busy" : error.message === "unavailable" ? "executor_unavailable" : "retry");
+      const code = error.modelCode || (controller.signal.aborted ? "query_timeout" :
+        ["worker_busy", "unavailable", "oversized", "invalid_response", "invalid_query"].includes(error.message) ? error.message : "query_failed");
+      diagnostic.textContent = text("error_reference")
+        .replace("{executor}", text(request.execution === "worker" ? "execution_worker" : "execution_local"))
+        .replace("{code}", code).replace("{request}", request.request_id);
+      diagnostic.hidden = false;
       cancel.textContent = text("close");
     } finally {
       clearTimeout(timeout);

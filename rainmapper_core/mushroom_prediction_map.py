@@ -22,6 +22,10 @@ MAX_REQUEST_BYTES = 32 * 1024
 MAX_RESULT_BYTES = 256 * 1024
 MAX_SPECIES = 32
 HISTORY_DAYS = (7, 15, 30, 60)
+# Public diagnostics are bounded codes, never exception messages or file paths.
+MODEL_ERROR_CODES = frozenset({'quality_read_limit', 'quality_compressed_limit',
+                              'quality_digest_mismatch', 'no_installed_batch',
+                              'model_runtime_failed'})
 
 
 def validate_calendar_timezone(value):
@@ -152,6 +156,10 @@ def validate_result(result, request):
     if ('calendar_timezone' in request and result.get('calendar_timezone') != request['calendar_timezone']):
         raise ValueError('invalid_result_calendar_timezone')
     rows=result.get('species')
+    if 'model_error' in result and (not isinstance(result['model_error'], str) or
+            result['model_error'] not in MODEL_ERROR_CODES or
+            result.get('model_status') != 'unavailable' or rows != []):
+        raise ValueError('invalid_result_model_error')
     if not isinstance(rows,list) or len(rows)>MAX_SPECIES:
         raise ValueError('invalid_result_species')
     if result.get('data_mode')=='simulation':

@@ -7594,6 +7594,36 @@
     "ca": "Descriu les variables d’entrada; no la seva importància ni una garantia de trobar bolets.",
     "en": "Describes the input variables, not their importance or a guarantee of finding mushrooms."
   },
+  "ui.prediction_map_error_quality_read_limit": {
+    "es": "No se han podido calcular los IFF: el catálogo de modelos supera el límite de lectura del mapa. Es un fallo técnico, no ausencia de setas. Revisa el lector del catálogo antes de repetir la consulta.",
+    "ca": "No s’han pogut calcular els IFF: el catàleg de models supera el límit de lectura del mapa. És un error tècnic, no absència de bolets. Revisa el lector del catàleg abans de repetir la consulta.",
+    "en": "IFF calculation failed: the model catalog exceeds the map reader’s limit. This is a technical failure, not an absence of mushrooms. Check the catalog reader before retrying."
+  },
+  "ui.prediction_map_error_quality_compressed_limit": {
+    "es": "No se han podido calcular los IFF: el archivo del catálogo de modelos supera el tamaño admitido por el mapa. Revisa el catálogo; repetir el entrenamiento no es un diagnóstico.",
+    "ca": "No s’han pogut calcular els IFF: el fitxer del catàleg de models supera la mida admesa pel mapa. Revisa el catàleg; repetir l’entrenament no és un diagnòstic.",
+    "en": "IFF calculation failed: the model catalog file exceeds the size accepted by the map. Check the catalog; retraining is not a diagnosis."
+  },
+  "ui.prediction_map_error_quality_digest_mismatch": {
+    "es": "No se han podido calcular los IFF: el catálogo no coincide con su huella de integridad. Revisa los artefactos instalados antes de repetir la consulta.",
+    "ca": "No s’han pogut calcular els IFF: el catàleg no coincideix amb la seva empremta d’integritat. Revisa els artefactes instal·lats abans de repetir la consulta.",
+    "en": "IFF calculation failed: the catalog does not match its integrity hash. Check the installed artifacts before retrying."
+  },
+  "ui.prediction_map_error_no_installed_batch": {
+    "es": "El mapa no encuentra un lote de modelos instalado para calcular los IFF. Revisa la instalación y la promoción de los modelos.",
+    "ca": "El mapa no troba un lot de models instal·lat per calcular els IFF. Revisa la instal·lació i la promoció dels models.",
+    "en": "The map cannot find an installed model batch to calculate IFF. Check model installation and promotion."
+  },
+  "ui.prediction_map_error_model_runtime_failed": {
+    "es": "Un fallo técnico ha impedido calcular los IFF. No significa que no haya setas ni que todas las especies carezcan de modelo. Consulta el registro del ejecutor con esta referencia.",
+    "ca": "Un error tècnic ha impedit calcular els IFF. No significa que no hi hagi bolets ni que totes les espècies no tinguin model. Consulta el registre de l’executor amb aquesta referència.",
+    "en": "A technical failure prevented IFF calculation. This does not mean mushrooms are absent or every species lacks a model. Check the executor log using this reference."
+  },
+  "ui.prediction_map_error_reference": {
+    "es": "Ejecutor: {executor}\nCódigo: {code}\nConsulta: {request}",
+    "ca": "Executor: {executor}\nCodi: {code}\nConsulta: {request}",
+    "en": "Executor: {executor}\nCode: {code}\nQuery: {request}"
+  },
   "ui.prediction_map_model_smi_history": {
     "es": "El SMI conserva la historia anterior necesaria.",
     "ca": "L’SMI conserva la història anterior necessària.",
