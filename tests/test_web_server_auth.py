@@ -14125,7 +14125,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('id="users-list"', page)
         self.assertIn('class="user-card"', page)
         self.assertIn('data-username="diego"', page)
-        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics no estimated field no prediction current 1 1', page)
+        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics no estimated field no prediction no history current 1 1', page)
         self.assertIn('data-device-search="device-mobile diego diego@example.com Mobile Safari Test Agent', page)
         self.assertIn("data-user-toggle", page)
         self.assertIn('aria-expanded="false"', page)

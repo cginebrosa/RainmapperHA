@@ -115,6 +115,29 @@ class PredictionMapRouteTests(unittest.TestCase):
         args = handler.send_bytes.call_args.args
         return args[0], json.loads(args[1])
 
+    def test_history_permission_defaults_off_and_independent_routes(self):
+        from rainmapper_core import mushroom_map_history as history
+        from tests.test_mushroom_map_history import request as history_request
+        from rainmapper_core.mushroom_map_queries import QueryBroker
+        for role in ('free','basic','pro','admin'):
+            self.assertFalse(self.web.user_auth_payload({'role':role,'username':'test'})[history.PERMISSION])
+            self.assertEqual(self.web.default_user_permission(role,history.PERMISSION),'false')
+        isolated=QueryBroker()
+        isolated.local_ready=True
+        ui=self.web.mushroom_prediction_map_ui
+        with mock.patch.object(ui,'_broker',isolated):
+            user={'username':'test',contract.PERMISSION:True}
+            denied=self.handler(contract.API_PATH+'/queries',user=user,body=history_request())
+            denied.do_POST();self.assertEqual(self.response(denied)[0],403)
+            user={**user,history.PERMISSION:True}
+            allowed=self.handler(contract.API_PATH+'/queries',user=user,body=history_request())
+            allowed.do_POST();code,body=self.response(allowed);self.assertEqual(code,202)
+            status=self.handler(contract.API_PATH+'/queries/'+body['query_id'],user={**user,history.PERMISSION:False})
+            status.do_GET();self.assertEqual(self.response(status)[0],403)
+            only_history=self.handler(contract.API_PATH+'/capabilities',user={'username':'test',history.PERMISSION:True})
+            only_history.do_GET();code,body=self.response(only_history)
+            self.assertEqual(code,200);self.assertTrue(body[history.PERMISSION]);self.assertFalse(body[contract.PERMISSION])
+
     def test_capabilities_authorization_and_revocation(self):
         for user, status in ((None, 401), ({"role": "free", contract.PERMISSION: True}, 200),
                              ({"role": "admin"}, 403),

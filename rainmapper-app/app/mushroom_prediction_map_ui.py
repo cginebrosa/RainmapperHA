@@ -10,6 +10,7 @@ from pathlib import Path
 
 import mushroom_profiles_ui
 from rainmapper_core import mushroom_prediction_map as contract
+from rainmapper_core import mushroom_map_history as history
 from rainmapper_core.mushroom_map_queries import QueryBroker, QueryError
 
 _broker = None
@@ -108,7 +109,7 @@ def serve_worker_api(handler, authenticate):
             # queue can wait without accepting unprepared/stale generations.
             if not current.publication and not current.geography and payload['action'] == 'busy':
                 eligible = False
-            result = current.worker_poll(worker_id, busy=payload['action'] == 'busy' or not eligible, ready=eligible)
+            result = current.worker_poll(worker_id, busy=payload['action'] == 'busy' or not eligible, ready=eligible, capabilities=payload.get("capabilities"))
             if current.publication: result['runtime'] = reference
             if current.geography:
                 result['geography'] = geo_ref
@@ -130,7 +131,7 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
     user = handler.require_authentication()
     if not user:
         return
-    if not contract.can_access(user):
+    if not contract.can_access(user) and user.get(history.PERMISSION) is not True:
         send_json(handler, 403, {"ok": False, "error": "forbidden"})
         return
     action = path.removeprefix(contract.API_PATH)
@@ -139,7 +140,9 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
         available = current.capabilities()
         data_mode = "prediction" if getattr(current.executor, "model", None) is not None else "simulation"
         send_json(handler, 200, {
-            "contract": contract.CONTRACT_ID, contract.PERMISSION: True,
+            "contract": contract.CONTRACT_ID, contract.PERMISSION: contract.can_access(user),
+            history.PERMISSION: user.get(history.PERMISSION) is True,
+            "history_contract": history.CONTRACT,
             "admin_only": False, "data_mode": data_mode, "worker_ready": available["worker"],
             "executors": available,
             "calendar_timezone": getattr(current.executor,'calendar_timezone','Europe/Madrid'),
@@ -149,6 +152,16 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
     if post and action in {"/demo", "/queries"}:
         try:
             request = contract.parse_request(handler.read_request_body(contract.MAX_REQUEST_BYTES))
+            historical = history.is_request(request)
+            if not (user.get(history.PERMISSION) is True if historical else contract.can_access(user)):
+                raise QueryError('forbidden', 403)
+            if historical:
+                if action != '/queries':
+                    raise QueryError('invalid_action')
+                from rainmapper_core.geojson import load_ignore_station_codes
+                request['settings'] = {'include_aemet': True, 'minimum_rain': 0,
+                    'history_records': min(90, max(1, int(os.environ.get('RAINMAPPER_LAST_RAINS_HISTORY', '30')))),
+                    'ignored': sorted(load_ignore_station_codes(os.environ.get('RAINMAPPER_IGNORE_STATIONS_TOMAP_FILE', '/app/ignore_stations_tomap.txt')))}
             if action == "/queries":
                 accepted = broker().submit(str(user.get("username","admin")),request)
                 send_json(handler,202,accepted)
@@ -162,6 +175,9 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
         cancelling = post and len(parts) == 4 and parts[3] == "cancel"
         if cancelling or (not post and len(parts) == 3):
             try:
+                historical = broker().is_history(str(user.get('username', 'admin')), parts[2])
+                if not (user.get(history.PERMISSION) is True if historical else contract.can_access(user)):
+                    raise QueryError('forbidden', 403)
                 status, result = broker().status(str(user.get("username","admin")),parts[2],cancel=cancelling)
                 send_json(handler,status,result)
             except QueryError as error:
@@ -192,13 +208,14 @@ def serve_viewer(handler, requested_path: str, *, assets: Path, config_js: str, 
                   for key, values in mushroom_profiles_ui.PARAMETER_LABELS.items()
                   if key.startswith("ui.prediction_map_")}
         config = {"apiBase": contract.API_PATH, "contract": contract.CONTRACT_ID, "labels": labels,
+                  "historyContract": history.CONTRACT,
                   "calendarTimezones": sorted(available_timezones()),
                   "defaultCalendarTimezone": "Europe/Madrid"}
         source = config_js + "\nwindow.RAINMAPPER_CONFIG.predictionMap = " + json.dumps(config) + ";\n"
         handler.send_bytes(200, source.encode("utf-8"), "application/javascript",
                            {"Cache-Control": "no-store, max-age=0"})
         return
-    if relative in {"prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js"}:
+    if relative in {"prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css"}:
         content_type = "text/css" if relative.endswith(".css") else "application/javascript"
         try:
             source = (extension_assets / relative).read_bytes()

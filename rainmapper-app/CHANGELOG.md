@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.320
+
+- Add an optional historical prediction-map mode with an integrated calendar, direct month/year selection and DD/MM/YYYY dates.
+- Rebuild weather for the visible map and its interpolation margin, using the prediction execution setting with local fallback and a progress dialog.
+- Reuse loaded areas while zooming or returning to them, and fetch station details on demand without reopening the map progress dialog.
+- Evaluate past dates with current models and weather through the preceding day; keep historical access disabled until enabled for each user.
+- Update the local worker to 1.1.6 with bounded historical weather queries and station-catalog coordinate fallback.
+
 ## 0.2.319
 
 - Show every out-of-range input in a scrollable prediction-map detail, with a visible count and Load more control.

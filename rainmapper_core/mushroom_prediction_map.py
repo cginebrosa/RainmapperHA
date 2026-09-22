@@ -51,6 +51,9 @@ def parse_request(raw: bytes) -> dict:
         payload = json.loads(raw)
     except (ValueError, UnicodeError, RecursionError) as exc:
         raise ValueError("invalid_json") from exc
+    from rainmapper_core import mushroom_map_history as history
+    if history.is_request(payload):
+        return history.parse(payload)
     required = {"contract", "request_id", "point", "start_date", "horizon_days", "history_days"}
     if not isinstance(payload, dict) or set(payload) - required - {"species_ids", "execution", "calendar_timezone", "applicability_page"} or not required <= set(payload):
         raise ValueError("invalid_fields")
@@ -152,7 +155,10 @@ def encode_result(payload: dict) -> bytes:
 
 
 def validate_result(result, request):
-    """Validate point identity, bounded probabilities and ecological eligibility."""
+    """Validate query identity and the bounded result for its explicit contract."""
+    from rainmapper_core import mushroom_map_history as history
+    if history.is_request(request):
+        return history.validate_result(result, request)
     expected_dates=[(date.fromisoformat(request['start_date'])+timedelta(days=i)).isoformat()
                     for i in range(request['horizon_days'])]
     if (not isinstance(result,dict) or result.get('contract')!=CONTRACT_ID or

@@ -130,7 +130,7 @@ class PointExecutor:
                                         max_request_bytes=4096)
         self.weather = ResidentReader(config.get("weather_python",sys.executable),"prediction-map-local-weather.py",
                                      ["--data-root",path("weather_data"),"--stations-file",path("weather_stations"),
-                                      "--calendar-timezone",self.calendar_timezone])
+                                      "--calendar-timezone",self.calendar_timezone], timeout=60, max_request_bytes=32768)
 
     def ready(self):
         with self.lock:
@@ -160,6 +160,12 @@ class PointExecutor:
         request = contract.parse_request(json.dumps(request).encode())
         request.setdefault('calendar_timezone', self.calendar_timezone)
         with self.lock:
+            from rainmapper_core.mushroom_map_history import is_request
+            if is_request(request):
+                result = self.weather.call({'history_request': request})
+                contract.validate_result(result, request)
+                contract.encode_result(result)
+                return result
             started = time.perf_counter()
             result = contract.prediction_result(request) if self.model else contract.demo_result(request)
             result.update(self.geography.call({**request["point"], "start_date":request["start_date"],

@@ -30,6 +30,8 @@
     language: () => currentLanguage,
     execution: () => execution,
     calendarTimezone: () => calendarTimezone,
+    referenceDate: () => historicalMap?.date,
+    historyBusy: () => historicalMap?.busy,
     isStation: (point) => map.getLayer(CIRCLE_LAYER_ID) &&
       map.queryRenderedFeatures(point, { layers: [CIRCLE_LAYER_ID] }).length > 0,
     wasLongPress: () => didTriggerLongPress,
@@ -106,6 +108,7 @@
   };
 
   function reset() {
+    historicalMap?.destroy(); historicalMap = null;
     mode?.setEnabled(false);
     button?.remove();
     button = null;
@@ -170,6 +173,7 @@
       calendarTimezone = calendarSelect.value;
       markDeviceSettingsChanged();
       mode?.cancelQuery();
+      historicalMap?.invalidate();
     });
     row.append(label, select); calendarRow.append(calendarLabel, calendarSelect);
     section.append(row, note, calendarRow, calendarNote); tabs.append(tab); panel.append(section);
@@ -194,11 +198,12 @@
 
   async function refresh() {
     const next = !document.body.classList.contains("auth-open") && authState?.sessionToken
-      ? `${authState.sessionToken}:${authState.canUsePredictionMap === true}` : "";
+      ? `${authState.sessionToken}:${authState.canUsePredictionMap === true}:${authState.canUseHistoricalMap === true}` : "";
     if (next === session) {
       if (button) button.title = button.ariaLabel = text("mode");
       mode?.refreshLanguage();
       settings?.refreshText();
+      historicalMap?.refreshLanguage();
       return;
     }
     session = next;
@@ -208,12 +213,13 @@
       const response = await authFetch(`${config.apiBase}/capabilities`, { cache: "no-store" });
       if (!response.ok || session !== next) return;
       const capability = await response.json();
-      if (session !== next || capability.can_use_prediction_map !== true) return;
+      if (session !== next || (capability.can_use_prediction_map !== true && capability.can_use_historical_map !== true)) return;
       const deviceResponse = await authFetch(`${AUTH_BASE}/device-settings`, { cache: "no-store" });
       if (!deviceResponse.ok || session !== next) return;
       const devicePayload = await deviceResponse.json();
       if (session !== next) return;
       settings = installSettings(capability, devicePayload.settings || {});
+      if (capability.can_use_prediction_map === true) {
       const control = document.createElement("button");
       control.type = "button";
       control.className = "map-control-button pm-mode-toggle";
@@ -246,6 +252,35 @@
           loading = false;
         }
       });
+      }
+      if (capability.can_use_historical_map === true) {
+        let style = document.getElementById('historical-mode-style');
+        if (!style) {
+          style = document.createElement('link'); style.id='historical-mode-style';style.rel='stylesheet';
+          style.href=new URL('historical-mode.css',assetBase);document.head.append(style);
+        }
+        const module = await import(new URL('historical-mode.js', assetBase));
+        if (session !== next) return;
+        historicalMap = module.createHistoricalMode({...bridge,
+          after:()=>button || document.getElementById('estimated-field-toggle'),
+          period:()=>currentPeriodFileName,
+          apply:(period,data)=>loadMap(period,data), reload:()=>loadMap(currentPeriodFileName),
+          cancelPrediction:()=>{mode?.cancelQuery();mode?.closePopup();closeHoverPopup();},
+          bounds:(prefetch=false)=>{
+            const canvas=map.getCanvas(), w=canvas.clientWidth, h=canvas.clientHeight;
+            // Match the active interpolation support; pad pixels for heatmap edges.
+            const pixels=heatmapEnabled ? 145*heatmapRadiusScale : 0;
+            const padX=pixels+(prefetch?w*.2:0),padY=pixels+(prefetch?h*.2:0);
+            const corners=[[-padX,-padY],[w+padX,-padY],[-padX,h+padY],[w+padX,h+padY]].map(p=>map.unproject(p));
+            const radius=estimatedFieldEnabled ? Math.min(estimatedFieldRadiusKm(),estimatedFieldMaxRadiusKm()) : 0;
+            const latMargin=radius/111.32;
+            const extreme=Math.max(...corners.map(p=>Math.abs(p.lat)));
+            const lonMargin=radius/Math.max(111.32*Math.cos(extreme*Math.PI/180),1);
+            return [Math.max(-180,Math.min(...corners.map(p=>p.lng))-lonMargin),Math.max(-90,Math.min(...corners.map(p=>p.lat))-latMargin),
+              Math.min(180,Math.max(...corners.map(p=>p.lng))+lonMargin),Math.min(90,Math.max(...corners.map(p=>p.lat))+latMargin)].map(v=>Math.round(v*1e6)/1e6);
+          },
+        });
+      }
     } catch (_error) {
       // No authorization means no predictive controls; the weather UI owns login.
     }

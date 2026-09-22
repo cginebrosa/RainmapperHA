@@ -2195,3 +2195,50 @@ en iPhone. La ayuda del mapa explica uso y renovación del POI; créditos enlaza
 Photon/komoot y OSM. Créditos y ayuda están en ES/CA/EN; el panel de créditos
 tiene altura limitada y scroll. Confirmación del usuario en iPhone y Safari Mac
 registrada en [el informe de release](../reports/ha-release-0.2.312.json).
+
+### Modo histórico del mapa (22/09/2026)
+
+Implementación aceptada por el usuario en HA local y publicada en HA 0.2.320
+tras validar el circuito operativo completo. Calendario debajo del
+botón de predicción. Permiso independiente `can_use_historical_map`, desactivado
+por defecto en todos los roles; se concede expresamente desde Usuarios. No cambia
+permisos de predicción, IDW o calor. Con permiso histórico sin predicción sólo
+se permite consultar meteorología histórica.
+
+Selector con calendario propio visible y estilo claro del buscador: salto directo
+de mes/año, días táctiles, atajos Ayer/Hace un año y navegación por teclado. Fecha
+elegida DD/MM/AAAA; futuro bloqueado. Navegar/seleccionar no consulta meteorología
+hasta pulsar Aplicar. En móvil el panel se ajusta a la altura disponible.
+
+La fecha D rige estaciones, acumulados, días desde la última lluvia, capas y fecha
+inicial de predicción. Se utilizan los **modelos y reglas actuales**, con
+meteorología diaria disponible hasta D−1. Consulta retrospectiva con datos hoy
+conservados, no reproducción de los modelos o datos exactos de aquel día.
+
+El selector explica que calcula para la zona visible y recomienda acercarse antes.
+Añade el margen de IDW/calor y un margen de precarga. Conserva datos y cobertura
+en la pestaña por fecha/período/generación: acercarse, alejarse dentro de cobertura
+o regresar a zonas cargadas no calcula. Una zona nueva excluye regiones previas
+**antes** de leer estaciones. Cobertura acotada a 32 rectángulos; al superarla puede
+consultar de nuevo una región antigua. Cambiar fecha/período reinicia cobertura;
+volver a aplicar la fecha actualiza la generación. No mezclar generaciones.
+
+Comparte ajuste worker/local con predicción, fallback local, modal de progreso y
+cancelación. Error de consulta conserva fecha/mapa anteriores. Salir vuelve al
+mapa actual y libera caché. Respuestas compactas convertidas a GeoJSON en el
+navegador: sin temporales en disco ni sobrescribir archivos del runner. La ficha
+completa se obtiene al abrir una estación, con un aviso dentro de la ficha y
+sin modal general; ocho detalles en caché de pestaña evitan recalcular al
+reabrirlos. Si el registro diario carece de coordenadas, se usa la ubicación
+del catálogo que seleccionó la estación y se declara
+`history_coordinate_source=station_catalog`. No entrena ni precalcula.
+
+Contrato `prediction_map_weather_history_v1` por las rutas existentes; capacidad
+worker `map_weather_history_v1`. Hasta 128 estaciones/página, máximo 60 KiB por
+respuesta, hasta 90 días y 16 MiB de batches por página. Columnas compartidas por
+respuesta; resumen con una lluvia reciente en vez de 30 fichas diarias por estación.
+No se elevan los límites habituales de predicción.
+
+Fuentes: `mushroom_map_history.py`, `historical-mode.js`, integración
+`mushroom_prediction_map_ui.py`, permisos `web_server.py` y pruebas dirigidas.
+[Validación y tiempos](../reports/historical-map-local-2026-09-22.md).

@@ -76,6 +76,7 @@ export function createPredictionMode(bridge) {
   const dateText = (day, weekday = "long") => formatCalendarDate(day, bridge.language(), weekday);
 
   function localDay() {
+    if (bridge.referenceDate?.()) return bridge.referenceDate();
     const parts = new Intl.DateTimeFormat("en-CA", {
       timeZone: bridge.calendarTimezone(), year: "numeric", month: "2-digit", day: "2-digit"
     }).formatToParts(new Date());
@@ -338,7 +339,7 @@ export function createPredictionMode(bridge) {
           (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1)));
   }
   async function query(event) {
-    if (!enabled || dialog.open || bridge.isStation(event.point) || bridge.wasLongPress()) return;
+    if (!enabled || bridge.historyBusy?.() || dialog.open || bridge.isStation(event.point) || bridge.wasLongPress()) return;
     cancelQuery();
     closePopup();
     const ownRevision = revision;
@@ -993,5 +994,5 @@ export function createPredictionMode(bridge) {
       cancelQuery(); closePopup(); banner.remove(); dialog.remove();
     }
   }
-  return { get enabled() { return enabled; }, setEnabled, refreshLanguage, cancelQuery };
+  return { get enabled() { return enabled; }, setEnabled, refreshLanguage, cancelQuery, closePopup };
 }

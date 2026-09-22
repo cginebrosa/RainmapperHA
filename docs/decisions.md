@@ -1,5 +1,132 @@
 # Decisions
 
+## 2026-09-22 — [VIGENTE][DIAGNÓSTICO] Variables completas bajo demanda, no en cada predicción
+
+HA 0.2.319 añade `applicability_page` opcional, una especie/día y offset múltiplo
+de 32 (0–4095). La inferencia diagnóstica limita columnas a 4096 y nombres a 128
+caracteres; cada fila es `[feature, value, training_min, training_max]`, máximo
+32 filas. Página sintética máxima comprobada <8 KiB. Mantener límites ordinarios
+y tres ejemplos en la respuesta habitual; no llenar cada semana/modelo con
+vectores completos ni subir límites para resolver la presentación.
+
+Abrir el aviso carga el detalle; scroll, contador y Cargar más permiten llegar a
+todas las variables. Validar especie/día/offset/recuentos y valores finitos en
+contrato; cliente comprueba además fechas, zona horaria, revisión de modelo,
+generación meteorológica y hash de suelo. Si cambian, pedir nueva consulta; ante
+fallo, avisar de lista parcial y permitir reintento. No mezclar generaciones.
+
+El diagnóstico vuelve a resolver la semana de una especie y evalúa sólo el modelo
+seleccionado del día para la página. No persiste features ni cambia IFF; sí tiene
+coste adicional al abrir. Alternativa descartada: sólo scroll CSS, insuficiente
+porque el backend enviaba tres ejemplos de las 33 variables contadas.
+Fuentes: `mushroom_prediction_map.py`, `mushroom_map_model_runtime.py`,
+`mushroom_ml_runtime_inference.py` y `viewers/prediction-map/prediction-mode.js`.
+[Validación y publicación](reports/release-ha-0.2.319-2026-09-22.md).
+
+## 2026-09-22 — [VIGENTE][RECOMENDACIONES] Consenso selectivo, reversible y separado del IFF
+
+Implementado desde 0.2.318 en `mushroom_recommendation_policy.py` y consumidores.
+Parámetro `recommendation_policy={mode,rule_version}` en política persistida,
+regla `consensus_v1`, modos `legacy`/`shadow`/`prudent`; sin configuración,
+legacy. UI: Workers y trabajos → Modelos de predicción. Cambiarlo invalida
+identidad de resultados/servicio, no exige reentrenar ni lanza trabajos.
+Capacidad remota `recommendation_consensus_v1`; promoción conserva política.
+
+Ámbito: Amanita caesarea, Boletus edulis y B. pinophilus. Sólo ante recomendación
+previa favorable e IFF ≥60, comparar las dos siguientes familias distintas en
+ranking semanal sellado después del ganador; fijas toda la semana, no cambiarlas
+según el voto diario. Aplicar exige ambas disponibles/admisibles y ambas ≥60;
+si discrepan o faltan, abstenerse. Sólo comparar registra decisión sin retirarla.
+Conservar IFF y ganador; no promediar, suavizar ni reemplazar el modelo. Ausencia
+de alternativas es comparación no disponible, no desacuerdo. Aereus/deliciosus
+conservan avisos pero quedan fuera del veto adicional.
+
+Reservas: contar familias efectivamente evaluadas descartadas por datos y cuántas
+estaban antes del ganador; no contar las no ejecutadas ni sumar causas solapadas.
+Suspensión, fuera de dominio y calidad son causas distintas. Un resultado antiguo
+sin desglose no acredita cero descartes. Presentación: conclusión bajo temporada,
+verde si acuerdo, roja si desacuerdo, ámbar sin alternativas; Detalle abre modelos,
+IFF y perfil técnico directamente, sin otro desplegable ni separadores redundantes.
+
+Motivo: usuario prefiere abstenerse ante errores pero exige evitar más errores que
+aciertos perdidos. Retrospectiva selectiva: 39 errores evitados/10 aciertos perdidos,
+359/408 recomendaciones conservadas (248 aciertos/111 errores); h1: 7/1. Reutiliza
+135 observaciones a siete plazos, no son salidas independientes. Ámbito elegido
+tras inspeccionar resultados; alternativas correlacionadas. La implementación
+elige alternativas tras cobertura/aplicabilidad, por lo que esa cifra NO demuestra
+el balance del selector completo por área ni beneficio futuro. Validar con datos
+nuevos y comparar modos antes de ampliar/activar por rutina.
+[Propuesta, alternativas y límites](reports/recommendation-consensus-proposal-2026-09-21.md),
+[informe de implementación histórico](reports/recommendation-consensus-implementation-2026-09-22.md).
+
+## 2026-09-22 — [REEMPLAZADA][RECOMENDACIONES] Filtro global de fiabilidad inicial
+
+Usuario rechazó la propuesta que evitaba 130 errores pero perdía 156 aciertos.
+No implementar Wilson/3 grupos como regla global aceptada. La dirección vigente
+es el consenso selectivo reversible anterior; no exigir abstención de especies
+enteras ni declarar V6 superior por suavidad. Los ensayos de sensibilidad de cinco
+especies son diagnósticos, no incertidumbres medidas ni validación independiente.
+
+## 2026-09-22 — [DUDA][CALIDAD] Querigut, sensibilidad y generalización
+
+El snapshot real examinado reproducía deliciosus 98,7779→90,1498 con Elastic Net
+V5w60d; décimo por calidad, elegido por cobertura. Nueve familias mejor clasificadas
+fallaban requisitos de datos: lluvia 71/90 días frente a mínimo 81, más ausencia
+hídrica en V3 físico; hueco 29/06–17/07 y sólo 65 días consecutivos frente a 90
+requeridos. V5/V6 imputan ausencias. Retención SoilGrids estaba disponible; suelo/
+host GIS desconocidos son otra cuestión. En las 33 familias examinadas no había
+columnas de host, tipo de suelo ni pH. No generalizar esto a cualquier futuro perfil.
+
+No hubo consenso general sobre 99, pero alternativas V6 más moderadas no superaban
+su evidencia histórica. Salidas forzadas de modelos vetados no son votos válidos.
+No sustituir ganador por intuición, interpretar IFF como probabilidad garantizada
+ni atribuir toda la diferencia espacial a humedad sin aislar entradas. Revalidar
+con artefactos vigentes cuando se retome; el consenso actual no cubre deliciosus.
+[Informe del snapshot](reports/querigut-predictor-2026-09-21.md).
+
+## 2026-09-22 — [VIGENTE][MEMORIA] Validación secuencial y recepción por bloques
+
+Desde 0.2.318, `_validate_published_rows` procesa una respuesta compartida cada
+vez y retiene sólo claves/solicitudes necesarias para comprobar relaciones.
+`precompute-artifact` autentica/autoriza y recibe mediante iterador de bloques
+hasta 1 MiB, tanto Content-Length como chunked; temporal, tamaño/SHA y activación
+atómica se conservan. Worker ya enviaba por bloques y comparte el validador.
+No elevar límites, forzar GC como solución ni eliminar comprobaciones de integridad.
+
+Benchmark histórico sobre la misma copia Mac: pico 825,14→304,09 MiB,
+16,00→15,66 s. No acredita consumo total/latencia de RPi ni ausencia de fuga.
+Consumo inicial, cachés y retención residual quedan [DUDA], pendientes de medidas
+reales por fases después de trabajos iniciados por el usuario, sin regenerar
+artefactos para diagnosticar. [Informe](reports/ha-memory-precompute-2026-09-22.md).
+
+## 2026-09-22 — [VIGENTE][ERRORES] Calidad acotada y fallos visibles del mapa
+
+Corrección 0.2.317: verificar SHA del catálogo entero y dejar de analizar la cola
+por áreas que el mapa no usa al completar evidencia por especie. Límite existente
+64 MiB, no 64 KB, conservado. No sustituye validación completa del productor.
+Fallo técnico abre modal con causa traducida, ejecutor, código acotado y referencia;
+no exponer traceback/rutas privadas ni confundirlo con sin modelo/fuera de dominio.
+Un catálogo compacto específico del mapa sigue siendo posible mejora futura.
+
+## 2026-09-22 — [VIGENTE][DATOS] Histórico y mapa generado son capas distintas
+
+Copiar `Data/` no actualiza `PublicData/`, de donde procede el GeoJSON de estaciones
+con su resumen/historial. La predicción puntual lee el histórico meteorológico
+mediante su lector, no ese GeoJSON. Paridad de un CSV o un mapa no demuestra
+paridad del conjunto de datos, configuración, generaciones ni modelos. Identificar
+el consumidor y generación antes de sincronizar o atribuir diferencias al IDW.
+
+## 2026-09-22 — [VIGENTE][RELEASE] Excepción cerrada y exclusiva de HA 0.2.319
+
+Ambos contenedores reconstruidos y comprobados, usuario acepta detalle local y
+smoke 1.725 pruebas/52 skips correcto. Autoriza expresamente «Sí, publicar con la
+validación actual» sin repetir entrenamiento/precálculo tras ampliar el contrato
+diagnóstico. Publicación completada y push `dda52e8`; en el cierre inicial la
+instalación seguía en curso. Después, usuario y registros SMB confirman 0.2.319;
+el detalle funcional en real sigue pendiente. Excepción consumida por esta release, NO regla
+para próximas sesiones. Continúan AGENTS.md/release-flow y reserva del usuario
+sobre lanzamiento de entrenamientos y precálculos. Cierre sólo documental.
+
 ## 2026-09-20 — [VIGENTE][SMI] Referencia compartida regulada + PM + una capa
 
 El usuario acepta extracción regulada + Penman–Monteith + una capa 0–30 cm

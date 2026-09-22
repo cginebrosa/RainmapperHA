@@ -10968,8 +10968,17 @@ ROLE_DEFAULT_MAX_DEVICES = {
     "pro": 3,
     "admin": 0,
 }
-USER_PERMISSION_FIELDS = ("can_use_heatmap", "can_use_layer_metrics", "can_use_estimated_field", "can_use_prediction_map")
+USER_PERMISSION_FIELDS = ("can_use_heatmap", "can_use_layer_metrics", "can_use_estimated_field", "can_use_prediction_map", "can_use_historical_map")
 USER_PERMISSION_UI = (
+    {
+        "field": "can_use_historical_map",
+        "label": "Historical map access",
+        "description": "Allow historical dates in the map. Disabled by default for every role.",
+        "chip": "History",
+        "chip_class": "permission-metrics",
+        "card_class": "permission-card-metrics",
+        "icon": "HI",
+    },
     {
         "field": "can_use_prediction_map",
         "label": "Prediction access",
@@ -11045,7 +11054,7 @@ def normalize_bool_flag(value: object) -> str:
 
 
 def default_user_permission(role: str, field: str) -> str:
-    if field not in USER_PERMISSION_FIELDS or field == "can_use_prediction_map":
+    if field not in USER_PERMISSION_FIELDS or field in {"can_use_prediction_map", "can_use_historical_map"}:
         return "false"
     return "true" if normalize_role(role) == "admin" else "false"
 
@@ -11071,6 +11080,7 @@ def user_auth_payload(user: dict[str, str]) -> dict[str, object]:
         "can_use_layer_metrics": user_permission_enabled(user, "can_use_layer_metrics"),
         "can_use_estimated_field": user_permission_enabled(user, "can_use_estimated_field"),
         "can_use_prediction_map": user_permission_enabled(user, "can_use_prediction_map"),
+        "can_use_historical_map": user_permission_enabled(user, "can_use_historical_map"),
     }
 
 
@@ -11146,6 +11156,7 @@ def write_users(users: dict[str, dict[str, str]]) -> None:
                 "can_use_layer_metrics": user_permission_enabled(user, "can_use_layer_metrics"),
                 "can_use_estimated_field": user_permission_enabled(user, "can_use_estimated_field"),
                 "can_use_prediction_map": user_permission_enabled(user, "can_use_prediction_map"),
+                "can_use_historical_map": user_permission_enabled(user, "can_use_historical_map"),
             }
             for _username, user in sorted(users.items())
         ]
@@ -19885,6 +19896,7 @@ def create_user(
     can_use_layer_metrics: str = "",
     can_use_estimated_field: str = "",
     can_use_prediction_map: str = "",
+    can_use_historical_map: str = "",
 ) -> str:
     user_id = normalize_user_id(username)
     if not user_id:
@@ -19908,6 +19920,7 @@ def create_user(
         "max_devices": str(parse_max_devices(max_devices, normalized_role)),
         "must_change_password": "false",
         "can_use_prediction_map": normalize_bool_flag(can_use_prediction_map),
+        "can_use_historical_map": normalize_bool_flag(can_use_historical_map),
         "can_use_heatmap": (
             normalize_bool_flag(can_use_heatmap)
             if can_use_heatmap
@@ -19940,6 +19953,7 @@ def update_user(
     can_use_layer_metrics: str,
     can_use_estimated_field: str,
     can_use_prediction_map: str | None = None,
+    can_use_historical_map: str | None = None,
 ) -> str:
     user_id = normalize_user_id(username)
     users = read_users()
@@ -19960,6 +19974,8 @@ def update_user(
             "can_use_estimated_field": normalize_bool_flag(can_use_estimated_field),
         }
     )
+    if can_use_historical_map is not None:
+        user["can_use_historical_map"] = normalize_bool_flag(can_use_historical_map)
     if can_use_prediction_map is not None:
         user["can_use_prediction_map"] = normalize_bool_flag(can_use_prediction_map)
     mark_user_change(user, "updated user settings")
@@ -20094,12 +20110,13 @@ def short_text(value: str, limit: int = 24) -> str:
     return text if len(text) <= limit else text[: max(0, limit - 3)] + "..."
 
 
-def permission_chips(can_use_heatmap: bool, can_use_layer_metrics: bool, can_use_estimated_field: bool, can_use_prediction_map: bool = False) -> str:
+def permission_chips(can_use_heatmap: bool, can_use_layer_metrics: bool, can_use_estimated_field: bool, can_use_prediction_map: bool = False, can_use_historical_map: bool = False) -> str:
     states = {
         "can_use_heatmap": can_use_heatmap,
         "can_use_layer_metrics": can_use_layer_metrics,
         "can_use_estimated_field": can_use_estimated_field,
         "can_use_prediction_map": can_use_prediction_map,
+        "can_use_historical_map": can_use_historical_map,
     }
     chips = []
     for permission in USER_PERMISSION_UI:
@@ -20129,6 +20146,7 @@ def user_search_text(
     can_use_layer_metrics: bool,
     can_use_estimated_field: bool,
     can_use_prediction_map: bool = False,
+    can_use_historical_map: bool = False,
 ) -> str:
     return " ".join(
         [
@@ -20141,6 +20159,7 @@ def user_search_text(
             "metrics" if can_use_layer_metrics else "no metrics",
             "estimated field" if can_use_estimated_field else "no estimated field",
             "prediction" if can_use_prediction_map else "no prediction",
+            "history" if can_use_historical_map else "no history",
             "change required" if user.get("must_change_password", "false").lower() == "true" else "current",
             max_devices,
             str(len(user_devices)),
@@ -20174,12 +20193,14 @@ def render_permissions_card(
     can_use_layer_metrics: bool,
     can_use_estimated_field: bool,
     can_use_prediction_map: bool = False,
+    can_use_historical_map: bool = False,
 ) -> str:
     states = {
         "can_use_heatmap": can_use_heatmap,
         "can_use_layer_metrics": can_use_layer_metrics,
         "can_use_estimated_field": can_use_estimated_field,
         "can_use_prediction_map": can_use_prediction_map,
+        "can_use_historical_map": can_use_historical_map,
     }
     cards = []
     for permission in USER_PERMISSION_UI:
@@ -20308,6 +20329,7 @@ def render_user_card(username: str, user: dict[str, str], user_devices: list[tup
     can_use_layer_metrics = user_permission_enabled(user, "can_use_layer_metrics")
     can_use_estimated_field = user_permission_enabled(user, "can_use_estimated_field")
     can_use_prediction_map = user_permission_enabled(user, "can_use_prediction_map")
+    can_use_historical_map = user_permission_enabled(user, "can_use_historical_map")
     status_label = "Enabled" if enabled == "true" else "Disabled"
     status_class = "status-enabled" if enabled == "true" else "status-disabled"
     search_text = user_search_text(
@@ -20321,15 +20343,16 @@ def render_user_card(username: str, user: dict[str, str], user_devices: list[tup
         can_use_layer_metrics,
         can_use_estimated_field,
         can_use_prediction_map,
+        can_use_historical_map,
     )
     panel_id = "user-panel-" + "".join(char if char.isalnum() else "-" for char in username)
-    chips = permission_chips(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field, can_use_prediction_map)
+    chips = permission_chips(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field, can_use_prediction_map, can_use_historical_map)
     latest_seen = latest_seen_for_devices(user_devices)
     password_state = "Change required" if user.get("must_change_password", "false").lower() == "true" else "Current"
     update_form = (
         f'<form class="user-update-form" method="post" action="" onsubmit="return confirmUserAdminAction(this)" data-confirm="{html.escape(f"Save changes for user {username}?", quote=True)}">'
         + render_user_details_card(username, user, role, enabled, max_devices)
-        + render_permissions_card(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field, can_use_prediction_map)
+        + render_permissions_card(can_use_heatmap, can_use_layer_metrics, can_use_estimated_field, can_use_prediction_map, can_use_historical_map)
         + render_audit_card(user)
         + "</form>"
     )
@@ -20390,6 +20413,7 @@ def render_create_user_modal() -> str:
             <div class="admin-field"><label><input name="can_use_layer_metrics" type="checkbox" value="true"> Metric selector access</label></div>
             <div class="admin-field"><label><input name="can_use_estimated_field" type="checkbox" value="true"> Estimated field access</label></div>
             <div class="admin-field"><label><input name="can_use_prediction_map" type="checkbox" value="true"> Prediction access</label></div>
+            <div class="admin-field"><label><input name="can_use_historical_map" type="checkbox" value="true"> Historical map access</label></div>
           </div>
           <button class="primary">Create user</button>
         </form>
@@ -23224,6 +23248,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "can_use_layer_metrics"),
                 self.form_value(form, "can_use_estimated_field"),
                 self.form_value(form, "can_use_prediction_map") or "false",
+                self.form_value(form, "can_use_historical_map") or "false",
             )
             if message.startswith("Created user "):
                 created_username = normalize_user_id(username)
@@ -23241,6 +23266,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.form_value(form, "can_use_layer_metrics"),
                 self.form_value(form, "can_use_estimated_field"),
                 self.form_value(form, "can_use_prediction_map") or "false",
+                self.form_value(form, "can_use_historical_map") or "false",
             )
         elif admin_action == "set_password":
             message = set_admin_user_password(

@@ -1,0 +1,42 @@
+#historical-mode-toggle svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+#historical-mode-toggle[aria-pressed=true]{background:#b45309;color:white}
+#historical-mode-badge{position:absolute;z-index:8;left:50%;top:12px;transform:translateX(-50%);max-width:calc(100% - 130px);border:1px solid #fbbf24;border-radius:8px;padding:9px 12px;background:#78350f;color:white;cursor:pointer;font:600 13px system-ui}
+#historical-mode-badge[hidden]{display:none}
+#historical-mode-dialog{width:min(390px,calc(100% - 24px));max-height:calc(100dvh - 24px);overflow:auto;box-sizing:border-box;border:1px solid #bccbd4;border-radius:14px;padding:20px;background:#fff;color:#173145;box-shadow:var(--shadow);font:14px system-ui;color-scheme:light}
+#historical-mode-dialog::backdrop{background:rgba(7,16,25,.28)}
+#historical-mode-dialog h2{font-size:19px;margin:0 0 16px;color:#173145}
+#historical-mode-dialog .hm-date-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+#historical-mode-dialog .hm-date-label{font-size:12px;color:#526978}
+#historical-mode-dialog .hm-selected-date{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:#006fa5}
+#historical-mode-dialog button,#historical-mode-dialog select{font:inherit;color:#173145;border:1px solid #bccbd4;border-radius:7px;background:#fff}
+#historical-mode-dialog button{cursor:pointer;padding:9px 12px}
+#historical-mode-dialog button:hover:not(:disabled){background:#edf5fa}
+#historical-mode-dialog :is(button,select,summary):focus-visible{outline:3px solid #67b9e5;outline-offset:2px}
+#historical-mode-dialog button:disabled{opacity:.35;cursor:default}
+#historical-mode-dialog .hm-month-nav{display:grid;grid-template-columns:34px minmax(0,1fr) 88px 34px;gap:6px;margin-bottom:12px;align-items:center}
+#historical-mode-dialog .hm-month-nav button{font-size:25px;line-height:1;padding:4px;min-height:38px}
+#historical-mode-dialog select{width:100%;min-width:0;padding:7px 4px;font-size:16px;height:38px;text-transform:capitalize}
+#historical-mode-dialog .hm-weekdays,#historical-mode-dialog .hm-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+#historical-mode-dialog .hm-weekdays span{text-align:center;font-size:11px;color:#637987;padding:4px 0 8px;text-transform:capitalize}
+#historical-mode-dialog .hm-day{border-color:transparent;min-height:40px;padding:8px 0;font-variant-numeric:tabular-nums}
+#historical-mode-dialog .hm-day.hm-other-month{color:#718694}
+#historical-mode-dialog .hm-day[aria-pressed=true]{background:#007eb8;color:white;font-weight:700;border-color:#007eb8;box-shadow:0 2px 6px #007eb82a}
+#historical-mode-dialog .hm-day[aria-pressed=true]:hover{background:#006b9d}
+#historical-mode-dialog .hm-shortcuts{display:flex;gap:8px;padding:12px 0;border-bottom:1px solid #e3ebf0}
+#historical-mode-dialog .hm-shortcuts button{font-size:12px;padding:6px 10px;color:#006fa5;background:#f3f9fc;border-color:#d4e6f0}
+#historical-mode-dialog .hm-scope{color:#526978;font-size:12px;line-height:1.45;margin:12px 0 8px}
+#historical-mode-dialog .hm-details{font-size:12px;color:#526978}
+#historical-mode-dialog .hm-details summary{cursor:pointer;color:#006fa5}
+#historical-mode-dialog .hm-help{line-height:1.5;color:#526978;margin:8px 0}
+#historical-mode-dialog .hm-status{line-height:1.5;overflow-wrap:anywhere;color:#173145;margin:12px 0}
+#historical-mode-dialog .hm-status:empty{display:none}
+#historical-mode-dialog .hm-status.hm-error{color:#a72732;background:#fff1f2;padding:10px;border-radius:7px}
+#historical-mode-dialog.hm-busy .hm-picker,#historical-mode-dialog.hm-busy .hm-apply,#historical-mode-dialog.hm-busy .hm-today{display:none}
+#historical-mode-dialog .hm-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;position:sticky;bottom:-20px;background:white;padding:14px 0 0;margin-top:4px}
+#historical-mode-dialog .hm-apply{background:#007eb8;color:white;border-color:#007eb8;font-weight:600}
+#historical-mode-dialog .hm-apply:hover:not(:disabled){background:#006b9d}
+#historical-mode-dialog .hm-today{margin-right:auto;font-size:12px}
+#historical-mode-dialog.hm-busy .hm-status{min-height:54px;padding:8px 0}
+#historical-mode-dialog.hm-busy .hm-status:before{content:"";display:inline-block;width:15px;height:15px;margin-right:10px;border:2px solid #d4e6f0;border-top-color:#007eb8;border-radius:50%;animation:hm-spin .8s linear infinite;vertical-align:middle}
+@media(max-width:400px){#historical-mode-dialog{padding:14px}#historical-mode-dialog .hm-actions{bottom:-14px}#historical-mode-dialog .hm-month-nav{grid-template-columns:32px minmax(0,1fr) 80px 32px;gap:4px}}
+@keyframes hm-spin{to{transform:rotate(360deg)}}

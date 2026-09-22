@@ -3,6 +3,8 @@ const defaultDataBase = viewerConfig.dataBase || (window.location.pathname.inclu
   ? "../../../docker-data/PublicData/"
   : "data/");
 const DATA_BASE = new URLSearchParams(window.location.search).get("data") || defaultDataBase;
+let historicalMap = null;
+let mapLoadRevision = 0;
 const AUTH_REQUIRED = Boolean(viewerConfig.authRequired);
 const AUTH_BASE = viewerConfig.authBase || "/auth";
 const AUTH_STORAGE_KEY = "rainmapperMaplibreAuth";
@@ -801,6 +803,7 @@ async function validateStoredSession() {
         canUseLayerMetrics: payload.user.can_use_layer_metrics === true,
         canUseEstimatedField: payload.user.can_use_estimated_field === true,
         canUsePredictionMap: payload.user.can_use_prediction_map === true,
+        canUseHistoricalMap: payload.user.can_use_historical_map === true,
       });
     }
   } else {
@@ -868,6 +871,7 @@ function saveAuthenticatedPayload(payload) {
     canUseLayerMetrics: payload.can_use_layer_metrics === true,
     canUseEstimatedField: payload.can_use_estimated_field === true,
     canUsePredictionMap: payload.can_use_prediction_map === true,
+    canUseHistoricalMap: payload.can_use_historical_map === true,
   });
 }
 
@@ -2510,8 +2514,8 @@ function updateSourceStatusControls() {
   document.querySelectorAll("[data-source-status]").forEach((element) => {
     const sourceName = element.dataset.sourceStatus;
     const statusPayload = sourceStatus[sourceName] || {};
-    const status = statusPayload.status || t("unknown");
-    const stations = Number(statusPayload.stations);
+    const status = historicalMap?.date ? historicalMap.date : statusPayload.status || t("unknown");
+    const stations = historicalMap?.date ? currentVisibleFeatures.filter(f => featureStationSource(f) === sourceName).length : Number(statusPayload.stations);
     const hasStationCount = Number.isFinite(stations) && stations >= 0;
     element.replaceChildren();
     const statusLine = document.createElement("span");
@@ -2526,7 +2530,7 @@ function updateSourceStatusControls() {
     }
     element.className = `source-status-pill ${sourceStatusClass(status)}`;
     const statusLabel = hasStationCount ? `${status} · ${stations}` : status;
-    element.title = statusPayload.message || statusLabel || t("sourceStatusUnavailable");
+    element.title = historicalMap?.date ? statusLabel : statusPayload.message || statusLabel || t("sourceStatusUnavailable");
   });
   document.querySelectorAll(".source-status-unknown").forEach((element) => {
     if (!element.dataset.sourceStatus) {
@@ -2581,7 +2585,7 @@ function rainHistoryIndexes(properties) {
 
 function maxRainHistoryRecords(features) {
   return features.reduce((maxValue, feature) => (
-    Math.max(maxValue, rainHistoryIndexes(feature.properties || {}).length)
+    Math.max(maxValue, Number(feature.properties?.history_count) || rainHistoryIndexes(feature.properties || {}).length)
   ), 0);
 }
 
@@ -2665,19 +2669,37 @@ function nearestRainyStationForLngLat(lngLat) {
   return nearestStation;
 }
 
-function openStationPopup(feature) {
+function openStationPopup(feature, summaryOnly = false) {
+  if (!summaryOnly && historicalMap?.date && feature?.properties?.history_loaded === 0) {
+    const session = historicalMap, day = session.date;
+    openStationPopup(feature, true);
+    const popup = currentPopup, status = document.createElement('p');
+    status.className = 'historical-station-status'; status.setAttribute('role', 'status');
+    status.textContent = session.text('history_station_loading');
+    popup.getElement().querySelector('.maplibregl-popup-content').append(status);
+    session.station(feature).then(loaded => {
+      if (historicalMap === session && session.date === day && currentPopup === popup) openStationPopup(loaded);
+    }).catch(error => {
+      if (error.name === 'AbortError' || currentPopup !== popup) return;
+      status.textContent = session.text('history_station_error');
+      const retry = document.createElement('button'); retry.type = 'button';
+      retry.textContent = session.text('history_station_retry');
+      retry.addEventListener('click', () => openStationPopup(feature)); status.append(' ', retry);
+    });
+    return;
+  }
   if (!feature) {
     return;
   }
 
   const coordinates = feature.geometry.coordinates.slice();
   const properties = feature.properties || {};
-  activeStationPopupProperties = properties;
-  activeStationPopupId = stationIdFromProperties(properties);
   closeHoverPopup();
   if (currentPopup) {
     currentPopup.remove();
   }
+  activeStationPopupProperties = properties;
+  activeStationPopupId = stationIdFromProperties(properties);
   const stationPopup = new maplibregl.Popup({
     closeButton: false,
     closeOnClick: true,
@@ -3455,6 +3477,7 @@ function setupLongPressElevation() {
 }
 
 function recentRainHistory(properties) {
+  if (historicalMap?.date && properties.history_loaded === 0) return '';
   const rows = [];
   const records = rainHistoryRecords(properties).slice(0, lastRainHistoryLimit || undefined);
   for (const record of records) {
@@ -3570,9 +3593,9 @@ function daysAgo(dateText) {
   if (!parsedDate) {
     return "-";
   }
-  const today = new Date();
-  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const recordMidnight = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
+  const today = historicalMap?.date ? parseRainDate(historicalMap.date) : new Date();
+  const todayMidnight = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const recordMidnight = Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
   return Math.floor((todayMidnight - recordMidnight) / 86400000);
 }
 
@@ -3699,6 +3722,11 @@ function renderPeriodTimeline() {
 
 function updateGeneratedAt(generatedAt) {
   const generatedElement = document.getElementById("generated-at");
+  if (historicalMap?.date) {
+    generatedElement.textContent = historicalMap.date.split('-').reverse().join('/');
+    generatedElement.setAttribute('datetime', historicalMap.date);
+    return;
+  }
   if (!generatedAt) {
     generatedElement.textContent = "-";
     generatedElement.removeAttribute("datetime");
@@ -3748,15 +3776,19 @@ function fitToData() {
   map.fitBounds(bounds, { padding: 24, duration: 0 });
 }
 
-async function loadMap(fileName) {
+async function loadMap(fileName, suppliedData = null) {
+  const ownRevision = ++mapLoadRevision;
+  let data = suppliedData;
+  if (!data && historicalMap?.date) data = await historicalMap.load(fileName);
+  if (!data) {
+    const url = `${DATA_BASE}${fileName}`;
+    const response = await authFetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Cannot load ${url}: ${response.status}`);
+    data = await response.json();
+  }
+  if (ownRevision !== mapLoadRevision) return;
   currentPeriodFileName = fileName;
   syncVisiblePeriodSelector(currentPeriodFileName);
-  const url = `${DATA_BASE}${fileName}`;
-  const response = await authFetch(url, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`Cannot load ${url}: ${response.status}`);
-  }
-  const data = await response.json();
   const popupStationId = activeStationPopupId;
   const rawFeatures = data.features || [];
   const visible = validCoordinateFeatures(rawFeatures);
@@ -3788,6 +3820,7 @@ async function loadMap(fileName) {
   addStationLayer();
   updateSummary(fileName, filtered.length, features.length, invalidFeatureCount);
   updateGeneratedAt(data.metadata?.generated_at);
+  updateSourceStatusControls();
   updatePeriodTimeline(fileName);
   syncSettingsPeriodSelector(preferredPeriodFileName);
   openStationPopup(findFeatureByStationId(filtered, popupStationId));

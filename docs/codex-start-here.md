@@ -99,9 +99,15 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - Plataforma de workers: `docs/mushrooms/mushroom-v0-external-worker-design-es.md`
 - Diseño vigente del worker multicoordinador y administración CLI pendiente:
   `docs/mushrooms/mushroom-worker-multicoordinator-design-es.md`
-- Auditoría y propuesta todavía no implementada para reducir copias, buffers y
-  rehashes durante transferencias HA--worker sin debilitar integridad:
-  `docs/mushrooms/mushroom-worker-streaming-integrity-performance-handoff-es.md`
+- Auditoría y propuestas de transferencias HA--worker:
+  `docs/mushrooms/mushroom-worker-streaming-integrity-performance-handoff-es.md`.
+  Recepción de precálculo por bloques y validación secuencial ya implementadas;
+  evidencia y límites: `docs/reports/ha-memory-precompute-2026-09-22.md`.
+  El resto del alcance de aquel documento no se presume implementado.
+- Consenso reversible y reservas por falta de datos: reglas vigentes en
+  `docs/decisions.md` (22/09); implementación en
+  `rainmapper_core/mushroom_recommendation_policy.py`. Estado del despliegue y
+  modo local/real exclusivamente en `docs/active-context.md`.
 - Entrenamiento ML/dataset: `docs/mushrooms/mushroom-ml-training-plan-es.md`
 - Versiones canónicas de contratos ML:
   `docs/mushrooms/mushroom-ml-contract-versions-es.md`

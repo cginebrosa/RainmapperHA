@@ -513,6 +513,7 @@ def create_last_rains(
     minimum_rain_tomap,
     *,
     copy_input: bool = True,
+    save_to_csv: bool = True,
 ):
     """Build the wide LastXX_rains table consumed by station popups."""
     df = ensure_incremental_columns(df, copy_input=copy_input)
@@ -629,7 +630,7 @@ def create_last_rains(
         column_name = f'Pluja_Diaria_{i:02}'
         result_step3[column_name] = result_step3[column_name].round(decimals=1)
 
-    save_dataframe_tomap(result_step3, maps_dir, f'Last{nrecords}_rains', save_to_csv=True, decimal='.')
+    save_dataframe_tomap(result_step3, maps_dir, f'Last{nrecords}_rains', save_to_csv=save_to_csv, decimal='.')
     return result_step3
 
 

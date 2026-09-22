@@ -18,10 +18,12 @@ def main():
     parser.add_argument("--calendar-timezone",default="Europe/Madrid")
     args=parser.parse_args()
     reader=PointWeatherReader(args.data_root,args.stations_file,calendar_timezone=args.calendar_timezone)
+    from rainmapper_core.mushroom_map_history import HistoryReader, is_request
+    history = HistoryReader(args.data_root, args.stations_file)
     while True:
-        line=sys.stdin.readline(2049)
+        line=sys.stdin.readline(32769)
         if not line: break
-        if len(line)>2048: raise ValueError("weather_request_too_large")
+        if len(line)>32768: raise ValueError("weather_request_too_large")
         request=json.loads(line)
         if request.get("op") == "capabilities":
             try:
@@ -31,6 +33,14 @@ def main():
                 logging.getLogger(__name__).exception("Prediction map weather initialization failed")
                 ready=False
             print(json.dumps({"id":request["id"],"weather_ready":ready}),flush=True)
+            continue
+        if is_request(request.get('history_request')):
+            try:
+                result = history.execute(request['history_request'])
+            except Exception:
+                logging.getLogger(__name__).exception("Historical weather query failed")
+                result = {"error": "history_calculation_failed"}
+            print(json.dumps({"id":request["id"], **result}, ensure_ascii=False, allow_nan=False), flush=True)
             continue
         try:
             cutoff=min(date.fromisoformat(request["end_day"]),

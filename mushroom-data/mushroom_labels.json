@@ -7816,5 +7816,65 @@
     "es": "Perfil técnico",
     "ca": "Perfil tècnic",
     "en": "Technical profile"
+  },
+  "ui.prediction_map_history_mode": {
+    "en": "Historical mode",
+    "es": "Modo histórico",
+    "ca": "Mode històric"
+  },
+  "ui.prediction_map_history_date": {
+    "en": "Reference date",
+    "es": "Fecha de referencia",
+    "ca": "Data de referència"
+  },
+  "ui.prediction_map_history_apply": {
+    "en": "Apply date",
+    "es": "Aplicar fecha",
+    "ca": "Aplicar data"
+  },
+  "ui.prediction_map_history_today": {
+    "en": "Return to today",
+    "es": "Volver a hoy",
+    "ca": "Tornar a avui"
+  },
+  "ui.prediction_map_history_help": {
+    "en": "Weather data will be recalculated for the visible map. Zoom in before choosing a date to reduce waiting time. A margin is included for interpolation; moving to another area loads its data. Current models use weather up to the previous day.",
+    "es": "Se recalcularán los datos de la zona visible del mapa. Acerca el mapa antes de elegir la fecha para reducir el tiempo de espera. Se incluye un margen para la interpolación; al desplazarte a otra zona se cargarán sus datos. Los modelos actuales usan meteorología hasta el día anterior.",
+    "ca": "Es recalcularan les dades de la zona visible del mapa. Apropa el mapa abans de triar la data per reduir el temps d’espera. S’hi inclou un marge per a la interpolació; en desplaçar-te a una altra zona se’n carregaran les dades. Els models actuals fan servir meteorologia fins al dia anterior."
+  },
+  "ui.prediction_map_history_calculating": {
+    "en": "Recalculating weather GeoJSON for",
+    "es": "Recalculando GeoJSON meteorológicos para",
+    "ca": "Recalculant GeoJSON meteorològics per a"
+  },
+  "ui.prediction_map_history_month": {"es":"Mes","ca":"Mes","en":"Month"},
+  "ui.prediction_map_history_year": {"es":"Año","ca":"Any","en":"Year"},
+  "ui.prediction_map_history_previous_month": {"es":"Mes anterior","ca":"Mes anterior","en":"Previous month"},
+  "ui.prediction_map_history_next_month": {"es":"Mes siguiente","ca":"Mes següent","en":"Next month"},
+  "ui.prediction_map_history_yesterday": {"es":"Ayer","ca":"Ahir","en":"Yesterday"},
+  "ui.prediction_map_history_year_ago": {"es":"Hace un año","ca":"Fa un any","en":"A year ago"},
+  "ui.prediction_map_history_scope": {
+    "es":"Solo se recalcula la zona visible. Acerca el mapa antes para reducir la espera.",
+    "ca":"Només es recalcula la zona visible. Apropa el mapa abans per reduir l’espera.",
+    "en":"Only the visible area is recalculated. Zoom in first to reduce waiting time."
+  },
+  "ui.prediction_map_history_how": {"es":"Cómo funciona el modo histórico","ca":"Com funciona el mode històric","en":"How historical mode works"},
+  "ui.prediction_map_history_station_loading": {
+    "en": "Loading station history…",
+    "es": "Cargando el histórico de la estación…",
+    "ca": "Carregant l’històric de l’estació…"
+  },
+  "ui.prediction_map_history_station_error": {
+    "en": "Could not load the station details.",
+    "es": "No se ha podido cargar el detalle de la estación.",
+    "ca": "No s’ha pogut carregar el detall de l’estació."
+  },
+  "ui.prediction_map_history_station_retry": {
+    "en": "Retry", "es": "Reintentar", "ca": "Tornar-ho a provar"
+  },
+  "ui.prediction_map_history_error": {
+    "en": "Could not load historical weather. Check availability and try again; the previous map is preserved.",
+    "es": "No se ha podido cargar la meteorología histórica. Comprueba la disponibilidad y reintenta; se conserva el mapa anterior.",
+    "ca": "No s’ha pogut carregar la meteorologia històrica. Comprova la disponibilitat i torna-ho a provar; es conserva el mapa anterior."
   }
 }

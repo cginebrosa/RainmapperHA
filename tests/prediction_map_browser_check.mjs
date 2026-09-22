@@ -82,7 +82,8 @@ from rainmapper_core.mushroom_prediction_map import demo_result
 print(json.dumps(demo_result(dict(contract='prediction_map_point_v1',request_id='browser_test',point=dict(lat=42,lon=1.9),start_date='2026-09-12',horizon_days=7,history_days=30,species_ids=[]))))`], { cwd: root }));
 const base = path.join(root, "rainmapper_core/viewers/maplibre-viewer");
 const extension = path.join(root, "rainmapper_core/viewers/prediction-map");
-let predictionAllowed = true;
+let predictionAllowed = true, historyAllowed = false;
+const historyCalls=[];let historyFailure=false;
 let role = "admin", calls = 0, delay = 0, failure = false, richTerrain = true, lastExecution = null;
 let compactMobileFixture = false;
 let lastCalendar = null, lastStartDate = null;
@@ -135,9 +136,9 @@ const server = createServer(async (req, res) => {
         }
         return send({ ok: true, settings: deviceSettings });
       }
-      return send({ ok: true, user: { username: preview ? "preview" : "test", role, can_use_heatmap: true, can_use_layer_metrics: true, can_use_estimated_field: true, can_use_prediction_map: predictionAllowed } });
+      return send({ ok: true, user: { username: preview ? "preview" : "test", role, can_use_heatmap: true, can_use_layer_metrics: true, can_use_estimated_field: true, can_use_prediction_map: predictionAllowed, can_use_historical_map:historyAllowed } });
     }
-    if (name === "capabilities") return send({ can_use_prediction_map: predictionAllowed, admin_only: false, data_mode:preview ? "simulation" : "prediction", executors:{local:true,worker:!preview} }, "application/json", predictionAllowed ? 200 : 403);
+    if (name === "capabilities") return send({ can_use_prediction_map: predictionAllowed, can_use_historical_map:historyAllowed, admin_only: false, data_mode:preview ? "simulation" : "prediction", executors:{local:true,worker:!preview} }, "application/json", (predictionAllowed || historyAllowed) ? 200 : 403);
     if (name === "demo" || name === "queries") {
       calls++;
       const chunks = []; let size = 0;
@@ -155,6 +156,16 @@ const server = createServer(async (req, res) => {
       if ((unavailableWorker && lastExecution === "worker") || (unavailableLocal && lastExecution === "local")) return send({error:"executor_unavailable"},"application/json",503);
       if (!["local","worker"].includes(lastExecution)) return send({error:"invalid_execution"},"application/json",400);
       if (preview && lastExecution === "worker") return send({error:"executor_unavailable"},"application/json",503);
+      if(query.contract==='prediction_map_weather_history_v1') {
+        historyCalls.push(query);
+        if(historyFailure)return send({error:'query_failed'},'application/json',409);
+        const columns=['Latitud','Longitud','Codi Estació','Estació','Total','Source','history_source','history_code','history_count','history_loaded','Data_Pluja_01','Pluja_Diaria_01'];
+        const row=[42,1.9,'TEST','Historical station',7,'Meteocat','meteocat','TEST',30,query.station?1:0,'11/09/2026',7];
+        const response={...query,columns,rows:[row],generation:'history-fixture',total_stations:1,next_offset:null,
+          execution:{mode:query.execution,compute_ms:12,rows_read:30},generated_at:'2026-09-22T00:00:00Z'};
+        const id=`browser_async_${calls}`;asyncQueries.set(id,{response});
+        return send({query_id:id,state:'queued'},'application/json',202);
+      }
       const started = performance.now();
       const response = { ...example, request_id: query.request_id, point: query.point };
       if (preview) {
@@ -236,7 +247,7 @@ const server = createServer(async (req, res) => {
       }
       return setTimeout(() => send(response, "application/json", failure ? 503 : 200), delay);
     }
-    if (name === "config.js") return send(`window.RAINMAPPER_CONFIG=${JSON.stringify({ authRequired: true, authBase: "/auth", dataBase: "data/", predictionMap: { apiBase: "/api/mushrooms/prediction-map", contract: "prediction_map_point_v1", labels } })}`, "application/javascript");
+    if (name === "config.js") return send(`window.RAINMAPPER_CONFIG=${JSON.stringify({ authRequired: true, authBase: "/auth", dataBase: "data/", predictionMap: { apiBase: "/api/mushrooms/prediction-map", contract: "prediction_map_point_v1", historyContract:"prediction_map_weather_history_v1", labels } })}`, "application/javascript");
     if (name === "index.html") {
       const page = (await fs.readFile(path.join(base, name), "utf8"))
         .replace("https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css", "/maplibre.css")
@@ -258,7 +269,7 @@ const server = createServer(async (req, res) => {
       return send(name.endsWith(".geojson") ? { type: "FeatureCollection", features: [station] } : {});
     }
     if (["app.js", "style.css", "translations.json"].includes(name)) return send(await fs.readFile(path.join(base, name)), name.endsWith(".css") ? "text/css" : name.endsWith(".json") ? "application/json" : "application/javascript");
-    if (["prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js"].includes(name)) return send(await fs.readFile(path.join(extension, name)), name.endsWith(".css") ? "text/css" : "application/javascript");
+    if (["prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css"].includes(name)) return send(await fs.readFile(path.join(extension, name)), name.endsWith(".css") ? "text/css" : "application/javascript");
     return send({}, "application/json", 404);
   } catch (error) { res.writeHead(500); res.end(String(error)); }
 });
@@ -274,7 +285,7 @@ const chrome = spawn(chromePath, ["--headless", "--no-first-run", "--disable-bac
   "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let ws, serial = 0; const waiting = new Map(); const errors = [];
-const watchdog = setTimeout(() => { console.error("Browser timeout", errors); chrome.kill("SIGTERM"); server.close(); process.exit(2); }, 55000);
+const watchdog = setTimeout(() => { console.error("Browser timeout", errors); chrome.kill("SIGTERM"); server.close(); process.exit(2); }, 90000);
 function send(method, params = {}) { const id = ++serial; return new Promise((resolve, reject) => { waiting.set(id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params })); }); }
 async function evaluate(expression) {
   const answer = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
@@ -1135,8 +1146,92 @@ try {
   await evaluate("document.getElementById('settings-toggle').click();markDeviceSettingsChanged();document.getElementById('settings-toggle').click()");
   await pause(100);
   assert.equal(deviceSettings.prediction_execution,"worker");
+  // Historical mode: independent opt-in, spatial requests, fallback and rollback.
+  assert.equal(await evaluate("!!document.getElementById('historical-mode-toggle')"),false);
+  predictionAllowed=true;historyAllowed=true;
+  await send('Page.navigate',{url:origin+'/protected/prediction-map/index.html'});
+  await until("!!document.getElementById('historical-mode-toggle') && !!map.getLayer('station-circles')");
+  assert.equal(await evaluate("document.getElementById('prediction-mode-toggle').nextElementSibling.id"),'historical-mode-toggle');
+  await evaluate("applyLanguage('es');map.jumpTo({center:[1.9,42],zoom:11});document.getElementById('historical-mode-toggle').click()");
+  assert.ok(await evaluate("document.querySelector('#historical-mode-dialog .hm-help').textContent.includes('zona visible')"));
+  assert.equal(await evaluate("getComputedStyle(document.getElementById('historical-mode-dialog')).backgroundColor"),'rgb(255, 255, 255)');
+  const beforeCalendar=historyCalls.length;
+  await evaluate("document.querySelector('.hm-year').value='2024';document.querySelector('.hm-year').dispatchEvent(new Event('change'));document.querySelector('.hm-month').value='2';document.querySelector('.hm-month').dispatchEvent(new Event('change'));document.querySelector('.hm-day[data-date=\"2024-02-29\"]').click()");
+  assert.equal(await evaluate("document.querySelector('.hm-selected-date').textContent"),'29/02/2024');
+  await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))");
+  assert.equal(await evaluate("document.querySelector('.hm-selected-date').textContent"),'01/03/2024');
+  await evaluate("document.querySelector('.hm-year').value='2000';document.querySelector('.hm-year').dispatchEvent(new Event('change'));document.querySelector('.hm-month').value='1';document.querySelector('.hm-month').dispatchEvent(new Event('change'))");
+  assert.equal(await evaluate("document.querySelector('.hm-prev').disabled"),true);
+  await evaluate("document.querySelector('.hm-yesterday').click()");
+  assert.equal(await evaluate("document.querySelector('.hm-next').disabled"),true);
+  assert.ok(await evaluate("[...document.querySelectorAll('.hm-day')].filter(b=>b.dataset.date>document.querySelector('#historical-mode-dialog input').max).every(b=>b.disabled)"));
+  await evaluate("document.querySelector('.hm-year-ago').click()");
+  assert.equal(await evaluate("Number(document.querySelector('.hm-year').value)"),Number(await evaluate("document.querySelector('#historical-mode-dialog input').max.slice(0,4)"))-1);
+  assert.equal(historyCalls.length,beforeCalendar,'Browsing calendar must not run weather calculations');
+  await evaluate("document.querySelector('.hm-year').value='2026';document.querySelector('.hm-year').dispatchEvent(new Event('change'));document.querySelector('.hm-month').value='9';document.querySelector('.hm-month').dispatchEvent(new Event('change'));document.querySelector('.hm-day[data-date=\"2026-09-12\"]').click()");
+  const calendarViewport=await evaluate('({width:innerWidth,height:innerHeight})');
+  for(const viewport of [{width:360,height:640},{width:390,height:844},{width:1280,height:900}]) {
+    await send('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:viewport.width<700});
+    assert.ok(await evaluate("(()=>{const r=document.getElementById('historical-mode-dialog').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight})()"));
+    assert.ok(await evaluate("[...document.querySelectorAll('.hm-day')].every(b=>b.getBoundingClientRect().height>=40)"));
+    const shot=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(profile,`historical-calendar-${viewport.width}.png`),Buffer.from(shot.data,'base64'));
+  }
+  await send('Emulation.setDeviceMetricsOverride',{...calendarViewport,deviceScaleFactor:1,mobile:calendarViewport.width<700});
+  const historyCalendarShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'historical-calendar.png'),Buffer.from(historyCalendarShot.data,'base64'));
+  unavailableWorker=true;
+  await evaluate("Object.defineProperty(crypto,'randomUUID',{value:undefined,configurable:true});void 0");
+  await evaluate("document.querySelector('#historical-mode-dialog input').value='2026-09-12';document.querySelector('#historical-mode-dialog form').requestSubmit()");
+  assert.ok(await evaluate("document.getElementById('historical-mode-dialog').classList.contains('hm-busy') && getComputedStyle(document.querySelector('#historical-mode-dialog .hm-picker')).display==='none'"));
+  await until("historicalMap?.date==='2026-09-12' && !document.getElementById('historical-mode-dialog').open");
+  assert.equal(historyCalls.at(-1).execution,'local');unavailableWorker=false;
+  assert.ok(historyCalls.at(-1).bounds[2]-historyCalls.at(-1).bounds[0]<5);
+  assert.equal(await evaluate("daysAgo('11/09/2026')"),1);
+  assert.equal(await evaluate("document.getElementById('generated-at').textContent"),'12/09/2026');
+  assert.equal(await evaluate("document.getElementById('historical-mode-toggle').getAttribute('aria-pressed')"),'true');
+  assert.ok(await evaluate("document.getElementById('historical-mode-badge').getBoundingClientRect().top>=document.querySelector('.topbar').getBoundingClientRect().bottom"));
+  assert.equal(await evaluate("currentData.features[0].properties.Total"),7);
+  const historyMapShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'historical-map.png'),Buffer.from(historyMapShot.data,'base64'));
+  const loadedCalls=historyCalls.length;
+  await evaluate('map.setZoom(13);void 0');await pause(600);
+  await evaluate('map.setZoom(12);void 0');await pause(600);
+  await evaluate('map.setZoom(11);void 0');await pause(600);
+  assert.equal(historyCalls.length,loadedCalls,'Zoom within cached coverage must not recalculate');
+  await evaluate("openStationPopup(currentData.features[0])");
+  assert.equal(await evaluate("document.getElementById('historical-mode-dialog').open"),false);
+  await until("!!currentPopup && !historicalMap.busy");
+  assert.equal(historyCalls.at(-1).station.code,'TEST');
+  const afterStation=historyCalls.length;
+  await evaluate("currentPopup.remove();openStationPopup(currentData.features[0])");await pause(300);
+  assert.equal(historyCalls.length,afterStation,'Station details are cached in the tab');
+  await evaluate("currentPopup.remove();document.getElementById('prediction-mode-toggle').click()");
+  await clickAt(1.925,42.005);
+  await until("!!document.querySelector('.pm-result')");
+  assert.equal(lastStartDate,'2026-09-12');
+  await evaluate("document.querySelector('.pm-close').click()");
+  const beforeMove=historyCalls.length;
+  await evaluate("map.jumpTo({center:[3,42],zoom:11});void 0");
+  await until("historicalMap && !historicalMap.busy && currentData.metadata.bounds[0]>2");
+  assert.ok(historyCalls.length>beforeMove);
+  assert.ok(historyCalls.at(-1).exclude_bounds.length>0,'New region excludes the previous coverage');
+  const afterMove=historyCalls.length;
+  await evaluate("map.jumpTo({center:[1.9,42],zoom:11});void 0");await pause(600);
+  assert.equal(historyCalls.length,afterMove,'Returning to a previously loaded region must not recalculate');
+  historyFailure=true;
+  await evaluate("document.getElementById('historical-mode-toggle').click();document.querySelector('#historical-mode-dialog input').value='2026-09-10';document.querySelector('#historical-mode-dialog form').requestSubmit()");
+  await until("!historicalMap.busy && document.querySelector('#historical-mode-dialog .hm-status').textContent.includes('No se ha podido')");
+  assert.equal(await evaluate('historicalMap.date'),'2026-09-12');historyFailure=false;
+  await evaluate("document.querySelector('#historical-mode-dialog .hm-today').click()");
+  await until("!historicalMap.date && currentData.features[0].properties.Total===20");
+  predictionAllowed=false;
+  await evaluate('validateStoredSession()');
+  await until("!!document.getElementById('historical-mode-toggle') && !document.getElementById('prediction-mode-toggle')");
+  historyAllowed=false;
+  await evaluate('validateStoredSession()');
+  await until("!document.getElementById('historical-mode-toggle')");
   assert.equal(errors.length, 0, JSON.stringify(errors));
-  console.log(JSON.stringify({ ok: true, checks: "shared viewer, lazy module, station hover/click, modal, popup, dates, cancellation, errors, repeated toggles, mobile, non-admin, original route", screenshots: profile, demo_requests: calls }));
+  console.log(JSON.stringify({ ok: true, checks: "shared viewer, lazy module, station hover/click, modal, popup, dates, cancellation, errors, repeated toggles, mobile, non-admin, original route, historical opt-in, historical prediction date, viewport coverage cache, fallback, rollback", screenshots: profile, demo_requests: calls, historical_requests:historyCalls.length }));
 } finally {
   ws?.close(); chrome.kill("SIGTERM"); server.closeAllConnections(); server.close(); clearTimeout(watchdog);
 }

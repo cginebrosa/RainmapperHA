@@ -1,6 +1,8 @@
 # Architecture
 
-Revisión del 18/09/2026 contra código HA 0.2.312 / worker 1.1.3.
+Revisión general del 18/09/2026 contra código HA 0.2.312 / worker 1.1.3;
+ampliación acotada del 22/09 para diagnóstico paginado, consenso y memoria
+incluidos en HA 0.2.319 / worker local 1.1.5. No implica reauditoría del resto.
 [Fuentes y límites de la auditoría](reports/documentation-audit-2026-09-18.md).
 El estado desplegado y las pruebas históricas se consultan en [contexto activo](active-context.md).
 
@@ -94,6 +96,50 @@ Geografía pesada y modelos son datos persistentes distribuidos fuera de la
 imagen; configuración explícita y manifiestos determinan lo activo. La integración
 GEODE/MFE nacional y la agregación SoilGrids para áreas siguen siendo trabajo
 separado de la lectura puntual. No deducir cobertura completa del mapa visible.
+
+## Diagnóstico paginado del mapa (0.2.319)
+
+El contrato puntual acepta `applicability_page={day,offset}` sólo para una especie.
+No añade un endpoint: reutiliza `/queries`, autorización, cola y ejecutor elegido.
+`PointModelRuntime` resuelve su semana y consulta el candidato del día;
+`compare_prepared` transmite el offset a `predict_bundle_many`. La respuesta
+opcional incluye como máximo 32 filas compactas de variable/valor/mínimo/máximo.
+
+`prediction-mode.js` la solicita al abrir el aviso y pagina mediante Cargar más;
+verifica fecha/zona/procedencia y muestra fallos sin mezclar generaciones. La lista
+con scroll conserva contador. El camino normal conserva tres ejemplos y límites
+anteriores; no lleva vectores completos ni persiste diagnósticos. El cálculo del
+IFF y la selección no se sustituyen por el detalle. Límites y validación en
+`mushroom_prediction_map.py`; pruebas de invariancia y paginación en runtime.
+
+## Consenso reversible de recomendaciones (0.2.318)
+
+`mushroom_recommendation_policy.py` aplica política separada de las generaciones:
+legacy/shadow/prudent, `consensus_v1`, capacidad worker `recommendation_consensus_v1`.
+Los consumidores del Predictor y del mapa mantienen ganador/IFF y guardan una
+decisión compacta con dos alternativas semanales, sus probabilidades y estados;
+las features de alternativas no se transportan. La política afecta identidades de
+servicio/resultados, no el entrenamiento. UI en Modelos de predicción; configuración
+persistida junto a suspensiones y conservada al promover modelos.
+
+El consenso actúa ante recomendación favorable e IFF ≥60 para Ou/Edulis/Pinícola.
+Reservas por datos ausentes cuentan familias evaluadas, nunca las no ejecutadas;
+la UI distingue desacuerdo, comparación no disponible y modo sólo comparación.
+Reglas, evidencia y límites de generalización en `docs/decisions.md` (22/09).
+
+## Memoria de recepción y validación de precálculo (0.2.318)
+
+`web_server.py` recibe `precompute-artifact` mediante `iter_artifact_request_body`,
+con autorización previa y bloques de hasta 1 MiB hacia temporal. Conserva soporte
+Content-Length/chunked, límites, SHA y activación atómica. El validador compartido
+`mushroom_predictor_precompute._validate_published_rows` procesa una respuesta
+compartida y sus alias cada vez, liberándola antes de la siguiente; conserva las
+claves mínimas para validación relacional. Worker reutiliza este mismo código.
+No se modifica el formato SQLite ni se sustituye integridad por aumento de límites.
+
+La menor memoria medida en procesos de diagnóstico no equivale al consumo completo
+del servidor: cachés y RSS residual se investigan por separado. Evidencia histórica
+en `docs/reports/ha-memory-precompute-2026-09-22.md`; estado en active-context.
 
 ## Estado hídrico compartido y metadatos de modelos (0.2.315)
 

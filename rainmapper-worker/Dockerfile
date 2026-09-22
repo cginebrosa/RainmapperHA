@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=1.1.5
+ARG RAINMAPPER_WORKER_VERSION=1.1.6
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -48,6 +48,10 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_soilgrids.py \
      rainmapper_core/mushroom_map_land_parts.py \
      rainmapper_core/mushroom_map_weather.py \
+     rainmapper_core/mushroom_map_history.py \
+     rainmapper_core/tomap.py \
+     rainmapper_core/geojson.py \
+     rainmapper_core/wind.py \
      rainmapper_core/mushroom_map_hydrology.py \
      rainmapper_core/mushroom_map_water_physics.py \
      rainmapper_core/mushroom_water_physics.py \
@@ -129,6 +133,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/weather_history_contract.py \
      rainmapper_core/weather_history_dataset.py \
      /app/rainmapper_core/
+COPY rainmapper_core/config/ /app/rainmapper_core/config/
 COPY mushroom-data/mushroom_ml_version_registry.json /app/mushroom-data/mushroom_ml_version_registry.json
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
 COPY scripts/run-mushroom-ml-train-job.py /app/scripts/run-mushroom-ml-train-job.py

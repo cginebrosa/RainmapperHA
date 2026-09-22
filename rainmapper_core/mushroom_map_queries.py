@@ -10,6 +10,7 @@ import threading
 import time
 
 from rainmapper_core import mushroom_prediction_map as contract
+from rainmapper_core import mushroom_map_history as history
 
 WORKER_PATH = "/api/mushrooms/workers/map-queries"
 MAX_QUERIES = 8
@@ -31,6 +32,7 @@ class QueryBroker:
         self.lock = threading.RLock()
         self.queries = OrderedDict()
         self.workers = {}
+        self.worker_capabilities = {}
         self.local_ready = False
         self.stop = threading.Event()
         self.wake = threading.Event()
@@ -53,6 +55,7 @@ class QueryBroker:
             if now-self.queries[key]["created"] >= TTL:
                 del self.queries[key]
         self.workers = {key:value for key,value in self.workers.items() if now-value[0] < 15}
+        self.worker_capabilities = {key:value for key,value in self.worker_capabilities.items() if key in self.workers}
 
     def capabilities(self):
         with self.lock:
@@ -69,6 +72,11 @@ class QueryBroker:
                     if row["request"] != request:
                         raise QueryError("request_id_conflict",409)
                     return {"query_id":key,"state":row["state"]}
+            if history.is_request(request) and mode == 'worker' and not any(
+                value[2] and history.CAPABILITY in self.worker_capabilities.get(key, [])
+                for key, value in self.workers.items()
+            ):
+                raise QueryError('executor_unavailable', 503)
             if not self.capabilities()[mode]:
                 if mode == "worker" and self.workers:
                     raise QueryError("worker_busy",503)
@@ -88,6 +96,14 @@ class QueryBroker:
             if mode == "local":
                 self.wake.set()
             return {"query_id":key,"state":"queued"}
+
+    def is_history(self, owner, key):
+        with self.lock:
+            self._prune()
+            row = self.queries.get(key)
+            if not row or row['owner'] != owner:
+                raise QueryError('query_not_found', 404)
+            return history.is_request(row['request'])
 
     def status(self, owner, key, cancel=False):
         with self.lock:
@@ -111,17 +127,20 @@ class QueryBroker:
         if any(row["state"] == "running" and row["worker_id"] == worker_id for row in self.queries.values()):
             return None
         for key,row in self.queries.items():
+            if mode == 'worker' and history.is_request(row['request']) and history.CAPABILITY not in self.worker_capabilities.get(worker_id, []):
+                continue
             if row["mode"] == mode and row["state"] == "queued":
                 row.update(state="running",worker_id=worker_id,claim=secrets.token_urlsafe(24))
                 return {"query_id":key,"claim":row["claim"],"request":deepcopy(row["request"]),
                         **({"runtime":row["runtime"]} if row.get("runtime") else {})}
         return None
 
-    def worker_poll(self, worker_id, busy=False, ready=None):
+    def worker_poll(self, worker_id, busy=False, ready=None, capabilities=None):
         with self.lock:
             self._prune()
             if worker_id not in self.workers and len(self.workers) >= 8:
                 raise QueryError("worker_limit",429)
+            self.worker_capabilities[worker_id] = capabilities or []
             self.workers[worker_id] = (self.clock(), busy, not busy if ready is None else bool(ready))
             return {"query":None if busy else self._claim("worker",worker_id)}
 
