@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from rainmapper_core import mushroom_recommendation_policy as recommendations
+
 import copy
 from datetime import date, timedelta
 import gzip
@@ -602,6 +604,7 @@ def validate_weekly_lag_resolution(
 def prioritize_weekly_resolutions_by_applicability(
     resolutions_by_day: Mapping[int, Mapping[str, object]],
     members_by_day: Mapping[int, Sequence[Mapping[str, object]]],
+    *, recommendation_policy: Mapping[str, object] | None = None, species_id: str = "",
 ) -> dict[int, dict[str, object]]:
     """Prefer weekly coverage, then retain the pre-ranked evidence order.
 
@@ -615,6 +618,24 @@ def prioritize_weekly_resolutions_by_applicability(
         int(day): copy.deepcopy(dict(resolution))
         for day, resolution in resolutions_by_day.items()
     }
+    config = recommendations.validate(dict(recommendation_policy) if recommendation_policy else None)
+    resolved = ["data_availability" in r and (r.get("weekly_model_selection") or {}).get("applicability_priority")
+                == "maximum_weekly_coverage_then_aggregate_evidence" for r in transformed.values()]
+    if resolved and all(resolved):
+        # A pruned chain cannot reconstruct its original ranking/rejection counts.
+        # Subsequent views reuse the same sealed week, not a fictitious 1/1 audit.
+        for resolution in transformed.values():
+            plan = resolution.get("recommendation_plan")
+            if plan and any(plan.get(key) != config[key] for key in config):
+                raise ValueError("Weekly recommendation policy changed; rebuild the query context.")
+        return transformed
+    if any(resolved):
+        raise ValueError("Cannot mix resolved and unresolved weekly selections.")
+    if config["mode"] != "legacy" and species_id in recommendations.SPECIES:
+        for resolution in transformed.values():
+            # No fixed weekly families means no verifiable agreement, not permission
+            # to silently bypass an enabled filter or choose alternatives per day.
+            resolution["recommendation_plan"] = {**config, "alternatives": []}
     weekly_rows = [
         resolution
         for resolution in transformed.values()
@@ -693,6 +714,13 @@ def prioritize_weekly_resolutions_by_applicability(
     for day, entries in entries_by_day.items():
         selected_entry = entries[selected_family]
         resolution = transformed[day]
+        resolution["data_availability"] = recommendations.availability(
+            list(entries.values()), members_by_day.get(day, ()), selected_family)
+        plan = recommendations.plan(list(entries.values()), selected_entry.get("candidate") or {},
+                                    recommendations.validate(dict(recommendation_policy) if recommendation_policy else None),
+                                    species_id=species_id)
+        if plan is not None:
+            resolution["recommendation_plan"] = plan
         resolution["candidate_chain"] = [copy.deepcopy(selected_entry)]
         resolution["candidate"] = copy.deepcopy(selected_entry.get("candidate"))
         if isinstance(selected_entry.get("evidence"), Mapping):
@@ -791,6 +819,7 @@ def build_reliability_selected_operational_comparison(
             resolution.get("runtime_candidate_count") or len(ranked_entries)
         )
         comparison["reliability_fallback_rank"] = resolution.get("fallback_rank")
+        recommendations.apply(comparison, resolution, members, _operational_gate_failures)
         return comparison, copy.deepcopy(dict(resolution))
 
     exclusions: list[dict[str, object]] = []
@@ -843,6 +872,9 @@ def build_reliability_selected_operational_comparison(
     comparison["reliability_candidate_count"] = len(ranked_entries)
     comparison["reliability_fallback_rank"] = selected_rank
 
+    if "data_availability" not in resolution:
+        resolution = {**resolution, "data_availability": recommendations.availability(
+            ranked_entries, members, recommendations.family((selected_entry or {}).get("candidate") or {}))}
     active_resolution = copy.deepcopy(dict(resolution))
     active_resolution["runtime_candidate_count"] = len(ranked_entries)
     # The full ranked chain belongs to the immutable quality catalog.  Once
@@ -858,6 +890,7 @@ def build_reliability_selected_operational_comparison(
         active_resolution["runtime_selection_status"] = "abstain"
         active_resolution["runtime_selection_reason"] = "no_applicable_reliable_candidate"
         active_resolution["runtime_candidate_exclusions"] = copy.deepcopy(exclusions)
+        recommendations.apply(comparison, resolution, members, _operational_gate_failures)
         return comparison, active_resolution
 
     active_resolution["runtime_selection_status"] = "winner"
@@ -876,6 +909,9 @@ def build_reliability_selected_operational_comparison(
         active_resolution["preferred_candidate_rejection_reasons"] = list(
             exclusions[0].get("reasons") or []
         )
+    recommendations.apply(comparison, resolution, members, _operational_gate_failures)
+    if "recommendation_decision" in comparison:
+        active_resolution["recommendation_decision"] = copy.deepcopy(comparison["recommendation_decision"])
     return comparison, active_resolution
 
 

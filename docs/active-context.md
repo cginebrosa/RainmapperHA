@@ -1,4 +1,4 @@
-# Contexto activo — cierre 21/09/2026
+# Contexto activo — release 0.2.318, 22/09/2026
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este documento contiene
 lo necesario para retomar; [todo.md](todo.md) amplía prioridades. El
@@ -6,6 +6,201 @@ lo necesario para retomar; [todo.md](todo.md) amplía prioridades. El
 no una segunda fuente de estado actual.
 
 ## Estado y siguiente paso
+
+### Release 0.2.318 publicada; pendiente instalar en HA real
+
+Usuario aceptó el resultado visual y autorizó publicar. GHCR 0.2.318/latest
+verificados con mismo digest y amd64/arm64; script terminado código 0. Smoke
+final 1.724 pruebas/52 skips correcto. Worker local reconstruido y activo 1.1.5,
+destinos/credenciales intactos; HA local final y worker con paridad 217/117.
+Código científico igual al circuito completo ejecutado por el usuario; última
+validación visual 41 consultas. No se repitió entrenamiento/precálculo.
+
+Ver [evidencia de release](reports/release-ha-0.2.318-2026-09-22.md).
+Instala HA el usuario. No activar política ni lanzar trabajos automáticamente.
+Pendiente medir la mejora de memoria en Raspberry; consumo inicial/cachés aún
+sin resolver. Observaciones privadas excluidas del commit. Las notas inferiores
+son historial y sus pendientes de publicación quedan superados por esta sección.
+
+
+### Ampliación 22/09: conclusión de consenso compacta, desplegada en HA local
+
+Petición del usuario antes de publicar: conclusión bajo temporada, verde si
+acuerdo, roja si desacuerdo y «Detalle/Detall» al final. Implementado como un único
+desplegable sin recuadro ni separadores; al abrir muestra modelos/IFF/perfiles
+sin desplegables anidados. Modo shadow y explicación del umbral dentro del detalle.
+Falta de alternativas usa ámbar. Solo presentación del mapa y traducciones;
+no cambios del cálculo, del entrenamiento ni de los artefactos.
+
+Prueba navegador: 41 consultas correctas, colores y posición bajo temporada,
+apertura con un clic, perfiles visibles, sin solapamiento a 1280/320 px.
+Captura: `prediction-map-browser-1m0erG/consensus-models.png` en temporal.
+HA local reconstruido/recreado, imagen
+`sha256:66a37fac3cab0dd4814ee8850e75d39ac00e9ddb570b62b1177cf464b5901e3a`.
+Paridad efectiva 217 archivos HA / 117 worker sin diferencias; worker no
+reiniciado. Su contenido empaquetado no cambia con estos archivos del visor.
+Pendiente prueba/aceptación visual del usuario y flujo de release proporcional
+sobre el estado final. No publicado ni instalado en HA real.
+
+
+### Ampliación 22/09: circuito local completado por el usuario
+
+Reconstrucción/base/multiversión completas (792/792 ajustes). Precálculo revisión
+73 `worker_job_TSqdxNLr7YfS` completo y activo en HA local y worker; ambos archivos
+48.459.776 bytes y mismo SHA comprobado contra recibo. El intento previo falló
+409 al arrancar con una huella anterior a la promoción, tras 136 s en cola; no
+llegó a calcular. No se lanzaron trabajos ni reiniciaron contenedores.
+
+Usuario percibe lentitud: nuevo cálculo 481,81 s frente a 493,29 s del último
+worker para HA real con iguales recuentos; multiversión 698 frente a 763 s,
+792 ajustes ambos. Local antiguo sí era más corto (383,58 s) pero tenía 574
+miembros frente a 756 y menos combinaciones. No es A/B de mismos datos/modelos.
+Publicación HA local 15,95 s, activación worker 17,57 s. Informe de memoria
+ampliado con evidencias y límites. Pendiente aceptación para release; no publicar
+aún. Consumo inicial y otros procesos/cachés siguen siendo revisión separada.
+
+### Ampliación 22/09: memoria corregida; circuito local a cargo del usuario
+
+Validador secuencial y recepción HTTP por bloques implementados. Misma copia de
+precálculo real: pico Mac 825→304 MiB, tiempo 16,00→15,66 s; incremento RSS residual
+109→63 MiB en comprobación separada. Dentro de HA local Linux: 14,80 s y pico
+259 MiB (proceso diagnóstico aislado, no consumo del servidor). Conserva SHA,
+contratos y comprobaciones; no cambia límites ni añade GC forzado. Consumo inicial
+y cachés de consultas siguen pendientes de investigación separada.
+
+Smoke completo: 1.724 tests, 52 skips. HA local y worker reconstruidos y recreados;
+paridad 217/117 archivos sin diferencias. Se corrigió además COPY del módulo de
+consenso ausente en la imagen del worker y se añadió importación de servicio al
+build. Worker vuelve a estar idle, con `recommendation_consensus_v1`. Destinos y
+credenciales conservan sus huellas. Etiqueta local worker sigue 1.1.4, código nuevo.
+Evidencia e imágenes en [informe](reports/ha-memory-precompute-2026-09-22.md).
+
+El usuario respondió **«Los lanzo yo en HA local»** a reconstrucción, entrenamiento
+y precálculo. No lanzar esos trabajos. Próximo paso: auditar su circuito y memoria
+persistida, obtener aceptación y publicar versión HA; no se ha publicado todavía.
+Las notas anteriores de worker sin reconstruir o memoria pendiente son históricas.
+
+### Ampliación 22/09: presentación de alternativas en el mapa
+
+El usuario priorizó ordenar el detalle de modelos antes de implementar la mejora
+de memoria. Cada alternativa ocupa una fila con nombre e IFF alineados; el perfil
+técnico queda plegado y «Solo comparación» separado dentro del bloque de consenso.
+Desplegado solo HA local. Navegador: 41 consultas correctas y comprobación de filas
+sin solapamiento a 1280/320 px; sintaxis JS y diff correctos. Paridad de 217 archivos
+efectivos sin diferencias y HTTP 200. Worker conserva imagen y arranque de
+21/09 17:46:47 UTC; HA real sin actualizar. Evidencia de navegador:
+`prediction-map-browser-eTVMPI/consensus-models.png` en el directorio temporal.
+La mejora de memoria sigue pendiente.
+
+### Ampliación 22/09: investigación de memoria en HA real
+
+Usuario informa 18,1% de RAM tras trabajos frente a 11,6% tras reinicio, en RPi4
+de 4 GB. Inspección SMB y copia verificada de precálculo activo 213: la muestra
+de 924 MiB RSS / 1.133 MiB cgroup coincide con su validación/activación (129 s).
+Antes del reinicio: 486 MiB RSS; al arrancar: 244 MiB. La validación acumula 208
+respuestas descomprimidas. Reproducido solo validar la copia en el Mac: pico
+786 MiB, final 289 MiB, 250 tras GC frente a base 188. No demuestra fuga ni explica
+toda la retención real. Promoción sí limpia cachés del Predictor. Propuesta de
+validación secuencial y recepción por bloques **pendiente de implementar**;
+no se han cambiado ejecutables, reiniciado workers ni ejecutado trabajos nuevos.
+Ver [informe](reports/ha-memory-precompute-2026-09-22.md).
+
+### Ampliación 22/09: desplegado únicamente HA local para probar
+
+Por petición del usuario se reconstruyó y recreó solo `rainmapper-ha-ui`.
+Verificados 217 archivos efectivos, sin discrepancias con el worktree.
+Formulario local de Workers y trabajos guardó `recommendation_policy.mode=shadow`
+(Solo comparar), conservando las siete suspensiones. Registro, observaciones
+privadas y setales locales sin cambios por SHA. Evidencia en
+`tmp/consensus-local-20260922/`.
+
+El worker sigue en su imagen anterior: su carril de fondo continúa ocupado por
+`worker_job_16An-MA-FiXiJuiC`; no se reconstruyó, recreó ni reinició. El usuario
+reiteró expresamente que está entrenando para HA real. Para probar ahora el mapa,
+usar **Servidor local** en HA local (`http://127.0.0.1:8101`). Solo comparar
+conserva el IFF y muestra la decisión del consenso; no suaviza las diferencias
+entre puntos. Quedan pendientes actualización del worker y validación conjunta;
+este despliegue no acredita aceptación de release real. No se lanzaron trabajos
+de entrenamiento ni precálculos. HA real no se actualizó.
+
+Segunda actualización local: aviso «Comprobación superada» y desplegable con las
+dos alternativas e IFF, en mapa y Predictor. Regla >=60 y modo shadow conservados.
+44 pruebas dirigidas y navegador (41 consultas) correctos; 217 archivos efectivos
+coincidentes tras recrear solo HA local. Worker conserva imagen y fecha de inicio.
+Al revisar frente a las huellas del primer despliegue, las observaciones y setales
+del volumen local han cambiado; no se restauraron ni se atribuye aquí ese cambio.
+
+### Ampliación 22/09: reservas y consenso implementados en el worktree
+
+El usuario pide contar los descartes por falta de datos y continuar la propuesta
+selectiva. Implementado selector persistido en Workers y trabajos → Modelos de
+predicción: Desactivado / Solo comparar / Aplicar. Sin ajuste explícito sigue
+Desactivado; no se ha activado ni desplegado en HA real. Ou/Edulis/Pinícola tienen
+consenso de ganador + dos siguientes familias semanales; deliciosus/aereus solo
+avisos. IFF intacto, abstención visible por desacuerdo o comparación no disponible.
+Las reservas cuentan solo evaluados; en snapshot Querigut, 21/33 descartes por datos,
+9 por delante del elegido. No confundir familias no ejecutadas por el mapa con rechazadas.
+
+Código y pruebas dirigidas preparados. Ver
+[informe de implementación](reports/recommendation-consensus-implementation-2026-09-22.md)
+para verificaciones, costes acotados, diferencias con la retrospectiva y pendiente de
+paridad/latencia completa en HA local y worker antes de publicar. No se han tocado
+contenedores, coordinadores, observaciones privadas ni ejecutado trabajos reales.
+Los apartados anteriores que indicaban «pendiente de implementar» describen el cierre
+previo; este bloque actualiza ese estado, sin dar por validada una release.
+
+### Ampliación 22/09: comparación concreta de Querigut terminada
+
+Revalidado por SMB precálculo activo **212**, copia y SHA/tamaño contra recibo.
+Los siete modelos/entradas/IFF y resúmenes meteorológicos de Querigut coinciden
+exactamente con la revisión 211. Comparadas 33 familias del lote real, siete
+plazos, preparando únicamente meteorología/ETo de sus dos microáreas; sin
+recalcular estado hídrico, entrenar, precalcular o construir runtime operativo.
+Ver ampliación de [informe Querigut](reports/querigut-predictor-2026-09-21.md).
+
+Resuelta causa concreta en las nueve familias anteriores al servido: lluvia
+71/90 días frente a mínimo 81; V3 físico además sin estado hídrico. Hueco 29/06–17/07
+deja solo 65 días consecutivos, insuficientes para mínimo hídrico de 90.
+V5/V6 aceptan entradas ausentes con imputación y no aplican el mismo mínimo.
+Las dos microáreas sí tienen SoilGrids de retención completo: no atribuir la
+ausencia hídrica a Francia. Tipo de suelo/hosts GIS vacíos son otra fuente;
+ninguna columna de las 33 familias es host, tipo de suelo o pH.
+
+Alternativas admitidas por sus adaptadores: V5 90d IFF 89→47; V6 parcial
+30/60/90d aproximadamente 55–61 al inicio, frente a servido 99→90. No hay
+consenso sobre 99; esas V6 no superan al servido en Brier/precisión histórica.
+Las salidas forzadas de los mejores clasificados son diagnósticas inválidas
+para operación, no votos utilizables. No cambiar modelo por intuición ni
+activar consenso para deliciosus sin decisión explícita. Trabajo autorizado
+de filtro reversible y explicaciones sigue pendiente; no hay cambio ejecutable.
+
+### Autorización de implementación y revisión previa de Querigut
+
+El usuario acepta implementar el filtro de acuerdo reversible, tolerando de
+momento el coste, e incluir explicaciones comprensibles de cada recomendación.
+Antes pide revisar IFF 99/98 de deliciosus en **Predictor de HA real**; confirma
+que HA local no se ha reentrenado ni precalculado. GBIF sigue pendiente de revisión
+del usuario: no incorporarlo como evidencia nueva validada.
+
+[Inspección de Querigut](reports/querigut-predictor-2026-09-21.md) terminada con
+precálculo activo real **revisión 211**, copiado por SMB y verificado por SHA/tamaño,
+no con el de HA local. Mismo lote `operational_20260921T134830Z`. Reproducidos los
+siete valores con pesos y features guardadas: 98,7779→90,1498. Elastic Net V5w60d
+es el décimo por calidad; se elige por cubrir 7/7 días. Evidencia h1 global de
+especie 6/8 llamadas correctas, sin evidencia por área. Siete features de estado
+hídrico ausentes, rellenadas con medianas; contribución directa pequeña, no causa
+única del 99. V5/V6 marca inferencia elegible y el rango omite valores ausentes.
+La ampliación del 22/09 anterior identifica los huecos meteorológicos y las
+exclusiones individuales; la inspección inicial de 211 no las había resuelto.
+
+La explicación deberá incluir motivo de selección por cobertura, evidencia real
+decisiva, datos rellenados y limitaciones. El 99 no equivale a garantía 99%.
+Importante para implementación: simulaciones anteriores fijaban familias
+preferidas por evidencia antes de cobertura/aplicabilidad. No prometer balance
+39/10 para el selector completo por área sin comprobarlo. Deliciosus sigue fuera
+del ámbito inicial de consenso, por lo que ese filtro no arreglará por sí solo
+Querigut. Implementación **aún pendiente**, autorizada; no confundir informes
+con código desplegado. Mantener restricciones de entrenamientos/precálculos.
 
 ### HA 0.2.317 publicada — instalar en HA real y retomar comparación
 
@@ -54,19 +249,61 @@ verificó por SMB que el activo (revisión 210, 45.449.216 bytes) coincide por t
 y SHA con su recibo. No implica aún auditoría semántica de todas sus respuestas.
 Última consulta de montajes: `/Volumes/media` presente; `/Volumes/share` ausente.
 
-**Trabajo a retomar inmediatamente tras la release:** comparar Ou de reig,
-Aereus, Lactarius deliciosus, Edulis y Pinícola (B. pinophilus), con los modelos
-NUEVOS ya copiados de HA real y verificados. Auditoría preliminar preparada en
-`tmp/model-robustness-20260921/`: `report.md`, `new-ranking-audit.json`,
-`humidity-new-results.json`, `humidity-case-selection.json`,
-`olvan-new-results.json` y `fixed-point-runtime.json`. Ranking semanal reproducido,
-sensibilidad directa a humedad en cuatro contextos por especie y estabilidad
-al omitir grupos de validación, sin reentrenar. Falta ampliar perturbaciones a
-lluvia, temperatura y estado hídrico, revisar cobertura/calibración y presentar
-qué decisiones permite tomar. No cambiar IDW, selector, suspensiones ni modelos.
-Los cuatro contextos son cribado, no certificación de robustez; los ajustes
-operativos pueden haber visto esos casos. Precisión histórica exclusivamente
-con hold-out sellado. No adoptar umbrales a posteriori para favorecer candidatos.
+**Auditoría ampliada terminada tras la release:** Ou de reig, Aereus,
+Lactarius deliciosus, Edulis y Pinícola (B. pinophilus), usando el lote NUEVO.
+[Informe y decisiones propuestas](reports/model-selection-robustness-2026-09-21.md).
+Se reprodujo el ranking semanal y se midió estabilidad al omitir grupos sin
+reentrenar. El barrido amplía el cribado inicial de cuatro contextos a 135
+contextos especie/observación, 22 combinaciones especie/familia (20 artefactos),
+17 escenarios y dos horizontes: 597 filas completas, 20.298 inferencias.
+RH, lluvia, temperatura y SMI perturbados por separado; 49 objetos meteorológicos
+verificados contra el snapshot antes de ejecutar. Protocolo escrito previamente.
+
+Con RH ±1 pp, máximos de IFF admitidos: Ou 2,96; Aereus 0,78; deliciosus 4,18;
+Edulis 3,74; Pinícola 0,58. Algunas alternativas con menor Brier son mucho más
+sensibles. En hold-out h1, los ganadores de Edulis/Pinícola acertaron 6/14 y 5/14
+llamadas favorables. Esto prioriza fiabilidad/calibración además de sensibilidad;
+no autoriza reemplazar todas las versiones por V6 ni demuestra sobreajuste.
+Los ensayos son diagnósticos, no incertidumbres medidas ni umbrales de admisión.
+Los ajustes operativos pueden haber visto esos contextos; precisión histórica
+exclusivamente con hold-out sellado. No multiplicar el tamaño muestral por los
+horizontes o perturbaciones. No se cambió IDW, selector, suspensiones ni modelos.
+
+**Preferencia nueva del usuario:** priorizar abstenerse frente a recomendar mal,
+sin que la aplicación se abstenga siempre. Exige un parámetro para desconectar
+el filtro y comparar con observaciones futuras. **El usuario rechazó la propuesta
+global inicial por perder 156 aciertos para evitar 130 errores.** Exige evitar
+más errores que aciertos perdidos. No implementar la regla Wilson/3 grupos como
+si siguiera aceptada.
+
+Propuesta vigente, todavía sin implementación/activación:
+[acuerdo selectivo](reports/recommendation-consensus-proposal-2026-09-21.md).
+Conservar ganador semanal e IFF; para Ou/Edulis/Pinícola recomendar solo cuando
+ganador y siguientes dos alternativas del ranking semanal sellado coincidan
+en p ≥0,60. Mantener Aereus/deliciosus sin filtro adicional porque en ellos no
+mejora el balance. Simulación: 39 errores evitados y 10 aciertos perdidos;
+359/408 recomendaciones conservadas (248 aciertos/111 errores). En h1 evita
+7 errores y pierde 1 acierto. Se reutilizan 135 observaciones a siete horizontes;
+no presentar los totales como salidas independientes.
+
+Ámbito selectivo elegido después de inspeccionar datos: no es validación
+independiente. Reglas uniformes y resultados por especie/plazo documentados,
+con omisión de grupos sin reselección. No forzar abstención de especies enteras.
+Modos propuestos `legacy` / `shadow` / `prudent` con regla `consensus_v1`, aún
+no existentes en configuración. Corrección importante: el consenso necesita
+dos inferencias adicionales cuando no estén disponibles; medir coste RPi4 y
+elegibilidad antes de activar, reutilizando entradas y sin duplicar payloads.
+Siguiente trabajo: implementación local reversible, primero comparación shadow,
+paridad de contratos/mapa/Predictor/worker y cachés por política. Falta comprobar
+ámbitos por área/resto de especies. No tocar runtime real, IDW o suspensiones,
+ni lanzar entrenamientos/precálculos. Evidencia privada añadida:
+`consensus_tradeoff.py` y `consensus-tradeoff.json`.
+Evidencia privada en `tmp/model-robustness-20260921/`: `new-ranking-audit.json`,
+`expanded-stress-protocol.json`, `expanded-stress-results.jsonl`,
+`expanded-stress-summary.json`, scripts correspondientes y `olvan-new-results.json`.
+El `report.md` privado inicial de cuatro contextos es histórico; prevalece el
+informe ampliado enlazado arriba. HA real sigue pendiente de instalación de
+0.2.317 por el usuario; no confundir aceptación local con comprobación en real.
 
 ### HA 0.2.316 publicada
 

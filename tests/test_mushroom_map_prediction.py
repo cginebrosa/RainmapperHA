@@ -49,6 +49,14 @@ class PointWeekTests(unittest.TestCase):
             lazy=resolve_species_week(species_id="species-a",point_id="point-a",issue_date=self.issue,
                 resolutions_by_day=self.resolutions(),installed_version_ids=["biology_v6"],
                 materialize=calculator,season_phase=lambda _day:"in_season",phenology={},lazy_families=True)
+            # Evaluation counts differ: lazy stops at the first complete family.
+            # Selection, IFF and all other diagnostics remain identical.
+            for payload in (lazy, eager):
+                for row in payload['days']:
+                    for key in ('operational_comparison', 'reliability_selection'):
+                        audit = row[key].pop('data_availability', None)
+                        if audit:
+                            self.assertEqual(audit['data_rejected_count'], 0)
             self.assertEqual(lazy,eager)
             self.assertEqual(calculator.call_count,7 if not veto else 14)
             self.assertTrue(all(len(c.kwargs['selections'])==1 for c in calculator.call_args_list))

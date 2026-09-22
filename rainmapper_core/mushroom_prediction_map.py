@@ -13,6 +13,7 @@ import re
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from rainmapper_core.mushroom_model_labels import valid_model_details
+from rainmapper_core.mushroom_recommendation_policy import valid_map_notice
 
 VIEWER_PATH = "/protected/prediction-map"
 API_PATH = "/api/mushrooms/prediction-map"
@@ -196,6 +197,13 @@ def validate_result(result, request):
             not isinstance(reasons,list) or len(reasons)!=len(expected_dates)):
             raise ValueError('invalid_result_species')
         seen.add(sid)
+        if 'selection_notices' in row or 'selection_notice_details' in row:
+            refs = row.get('selection_notices'); details = row.get('selection_notice_details')
+            if (not isinstance(refs, list) or len(refs) != len(expected_dates)
+                    or not isinstance(details, list) or len(details) > len(expected_dates)
+                    or any(not valid_map_notice(item) for item in details)
+                    or any(type(ref) is not int or not 0 <= ref < len(details) for ref in refs)):
+                raise ValueError('invalid_result_selection_notice')
         if 'model_details' in row:
             details = row['model_details']
             if (not isinstance(details, list) or not isinstance(row.get('model_labels'), list)

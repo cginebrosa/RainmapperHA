@@ -1641,7 +1641,51 @@ def _compact_conservative_reliability(
 def _compact_deciding_reliability_html(
     comparison: dict[str, Any] | None,
 ) -> str:
-    return _weekly_selection_notice(comparison) + _compact_deciding_reliability_evidence_html(comparison)
+    return _selection_reservations_html(comparison) + _weekly_selection_notice(comparison) + _compact_deciding_reliability_evidence_html(comparison)
+
+
+def _selection_reservations_html(comparison):
+    if not isinstance(comparison, dict):
+        return ""
+    lines = []
+    selection = comparison.get("reliability_selection") or {}
+    audit = selection.get("weekly_model_selection") or {}
+    explanation = ""
+    if audit.get("status") == "weekly_family":
+        explanation = ('<details><summary>' + html.escape(_lbl("ui.predictor_selection_explanation_title"))
+            + '</summary>' + html.escape(_lbl("ui.predictor_selection_why")) + ' '
+            + html.escape(_lbl("ui.predictor_selection_explanation_week").format(
+                days=audit.get("applicable_prediction_days", "—"), rank=audit.get("selected_family_quality_rank", "—")))
+            + '</details>')
+        if "data_availability" not in comparison:
+            lines.append(_lbl("ui.predictor_selection_audit_unavailable"))
+    availability = comparison.get("data_availability") or {}
+    if availability.get("data_rejected_count", 0):
+        lines.append(_lbl("ui.predictor_selection_data_warning").format(
+            rejected=availability["data_rejected_count"],
+            evaluated=availability.get("evaluated_family_count", 0),
+            better=availability.get("better_ranked_data_rejected_count", 0)))
+        for reason in ("rain_history", "soil_water", "required_inputs"):
+            count = (availability.get("reason_counts") or {}).get(reason, 0)
+            if count:
+                lines.append(_lbl("ui.predictor_selection_" + reason).format(count=count))
+        lines.append(_lbl("ui.predictor_selection_why"))
+    decision = comparison.get("recommendation_decision") or {}
+    comparator_html = ""
+    if decision.get("status") in {"agreed", "disagreed", "unavailable"}:
+        lines.append(_lbl("ui.predictor_consensus_" + decision["status"]))
+        from rainmapper_core.mushroom_recommendation_policy import comparator_summaries
+        rows = comparator_summaries(decision)
+        if rows:
+            comparator_html = '<details><summary>' + html.escape(_lbl("ui.predictor_consensus_models")) + '</summary>'
+            for row in rows:
+                score = _iff_score(row["probability"])
+                result = f"IFF:{score}/100" if score is not None else _lbl("ui.predictor_consensus_model_unavailable")
+                comparator_html += '<div>' + html.escape(row["label"] + ': ' + result) + '</div>'
+            comparator_html += '</details>'
+        if decision.get("mode") == "shadow":
+            lines.append(_lbl("ui.predictor_consensus_shadow"))
+    return explanation + ''.join('<span class="pred-selection-reservation" style="display:block">' + html.escape(line) + '</span>' for line in lines) + comparator_html
 
 
 def _weekly_selection_notice(comparison: dict[str, Any] | None) -> str:
@@ -1755,7 +1799,9 @@ def _compact_result_probability_html(interpretation: dict[str, Any]) -> str:
         "ui.predictor_help_prediction_probability",
         strong=False,
     )
-    band = _iff_range_label(interpretation.get("reference_range"))
+    band = (_lbl("ui.predictor_consensus_abstain")
+            if any(str(reason).startswith("recommendation_consensus_") for reason in interpretation.get("reason_codes", []))
+            else _iff_range_label(interpretation.get("reference_range")))
     return rendered + (f'<small class="pred-iff-band">{html.escape(band)}</small>' if band else "")
 
 
@@ -2233,6 +2279,7 @@ def _render_interpretation_card(
   <div class="pred-probability-model-row">{range_html}{winners_html}</div>
   {fallback_html}
   {_weekly_selection_notice(comparison)}
+  {_selection_reservations_html(comparison)}
   {reliability_html}
   {abstentions_html}
   {fruiting_timing_html}
@@ -2376,6 +2423,11 @@ def _render_recommender(
             errors.append(f"{species_id}: {html.escape(_predictor_error_text(exc))}")
 
     all_results.sort(key=lambda row: _interpretation_sort_key(row[0]), reverse=True)
+    withheld_html = ''.join(
+        '<div class="pred-empty"><strong>' + html.escape(_species_name(row[1], profiles_payload))
+        + ' · ' + html.escape(_area_name(row[2], known_sites_payload)) + '</strong><br>' + row[5] + '</div>'
+        for row in all_results if any(str(reason).startswith('recommendation_consensus_')
+            for reason in row[0].get('reason_codes', [])))
     ranked_results = [
         row for row in all_results if str(row[0].get("verdict") or "abstain") != "abstain"
     ]
@@ -2396,6 +2448,7 @@ def _render_recommender(
   {day_strip}
   {error_block}
   {no_data}
+  {withheld_html}
 </section>
 """
 
@@ -2474,6 +2527,7 @@ def _render_recommender(
   {day_strip}
   {error_block}
   {best_card}
+  {withheld_html}
   <h3>{html.escape(_lbl("ui.predictor_all_areas"))}</h3>
   <div class="pred-rank-list">
     <div class="pred-rank-header">

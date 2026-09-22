@@ -7,6 +7,8 @@ pointer for each coordinator's map. No training jobs or TAR transports.
 """
 from __future__ import annotations
 
+from rainmapper_core import mushroom_recommendation_policy as recommendations
+
 import hashlib
 import json
 import os
@@ -55,7 +57,7 @@ def model_registry_identity(registry):
     """
     # Rules are a mutable small map input, independent of the sealed model files.
     result = {k: v for k, v in registry.items()
-              if k not in {'preferred_version_id', 'prediction_model_suspensions', policy_store.REFERENCE}}
+              if k not in {'preferred_version_id', 'prediction_model_suspensions', recommendations.FIELD, policy_store.REFERENCE}}
     result['versions'] = [
         {k: v for k, v in row.items() if k != 'installation'}
         if isinstance(row, dict) else row for row in registry.get('versions', [])
@@ -192,8 +194,8 @@ class MapPublication:
                 raise QueryError('map_data_not_ready', 503)
             self.snapshots[self.current]['used'] = time.monotonic()
             return {'fingerprint': self.current,
-                    **({'required_capabilities': ['prediction_model_policy_v1']}
-                       if self.snapshots[self.current].get('model_suspensions') else {})}
+                    **({'required_capabilities': self.snapshots[self.current]['policy_capabilities']}
+                       if self.snapshots[self.current].get('policy_capabilities') else {})}
 
     def _prune(self):
         now = time.monotonic()
@@ -297,7 +299,9 @@ class MapPublication:
                 self.snapshots[manifest['fingerprint']] = {'root': destination, 'manifest': manifest,
                     'used': time.monotonic(), 'lease': lease, 'lease_started': time.monotonic(),
                     'generation_id': generation.generation_id,
-                    'model_suspensions': bool(registry.get('prediction_model_suspensions'))}
+                    'model_suspensions': bool(registry.get('prediction_model_suspensions')),
+                    'policy_capabilities': (['prediction_model_policy_v1'] if registry.get('prediction_model_suspensions') else [])
+                        + ([recommendations.CAPABILITY] if recommendations.settings(registry)['mode'] != 'legacy' else [])}
                 retained = True
                 self.current = manifest['fingerprint']; self.signature = signature; self.last_error = None
                 self.metrics['publications'] += 1

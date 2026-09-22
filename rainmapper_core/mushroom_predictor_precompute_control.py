@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, Callable, Iterable
 
 from rainmapper_core.mushroom_predictor_precompute import (
     ArtifactIdentity,
@@ -256,9 +256,9 @@ def _receipt(manifest: ArtifactManifest, desired_revision: int) -> PublicationRe
 
 
 def publish_received_artifact(
-    source: BinaryIO,
+    source: BinaryIO | Iterable[bytes],
     *,
-    content_length: int,
+    content_length: int | None,
     expected_sha256: str,
     identity: ArtifactIdentity,
     desired_state_path: Path,
@@ -266,9 +266,10 @@ def publish_received_artifact(
     receipt_path: Path,
     desired_revision: int,
     max_bytes: int,
+    received_callback: Callable[[int], None] | None = None,
 ) -> PublicationReceipt:
     """Validate staged bytes and atomically publish only the current desire."""
-    if max_bytes < 1 or content_length < 1 or content_length > max_bytes:
+    if max_bytes < 1 or (content_length is not None and not 1 <= content_length <= max_bytes):
         raise ValueError("Predictor precompute artifact size is outside the accepted limit.")
     desired = load_desired_state(desired_state_path)
     if (
@@ -286,20 +287,36 @@ def publish_received_artifact(
     digest = hashlib.sha256()
     received = 0
     try:
+        # HTTP supplies decoded, bounded chunks. File callers keep the existing
+        # binary-stream interface; neither path materializes the whole artifact.
+        if hasattr(source, "read"):
+            def file_chunks():
+                remaining = content_length if content_length is not None else max_bytes + 1
+                while remaining:
+                    chunk = source.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
+            chunks = file_chunks()
+        else:
+            chunks = iter(source)
         with os.fdopen(descriptor, "wb") as handle:
-            while chunk := source.read(min(1024 * 1024, content_length - received)):
+            for chunk in chunks:
                 received += len(chunk)
-                if received > content_length or received > max_bytes:
+                if received > max_bytes or (content_length is not None and received > content_length):
                     raise ValueError("Predictor precompute artifact exceeds declared size.")
                 digest.update(chunk)
                 handle.write(chunk)
             handle.flush()
             os.fsync(handle.fileno())
-        if received != content_length:
+        if received < 1 or (content_length is not None and received != content_length):
             raise ValueError("Predictor precompute artifact is incomplete.")
         actual_sha256 = "sha256:" + digest.hexdigest()
         if actual_sha256 != expected_sha256:
             raise ValueError("Predictor precompute artifact digest does not match.")
+        if received_callback is not None:
+            received_callback(received)
         manifest = validate_artifact(
             staged,
             expected_identity=identity,

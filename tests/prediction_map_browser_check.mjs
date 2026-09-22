@@ -968,6 +968,50 @@ try {
   await evaluate("(()=>{const svg=document.querySelector('.pm-weekly-chart svg'),r=svg.getBoundingClientRect();svg.dispatchEvent(new PointerEvent('pointermove',{clientX:r.left+r.width*213/400,clientY:r.top+20}))})()");
   assert.ok(await evaluate("document.querySelector('.pm-chart-tooltip').textContent.includes('Sin IFF calculado')"));
   assert.equal(await evaluate("document.querySelectorAll('.pm-chart-tooltip-row').length"),0);
+  // Reversible agreement: retain the IFF, visibly withhold recommendation,
+  // and disclose missing-data exclusions even for a high-scoring model.
+  modelFixture.species[0].probabilities[0]=.99;
+  modelFixture.species[0].selection_notices=Array(7).fill(0);
+  modelFixture.species[0].selection_notice_details=[{
+    data_availability:{candidate_family_count:33,evaluated_family_count:33,data_rejected_count:9,
+      better_ranked_data_rejected_count:9,reason_counts:{rain_history:9,soil_water:3}},
+    recommendation_decision:{mode:'prudent',rule_version:'consensus_v1',status:'disagreed',
+      legacy_recommend:true,prudent_recommend:false}}];
+  await evaluate("document.querySelector('.pm-close').click()");
+  await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-species')");
+  assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-iff-score').textContent"),'IFF:99/100');
+  assert.ok(await evaluate("document.querySelector('.pm-species [data-species-id=boletus_edulis]').textContent.includes('9 de 33')"));
+  assert.ok(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-iff-band').textContent.includes('Sin recomendación')"));
+  assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-iff-value').dataset.iffBand"),undefined);
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.pm-consensus-message')).color"),'rgb(180, 35, 24)');
+  modelFixture.species[0].selection_notice_details[0].recommendation_decision.mode='shadow';
+  Object.assign(modelFixture.species[0].selection_notice_details[0].recommendation_decision, {
+    status:'agreed', prudent_recommend:true,
+    comparators:[{label:'LR–V3 · core',probability:.60,status:'favorable'},
+      {label:'Smooth Shared–V6w · smooth_window_30d_plus_physical_state',probability:.72,status:'favorable'}]});
+  await evaluate("document.querySelector('.pm-close').click()");
+  await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-species')");
+  assert.ok(await evaluate("document.querySelector('.pm-species [data-species-id=boletus_edulis]').textContent.includes('Solo comparación')"));
+  assert.ok(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-iff-value').dataset.iffBand !== undefined"));
+  assert.ok(await evaluate("document.querySelector('.pm-species [data-species-id=boletus_edulis]').textContent.includes('Comprobación superada')"));
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.pm-consensus-message')).color"),'rgb(40, 112, 59)');
+  assert.equal(await evaluate("document.querySelector('.pm-consensus').open"),false);
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.pm-consensus')).borderTopWidth"),'0px');
+  assert.equal(await evaluate("document.querySelector('.pm-consensus').previousElementSibling.className"),'pm-season-summary');
+  await evaluate("document.querySelector('.pm-consensus-toggle').click()");
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.pm-species [data-species-id=boletus_edulis] .pm-consensus-model')].map(c=>[c.querySelector('.pm-consensus-model-name').textContent,c.querySelector('.pm-consensus-model-score').textContent,c.querySelector('.pm-consensus-profile code').textContent])"),
+    [['LR–V3','IFF:60/100','core'],['Smooth Shared–V6w','IFF:72/100','smooth_window_30d_plus_physical_state']]);
+  for (const width of [1280,320]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    assert.ok(await evaluate("(()=>{const cards=[...document.querySelectorAll('.pm-species [data-species-id=boletus_edulis] .pm-consensus-model')];const boxes=cards.map(c=>c.getBoundingClientRect());return boxes[0].bottom<=boxes[1].top && cards.every(c=>c.scrollWidth<=c.clientWidth+1 && c.querySelector('.pm-consensus-model-name').getBoundingClientRect().right<=c.querySelector('.pm-consensus-model-score').getBoundingClientRect().left)})()"));
+  }
+  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
+  const consensusShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'consensus-models.png'),Buffer.from(consensusShot.data,'base64'));
+  assert.equal(await evaluate("document.querySelectorAll('.pm-consensus details').length"),0);
+  assert.ok(await evaluate("document.querySelector('.pm-consensus-profile code').getBoundingClientRect().height > 0"));
+  delete modelFixture.species[0].selection_notices;
+  delete modelFixture.species[0].selection_notice_details;
   // Applicability warnings use the selected day; absent models are distinct.
   modelFixture.species[0].applicability=[0,1,null,null,null,null,null];
   modelFixture.species[0].applicability_details=[

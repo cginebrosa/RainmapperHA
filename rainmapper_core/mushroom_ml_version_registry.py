@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from rainmapper_core import mushroom_recommendation_policy as recommendations
+
 import copy
 import hashlib
 import json
@@ -95,6 +97,7 @@ def _training_contract_revision(payload: object, *, water_state_contract_id: str
     contract.pop("preferred_version_id", None)
     contract.pop("retention_policy", None)
     contract.pop(mushroom_ml_prediction_policy.FIELD, None)
+    contract.pop(recommendations.FIELD, None)
     contract.pop(mushroom_ml_policy_store.REFERENCE, None)
     for version in contract["versions"]:
         for key in (
@@ -123,6 +126,8 @@ def validate_registry(payload: object) -> dict[str, Any]:
         normalized[mushroom_ml_prediction_policy.FIELD] = mushroom_ml_prediction_policy.validate_rules(
             normalized[mushroom_ml_prediction_policy.FIELD]
         )
+    if recommendations.FIELD in normalized:
+        normalized[recommendations.FIELD] = recommendations.settings(normalized)
     rows = _version_rows(normalized)
     seen_versions: set[str] = set()
     seen_generations: set[str] = set()
@@ -622,6 +627,8 @@ def merge_packaged_definitions(
     )
     merged["versions"] = merged_versions
     merged["preferred_version_id"] = current.get("preferred_version_id")
+    if recommendations.FIELD in current:
+        merged[recommendations.FIELD] = recommendations.settings(current)
     if mushroom_ml_prediction_policy.FIELD in current:
         merged[mushroom_ml_prediction_policy.FIELD] = copy.deepcopy(
             current[mushroom_ml_prediction_policy.FIELD]
@@ -676,6 +683,7 @@ def save_registry(path: Path, payload: object) -> None:
         if mushroom_ml_policy_store.referenced_path(destination, current) is not None:
             # Generation promotion/seed merges must never replace user rules.
             checked.pop(mushroom_ml_prediction_policy.FIELD, None)
+            checked.pop(recommendations.FIELD, None)
             checked[mushroom_ml_policy_store.REFERENCE] = mushroom_ml_policy_store.FILENAME
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(

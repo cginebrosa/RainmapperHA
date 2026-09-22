@@ -4,6 +4,8 @@ No training, area substitution, artifact publication or learned-model fallback.
 """
 from __future__ import annotations
 
+from rainmapper_core import mushroom_recommendation_policy as recommendations
+
 from collections import OrderedDict
 from datetime import date, timedelta
 import gzip
@@ -266,10 +268,13 @@ class PointModelRuntime:
                 resolutions_by_day=resolutions,installed_version_ids=self.installed,
                 materialize=materializer(sid),season_phase=lambda day: season_phase_for_months(
                     day,phenology.get('main_months',[]),phenology.get('secondary_months',[])),
-                phenology=phenology, lazy_families=True)
+                phenology=phenology, lazy_families=True,
+                recommendation_policy=recommendations.settings(self.registry))
             row['status']='available'
             row['applicability']=[None]*horizon
             row['applicability_details']=[]
+            row['selection_notices']=[]
+            row['selection_notice_details']=[]
             row['model_labels']=[]
             row['model_details']=[]
             row['models']=[None]*horizon
@@ -277,6 +282,10 @@ class PointModelRuntime:
             for i,day in enumerate(week['days'][:horizon]):
                 operational=day['operational_comparison']; active=day['reliability_selection']
                 candidate=active.get('candidate') or {}
+                notice = recommendations.map_notice(operational)
+                if notice not in row['selection_notice_details']:
+                    row['selection_notice_details'].append(notice)
+                row['selection_notices'].append(row['selection_notice_details'].index(notice))
                 # A sealed resolution yields at most one operational winner.
                 winners=operational.get('selected_winners',[])
                 probability=winners[0].get('probability') if len(winners)==1 else None

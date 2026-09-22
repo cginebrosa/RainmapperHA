@@ -5370,9 +5370,9 @@
     "ca": "baix"
   },
   "ui.predictor_consensus_unavailable": {
-    "en": "not available",
-    "es": "no disponible",
-    "ca": "no disponible"
+    "es": "Comparación no disponible: faltan dos alternativas válidas.",
+    "ca": "Comparació no disponible: falten dues alternatives vàlides.",
+    "en": "Comparison unavailable: two valid alternatives are required."
   },
   "ui.predictor_consensus_window": {
     "en": "Window h{horizon}",
@@ -7628,5 +7628,175 @@
     "es": "El SMI conserva la historia anterior necesaria.",
     "ca": "L’SMI conserva la història anterior necessària.",
     "en": "SMI retains the preceding history it needs."
+  },
+  "ui.model_settings_recommendation_title": {
+    "es": "Filtro de acuerdo entre modelos",
+    "ca": "Filtre d’acord entre models",
+    "en": "Model agreement filter"
+  },
+  "ui.model_settings_recommendation_legacy": {
+    "es": "Desactivado: decisión actual",
+    "ca": "Desactivat: decisió actual",
+    "en": "Off: current decision"
+  },
+  "ui.model_settings_recommendation_shadow": {
+    "es": "Solo comparar: conserva la recomendación actual",
+    "ca": "Només comparar: conserva la recomanació actual",
+    "en": "Compare only: retain current recommendation"
+  },
+  "ui.model_settings_recommendation_prudent": {
+    "es": "Aplicar: recomendar solo con acuerdo",
+    "ca": "Aplicar: recomanar només amb acord",
+    "en": "Apply: recommend only with agreement"
+  },
+  "ui.model_settings_recommendation_save": {
+    "es": "Guardar modo",
+    "ca": "Desar mode",
+    "en": "Save mode"
+  },
+  "ui.model_settings_recommendation_help": {
+    "es": "Ou, Edulis y Pinícola: compara con las dos familias siguientes del ranking semanal, fijas toda la semana. Aplicar retira la recomendación si discrepan o faltan alternativas válidas; conserva el IFF como referencia. Solo comparar muestra qué retiraría. Cambiar de modo invalida los resultados almacenados de la política anterior; no lanza entrenamientos ni precálculos.",
+    "ca": "Ou, Edulis i Pinícola: compara amb les dues famílies següents del rànquing setmanal, fixes tota la setmana. Aplicar retira la recomanació si discrepen o falten alternatives vàlides; conserva l’IFF com a referència. Només comparar mostra què retiraria. Canviar de mode invalida els resultats de la política anterior; no executa entrenaments ni precàlculs.",
+    "en": "Ou, Edulis and Pinícola: compare with the next two families in the sealed weekly ranking, fixed throughout the week. Apply withdraws the recommendation if they disagree or valid alternatives are missing; IFF remains a reference. Compare only shows what would be withdrawn. Changing mode invalidates stored results under the previous policy; it does not start training or precomputation."
+  },
+  "ui.predictor_selection_data_warning": {
+    "es": "Con reservas: {rejected} de {evaluated} familias evaluadas descartadas por falta de datos; {better} estaban mejor clasificadas.",
+    "ca": "Amb reserves: {rejected} de {evaluated} famílies avaluades descartades per manca de dades; {better} estaven més ben classificades.",
+    "en": "With reservations: {rejected} of {evaluated} evaluated families rejected for missing data; {better} ranked higher."
+  },
+  "ui.prediction_map_selection_data_warning": {
+    "es": "Con reservas: {rejected} de {evaluated} familias evaluadas descartadas por falta de datos; {better} estaban mejor clasificadas.",
+    "ca": "Amb reserves: {rejected} de {evaluated} famílies avaluades descartades per manca de dades; {better} estaven més ben classificades.",
+    "en": "With reservations: {rejected} of {evaluated} evaluated families rejected for missing data; {better} ranked higher."
+  },
+  "ui.predictor_selection_rain_history": {
+    "es": "Histórico de lluvia incompleto: {count}.",
+    "ca": "Històric de pluja incomplet: {count}.",
+    "en": "Incomplete rainfall history: {count}."
+  },
+  "ui.prediction_map_selection_rain_history": {
+    "es": "Histórico de lluvia incompleto: {count}.",
+    "ca": "Històric de pluja incomplet: {count}.",
+    "en": "Incomplete rainfall history: {count}."
+  },
+  "ui.predictor_selection_soil_water": {
+    "es": "Estado hídrico no disponible: {count}.",
+    "ca": "Estat hídric no disponible: {count}.",
+    "en": "Soil water state unavailable: {count}."
+  },
+  "ui.prediction_map_selection_soil_water": {
+    "es": "Estado hídrico no disponible: {count}.",
+    "ca": "Estat hídric no disponible: {count}.",
+    "en": "Soil water state unavailable: {count}."
+  },
+  "ui.predictor_selection_required_inputs": {
+    "es": "Entradas incompletas: {count}. Un modelo puede tener varios motivos.",
+    "ca": "Entrades incompletes: {count}. Un model pot tenir diversos motius.",
+    "en": "Incomplete inputs: {count}. A model may have several reasons."
+  },
+  "ui.prediction_map_selection_required_inputs": {
+    "es": "Entradas incompletas: {count}. Un modelo puede tener varios motivos.",
+    "ca": "Entrades incompletes: {count}. Un model pot tenir diversos motius.",
+    "en": "Incomplete inputs: {count}. A model may have several reasons."
+  },
+  "ui.predictor_selection_why": {
+    "es": "Selección semanal: primero cobertura de datos y aplicabilidad; después evidencia histórica. El IFF no es una probabilidad de encontrar setas.",
+    "ca": "Selecció setmanal: primer cobertura de dades i aplicabilitat; després evidència històrica. L’IFF no és una probabilitat de trobar bolets.",
+    "en": "Weekly selection: data coverage and applicability first, then historical evidence. IFF is not the probability of finding mushrooms."
+  },
+  "ui.prediction_map_selection_why": {
+    "es": "Selección semanal: primero cobertura de datos y aplicabilidad; después evidencia histórica. El IFF no es una probabilidad de encontrar setas.",
+    "ca": "Selecció setmanal: primer cobertura de dades i aplicabilitat; després evidència històrica. L’IFF no és una probabilitat de trobar bolets.",
+    "en": "Weekly selection: data coverage and applicability first, then historical evidence. IFF is not the probability of finding mushrooms."
+  },
+  "ui.predictor_consensus_agreed": {
+    "es": "Comprobación superada: los 2 modelos adicionales consultados también dan un IFF de al menos 60. Se mantiene la recomendación.",
+    "ca": "Comprovació superada: els 2 models addicionals consultats també donen un IFF d’almenys 60. Es manté la recomanació.",
+    "en": "Check passed: the 2 additional models consulted also give an IFF of at least 60. The recommendation is retained."
+  },
+  "ui.prediction_map_consensus_agreed": {
+    "es": "Comprobación superada: los 2 modelos adicionales consultados también dan un IFF de al menos 60. Se mantiene la recomendación.",
+    "ca": "Comprovació superada: els 2 models addicionals consultats també donen un IFF d’almenys 60. Es manté la recomanació.",
+    "en": "Check passed: the 2 additional models consulted also give an IFF of at least 60. The recommendation is retained."
+  },
+  "ui.predictor_consensus_disagreed": {
+    "es": "Los modelos no coinciden lo suficiente para recomendar.",
+    "ca": "Els models no coincideixen prou per recomanar.",
+    "en": "The models do not agree enough to recommend."
+  },
+  "ui.prediction_map_consensus_disagreed": {
+    "es": "Los modelos no coinciden lo suficiente para recomendar.",
+    "ca": "Els models no coincideixen prou per recomanar.",
+    "en": "The models do not agree enough to recommend."
+  },
+  "ui.prediction_map_consensus_unavailable": {
+    "es": "Comparación no disponible: faltan dos alternativas válidas.",
+    "ca": "Comparació no disponible: falten dues alternatives vàlides.",
+    "en": "Comparison unavailable: two valid alternatives are required."
+  },
+  "ui.predictor_consensus_shadow": {
+    "es": "Solo comparación; la recomendación actual se conserva.",
+    "ca": "Només comparació; es conserva la recomanació actual.",
+    "en": "Compare only; the current recommendation is retained."
+  },
+  "ui.prediction_map_consensus_shadow": {
+    "es": "Solo comparación; la recomendación actual se conserva.",
+    "ca": "Només comparació; es conserva la recomanació actual.",
+    "en": "Compare only; the current recommendation is retained."
+  },
+  "ui.predictor_consensus_abstain": {
+    "es": "Sin recomendación; IFF de referencia",
+    "ca": "Sense recomanació; IFF de referència",
+    "en": "No recommendation; reference IFF"
+  },
+  "ui.prediction_map_consensus_abstain": {
+    "es": "Sin recomendación; IFF de referencia",
+    "ca": "Sense recomanació; IFF de referència",
+    "en": "No recommendation; reference IFF"
+  },
+  "ui.predictor_selection_audit_unavailable": {
+    "es": "El recuento de descartes por falta de datos no está disponible en este resultado guardado.",
+    "ca": "El recompte de descartats per manca de dades no està disponible en aquest resultat desat.",
+    "en": "Missing-data rejection counts are unavailable in this stored result."
+  },
+  "ui.predictor_selection_explanation_title": {
+    "es": "Por qué este modelo",
+    "ca": "Per què aquest model",
+    "en": "Why this model"
+  },
+  "ui.predictor_selection_explanation_week": {
+    "es": "Cubre {days} de 7 días. Puesto {rank} en el ranking histórico antes de comprobar los datos actuales.",
+    "ca": "Cobreix {days} de 7 dies. Posició {rank} al rànquing històric abans de comprovar les dades actuals.",
+    "en": "Covers {days} of 7 days. Historical rank {rank} before checking current inputs."
+  },
+  "ui.predictor_consensus_models": {
+    "es": "Ver modelos y resultados",
+    "ca": "Veure models i resultats",
+    "en": "View models and results"
+  },
+  "ui.predictor_consensus_model_unavailable": {
+    "es": "Resultado no disponible",
+    "ca": "Resultat no disponible",
+    "en": "Result unavailable"
+  },
+  "ui.prediction_map_consensus_models": {
+    "es": "Detalle",
+    "ca": "Detall",
+    "en": "Details"
+  },
+  "ui.prediction_map_consensus_agreed_summary": {
+    "es": "Los modelos coinciden para recomendar.",
+    "ca": "Els models coincideixen per recomanar.",
+    "en": "The models agree on recommending."
+  },
+  "ui.prediction_map_consensus_model_unavailable": {
+    "es": "Resultado no disponible",
+    "ca": "Resultat no disponible",
+    "en": "Result unavailable"
+  },
+  "ui.prediction_map_consensus_profile": {
+    "es": "Perfil técnico",
+    "ca": "Perfil tècnic",
+    "en": "Technical profile"
   }
 }

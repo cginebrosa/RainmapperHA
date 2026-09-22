@@ -24,7 +24,7 @@ import unicodedata
 from datetime import UTC, date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Iterable, Mapping
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
@@ -73,6 +73,7 @@ from rainmapper_core import mushroom_ml_training_freshness
 from rainmapper_core import mushroom_ml_tuning_catalog
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_ml_policy_store
+from rainmapper_core import mushroom_recommendation_policy
 from rainmapper_core import mushroom_ml_prediction_policy
 import mushroom_model_settings_ui
 from rainmapper_core import mushroom_local_full_update
@@ -15603,7 +15604,8 @@ def receive_mushroom_worker_result_file(
 def receive_mushroom_predictor_precompute_artifact(
     *,
     job_id: str,
-    content: bytes,
+    content: Iterable[bytes],
+    content_length: int | None,
     expected_sha256: str,
     worker_id: str,
     claim_token: str,
@@ -15613,7 +15615,8 @@ def receive_mushroom_predictor_precompute_artifact(
         return 404, {"ok": False, "error": "Worker API is not enabled."}
     if not authenticate_mushroom_worker(worker_id, auth_token):
         return 401, {"ok": False, "error": "Worker authentication failed."}
-    upload_received_at = mushroom_worker_jobs.utc_now()
+    upload_received_at = None
+    publish_started = None
     try:
         with RUN_LOCK:
             job = mushroom_worker_jobs.authorize_precompute_upload(
@@ -15625,20 +15628,23 @@ def receive_mushroom_predictor_precompute_artifact(
             identity = mushroom_predictor_precompute.ArtifactIdentity.from_dict(
                 job.get("artifact_identity")
             )
-            mushroom_worker_jobs.update_progress(
-                mushroom_worker_jobs_path(),
-                job_id=job_id,
-                worker_id=worker_id,
-                claim_token=claim_token,
-                phase="Verifying and activating SQLite in HA",
-                message="The transfer finished; HA is verifying and publishing the artifact.",
-                overall_percent=95,
-                checked_at=upload_received_at,
-            )
-            publish_started = time.perf_counter()
+            def received(_size: int) -> None:
+                nonlocal upload_received_at, publish_started
+                upload_received_at = mushroom_worker_jobs.utc_now()
+                publish_started = time.perf_counter()
+                mushroom_worker_jobs.update_progress(
+                    mushroom_worker_jobs_path(),
+                    job_id=job_id,
+                    worker_id=worker_id,
+                    claim_token=claim_token,
+                    phase="Verifying and activating SQLite in HA",
+                    message="The transfer finished; HA is verifying and publishing the artifact.",
+                    overall_percent=95,
+                    checked_at=upload_received_at,
+                )
             receipt = mushroom_predictor_precompute_control.publish_received_artifact(
-                io.BytesIO(content),
-                content_length=len(content),
+                content,
+                content_length=content_length,
                 expected_sha256=expected_sha256,
                 identity=identity,
                 desired_state_path=mushroom_paths.mushroom_predictor_precompute_desired_path(),
@@ -15646,12 +15652,13 @@ def receive_mushroom_predictor_precompute_artifact(
                 receipt_path=mushroom_paths.mushroom_predictor_precompute_receipt_path(),
                 desired_revision=int(job.get("desired_revision", 0) or 0),
                 max_bytes=MUSHROOM_PREDICTOR_PRECOMPUTE_MAX_BYTES,
+                received_callback=received,
             )
             publication_telemetry = {
                 "upload_received_at": upload_received_at,
                 "ha_activation_finished_at": mushroom_worker_jobs.utc_now(),
                 "ha_publish_seconds": round(time.perf_counter() - publish_started, 6),
-                "artifact_size_bytes": len(content),
+                "artifact_size_bytes": receipt.size_bytes,
             }
             mushroom_worker_jobs.record_precompute_publication(
                 mushroom_worker_jobs_path(),
@@ -15660,6 +15667,8 @@ def receive_mushroom_predictor_precompute_artifact(
                 claim_token=claim_token,
                 telemetry=publication_telemetry,
             )
+    except RequestBodyError:
+        raise
     except (FileNotFoundError, OSError, ValueError, json.JSONDecodeError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     return 200, {
@@ -20716,6 +20725,60 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         self._request_body = body
         return body
 
+    def iter_artifact_request_body(self) -> Iterable[bytes]:
+        """Decode the precompute upload without caching it in the HTTP handler."""
+        limit = self.request_body_limit()
+        encodings = self.headers.get("Transfer-Encoding", "").strip().lower()
+        if encodings and encodings != "chunked":
+            raise RequestBodyError(400, "Codificacion de transferencia no compatible.")
+        if encodings and self.headers.get("Content-Length") is not None:
+            raise RequestBodyError(400, "Content-Length y Transfer-Encoding incompatibles.")
+
+        def read_chunks(size):
+            while size:
+                chunk = self.rfile.read(min(size, 1024 * 1024))
+                if not chunk:
+                    raise RequestBodyError(400, "La solicitud termino antes de recibir todos los datos.")
+                size -= len(chunk)
+                yield chunk
+
+        if not encodings:
+            try:
+                size = int(self.headers.get("Content-Length", ""))
+            except ValueError as exc:
+                raise RequestBodyError(400, "Content-Length no valido.") from exc
+            if size < 1:
+                raise RequestBodyError(400, "Content-Length no valido.")
+            if size > limit:
+                raise RequestBodyError(413, "La solicitud supera el limite permitido.")
+            yield from read_chunks(size)
+            return
+
+        total = 0
+        while True:
+            line = self.rfile.readline(4097)
+            if len(line) > 4096 or not line.endswith(b"\r\n"):
+                raise RequestBodyError(400, "Cuerpo fragmentado no valido.")
+            token = line[:-2].split(b";", 1)[0].strip()
+            if not token or any(c not in b"0123456789abcdefABCDEF" for c in token):
+                raise RequestBodyError(400, "Tamano de fragmento no valido.")
+            size = int(token, 16)
+            if size == 0:
+                trailer_bytes = 0
+                while True:
+                    line = self.rfile.readline(4097)
+                    trailer_bytes += len(line)
+                    if len(line) > 4096 or trailer_bytes > 65536 or not line.endswith(b"\r\n"):
+                        raise RequestBodyError(400, "Trailer HTTP no valido.")
+                    if line == b"\r\n":
+                        return
+            total += size
+            if total > limit:
+                raise RequestBodyError(413, "La solicitud supera el limite permitido.")
+            yield from read_chunks(size)
+            if self.rfile.read(2) != b"\r\n":
+                raise RequestBodyError(400, "Fragmento HTTP incompleto.")
+
     def read_chunked_request_body(self, max_bytes: int) -> bytes:
         """Decode one RFC 9112 chunked request body with an explicit size cap."""
         chunks: list[bytes] = []
@@ -22727,6 +22790,26 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
         if not self.allow_listener_path("POST", path):
             return
+        if path == "/api/mushrooms/workers/jobs/precompute-artifact":
+            # Authenticate/authorize before consuming the stream. Always close
+            # this connection: errors can leave an unread HTTP body behind.
+            self.close_connection = True
+            worker_token, _device_id = self.auth_credentials()
+            query = parse_qs(parsed.query)
+            try:
+                status, response = receive_mushroom_predictor_precompute_artifact(
+                    job_id=(query.get("job_id") or [""])[0],
+                    content=self.iter_artifact_request_body(),
+                    content_length=None,
+                    expected_sha256=self.headers.get("X-Rainmapper-SHA256", "").strip(),
+                    worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
+                    claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
+                    auth_token=worker_token,
+                )
+            except RequestBodyError as exc:
+                status, response = exc.status, {"ok": False, "error": str(exc)}
+            self.send_json(status, response)
+            return
         try:
             self.read_request_body()
         except RequestBodyError as exc:
@@ -22761,19 +22844,6 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 job_id=(query.get("job_id") or [""])[0],
                 logical_path=(query.get("file") or [""])[0],
                 content=self.read_request_body(),
-                worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
-                claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
-                auth_token=worker_token,
-            )
-            self.send_json(status, response)
-            return
-        if path == "/api/mushrooms/workers/jobs/precompute-artifact":
-            worker_token, _device_id = self.auth_credentials()
-            query = parse_qs(parsed.query)
-            status, response = receive_mushroom_predictor_precompute_artifact(
-                job_id=(query.get("job_id") or [""])[0],
-                content=self.read_request_body(),
-                expected_sha256=self.headers.get("X-Rainmapper-SHA256", "").strip(),
                 worker_id=self.headers.get("X-Rainmapper-Worker", "").strip(),
                 claim_token=self.headers.get("X-Rainmapper-Claim", "").strip(),
                 auth_token=worker_token,
@@ -23209,6 +23279,20 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
     def handle_mushroom_workers_post(self, form: dict[str, list[str]]) -> str:
         action = self.form_action_value(form, "worker_action")
+        if action == "set_recommendation_policy":
+            try:
+                with MUSHROOM_WORKER_PROMOTION_LOCK:
+                    registry_path = mushroom_paths.mushroom_ml_version_registry_path()
+                    registry = mushroom_ml_version_registry.load_registry(registry_path)
+                    updated = dict(registry)
+                    updated[mushroom_recommendation_policy.FIELD] = mushroom_recommendation_policy.validate({
+                        "mode": self.form_value(form, "recommendation_mode"), "rule_version": "consensus_v1"})
+                    mushroom_ml_policy_store.save(registry_path, updated,
+                        expected_revision=self.form_value(form, "policy_revision"))
+                set_mushroom_workers_flash(mushroom_profiles_ui.ui_label("ui.model_settings_saved"))
+            except (OSError, ValueError) as exc:
+                set_mushroom_workers_flash(str(exc), error=True)
+            return "./workers#prediction-model-settings"
         if action == "set_prediction_model_policy":
             try:
                 with MUSHROOM_WORKER_PROMOTION_LOCK:

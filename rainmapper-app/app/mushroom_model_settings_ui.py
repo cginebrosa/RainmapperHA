@@ -6,6 +6,7 @@ from html import escape
 from mushroom_profiles_ui import ui_label
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_prediction_policy as policy
+from rainmapper_core import mushroom_recommendation_policy as recommendations
 
 
 def render(registry: dict, profiles: dict) -> str:
@@ -28,6 +29,10 @@ def render(registry: dict, profiles: dict) -> str:
             key = "/".join((row["version_id"], row["profile_id"], estimator))
             model_names[key] = " · ".join((_VERSION_SHORT_NAMES.get(row["version_id"], row["version_display_name"]),
                                           row["profile_display_name"], estimator_names.get(estimator, estimator)))
+    mode = recommendations.settings(registry)["mode"]
+    recommendation_options = "".join(
+        f'<option value="{m}" {"selected" if m == mode else ""}>{label("recommendation_" + m)}</option>'
+        for m in recommendations.MODES)
     revision = policy.revision(registry)
     options = "".join(f'<option value="{text(key)}">{text(name)}</option>'
                       for key, name in model_names.items())
@@ -52,6 +57,13 @@ def render(registry: dict, profiles: dict) -> str:
              f'<tbody>{"".join(rules)}</tbody></table></div>') if rules else f'<p>{label("none")}</p>'
     return f'''<section class="workers-panel" id="prediction-model-settings">
       <details><summary><strong>{label('title')}</strong> · {len(rules)} {label('suspended')}</summary>
+      <form method="post" action="" style="display:grid;gap:10px;max-width:850px">
+        <input type="hidden" name="worker_action" value="set_recommendation_policy">
+        <input type="hidden" name="policy_revision" value="{revision}">
+        <label>{label('recommendation_title')}<select name="recommendation_mode">{recommendation_options}</select></label>
+        <p class="meta">{label('recommendation_help')}</p>
+        <button type="submit">{label('recommendation_save')}</button>
+      </form>
       <p class="meta">{label('help')}</p>{table}
       <p><a href="./workers/model-policy.json">{label('export')}</a></p>
       <details><summary>{label('import')}</summary>

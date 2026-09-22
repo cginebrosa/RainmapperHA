@@ -7,6 +7,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+import weakref
 import zlib
 from dataclasses import replace
 from collections.abc import Mapping
@@ -1311,6 +1312,74 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
                 PrecomputeArtifactError, "response payload identity"
             ):
                 validate_artifact(path, expected_identity=identity, full=True)
+
+    def test_validation_releases_each_decoded_response_before_the_next(self) -> None:
+        from rainmapper_core import mushroom_predictor_precompute as module
+        identity, coverage, predictions, members, stored = self.fixture()
+        responses = []
+        for offset in range(7):
+            request = self.request(target_date=(self.issue_date + timedelta(days=offset)).isoformat())
+            response = {**stored.response, "request": request}
+            responses.append(PrecomputedResponse(request, response, tuple(coverage)))
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "week.sqlite3"
+            write_artifact(path, identity=identity, coverage=coverage, base_predictions=predictions,
+                           operational_members=members, responses=responses)
+            references = []
+            original = module.validate_response
+            class TrackedResponse(dict):
+                pass
+            def tracked(payload):
+                self.assertFalse(any(ref() is not None for ref in references))
+                response = TrackedResponse(original(payload))
+                references.append(weakref.ref(response))
+                return response
+            with mock.patch.object(module, "validate_response", side_effect=tracked):
+                validate_artifact(path, full=True)
+            self.assertEqual(len(references), 7)
+
+    def test_full_validation_rejects_dangling_response_references(self) -> None:
+        for field, message in (("payload_key", "response payload is missing"),
+                               ("coverage_key", "response coverage is missing")):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as temporary:
+                path = Path(temporary) / "broken.sqlite3"
+                self.write_fixture(path)
+                with sqlite3.connect(path) as connection:
+                    connection.execute(f"UPDATE responses SET {field}='missing'")
+                with self.assertRaisesRegex(PrecomputeArtifactError, message):
+                    validate_artifact(path, full=True)
+
+    def test_stream_publication_preserves_active_on_truncation_overflow_and_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            identity, _stored, manifest = self.write_fixture(root / "source.sqlite3")
+            raw = (root / "source.sqlite3").read_bytes()
+            desired = advance_desired_state(root / "desired.json", identity=identity,
+                worker_id="worker_aaaaaaaa", trigger_origin="runtime")
+            active, receipt = root / "active.sqlite3", root / "receipt.json"
+            active.write_bytes(b"keep active")
+            receipt.write_bytes(b"keep receipt")
+            def broken():
+                yield raw[:17]
+                raise OSError("connection lost")
+            for source in (iter([raw[:-1]]), iter([raw, b"extra"]), broken()):
+                with self.assertRaises((ValueError, OSError)):
+                    publish_received_artifact(source, content_length=None,
+                        expected_sha256=manifest.file_sha256, identity=identity,
+                        desired_state_path=root / "desired.json", destination_path=active,
+                        receipt_path=receipt, desired_revision=desired["revision"], max_bytes=len(raw))
+                self.assertEqual(active.read_bytes(), b"keep active")
+                self.assertEqual(receipt.read_bytes(), b"keep receipt")
+                self.assertEqual(list(root.glob("*.upload")), [])
+            callback = mock.Mock()
+            published = publish_received_artifact((raw[i:i+1024] for i in range(0,len(raw),1024)),
+                content_length=None, expected_sha256=manifest.file_sha256, identity=identity,
+                desired_state_path=root / "desired.json", destination_path=active,
+                receipt_path=receipt, desired_revision=desired["revision"], max_bytes=len(raw),
+                received_callback=callback)
+            callback.assert_called_once_with(len(raw))
+            self.assertEqual(active.read_bytes(), raw)
+            self.assertEqual(published.file_sha256, manifest.file_sha256)
 
     def test_scientific_payload_ignores_nested_runtime_metrics_and_area_order(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.318
+
+- Validate precompute responses sequentially in `mushroom_predictor_precompute` and stream artifact uploads to disk, reducing peak memory while preserving integrity checks and atomic activation.
+- Add reversible recommendation agreement settings: disabled, comparison only, or prudent recommendations for Amanita caesarea, Boletus edulis and Boletus pinophilus. Preserve raw IFF values and compare two fixed weekly alternatives.
+- Explain model selection and report candidates rejected for missing inputs in Predictor and point-map results.
+- Show compact green/red agreement conclusions below the season, with one Details control for alternative models, scores and technical profiles.
+- Update the local worker to 1.1.5 with the shared memory improvements and recommendation policy support; verify its service imports during image builds.
+
 ## 0.2.317
 
 - Stop reading the unused area-selection tail after collecting point-model evidence, preserving full-file integrity checks and existing resource limits.

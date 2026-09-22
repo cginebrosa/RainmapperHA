@@ -116,7 +116,9 @@ export function createPredictionMode(bridge) {
   function indexValue(value, model) {
     const score = iffScore(value);
     const wrap = make("span", undefined, "pm-iff-value");
-    if (score !== null) wrap.dataset.iffBand = String(iffBand(value));
+    const decision = model?.selection_notice_details?.[model?.selection_notices?.[dayIndex]]?.recommendation_decision;
+    const withheld = decision?.mode === "prudent" && decision.legacy_recommend && !decision.prudent_recommend;
+    if (score !== null && !withheld) wrap.dataset.iffBand = String(iffBand(value));
     const reason = model?.reasons?.[dayIndex];
     const missing = text(model?.status === "no_model" || reason === "model_unavailable" ? "no_model" :
       reason === "outside_domain" ? "outside_domain" : "prediction_uncalculated");
@@ -154,9 +156,53 @@ export function createPredictionMode(bridge) {
     }
     source.append(button);
     wrap.append(source);
-    if (score !== null) wrap.append(make("span", text(`iff_band_${iffBand(value)}`), "pm-iff-band"));
+    if (score !== null) wrap.append(make("span", text(withheld ? "consensus_abstain" : `iff_band_${iffBand(value)}`), "pm-iff-band"));
     wrap.append(help);
     return wrap;
+  }
+
+  function appendSelectionNotice(item, model) {
+    const notice = model?.selection_notice_details?.[model?.selection_notices?.[dayIndex]];
+    if (!notice) return;
+    const decision = notice.recommendation_decision;
+    if (["agreed", "disagreed", "unavailable"].includes(decision?.status)) {
+      const panel = make("details", undefined, "pm-consensus pm-consensus-models");
+      panel.dataset.status = decision.status;
+      const summary = make("summary");
+      summary.append(make("span", text(decision.status === "agreed" ? "consensus_agreed_summary" : `consensus_${decision.status}`), "pm-consensus-message"),
+        " ", make("span", text("consensus_models"), "pm-consensus-toggle"));
+      panel.append(summary);
+      for (const row of decision.comparators || []) {
+        const score = row.status === "unavailable" ? text("prediction_uncalculated") : `IFF:${indexText(row.probability)}`;
+        const card = make("div", undefined, "pm-consensus-model");
+        const [name, ...profile] = row.label.split(" · ");
+        card.append(make("span", name, "pm-consensus-model-name"),
+          make("strong", score, "pm-consensus-model-score"));
+        if (profile.length) {
+          const technical = make("div", undefined, "pm-consensus-profile");
+          technical.append(`${text("consensus_profile")}: `, make("code", profile.join(" · ")));
+          card.append(technical);
+        }
+        panel.append(card);
+      }
+      if (decision.status === "agreed") panel.append(make("p", text("consensus_agreed"), "pm-consensus-explanation"));
+      if (decision.mode === "shadow") panel.append(make("p", text("consensus_shadow"), "pm-consensus-mode"));
+      item.append(panel);
+    }
+    const availability = notice.data_availability;
+    if (availability?.data_rejected_count > 0) {
+      item.append(make("small", text("selection_data_warning")
+        .replace("{rejected}", availability.data_rejected_count)
+        .replace("{evaluated}", availability.evaluated_family_count)
+        .replace("{better}", availability.better_ranked_data_rejected_count)));
+      const details = make("details");
+      details.append(make("summary", text("selection_why")));
+      for (const reason of ["rain_history", "soil_water", "required_inputs"]) {
+        const count = availability.reason_counts?.[reason];
+        if (count) details.append(make("small", text(`selection_${reason}`).replace("{count}", count)));
+      }
+      item.append(details);
+    }
   }
 
   function appendApplicability(item, model) {
@@ -217,6 +263,10 @@ export function createPredictionMode(bridge) {
            Array.isArray(row.model_labels) && row.model_labels.length <= data.dates.length &&
            row.model_labels.every(label => typeof label === "string" && label.length > 0 && label.length <= 96) &&
            row.models.every(ref => ref === null || (Number.isInteger(ref) && ref >= 0 && ref < row.model_labels.length)))) &&
+        ((row.selection_notices === undefined && row.selection_notice_details === undefined) ||
+          (Array.isArray(row.selection_notices) && row.selection_notices.length === data.dates.length &&
+           Array.isArray(row.selection_notice_details) && row.selection_notice_details.length <= data.dates.length &&
+           row.selection_notices.every(ref => Number.isInteger(ref) && ref >= 0 && ref < row.selection_notice_details.length))) &&
         Array.isArray(row.probabilities) && row.probabilities.length === data.dates.length &&
         row.probabilities.every((value) => value === null ||
           (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1)));
@@ -415,6 +465,7 @@ export function createPredictionMode(bridge) {
           seasonSummary.append(" — ", peakText);
         }
         item.append(seasonSummary);
+        appendSelectionNotice(item, predicted.get(row.species_id));
         appendApplicability(item, predicted.get(row.species_id));
         if (row.reasons?.includes("ph_conflict_soil_supported")) {
           item.append(make("small", text("soil_ph_supported"), "pm-soil-ph-supported"));

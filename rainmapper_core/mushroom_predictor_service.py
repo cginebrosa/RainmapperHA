@@ -7,6 +7,8 @@ slightly different implementation of the model behaviour.
 
 from __future__ import annotations
 
+from rainmapper_core import mushroom_recommendation_policy as recommendations
+
 import copy
 import json
 from collections import OrderedDict
@@ -874,6 +876,43 @@ class PredictorService:
                     mushroom_ml_multiversion_comparison.validate_weekly_lag_resolution(
                         candidate_resolution, prediction_day
                     )
+                    config = recommendations.settings(comparison_cache.get("service_registry") or {})
+                    if (config["mode"] != "legacy" and species_id in recommendations.SPECIES
+                            and not candidate_resolution.get("recommendation_plan")
+                            and candidate_resolution.get("selection_status") == "winner"):
+                        # Direct all-area views must use the same full-week decision as
+                        # the detailed query/precompute. Seal once in the shared context;
+                        # feature and prediction caches are reused by subsequent views.
+                        if candidate_resolution.get("runtime_selection_status"):
+                            raise PredictorContractError("Sealed recommendation decision is missing; refresh the runtime.")
+                        weekly_rows = {day: resolution_index.get((species_id, current_area, day))
+                                       for day in range(1, 8)}
+                        if all(isinstance(row, Mapping) for row in weekly_rows.values()):
+                            weekly_members = {}
+                            for day, row in weekly_rows.items():
+                                selections_for_day = mushroom_ml_multiversion_comparison.reliability_candidate_selections(row)
+                                materialized = multiversion_comparison_for(
+                                    species_id=species_id, current_area=current_area,
+                                    current_date=request_issue_date + timedelta(days=day - 1),
+                                    selections=selections_for_day)
+                                weekly_members[day] = materialized.get("members") or []
+                            resolved = mushroom_ml_multiversion_comparison.prioritize_weekly_resolutions_by_applicability(
+                                weekly_rows, weekly_members, recommendation_policy=config, species_id=species_id)
+                            updated = dict(resolution_index)
+                            for day, row in resolved.items():
+                                day_date = request_issue_date + timedelta(days=day - 1)
+                                _, active = mushroom_ml_multiversion_comparison.build_reliability_selected_operational_comparison(
+                                    weekly_members[day], row,
+                                    season_phase=self.predictor(species_id).season_phase(day_date),
+                                    phenology=self.species_phenology(species_id))
+                                updated[(species_id, current_area, day)] = {**row, **(
+                                    {"recommendation_decision": active["recommendation_decision"]}
+                                    if "recommendation_decision" in active else {})}
+                            context["operational_resolution_index"] = updated
+                            candidate_resolution = updated[(species_id, current_area, prediction_day)]
+                        else:
+                            candidate_resolution = {**candidate_resolution,
+                                "recommendation_plan": {**config, "alternatives": []}}
                     sealed_resolution = candidate_resolution
                     if candidate_resolution.get("selection_status") == "abstain":
                         return {
@@ -921,6 +960,14 @@ class PredictorService:
                         phenology=self.species_phenology(species_id),
                     )
                 )
+                decision = active_resolution.get("recommendation_decision")
+                if decision is not None:
+                    # Keep the unpruned audit/plan and the compact decision together
+                    # for subsequent views; do not rerun missing comparator members.
+                    updated_index = dict(context.get("operational_resolution_index") or {})
+                    key = (species_id, current_area, (current_date - request_issue_date).days + 1)
+                    updated_index[key] = {**sealed_resolution, "recommendation_decision": copy.deepcopy(decision)}
+                    context["operational_resolution_index"] = updated_index
                 operational["reliability_selection"] = copy.deepcopy(
                     active_resolution
                 )
@@ -1155,6 +1202,8 @@ class PredictorService:
                         resolved_by_day = mushroom_ml_multiversion_comparison.prioritize_weekly_resolutions_by_applicability(
                             resolutions_by_day,
                             members_by_day,
+                            recommendation_policy=recommendations.settings(comparison_cache.get("service_registry") or {}),
+                            species_id=selected_species,
                         )
                         updated_index = dict(resolution_index)
                         for prediction_day, resolution in resolved_by_day.items():

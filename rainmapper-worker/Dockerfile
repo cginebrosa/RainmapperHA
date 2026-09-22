@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-ARG RAINMAPPER_WORKER_VERSION=1.1.4
+ARG RAINMAPPER_WORKER_VERSION=1.1.5
 
 LABEL org.opencontainers.image.title="Rainmapper Worker" \
       org.opencontainers.image.description="Portable contract-driven Rainmapper compute worker" \
@@ -77,6 +77,7 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_ml_version_registry.py \
      rainmapper_core/mushroom_ml_model_catalog.py \
      rainmapper_core/mushroom_ml_prediction_policy.py \
+     rainmapper_core/mushroom_recommendation_policy.py \
      rainmapper_core/mushroom_ml_policy_store.py \
      rainmapper_core/mushroom_ml_tuning_catalog.py \
      rainmapper_core/mushroom_operational_training_scope.py \
@@ -214,6 +215,7 @@ RUN chmod 0755 /usr/local/bin/rainmapper-worker \
         /app/scripts/evaluate-biology-v5-raw-benchmark.py \
         /app/scripts/evaluate-biology-v6-smooth-hierarchical.py \
         /app/rainmapper_core/mushroom_ml_trainer.py \
+    && python -c "from rainmapper_core import mushroom_worker_service" \
     && find /app -type d -name __pycache__ -prune -exec rm -rf '{}' +
 
 VOLUME ["/var/lib/rainmapper-worker"]

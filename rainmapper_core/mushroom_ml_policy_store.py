@@ -11,6 +11,7 @@ from pathlib import Path
 import tempfile
 
 from rainmapper_core import mushroom_ml_prediction_policy as policy
+from rainmapper_core import mushroom_recommendation_policy as recommendations
 
 FILENAME = "mushroom_ml_prediction_policy.json"
 REFERENCE = "prediction_policy_file"
@@ -19,8 +20,11 @@ MAX_BYTES = 256 * 1024
 
 
 def document(registry: dict) -> dict:
-    return {"schema_version": "1.0", "kind": KIND,
-            "suspensions": policy.validate_rules(registry.get(policy.FIELD, []))}
+    result = {"schema_version": "1.0", "kind": KIND,
+              "suspensions": policy.validate_rules(registry.get(policy.FIELD, []))}
+    if recommendations.FIELD in registry:
+        result[recommendations.FIELD] = recommendations.settings(registry)
+    return result
 
 
 def encode(value: dict) -> bytes:
@@ -30,7 +34,7 @@ def encode(value: dict) -> bytes:
     return raw
 
 
-def decode(raw: bytes) -> list[dict]:
+def decode_document(raw: bytes) -> dict:
     if len(raw) > MAX_BYTES:
         raise ValueError("Model settings exceed the 256 KiB limit.")
     try:
@@ -38,10 +42,18 @@ def decode(raw: bytes) -> list[dict]:
     except (ValueError, UnicodeError) as exc:
         raise ValueError("Invalid model settings JSON.") from exc
     if (not isinstance(value, dict)
-            or set(value) != {"schema_version", "kind", "suspensions"}
+            or not {"schema_version", "kind", "suspensions"} <= set(value)
+            or set(value) - {"schema_version", "kind", "suspensions", recommendations.FIELD}
             or value.get("schema_version") != "1.0" or value.get("kind") != KIND):
         raise ValueError("Expected a model settings export, not a model registry.")
-    return policy.validate_rules(value["suspensions"])
+    value["suspensions"] = policy.validate_rules(value["suspensions"])
+    if recommendations.FIELD in value:
+        value[recommendations.FIELD] = recommendations.validate(value[recommendations.FIELD])
+    return value
+
+
+def decode(raw: bytes) -> list[dict]:
+    return decode_document(raw)["suspensions"]
 
 
 def referenced_path(registry_path: Path, raw_registry: dict) -> Path | None:
@@ -58,9 +70,13 @@ def resolve(registry_path: Path, raw_registry: dict) -> dict:
     if path is not None:
         # A missing/corrupt file fails closed; never resurrect legacy rules.
         with path.open("rb") as stream:
-            rules = decode(stream.read(MAX_BYTES + 1))
+            doc = decode_document(stream.read(MAX_BYTES + 1))
+            rules = doc["suspensions"]
         result.pop(REFERENCE)
         result.pop(policy.FIELD, None)
+        result.pop(recommendations.FIELD, None)
+        if recommendations.FIELD in doc:
+            result[recommendations.FIELD] = doc[recommendations.FIELD]
         if rules:
             result[policy.FIELD] = rules
     encode(result)  # effective registry must also fit the runtime contract
@@ -94,12 +110,13 @@ def migrate(registry_path: Path) -> None:
     if target.exists():
         # Recover an interrupted migration only when both copies agree.
         with target.open("rb") as stream:
-            existing = decode(stream.read(MAX_BYTES + 1))
-        if existing != document(effective)["suspensions"]:
+            existing = decode_document(stream.read(MAX_BYTES + 1))
+        if existing != document(effective):
             raise ValueError("Unlinked model settings differ from the registry; migration stopped.")
     else:
         atomic_write(target, wanted)
     effective.pop(policy.FIELD, None)
+    effective.pop(recommendations.FIELD, None)
     effective[REFERENCE] = FILENAME
     versions.save_registry(path, effective)
 
@@ -119,7 +136,8 @@ def import_rules(raw: bytes, registry: dict, species_ids: set[str], *, expected_
     from rainmapper_core import mushroom_ml_model_catalog as catalog
     if policy.revision(registry) != expected_revision:
         raise ValueError("Model settings changed. Refresh before saving again.")
-    rows = decode(raw)
+    imported = decode_document(raw)
+    rows = imported["suspensions"]
     models = {(r["version_id"], r["profile_id"], estimator)
               for r in catalog.catalog_entries(registry) for estimator in r["estimator_ids"]}
     for row in rows:
@@ -128,6 +146,8 @@ def import_rules(raw: bytes, registry: dict, species_ids: set[str], *, expected_
         if row["species_id"] != "*" and row["species_id"] not in species_ids:
             raise ValueError("Unknown species: " + row["species_id"])
     result = dict(registry)
+    if recommendations.FIELD in imported:
+        result[recommendations.FIELD] = imported[recommendations.FIELD]
     result.pop(policy.FIELD, None)
     if rows:
         result[policy.FIELD] = rows

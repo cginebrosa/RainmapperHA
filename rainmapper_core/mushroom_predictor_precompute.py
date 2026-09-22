@@ -759,7 +759,7 @@ def _coverage_from_dict(payload: object) -> CoverageCell:
     )
 
 
-def _validate_identity_coverage(identity: ArtifactIdentity, coverage: Sequence[CoverageCell], members: Sequence[OperationalMemberRow]) -> None:
+def _validate_identity_coverage(identity: ArtifactIdentity, coverage: Sequence[CoverageCell], member_count: int) -> None:
     if len(set(coverage)) != len(coverage):
         raise PrecomputeContractError("Coverage contains duplicate cells.")
     species = {row.species_id for row in coverage}
@@ -771,7 +771,7 @@ def _validate_identity_coverage(identity: ArtifactIdentity, coverage: Sequence[C
         "areas": len(area_pairs),
         "days": len(days),
         "versions": len(identity.installed_versions),
-        "members": len(members),
+        "members": member_count,
     }
     if observed != counts:
         raise PrecomputeContractError(f"Artifact coverage counters do not match identity: {observed} != {counts}.")
@@ -792,7 +792,7 @@ def _validate_rows(
     members: Sequence[OperationalMemberRow],
     responses: Sequence[PrecomputedResponse],
 ) -> None:
-    _validate_identity_coverage(identity, coverage, members)
+    _validate_identity_coverage(identity, coverage, len(members))
     coverage_map = {(row.species_id, row.area_id, row.target_date): row for row in coverage}
     base_keys: set[tuple[str, str, str]] = set()
     for row in base_predictions:
@@ -1561,7 +1561,7 @@ class _AsyncBatchArtifactWriter:
                 for full_key in member_hashes
             )
             _validate_identity_coverage(
-                self.identity, coverage_rows, lightweight_members
+                self.identity, coverage_rows, len(lightweight_members)
             )
             coverage_map = {
                 (row.species_id, row.area_id, row.target_date): row
@@ -1807,7 +1807,6 @@ def _validate_published_rows(
             base_keys.add(key)
 
         member_keys: set[tuple[str, str, str, OperationalMemberKey]] = set()
-        member_rows: list[OperationalMemberRow] = []
         for row in connection.execute(
             """SELECT species_id, area_id, target_date, version_id,
                       temporal_contract_id, profile_id, estimator_id,
@@ -1830,13 +1829,11 @@ def _validate_published_rows(
             area_id = str(row["area_id"])
             target_date = str(row["target_date"])
             member_keys.add((species_id, area_id, target_date, member))
-            member_rows.append(
-                OperationalMemberRow(
-                    species_id, area_id, target_date, member, payload
-                )
-            )
+            # Only keys/counts participate in cross-row validation. Do not retain
+            # decoded model results for the lifetime of the whole artifact.
+            del payload
 
-        _validate_identity_coverage(identity, coverage_rows, member_rows)
+        _validate_identity_coverage(identity, coverage_rows, len(member_keys))
         for key, cell in coverage_map.items():
             if cell.has_base_prediction != (key in base_keys):
                 raise PrecomputeArtifactError(
@@ -1873,7 +1870,23 @@ def _validate_published_rows(
                 )
             coverage_payloads[str(row["coverage_key"])] = cells
 
-        response_payloads: dict[str, dict[str, Any]] = {}
+        # Keep small request references, then decode each shared response once.
+        # This also validates unreferenced payloads and rejects dangling aliases.
+        requests_by_payload: dict[str, list[dict[str, Any]]] = {}
+        for row in connection.execute(
+            "SELECT request_key, request_json, coverage_key, payload_key FROM responses"
+        ):
+            normalized = normalize_request(json.loads(row["request_json"]))
+            if str(row["request_key"]) != _request_key(normalized):
+                raise PrecomputeArtifactError(
+                    "Predictor precompute request identity is invalid."
+                )
+            if str(row["coverage_key"]) not in coverage_payloads:
+                raise PrecomputeArtifactError(
+                    "Predictor precompute response coverage is missing."
+                )
+            requests_by_payload.setdefault(str(row["payload_key"]), []).append(normalized)
+
         for row in connection.execute(
             "SELECT payload_key, payload_json FROM response_payloads"
         ):
@@ -1887,28 +1900,15 @@ def _validate_published_rows(
                 raise PrecomputeArtifactError(
                     "Predictor precompute response runtime is invalid."
                 )
-            response_payloads[str(row["payload_key"])] = response
-
-        for row in connection.execute(
-            "SELECT request_key, request_json, coverage_key, payload_key FROM responses"
-        ):
-            normalized = normalize_request(json.loads(row["request_json"]))
-            if str(row["request_key"]) != _request_key(normalized):
-                raise PrecomputeArtifactError(
-                    "Predictor precompute request identity is invalid."
-                )
-            if str(row["coverage_key"]) not in coverage_payloads:
-                raise PrecomputeArtifactError(
-                    "Predictor precompute response coverage is missing."
-                )
-            response = response_payloads.get(str(row["payload_key"]))
-            if response is None:
-                raise PrecomputeArtifactError(
-                    "Predictor precompute response payload is missing."
-                )
             response_request = normalize_request(response.get("request"))
-            if response_request != normalized:
-                _retarget_weekly_response(response, normalized)
+            for normalized in requests_by_payload.pop(str(row["payload_key"]), ()):
+                if response_request != normalized:
+                    _retarget_weekly_response(response, normalized)
+            del payload, response
+        if requests_by_payload:
+            raise PrecomputeArtifactError(
+                "Predictor precompute response payload is missing."
+            )
     except PrecomputeArtifactError:
         raise
     except (

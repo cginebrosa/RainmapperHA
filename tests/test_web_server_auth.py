@@ -2303,7 +2303,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
                 "members": 7,
             },
         )
-        receipt = mock.Mock(as_dict=mock.Mock(return_value={"artifact_id": identity.artifact_id}))
+        receipt = mock.Mock(size_bytes=6, as_dict=mock.Mock(return_value={"artifact_id": identity.artifact_id}))
+        def publish(source, **kwargs):
+            self.assertEqual(b"".join(source), b"sqlite")
+            kwargs["received_callback"](6)
+            return receipt
         with (
             mock.patch.object(self.web_server, "mushroom_worker_api_enabled", return_value=True),
             mock.patch.object(self.web_server, "authenticate_mushroom_worker", return_value=True),
@@ -2318,7 +2322,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
             mock.patch.object(
                 self.web_server.mushroom_predictor_precompute_control,
                 "publish_received_artifact",
-                return_value=receipt,
+                side_effect=publish,
             ),
             mock.patch.object(
                 self.web_server.mushroom_worker_jobs,
@@ -2348,7 +2352,8 @@ class AuthDeviceLimitTests(unittest.TestCase):
         ):
             status, response = self.web_server.receive_mushroom_predictor_precompute_artifact(
                 job_id="worker_job_precompute_timing",
-                content=b"sqlite",
+                content=iter([b"sql", b"ite"]),
+                content_length=None,
                 expected_sha256="sha256:" + "b" * 64,
                 worker_id="worker_aaaaaaaa",
                 claim_token="claim-token",
@@ -14635,6 +14640,98 @@ class AuthDeviceLimitTests(unittest.TestCase):
 
         self.assertEqual(handler.read_request_body(), b"test payload")
         self.assertEqual(handler.read_request_body(), b"test payload")
+
+    def test_precompute_http_stream_bounds_reads_and_does_not_cache_body(self) -> None:
+        class BoundedReader(io.BytesIO):
+            def read(self, size=-1):
+                self.assert_size(size)
+                return super().read(size)
+            assert_size = staticmethod(lambda size: self.assertTrue(0 <= size <= 1024 * 1024))
+
+        body = b"x" * (2 * 1024 * 1024 + 7)
+        for chunked in (False, True):
+            with self.subTest(chunked=chunked):
+                handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+                handler.path = "/api/mushrooms/workers/jobs/precompute-artifact"
+                handler.headers = {"Transfer-Encoding": "chunked"} if chunked else {"Content-Length":str(len(body))}
+                encoded = f"{len(body):X}\r\n".encode() + body + b"\r\n0\r\nX-Test: yes\r\n\r\n" if chunked else body
+                handler.rfile = BoundedReader(encoded)
+                chunks = list(handler.iter_artifact_request_body())
+                self.assertEqual(b"".join(chunks), body)
+                self.assertGreater(len(chunks), 1)
+                self.assertFalse(hasattr(handler, "_request_body"))
+
+    def test_precompute_http_stream_rejects_broken_framing_and_size(self) -> None:
+        for headers, body, status in [
+            ({"Content-Length":"8"}, b"short", 400),
+            ({"Content-Length":"999"}, b"", 413),
+            ({"Transfer-Encoding":"chunked"}, b"9\r\n", 413),
+            ({"Transfer-Encoding":"chunked"}, b"4\r\nabc", 400),
+            ({"Transfer-Encoding":"chunked"}, b"1\r\nx!!", 400),
+            ({"Transfer-Encoding":"chunked"}, b"0\r\n", 400),
+            ({"Transfer-Encoding":"chunked", "Content-Length":"4"}, b"", 400),
+        ]:
+            with self.subTest(headers=headers, body=body):
+                handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+                handler.headers = headers
+                handler.rfile = io.BytesIO(body)
+                handler.request_body_limit = lambda: 8
+                with self.assertRaises(self.web_server.RequestBodyError) as error:
+                    list(handler.iter_artifact_request_body())
+                self.assertEqual(error.exception.status, status)
+
+    def test_precompute_route_authenticates_before_reading_body(self) -> None:
+        handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+        handler.path = "/api/mushrooms/workers/jobs/precompute-artifact?job_id=test"
+        handler.headers = {"Content-Length":"42"}
+        handler.rfile = mock.Mock(read=mock.Mock(side_effect=AssertionError("unauthorized read")))
+        handler.allow_listener_path = lambda *_: True
+        handler.auth_credentials = lambda: ("invalid", "")
+        handler.send_json = mock.Mock()
+        with mock.patch.object(self.web_server, "mushroom_worker_api_enabled", return_value=True), mock.patch.object(self.web_server, "authenticate_mushroom_worker", return_value=False):
+            handler.do_POST()
+        self.assertEqual(handler.send_json.call_args.args[0], 401)
+        handler.rfile.read.assert_not_called()
+        self.assertTrue(handler.close_connection)
+        self.assertFalse(hasattr(handler, "_request_body"))
+
+    def test_precompute_route_streams_and_publishes_the_verified_artifact(self) -> None:
+        from test_mushroom_predictor_precompute import PredictorPrecomputeArtifactTests
+        root = Path(self.temp_dir.name)
+        identity, _, manifest = PredictorPrecomputeArtifactTests().write_fixture(root / "source.sqlite3")
+        raw = (root / "source.sqlite3").read_bytes()
+        desired = self.web_server.mushroom_predictor_precompute_control.advance_desired_state(
+            root / "desired.json", identity=identity, worker_id="worker_aaaaaaaa", trigger_origin="runtime")
+        for chunked in (False, True):
+            with self.subTest(chunked=chunked):
+                handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)
+                handler.path = "/api/mushrooms/workers/jobs/precompute-artifact?job_id=test"
+                handler.headers = {"X-Rainmapper-Worker":"worker_aaaaaaaa", "X-Rainmapper-Claim":"claim",
+                    "X-Rainmapper-SHA256":manifest.file_sha256}
+                handler.headers.update({"Transfer-Encoding":"chunked"} if chunked else {"Content-Length":str(len(raw))})
+                handler.rfile = io.BytesIO(f"{len(raw):X}\r\n".encode()+raw+b"\r\n0\r\n\r\n" if chunked else raw)
+                handler.allow_listener_path = lambda *_: True
+                handler.auth_credentials = lambda: ("valid", "")
+                handler.send_json = mock.Mock()
+                handler.read_request_body = mock.Mock(side_effect=AssertionError("full body read"))
+                with (
+                    mock.patch.object(self.web_server, "mushroom_worker_api_enabled", return_value=True),
+                    mock.patch.object(self.web_server, "authenticate_mushroom_worker", return_value=True),
+                    mock.patch.object(self.web_server.mushroom_worker_jobs, "authorize_precompute_upload",
+                        return_value={"artifact_identity":identity.as_dict(), "desired_revision":desired["revision"]}),
+                    mock.patch.object(self.web_server.mushroom_worker_jobs, "update_progress"),
+                    mock.patch.object(self.web_server.mushroom_worker_jobs, "record_precompute_publication"),
+                    mock.patch.object(self.web_server.mushroom_paths, "mushroom_predictor_precompute_desired_path", return_value=root/"desired.json"),
+                    mock.patch.object(self.web_server.mushroom_paths, "mushroom_predictor_precompute_artifact_path", return_value=root/"active.sqlite3"),
+                    mock.patch.object(self.web_server.mushroom_paths, "mushroom_predictor_precompute_receipt_path", return_value=root/"receipt.json"),
+                ):
+                    handler.do_POST()
+                self.assertEqual(handler.send_json.call_args.args[0], 200)
+                response = handler.send_json.call_args.args[1]
+                self.assertEqual(response["publication_receipt"]["file_sha256"], manifest.file_sha256)
+                self.assertEqual(response["publication_telemetry"]["artifact_size_bytes"], len(raw))
+                self.assertEqual((root/"active.sqlite3").read_bytes(), raw)
+                handler.read_request_body.assert_not_called()
 
     def test_worker_protocol_json_has_a_small_independent_body_limit(self) -> None:
         handler = self.web_server.RainmapperHandler.__new__(self.web_server.RainmapperHandler)

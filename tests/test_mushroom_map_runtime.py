@@ -219,6 +219,23 @@ class MapRuntimeTests(unittest.TestCase):
         received = json.loads(Path(self.executor.executor.config['model_registry']).read_text())
         self.assertEqual(received[policy.FIELD], registry[policy.FIELD])
 
+    def test_recommendation_mode_changes_identity_and_requires_new_worker(self):
+        from rainmapper_core import mushroom_recommendation_policy as rec
+        previous = self.publisher.reference()['fingerprint']
+        path = Path(self.config['model_registry'])
+        registry = json.loads(path.read_text())
+        registry[rec.FIELD] = {'mode': 'shadow', 'rule_version': 'consensus_v1'}
+        path.write_bytes(maps.encode(registry))
+        with self.assertRaises(QueryError):
+            self.publisher.reference()
+        self.publisher.refresh()
+        reference = self.publisher.reference()
+        self.assertNotEqual(reference['fingerprint'], previous)
+        self.assertIn(rec.CAPABILITY, reference['required_capabilities'])
+        self.executor.prepare(reference)
+        received = json.loads(Path(self.executor.executor.config['model_registry']).read_text())
+        self.assertEqual(received[rec.FIELD], registry[rec.FIELD])
+
     def test_external_policy_is_live_but_worker_snapshot_is_frozen(self):
         from rainmapper_core import mushroom_ml_policy_store as store
         from rainmapper_core import mushroom_ml_prediction_policy as policy

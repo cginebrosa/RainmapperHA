@@ -55,6 +55,23 @@ class ProjectionTests(unittest.TestCase):
                     self.assertEqual(infer.call_count,7)
                     self.assertEqual(prepare.call_count,1)
                     self.assertEqual(prepare.call_args.kwargs['end_day'],date(2026,9,day-1))
+                from rainmapper_core import mushroom_recommendation_policy as rec
+                original = copy.deepcopy(r.resolutions)
+                for day_row in r.resolutions['test'].values():
+                    extra = copy.deepcopy(day_row['candidate_chain'][1])
+                    extra['candidate']['estimator_id'] = 'third'
+                    day_row['candidate_chain'].append(extra)
+                r.registry[rec.FIELD] = {'mode': 'shadow', 'rule_version': 'consensus_v1'}
+                prepare.reset_mock(); infer.reset_mock()
+                with patch.object(rec, 'SPECIES', ('test',)):
+                    compared = r.predict({'start_date':'2026-09-15','horizon_days':7,'point':{'lat':42,'lon':2}}, geography)
+                self.assertEqual(prepare.call_count, 1)  # meteorology/hydrology shared, not 3 builds
+                self.assertEqual(infer.call_count, 14)  # winner + pair, each day
+                notice = compared['species'][0]
+                self.assertEqual(notice['selection_notices'], [0]*7)
+                self.assertEqual(len(notice['selection_notice_details']), 1)
+                self.assertEqual(notice['selection_notice_details'][0]['recommendation_decision']['status'], 'agreed')
+                r.registry = {}; r.resolutions = original
                 for status in ('caution','outside_domain'):
                     applicability.update(status=status,outside_feature_count=8,checked_feature_count=160,
                         most_extreme=[{'feature':f'temp_min_c__lag_{i:03}', 'value':23.,

@@ -24,6 +24,7 @@ def resolve_species_week(
     season_phase: Callable[[date], str],
     phenology: Mapping[str, object],
     lazy_families: bool = False,
+    recommendation_policy: Mapping[str, object] | None = None,
 ) -> dict:
     """Use the Predictor's complete-week policy, including daily fallback.
 
@@ -85,8 +86,25 @@ def resolve_species_week(
             calculate(day,comparison.reliability_candidate_selections(resolution))
 
     resolutions = comparison.prioritize_weekly_resolutions_by_applicability(
-        resolutions,members_by_day,
+        resolutions,members_by_day, recommendation_policy=recommendation_policy, species_id=species_id,
     )
+    # Reuse already evaluated members; at most two extra fixed families.
+    for day, resolution in resolutions.items():
+        plan = resolution.get("recommendation_plan") or {}
+        selected = resolution.get("candidate") or {}
+        winner = next((m for m in members_by_day[day] if comparison._candidate_identity(m.get("model_ref") or {})
+                       == comparison._candidate_identity(selected)), None)
+        if season_phase(issue_date + timedelta(days=day-1)) == "out_of_season":
+            continue
+        if winner is None or comparison._operational_gate_failures(winner):
+            continue
+        if (winner.get("prediction") or {}).get("probability", 0) < .60:
+            continue
+        existing = {comparison._candidate_identity(m.get("model_ref") or {}) for m in members_by_day[day]}
+        needed = [ref for ref in plan.get("alternatives", [])
+                  if comparison._candidate_identity(ref) not in existing]
+        if needed:
+            calculate(day, needed)
     days = []
     for day,resolution in resolutions.items():
         target = issue_date+timedelta(days=day-1)

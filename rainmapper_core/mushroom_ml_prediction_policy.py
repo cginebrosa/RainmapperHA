@@ -11,6 +11,7 @@ import json
 import re
 from datetime import datetime, timezone
 from typing import Mapping
+from rainmapper_core import mushroom_recommendation_policy as recommendations
 
 FIELD = "prediction_model_suspensions"
 CAPABILITY = "prediction_model_policy_v1"
@@ -20,7 +21,10 @@ MAX_RULES = 512
 
 
 def worker_compatible(registry: Mapping, capabilities) -> bool:
-    return not registry.get(FIELD) or CAPABILITY in set(capabilities or [])
+    available = set(capabilities or [])
+    return ((not registry.get(FIELD) or CAPABILITY in available)
+            and (recommendations.settings(registry)["mode"] == "legacy"
+                 or recommendations.CAPABILITY in available))
 
 
 def validate_rules(value: object) -> list[dict]:
@@ -52,7 +56,9 @@ def validate_rules(value: object) -> list[dict]:
 
 def revision(registry: Mapping) -> str:
     rules = validate_rules(registry.get(FIELD, []))
-    return hashlib.sha256(json.dumps(rules, sort_keys=True).encode()).hexdigest()
+    content = ({"suspensions": rules, recommendations.FIELD: recommendations.settings(registry)}
+               if recommendations.FIELD in registry else rules)
+    return hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
 
 
 def suspension(registry: Mapping, model: Mapping) -> dict | None:
