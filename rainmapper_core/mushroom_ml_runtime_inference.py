@@ -170,6 +170,7 @@ def predict_bundle_many(
     feature_rows: Sequence[Mapping[str, object]],
     *,
     species_ids: Sequence[str],
+    applicability_offset: int | None = None,
 ) -> list[dict[str, Any]]:
     """Predict multiple independent members in one estimator invocation."""
     if not feature_rows:
@@ -179,6 +180,11 @@ def predict_bundle_many(
     columns = [str(value) for value in bundle.get("feature_cols", [])]
     if not columns:
         raise ValueError("Runtime model bundle has no feature columns")
+    if applicability_offset is not None and (
+            type(applicability_offset) is not int or not 0 <= applicability_offset < 4096
+            or applicability_offset % 32 or len(columns) > 4096
+            or any(not 0 < len(column) <= 128 for column in columns)):
+        raise ValueError("invalid_applicability_page")
     validate_water_contract(bundle,columns)
     row = np.asarray(
         [
@@ -230,6 +236,7 @@ def predict_bundle_many(
             features=features,
             species_id=str(species_id),
             probability=float(probabilities[index][1]),
+            applicability_offset=applicability_offset,
         )
         for index, (features, species_id) in enumerate(
             zip(feature_rows, species_ids, strict=True)
@@ -245,6 +252,7 @@ def _prediction_payload(
     features: Mapping[str, object],
     species_id: str,
     probability: float,
+    applicability_offset: int | None = None,
 ) -> dict[str, Any]:
     if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
         raise ValueError("Runtime model returned an invalid probability")
@@ -320,6 +328,11 @@ def _prediction_payload(
             "blocking_outside_feature_ratio": round(blocking_outside_ratio, 6),
             "rainfall_warning_feature_count": len(outside) - len(blocking_outside),
             "most_extreme": outside[:5],
+            **({"feature_page": {
+                "offset": applicability_offset,
+                "rows": [[r[k] for k in ("feature", "value", "training_min", "training_max")]
+                         for r in outside[applicability_offset:applicability_offset + 32]],
+            }} if applicability_offset is not None else {}),
         },
         "ensemble_used": False,
     }

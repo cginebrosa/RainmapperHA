@@ -7249,6 +7249,24 @@
     "es": "{outside} de {total} variables fuera del rango observado al entrenar. Esto no demuestra fiabilidad en este punto.",
     "ca": "{outside} de {total} variables fora del rang observat en entrenar. Això no demostra fiabilitat en aquest punt."
   },
+  "ui.prediction_map_applicability_variables": {
+    "en": "Inputs outside the training range", "es": "Variables fuera del rango de entrenamiento", "ca": "Variables fora del rang d’entrenament"
+  },
+  "ui.prediction_map_applicability_shown": {
+    "en": "Showing {shown} of {total} variables.", "es": "Mostrando {shown} de {total} variables.", "ca": "Es mostren {shown} de {total} variables."
+  },
+  "ui.prediction_map_applicability_more": {
+    "en": "Load more variables", "es": "Cargar más variables", "ca": "Carregar més variables"
+  },
+  "ui.prediction_map_applicability_loading": {
+    "en": "Loading variable details…", "es": "Cargando el detalle de las variables…", "ca": "Carregant el detall de les variables…"
+  },
+  "ui.prediction_map_applicability_failed": {
+    "en": "Could not load the full list. Only examples are available; you can retry.", "es": "No se ha podido cargar la lista completa. Puedes volver a intentarlo; la lista mostrada es parcial.", "ca": "No s’ha pogut carregar la llista completa. Pots tornar-ho a provar; la llista mostrada és parcial."
+  },
+  "ui.prediction_map_applicability_changed": {
+    "en": "The prediction data changed. Query this point again to view its details.", "es": "Los datos de la predicción han cambiado. Consulta de nuevo este punto para ver su detalle.", "ca": "Les dades de la predicció han canviat. Consulta de nou aquest punt per veure’n el detall."
+  },
   "ui.prediction_map_days_before_cutoff": {
     "en": "{days} days before weather cutoff",
     "es": "{days} días antes del corte meteorológico",

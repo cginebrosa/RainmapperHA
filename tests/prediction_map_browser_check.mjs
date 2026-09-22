@@ -91,6 +91,7 @@ let unavailableWorker = false, unavailableLocal = false;
 const executionRequests = [];
 let ecologyFixture = null;
 let modelFixture = null;
+let applicabilityDetailChanged = false, applicabilityDetailFailure = false;
 const asyncQueries = new Map();
 // Manual preview measures actual reader/transport time; no artificial delay.
 const station = { type: "Feature", geometry: { type: "Point", coordinates: [1.9, 42] },
@@ -210,6 +211,15 @@ const server = createServer(async (req, res) => {
       }
       if (!preview && ecologyFixture) response.ecology = {...ecologyFixture, dates:response.dates};
       if (!preview && modelFixture) Object.assign(response,modelFixture);
+      if (!preview && query.applicability_page) {
+        if (applicabilityDetailFailure) return send({error:'query_failed'},'application/json',409);
+        const {day,offset} = query.applicability_page;
+        const species = response.species.find(r => r.species_id === query.species_ids[0]);
+        const info = species.applicability_details[species.applicability[day]];
+        response.applicability_page = {species_id:species.species_id,day,offset,outside:info.outside,total:info.total,
+          rows:Array.from({length:Math.min(32,info.outside-offset)}, (_,i) => [`temp_min_c__lag_${String(offset+i).padStart(3,'0')}`,23.94,-7.18,22.44])};
+        if (applicabilityDetailChanged) response.provenance = {...response.provenance,weather_generation:'changed'};
+      }
       if (compactMobileFixture) {
         response.terrain.ph_openlandmap.lookup={method:'cell'};
         response.land_context.trees.items[0].labels={es:'Encina',ca:'Alzina',en:'Holm oak'};
@@ -1015,7 +1025,7 @@ try {
   // Applicability warnings use the selected day; absent models are distinct.
   modelFixture.species[0].applicability=[0,1,null,null,null,null,null];
   modelFixture.species[0].applicability_details=[
-    {status:'caution',outside:8,total:160,examples:[{feature:'temp_min_c__lag_009',value:22.83,training_min:-7.63,training_max:22.73}]},
+    {status:'caution',outside:33,total:460,examples:[{feature:'temp_min_c__lag_009',value:22.83,training_min:-7.63,training_max:22.73}]},
     {status:'outside_domain',outside:1,total:160,examples:[]}];
   modelFixture.species[0].probabilities[1]=null;
   modelFixture.species[0].reasons=['calculated','outside_domain',...Array(5).fill('calculated')];
@@ -1027,8 +1037,25 @@ try {
   assert.ok(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-applicability summary').textContent.includes('IFF con extrapolación')"));
   assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_pinophilus] .pm-iff-score').textContent"),'Sin modelo disponible');
   await evaluate("document.querySelector('.pm-applicability summary').click()");
-  assert.ok(await evaluate("document.querySelector('.pm-applicability').textContent.includes('8 de 160')"));
+  assert.ok(await evaluate("document.querySelector('.pm-applicability').textContent.includes('33 de 460')"));
   assert.ok(await evaluate("document.querySelector('.pm-applicability').textContent.includes('Temperatura mínima')"));
+  await until("document.querySelector('.pm-applicability-count').textContent.includes('32 de 33')");
+  assert.ok(await evaluate("(()=>{const x=document.querySelector('.pm-applicability-list');return x.scrollHeight>x.clientHeight && getComputedStyle(x).overflowY==='auto'})()"));
+  await evaluate("document.querySelector('.pm-applicability button').click()");
+  await until("document.querySelector('.pm-applicability-count').textContent.includes('33 de 33')");
+  assert.equal(await evaluate("document.querySelector('.pm-applicability-list').childElementCount"),33);
+  assert.ok(await evaluate("document.querySelector('.pm-applicability button').hidden"));
+  assert.ok(await evaluate("(()=>{const x=document.querySelector('.pm-applicability-list');x.scrollTop=x.scrollHeight;return x.scrollTop>0})()"));
+  for (const scenario of ['changed','failure']) {
+    applicabilityDetailChanged = scenario === 'changed';
+    applicabilityDetailFailure = scenario === 'failure';
+    await evaluate("document.querySelector('.pm-close').click()");
+    await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-applicability')");
+    await evaluate("document.querySelector('.pm-applicability summary').click()");
+    await until(`document.querySelector('.pm-applicability-count').textContent.includes(${JSON.stringify(scenario === 'changed' ? 'han cambiado' : 'lista mostrada es parcial')})`);
+    assert.equal(await evaluate("document.querySelector('.pm-applicability-list').childElementCount"),1);
+  }
+  applicabilityDetailChanged = applicabilityDetailFailure = false;
   await evaluate("document.querySelector('.pm-weekly-chart [data-species-id=boletus_edulis] circle').focus()");
   assert.ok(await evaluate("document.querySelector('.pm-chart-tooltip').textContent.includes('IFF con extrapolación')"));
   await evaluate("(()=>{const s=document.querySelector('.pm-calendar select');s.value='1';s.dispatchEvent(new Event('change'))})()");

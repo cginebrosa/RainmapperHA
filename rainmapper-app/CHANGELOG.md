@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.319
+
+- Show every out-of-range input in a scrollable prediction-map detail, with a visible count and Load more control.
+- Fetch diagnostic rows on demand in bounded pages of 32 for the selected species/day, keeping normal prediction payloads and IFF calculations unchanged.
+- Reject mismatched diagnostic results and display loading errors or changed-data notices instead of silently showing an incomplete list.
+
 ## 0.2.318
 
 - Validate precompute responses sequentially in `mushroom_predictor_precompute` and stream artifact uploads to disk, reducing peak memory while preserving integrity checks and atomic activation.

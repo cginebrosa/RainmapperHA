@@ -1,4 +1,4 @@
-# Contexto activo — release 0.2.318, 22/09/2026
+# Contexto activo — release 0.2.319, 22/09/2026
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este documento contiene
 lo necesario para retomar; [todo.md](todo.md) amplía prioridades. El
@@ -6,6 +6,60 @@ lo necesario para retomar; [todo.md](todo.md) amplía prioridades. El
 no una segunda fuente de estado actual.
 
 ## Estado y siguiente paso
+
+### HA 0.2.319 publicada — pendiente instalar en HA real
+
+El usuario confirmó que el detalle completo funciona en local y pidió publicar.
+Smoke completo correcto: 1.725 pruebas, 52 skips, 82,406 s; registro
+`/private/tmp/rainmapper-0.2.319-smoke-final.log`. Se corrigieron tres referencias
+obsoletas a worker 1.1.4 en el test de empaquetado (la versión efectiva es 1.1.5).
+Bump HA, cache-busters y changelog 0.2.319, sin cambios adicionales de cálculo.
+Imagen publicada con script terminado código 0; tags 0.2.319/latest verificados
+con el mismo digest y manifests linux/amd64 y linux/arm64. Instalación a cargo
+del usuario. Ver [informe de release](reports/release-ha-0.2.319-2026-09-22.md).
+
+La cola local conserva como últimos entrenamientos/precálculo completos los del
+22/09 a las 01:08–01:23 UTC, anteriores a esta ampliación diagnóstica. El usuario
+autorizó explícitamente la excepción a repetir ese circuito completo exigido por
+AGENTS.md: «Sí, publicar con la validación actual». No presentar el circuito
+anterior como validación de este contrato nuevo. No se lanzaron entrenamientos
+ni precálculos; el usuario indicó que los lanza él en HA local.
+
+### Detalle completo de variables fuera de rango — desplegado en HA local y worker
+
+El usuario detectó 33 variables fuera de rango y solo tres filas visibles. La
+causa está en `mushroom_map_prediction.resolve_species_week`: el contrato normal
+solo lleva tres ejemplos (la inferencia conserva cinco extremos). No era un
+recorte CSS. Se añadió una consulta opcional `applicability_page` para una sola
+especie/día, 32 filas compactas por página, reutilizando la cola/autenticación
+del mapa. El desplegable carga al abrir, tiene scroll y contador y permite
+cargar las siguientes páginas. Verifica fecha, zona horaria y procedencia antes
+de incorporar el detalle; errores y cambios de datos quedan visibles.
+
+La consulta normal, límites de respuesta e IFF no cambian. El detalle vuelve a
+resolver la semana de esa especie y consulta el modelo seleccionado para el día;
+no entrena ni precalcula ni persiste diagnósticos. Página máxima sintética de 32
+nombres de 128 caracteres y valores extremos: <8 KiB. Pruebas dirigidas: 97 OK;
+prueba final de navegador OK (47 consultas), con 33 filas/scroll/paginación,
+rechazo de datos cambiados y fallo de carga. `git diff --check` correcto.
+
+Tras confirmar el usuario que había terminado, `/health` mostró ambas lanes idle,
+comprobado también justo antes de recrear. Reconstruidas ambas imágenes y recreados
+HA local y worker, conservando identidad, volúmenes y hashes de configuración y
+credenciales. Destinos idénticos: `http://100.111.77.48:8100` y
+`http://rainmapper-ha-ui:8100`. Worker healthy e idle tras arrancar, cachés válidas.
+
+Paridad efectiva: 217 archivos HA y 117 worker sin diferencias con el checkout
+(`tmp/ha-memory-20260922/parity.json`). Imagen HA
+`sha256:6c52d5e2bf5c9bba161239dcfb506937ecc56d6c8cfb36b08683b0641b845992`;
+worker `sha256:571041c90d6d587b124024cf69cec004b74f172d8db9d97300f9a14f5d44bc18`.
+Las 97 pruebas dirigidas pasan también dentro de la nueva imagen HA (ruta de
+tests adaptada al empaquetado mediante symlink en contenedor efímero).
+JavaScript servido por HA local: HTTP 200 y SHA256 idéntico al checkout.
+Consulta anónima al API: HTTP 401; no se ejecutó una consulta real autenticada.
+Prueba interactiva confirmada después por el usuario; publicada en 0.2.319 según
+el apartado superior. Esta mejora no estaba en 0.2.318. No se han lanzado
+entrenamientos ni precálculos: los lanza el usuario.
 
 ### Release 0.2.318 publicada; pendiente instalar en HA real
 

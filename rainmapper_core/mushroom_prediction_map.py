@@ -52,7 +52,7 @@ def parse_request(raw: bytes) -> dict:
     except (ValueError, UnicodeError, RecursionError) as exc:
         raise ValueError("invalid_json") from exc
     required = {"contract", "request_id", "point", "start_date", "horizon_days", "history_days"}
-    if not isinstance(payload, dict) or set(payload) - required - {"species_ids", "execution", "calendar_timezone"} or not required <= set(payload):
+    if not isinstance(payload, dict) or set(payload) - required - {"species_ids", "execution", "calendar_timezone", "applicability_page"} or not required <= set(payload):
         raise ValueError("invalid_fields")
     if 'calendar_timezone' in payload:
         validate_calendar_timezone(payload['calendar_timezone'])
@@ -92,6 +92,13 @@ def parse_request(raw: bytes) -> dict:
         raise ValueError("invalid_species")
     if len(set(species)) != len(species):
         raise ValueError("duplicate_species")
+    if 'applicability_page' in payload:
+        page = payload['applicability_page']
+        if (len(species) != 1 or not isinstance(page, dict) or set(page) != {'day', 'offset'}
+                or type(page.get('day')) is not int or not 0 <= page['day'] < payload['horizon_days']
+                or type(page.get('offset')) is not int or not 0 <= page['offset'] < 4096
+                or page['offset'] % 32):
+            raise ValueError('invalid_applicability_page')
     return {**payload, "species_ids": species}
 
 
@@ -163,6 +170,22 @@ def validate_result(result, request):
         raise ValueError('invalid_result_model_error')
     if not isinstance(rows,list) or len(rows)>MAX_SPECIES:
         raise ValueError('invalid_result_species')
+    if 'applicability_page' in result:
+        page = result['applicability_page']
+        wanted = request.get('applicability_page')
+        if (not wanted or not isinstance(page, dict)
+                or page.get('species_id') != request['species_ids'][0]
+                or page.get('day') != wanted['day'] or page.get('offset') != wanted['offset']
+                or type(page.get('outside')) is not int or type(page.get('total')) is not int
+                or not 0 <= page['offset'] <= page['outside'] <= page['total'] <= 4096
+                or not isinstance(page.get('rows'), list)
+                or len(page['rows']) != min(32, page['outside'] - page['offset'])):
+            raise ValueError('invalid_result_applicability_page')
+        for feature in page['rows']:
+            if (not isinstance(feature, list) or len(feature) != 4
+                    or not isinstance(feature[0], str) or not 0 < len(feature[0]) <= 128
+                    or any(type(v) not in (int, float) or not math.isfinite(v) for v in feature[1:])):
+                raise ValueError('invalid_result_applicability_page')
     if result.get('data_mode')=='simulation':
         if rows!=demo_result(request)['species']:
             raise ValueError('invalid_demo_result')

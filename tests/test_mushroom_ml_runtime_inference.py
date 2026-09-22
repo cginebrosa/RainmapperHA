@@ -150,7 +150,7 @@ class MushroomMLRuntimeInferenceTests(TestCase):
             estimator_id="random_forest_restricted_v1", species_id="boletus_edulis")
         columns = [f"temp_min_c__lag_{i:03}" for i in range(160)]
         support = {c: {"min":5., "max":20., "mean":12., "std":4.} for c in columns}
-        for count in (6, 8, 80):
+        for count in (6, 8, 33, 80):
             with self.subTest(count=count):
                 features = {c:20.1 if i<count else 12. for i,c in enumerate(columns)}
                 result = inference._prediction_payload(
@@ -159,6 +159,19 @@ class MushroomMLRuntimeInferenceTests(TestCase):
                 self.assertEqual(result["applicability"]["status"], "caution")
                 self.assertEqual(result["applicability"]["outside_feature_count"], count)
                 self.assertEqual(result["probability"], .32)
+                self.assertNotIn('feature_page', result['applicability'])
+                gathered = []
+                for offset in range(0, count, 32):
+                    detailed = inference._prediction_payload(
+                        {"feature_support":support}, artifact_ref=ref, columns=columns,
+                        features=features, species_id="boletus_edulis", probability=.32,
+                        applicability_offset=offset)
+                    page = detailed['applicability'].pop('feature_page')
+                    self.assertEqual(detailed, result)  # diagnostics never alter scientific output
+                    self.assertEqual(page['offset'], offset)
+                    self.assertLessEqual(len(page['rows']), 32)
+                    gathered.extend(page['rows'])
+                self.assertEqual([r[0] for r in gathered], columns[:count])
         # One severe excursion still blocks even below the former 5% cutoff.
         features = {c:12. for c in columns}
         features[columns[0]] = 24.

@@ -132,6 +132,10 @@
 .pm-applicability { grid-column:1 / -1; font-size:12px; color:#765000; overflow-wrap:anywhere; }
 .pm-applicability summary { cursor:pointer; }
 .pm-applicability small { display:block; margin-top:3px; }
+.pm-applicability-list { max-height:220px; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
+.pm-applicability-list small { padding:4px 0; }
+.pm-applicability-count { margin-bottom:5px; }
+.pm-applicability button { margin-top:6px; }
 .pm-season-phase { white-space:nowrap; }
 .pm-species li { position:relative; }
 .pm-iff-value { display:contents; }

@@ -221,7 +221,7 @@ class PointModelRuntime:
             input_details[catalog.ModelRef.from_mapping(reference).key] = model_input_details(
                 reference, columns, self.catalog_profiles)
         def materializer(species_id):
-            def materialize(*,target_date,selections):
+            def materialize(*,target_date,selections, applicability_offset=None):
                 phenology = profiles.get(species_id, {}).get('phenology', {})
                 if season_phase_for_months(target_date, phenology.get('main_months', []),
                                            phenology.get('secondary_months', [])) not in ('main','secondary'):
@@ -255,7 +255,8 @@ class PointModelRuntime:
                 return comparison.compare_prepared(self.registry,self.manifest,refs,models_root=self.models_root,
                     target_date=target_date,area_id=context.area_id,area_context=context,
                     area_series_by_horizon=series_by_horizon,stations=stations,checked_manifest=self.manifest,
-                    comparison_cache={'quality_catalog':self.quality}, model_inputs_observer=observe_inputs)
+                    comparison_cache={'quality_catalog':self.quality}, model_inputs_observer=observe_inputs,
+                    **({'applicability_offset': applicability_offset} if applicability_offset is not None else {}))
             return materialize
         for source,row in zip(selected,rows):
             sid=row['species_id']; resolutions=self.resolutions.get(sid)
@@ -326,6 +327,26 @@ class PointModelRuntime:
                 diagnostic.append({'day':i+1,'candidate':candidate,'weekly':active.get('weekly_model_selection'),
                     'runtime_status':active.get('runtime_selection_status'),'reason':reason})
             self.last_diagnostics[sid]=diagnostic
+            # Diagnostic-only second request: one selected model/day, 32 compact
+            # rows at a time. Never attach full feature vectors to weekly reports.
+            page = request.get('applicability_page')
+            if page is not None:
+                selected_day = week['days'][page['day']]
+                candidate = selected_day['reliability_selection'].get('candidate') or {}
+                if candidate:
+                    target = issue + timedelta(days=page['day'])
+                    selections = comparison.retarget_operational_selections(
+                        [candidate], target_date=target, issue_date=issue)
+                    detail_result = materializer(sid)(target_date=target, selections=selections,
+                        applicability_offset=page['offset'])
+                    members = detail_result.get('members', [])
+                    if len(members) == 1:
+                        detail = (members[0].get('prediction') or {}).get('applicability') or {}
+                        if 'feature_page' in detail:
+                            output['applicability_page'] = {**detail['feature_page'],
+                                'species_id': sid, 'day': page['day'],
+                                'outside': detail['outside_feature_count'],
+                                'total': detail['checked_feature_count']}
         self.weather._refresh()
         if self.weather._identity != weather_identity:
             raise ValueError('point_weather_generation_changed')

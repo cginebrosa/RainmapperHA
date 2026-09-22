@@ -159,6 +159,7 @@ def compare_prepared(
     checked_manifest: Mapping[str, object] | None = None,
     comparison_cache: MutableMapping[str, Any] | None = None,
     model_inputs_observer=None,
+    applicability_offset: int | None = None,
     quality_catalog_cache: MutableMapping[
         tuple[str, str], dict[str, Any]
     ]
@@ -368,6 +369,7 @@ def compare_prepared(
                 bundle,
                 [row["features"] for row in pending],
                 species_ids=[row["model_ref"].species_id for row in pending],
+                **({"applicability_offset": applicability_offset} if applicability_offset is not None else {}),
             )
             record_phase("model_inference", phase_started)
             for row, prediction in zip(pending, predictions, strict=True):

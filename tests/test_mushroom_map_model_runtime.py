@@ -33,8 +33,14 @@ class ProjectionTests(unittest.TestCase):
                 return SimpleNamespace(horizon_days=args[2]['horizon_days'],reference=args[2])
             applicability={'status':'within_observed_range'}
             def compare(*args,**kwargs):
+                detail = dict(applicability)
+                if 'applicability_offset' in kwargs:
+                    offset = kwargs['applicability_offset']
+                    detail['feature_page'] = {'offset':offset, 'rows':[
+                        [f'temp_min_c__lag_{i:03}',23.,-7.,22.]
+                        for i in range(offset,min(offset+32,detail['outside_feature_count']))]}
                 return {'members':[{'model_ref':ref.reference,'available':True,
-                    'prediction':{'probability':.6,'applicability':applicability},
+                    'prediction':{'probability':.6,'applicability':detail},
                     'evaluation':{'evidence':'better_than_prevalence','brier_score':.1,
                      'prevalence_brier_score':.25,'brier_delta_vs_prevalence':.15,'roc_auc':.8}}
                     for ref in args[2]]}
@@ -83,6 +89,21 @@ class ProjectionTests(unittest.TestCase):
                     self.assertEqual(len(row['applicability_details'][0]['examples']),3)
                     self.assertEqual(row['reasons'],['calculated' if status=='caution' else 'outside_domain']*7)
                     self.assertEqual(row['probabilities'],[.6 if status=='caution' else None]*7)
+                applicability.update(status='caution',outside_feature_count=33,checked_feature_count=460)
+                base_request = {'start_date':'2026-09-15','horizon_days':7,
+                                'point':{'lat':42,'lon':2},'species_ids':['test']}
+                plain = r.predict(base_request, geography)
+                self.assertNotIn('applicability_page', plain)
+                for offset, count in ((0,32),(32,1)):
+                    infer.reset_mock()
+                    detailed = r.predict({**base_request,'applicability_page':{'day':2,'offset':offset}},geography)
+                    page = detailed.pop('applicability_page')
+                    self.assertEqual(detailed, plain)
+                    self.assertEqual((page['day'],page['offset'],page['outside'],len(page['rows'])),(2,offset,33,count))
+                    diagnostic_calls = [c for c in infer.call_args_list if 'applicability_offset' in c.kwargs]
+                    self.assertEqual(len(diagnostic_calls),1)
+                    self.assertEqual(len(diagnostic_calls[0].args[2]),1)
+                    self.assertEqual(diagnostic_calls[0].kwargs['target_date'],date(2026,9,17))
                 for day,zone in (('2026-09-16','Europe/Madrid'),('2026-09-15','UTC')):
                     prepare.reset_mock();infer.reset_mock()
                     future=r.predict({'start_date':day,'calendar_timezone':zone,'horizon_days':7,'point':{'lat':42,'lon':2}},geography)
@@ -418,6 +439,30 @@ class ResultTests(unittest.TestCase):
             if defect=='name':detail['examples'][0]['feature']='x'*129
             with self.subTest(defect=defect), self.assertRaisesRegex(ValueError,'invalid_result_applicability'):
                 contract.validate_result(r,self.request)
+
+    def test_applicability_pages_are_explicit_bounded_and_bound_to_request(self):
+        request = {**self.request, 'species_ids':[self.result['species'][0]['species_id']],
+                   'applicability_page':{'day':0, 'offset':0}}
+        contract.parse_request(json.dumps(request).encode())
+        for invalid in ({'day':7,'offset':0}, {'day':0,'offset':1}, {'day':False,'offset':0},
+                        {'day':0,'offset':4096}):
+            with self.assertRaisesRegex(ValueError, 'invalid_applicability_page'):
+                contract.parse_request(json.dumps({**request,'applicability_page':invalid}).encode())
+        valid = copy.deepcopy(self.result)
+        valid['applicability_page'] = {'species_id':request['species_ids'][0], 'day':0, 'offset':0,
+            'outside':33, 'total':460,
+            'rows':[[f'temp_min_c__lag_{i:03}', 23.94, -7.18, 22.44] for i in range(32)]}
+        contract.validate_result(valid, request)
+        self.assertLess(len(json.dumps(valid['applicability_page']).encode()), 8192)
+        maximum = {**valid['applicability_page'], 'rows':[['x'*128,1e308,-1e308,1e308] for _ in range(32)]}
+        self.assertLess(len(json.dumps(maximum).encode()), 8192)
+        for key,value in (('rows',valid['applicability_page']['rows']*2), ('species_id','other'),
+                          ('offset',32), ('day',1), ('outside',31), ('total',4097)):
+            bad = copy.deepcopy(valid); bad['applicability_page'][key] = value
+            with self.assertRaisesRegex(ValueError, 'invalid_result_applicability_page'):
+                contract.validate_result(bad, request)
+        with self.assertRaisesRegex(ValueError, 'invalid_result_applicability_page'):
+            contract.validate_result(valid, self.request)
 
     def test_rejects_cross_species_incompatible_and_invalid_probability(self):
         for mutation in ('species','ecology','nan','bool','no_model','duplicate','point','season','missing_season'):

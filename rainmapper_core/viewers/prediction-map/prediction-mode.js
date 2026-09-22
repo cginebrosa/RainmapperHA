@@ -15,6 +15,7 @@ export function createPredictionMode(bridge) {
   let pending = null;
   let popup = null;
   let result = null;
+  let resultRequest = null;
   let dayIndex = 0;
   let remoteQuery = null;
   let elapsedMs = null;
@@ -212,12 +213,77 @@ export function createPredictionMode(bridge) {
     const details = make("details", undefined, "pm-applicability");
     details.append(make("summary", text(info.status === "caution" ? "extrapolation_warning" : "outside_domain_help")));
     details.append(make("small", text("applicability_counts").replace("{outside}", info.outside).replace("{total}", info.total)));
-    for (const example of info.examples || []) {
+    const list = make("div", undefined, "pm-applicability-list");
+    list.tabIndex = 0;
+    list.setAttribute("role", "region");
+    list.setAttribute("aria-label", text("applicability_variables"));
+    const addExample = example => {
       const lag = /^(temp_min_c|temp_max_c|temp_mean_c|rain_mm)__lag_(\d+)$/.exec(example.feature);
       const feature = lag ? `${text(`feature_${lag[1]}`)} (${text("days_before_cutoff").replace("{days}", Number(lag[2]))})` : example.feature;
       const number = value => Number(value).toLocaleString(bridge.language(), {maximumFractionDigits:2});
-      details.append(make("small", `${feature}: ${number(example.value)} · ${text("training_range")}: ${number(example.training_min)}–${number(example.training_max)}`));
+      list.append(make("small", `${feature}: ${number(example.value)} · ${text("training_range")}: ${number(example.training_min)}–${number(example.training_max)}`));
+    };
+    (info.examples || []).forEach(addExample);
+    const count = make("small", "", "pm-applicability-count");
+    count.setAttribute("role", "status");
+    const updateCount = n => { count.textContent = text("applicability_shown").replace("{shown}", n).replace("{total}", info.outside); };
+    updateCount(list.childElementCount);
+    const more = make("button", text("applicability_more"));
+    more.type = "button";
+    details.append(count, list, more);
+    const source = result, sourceRequest = resultRequest, selectedDay = dayIndex;
+    let loaded = 0, loading = false, attempted = false;
+    more.hidden = info.outside <= list.childElementCount;
+    async function loadPage() {
+      if (loading || more.hidden || !sourceRequest) return;
+      attempted = true; loading = true; more.disabled = true;
+      count.textContent = text("applicability_loading");
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000);
+      let queryId = null;
+      try {
+        const request = {...sourceRequest, request_id: crypto.randomUUID(), species_ids:[model.species_id],
+          applicability_page:{day:selectedDay, offset:loaded}};
+        let response = await bridge.fetch(`${config.apiBase}/queries`, {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(request), cache:"no-store", signal:controller.signal});
+        if (!response.ok) throw new Error("failed");
+        if (response.status === 202) {
+          queryId = (await response.json()).query_id;
+          if (!/^[A-Za-z0-9_-]{8,80}$/.test(queryId || "")) throw new Error("failed");
+          do {
+            await new Promise(resolve => setTimeout(resolve, 400));
+            if (source !== result || !details.isConnected) throw new Error("stale");
+            response = await bridge.fetch(`${config.apiBase}/queries/${encodeURIComponent(queryId)}`, {cache:"no-store", signal:controller.signal});
+            if (!response.ok) throw new Error("failed");
+          } while (response.status === 202);
+          queryId = null;
+        }
+        const raw = await response.text();
+        if (new TextEncoder().encode(raw).length > 256*1024) throw new Error("failed");
+        const data = JSON.parse(raw), page = data.applicability_page;
+        if (!validResponse(data, request) || !data.dates.every((date,i) => date === source.dates[i]) ||
+            data.calendar_timezone !== source.calendar_timezone || !page || page.species_id !== model.species_id || page.day !== selectedDay ||
+            page.offset !== loaded || page.outside !== info.outside || page.total !== info.total ||
+            !Array.isArray(page.rows) || page.rows.length !== Math.min(32, info.outside-loaded) ||
+            !page.rows.every(r => Array.isArray(r) && r.length === 4 && typeof r[0] === "string" && r[0].length <= 128 && r.slice(1).every(Number.isFinite)) ||
+            ["model_revision","weather_generation","soil_context_hash"].some(k => data.provenance?.[k] !== source.provenance?.[k])) throw new Error("changed");
+        if (source !== result || !details.isConnected) return;
+        if (loaded === 0) list.replaceChildren();
+        page.rows.forEach(([feature,value,training_min,training_max]) => addExample({feature,value,training_min,training_max}));
+        loaded += page.rows.length;
+        updateCount(loaded);
+        more.hidden = loaded >= info.outside;
+      } catch (error) {
+        if (source === result && details.isConnected) count.textContent = text(error.message === "changed" ? "applicability_changed" : "applicability_failed");
+      } finally {
+        clearTimeout(timer);
+        if (queryId) bridge.fetch(`${config.apiBase}/queries/${encodeURIComponent(queryId)}/cancel`, {method:"POST"}).catch(() => {});
+        loading = false; more.disabled = false;
+      }
     }
+    more.addEventListener("click", loadPage);
+    details.addEventListener("toggle", () => { if (details.open && !attempted) loadPage(); });
     item.append(details);
   }
   function contextNames(kind) {
@@ -351,6 +417,7 @@ export function createPredictionMode(bridge) {
       pending = null;
       dialog.close();
       result = data;
+      resultRequest = request;
       elapsedMs = performance.now() - started;
       dayIndex = 0;
       showResult(event.lngLat);
