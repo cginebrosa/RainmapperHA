@@ -7791,6 +7791,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       if (field && preview.filename) {{
         field.value = preview.filename;
       }}
+      window.rainmapperObservationGIS?.coordinatesChanged(form);
       }}
       if(mode === "exif_only" && observationExifPreviewState.input){{
         observationExifPreviewState.input.value="";

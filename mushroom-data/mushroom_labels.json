@@ -7932,10 +7932,25 @@
     "es": "Selecciona una especie",
     "ca": "Tria una espècie"
   },
-  "ui.prediction_map_obs_all_dates": {
-    "en": "All dates",
-    "es": "Todas las fechas",
-    "ca": "Totes les dates"
+  "ui.prediction_map_obs_outcome": {
+    "en": "Observation outcome",
+    "es": "Resultado de la observación",
+    "ca": "Resultat de l’observació"
+  },
+  "ui.prediction_map_obs_outcome_favorable": {
+    "en": "Favorable",
+    "es": "Favorable",
+    "ca": "Favorable"
+  },
+  "ui.prediction_map_obs_outcome_unfavorable": {
+    "en": "Unfavorable",
+    "es": "Desfavorable",
+    "ca": "Desfavorable"
+  },
+  "ui.prediction_map_obs_outcome_all": {
+    "en": "All",
+    "es": "Todas",
+    "ca": "Totes"
   },
   "ui.prediction_map_obs_loading": {
     "en": "Loading observations…",

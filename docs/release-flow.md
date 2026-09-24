@@ -5,9 +5,9 @@ Referencia operativa completa para publicar una nueva versión de la imagen HA.
 
 ## Pasos
 
-HA local es la puerta de aceptación de HA real. Si HA local y el worker no se
-han reconstruido desde el código candidato, cualquier resultado anterior queda
-fuera de esta release y no permite continuar.
+HA local es la puerta de aceptación de HA real y debe reconstruirse desde el
+código candidato. El worker sólo requiere reconstrucción/recreación si el cambio
+le afecta; una release exclusiva de UI no obliga a tocarlo.
 
 1. **Revisar estado del repo**
    ```bash
@@ -15,18 +15,23 @@ fuera de esta release y no permite continuar.
    git diff
    ```
 
-2. **Reconstruir el entorno local completo desde el mismo código**
+2. **Reconstruir los componentes locales afectados desde el mismo código**
 
-   Antes de probar una candidata, reconstruir tanto HA local como el worker de
-   pruebas desde el mismo estado actual del worktree. No reutilizar una imagen
-   anterior aunque el contenedor esté sano o la etiqueta parezca correcta.
+   Antes de probar una candidata, reconstruir HA local desde el estado actual
+   del worktree. Reconstruir/recrear también el worker sólo si cambian código
+   que ejecuta, dependencias, empaquetado, contratos o artefactos que consume o
+   produce. UI/presentación no requiere reconstruir ni reiniciar el worker,
+   aunque su imagen incluya módulos compartidos no utilizados por él. Esta es
+   una regla general acordada el 24/09/2026, no una excepción de release.
+   Para cada componente afectado, no reutilizar una imagen anterior aunque el
+   contenedor esté sano o la etiqueta parezca correcta.
 
    Antes de recrear el worker, registrar su URL de coordinador persistida y su
    huella; después comprobar que no han cambiado. No sustituir nunca su destino
    por uno local ni por otro fallback. Recrear únicamente los servicios locales
    implicados y conservar sus volúmenes de datos.
 
-   Verificar dentro de ambos contenedores las versiones o huellas de los
+   Verificar dentro de los contenedores afectados las versiones o huellas de los
    ficheros compartidos relevantes. La comprobación debe demostrar qué código
    ejecutan realmente; comparar solo el checkout o las etiquetas no sirve.
 
@@ -60,8 +65,8 @@ fuera de esta release y no permite continuar.
 
    **No continuar hacia HA real hasta que la validación aplicable termine
    correctamente y el usuario acepte expresamente el resultado local.** Si después cambia
-   código ejecutable, reconstruir ambos contenedores y repetir la validación
-   proporcional afectada.
+   código ejecutable, reconstruir los componentes afectados y repetir la
+   validación proporcional afectada.
 
 4. **Smoke test**
    ```bash

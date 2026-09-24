@@ -21,6 +21,11 @@ with patch.object(ui,'known_site_select_options',return_value='<option value="">
     print(ui.render_observation_form_modal([],catalogs,row,modal_id='edit-fixture',action='update_observation',title='Fixture'))
 print(recovery_ui.script())
 print(recovery_ui.map_assets())
+from tests.test_web_server_auth import load_web_server_module
+page=load_web_server_module().html_page('Fixture','',auto_refresh=False).decode()
+start=page.index('    function applySelectedObservationExifPreview(')
+end=page.index('    function openObservationImageReplaceModal(',start)
+print('<script>'+page[start:end]+'</script>')
 `],{encoding:'utf8'});
 const checks=String.raw`
 (async()=>{
@@ -69,6 +74,24 @@ const checks=String.raw`
    eq(new FormData(form).getAll('observed_host_ids'),[],'replaced hosts keep GIS provenance on submit');
    const reopened=form.cloneNode(true);document.body.append(reopened);window.rainmapperObservationGIS.refresh();
    eq(reopened.querySelector('[value=host_pine]').indeterminate,true,'saved GIS rehydrates on reopening form');reopened.remove();
+   const accepted=form.elements.gis_recovery_json.value;
+   let photo={lat:43,lon:3,observed_at:'2026-09-21',filename:'new.jpg'};
+   window.observationExifPreviewState={form,input:null};
+   window.selectedObservationExifPreview=()=>photo;
+   window.closeObservationExifPreview=()=>{};
+   window.applySelectedObservationExifPreview('keep','image_only');
+   eq(form.elements.gis_recovery_json.value,accepted,'image-only replacement preserves accepted GIS');
+   photo.lat=42.000000001;photo.lon=2;
+   window.applySelectedObservationExifPreview('keep','image_and_exif');
+   eq(form.elements.gis_recovery_json.value,accepted,'EXIF at the same normalized location preserves GIS');
+   photo.lat=43;photo.lon=3;
+   window.applySelectedObservationExifPreview('keep','image_and_exif');
+   eq(value(),{},'EXIF at a new location discards stale GIS before saving');
+   eq(form.querySelectorAll('.gis-selected').length,0,'EXIF clears stale GIS marks immediately');
+   eq(form.querySelector('[data-observation-gis-status]').textContent.includes('punto anterior'),true,'location warning visible before save');
+   eq(form.querySelector('[value=soil_old]').checked,false,'EXIF does not recreate manual evidence');
+   form.elements.location_lat.value='42';form.elements.location_lon.value='2';
+   form.elements.gis_recovery_json.value=accepted;window.rainmapperObservationGIS.refresh();
    form.querySelector('[value=host_pine]').closest('label').click();
    eq(value().values.host_ids,undefined,'click removes a GIS host from draft');
    eq(form.querySelector('[value=host_pine]').checked,false,'removal does not invent field evidence');
@@ -98,7 +121,7 @@ const checks=String.raw`
    eq(card.querySelectorAll('[data-coordinate-toolbar] button')[1].disabled,true,'original disabled state restored');
    eq(card.querySelector('input').value,'original','inspector preserves site assignment');
    eq(submits,0,'inspector never saves');
-   status.textContent='PASS footer position, separate modal, keep, merge, replace, cancel, coordinate invalidation, no save and open form';
+   status.textContent='PASS footer position, separate modal, keep, merge, replace, cancel, EXIF/image-only coordinate invalidation, no save and open form';
  } catch(error) {status.textContent='FAIL '+error.stack;}
 })();`;
 let chrome, socket;

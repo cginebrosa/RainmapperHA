@@ -35,6 +35,20 @@
     if(status&&footer&&status.parentElement!==footer)footer.append(status);
   }
   const refresh=()=>document.querySelectorAll('form:has([name=gis_recovery_json])').forEach(sync);
+  function coordinatesChanged(form) {
+    if(!form?.querySelector('[name=gis_recovery_json]'))return;
+    const value=saved(form);
+    if(!value.location)return;
+    const same=['lat','lon'].every(key=>{
+      const raw=input(form,'location_'+key)?.value?.trim();
+      return raw!=='' && raw!=null && Number.isFinite(Number(raw)) &&
+        Number(raw).toFixed(7)===Number(value.location[key]).toFixed(7);
+    });
+    if(same)return;
+    input(form,'gis_recovery_json').value='{}';sync(form);
+    if(active?.form===form)dialog.close();
+    form.querySelector('[data-observation-gis-status]').textContent='La ubicación ha cambiado. Los datos GIS aceptados correspondían al punto anterior: recupera GIS / DEM para la nueva ubicación antes de guardar.';
+  }
   let dialog, active;
   function modal() {
     if(dialog)return dialog;
@@ -149,5 +163,5 @@
     sync(form);
   });
   window.addEventListener('hashchange',()=>{refresh();if(active&&location.hash!=='#'+active.form.closest('.modal-layer')?.id)dialog.close();});
-  window.rainmapperObservationGIS={refresh};refresh();
+  window.rainmapperObservationGIS={refresh,coordinatesChanged};refresh();
 })();

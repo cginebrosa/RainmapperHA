@@ -1,10 +1,72 @@
-# Contexto activo — HA 0.2.321 publicada, instalación pendiente (24/09/2026)
+# Contexto activo — HA 0.2.322 publicada, instalación pendiente (24/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este archivo basta para
 retomar; [todo.md](todo.md) amplía las prioridades. No arrancar leyendo informes
 ni el [archivo histórico](reports/session-context-before-close-2026-09-22.md).
 
-## Estado actual: release HA 0.2.321
+## Estado actual: release HA 0.2.322 (24/09)
+
+- Usuario acepta la UI local y autoriza publicar. GHCR **0.2.322/latest**
+  verificados con digest común
+  `sha256:473829410c365aa76c4b606c84956af72f7987ee8b2c24411ba25a5883efe67c`,
+  manifests amd64/arm64; script terminado con código 0.
+- Incluye filtro Favorable / Desfavorable / Todas en observaciones y aviso
+  inmediato de GIS obsoleto al aplicar EXIF de otra ubicación. Detalles abajo.
+- Smoke **1.754 pruebas, 52 skips, OK** (79,759 s); navegador del filtro y del
+  flujo GIS/EXIF OK. HA local reconstruido/recreado: **224 archivos sin diferencias**.
+  Tras validación, sólo bump, cache-busters, changelog y documentación.
+- **Regla general adicional del usuario:** reconstruir/recrear el worker sólo
+  si el cambio afecta al código que ejecuta, dependencias, empaquetado, contratos
+  o artefactos que consume/produce. UI/presentación no lo exige. Actualizados
+  `AGENTS.md`, `release-flow.md` y `codex-start-here.md`.
+- El build del worker iniciado bajo la regla anterior terminó antes de detenerlo,
+  pero **su contenedor no se recreó ni reinició**. Destinos/credenciales e identidad
+  intactos. Trabajo activo al inicio, finalizado por sí mismo durante las comprobaciones.
+  Ningún entrenamiento/precálculo lanzado para esta release.
+- Observaciones privadas excluidas de commit e imagen. El JSON local cambió durante
+  la sesión concurrente; no afirmar igualdad de su hash inicial/final. Política de
+  predicción/suspensiones y JSON privado del repo sí mantienen sus huellas.
+- Código, pruebas, versión y cierre documental en un único commit
+  `Release Home Assistant 0.2.322`; consultar Git para hash y estado de push.
+  [Informe](reports/release-ha-0.2.322-2026-09-24.md).
+- Instalación en HA real a cargo del usuario; no realizada por el agente.
+
+## Incluido en 0.2.322: GIS al duplicar y cargar EXIF (24/09)
+
+- Caso del usuario aclarado: duplicar conserva GIS; cargar una foto con EXIF de
+  otro punto cambia coordenadas. El formulario dejaba visibles las marcas GIS del
+  punto anterior y `valid_recovery` las descartaba al guardar por ubicación distinta.
+- Corregida la UI: después de aplicar EXIF compara la ubicación con la recuperación
+  aceptada, retira GIS obsoleto y avisa antes de guardar. Imagen sin EXIF aplicado,
+  misma ubicación normalizada y evidencia manual se conservan. No se ha relajado
+  la validación geográfica ni trasladado evidencia GIS a coordenadas diferentes.
+- 11 pruebas dirigidas OK y navegador aislado usando la función EXIF real OK.
+  HA local reconstruido/recreado: HTTP 200 y 224 archivos efectivos sin diferencias,
+  huella `c14aa8c46ae023b27e5c1b9f279ac22d23e177b570e24e3d1076fa1887ce1bf2`.
+  Logs `/private/tmp/rainmapper-gis-exif-{browser,build}.log`.
+- Observaciones repo/local y política intactas durante despliegue; worker sin
+  reiniciar. Sin entrenamiento ni precálculo. Publicado ahora en 0.2.322; instalación real
+  pendiente del usuario.
+
+## Incluido en 0.2.322: filtro de observaciones (24/09)
+
+- Favorable / Desfavorable / Todas sobre el selector, Todas al entrar. Sólo
+  `prediction_favorable` numérico igual a 1 es favorable; resto, incluido código
+  ausente/desconocido, desfavorable. Recuentos por especie y puntos/grupos cambian
+  juntos, sin filtrar fechas. Retirado «Todas las fechas».
+- Tabla recibida una vez al entrar; comparación de `flush_abundance` en memoria,
+  sin nuevas peticiones al cambiar filtro. El visor vacía/libera tabla y datos al
+  salir. Snapshot del servidor compartido e invalidado al cambiar las fuentes.
+- 24 pruebas dirigidas OK y navegador OK: selección inicial, clasificación,
+  recuentos, agrupaciones, cero peticiones adicionales y catálogo nuevo al reentrar.
+  HA local reconstruido/recreado, HTTP 200, 224 archivos efectivos sin diferencias.
+  Datos locales: 518 observaciones, 290 favorables; tabla de 8 entradas/109 bytes.
+  Logs `/private/tmp/rainmapper-observations-filter-{browser,build}.log`.
+- Observaciones repo/local y política/suspensiones con hashes intactos respecto
+  al inicio de esta actualización. Worker sin reiniciar. Sin entrenamiento,
+  precálculo en esa validación. **Publicado ahora en GHCR 0.2.322.**
+
+## Publicación anterior: HA 0.2.321
 
 - Usuario acepta la UI local y autoriza publicar. **GHCR 0.2.321/latest
   verificados**, mismo digest

@@ -194,8 +194,11 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - No hacer bump, build ni publicación HA sin petición explícita. Antes de una
   release, leer y seguir `docs/release-flow.md`.
 - Todo cambio ejecutable destinado a HA real debe probarse primero construyendo
-  HA local y el worker desde el mismo source antes de una release, según
-  `release-flow.md`. La prueba debe recorrer el circuito funcional afectado; compilar por sí solo no
+  HA local. Reconstruir/recrear el worker sólo si cambian código que ejecuta,
+  dependencias, empaquetado, contratos o artefactos que consume/produce; en ese
+  caso verificar ambos desde el mismo source. UI/presentación no obliga a tocar
+  el worker. Regla general aclarada el 24/09/2026, según `release-flow.md`.
+  La prueba debe recorrer el circuito funcional afectado; compilar por sí solo no
   constituye validación. Solo después de la aceptación se publica o instala HA
   real.
 - Entrenamiento y precálculo sólo son obligatorios si el cambio afecta a esos

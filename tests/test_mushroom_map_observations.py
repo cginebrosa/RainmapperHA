@@ -24,7 +24,7 @@ class ObservationOverlayTests(unittest.TestCase):
         self.write('mushroom_profiles.json',{'species_profiles':[{'species_id':'sp','scientific_name':'Species name'}]})
         self.write('mushroom_reference_catalogs.json',{'catalogs':{'host_taxa':[{'id':'pine','scientific_name':'Pinus','common_names':{'es':['Pino'],'ca':['Pi'],'en':[]}}],
           'forest_types':[{'id':'forest','label':{'es':'Bosque','en':'Forest','ca':'Bosc'}}],
-          'observation_flush_abundance':[{'id':'abundant','label':{'es':'Abundante'}}]}})
+          'observation_flush_abundance':[{'id':'abundant','label':{'es':'Abundante'},'prediction_favorable':1}]}})
         self.write('sites.json',{'areas':[{'area_id':'a','name':'Area'}],'micro_areas':[{'micro_area_id':'m','area_id':'a','name':'Micro'}]})
 
     def write(self,name,data):
@@ -32,10 +32,11 @@ class ObservationOverlayTests(unittest.TestCase):
 
     def test_counts_points_and_details_preserve_duplicates_and_dates(self):
         index=overlay.response('species',{})
-        self.assertEqual(index['species'],[{'id':'sp','name':'Species name','count':3,'mapped_count':3}])
+        self.assertEqual(index['species'],[{'id':'sp','name':'Species name','count':3,'mapped_count':3,'favorable_count':3}])
         points=overlay.response('points',{'species_id':'sp','reference_date':'2025-01-01'})
         self.assertEqual(len(points['points']),3)
         self.assertEqual([r[3] for r in points['points']],['2020-01-01','2030-01-01','2030-01-01'])
+        self.assertEqual([r[4] for r in points['points']],['abundant']*3)
         detail=overlay.response('detail',{'id':'o0','lang':'ca'})['observation']
         self.assertEqual((detail['area'],detail['microarea'],detail['forest']),('Area','Micro',['Bosc']))
         self.assertEqual(detail['hosts'],['Pi'])
@@ -89,6 +90,37 @@ class ObservationOverlayTests(unittest.TestCase):
             overlay.snapshot()
         with mock.patch.object(overlay,'MAX_RESPONSE_BYTES',10),self.assertRaisesRegex(overlay.ObservationError,'response_limit'):
             overlay.encode({'value':'long enough'})
+
+    def test_favorable_table_uses_only_numeric_one_and_caches_catalog(self):
+        catalog={'catalogs':{'observation_flush_abundance':[
+            {'id':key,'prediction_favorable':value} for key,value in
+            [('one',1),('float',1.0),('zero',0),('two',2),('string','1'),('boolean',True),('null',None)]]}}
+        catalog['catalogs']['observation_flush_abundance'].append({'id':'missing'})
+        self.write('mushroom_reference_catalogs.json',catalog)
+        keys=['one','float','zero','two','string','boolean','null','missing','unknown','']
+        rows=[{**self.rows[0],'observation_id':f'f{i}','flush_abundance':key} for i,key in enumerate(keys)]
+        rows[0]['location']={}  # Counts include the favorable observation without a marker.
+        self.write('mushroom_observations.json',{'observations':rows})
+        initial=overlay.response('species',{})
+        self.assertEqual(initial['abundance_favorable'],{k:int(k in ('one','float')) for k in keys[:-2]})
+        self.assertEqual(initial['species'][0]['favorable_count'],2)
+        self.assertEqual(initial['species'][0]['count'],10)
+        self.assertEqual(initial['species'][0]['mapped_count'],9)
+        with mock.patch.object(overlay,'_read',side_effect=AssertionError('Catalog must remain cached')):
+            self.assertEqual(overlay.response('species',{}),initial)
+            points=overlay.response('points',{'species_id':'sp'})
+            overlay.response('detail',{'id':'f1'})
+        self.assertNotIn('abundance_favorable',points)
+        self.assertEqual([r[4] for r in points['points']],keys[1:])
+        catalog['catalogs']['observation_flush_abundance'][0]['prediction_favorable']=0
+        self.write('mushroom_reference_catalogs.json',catalog)
+        with self.assertRaisesRegex(overlay.ObservationError,'observations_changed'):
+            overlay.response('points',{'species_id':'sp','revision':initial['revision']})
+        self.assertEqual(overlay.response('species',{})['species'][0]['favorable_count'],1)
+
+    def test_abundance_table_is_bounded_before_building(self):
+        with mock.patch.object(overlay,'MAX_ABUNDANCES',0),self.assertRaisesRegex(overlay.ObservationError,'source_limit'):
+            overlay.response('species',{})
 
     def test_accepted_gis_is_displayed_with_manual_values_and_provenance(self):
         self.rows[0]['site_context']={'observed_host_ids':['manual','pine'], 'gis_recovery': {

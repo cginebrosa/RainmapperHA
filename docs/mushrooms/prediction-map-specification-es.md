@@ -2284,6 +2284,22 @@ Volver a pulsar el contador del grupo abierto también lo repliega, cerrando su
 ficha si la hubiera. Pulsar por segunda vez la seta de la observación abierta
 cierra la ficha, incluso durante la carga. Otra seta abre su propia ficha.
 
+Filtro de resultado (HA 0.2.322, 24/09): Favorable / Desfavorable / Todas
+sobre el desplegable; Todas por defecto cada vez que se activa el modo. Favorable
+significa exclusivamente `prediction_favorable` numérico igual a 1 en el catálogo
+`observation_flush_abundance` para el `flush_abundance` guardado. Todos los demás
+valores, incluido un código ausente/desconocido, son desfavorables. Cambia los
+puntos, agrupaciones y recuentos por especie; una especie sin coincidencias
+permanece seleccionable con recuento cero. No filtra por fecha histórica.
+
+La respuesta inicial de especies añade una tabla compacta `abundance_favorable`
+(máximo 64 entradas) y `favorable_count` por especie. Cada punto incluye el código
+de abundancia como quinta columna. El visor guarda la tabla en un `Map` durante
+la sesión del modo; cambia el filtro sin consultar catálogo ni volver a pedir
+puntos. Al salir vacía/libera tabla, puntos y especies. El servidor conserva su
+snapshot compacto compartido entre usuarios, invalidado al cambiar las fuentes;
+no vuelve a leer el catálogo por observación. Se retira el texto «Todas las fechas».
+
 Disponibilidad móvil: opción general del complemento
 `maplibre_observations_mobile_enabled: false` en `config.yaml` (options/schema),
 traducida por `run.sh` a `RAINMAPPER_MAPLIBRE_OBSERVATIONS_MOBILE_ENABLED` y servida

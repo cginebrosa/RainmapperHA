@@ -57,13 +57,16 @@ PROHIBIDO usar HA real como primer entorno de integración o actualizarlo con
 código que no haya completado antes el circuito local equivalente.
 
 HA local es la puerta de aceptación obligatoria de la versión que se pretende
-usar en HA real, no un laboratorio opcional. Una ejecución local con cualquiera
-de las dos imágenes sin reconstruir no cuenta como validación.
+usar en HA real, no un laboratorio opcional. La imagen del componente afectado
+debe reconstruirse para que su ejecución cuente como validación.
 
 Antes de autorizar una release o actualización de HA real, reconstruir desde el
-mismo estado del worktree tanto la imagen de HA local como la imagen del worker
-de pruebas; recrear ambos contenedores y comprobar dentro de ellos que las
-versiones o huellas efectivas corresponden a ese mismo código. No basta con que
+mismo estado del worktree la imagen de HA local, recrearla y comprobar su código
+efectivo. Reconstruir/recrear también el worker sólo si el cambio afecta al código
+que ejecuta, sus dependencias, empaquetado, contratos o artefactos consumidos o
+producidos. En ese caso comprobar la paridad de ambos desde el mismo código.
+Los cambios exclusivos de UI/presentación no requieren reconstruir ni reiniciar
+el worker, aunque su Dockerfile copie módulos compartidos que no utiliza. No basta con que
 el repositorio, los tests o las etiquetas de las imágenes coincidan: hay que
 verificar el código que ejecutan realmente los contenedores.
 
@@ -76,8 +79,8 @@ artefactos persistidos, no solo la salida del build o que el programa compile.
 Cambios de UI, permisos, presentación o mensajes requieren pruebas dirigidas,
 navegador cuando corresponda y smoke de release; no entrenamiento/precálculo
 por el mero hecho de tocar un archivo del coordinador o del worker. Regla general
-acordada con el usuario el 24/09/2026, no excepción por versión. Conservar la
-reconstrucción y paridad local anteriores; el usuario lanza los trabajos operativos.
+acordada con el usuario el 24/09/2026, no excepción por versión. Aplicar la
+reconstrucción/paridad sólo a los componentes afectados; el usuario lanza los trabajos operativos.
 
 Solo después de que la validación local aplicable termine correctamente y el usuario acepte
 expresamente el resultado se puede construir/publicar la release e instalarla o

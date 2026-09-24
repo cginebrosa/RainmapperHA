@@ -8,8 +8,15 @@ export function createObservationsMode(bridge) {
   bridge.after().after(button);
   const panel=document.createElement('section'); panel.id='observations-mode-panel'; panel.className='om-panel';panel.hidden=true;
   const heading=document.createElement('label'), select=document.createElement('select'), status=document.createElement('p');
+  const filters=document.createElement('fieldset');filters.className='om-outcome-filter';
+  const legend=document.createElement('legend');legend.className='om-visually-hidden';filters.append(legend);
+  const filterInputs=['favorable','unfavorable','all'].map(value=>{
+    const label=document.createElement('label'),input=document.createElement('input'),caption=document.createElement('span');
+    input.type='radio';input.name='observations-outcome';input.value=value;input.checked=value==='all';
+    label.append(input,caption);filters.append(label);return {input,caption,value};
+  });
   select.id='observations-species';heading.htmlFor=select.id; status.className='om-status';status.setAttribute('role','status');
-  panel.append(heading,select,status);
+  panel.append(filters,heading,select,status);
   const layer=document.createElement('div');layer.className='om-overlay';
   const legs=document.createElementNS('http://www.w3.org/2000/svg','svg');legs.classList.add('om-legs');legs.setAttribute('aria-hidden','true');
   const markers=document.createElement('div');markers.className='om-markers';layer.append(legs,markers);
@@ -18,12 +25,14 @@ export function createObservationsMode(bridge) {
   for(const type of ['click','dblclick','pointerdown','mousedown','touchstart','wheel']) panel.addEventListener(type,e=>e.stopPropagation());
   let enabled=false, destroyed=false, serial=0, controller=null, popup=null, points=[], species=[], revision='', expanded=null, page=0;
   let detailController=null, currentDetail=null;
+  let abundanceFlags=null, outcome='all', loadingPoints=false;
   const date=value=>/^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0,10).split('-').reverse().join('/') : value;
   const mushroom='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13C3 1 21 1 21 13Z" fill="#e85d41"/><path d="M9 13h6l2 8H7Z" fill="#fff2d1"/><path d="M3 13C3 1 21 1 21 13ZM9 13l-2 8h10l-2-8" fill="none" stroke="#533321" stroke-width="1.5"/><circle cx="8" cy="9" r="1.5" fill="white"/><circle cx="15" cy="7" r="1.5" fill="white"/></svg>';
   function closeDetail() {detailController?.abort();detailController=null;popup?.remove();popup=null;currentDetail=null;}
   function clear() {markers.replaceChildren();legs.replaceChildren();}
   function deactivate() {
     enabled=false;serial++;controller?.abort();closeDetail();points=[];species=[];revision='';expanded=null;
+    abundanceFlags?.clear();abundanceFlags=null;loadingPoints=false;setOutcome('all');
     button.setAttribute('aria-pressed','false');panel.hidden=true;clear();select.replaceChildren();
   }
   async function get(action, params, signal) {
@@ -39,22 +48,28 @@ export function createObservationsMode(bridge) {
   function options() {
     const previous=select.value;select.replaceChildren();
     const empty=document.createElement('option');empty.value='';empty.textContent=text('obs_choose');select.append(empty);
-    for(const row of species) {const option=document.createElement('option');option.value=row.id;option.textContent=`${row.name} (${row.count})`;select.append(option);}
+    for(const row of species) {const option=document.createElement('option');option.value=row.id;option.textContent=`${row.name} (${speciesCount(row)})`;select.append(option);}
     select.value=previous;
   }
   async function activate() {
+    setOutcome('all');filters.disabled=true;
     enabled=true;button.setAttribute('aria-pressed','true');panel.hidden=false;status.textContent=text('obs_loading');
     const own=++serial;controller?.abort();controller=new AbortController();select.disabled=true;
     try {
       const data=await get('species',{},controller.signal);
       if(own!==serial || !enabled)return;
-      species=data.species;revision=data.revision;options();status.textContent=species.length?text('obs_all_dates'):text('obs_empty');
+      const flags=data.abundance_favorable;
+      if(!flags || typeof flags!=='object' || Array.isArray(flags) || Object.keys(flags).length>64)throw Error('observations_unavailable');
+      abundanceFlags=new Map(Object.entries(flags));
+      species=data.species;revision=data.revision;options();status.textContent=species.length?'':text('obs_empty');
     } catch(error) {showError(error);}
-    finally {if(own===serial)select.disabled=false;}
+    finally {if(own===serial){select.disabled=false;filters.disabled=!abundanceFlags;}}
   }
   async function choose() {
     const sid=select.value,own=++serial;controller?.abort();controller=new AbortController();closeDetail();points=[];expanded=null;clear();
-    if(!sid){status.textContent=text('obs_all_dates');return;}
+    loadingPoints=false;
+    if(!sid){status.textContent='';return;}
+    loadingPoints=true;
     status.textContent=text('obs_loading');
     try {
       let offset=0;const loaded=[];
@@ -64,14 +79,23 @@ export function createObservationsMode(bridge) {
         if(data.revision!==revision || !Array.isArray(data.points) || loaded.length+data.points.length>10000)throw Error('observations_changed');
         loaded.push(...data.points);offset=data.next_offset;
       } while(offset!==null);
-      points=loaded;render();summary();
+      points=loaded;loadingPoints=false;render();summary();
     } catch(error) {showError(error);}
+    finally {if(own===serial)loadingPoints=false;}
+  }
+  function setOutcome(value){outcome=value;for(const row of filterInputs)row.input.checked=row.value===value;}
+  function matches(row){const favorable=abundanceFlags?.get(row[4])===1;return outcome==='all'||(outcome==='favorable'?favorable:!favorable);}
+  function speciesCount(row){return outcome==='all'?row.count:outcome==='favorable'?row.favorable_count:row.count-row.favorable_count;}
+  function filterChanged(value){
+    setOutcome(value);closeDetail();expanded=null;page=0;options();render();summary();
   }
   function summary() {
+    if(loadingPoints)return;
     if(select.value) {
       const row=species.find(r=>r.id===select.value);
-      status.textContent=`${points.length} / ${row?.count||points.length} · ${text('obs_all_dates')}`;
-    }
+      const visible=points.reduce((count,point)=>count+Number(matches(point)),0);
+      status.textContent=`${visible} / ${row?speciesCount(row):visible}`;
+    } else status.textContent=species.length?'':text('obs_empty');
   }
   function marker(x,y,items,spider=false) {
     const node=document.createElement('button');node.type='button';node.className=`om-marker${spider?' om-spider':''}`;
@@ -109,7 +133,7 @@ export function createObservationsMode(bridge) {
     const canvas=map.getCanvas(),w=canvas.clientWidth,h=canvas.clientHeight;
     // Pixel grouping combines exact coincidences and overlapping icons at this zoom.
     const groups=new Map();
-    for(const row of points){const p=map.project([row[1],row[2]]);if(p.x<-24||p.y<-24||p.x>w+24||p.y>h+24)continue;
+    for(const row of points){if(!matches(row))continue;const p=map.project([row[1],row[2]]);if(p.x<-24||p.y<-24||p.x>w+24||p.y>h+24)continue;
       const key=`${Math.floor(p.x/44)}:${Math.floor(p.y/44)}`;
       if(!groups.has(key))groups.set(key,{x:p.x,y:p.y,items:[]});groups.get(key).items.push(row);
     }
@@ -176,7 +200,8 @@ export function createObservationsMode(bridge) {
   }
   function collapse(){if(expanded){expanded=null;render();}}
   function moving(){expanded=null;clear();}
-  function refreshLanguage(){button.title=button.ariaLabel=text('obs_show');heading.textContent=text('obs_species');select.ariaLabel=text('obs_species');options();if(enabled){summary();render();if(currentDetail)detail(currentDetail);}}
+  function refreshLanguage(){button.title=button.ariaLabel=text('obs_show');legend.textContent=text('obs_outcome');for(const row of filterInputs)row.caption.textContent=text(`obs_outcome_${row.value}`);heading.textContent=text('obs_species');select.ariaLabel=text('obs_species');options();if(enabled){summary();render();if(currentDetail)detail(currentDetail);}}
+  for(const row of filterInputs)row.input.addEventListener('change',()=>{if(row.input.checked)filterChanged(row.value);});
   button.onclick=()=>enabled?deactivate():activate();select.onchange=choose;
   map.on('click',collapse);map.on('movestart',moving);map.on('moveend',render);map.on('resize',render);
   const escape=e=>{if(e.key==='Escape'){closeDetail();collapse();}};document.addEventListener('keydown',escape);

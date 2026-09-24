@@ -95,6 +95,7 @@ let ecologyFixture = null;
 let modelFixture = null;
 let applicabilityDetailChanged = false, applicabilityDetailFailure = false;
 let observationMoon = {category:'waning',illuminated_fraction:.0815,waxing:false};
+let observationFavorableFlags = {normal:1,scarce:1,absent:0};
 const asyncQueries = new Map();
 // Manual preview measures actual reader/transport time; no artificial delay.
 const station = { type: "Feature", geometry: { type: "Point", coordinates: [1.9, 42] },
@@ -145,8 +146,8 @@ const server = createServer(async (req, res) => {
       observationCalls++;
       if(!observationsAllowed)return send({error:'forbidden'},'application/json',403);
       const revision='observations-test';
-      if(name==='species')return send({revision,species:[{id:'obs-sp',name:'Observed species',count:4,mapped_count:4}]});
-      if(name==='points')return send({revision,points:[['obs-a',1.9,42,'2020-01-01'],['obs-b',1.9,42,'2030-01-01'],['obs-c',1.9,42,'2030-01-01'],['obs-d',1.94,42,'2021-02-03']],next_offset:null});
+      if(name==='species')return send({revision,abundance_favorable:observationFavorableFlags,species:[{id:'obs-sp',name:'Observed species',count:4,mapped_count:4,favorable_count:['normal','absent','unknown','scarce'].filter(key=>observationFavorableFlags[key]===1).length}]});
+      if(name==='points')return send({revision,points:[['obs-a',1.9,42,'2020-01-01','normal'],['obs-b',1.9,42,'2030-01-01','absent'],['obs-c',1.9,42,'2030-01-01','unknown'],['obs-d',1.94,42,'2021-02-03','scarce']],next_offset:null});
       if(name==='detail')return send({revision,observation:{id:url.searchParams.get('id'),species:'Observed species',date:'2030-01-01',area:'Test area',microarea:'Test microarea',abundance:'Abundante',hosts:['Pinus','Quercus'],forest:['Pinar'],gis:{hosts:[1],forest:[0]},moon:observationMoon,observer:'<script>Not HTML</script>'}});
     }
     if (name === "demo" || name === "queries") {
@@ -1211,6 +1212,22 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('#observations-species option')[1].textContent"),'Observed species (4)');
   await evaluate("document.getElementById('observations-species').value='obs-sp';document.getElementById('observations-species').dispatchEvent(new Event('change'))");
   await until("!!document.querySelector('.om-cluster')");
+  assert.equal(await evaluate("document.querySelector('.om-outcome-filter input:checked').value"),'all');
+  assert.ok(await evaluate("document.querySelector('.om-outcome-filter').getBoundingClientRect().bottom<document.getElementById('observations-species').getBoundingClientRect().top"));
+  const beforeOutcomeFilter=observationCalls;
+  await evaluate("document.querySelector('.om-outcome-filter input[value=favorable]').click()");
+  assert.equal(await evaluate("document.querySelectorAll('#observations-species option')[1].textContent"),'Observed species (2)');
+  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.om-marker'),n=>n.dataset.observationId).sort()"),['obs-a','obs-d']);
+  assert.equal(await evaluate("document.querySelector('.om-status').textContent"),'2 / 2');
+  await evaluate("document.querySelector('.om-outcome-filter input[value=unfavorable]').click()");
+  assert.equal(await evaluate("document.querySelector('.om-cluster').textContent"),'2');
+  await evaluate("document.querySelector('.om-cluster').click()");
+  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.om-spider'),n=>n.dataset.observationId).sort()"),['obs-b','obs-c']);
+  await evaluate("document.querySelector('.om-outcome-filter input[value=all]').click()");
+  assert.equal(await evaluate("document.querySelectorAll('.om-spider').length"),0);
+  assert.equal(await evaluate("document.querySelector('.om-status').textContent"),'4 / 4');
+  assert.ok(await evaluate("!document.getElementById('observations-mode-panel').textContent.includes('Todas las fechas')"));
+  assert.equal(observationCalls,beforeOutcomeFilter,'Filtering uses the in-memory catalog and loaded points');
   await evaluate("document.getElementById('prediction-mode-toggle').click()");
   await until("document.getElementById('prediction-mode-toggle').getAttribute('aria-pressed')==='true'");
   const beforeObservationClick=calls;
@@ -1265,6 +1282,17 @@ try {
   await until("document.querySelectorAll('.om-spider').length===0");
   await evaluate("document.getElementById('observations-mode-toggle').click()");
   assert.equal(await evaluate("document.querySelectorAll('.om-marker').length"),0);
+  observationFavorableFlags={normal:0,scarce:1,absent:0};
+  await evaluate("document.getElementById('observations-mode-toggle').click()");
+  await until("document.querySelectorAll('#observations-species option').length===2");
+  assert.equal(await evaluate("document.querySelector('.om-outcome-filter input:checked').value"),'all','Re-entering resets to All');
+  await evaluate("document.querySelector('.om-outcome-filter input[value=favorable]').click()");
+  assert.equal(await evaluate("document.querySelectorAll('#observations-species option')[1].textContent"),'Observed species (1)','Re-entering reloads the catalog classification');
+  await evaluate("document.getElementById('observations-species').value='obs-sp';document.getElementById('observations-species').dispatchEvent(new Event('change'))");
+  await until("document.querySelector('.om-status').textContent==='1 / 1'");
+  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.om-marker'),n=>n.dataset.observationId)"),['obs-d']);
+  await evaluate("document.getElementById('observations-mode-toggle').click()");
+  observationFavorableFlags={normal:1,scarce:1,absent:0};
   const beforeMobile=observationCalls;
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await until("!document.getElementById('observations-mode-toggle')");

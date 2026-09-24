@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.322
+
+- Add Favorable / Unfavorable / All filters above the observation species selector, with All selected by default and matching species counts and markers.
+- Load abundance favorability from the reference catalog once per observation-map session and release the client lookup on exit; remove the all-dates caption.
+- Clear stale GIS selections and explain the location change immediately after importing EXIF from a different point; preserve accepted GIS when replacing only the image or keeping the same location.
+
 ## 0.2.321
 
 - Add an optional observation map layer with species counts, dated mushroom markers and expandable groups; keep per-user access and mobile availability disabled by default.

@@ -86,6 +86,28 @@ class RecoveryFormTests(unittest.TestCase):
         self.assertNotIn('gis_recovery', moved['site_context'])
         self.assertEqual(moved['site_context']['observed_host_ids'], ['host_quercus_spp'])
 
+    def test_duplicate_with_new_exif_keeps_gis_only_for_its_original_point(self):
+        report = RecoveryTests().report()
+        report['values'].update(forest_type_ids=['forest_mixed'],
+                                soil_tendency_ids=['soil_calcareous'])
+        report['sources'].update(forest_type_ids=['mvc50'],
+                                 soil_tendency_ids=['geology_50000'])
+        source = {'observation_id': 'original', 'location': {'lat': 42., 'lon': 2.},
+                  'site_context': {'gis_recovery': report}}
+        draft = self.web.mushroom_profiles_ui.observation_duplicate_template_row(source)
+        form = {'observation_species_id': ['boletus_edulis'], 'observed_at': ['2026-09-20'],
+                'location_lat': ['42'], 'location_lon': ['2'],
+                'observed_habitat_feature_ids': ['habitat_mossy'],
+                'gis_recovery_json': [json.dumps(draft['site_context']['gis_recovery'])]}
+        for lat, expected in [(42., report), (42.1, None)]:
+            with self.subTest(lat=lat):
+                imported = self.web.observation_form_with_exif_fields(form, {
+                    'lat': lat, 'lon': 2., 'observed_at': '2026-09-21', 'filename': 'new.jpg'})
+                row = self.web.observation_payload_from_form(imported, [])
+                self.assertEqual(row['site_context'].get('gis_recovery'), expected)
+                self.assertEqual(row['site_context']['observed_habitat_feature_ids'], ['habitat_mossy'])
+        self.assertEqual(source['site_context']['gis_recovery'], report)
+
     def test_microarea_apply_merges_draft_and_never_saves(self):
         row={'micro_area_id':'test', 'altitude':{'min_m':900}, 'ecology':{
             'host_ids':['host_quercus_spp'], 'soil_tendency_ids':['soil_siliceous']}}

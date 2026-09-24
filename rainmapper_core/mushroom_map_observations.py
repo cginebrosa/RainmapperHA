@@ -15,6 +15,7 @@ PERMISSION = 'can_use_observations_map'
 MAX_FILE_BYTES = 16 * 1024 * 1024
 MAX_RECORDS = 10000
 MAX_SPECIES = 128
+MAX_ABUNDANCES = 64
 PAGE_SIZE = 200
 MAX_RESPONSE_BYTES = 256 * 1024
 _lock = threading.Lock()
@@ -105,12 +106,19 @@ def snapshot():
             raise ObservationError('observations_source_limit', 413)
         profiles = _read(paths[1]).get('species_profiles', [])
         catalogs = _read(paths[2]).get('catalogs', {})
+        abundance_catalog = catalogs.get('observation_flush_abundance', [])
+        if not isinstance(abundance_catalog, list) or len(abundance_catalog) > MAX_ABUNDANCES:
+            raise ObservationError('observations_source_limit', 413)
+        abundance_favorable = {
+            _string(r['id'], 128): int(type(r.get('prediction_favorable')) in (int, float)
+                                      and r['prediction_favorable'] == 1)
+            for r in abundance_catalog}
         sites = _read(paths[3])
         species_names = {r['species_id']: _string(r.get('scientific_name') or r['species_id']) for r in profiles if isinstance(r, dict) and r.get('species_id')}
         areas = {r['area_id']: _string(r.get('name')) for r in sites.get('areas', [])}
         micros = {r['micro_area_id']: (_string(r.get('name')), areas.get(r.get('area_id'), '')) for r in sites.get('micro_areas', [])}
         labels = {key: {r['id']: _label(r) for r in catalogs.get(key, [])} for key in ('host_taxa', 'forest_types', 'observation_flush_abundance')}
-        records, by_species, counts = {}, {}, {}
+        records, by_species, counts, favorable_counts = {}, {}, {}, {}
         for row in source:
             if not isinstance(row, dict):
                 continue
@@ -128,12 +136,14 @@ def snapshot():
                       **fields, 'gis': gis,
                       'observer': _string((row.get('observer') or {}).get('name'))}
             records[oid] = record
+            favorable_counts[sid] = favorable_counts.get(sid, 0) + abundance_favorable.get(record['abundance'], 0)
             if record['coordinates']:
                 by_species.setdefault(sid, []).append(record)
         if _signature(paths) != signature:
             raise ObservationError('observations_changed', 409)
         _cache = {'signature': signature, 'revision': hashlib.sha256(repr(signature).encode()).hexdigest()[:24],
-                  'records': records, 'points': by_species, 'counts': counts, 'names': species_names, 'labels': labels}
+                  'records': records, 'points': by_species, 'counts': counts, 'names': species_names, 'labels': labels,
+                  'abundance_favorable': abundance_favorable, 'favorable_counts': favorable_counts}
         return _cache
 
 
@@ -148,8 +158,9 @@ def response(action, params):
         value = data['labels'][group].get(key, key)
         return value.get(lang) or value.get('en') or key if isinstance(value, dict) else value
     if action == 'species':
-        return {'revision': data['revision'], 'species': [
+        return {'revision': data['revision'], 'abundance_favorable': data['abundance_favorable'], 'species': [
             {'id': sid, 'name': data['names'].get(sid, sid), 'count': count,
+             'favorable_count': data['favorable_counts'][sid],
              'mapped_count': len(data['points'].get(sid, []))}
             for sid, count in sorted(data['counts'].items(), key=lambda item: data['names'].get(item[0], item[0]).casefold())]}
     if action == 'points':
@@ -164,7 +175,7 @@ def response(action, params):
         if offset < 0 or offset > len(points):
             raise ObservationError('invalid_offset')
         return {'revision': data['revision'], 'points': [
-            [r['id'], *r['coordinates'], r['date']] for r in points[offset:offset + PAGE_SIZE]],
+            [r['id'], *r['coordinates'], r['date'], r['abundance']] for r in points[offset:offset + PAGE_SIZE]],
             'next_offset': offset + PAGE_SIZE if offset + PAGE_SIZE < len(points) else None}
     if action == 'detail':
         row = data['records'].get(params.get('id'))
