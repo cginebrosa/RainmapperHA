@@ -1,4 +1,7 @@
 configuration:
+  maplibre_observations_mobile_enabled:
+    name: Allow observation map on mobile
+    description: Show the observation layer control on phones. Disabled by default; the user must also have Observation map access.
   external_worker_connections_enabled:
     name: Enable external worker connections
     description: Allow paired Rainmapper workers to connect to the dedicated private coordinator port.

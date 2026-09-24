@@ -1,4 +1,5 @@
 {
+  "maplibre_observations_mobile_enabled": false,
   "mode": "serve",
   "timezone": "Europe/Madrid",
   "ui_language": "es",

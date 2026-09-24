@@ -115,7 +115,7 @@ export function createHistoricalMode(bridge) {
     return ['year','month','day'].map(key => parts.find(p => p.type === key).value).join('-');
   }
   function refreshLanguage() {
-    button.title = button.ariaLabel = text('history_mode');
+    button.title = button.ariaLabel = text(referenceDate ? 'history_today' : 'history_mode');
     dialog.querySelector('h2').textContent = text('history_mode');
     dialog.querySelector('.hm-date-label').textContent = text('history_date');
     dialog.querySelector('.hm-help').textContent = text('history_help');
@@ -126,7 +126,7 @@ export function createHistoricalMode(bridge) {
     cancel.textContent = text('cancel'); apply.textContent = text('history_apply');
     today.textContent = text('history_today');
     badge.textContent = referenceDate ? `${text('history_mode')} · ${referenceDate.split('-').reverse().join('/')}${lastMetrics ? ` · ${lastMetrics.elapsed_s.toFixed(1)} s` : ''}` : '';
-    badge.title = `${text('history_today')}${lastMetrics ? ` · ${text(`execution_${lastMetrics.mode}`)}` : ''}`;
+    badge.title = `${text('history_date')}${lastMetrics ? ` · ${text(`execution_${lastMetrics.mode}`)}` : ''}`;
     renderCalendar();
   }
   function setBusy(value) {
@@ -152,14 +152,16 @@ export function createHistoricalMode(bridge) {
     status.textContent = ''; today.hidden = !referenceDate;
     refreshLanguage(); if (!dialog.open) dialog.showModal(); daysGrid.querySelector('[tabindex="0"]')?.focus({preventScroll:true});
   }
-  button.addEventListener('click', show); badge.addEventListener('click', show);
+  button.addEventListener('click',()=>referenceDate ? returnToday() : show());
+  badge.addEventListener('click', show);
   cancel.addEventListener('click',()=>{cancelWork(); dialog.close();});
   dialog.addEventListener('cancel',event=>{event.preventDefault();cancelWork();dialog.close();});
 
   async function page(request, signal) {
     const controller = new AbortController();
     const abort = () => controller.abort(); signal.addEventListener('abort',abort,{once:true});
-    const timer = setTimeout(abort, 60000);
+    let timedOut = false;
+    const timer = setTimeout(()=>{timedOut=true;abort();}, 60000);
     let id = null;
     try {
       let response = await bridge.fetch(`${bridge.config.apiBase}/queries`, {method:'POST', cache:'no-store', signal:controller.signal,
@@ -184,10 +186,22 @@ export function createHistoricalMode(bridge) {
       return data;
     } catch (error) {
       if (id) bridge.fetch(`${bridge.config.apiBase}/queries/${encodeURIComponent(id)}/cancel`, {method:'POST'}).catch(()=>{});
+      if(timedOut && !signal.aborted) throw Error('history_timeout');
       throw error;
     } finally {
       clearTimeout(timer); signal.removeEventListener('abort',abort); if(remote===id) remote=null;
     }
+  }
+  function fallbackMessage(error) {
+    const labels = {
+      map_data_not_ready:'history_fallback_updating', map_data_updating:'history_fallback_updating',
+      map_data_syncing:'history_fallback_syncing', worker_busy:'history_fallback_busy',
+      executor_unavailable:'execution_fallback', worker_history_unsupported:'history_fallback_unsupported',
+      worker_incompatible:'history_fallback_unsupported', history_timeout:'history_fallback_timeout',
+      history_invalid_response:'history_fallback_invalid', invalid_result:'history_fallback_invalid',
+    };
+    return text(Object.prototype.hasOwnProperty.call(labels,error.message) ? labels[error.message] :
+      (error instanceof TypeError ? 'history_fallback_connection' : 'history_fallback_failed'));
   }
   function features(data) {
     return data.rows.map(row=>{
@@ -202,7 +216,9 @@ export function createHistoricalMode(bridge) {
   }
   async function calculate(day, period, station=null, reuseExisting=true) {
     cancelWork(); const own=revision, controller=new AbortController(); pending=controller;
-    setBusy(true); status.textContent=`${text('history_calculating')} ${day}`;
+    const displayDay=day.split('-').reverse().join('/');
+    let fallbackNotice='';
+    setBusy(true); status.textContent=`${text('history_calculating')} ${displayDay}`;
     if(!station && !dialog.open) dialog.showModal();
     const started=performance.now(); let execution=bridge.execution(), offset=0, generation=station?.generation;
     const reuse=reuseExisting && !station && referenceDate===day && lastPeriod===period ? lastData : null;
@@ -217,14 +233,15 @@ export function createHistoricalMode(bridge) {
         try { result=await page(request,controller.signal); }
         catch(error) {
           if(controller.signal.aborted || execution!=='worker') throw error;
-          execution='local'; status.textContent=`${text('execution_fallback')} · ${text('history_calculating')} ${day}`;
+          execution='local'; fallbackNotice=fallbackMessage(error);
+          status.textContent=`${fallbackNotice} · ${text('history_calculating')} ${displayDay}`;
           result=await page({...request,execution,request_id:requestId()},controller.signal);
         }
         if(own!==revision || controller.signal.aborted) throw new DOMException('Cancelled','AbortError');
         generation=result.generation; rows.push(...features(result)); pages++;
         compute+=result.execution?.compute_ms||0; read+=result.execution?.rows_read||0;
         offset=result.next_offset;
-        status.textContent=`${text('history_calculating')} ${day} · ${Math.min(offset??result.total_stations,result.total_stations)}/${result.total_stations} · ${text(`execution_${execution}`)}`;
+        status.textContent=`${fallbackNotice ? fallbackNotice+' · ' : ''}${text('history_calculating')} ${displayDay} · ${Math.min(offset??result.total_stations,result.total_stations)}/${result.total_stations} · ${text(`execution_${execution}`)}`;
       } while(offset!==null);
       const combined=new Map((reuse?.features || []).map(f=>[`${f.properties.history_source}:${f.properties.history_code}`,f]));
       rows.forEach(f=>combined.set(`${f.properties.history_source}:${f.properties.history_code}`,f));
@@ -244,12 +261,13 @@ export function createHistoricalMode(bridge) {
     } catch(error) { if(error.name!=='AbortError') showError(error); }
   }
   form.addEventListener('submit',event=>{event.preventDefault();if(!busy && validDay(input.value)) changeDate(input.value);});
-  today.addEventListener('click',async()=>{
+  async function returnToday() {
     cancelWork(); bridge.cancelPrediction(); const previous={referenceDate,lastData,lastPeriod,lastMetrics};
     referenceDate=null; lastData=null; lastPeriod=null; lastMetrics=null; stationCache.clear(); badge.hidden=true;
     button.setAttribute('aria-pressed','false'); dialog.close(); refreshLanguage();
     try {await bridge.reload();} catch(error) {({referenceDate,lastData,lastPeriod,lastMetrics}=previous); badge.hidden=false; button.setAttribute('aria-pressed','true');refreshLanguage();show();showError(error);}
-  });
+  }
+  today.addEventListener('click',returnToday);
   function moved() {
     clearTimeout(moveTimer);
     if (!referenceDate || busy || covered(lastData?.metadata.regions,bridge.bounds())) return;

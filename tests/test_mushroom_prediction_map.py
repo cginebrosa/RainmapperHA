@@ -138,6 +138,33 @@ class PredictionMapRouteTests(unittest.TestCase):
             only_history.do_GET();code,body=self.response(only_history)
             self.assertEqual(code,200);self.assertTrue(body[history.PERMISSION]);self.assertFalse(body[contract.PERMISSION])
 
+    def test_observations_permission_gates_every_read_and_defaults_off(self):
+        import mushroom_prediction_map_ui as ui
+        from rainmapper_core import mushroom_map_observations as overlay
+        for role in ('admin','pro','basic','free'):
+            self.assertFalse(self.web.user_auth_payload({'username':'test','role':role})[overlay.PERMISSION])
+        with mock.patch.object(overlay,'response',return_value={'species':[]}) as read:
+            for action in ('species','points','detail'):
+                path=contract.API_PATH+'/observations/'+action
+                for user in (None,{'username':'test','role':'admin'}, {'username':'test',contract.PERMISSION:True}):
+                    handler=self.handler(path,user=user);handler.do_GET()
+                    self.assertIn(self.response(handler)[0],(401,403))
+                read.assert_not_called()
+            handler=self.handler(contract.API_PATH+'/observations/points?species_id=sp&revision=rev',user={'username':'test',overlay.PERMISSION:True})
+            handler.do_GET();self.assertEqual(self.response(handler)[0],200)
+            read.assert_called_once_with('points',{'species_id':'sp','revision':'rev'})
+        with mock.patch.object(ui,'broker') as broker:
+            handler=self.handler(contract.API_PATH+'/capabilities',user={'username':'test',overlay.PERMISSION:True})
+            handler.do_GET();self.assertTrue(self.response(handler)[1][overlay.PERMISSION]);broker.assert_not_called()
+
+    def test_observations_mobile_setting_defaults_off(self):
+        import os
+        for configured in ('false','true'):
+            with mock.patch.dict(os.environ,{'RAINMAPPER_MAPLIBRE_OBSERVATIONS_MOBILE_ENABLED':configured}):
+                handler=self.handler('/protected/maplibre/config.js',user={'username':'test'})
+                handler.do_GET()
+                self.assertIn(('"observationsMobileEnabled": '+configured).encode(),handler.send_bytes.call_args.args[1])
+
     def test_capabilities_authorization_and_revocation(self):
         for user, status in ((None, 401), ({"role": "free", contract.PERMISSION: True}, 200),
                              ({"role": "admin"}, 403),
@@ -274,6 +301,45 @@ class PredictionMapRouteTests(unittest.TestCase):
         geography.reference.return_value = {'fingerprint': 'sha256:'+'c'*64}
         call('poll', ready_fingerprint=private['fingerprint'], ready_geography=public['fingerprint'])
         self.assertFalse(isolated.capabilities()['worker'])
+
+    def test_history_reports_publication_and_sync_reasons_until_worker_is_ready(self):
+        from rainmapper_core import mushroom_map_history as history
+        from rainmapper_core.mushroom_map_queries import QueryBroker, WORKER_PATH, QueryError
+        publication, geography = mock.Mock(), mock.Mock()
+        ref, geo = {'fingerprint': 'sha256:'+'a'*64}, {'fingerprint': 'sha256:'+'b'*64}
+        publication.reference.return_value, geography.reference.return_value = ref, geo
+        isolated = QueryBroker(publication=publication, geography=geography)
+        self.addCleanup(isolated.close)
+        ui = self.web.mushroom_prediction_map_ui
+        req = dict(contract=history.CONTRACT, request_id='history_reason_test', execution='worker',
+            start_date='2025-09-15', period='07d.geojson', offset=0, bounds=[1.,41.,3.,43.], calendar_timezone='Europe/Madrid')
+        def poll(**fields):
+            handler = self.handler(WORKER_PATH, body={'protocol':'map_report_v1',
+                'worker_id':'worker-test', 'action':'poll', 'capabilities':[history.CAPABILITY], **fields})
+            handler.auth_credentials = mock.Mock(return_value=('test-token',''))
+            with mock.patch.object(ui, '_broker', isolated):
+                ui.serve_worker_api(handler, lambda *_: True)
+            self.assertEqual(self.response(handler)[0], 200)
+        ready = dict(ready_fingerprint=ref['fingerprint'], ready_geography=geo['fingerprint'])
+        publication.reference.side_effect = QueryError('map_data_not_ready', 503)
+        poll(**ready)
+        with self.assertRaisesRegex(QueryError, 'map_data_updating'):
+            isolated.submit('alice', req)
+        publication.reference.side_effect = None
+        poll(ready_fingerprint=None, ready_geography=geo['fingerprint'])
+        with self.assertRaisesRegex(QueryError, 'map_data_syncing'):
+            isolated.submit('alice', req)
+        geography.reference.side_effect = QueryError('map_data_not_ready', 503)
+        poll(**ready)
+        with self.assertRaisesRegex(QueryError, 'map_data_updating'):
+            isolated.submit('alice', req)
+        geography.reference.side_effect = None
+        poll(ready_fingerprint=ref['fingerprint'], ready_geography=None)
+        with self.assertRaisesRegex(QueryError, 'map_data_syncing'):
+            isolated.submit('alice', req)
+        self.assertEqual(len(isolated.queries), 0)
+        poll(**ready)
+        self.assertEqual(isolated.submit('alice', req)['state'], 'queued')
 
     def test_private_runtime_requires_auth_and_matching_ready_reference(self):
         from rainmapper_core.mushroom_map_queries import QueryBroker, WORKER_PATH, QueryError

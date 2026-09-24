@@ -67,14 +67,19 @@ versiones o huellas efectivas corresponden a ese mismo código. No basta con que
 el repositorio, los tests o las etiquetas de las imágenes coincidan: hay que
 verificar el código que ejecutan realmente los contenedores.
 
-Cuando el cambio afecte al coordinador, al worker, a sus contratos o a los
-artefactos de entrenamiento/predicción, ejecutar mediante el worker el circuito
-local completo aplicable: asignación, reconstrucción, entrenamiento base,
-entrenamiento multiversión, recepción y promoción, precálculo, recepción y
-activación. Auditar los estados y artefactos persistidos, no solo la salida del
-build o que el programa compile.
+Entrenamiento y precálculo son obligatorios sólo cuando el cambio afecte a esos
+procesos, sus entradas, contratos operativos, ejecución o artefactos. Ejecutar
+mediante el worker las etapas afectadas y sus dependencias: asignación,
+reconstrucción, entrenamiento base/multiversión, recepción y promoción,
+precálculo, recepción y activación según corresponda. Auditar los estados y
+artefactos persistidos, no solo la salida del build o que el programa compile.
+Cambios de UI, permisos, presentación o mensajes requieren pruebas dirigidas,
+navegador cuando corresponda y smoke de release; no entrenamiento/precálculo
+por el mero hecho de tocar un archivo del coordinador o del worker. Regla general
+acordada con el usuario el 24/09/2026, no excepción por versión. Conservar la
+reconstrucción y paridad local anteriores; el usuario lanza los trabajos operativos.
 
-Solo después de que el circuito local termine correctamente y el usuario acepte
+Solo después de que la validación local aplicable termine correctamente y el usuario acepte
 expresamente el resultado se puede construir/publicar la release e instalarla o
 probarla en HA real. Cualquier cambio de código posterior invalida esa aceptación
 y obliga a reconstruir y repetir una validación proporcional antes de publicar.

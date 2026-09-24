@@ -2210,6 +2210,11 @@ de mes/año, días táctiles, atajos Ayer/Hace un año y navegación por teclado
 elegida DD/MM/AAAA; futuro bloqueado. Navegar/seleccionar no consulta meteorología
 hasta pulsar Aplicar. En móvil el panel se ajusta a la altura disponible.
 
+Ajuste del 23/09, preparado sólo en local: con el histórico activo, el botón de
+calendario de la derecha vuelve directamente a hoy sin abrir el selector. El
+indicador superior de modo histórico/fecha conserva el acceso al selector para
+cambiar de fecha. Sin histórico activo, el calendario abre el selector habitual.
+
 La fecha D rige estaciones, acumulados, días desde la última lluvia, capas y fecha
 inicial de predicción. Se utilizan los **modelos y reglas actuales**, con
 meteorología diaria disponible hasta D−1. Consulta retrospectiva con datos hoy
@@ -2242,3 +2247,84 @@ No se elevan los límites habituales de predicción.
 Fuentes: `mushroom_map_history.py`, `historical-mode.js`, integración
 `mushroom_prediction_map_ui.py`, permisos `web_server.py` y pruebas dirigidas.
 [Validación y tiempos](../reports/historical-map-local-2026-09-22.md).
+
+### Capa de observaciones (23/09/2026, sólo HA local)
+
+Botón de ojos «Ver observaciones», debajo del histórico cuando ese permiso esté
+presente. Permiso independiente `can_use_observations_map`, false por defecto
+para todos los roles, incluido admin; se activa en Usuarios → Observation map
+access. Las tres consultas (especies, puntos y ficha) comprueban el permiso en el
+servidor. Revocarlo o cerrar sesión retira controles, puntos y fichas.
+
+Selector superior izquierdo: nombre científico y número total de observaciones
+por especie. Sólo registros activos, sin filtrar por fecha histórica ni por uso
+para entrenamiento. Puntos sin coordenadas válidas se excluyen de la capa y el
+contador muestra representables/total. Ficha: especie, fecha DD/MM/AAAA,
+área/microárea, abundancia, hosts, bosque, observador e ID. Incluye tanto valores
+de campo como valores GIS aceptados y guardados en `site_context.gis_recovery`;
+los combina sin duplicar y marca los aportados por GIS como «GIS aceptado».
+Reutiliza `valid_recovery` para verificar su vínculo con las coordenadas actuales.
+No consulta GIS de nuevo ni incorpora propuestas no aceptadas. Sólo los campos
+sin valores de campo ni GIS aceptados válidos aparecen como «No informado».
+Hosts y bosque usan nombres comunes/etiquetas del catálogo en el idioma actual
+del mapa (ca/es/en). Para hosts sin traducción se conserva el nombre científico.
+
+La capa es independiente de meteorología y predicción. Pulsar una observación
+consume el clic sin lanzar predicción. Mantiene todas sus fechas en histórico,
+incluidas las posteriores a la fecha seleccionada. No cambia el encuadre al
+seleccionar especie, ni recalcula meteorología ni solicita trabajo al worker.
+
+Coincidencias exactas y puntos agrupados en celdas visuales de 44 px muestran
+contador. Al pulsarlo despliegan setas alrededor con líneas hasta sus coordenadas
+originales y una fecha pequeña junto a cada icono. Conserva todos los registros,
+incluso misma especie/fecha/coordenadas: no deduplica ni modifica observaciones.
+Para grupos grandes, ocho iconos fechados por página con navegación; así todos
+son accesibles sin saturar la pantalla. Pulsar fuera o mover el mapa repliega.
+Volver a pulsar el contador del grupo abierto también lo repliega, cerrando su
+ficha si la hubiera. Pulsar por segunda vez la seta de la observación abierta
+cierra la ficha, incluso durante la carga. Otra seta abre su propia ficha.
+
+Disponibilidad móvil: opción general del complemento
+`maplibre_observations_mobile_enabled: false` en `config.yaml` (options/schema),
+traducida por `run.sh` a `RAINMAPPER_MAPLIBRE_OBSERVATIONS_MOBILE_ENABLED` y servida
+como `observationsMobileEnabled`. Visible en configuración HA como «Allow
+observation map on mobile». En local, `rainmapper-local/options.local-ha-ui.json`.
+Requiere reiniciar el complemento para cambiarla y sigue requiriendo permiso
+individual. Se considera móvil un viewport de hasta 767 px, o dispositivo de
+puntero táctil con altura de hasta 600 px para cubrir orientación horizontal.
+Cambiar de tamaño sólo cambia esta capa; conserva la fecha histórica.
+
+Lectura acotada, sin escrituras: índice compacto compartido por proceso, invalidado
+por tamaño/mtime de observaciones, perfiles, catálogos y áreas. Revisión común
+entre páginas/ficha; cambios intermedios se rechazan para no mezclar datos.
+Hasta 10.000 registros, 128 especies, archivos de entrada de hasta 16 MiB y páginas
+de 200 puntos. Strings y listas limitados antes de producir respuestas, máximo
+256 KiB como comprobación final. No se transportan notas, fotos ni registros
+completos; detalle bajo demanda. No modifica coordinadores ni suspensiones.
+
+Fuentes: `mushroom_map_observations.py`, `observations-mode.js/.css`, bootstrap,
+permisos y rutas existentes. [Validación local](../reports/observations-map-local-2026-09-23.md).
+
+### Fase lunar de la observación (24/09/2026)
+
+La ficha añade una ilustración SVG de la luna junto a Fecha/Área y texto
+Creciente/Menguante/Llena/Nueva en ca/es/en. Su iluminación sigue la fracción
+calculada; orientación esquemática del hemisferio norte. Usa la fecha de la
+observación, sin depender de hoy ni del histórico del mapa. Fecha ausente o
+inválida: se omite la luna y se conservan los demás datos.
+
+Cálculo reutilizable en `rainmapper_core.lunar_phase.lunar_phase(value)`:
+acepta `date`, `datetime` con zona o ISO; devuelve `phase_cycle` (0 nueva,
+0,5 llena, 1 nueva), `illuminated_fraction` (0–1), `waxing`, `category`,
+`reference_time` y `calculation_version`. Fechas sin hora usan 12:00 UTC;
+timestamps sin zona se rechazan. Función pura, sin reloj actual, red, disco ni
+dependencias adicionales. Se invoca sólo en el detalle solicitado, nunca para
+todos los puntos del mapa. Valores continuos disponibles para futuros análisis;
+esta entrega no añade variables al entrenamiento ni modifica modelos.
+
+Método aproximado adaptado de [SunCalc 1.9.0](https://github.com/mourner/suncalc/tree/v1.9.0),
+con licencia conservada en el módulo. Las cuatro etiquetas son categorías
+visuales: Nueva ≤1% iluminado, Llena ≥99%, resto creciente/menguante; no representan
+el instante exacto del evento astronómico. Para un futuro entrenamiento, conservar
+la versión y la convención temporal del cálculo y evaluar la utilidad de la
+variable; la disponibilidad del cálculo no acredita capacidad predictiva.

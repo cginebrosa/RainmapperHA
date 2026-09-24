@@ -32,8 +32,14 @@ fuera de esta release y no permite continuar.
 
 3. **Ejecutar el circuito funcional local mediante el worker**
 
-   Para cambios que afecten al coordinador, al worker, a sus contratos o a los
-   artefactos de entrenamiento/predicción, ejecutar como mínimo:
+   **Regla de alcance acordada con el usuario el 24/09/2026:** entrenamiento y
+   precálculo son obligatorios sólo cuando el cambio afecte a esos procesos, sus
+   entradas, contratos operativos, ejecución o artefactos. No exigirlos por tocar
+   un archivo del coordinador o del worker si el cambio sólo afecta a interfaz,
+   presentación o mensajes. No es una excepción por versión.
+
+   Para cambios que afecten al circuito operativo de entrenamiento/precálculo,
+   ejecutar las etapas afectadas y las dependencias necesarias para validarlas:
 
    1. Prueba de asignación y retorno al coordinador local.
    2. Reconstrucción operativa completa.
@@ -46,8 +52,14 @@ fuera de esta release y no permite continuar.
    artefactos activos, la limpieza terminal y la ausencia de resultados
    parciales. Que la imagen compile o arranque no valida el circuito.
 
-   **No continuar hacia HA real hasta que todo el circuito termine correctamente
-   y el usuario acepte expresamente el resultado local.** Si después cambia
+   Para cambios de UI, permisos o mensajes, bastan las pruebas dirigidas del
+   comportamiento afectado, navegador cuando corresponda y el smoke obligatorio;
+   no lanzar entrenamientos ni precálculos ajenos al cambio. Conservar la
+   reconstrucción/paridad local del paso 2. El usuario sigue lanzando los trabajos
+   operativos cuando sean necesarios.
+
+   **No continuar hacia HA real hasta que la validación aplicable termine
+   correctamente y el usuario acepte expresamente el resultado local.** Si después cambia
    código ejecutable, reconstruir ambos contenedores y repetir la validación
    proporcional afectada.
 

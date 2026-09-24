@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.320"
+version: "0.2.321"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -56,6 +56,7 @@ options:
   meteocat_request_timeout: 30
   meteocat_max_attempts: 3
   last_rains_history: 30
+  maplibre_observations_mobile_enabled: false
   maplibre_hover_zoom: 6.0
   maplibre_heatmap_weight_curve: soft
   maplibre_heatmap_opacity: 80
@@ -120,6 +121,7 @@ schema:
   meteocat_request_timeout: int
   meteocat_max_attempts: int
   last_rains_history: int
+  maplibre_observations_mobile_enabled: bool
   maplibre_hover_zoom: float
   maplibre_heatmap_weight_curve: list(linear|soft|strong)
   maplibre_heatmap_opacity: int

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.321
+
+- Add an optional observation map layer with species counts, dated mushroom markers and expandable groups; keep per-user access and mobile availability disabled by default.
+- Show observation details with accepted GIS hosts and forests, localized common names and an illustrated lunar phase calculated from the observation date.
+- Provide a reusable offline lunar-phase calculation in `rainmapper_core.lunar_phase`.
+- Close an observation card or expanded group when its marker is pressed again; keep observations independent of historical and prediction modes.
+- Distinguish historical-map synchronization, updating, busy, compatibility and connection messages while preserving local fallback.
+- Return directly to today from the active historical-mode calendar button; keep date selection available from the historical indicator.
+
 ## 0.2.320
 
 - Add an optional historical prediction-map mode with an integrated calendar, direct month/year selection and DD/MM/YYYY dates.

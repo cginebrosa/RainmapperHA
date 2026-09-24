@@ -9,6 +9,9 @@
   let session = "";
   let button = null;
   let mode = null;
+  let observations = null;
+  let observationsRevision = 0;
+  const mobileScreen = matchMedia('(max-width: 767px), (pointer: coarse) and (max-height: 600px)');
   let loading = false;
   let settings = null;
   let execution = "worker";
@@ -108,12 +111,30 @@
   };
 
   function reset() {
+    observationsRevision++;
+    observations?.destroy(); observations = null;
     historicalMap?.destroy(); historicalMap = null;
     mode?.setEnabled(false);
     button?.remove();
     button = null;
     settings?.remove();
     settings = null;
+  }
+
+  async function installObservations(next, allowed) {
+    const own=++observationsRevision;
+    if (!allowed || (mobileScreen.matches && config.observationsMobileEnabled !== true)) {
+      observations?.destroy();observations=null;return;
+    }
+    if(observations)return;
+    let style=document.getElementById('observations-mode-style');
+    if(!style){style=document.createElement('link');style.id='observations-mode-style';style.rel='stylesheet';style.href=new URL('observations-mode.css',assetBase);document.head.append(style);}
+    const module=await import(new URL('observations-mode.js',assetBase));
+    if(session!==next || own!==observationsRevision)return;
+    observations=module.createObservationsMode({...bridge,
+      after:()=>document.getElementById('historical-mode-toggle') || button || document.getElementById('estimated-field-toggle'),
+      closePopups:()=>{mode?.closePopup();closeHoverPopup();currentPopup?.remove();},
+    });
   }
 
   function installSettings(capability, savedSettings) {
@@ -198,12 +219,13 @@
 
   async function refresh() {
     const next = !document.body.classList.contains("auth-open") && authState?.sessionToken
-      ? `${authState.sessionToken}:${authState.canUsePredictionMap === true}:${authState.canUseHistoricalMap === true}` : "";
+      ? `${authState.sessionToken}:${authState.canUsePredictionMap === true}:${authState.canUseHistoricalMap === true}:${authState.canUseObservationsMap === true}` : "";
     if (next === session) {
       if (button) button.title = button.ariaLabel = text("mode");
       mode?.refreshLanguage();
       settings?.refreshText();
       historicalMap?.refreshLanguage();
+      observations?.refreshLanguage();
       return;
     }
     session = next;
@@ -213,12 +235,12 @@
       const response = await authFetch(`${config.apiBase}/capabilities`, { cache: "no-store" });
       if (!response.ok || session !== next) return;
       const capability = await response.json();
-      if (session !== next || (capability.can_use_prediction_map !== true && capability.can_use_historical_map !== true)) return;
+      if (session !== next || (capability.can_use_prediction_map !== true && capability.can_use_historical_map !== true && capability.can_use_observations_map !== true)) return;
       const deviceResponse = await authFetch(`${AUTH_BASE}/device-settings`, { cache: "no-store" });
       if (!deviceResponse.ok || session !== next) return;
       const devicePayload = await deviceResponse.json();
       if (session !== next) return;
-      settings = installSettings(capability, devicePayload.settings || {});
+      if (capability.can_use_prediction_map === true || capability.can_use_historical_map === true) settings = installSettings(capability, devicePayload.settings || {});
       if (capability.can_use_prediction_map === true) {
       const control = document.createElement("button");
       control.type = "button";
@@ -281,6 +303,7 @@
           },
         });
       }
+      await installObservations(next,capability.can_use_observations_map === true);
     } catch (_error) {
       // No authorization means no predictive controls; the weather UI owns login.
     }
@@ -292,5 +315,8 @@
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
   window.addEventListener("pagehide", () => { session = ""; reset(); });
   window.addEventListener("pageshow", refresh);
+  mobileScreen.addEventListener('change',()=>{
+    if(session)installObservations(session,authState.canUseObservationsMap === true).catch(()=>{});
+  });
   refresh();
 })();

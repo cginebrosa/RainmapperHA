@@ -13913,6 +13913,19 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertTrue(response["can_use_layer_metrics"])
         self.assertTrue(response["can_use_estimated_field"])
 
+    def test_observation_map_permission_roundtrip_and_revocation(self) -> None:
+        for role in ('admin','pro','basic','free'):
+            username='observations-'+role
+            self.web_server.create_user(username,'Test','','secret',role,'true','2')
+            self.assertEqual(self.web_server.read_users()[username]['can_use_observations_map'],'false')
+            self.web_server.update_user(username,'Test','',role,'true','2','true','false','true',can_use_observations_map='true')
+            status,payload=self.login(username,'secret','device-'+role)
+            self.assertEqual(status,200);self.assertTrue(payload['can_use_observations_map'])
+            token,device=payload['session_token'],payload['device_id']
+            self.web_server.update_user(username,'Test','',role,'true','2','true','false','true',can_use_observations_map='false')
+            ok,current=self.web_server.authenticate_session(token,device)
+            self.assertTrue(ok);self.assertFalse(current['can_use_observations_map'])
+
     def test_update_user_controls_maplibre_feature_permissions(self) -> None:
         self.write_users_json(
             [
@@ -14125,7 +14138,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn('id="users-list"', page)
         self.assertIn('class="user-card"', page)
         self.assertIn('data-username="diego"', page)
-        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics no estimated field no prediction no history current 1 1', page)
+        self.assertIn('data-user-search="diego Diego Mobile diego@example.com free enabled no heatmap no metrics no estimated field no prediction no history no observations current 1 1', page)
         self.assertIn('data-device-search="device-mobile diego diego@example.com Mobile Safari Test Agent', page)
         self.assertIn("data-user-toggle", page)
         self.assertIn('aria-expanded="false"', page)

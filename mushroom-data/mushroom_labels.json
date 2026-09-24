@@ -7847,6 +7847,46 @@
     "es": "Recalculando GeoJSON meteorológicos para",
     "ca": "Recalculant GeoJSON meteorològics per a"
   },
+  "ui.prediction_map_history_fallback_updating": {
+    "en": "Map data is being updated. Trying the local server…",
+    "es": "Los datos del mapa se están actualizando. Probando el servidor local…",
+    "ca": "Les dades del mapa s’estan actualitzant. Provant el servidor local…"
+  },
+  "ui.prediction_map_history_fallback_syncing": {
+    "en": "The worker is synchronizing map data. Trying the local server…",
+    "es": "El worker está sincronizando los datos del mapa. Probando el servidor local…",
+    "ca": "El worker està sincronitzant les dades del mapa. Provant el servidor local…"
+  },
+  "ui.prediction_map_history_fallback_busy": {
+    "en": "The worker is busy. Trying the local server…",
+    "es": "El worker está ocupado. Probando el servidor local…",
+    "ca": "El worker està ocupat. Provant el servidor local…"
+  },
+  "ui.prediction_map_history_fallback_unsupported": {
+    "en": "The worker needs an update to handle this query. Trying the local server…",
+    "es": "El worker necesita una actualización para esta consulta. Probando el servidor local…",
+    "ca": "Cal actualitzar el worker per a aquesta consulta. Provant el servidor local…"
+  },
+  "ui.prediction_map_history_fallback_timeout": {
+    "en": "The worker query timed out. Trying the local server…",
+    "es": "La consulta al worker ha agotado el tiempo de espera. Probando el servidor local…",
+    "ca": "La consulta al worker ha esgotat el temps d’espera. Provant el servidor local…"
+  },
+  "ui.prediction_map_history_fallback_invalid": {
+    "en": "The worker response could not be validated. Trying the local server…",
+    "es": "No se ha podido validar la respuesta del worker. Probando el servidor local…",
+    "ca": "No s’ha pogut validar la resposta del worker. Provant el servidor local…"
+  },
+  "ui.prediction_map_history_fallback_connection": {
+    "en": "The worker query encountered a connection error. Trying the local server…",
+    "es": "Ha fallado la conexión durante la consulta al worker. Probando el servidor local…",
+    "ca": "Ha fallat la connexió durant la consulta al worker. Provant el servidor local…"
+  },
+  "ui.prediction_map_history_fallback_failed": {
+    "en": "The worker query failed. Trying the local server…",
+    "es": "La consulta al worker ha fallado. Probando el servidor local…",
+    "ca": "La consulta al worker ha fallat. Provant el servidor local…"
+  },
   "ui.prediction_map_history_month": {"es":"Mes","ca":"Mes","en":"Month"},
   "ui.prediction_map_history_year": {"es":"Año","ca":"Any","en":"Year"},
   "ui.prediction_map_history_previous_month": {"es":"Mes anterior","ca":"Mes anterior","en":"Previous month"},
@@ -7854,9 +7894,9 @@
   "ui.prediction_map_history_yesterday": {"es":"Ayer","ca":"Ahir","en":"Yesterday"},
   "ui.prediction_map_history_year_ago": {"es":"Hace un año","ca":"Fa un any","en":"A year ago"},
   "ui.prediction_map_history_scope": {
-    "es":"Solo se recalcula la zona visible. Acerca el mapa antes para reducir la espera.",
-    "ca":"Només es recalcula la zona visible. Apropa el mapa abans per reduir l’espera.",
-    "en":"Only the visible area is recalculated. Zoom in first to reduce waiting time."
+    "es": "Solo se recalcula la zona visible. Acerca el mapa antes para reducir la espera.",
+    "ca": "Només es recalcula la zona visible. Apropa el mapa abans per reduir l’espera.",
+    "en": "Only the visible area is recalculated. Zoom in first to reduce waiting time."
   },
   "ui.prediction_map_history_how": {"es":"Cómo funciona el modo histórico","ca":"Com funciona el mode històric","en":"How historical mode works"},
   "ui.prediction_map_history_station_loading": {
@@ -7876,5 +7916,140 @@
     "en": "Could not load historical weather. Check availability and try again; the previous map is preserved.",
     "es": "No se ha podido cargar la meteorología histórica. Comprueba la disponibilidad y reintenta; se conserva el mapa anterior.",
     "ca": "No s’ha pogut carregar la meteorologia històrica. Comprova la disponibilitat i torna-ho a provar; es conserva el mapa anterior."
+  },
+  "ui.prediction_map_obs_show": {
+    "en": "View observations",
+    "es": "Ver observaciones",
+    "ca": "Veure observacions"
+  },
+  "ui.prediction_map_obs_species": {
+    "en": "Species with observations",
+    "es": "Especies con observaciones",
+    "ca": "Espècies amb observacions"
+  },
+  "ui.prediction_map_obs_choose": {
+    "en": "Choose a species",
+    "es": "Selecciona una especie",
+    "ca": "Tria una espècie"
+  },
+  "ui.prediction_map_obs_all_dates": {
+    "en": "All dates",
+    "es": "Todas las fechas",
+    "ca": "Totes les dates"
+  },
+  "ui.prediction_map_obs_loading": {
+    "en": "Loading observations…",
+    "es": "Cargando observaciones…",
+    "ca": "Carregant observacions…"
+  },
+  "ui.prediction_map_obs_empty": {
+    "en": "No observations registered.",
+    "es": "No hay observaciones registradas.",
+    "ca": "No hi ha observacions registrades."
+  },
+  "ui.prediction_map_obs_error": {
+    "en": "Could not load observations. Toggle the layer to retry.",
+    "es": "No se han podido cargar las observaciones. Desactiva y activa la capa para reintentar.",
+    "ca": "No s’han pogut carregar les observacions. Desactiva i activa la capa per tornar-ho a provar."
+  },
+  "ui.prediction_map_obs_changed": {
+    "en": "Observations have changed. Toggle the layer to refresh.",
+    "es": "Las observaciones han cambiado. Desactiva y activa la capa para actualizarlas.",
+    "ca": "Les observacions han canviat. Desactiva i activa la capa per actualitzar-les."
+  },
+  "ui.prediction_map_obs_observation": {
+    "en": "Observation",
+    "es": "Observación",
+    "ca": "Observació"
+  },
+  "ui.prediction_map_obs_expand": {
+    "en": "observations: expand",
+    "es": "observaciones: desplegar",
+    "ca": "observacions: desplegar"
+  },
+  "ui.prediction_map_obs_previous": {
+    "en": "Previous observations",
+    "es": "Observaciones anteriores",
+    "ca": "Observacions anteriors"
+  },
+  "ui.prediction_map_obs_next": {
+    "en": "Next observations",
+    "es": "Observaciones siguientes",
+    "ca": "Observacions següents"
+  },
+  "ui.prediction_map_obs_date": {
+    "en": "Date",
+    "es": "Fecha",
+    "ca": "Data"
+  },
+  "ui.prediction_map_obs_area": {
+    "en": "Area",
+    "es": "Área",
+    "ca": "Àrea"
+  },
+  "ui.prediction_map_obs_microarea": {
+    "en": "Microarea",
+    "es": "Microárea",
+    "ca": "Microàrea"
+  },
+  "ui.prediction_map_obs_abundance": {
+    "en": "Abundance",
+    "es": "Abundancia",
+    "ca": "Abundància"
+  },
+  "ui.prediction_map_obs_hosts": {
+    "en": "Hosts",
+    "es": "Hosts",
+    "ca": "Hosts"
+  },
+  "ui.prediction_map_obs_forest": {
+    "en": "Forest type",
+    "es": "Tipo de bosque",
+    "ca": "Tipus de bosc"
+  },
+  "ui.prediction_map_obs_observer": {
+    "en": "Observer",
+    "es": "Observador",
+    "ca": "Observador"
+  },
+  "ui.prediction_map_obs_id": {
+    "en": "Record",
+    "es": "Registro",
+    "ca": "Registre"
+  },
+  "ui.prediction_map_obs_unknown": {
+    "en": "Not recorded",
+    "es": "No informado",
+    "ca": "No informat"
+  },
+  "ui.prediction_map_obs_gis_accepted": {
+    "en": "accepted GIS",
+    "es": "GIS aceptado",
+    "ca": "GIS acceptat"
+  },
+  "ui.prediction_map_obs_moon": {
+    "en": "Moon phase",
+    "es": "Fase lunar",
+    "ca": "Fase lunar"
+  },
+  "ui.prediction_map_obs_moon_waxing": {
+    "en": "Waxing",
+    "es": "Creciente",
+    "ca": "Creixent"
+  },
+  "ui.prediction_map_obs_moon_waning": {
+    "en": "Waning",
+    "es": "Menguante",
+    "ca": "Minvant"
+  },
+  "ui.prediction_map_obs_moon_full": {
+    "en": "Full",
+    "es": "Llena",
+    "ca": "Plena"
+  },
+  "ui.prediction_map_obs_moon_new": {
+    "en": "New",
+    "es": "Nueva",
+    "ca": "Nova"
   }
 }

@@ -82,8 +82,9 @@ from rainmapper_core.mushroom_prediction_map import demo_result
 print(json.dumps(demo_result(dict(contract='prediction_map_point_v1',request_id='browser_test',point=dict(lat=42,lon=1.9),start_date='2026-09-12',horizon_days=7,history_days=30,species_ids=[]))))`], { cwd: root }));
 const base = path.join(root, "rainmapper_core/viewers/maplibre-viewer");
 const extension = path.join(root, "rainmapper_core/viewers/prediction-map");
-let predictionAllowed = true, historyAllowed = false;
-const historyCalls=[];let historyFailure=false;
+let predictionAllowed = true, historyAllowed = false, observationsAllowed = false;
+let observationsMobileEnabled=false, observationCalls=0;
+const historyCalls=[];let historyFailure=false, historyWorkerError=null, historyLocalDelay=0;
 let role = "admin", calls = 0, delay = 0, failure = false, richTerrain = true, lastExecution = null;
 let compactMobileFixture = false;
 let lastCalendar = null, lastStartDate = null;
@@ -93,6 +94,7 @@ const executionRequests = [];
 let ecologyFixture = null;
 let modelFixture = null;
 let applicabilityDetailChanged = false, applicabilityDetailFailure = false;
+let observationMoon = {category:'waning',illuminated_fraction:.0815,waxing:false};
 const asyncQueries = new Map();
 // Manual preview measures actual reader/transport time; no artificial delay.
 const station = { type: "Feature", geometry: { type: "Point", coordinates: [1.9, 42] },
@@ -136,9 +138,17 @@ const server = createServer(async (req, res) => {
         }
         return send({ ok: true, settings: deviceSettings });
       }
-      return send({ ok: true, user: { username: preview ? "preview" : "test", role, can_use_heatmap: true, can_use_layer_metrics: true, can_use_estimated_field: true, can_use_prediction_map: predictionAllowed, can_use_historical_map:historyAllowed } });
+      return send({ ok: true, user: { username: preview ? "preview" : "test", role, can_use_heatmap: true, can_use_layer_metrics: true, can_use_estimated_field: true, can_use_prediction_map: predictionAllowed, can_use_historical_map:historyAllowed, can_use_observations_map:observationsAllowed } });
     }
-    if (name === "capabilities") return send({ can_use_prediction_map: predictionAllowed, can_use_historical_map:historyAllowed, admin_only: false, data_mode:preview ? "simulation" : "prediction", executors:{local:true,worker:!preview} }, "application/json", (predictionAllowed || historyAllowed) ? 200 : 403);
+    if (name === "capabilities") return send({ can_use_prediction_map: predictionAllowed, can_use_historical_map:historyAllowed, can_use_observations_map:observationsAllowed, admin_only: false, data_mode:preview ? "simulation" : "prediction", executors:{local:true,worker:!preview} }, "application/json", (predictionAllowed || historyAllowed || observationsAllowed) ? 200 : 403);
+    if(url.pathname.includes('/observations/')) {
+      observationCalls++;
+      if(!observationsAllowed)return send({error:'forbidden'},'application/json',403);
+      const revision='observations-test';
+      if(name==='species')return send({revision,species:[{id:'obs-sp',name:'Observed species',count:4,mapped_count:4}]});
+      if(name==='points')return send({revision,points:[['obs-a',1.9,42,'2020-01-01'],['obs-b',1.9,42,'2030-01-01'],['obs-c',1.9,42,'2030-01-01'],['obs-d',1.94,42,'2021-02-03']],next_offset:null});
+      if(name==='detail')return send({revision,observation:{id:url.searchParams.get('id'),species:'Observed species',date:'2030-01-01',area:'Test area',microarea:'Test microarea',abundance:'Abundante',hosts:['Pinus','Quercus'],forest:['Pinar'],gis:{hosts:[1],forest:[0]},moon:observationMoon,observer:'<script>Not HTML</script>'}});
+    }
     if (name === "demo" || name === "queries") {
       calls++;
       const chunks = []; let size = 0;
@@ -158,6 +168,8 @@ const server = createServer(async (req, res) => {
       if (preview && lastExecution === "worker") return send({error:"executor_unavailable"},"application/json",503);
       if(query.contract==='prediction_map_weather_history_v1') {
         historyCalls.push(query);
+        if(historyWorkerError && query.execution==='worker')return send({error:historyWorkerError},'application/json',503);
+        if(query.execution==='local' && historyLocalDelay)await pause(historyLocalDelay);
         if(historyFailure)return send({error:'query_failed'},'application/json',409);
         const columns=['Latitud','Longitud','Codi Estació','Estació','Total','Source','history_source','history_code','history_count','history_loaded','Data_Pluja_01','Pluja_Diaria_01'];
         const row=[42,1.9,'TEST','Historical station',7,'Meteocat','meteocat','TEST',30,query.station?1:0,'11/09/2026',7];
@@ -247,7 +259,7 @@ const server = createServer(async (req, res) => {
       }
       return setTimeout(() => send(response, "application/json", failure ? 503 : 200), delay);
     }
-    if (name === "config.js") return send(`window.RAINMAPPER_CONFIG=${JSON.stringify({ authRequired: true, authBase: "/auth", dataBase: "data/", predictionMap: { apiBase: "/api/mushrooms/prediction-map", contract: "prediction_map_point_v1", historyContract:"prediction_map_weather_history_v1", labels } })}`, "application/javascript");
+    if (name === "config.js") return send(`window.RAINMAPPER_CONFIG=${JSON.stringify({ authRequired: true, authBase: "/auth", dataBase: "data/", predictionMap: { apiBase: "/api/mushrooms/prediction-map", contract: "prediction_map_point_v1", historyContract:"prediction_map_weather_history_v1", observationsMobileEnabled, labels } })}`, "application/javascript");
     if (name === "index.html") {
       const page = (await fs.readFile(path.join(base, name), "utf8"))
         .replace("https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css", "/maplibre.css")
@@ -269,7 +281,7 @@ const server = createServer(async (req, res) => {
       return send(name.endsWith(".geojson") ? { type: "FeatureCollection", features: [station] } : {});
     }
     if (["app.js", "style.css", "translations.json"].includes(name)) return send(await fs.readFile(path.join(base, name)), name.endsWith(".css") ? "text/css" : name.endsWith(".json") ? "application/json" : "application/javascript");
-    if (["prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css"].includes(name)) return send(await fs.readFile(path.join(extension, name)), name.endsWith(".css") ? "text/css" : "application/javascript");
+    if (["prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css"].includes(name)) return send(await fs.readFile(path.join(extension, name)), name.endsWith(".css") ? "text/css" : "application/javascript");
     return send({}, "application/json", 404);
   } catch (error) { res.writeHead(500); res.end(String(error)); }
 });
@@ -1147,8 +1159,9 @@ try {
   await pause(100);
   assert.equal(deviceSettings.prediction_execution,"worker");
   // Historical mode: independent opt-in, spatial requests, fallback and rollback.
+  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
   assert.equal(await evaluate("!!document.getElementById('historical-mode-toggle')"),false);
-  predictionAllowed=true;historyAllowed=true;
+  predictionAllowed=true;historyAllowed=true;observationsAllowed=true;
   await send('Page.navigate',{url:origin+'/protected/prediction-map/index.html'});
   await until("!!document.getElementById('historical-mode-toggle') && !!map.getLayer('station-circles')");
   assert.equal(await evaluate("document.getElementById('prediction-mode-toggle').nextElementSibling.id"),'historical-mode-toggle');
@@ -1191,6 +1204,81 @@ try {
   assert.equal(await evaluate("document.getElementById('historical-mode-toggle').getAttribute('aria-pressed')"),'true');
   assert.ok(await evaluate("document.getElementById('historical-mode-badge').getBoundingClientRect().top>=document.querySelector('.topbar').getBoundingClientRect().bottom"));
   assert.equal(await evaluate("currentData.features[0].properties.Total"),7);
+  await until("!!document.getElementById('observations-mode-toggle')");
+  assert.equal(await evaluate("document.getElementById('historical-mode-toggle').nextElementSibling.id"),'observations-mode-toggle');
+  await evaluate("document.getElementById('observations-mode-toggle').click()");
+  await until("document.querySelectorAll('#observations-species option').length===2");
+  assert.equal(await evaluate("document.querySelectorAll('#observations-species option')[1].textContent"),'Observed species (4)');
+  await evaluate("document.getElementById('observations-species').value='obs-sp';document.getElementById('observations-species').dispatchEvent(new Event('change'))");
+  await until("!!document.querySelector('.om-cluster')");
+  await evaluate("document.getElementById('prediction-mode-toggle').click()");
+  await until("document.getElementById('prediction-mode-toggle').getAttribute('aria-pressed')==='true'");
+  const beforeObservationClick=calls;
+  await evaluate("document.querySelector('.om-cluster').click()");
+  await until("document.querySelectorAll('.om-date').length===3");
+  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.om-date'),n=>n.textContent)"),['01/01/2020','01/01/2030','01/01/2030']);
+  assert.equal(await evaluate("document.querySelectorAll('.om-legs line').length"),3);
+  const observationShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'observations-spiderfy.png'),Buffer.from(observationShot.data,'base64'));
+  await evaluate("document.querySelector('.om-spider[data-observation-id=obs-b]').click()");
+  await until("!!document.querySelector('.om-detail dl')");
+  assert.ok(await evaluate("document.querySelector('.om-detail').textContent.includes('<script>Not HTML</script>')"));
+  assert.equal(await evaluate("document.querySelectorAll('.om-detail script').length"),0);
+  assert.ok(await evaluate("document.querySelector('.om-detail').textContent.includes('Quercus (GIS aceptado)')"));
+  assert.ok(await evaluate("document.querySelector('.om-detail').textContent.includes('Pinar (GIS aceptado)')"));
+  assert.equal(await evaluate("document.querySelector('.om-moon figcaption').textContent"),'Menguante');
+  assert.ok(await evaluate("(()=>{const m=document.querySelector('.om-moon').getBoundingClientRect(),d=document.querySelector('.om-field-date').getBoundingClientRect();return m.left>=d.right && document.querySelector('.om-detail').scrollWidth<=document.querySelector('.om-detail').clientWidth;})()"),'Moon fits to the right of date without horizontal scrolling');
+  for (const [category, fraction, waxing, caption] of [['waxing',.875,true,'Creciente'],['full',.999,true,'Llena'],['new',.001,false,'Nueva'],['waning',.0815,false,'Menguante']]) {
+    observationMoon={category,illuminated_fraction:fraction,waxing};
+    const beforeClose=observationCalls;
+    await evaluate("document.querySelector('.om-spider[data-observation-id=obs-b]').click()");
+    assert.equal(await evaluate("document.querySelectorAll('.om-popup').length"),0,'Same observation closes its popup');
+    assert.equal(observationCalls,beforeClose,'Closing must not fetch another detail');
+    await evaluate("document.querySelector('.om-spider[data-observation-id=obs-b]').click()");
+    await until(`document.querySelector('.om-moon figcaption')?.textContent===${JSON.stringify(caption)}`);
+    const shot=await send('Page.captureScreenshot',{format:'png'});
+    await fs.writeFile(path.join(profile,`observations-moon-${category}.png`),Buffer.from(shot.data,'base64'));
+  }
+  await evaluate("document.querySelector('.om-spider[data-observation-id=obs-c]').click()");
+  await until("document.querySelector('.om-field-id dd')?.textContent==='obs-c'");
+  assert.equal(await evaluate("document.querySelectorAll('.om-popup').length"),1,'Another observation replaces the popup');
+  await evaluate("document.querySelector('.om-marker[data-observation-id=obs-d]').click()");
+  await until("document.querySelector('.om-field-id dd')?.textContent==='obs-d'");
+  await evaluate("document.querySelector('.om-marker[data-observation-id=obs-d]').click()");
+  assert.equal(await evaluate("document.querySelectorAll('.om-popup').length"),0,'Unclustered marker toggles too');
+  await evaluate("(()=>{const b=document.querySelector('.om-marker[data-observation-id=obs-d]');b.click();b.click();})()");
+  assert.equal(await evaluate("document.querySelectorAll('.om-popup').length"),0,'Same marker closes during loading');
+  await evaluate("document.querySelector('.om-spider[data-observation-id=obs-b]').click()");
+  await until("document.querySelector('.om-field-id dd')?.textContent==='obs-b'");
+  const beforeGroupClose=observationCalls;
+  await evaluate("document.querySelector('.om-cluster').click()");
+  assert.equal(await evaluate("document.querySelectorAll('.om-spider,.om-legs line,.om-popup').length"),0,'Same group folds away its icons, lines and detail');
+  assert.equal(observationCalls,beforeGroupClose,'Folding the group requires no request');
+  await evaluate("document.querySelector('.om-cluster').click()");
+  assert.equal(await evaluate("document.querySelectorAll('.om-spider').length"),3,'Folded group can reopen');
+  await evaluate("document.querySelector('.om-spider[data-observation-id=obs-b]').click()");
+  await until("document.querySelector('.om-field-id dd')?.textContent==='obs-b'");
+  assert.equal(calls,beforeObservationClick,'Observation click must not query a prediction');
+  assert.equal(await evaluate('historicalMap.date'),'2026-09-12');
+  await evaluate("document.getElementById('prediction-mode-toggle').click()");
+  await evaluate("document.querySelector('.om-popup .maplibregl-popup-close-button').click();map.fire('click',{point:map.project([1.95,42])});void 0");
+  await until("document.querySelectorAll('.om-spider').length===0");
+  await evaluate("document.getElementById('observations-mode-toggle').click()");
+  assert.equal(await evaluate("document.querySelectorAll('.om-marker').length"),0);
+  const beforeMobile=observationCalls;
+  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  await until("!document.getElementById('observations-mode-toggle')");
+  assert.equal(await evaluate('historicalMap.date'),'2026-09-12','Mobile availability must not reset history');
+  assert.equal(observationCalls,beforeMobile);
+  await evaluate('viewerConfig.predictionMap.observationsMobileEnabled=true');
+  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
+  await until("!!document.getElementById('observations-mode-toggle')");
+  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  await pause(200);
+  assert.equal(await evaluate("!!document.getElementById('observations-mode-toggle')"),true);
+  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
+  await evaluate('viewerConfig.predictionMap.observationsMobileEnabled=false');
+  await pause(600);
   const historyMapShot=await send('Page.captureScreenshot',{format:'png'});
   await fs.writeFile(path.join(profile,'historical-map.png'),Buffer.from(historyMapShot.data,'base64'));
   const loadedCalls=historyCalls.length;
@@ -1206,6 +1294,7 @@ try {
   await evaluate("currentPopup.remove();openStationPopup(currentData.features[0])");await pause(300);
   assert.equal(historyCalls.length,afterStation,'Station details are cached in the tab');
   await evaluate("currentPopup.remove();document.getElementById('prediction-mode-toggle').click()");
+  await until("document.getElementById('prediction-mode-toggle').getAttribute('aria-pressed')==='true'");
   await clickAt(1.925,42.005);
   await until("!!document.querySelector('.pm-result')");
   assert.equal(lastStartDate,'2026-09-12');
@@ -1219,17 +1308,58 @@ try {
   await evaluate("map.jumpTo({center:[1.9,42],zoom:11});void 0");await pause(600);
   assert.equal(historyCalls.length,afterMove,'Returning to a previously loaded region must not recalculate');
   historyFailure=true;
-  await evaluate("document.getElementById('historical-mode-toggle').click();document.querySelector('#historical-mode-dialog input').value='2026-09-10';document.querySelector('#historical-mode-dialog form').requestSubmit()");
+  await evaluate("document.getElementById('historical-mode-badge').click()");
+  assert.equal(await evaluate("document.getElementById('historical-mode-dialog').open"),true);
+  assert.equal(await evaluate('historicalMap.date'),'2026-09-12');
+  await evaluate("document.querySelector('#historical-mode-dialog input').value='2026-09-10';document.querySelector('#historical-mode-dialog form').requestSubmit()");
   await until("!historicalMap.busy && document.querySelector('#historical-mode-dialog .hm-status').textContent.includes('No se ha podido')");
   assert.equal(await evaluate('historicalMap.date'),'2026-09-12');historyFailure=false;
   await evaluate("document.querySelector('#historical-mode-dialog .hm-today').click()");
   await until("!historicalMap.date && currentData.features[0].properties.Total===20");
+  // Historical fallbacks retain a precise translated cause; no generation bypass.
+  historyLocalDelay=450;
+  for(const [code,key,language] of [
+    ['map_data_updating','history_fallback_updating','es'],
+    ['map_data_not_ready','history_fallback_updating','ca'],
+    ['map_data_syncing','history_fallback_syncing','en'],
+    ['worker_busy','history_fallback_busy','es'],
+    ['executor_unavailable','execution_fallback','es'],
+    ['worker_history_unsupported','history_fallback_unsupported','es'],
+    ['history_timeout','history_fallback_timeout','es'],
+    ['history_invalid_response','history_fallback_invalid','es'],
+    ['query_failed','history_fallback_failed','es'],
+    ['toString','history_fallback_failed','es'],
+  ]) {
+    historyWorkerError=code;
+    await evaluate(`applyLanguage('${language}');document.getElementById(historicalMap.date?'historical-mode-badge':'historical-mode-toggle').click();document.querySelector('#historical-mode-dialog input').value='2025-09-15';document.querySelector('#historical-mode-dialog form').requestSubmit()`);
+    const expected=labels[key][language];
+    await until(`document.querySelector('#historical-mode-dialog .hm-status').textContent.includes(${JSON.stringify(expected)})`);
+    assert.ok(await evaluate("document.querySelector('#historical-mode-dialog .hm-status').textContent.includes('15/09/2025')"));
+    await until("!historicalMap.busy && !document.getElementById('historical-mode-dialog').open");
+    assert.equal(historyCalls.at(-1).execution,'local');
+    assert.equal(await evaluate('historicalMap.date'),'2025-09-15');
+  }
+  historyWorkerError=null;historyLocalDelay=0;
+  await evaluate("applyLanguage('es')");
+  assert.equal(await evaluate("document.getElementById('historical-mode-toggle').title"),labels.history_today.es);
+  await evaluate("document.getElementById('historical-mode-toggle').click()");
+  assert.equal(await evaluate("document.getElementById('historical-mode-dialog').open"),false);
+  await until("!historicalMap.date && currentData.features[0].properties.Total===20");
+  assert.equal(await evaluate("document.getElementById('historical-mode-toggle').getAttribute('aria-pressed')"),'false');
+  assert.equal(await evaluate("document.getElementById('historical-mode-badge').hidden"),true);
   predictionAllowed=false;
   await evaluate('validateStoredSession()');
   await until("!!document.getElementById('historical-mode-toggle') && !document.getElementById('prediction-mode-toggle')");
   historyAllowed=false;
   await evaluate('validateStoredSession()');
   await until("!document.getElementById('historical-mode-toggle')");
+  await until("!!document.getElementById('observations-mode-toggle')");
+  await evaluate("document.getElementById('observations-mode-toggle').click()");
+  await until("document.querySelectorAll('#observations-species option').length===2");
+  observationsAllowed=false;
+  await evaluate('validateStoredSession()');
+  await until("!document.getElementById('observations-mode-toggle')");
+  assert.equal(await evaluate("document.querySelectorAll('.om-marker,.om-panel,.om-popup').length"),0);
   assert.equal(errors.length, 0, JSON.stringify(errors));
   console.log(JSON.stringify({ ok: true, checks: "shared viewer, lazy module, station hover/click, modal, popup, dates, cancellation, errors, repeated toggles, mobile, non-admin, original route, historical opt-in, historical prediction date, viewport coverage cache, fallback, rollback", screenshots: profile, demo_requests: calls, historical_requests:historyCalls.length }));
 } finally {

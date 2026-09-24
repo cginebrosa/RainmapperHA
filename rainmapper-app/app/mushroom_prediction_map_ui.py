@@ -7,10 +7,12 @@ import os
 import threading
 from zoneinfo import available_timezones
 from pathlib import Path
+from urllib.parse import urlsplit, parse_qs
 
 import mushroom_profiles_ui
 from rainmapper_core import mushroom_prediction_map as contract
 from rainmapper_core import mushroom_map_history as history
+from rainmapper_core import mushroom_map_observations as observations
 from rainmapper_core.mushroom_map_queries import QueryBroker, QueryError
 
 _broker = None
@@ -93,23 +95,35 @@ def serve_worker_api(handler, authenticate):
             current = broker()
             reference, geo_ref = None, None
             eligible = True
+            unavailable_reason = None
             if current.publication:
                 try: reference = current.publication.reference()
                 except QueryError: reference = None
                 eligible = eligible and reference is not None and payload.get("ready_fingerprint") == reference['fingerprint']
+                if reference is None:
+                    unavailable_reason = 'map_data_updating'
+                elif payload.get('ready_fingerprint') != reference['fingerprint']:
+                    unavailable_reason = 'map_data_syncing'
                 if reference:
                     eligible = eligible and set(reference.get('required_capabilities', [])) <= set(payload.get('capabilities') or [])
+                    if not set(reference.get('required_capabilities', [])) <= set(payload.get('capabilities') or []):
+                        unavailable_reason = unavailable_reason or 'worker_incompatible'
             if current.geography:
                 try: geo_ref = current.geography.reference()
                 except QueryError: geo_ref = None
                 eligible = eligible and geo_ref is not None and payload.get('ready_geography') == geo_ref['fingerprint']
+                if geo_ref is None:
+                    unavailable_reason = 'map_data_updating'
+                elif payload.get('ready_geography') != geo_ref['fingerprint']:
+                    unavailable_reason = unavailable_reason or 'map_data_syncing'
                 if reference and geo_ref:
                     reference = {**reference, 'geography': geo_ref}
             # Cache eligibility survives a busy online slot; the bounded map
             # queue can wait without accepting unprepared/stale generations.
             if not current.publication and not current.geography and payload['action'] == 'busy':
                 eligible = False
-            result = current.worker_poll(worker_id, busy=payload['action'] == 'busy' or not eligible, ready=eligible, capabilities=payload.get("capabilities"))
+            result = current.worker_poll(worker_id, busy=payload['action'] == 'busy' or not eligible,
+                ready=eligible, capabilities=payload.get("capabilities"), unavailable_reason=unavailable_reason)
             if current.publication: result['runtime'] = reference
             if current.geography:
                 result['geography'] = geo_ref
@@ -131,17 +145,43 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
     user = handler.require_authentication()
     if not user:
         return
-    if not contract.can_access(user) and user.get(history.PERMISSION) is not True:
+    action = path.removeprefix(contract.API_PATH)
+    if action.startswith('/observations/'):
+        if user.get(observations.PERMISSION) is not True:
+            send_json(handler, 403, {'error': 'forbidden'})
+            return
+        try:
+            if post:
+                raise observations.ObservationError('method_not_allowed', 405)
+            query = urlsplit(handler.path).query
+            if len(query) > 2048:
+                raise observations.ObservationError('request_too_large', 413)
+            values = parse_qs(query, max_num_fields=6)
+            if any(len(v) != 1 for v in values.values()):
+                raise observations.ObservationError('invalid_parameters')
+            payload = observations.response(action.removeprefix('/observations/'), {k: v[0] for k, v in values.items()})
+            handler.send_bytes(200, observations.encode(payload), 'application/json; charset=utf-8',
+                               {'Cache-Control': 'private, no-store, max-age=0'})
+        except observations.ObservationError as exc:
+            send_json(handler, exc.status, {'error': str(exc)})
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            send_json(handler, 503, {'error': 'observations_unavailable'})
+        return
+    if not contract.can_access(user) and user.get(history.PERMISSION) is not True and user.get(observations.PERMISSION) is not True:
         send_json(handler, 403, {"ok": False, "error": "forbidden"})
         return
-    action = path.removeprefix(contract.API_PATH)
     if not post and action == "/capabilities":
+        if not contract.can_access(user) and user.get(history.PERMISSION) is not True:
+            send_json(handler, 200, {contract.PERMISSION: False, history.PERMISSION: False,
+                                   observations.PERMISSION: True, 'executors': {'local': False, 'worker': False}})
+            return
         current = broker()
         available = current.capabilities()
         data_mode = "prediction" if getattr(current.executor, "model", None) is not None else "simulation"
         send_json(handler, 200, {
             "contract": contract.CONTRACT_ID, contract.PERMISSION: contract.can_access(user),
             history.PERMISSION: user.get(history.PERMISSION) is True,
+            observations.PERMISSION: user.get(observations.PERMISSION) is True,
             "history_contract": history.CONTRACT,
             "admin_only": False, "data_mode": data_mode, "worker_ready": available["worker"],
             "executors": available,
@@ -208,6 +248,7 @@ def serve_viewer(handler, requested_path: str, *, assets: Path, config_js: str, 
                   for key, values in mushroom_profiles_ui.PARAMETER_LABELS.items()
                   if key.startswith("ui.prediction_map_")}
         config = {"apiBase": contract.API_PATH, "contract": contract.CONTRACT_ID, "labels": labels,
+                  "observationsMobileEnabled": os.environ.get('RAINMAPPER_MAPLIBRE_OBSERVATIONS_MOBILE_ENABLED', 'false').lower() == 'true',
                   "historyContract": history.CONTRACT,
                   "calendarTimezones": sorted(available_timezones()),
                   "defaultCalendarTimezone": "Europe/Madrid"}
@@ -215,7 +256,7 @@ def serve_viewer(handler, requested_path: str, *, assets: Path, config_js: str, 
         handler.send_bytes(200, source.encode("utf-8"), "application/javascript",
                            {"Cache-Control": "no-store, max-age=0"})
         return
-    if relative in {"prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css"}:
+    if relative in {"prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css"}:
         content_type = "text/css" if relative.endswith(".css") else "application/javascript"
         try:
             source = (extension_assets / relative).read_bytes()

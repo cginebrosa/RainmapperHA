@@ -60,6 +60,13 @@ La clave `gmap_api_key` no debe guardarse en Git. Se usa para los mapas clasicos
 
 `maplibre_hover_zoom` controla desde que nivel de zoom se activan los popups por hover sobre estaciones en MapLibre de escritorio. El valor por defecto es `6.0` y admite decimales como `6.5`.
 
+`maplibre_observations_mobile_enabled` permite mostrar el modo observaciones en
+teléfonos y está desactivado por defecto. Es un ajuste general del complemento;
+además cada usuario necesita el permiso **Observation map access** en Usuarios,
+también desactivado por defecto. En local se configura en
+`rainmapper-local/options.local-ha-ui.json`. Cambiar este ajuste requiere reiniciar
+HA local o el complemento; no requiere reiniciar el worker.
+
 `maplibre_heatmap_weight_curve`, `maplibre_heatmap_opacity`, `maplibre_heatmap_radius` y `maplibre_heatmap_intensity` controlan los valores iniciales del heatmap para dispositivos sin preferencias guardadas. Los defaults actuales son `soft`, `80`, `90` y `70`; los tres valores numericos son porcentajes. El boton `Reset heatmap defaults` del visor restaura estos valores.
 
 `maplibre_estimated_field_*` controla la capa experimental `IDW` de MapLibre. Los defaults de usuario definen si arranca activa, opacidad, radio fisico, calidad, suavizado, zoom DEM y correccion de temperatura por altitud. Los parametros tecnicos de radio en km, radio fisico maximo, tamano fisico de celda en km, potencia IDW, zoom DEM y gradiente termico tambien viven en `config.yaml` para poder probarlos en HA tras reiniciar la app.

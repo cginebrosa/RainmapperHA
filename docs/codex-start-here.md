@@ -198,6 +198,11 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   `release-flow.md`. La prueba debe recorrer el circuito funcional afectado; compilar por sí solo no
   constituye validación. Solo después de la aceptación se publica o instala HA
   real.
+- Entrenamiento y precálculo sólo son obligatorios si el cambio afecta a esos
+  procesos o a sus entradas, contratos operativos o artefactos. UI, permisos y
+  mensajes se validan con pruebas dirigidas, navegador y smoke, sin imponer
+  trabajos operativos ajenos al cambio. Regla general acordada el 24/09/2026;
+  ver `release-flow.md`. El usuario sigue lanzando los trabajos necesarios.
 - Durante un build/push HA, vigilar la misma sesión cada 20–30 s e informar al
   usuario al menos cada minuto; no duplicar builds. Verificar tags, digest y
   manifests antes de cancelar un cliente que tarde en cerrar.

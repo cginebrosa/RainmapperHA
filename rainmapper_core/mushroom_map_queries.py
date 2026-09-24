@@ -33,6 +33,7 @@ class QueryBroker:
         self.queries = OrderedDict()
         self.workers = {}
         self.worker_capabilities = {}
+        self.worker_unavailable_reasons = {}
         self.local_ready = False
         self.stop = threading.Event()
         self.wake = threading.Event()
@@ -56,6 +57,7 @@ class QueryBroker:
                 del self.queries[key]
         self.workers = {key:value for key,value in self.workers.items() if now-value[0] < 15}
         self.worker_capabilities = {key:value for key,value in self.worker_capabilities.items() if key in self.workers}
+        self.worker_unavailable_reasons = {key:value for key,value in self.worker_unavailable_reasons.items() if key in self.workers}
 
     def capabilities(self):
         with self.lock:
@@ -76,6 +78,17 @@ class QueryBroker:
                 value[2] and history.CAPABILITY in self.worker_capabilities.get(key, [])
                 for key, value in self.workers.items()
             ):
+                capable = [key for key in self.workers if history.CAPABILITY in self.worker_capabilities.get(key, [])]
+                if not self.workers:
+                    raise QueryError('executor_unavailable', 503)
+                if not capable:
+                    raise QueryError('worker_history_unsupported', 503)
+                reasons = {self.worker_unavailable_reasons.get(key) for key in capable}
+                for reason in ('map_data_updating', 'map_data_syncing', 'worker_incompatible'):
+                    if reason in reasons:
+                        raise QueryError(reason, 503)
+                if any(self.workers[key][1] for key in capable):
+                    raise QueryError('worker_busy', 503)
                 raise QueryError('executor_unavailable', 503)
             if not self.capabilities()[mode]:
                 if mode == "worker" and self.workers:
@@ -135,13 +148,18 @@ class QueryBroker:
                         **({"runtime":row["runtime"]} if row.get("runtime") else {})}
         return None
 
-    def worker_poll(self, worker_id, busy=False, ready=None, capabilities=None):
+    def worker_poll(self, worker_id, busy=False, ready=None, capabilities=None, unavailable_reason=None):
         with self.lock:
             self._prune()
             if worker_id not in self.workers and len(self.workers) >= 8:
                 raise QueryError("worker_limit",429)
             self.worker_capabilities[worker_id] = capabilities or []
             self.workers[worker_id] = (self.clock(), busy, not busy if ready is None else bool(ready))
+            # Only coordinator-derived, bounded reasons; never arbitrary worker text.
+            if not self.workers[worker_id][2] and unavailable_reason in {'map_data_updating', 'map_data_syncing', 'worker_incompatible'}:
+                self.worker_unavailable_reasons[worker_id] = unavailable_reason
+            else:
+                self.worker_unavailable_reasons.pop(worker_id, None)
             return {"query":None if busy else self._claim("worker",worker_id)}
 
     def finish(self, worker_id, payload):

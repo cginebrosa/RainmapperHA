@@ -1,16 +1,141 @@
-# Contexto activo — HA 0.2.320 publicada, 22/09/2026
+# Contexto activo — HA 0.2.321 publicada, instalación pendiente (24/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este archivo basta para
 retomar; [todo.md](todo.md) amplía las prioridades. No arrancar leyendo informes
 ni el [archivo histórico](reports/session-context-before-close-2026-09-22.md).
 
-## Estado actual: HA 0.2.320 publicada; pendiente instalación real
+## Estado actual: release HA 0.2.321
+
+- Usuario acepta la UI local y autoriza publicar. **GHCR 0.2.321/latest
+  verificados**, mismo digest
+  `sha256:4ec6de37a3d926d1b555c6065152dd94a28ce90b68bc1be008ac008fa73a025d`,
+  manifests `linux/amd64` y `linux/arm64`. Script terminó con código 0.
+- Incluye capa de observaciones, permisos y opción móvil por defecto desactivados,
+  spiderfy con fechas y cierre al repetir pulsación, ficha GIS/nombres comunes/luna;
+  también avisos históricos diferenciados y calendario activo que vuelve a hoy.
+- **Regla general aclarada por el usuario:** entrenamiento/precálculo sólo si el
+  cambio afecta a esos procesos, entradas, contratos operativos o artefactos.
+  UI, permisos y mensajes se validan proporcionalmente, sin exigir ese circuito.
+  Actualizados `AGENTS.md`, `release-flow.md` y `codex-start-here.md`; no es una
+  excepción por versión. Los trabajos necesarios los sigue lanzando el usuario.
+- Smoke **1.751 pruebas, 52 skips, OK**; navegador final OK. HA local y worker
+  reconstruidos/recreados desde el mismo código, paridad efectiva **224/125** sin
+  diferencias. Worker libre antes de reiniciar, coordinadores/credenciales e
+  identidad preservados. Observaciones repo/local y suspensiones con hashes intactos.
+  Después sólo bump, cache-busters, changelog y documentación; metadatos locales
+  de aceptación HA 0.2.320/worker 1.1.6. Ningún entrenamiento ni precálculo lanzado.
+- Código, pruebas, versión y cierre documental reunidos en el commit único
+  `Release Home Assistant 0.2.321`; consultar Git para hash/estado del push.
+  Observaciones privadas excluidas. [Informe](reports/release-ha-0.2.321-2026-09-24.md).
+- **Instalación real pendiente del usuario.** Última versión confirmada en HA real:
+  0.2.320. No afirmar 0.2.321 instalada sin revalidar. Los bloques inferiores son
+  evidencia histórica de preparación; sus pendientes de publicación quedan
+  resueltos por esta entrega.
+
+## Evidencia local de la capa de observaciones (23–24/09)
+
+- Usuario autoriza implementación: ojos bajo histórico, selector superior
+  izquierdo con especies/recuentos, setas y ficha con especie, fecha, área/microárea,
+  abundancia, hosts, bosque y observador. Añadido ID para distinguir registros.
+  Compatible con predicción/histórico: todas las fechas, sin recálculos ni worker.
+- Contador para coincidencias; despliegue radial con líneas a coordenadas reales
+  y fechas pequeñas DD/MM/AAAA. Conserva todos los registros. Grupos grandes con
+  ocho iconos por página; mover el mapa o pulsar fuera repliega.
+- Permiso `can_use_observations_map`, false por defecto incluso admin, en Usuarios
+  → Observation map access. No se ha activado a nadie automáticamente.
+- Usuario elige ajuste **general** móvil además del permiso individual:
+  `maplibre_observations_mobile_enabled: false`, en `rainmapper-app/config.yaml`
+  options/schema y `rainmapper-local/options.local-ha-ui.json`. En configuración
+  del complemento: Allow observation map on mobile. Reiniciar HA tras cambiarlo;
+  no el worker. Heurística: ancho ≤767 px o táctil con altura ≤600 px.
+- HA local reconstruido/recreado y HTTP 200, 223 archivos efectivos sin diferencias.
+  Config.js confirma móvil false. Backend: 515 observaciones/17 especies;
+  listado 1.573 bytes, página máxima 4.982 bytes, puntos totales 30.530 bytes.
+- Validación final: **smoke 1.744 pruebas, 52 skips, OK**, 76,990 s; navegador OK,
+  incluidos permisos, revocación, spiderfy/fechas, fichas, predicción activa,
+  histórico y móvil desactivado/habilitado sin perder fecha histórica.
+  Logs `/private/tmp/rainmapper-observations-{smoke-final,browser}.log`.
+- Worker sin reiniciar; observaciones privadas y suspensiones con hashes intactos.
+  Sin entrenamientos/precálculos, bump, commit ni release nueva. Pendiente de
+  aceptación del usuario en local. HA real sigue 0.2.320; no incorpora estos cambios
+  ni los ajustes históricos de abajo. Antes de publicar sigue siendo obligatoria
+  la validación conjunta HA/worker correspondiente.
+  [Especificación](mushrooms/prediction-map-specification-es.md) ·
+  [Evidencia local](reports/observations-map-local-2026-09-23.md).
+- Corrección posterior a la prueba del usuario: la ficha omitía hosts/bosque GIS
+  aceptados porque sólo leía `observed_*`. Ahora combina valores de campo y
+  `site_context.gis_recovery.values`, validando coordenadas con `valid_recovery`;
+  marca aportes GIS como «GIS aceptado» y no consulta GIS ni modifica registros.
+  Pruebas dirigidas posteriores: 27 OK, incluidas fusión, procedencia y rechazo de
+  recuperación desfasada/no válida. El smoke de 1.744 corresponde al estado previo
+  a esta corrección; no se presume validación de una nueva release. Navegador
+  repetido OK con marcas GIS en hosts/bosque. HA local reconstruido/recreado:
+  223 archivos efectivos sin diferencias y registro del usuario comprobado dentro
+  del contenedor; hosts/bosque aceptados presentes. Registros y suspensiones intactos.
+- Ajuste de nombres pedido después: hosts y bosque se muestran con nombres
+  comunes/etiquetas del idioma del mapa; científico sólo si falta traducción del
+  host. Probado ca/es/en y fallback, 7 pruebas del módulo OK. HA local reconstruido
+  y recreado, HTTP 200, 223 archivos efectivos sin diferencias y nombres catalanes
+  comprobados dentro del contenedor. No cambió el frontend ni se repitió el smoke.
+- Fase lunar solicitada después (24/09): imagen SVG con iluminación calculada
+  junto a Fecha/Área y cuatro textos traducidos. Función compartida
+  `rainmapper_core.lunar_phase.lunar_phase`: fase continua, fracción iluminada,
+  creciente/menguante, categoría y versión; fecha sin hora a mediodía UTC.
+  Sólo se calcula al abrir la ficha, según fecha de observación. Preparada para
+  otros consumidores; no se integra todavía en entrenamiento.
+  12 pruebas dirigidas OK, incluidas referencias USNO y convenciones temporales;
+  navegador OK con las cuatro imágenes, encaje sin overflow e histórico activo.
+  HA local reconstruido/recreado, HTTP 200 y 224 archivos efectivos sin diferencias.
+  Observación `obs_20250904_0026` comprobada dentro del contenedor: 04/09/2025,
+  creciente, fracción ≈0,8751. Worker conserva ID/arranque/imagen; huellas de
+  observaciones repo/local y suspensiones intactas. Sin nueva release.
+- Interacción posterior (24/09): repetir pulsación de una seta cierra su ficha,
+  también mientras carga; otra observación abre su ficha. Repetir pulsación del
+  contador abierto repliega el spiderfy y cierra su ficha. Comprobado en navegador
+  para setas individuales/desplegadas, cambio de registro, cierre sin petición,
+  carga pendiente y reapertura del grupo. HA local reconstruido/recreado, HTTP 200
+  y paridad efectiva 224 archivos sin diferencias; no se opera el worker.
+
+## Diagnóstico actual: histórico durante el runner (23/09)
+
+- HA real 0.2.320 instalada, revalidada por `diagnostics/runtime_state.json`
+  mediante SMB LAN. Worker 1.1.6 responde. Captura del usuario anterior al
+  precálculo: no atribuirla al background ocupado observado después.
+- Runner 11:00:17–11:06:51; `CURRENT.json` cambió a las 11:04:03 y la copia
+  para el worker se publicó a las 11:06:51. Worker sincronizó mapa 11:07:04 y
+  tomó precálculo 11:07:07. Durante el desfase, el código rechaza la copia
+  desactualizada y el histórico muestra el texto genérico «worker no disponible».
+  Mecanismo reproducido con prueba dirigida, 1 test OK; falta el error concreto
+  de aquella consulta para atribuirle causalidad absoluta. Timeouts de conexión
+  observados son otra evidencia, sin causa aislada.
+- Tras «pues lo hacemos», corregidos en local los avisos del histórico: separan
+  actualización, sincronización, ocupación, incompatibilidad, timeout y errores.
+  Conservan fallback local y controles de coherencia. Fecha del progreso DD/MM/AAAA.
+  HA local reconstruido/recreado, HTTP 200 y 220 archivos efectivos sin diferencias.
+  Pruebas dirigidas: 52 OK; navegador OK, incluidos avisos traducidos y fallback.
+  Worker existente sin reiniciar: mismo contenedor/arranque/imagen. Coordinadores,
+  tokens, suspensiones y observaciones privadas conservan sus huellas.
+  Cambios pendientes de commit; ninguna release nueva ni trabajos lanzados por
+  Codex. HA real sigue con 0.2.320 y aún no incorpora esta corrección. Esto no
+  constituye la validación del par HA/worker requerida para una futura release.
+  [Evidencia y límites](reports/historical-worker-runner-2026-09-23.md).
+- Ajuste posterior solicitado: calendario derecho con histórico activo vuelve
+  directamente a hoy; el indicador superior mantiene el selector de fecha.
+  Tooltips ajustados a cada acción. HA local reconstruido/recreado otra vez,
+  HTTP 200 y 220 archivos efectivos sin diferencias. Navegador OK: selector
+  desde indicador, regreso directo sin modal, datos actuales y botón desmarcado;
+  log `/private/tmp/rainmapper-history-toggle-browser.log`. Pendiente de publicar
+  junto con los avisos anteriores; usuario confirma HA real 0.2.320 funcionando.
+- SMB LAN actual: `192.168.0.121` en `/Volumes/share` y `/Volumes/media`.
+  Revalidar montajes; sus nombres no identifican por sí solos la ruta de red.
+
+## Publicación HA 0.2.320 y validación del 22/09
 
 - Usuario acepta el calendario («funciona mucho mejor») y pide publicar HA.
   Lanzó el circuito en HA local tras preparar la candidata y confirma que
   terminaron el entrenamiento y precálculo. Resultados auditados antes de publicar.
 - Candidata **HA 0.2.320 / worker local 1.1.6**, ambos construidos del worktree
-  actual y recreados. HA arrancó `2026-09-22T20:18:43Z`, worker `20:19:53Z`.
+  de aquella publicación y recreados. HA arrancó `2026-09-22T20:18:43Z`, worker `20:19:53Z`.
   Imágenes `sha256:ee142a887d10b26ca9a588704ddf177fa27539004faeec0e5cff14a5b3146095`
   y `sha256:ece494abb1a4669e51ff1bf68c6c5d8978c611a9e0bc19a961679df0be0856a8`.
   Etiqueta HA 0.2.320; `/health` worker 1.1.6, idle en ambos carriles al comprobar.
@@ -44,8 +169,8 @@ ni el [archivo histórico](reports/session-context-before-close-2026-09-22.md).
   Código, pruebas, bump y cierre documental se reúnen en el único commit
   `Release Home Assistant 0.2.320`; consultar Git para hash/estado del push.
   Observaciones privadas excluidas y conservadas. [Informe y circuito](reports/release-ha-0.2.320-2026-09-22.md).
-- Instalación de 0.2.320 en HA real pendiente del usuario. Debe habilitar allí
-  el permiso histórico por usuario. No copiar usuarios ni modelos desde local.
+- Instalación de 0.2.320 en HA real confirmada después por SMB (23/09).
+  Histórico utilizado por el usuario según captura; no copiar usuarios ni modelos desde local.
 
 ## Modo histórico aceptado en local: alcance y evidencia previa al bump
 
@@ -198,8 +323,8 @@ No cambiar IDW, suspensiones ni modelo operativo por intuición o por acuerdo vi
 
 ## Próximos pasos, por orden
 
-1. Usuario instala HA 0.2.320 y habilita el modo histórico para su usuario.
-   Revalidar versión y probar histórico en real. Completar la prueba del detalle de
+1. Resolver diagnóstico del aviso genérico de worker en histórico durante el
+   runner, sin mezclar generaciones. Completar la prueba del detalle de
    variables en HA real, para Servidor local y worker cuando estén disponibles;
    requiere consulta viva del mapa, pues las respuestas no se persisten.
 2. Medir memoria de HA real con registros persistidos: arranque, reposo, consultas
@@ -233,7 +358,7 @@ No cambiar IDW, suspensiones ni modelo operativo por intuición o por acuerdo vi
 
 ## Límites de actuación
 
-Release 0.2.320 autorizada; no deducir autorización para otra publicación.
+Release 0.2.321 autorizada y publicada; no deducir autorización para otra publicación.
 Instalar/parar/arrancar HA real corresponde al usuario. No SSH sin petición
 expresa, no Tailscale ni montar SMB por Tailscale. SMB LAN `/Volumes/share-1`
 revalidado; `/Volumes/share` y `/Volumes/media` apuntaban a Tailscale y no se usaron.

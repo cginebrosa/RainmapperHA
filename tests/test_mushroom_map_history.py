@@ -98,7 +98,7 @@ class HistoricalWeatherTests(unittest.TestCase):
     def test_worker_must_advertise_history_without_affecting_prediction(self):
         broker=QueryBroker();broker.worker_poll('old-worker')
         req=request();req['execution']='worker'
-        with self.assertRaisesRegex(QueryError,'executor_unavailable'):broker.submit('alice',req)
+        with self.assertRaisesRegex(QueryError,'worker_history_unsupported'):broker.submit('alice',req)
         broker.worker_poll('new-worker',capabilities=[history.CAPABILITY])
         accepted=broker.submit('alice',req)
         self.assertIsNone(broker.worker_poll('old-worker')['query'])
@@ -106,6 +106,34 @@ class HistoricalWeatherTests(unittest.TestCase):
         self.assertEqual(claim['query_id'],accepted['query_id'])
         self.assertTrue(broker.is_history('alice',accepted['query_id']))
         with self.assertRaises(QueryError):broker.is_history('bob',accepted['query_id'])
+
+    def test_history_preserves_readiness_reason_and_recovers_without_changing_prediction(self):
+        now = [1.]
+        broker = QueryBroker(clock=lambda: now[0])
+        req = {**request(), 'execution': 'worker'}
+        with self.assertRaisesRegex(QueryError, 'executor_unavailable'):
+            broker.submit('alice', req)
+        broker.worker_poll('legacy-worker')  # A ready older worker must not hide this reason.
+        for reason in ('map_data_updating', 'map_data_syncing', 'worker_incompatible'):
+            broker.worker_poll('history-worker', busy=True, ready=False,
+                capabilities=[history.CAPABILITY], unavailable_reason=reason)
+            with self.subTest(reason=reason), self.assertRaisesRegex(QueryError, reason):
+                broker.submit('alice', req)
+            self.assertEqual(len(broker.queries), 0)
+        broker.worker_poll('history-worker', busy=True, capabilities=[history.CAPABILITY])
+        with self.assertRaisesRegex(QueryError, 'worker_busy'):
+            broker.submit('alice', req)
+        broker.worker_poll('history-worker', busy=True, ready=True, capabilities=[history.CAPABILITY])
+        self.assertNotIn('history-worker', broker.worker_unavailable_reasons)
+        accepted = broker.submit('alice', req)
+        self.assertIsNone(broker.worker_poll('history-worker', busy=True, ready=True,
+            capabilities=[history.CAPABILITY])['query'])
+        claim = broker.worker_poll('history-worker', capabilities=[history.CAPABILITY])['query']
+        self.assertEqual(claim['query_id'], accepted['query_id'])
+        now[0] += 16
+        with self.assertRaisesRegex(QueryError, 'executor_unavailable'):
+            broker.submit('bob', req)
+        self.assertEqual(broker.worker_unavailable_reasons, {})
 
 
 if __name__=='__main__':unittest.main()

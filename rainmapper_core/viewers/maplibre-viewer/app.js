@@ -804,6 +804,7 @@ async function validateStoredSession() {
         canUseEstimatedField: payload.user.can_use_estimated_field === true,
         canUsePredictionMap: payload.user.can_use_prediction_map === true,
         canUseHistoricalMap: payload.user.can_use_historical_map === true,
+        canUseObservationsMap: payload.user.can_use_observations_map === true,
       });
     }
   } else {
@@ -872,6 +873,7 @@ function saveAuthenticatedPayload(payload) {
     canUseEstimatedField: payload.can_use_estimated_field === true,
     canUsePredictionMap: payload.can_use_prediction_map === true,
     canUseHistoricalMap: payload.can_use_historical_map === true,
+    canUseObservationsMap: payload.can_use_observations_map === true,
   });
 }
 
