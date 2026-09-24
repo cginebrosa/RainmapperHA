@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.323
+
+- Support both Wunderground station header layouts and explicit altitude units; validate station identity and coordinates while reusing saved metadata.
+- Retry incomplete HTML responses with bounded attempts and timeouts; reject observations outside the requested dates and report an entirely empty download as a source failure.
+- Identify incomplete SoilGrids micro-areas by area, name, status and coverage, with direct links to their maintenance forms.
+
 ## 0.2.322
 
 - Add Favorable / Unfavorable / All filters above the observation species selector, with All selected by default and matching species counts and markers.

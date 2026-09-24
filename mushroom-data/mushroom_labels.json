@@ -6935,9 +6935,9 @@
     "ca": "Algunes microàrees no tenen un context SoilGrids complet"
   },
   "ui.soilgrids_warning_help": {
-    "en": "{count} micro-areas will be omitted only from model profiles that require SoilGrids. Other profiles and areas remain operational. A full reconstruction retries them automatically.",
-    "es": "{count} microáreas se omitirán únicamente de los perfiles de modelo que requieren SoilGrids. Las demás áreas y perfiles siguen operativos. Una reconstrucción completa vuelve a intentarlo automáticamente.",
-    "ca": "{count} microàrees s'ometran únicament dels perfils de model que requereixen SoilGrids. La resta d'àrees i perfils continuen operatius. Una reconstrucció completa ho torna a intentar automàticament."
+    "en": "{count} micro-areas have incomplete or outdated soil data. Profiles that require complete SoilGrids data cannot use them; other profiles remain operational. Open each micro-area to review its location and coverage.",
+    "es": "{count} microáreas tienen datos de suelo incompletos o desactualizados. Los perfiles que requieren SoilGrids completo no pueden usarlas; los demás siguen operativos. Abre cada microárea para revisar su ubicación y cobertura.",
+    "ca": "{count} microàrees tenen dades de sòl incompletes o desactualitzades. Els perfils que requereixen SoilGrids complet no poden utilitzar-les; la resta continuen operatius. Obre cada microàrea per revisar-ne la ubicació i la cobertura."
   },
   "ui.soilgrids_pending": {
     "en": "SoilGrids pending",
@@ -8066,5 +8066,35 @@
     "en": "New",
     "es": "Nueva",
     "ca": "Nova"
+  },
+  "ui.soilgrids_status_partial": {
+    "en": "Partial coverage",
+    "es": "Cobertura parcial",
+    "ca": "Cobertura parcial"
+  },
+  "ui.soilgrids_status_no_coverage": {
+    "en": "No coverage",
+    "es": "Sin cobertura",
+    "ca": "Sense cobertura"
+  },
+  "ui.soilgrids_status_missing_geometry": {
+    "en": "Missing geometry",
+    "es": "Sin geometría",
+    "ca": "Sense geometria"
+  },
+  "ui.soilgrids_status_pending": {
+    "en": "Pending or unavailable data",
+    "es": "Datos pendientes o no disponibles",
+    "ca": "Dades pendents o no disponibles"
+  },
+  "ui.soilgrids_status_outdated": {
+    "en": "Outdated context",
+    "es": "Contexto desactualizado",
+    "ca": "Context desactualitzat"
+  },
+  "ui.soilgrids_coverage": {
+    "en": "Coverage: {percent}%",
+    "es": "Cobertura: {percent}%",
+    "ca": "Cobertura: {percent}%"
   }
 }

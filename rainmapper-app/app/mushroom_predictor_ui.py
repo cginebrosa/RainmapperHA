@@ -3853,10 +3853,35 @@ def _render_soilgrids_warning(known_sites_payload: dict[str, Any]) -> str:
     count = len(unresolved) if isinstance(unresolved, list) else 0
     if not count:
         return ""
+    areas = {str(row.get("area_id", "")): str(row.get("name") or row.get("area_id", ""))
+             for row in known_sites_payload.get("areas", []) if isinstance(row, dict)}
+    micro_areas = {str(row.get("micro_area_id", "")): row
+                   for row in known_sites_payload.get("micro_areas", []) if isinstance(row, dict)}
+    details = []
+    for item in unresolved:
+        mid = str(item.get("micro_area_id", ""))
+        area_id = str(item.get("area_id", ""))
+        name = str(item.get("name") or mid)
+        state = str(item.get("status", ""))
+        state_key = state if state in {"partial", "no_coverage", "missing_geometry"} else "pending"
+        if state == "complete":
+            state_key = "outdated"
+        description = _lbl("ui.soilgrids_status_" + state_key)
+        context = (micro_areas.get(mid, {}).get("derived_context") or {}).get("soilgrids_water") or {}
+        coverage = context.get("coverage_fraction")
+        if isinstance(coverage, (float, int)) and not isinstance(coverage, bool) and math.isfinite(coverage) and 0 <= coverage <= 1:
+            description += " · " + _lbl("ui.soilgrids_coverage").replace("{percent}", f"{coverage * 100:.2f}")
+        href = "./known-sites?" + urlencode({"kind": "micro_area", "id": mid})
+        details.append(
+            f'<li><a href="{html.escape(href, quote=True)}">'
+            f'{html.escape(areas.get(area_id, area_id))} — {html.escape(name)}</a>'
+            f' · {html.escape(description)}</li>'
+        )
     return (
         '<div class="pred-training-warning">'
         f'<strong>{html.escape(_lbl("ui.soilgrids_warning_title"))}</strong>'
         f'<span>{html.escape(_lbl("ui.soilgrids_warning_help").replace("{count}", str(count)))}</span>'
+        '<ul>' + ''.join(details) + '</ul>'
         "</div>"
     )
 
@@ -4054,6 +4079,8 @@ _CSS = """
   color: #f5d98b;
 }
 .pred-training-warning span { color: #d6c7a0; }
+.pred-training-warning ul { margin: 0.3rem 0 0; padding-left: 1.25rem; }
+.pred-training-warning a { color: inherit; text-underline-offset: 0.15em; }
 .pred-status-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin: 0 0 0.8rem; flex-wrap: wrap; }
 .pred-runtime-status { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
 .pred-timing-badge { color: #9aa8b2; font-size: 0.9rem; text-align: right; }

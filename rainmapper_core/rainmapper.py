@@ -2077,7 +2077,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                     scraper = parseStationData(url, max_attempts=_max_attempts, full_log=_wunderground_full_log)
                     try:
                         # html_string se usa mas abajo si la API no esta disponible
-                        html_string = scraper.fetch_data()
+                        html_string = scraper.fetch_data(require_metadata=True)
                         if _wunderground_full_log:
                             end_count(_legend='Fetched data for '+url)
 
@@ -2149,39 +2149,33 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                     wunderground_log(f'Scraping data from {url}')
                     if scraper is None:
                         scraper = parseStationData(url, max_attempts=_max_attempts, full_log=_wunderground_full_log)
-                    if html_string is None:
-                        html_string = scraper.fetch_data()
-                        if _wunderground_full_log:
-                            end_count(_legend='Fetched data for '+url)
-                    history_table = False
-                    max_attempts = _max_attempts  # Número máximo de intentos
-                    attempts = 0  # Contador de intentos
-                    while not history_table and attempts < max_attempts:
-                        attempts += 1
-                        #html_string = session.get(url, timeout=timeout)
-                        doc = lh.fromstring(html_string.content)
-                        history_table = doc.xpath('//*[@id="main-page-content"]/div/div/div/lib-history/div[2]/lib-history-table/div/div/div/table/tbody')
-                        if not history_table:
-                            wunderground_log("refreshing session")
-                            session = requests.Session()
-                            html_string = session.get(url, timeout=timeout)
+                    def parse_history_response(response):
+                        try:
+                            doc = lh.fromstring(response.content)
+                            history_table = doc.xpath('//lib-history-table//table/tbody')
+                            if not history_table:
+                                raise WundergroundPageError(
+                                    'Wunderground: el HTML recibido no contiene la tabla histórica'
+                                )
+                            data_rows = Parser.parse_html_table(
+                                date_string, history_table, station_ID, station_name,
+                                location_name, elevation, latitude, longitude,
+                            )
+                            requested_day = datetime.strptime(date_string, '%Y-%m-%d').date()
+                            requested_start = requested_day.replace(day=1) if MONTHLY else requested_day
+                            data_rows = validate_history_dates(data_rows,
+                                max(wunderground_start_date, requested_start),
+                                min(wunderground_end_date, requested_day))
+                            converter = ConvertToSystem(UNIT_SYSTEM, full_log=_wunderground_full_log)
+                            return converter.clean_and_convert(data_rows)
+                        except (IndexError, KeyError, ValueError, lh.etree.ParserError) as exc:
+                            raise WundergroundPageError(str(exc)) from exc
 
-
-                    # parse html table rows
-                    #print(f'Parsing html table rows from {url}')
-
-                    data_rows = Parser.parse_html_table(date_string,
-                                                        history_table,
-                                                        station_ID,
-                                                        station_name,
-                                                        location_name,
-                                                        elevation,
-                                                        latitude,
-                                                        longitude)
-
-                    # convert to metric system
-                    converter = ConvertToSystem(UNIT_SYSTEM, full_log=_wunderground_full_log)
-                    data_to_write = converter.clean_and_convert(data_rows)
+                    scraper.fetch_data(validator=parse_history_response)
+                    data_to_write = scraper.validated_data
+                data_to_write = validate_history_dates(
+                    data_to_write, wunderground_start_date, wunderground_end_date,
+                )
                 summary_rows += len(data_to_write)
 
                 wunderground_log(f'Saving {len(data_to_write)} rows')
@@ -2550,6 +2544,11 @@ def create_wunderground(timings=None):
     os.remove(wunderground_file_name)
     record_timing(timings, 'read_scrape_csv_seconds', step_start_time)
 
+    if scraper_df.empty:
+        raise WundergroundPageError(
+            'Wunderground: ninguna estación devolvió observaciones válidas del intervalo solicitado'
+        )
+
     #print(scraper_df)
     step_start_time = start_timing(timings, 'normalize_seconds')
     wunderground_df = build_wunderground_dataframe(scraper_df)
@@ -2750,7 +2749,7 @@ from rainmapper_core.sources.wunderground.daily_api import (
     station_id_from_url,
 )
 #inicio modi
-from rainmapper_core.sources.wunderground.parseStationData import parseStationData
+from rainmapper_core.sources.wunderground.parseStationData import parseStationData, WundergroundPageError, validate_history_dates
 
 # configuration
 _stations_file = os.path.join(_script_path, 'stations.txt')

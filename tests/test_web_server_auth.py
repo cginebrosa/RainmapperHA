@@ -233,8 +233,28 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
 
         self.assertIn("no complete SoilGrids context", predictor_warning)
-        self.assertIn("Other profiles and areas remain operational", predictor_warning)
+        self.assertIn("other profiles remain operational", predictor_warning)
+        self.assertIn("Area — Pending site", predictor_warning)
+        self.assertIn("./known-sites?kind=micro_area&amp;id=a_pending", predictor_warning)
         self.assertIn("SoilGrids pending", known_sites_page)
+
+    def test_soilgrids_warning_identifies_partial_coverage_and_escapes_names(self) -> None:
+        ui = self.web_server.mushroom_predictor_ui
+        site = {
+            "micro_area_id": "site&1", "area_id": "a", "name": "Site <one>",
+            "derived_context": {"soilgrids_water": {"coverage_fraction": 0.944354}},
+        }
+        payload = {"areas": [{"area_id": "a", "name": "Area & other"}], "micro_areas": [site]}
+        health = {"unresolved": [{**site, "status": "partial"}]}
+        with mock.patch.object(ui.mushroom_soilgrids_reconciler, "inspect_payload", return_value=health):
+            warning = ui._render_soilgrids_warning(payload)
+        self.assertIn("Area &amp; other — Site &lt;one&gt;", warning)
+        self.assertIn("Partial coverage · Coverage: 94.44%", warning)
+        self.assertIn("./known-sites?kind=micro_area&amp;id=site%261", warning)
+        self.assertNotIn("<one>", warning)
+        self.assertNotIn("automatically", warning)
+        with mock.patch.object(ui.mushroom_soilgrids_reconciler, "inspect_payload", return_value={"unresolved": []}):
+            self.assertEqual(ui._render_soilgrids_warning(payload), "")
 
     def test_all_stops_before_maps_when_update_artifacts_fail(self) -> None:
         class FailedUpdateProcess:

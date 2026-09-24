@@ -1,10 +1,87 @@
-# Contexto activo — HA 0.2.322 publicada, instalación pendiente (24/09/2026)
+# Contexto activo — HA 0.2.323 publicada, instalación pendiente (25/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este archivo basta para
 retomar; [todo.md](todo.md) amplía las prioridades. No arrancar leyendo informes
 ni el [archivo histórico](reports/session-context-before-close-2026-09-22.md).
 
-## Estado actual: release HA 0.2.322 (24/09)
+## Estado actual: release HA 0.2.323 (25/09)
+
+- Usuario autoriza publicación y commit/push. Imagen GHCR **0.2.323/latest**
+  verificada con el mismo digest
+  `sha256:7a68ff2a0594d6a219f0dff54603fb0c891463898a590c94f2df983f4a3989f4`,
+  manifests amd64/arm64; script finalizado con código 0.
+- Incluye extracción robusta de metadatos WU (formatos antiguo/nuevo, m/ft,
+  reintentos acotados), rechazo de filas fuera del intervalo y fallo explícito
+  si ninguna estación aporta filas válidas; aviso SoilGrids con ficha y cobertura.
+- Smoke **1.770 pruebas, 52 skips, OK** (81,567 s). 32 pruebas WU dirigidas,
+  lectura real de metadatos de las tres estaciones afectadas y pruebas offline
+  dentro de HA local. Paridad local **224 archivos**, huella
+  `b7dbeb59e4766da81283e4dcbddf8543761f3d201fb31ff1ccc6163f04f5b706`.
+  Después sólo bump/cache-busters, changelog y documentación.
+- **Worker no reconstruido, publicado ni reiniciado**: cambios exclusivos del
+  runner HA y UI. Contenedor/imagen/arranque/coordinadores/credenciales e identidad
+  preservados. El trabajo que estaba activo terminó por sí mismo.
+- Observaciones privadas repo/local y política/suspensiones conservan sus hashes
+  de inicio de release; JSON privado excluido del commit y de la imagen.
+- Instalación HA real **a cargo del usuario**, no ejecutada. Última versión real
+  comprobada por SMB en esta sesión: 0.2.321; revalidar antes de futuras acciones.
+- Pendiente separado: impedir `months_init`/`months_end` positivos **antes** de
+  arrancar el backfill. Esta release rechaza filas ajenas, pero no bloquea aún
+  esos parámetros. Tampoco modifica HGB ni los saltos de Aereus/Olvan.
+- [Informe y validaciones](reports/release-ha-0.2.323-2026-09-25.md).
+
+## Diagnósticos y release anterior 0.2.322 (24/09)
+
+- Incidencia adicional comprobada a las 21:20–21:26 CEST por SMB LAN: update WU
+  acepta `months_init=24`, `months_end=-1`, intervalo 1 y genera 26 ventanas desde
+  septiembre de 2028 hasta agosto de 2026. Falta validación de offsets futuros
+  en esquema HA y planificadores web/shell. La API devuelve HTTP 204; el fallback
+  HTML devuelve filas de septiembre de 2026 y se aceptan sin comprobar el rango.
+  CSV actual: 144 filas, 6 estaciones, 01–24/09/2026, ninguna futura; logs muestran
+  escrituras en histórico de 2026. No implica que se haya auditado todo el histórico.
+  Usuario avisado y recomendado cancelar desde UI; agente no detuvo ni cambió el
+  trabajo. Pendiente impedir offsets mensuales futuros antes de lanzar el trabajo;
+  rechazo de fechas ajenas implementado después en el extractor (bloque siguiente). Evidencia
+  local `tmp/backfill-future-20260924/`; código `web_server.monthly_backfill_windows`,
+  `run.sh:month_backfill_windows`, `rainmapper.scrap_wunderground_station` y
+  `sources/wunderground/Parser.py`. Cambios posteriores no incluidos en 0.2.322.
+- Error adicional WU «No se pudieron encontrar Elevacion,Latitud,Longitud»:
+  si no hay metadatos en catálogo y falla `get_station_header`, el runner omite
+  la estación/ventana antes de consultar la API. No significa ausencia de datos.
+  Métricas reales del 24/09: IALCAL258 falló 21:20 y recuperó desde 21:21;
+  IALLEP1 falló 21:20/21:21 y recuperó desde 21:22. Ambas tienen ya metadatos en
+  `estacions_wunderground.csv`; ILAIGL7 no figuraba y seguía fallando.
+  La inspección inicial sólo buscaba el selector antiguo. Corrección de diagnóstico:
+  el HTML de 81.099 bytes **sí contiene coordenadas**, en `dashboard-header-view`
+  / `.elevation-coordinates`, con metros. El otro formato usa `.station-header`
+  y pies. No atribuir la alternancia a caché/compresión/user-agent: no demostrado.
+- **Extracción WU robusta implementada y publicada en HA 0.2.323**:
+  ambos formatos, unidades explícitas m/ft, hemisferios, validación de estación y
+  rangos de coordenadas. Reintentos acotados (3 por fase) para 200 incompleto,
+  timeout y variantes de codificación ya existentes en la API. Metadatos guardados
+  se reutilizan. Fallback HTML rechaza fechas ajenas; API también se filtra antes
+  de escribir; ninguna observación válida implica fallo de fuente y fallback al
+  histórico existente, no éxito vacío. No se ha alterado el catálogo real.
+  32 pruebas dirigidas OK; lectura real de metadatos de IALCAL258/IALLEP1/ILAIGL7
+  OK; fixtures de ambos formatos y rechazo de año incorrecto ejecutados dentro de
+  HA local. 224 archivos efectivos idénticos, huella
+  `b7dbeb59e4766da81283e4dcbddf8543761f3d201fb31ff1ccc6163f04f5b706`.
+  Sin lanzar runner/entrenamiento/precálculo, sin reconstruir/reiniciar worker.
+  Log build `/private/tmp/rainmapper-wu-robust-build.log`; pruebas
+  `tests/test_wunderground_html.py`. No incluido en HA 0.2.322.
+
+- Revalidación posterior por SMB LAN: HA real **0.2.321** en
+  `diagnostics/runtime_state.json`. El usuario instala; el agente no ha instalado.
+- Diagnóstico posterior: Aereus/Olvan 89 → 53 → 75 procede del **mismo HGB-V2**,
+  con umbrales a 15,5/16,5 días desde lluvia. Árboles y precálculo persistidos
+  cotejados sin entrenar ni precalcular. No se ha cambiado ni suspendido el modelo.
+- Aviso SoilGrids: **Can Brunet / Dosrius**, `dosrius_can_brunet`, cobertura
+  parcial 94,44 %. Corregido en el worktree y HA local para mostrar nombre,
+  estado, cobertura y enlace a mantenimiento. **Publicado después en 0.2.323.**
+  Tres pruebas dirigidas y Chrome OK; HA local 224 archivos idénticos,
+  huella `d57364cf9e1ca9ecbfb7afb3bce403485f80704ff766fa040f283371ae2d3195`.
+  Worker no reconstruido/reiniciado para este aviso.
+  [Diagnóstico y fuentes](reports/aereus-olvan-soilgrids-2026-09-24.md).
 
 - Usuario acepta la UI local y autoriza publicar. GHCR **0.2.322/latest**
   verificados con digest común
@@ -26,8 +103,8 @@ ni el [archivo histórico](reports/session-context-before-close-2026-09-22.md).
 - Observaciones privadas excluidas de commit e imagen. El JSON local cambió durante
   la sesión concurrente; no afirmar igualdad de su hash inicial/final. Política de
   predicción/suspensiones y JSON privado del repo sí mantienen sus huellas.
-- Código, pruebas, versión y cierre documental en un único commit
-  `Release Home Assistant 0.2.322`; consultar Git para hash y estado de push.
+- Código, pruebas, versión y cierre documental de la release en el commit
+  `595a0e7` (`Release Home Assistant 0.2.322`), subido a `origin/inicial`.
   [Informe](reports/release-ha-0.2.322-2026-09-24.md).
 - Instalación en HA real a cargo del usuario; no realizada por el agente.
 
