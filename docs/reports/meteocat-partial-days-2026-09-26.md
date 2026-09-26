@@ -146,3 +146,32 @@ no se han regenerado. Entrenamiento/precálculo los lanza el usuario.
 Evidencia inicial: `tmp/station-compare-20260926/`: `official-yb-w9-september.json`,
 `meteocat-last-two-hours.json`, `stored-yb-w9.json`, `archive-yb-w9.json` y extractos
 Meteoclimatic A/B. No se han incorporado observaciones privadas al informe.
+
+## Incidencia de formato decimal y comprobación del primer runner manual
+
+El CSV subido conservaba comas originales pero usaba puntos para las celdas
+corregidas. Error de nuestra preparación, no de la API ni del fix de ventanas.
+El primer runner manual falló en `read_incremental` con `could not convert string
+to float: '1,6'`; también falló el fallback. El timeout HTTPS previo se recuperó.
+Las pruebas semánticas anteriores no sustituían la prueba del lector real.
+
+La corrección homogénea con coma se preparó sólo en local y pasó el lector real,
+más dos ciclos `read_incremental` → `save_incremental_meteocat` → lectura, con
+33.707 filas y todos los valores recuperados. No se escribió en HA mientras
+estaba activo el runner, siguiendo la advertencia del usuario.
+
+Al terminar el runner, `archive pending after update` reaplicó el lote fresco
+Meteocat de 1.498 filas y normalizó automáticamente los decimales del CSV completo.
+Por eso no fue necesario desplegar el CSV adicional: el destino ya había cambiado
+y se conservó. Hash observado:
+`2fdb0c2890bc6c419e3ff2df36e6d29b0f6aa2a58f723d1014422fd9d2db6c6a`.
+
+Verificación posterior en sólo lectura: lector real OK; cinco columnas numéricas
+float64; las 24.034 celdas recuperadas correctas tanto CSV como histórico.
+Nueva generación `20260926T202107394242Z-59d98ef6e55b`. 43 particiones sin cambios;
+ninguna clave desaparecida de las otras tres particiones; sólo dos claves nuevas
+Meteoclimatic. Total histórico 5.550.605 filas. Evidencia `after-runner.json` y
+`runner-history-audit.json`. Wunderground, AEMET y Meteoclimatic acabaron OK.
+
+Pendiente un nuevo runner, después del precálculo automático activo, para confirmar
+que Meteocat completa de principio a fin con estado OK. No se ha lanzado desde Codex.

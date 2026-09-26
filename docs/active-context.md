@@ -4,6 +4,35 @@ Leer primero [codex-start-here.md](codex-start-here.md). Este archivo basta para
 retomar; [todo.md](todo.md) amplía las prioridades. No arrancar leyendo informes
 ni el [archivo histórico](reports/session-context-before-close-2026-09-22.md).
 
+## Runner manual: formato decimal recuperado; repetir para confirmar OK
+
+El primer runner manual sufrió un timeout Socrata recuperado y después Meteocat
+NOK por `could not convert string to float: '1,6'`. Error introducido por nuestra
+reparación: `csv.DictWriter` escribió puntos en celdas nuevas y conservó comas en
+las anteriores. La validación semántica omitió probar el lector real y fue insuficiente.
+Se reprodujo el fallo y se preparó en local un CSV homogéneo con coma, validado
+con `read_incremental` y dos ciclos reales lectura/guardado/lectura.
+
+**No se desplegó esa corrección adicional:** al finalizar el runner, su fase
+`archive pending after update` aplicó las 1.498 filas frescas de Meteocat y
+reescribió automáticamente el CSV completo con el formato decimal correcto.
+Hash observado `2fdb0c2890bc6c419e3ff2df36e6d29b0f6aa2a58f723d1014422fd9d2db6c6a`.
+Lector real comprobado: 33.707 filas, las cinco columnas numéricas son float64.
+Los 24.034 valores reparados de las 6.700 filas siguen correctos tanto CSV como
+histórico, generación `20260926T202107394242Z-59d98ef6e55b`.
+
+Auditoría del histórico tras runner: 43 particiones idénticas; cambian AEMET 2026,
+Meteocat 2026 y Meteoclimatic 2026; ninguna clave estación/fecha desaparece.
+Sólo se añaden dos registros Meteoclimatic del 26/09. Total 5.550.605 filas.
+Artefactos locales: `after-runner.json`, `runner-history-audit.json`.
+
+El usuario confirma que corre el precálculo automático de ese runner; no se ha
+interrumpido ni escrito en HA durante esta comprobación. Se aconsejó esperar a
+que termine y lanzar otro runner para verificar Meteocat OK de principio a fin;
+el NOK persistido describe el intento anterior, no la lectura actual del CSV.
+No ejecutar `deploy_csv_decimal_fix.py`: su hash precondición ya no coincide y
+sobrescribir con esa candidata descartaría las actualizaciones nuevas.
+
 ## Incidencia prioritaria: Meteocat pierde días completos (26/09)
 
 Tras publicar 0.2.324, el usuario está instalándola y solicita comparar YB/W9 con

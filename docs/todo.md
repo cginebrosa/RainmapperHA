@@ -42,6 +42,14 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
 
 ## P1 · Memoria y tiempos en Raspberry Pi 4 (4 GB)
 
+- [ ] **Duración creciente del precálculo automático** (26/09/2026, aplazado):
+  el usuario observa un aumento aproximado de 9 a 11 minutos en las últimas
+  ejecuciones. Contrastar registros persistidos por fase (preparación, cálculo,
+  transferencia, validación y activación), número de áreas/microáreas, modelos,
+  cobertura meteorológica y tamaño del resultado. El crecimiento de setales es
+  una hipótesis, no una causa confirmada. Comparar alcance y condiciones antes
+  de concluir regresión; no lanzar precálculos ni entrenamientos para investigarlo
+  sin autorización del usuario. Retomar más adelante, no durante el trabajo activo.
 - [x] Identificar y reproducir acumulación de respuestas al validar precálculo.
 - [x] Validación secuencial y recepción HTTP por bloques publicadas en 0.2.318,
   conservando límites/SHA/activación atómica. Mac: pico 825→304 MiB, 16,00→15,66 s
