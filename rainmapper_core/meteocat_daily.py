@@ -3,11 +3,34 @@
 from __future__ import annotations
 
 import pandas as pd
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from rainmapper_core.incremental_upsert import upsert_incremental
 
 
 KEY_COLUMNS = ["Codi Estació", "Data Local"]
+
+
+def meteocat_daily_query_bounds(start_utc: str, end_utc: str) -> tuple[str, str]:
+    """Query whole UTC buckets for the requested local calendar date labels.
+
+    The runner passes local midnight/end-of-day converted to UTC. XEMA queries
+    aggregate by UTC day, so using those instants directly would publish a
+    two-hour (one-hour in winter) first bucket as a complete historical day.
+    Keep XEMA's existing UTC daily identity, also used by official backfills;
+    this is not a conversion of XEMA aggregates into local-day measurements.
+    """
+    def local_date(value: str):
+        instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if instant.tzinfo is None:
+            instant = instant.replace(tzinfo=timezone.utc)
+        return instant.astimezone(ZoneInfo("Europe/Madrid")).date()
+
+    start, end = local_date(start_utc), local_date(end_utc)
+    if start > end:
+        raise ValueError("Meteocat start date must not be after end date")
+    return f"{start.isoformat()}T00:00:00", f"{end.isoformat()}T23:59:59.999"
 
 
 def _ensure_local_day(frame: pd.DataFrame) -> pd.DataFrame:

@@ -1,8 +1,38 @@
-# Contexto activo — HA 0.2.324 publicada; instalación pendiente (26/09/2026)
+# Contexto activo — HA 0.2.325 publicada; reparación Meteocat lista (26/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este archivo basta para
 retomar; [todo.md](todo.md) amplía las prioridades. No arrancar leyendo informes
 ni el [archivo histórico](reports/session-context-before-close-2026-09-22.md).
+
+## Incidencia prioritaria: Meteocat pierde días completos (26/09)
+
+Tras publicar 0.2.324, el usuario está instalándola y solicita comparar YB/W9 con
+Meteoclimatic de Olot. Confirmado por fuente oficial y share en lectura: el primer
+día parcial de la consulta (22:00–23:30 UTC) sobrescribe el total diario anterior.
+144/144 valores de YB/W9 entre 01–18/09 coinciden exactamente con ese recorte.
+YB: 09/09 oficial 54,8 mm frente a 0 guardados; 16/09 7,1 frente a 0. W9: 44,7
+frente a 0 y 14,5 frente a 0,1. También afecta temperatura/humedad e histórico
+persistido. No es un fallo del visor ni una diferencia real entre redes.
+
+Fix de intervalos UTC completos implementado y validado en HA local reconstruida:
+1.819 pruebas, 52 omitidas, smoke OK; paridad 228 archivos, sin diferencias.
+El usuario aceptó el resultado local y autorizó publicar **0.2.325**, ya verificada
+en GHCR: versión/latest con digest
+`sha256:ba76ee742f9cbec12c63b721b8769a2f76e4e621f8173016fc0656214b17b0f0`,
+ambas arquitecturas, script código 0. Instalación pendiente a cargo del usuario.
+0.2.324 no incluye esta corrección. [Release](reports/release-ha-0.2.325-2026-09-26.md). Worker/coordinadores intactos, sin entrenamiento ni precálculo.
+
+Copia original `docker-data/Data` intacta. Candidata separada en
+`tmp/meteocat-repair-20260926/candidate`: 6.700 filas / 24.034 celdas corregidas
+con API oficial (01/08–25/09), 1.171 lluvias. Afectación masiva 15/08–18/09;
+diferencias menores 09–14/08. Sólo cambian CSV Meteocat y partición Meteocat 2026;
+las otras 45 particiones y CSV de otras fuentes mantienen sus hashes. No se
+certifica todo el histórico anterior al 01/08. Paquete de 4 archivos / 7,7 MB
+preparado (`deployment-plan.json`), aún sin escritura en HA real. Revalidar baseline
+y detener brevemente el add-on antes de sustituir CSV/CURRENT, con backup;
+instalar el fix antes del próximo runner. Usuario indica margen de 2,5 horas al
+comenzar esta fase; no asumir que ese margen sigue disponible al retomar.
+[Diagnóstico y evidencia](reports/meteocat-partial-days-2026-09-26.md).
 
 ## Release HA 0.2.324 publicada (26/09)
 

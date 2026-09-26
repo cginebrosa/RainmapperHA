@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.325
+
+- Query complete UTC daily buckets for Meteocat so a partial first day cannot overwrite stored rain, temperature or humidity.
+- Preserve the requested calendar dates across summer/winter time changes and keep legitimate downward corrections to daily values.
+
 ## 0.2.324
 
 - Export filtered GBIF observations with their photos and import ZIP batches for review, with per-record duplicate handling, provenance and positional uncertainty.

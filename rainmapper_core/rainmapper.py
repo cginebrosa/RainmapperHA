@@ -52,7 +52,7 @@ from rainmapper_core.meteoclimatic_history import (
     retain_meteoclimatic_observations,
     update_meteoclimatic_observations,
 )
-from rainmapper_core.meteocat_daily import combine_meteocat_daily_rows
+from rainmapper_core.meteocat_daily import combine_meteocat_daily_rows, meteocat_daily_query_bounds
 from rainmapper_core.wind import (
     WIND_COLUMNS,
     compass_to_degrees,
@@ -811,6 +811,7 @@ def source_exit_code():
     return 2 if has_degraded_source else 0
 
 def get_myquery(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _end_date): # Create _myquery for sum records
+    _start_date, _end_date = meteocat_daily_query_bounds(_start_date, _end_date)
     _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED
     _select_per_codi_variable = ' AND (codi_variable='+_qcodi_variable+' '+'OR codi_variable='+_qcodi_variable2+') '
 
@@ -828,6 +829,7 @@ def get_myquery(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _en
     return _myquery
 
 def get_myquery_rain_all(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_date, _end_date): # Create _myquery for all records
+    _start_date, _end_date = meteocat_daily_query_bounds(_start_date, _end_date)
     _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED
     _select_per_codi_variable = ' AND (codi_variable='+_qcodi_variable+' '+'OR codi_variable='+_qcodi_variable2+') '
 
@@ -852,6 +854,7 @@ def get_myquery_rain_all(_codi_estacio,_qcodi_variable, _qcodi_variable2,_start_
     return _myquery
 
 def get_myquery_conditions_all(_codi_estacio,_start_date, _end_date): # Create _myquery for all records
+    _start_date, _end_date = meteocat_daily_query_bounds(_start_date, _end_date)
     _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED
     _select_per_codi_variable = " AND (codi_variable in ('40','42','3','44')) " # temp_max(40),temp_min(42),hum_max(3),hum_min(44)
 
@@ -882,6 +885,7 @@ def get_myquery_daily_wind_all(_codi_estacio,_start_date, _end_date):
     1503-1517. Those live in the daily XEMA dataset (`7bvh-jvq2`), so wind must
     be fetched separately and merged back by station/day.
     """
+    _start_date, _end_date = meteocat_daily_query_bounds(_start_date, _end_date)
     _qcodi_estacio="'"+_codi_estacio+"'"    # BUILD STRING FOR STATION CODE IN CASE SOMEONE IS SELECTED
     _select_per_codi_variable = (
         " AND (codi_variable in ("
