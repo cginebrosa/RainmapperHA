@@ -3,8 +3,9 @@
 Investigación solicitada tras publicar HA 0.2.324, mientras el usuario la instala.
 Posteriormente el usuario autorizó corregir el código en local y reparar la copia
 de HA descargada en `docker-data/Data`, para subirla a real tras comprobarla.
-El volumen `/Volumes/share/rainmapper` continúa en sólo lectura: la reparación
-está en una candidata separada. Sin SSH, entrenamiento ni precálculo.
+La reparación se validó primero en una candidata separada y después se aplicó
+a real con el add-on parado, confirmado por el usuario. Sin SSH, entrenamiento
+ni precálculo.
 
 ## Resultado confirmado
 
@@ -116,20 +117,31 @@ Auditoría: `baseline.json`, `audit-raw.json`, `applied.json`; consultas en `raw
 Scripts reproducibles `prepare.py`, `audit_raw.py`, `apply_candidate.py` y
 `prepare_deployment.py` en el mismo directorio (artefactos locales ignorados por Git).
 
-## Paso pendiente hacia HA real
+## Transferencia a HA real completada
 
 Paquete preparado: **4 archivos, 7.694.984 bytes**, descritos y con hashes en
 `tmp/meteocat-repair-20260926/deployment-plan.json`: partición nueva, manifest,
 CSV Meteocat y puntero CURRENT. No se sustituye la carpeta Data completa.
-Al preparar el paquete, los 70 archivos del baseline todavía coinciden con real.
-Debe repetirse esa comprobación inmediatamente antes de escribir.
+Antes de escribir se comprobaron los 70 archivos del baseline contra real: sin
+diferencias, sin lotes pendientes. El usuario confirmó 0.2.325 instalada y add-on
+parado. Se aplicaron los cuatro archivos y se releyeron hashes/generación desde
+SMB; resultado `verified` a las **20:09:52 UTC del 26/09/2026**.
 
-Instalar el fix antes del próximo runner. Para sustituir CSV y CURRENT, detener
-brevemente el add-on y confirmar que no hay escritor activo; esos dos archivos
-no pueden cambiarse en una única operación atómica. Respaldar ambos en el destino,
-subir primero los objetos inmutables y publicar CURRENT al final; comprobar hashes
-y generación resultante. La pausa aún no se ha solicitado/confirmado ni ejecutado.
-Presentación/mapas aún no regenerados. Entrenamiento/precálculo los lanza el usuario.
+Nueva generación real: `20260926T194213372640Z-00b560dfee2a`. CSV e histórico
+conservan sus cardinalidades. Los cuatro casos YB/W9 de 09 y 16/09 están
+recuperados en ambos soportes. Los otros 68 archivos del baseline permanecen
+idénticos, incluidos todos los CSV ajenos y las particiones históricas previas.
+Registro local: `tmp/meteocat-repair-20260926/deployed.json` y script `deploy_real.py`.
+
+Inicialmente se guardó un respaldo en real para el cambio CSV/CURRENT. El usuario
+indicó que ya tiene copia local de **todo `share/rainmapper`** y no quiere copias
+adicionales en HA. Se retiró exclusivamente ese respaldo creado por la reparación,
+verificando antes los hashes originales de `docker-data/Data`; evidencia en
+`deployed.json` y `remove_real_backup.py`. No dejar ese respaldo como recurso
+restaurable en instrucciones futuras: ya no existe en HA.
+
+Se indicó que puede arrancar el add-on; arranque aún no confirmado. Los mapas
+no se han regenerado. Entrenamiento/precálculo los lanza el usuario.
 
 Evidencia inicial: `tmp/station-compare-20260926/`: `official-yb-w9-september.json`,
 `meteocat-last-two-hours.json`, `stored-yb-w9.json`, `archive-yb-w9.json` y extractos

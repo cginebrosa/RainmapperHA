@@ -1,4 +1,4 @@
-# Contexto activo — HA 0.2.325 publicada; reparación Meteocat lista (26/09/2026)
+# Contexto activo — HA 0.2.325 instalada; Meteocat reparado en real (26/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este archivo basta para
 retomar; [todo.md](todo.md) amplía las prioridades. No arrancar leyendo informes
@@ -19,19 +19,30 @@ Fix de intervalos UTC completos implementado y validado en HA local reconstruida
 El usuario aceptó el resultado local y autorizó publicar **0.2.325**, ya verificada
 en GHCR: versión/latest con digest
 `sha256:ba76ee742f9cbec12c63b721b8769a2f76e4e621f8173016fc0656214b17b0f0`,
-ambas arquitecturas, script código 0. Instalación pendiente a cargo del usuario.
+ambas arquitecturas, script código 0. El usuario confirma 0.2.325 instalada y
+el add-on parado para transferir la reparación (26/09).
 0.2.324 no incluye esta corrección. [Release](reports/release-ha-0.2.325-2026-09-26.md). Worker/coordinadores intactos, sin entrenamiento ni precálculo.
 
-Copia original `docker-data/Data` intacta. Candidata separada en
-`tmp/meteocat-repair-20260926/candidate`: 6.700 filas / 24.034 celdas corregidas
-con API oficial (01/08–25/09), 1.171 lluvias. Afectación masiva 15/08–18/09;
-diferencias menores 09–14/08. Sólo cambian CSV Meteocat y partición Meteocat 2026;
-las otras 45 particiones y CSV de otras fuentes mantienen sus hashes. No se
-certifica todo el histórico anterior al 01/08. Paquete de 4 archivos / 7,7 MB
-preparado (`deployment-plan.json`), aún sin escritura en HA real. Revalidar baseline
-y detener brevemente el add-on antes de sustituir CSV/CURRENT, con backup;
-instalar el fix antes del próximo runner. Usuario indica margen de 2,5 horas al
-comenzar esta fase; no asumir que ese margen sigue disponible al retomar.
+**Reparación aplicada en HA real el 26/09 a las 20:09 UTC**, después de que el
+usuario confirmara 0.2.325 instalada y add-on parado. Se revalidaron 70 archivos
+contra la copia local, sin diferencias ni lotes pendientes. Se transfirieron sólo
+partición Meteocat 2026, manifest, CSV Meteocat y CURRENT (7,7 MB); nueva generación
+`20260926T194213372640Z-00b560dfee2a`, hashes verificados desde SMB.
+
+6.700 filas / 24.034 celdas recuperadas de la API oficial (01/08–25/09), incluidas
+1.171 lluvias. Afectación masiva 15/08–18/09; diferencias menores 09–14/08.
+CSV: mismas 33.707 filas; Meteocat 2026: mismas 50.570. Las otras 45 particiones
+y los CSV de otras fuentes mantienen sus hashes; 68 de 70 archivos baseline
+idénticos, salvo CSV Meteocat y CURRENT. YB 09/09=54,8 y 16/09=7,1 mm; W9=44,7
+y 14,5 mm, comprobados tanto CSV como histórico. No se certifica todo el histórico
+anterior al 01/08. Evidencia local `tmp/meteocat-repair-20260926/deployed.json`.
+
+**Preferencia explícita del usuario:** tiene copia local de todo `share/rainmapper`;
+no crear respaldos adicionales en HA real. El respaldo temporal creado por esta
+reparación se retiró a petición suya, verificando antes la copia original
+`docker-data/Data`. No se ha borrado ningún archivo ajeno a ese respaldo.
+Se indicó al usuario que ya puede arrancar el add-on; arranque aún no confirmado.
+Mapas/presentación no regenerados por nosotros. Sin SSH, entrenamiento ni precálculo.
 [Diagnóstico y evidencia](reports/meteocat-partial-days-2026-09-26.md).
 
 ## Release HA 0.2.324 publicada (26/09)
