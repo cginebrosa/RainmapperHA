@@ -101,6 +101,12 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
 
 ## Pendientes del usuario y aplazamientos explícitos
 
+- [ ] **GBIF · previsualización de setales** (aplazado por el usuario, 25/09/2026):
+  sustituir el esquema de contornos del plan de importación por un mapa con fondo
+  cartográfico, leyenda de áreas/microáreas, zoom y selección de cada zona.
+  Debe permitir distinguir los límites y examinar zonas alejadas entre sí sin que
+  queden reducidas a puntos al encuadrar todo el lote. Mantener la interfaz actual
+  hasta retomar expresamente esta mejora.
 - [ ] **GBIF:** revisión manual Pendiente/Dudosa/Aceptada/Rechazada; esperar lote
   aprobado antes de importar, entrenar o generar setales. Conservar revisión
   del navegador/JSON y fotografías. [Guía](../local-apps/gbif/docs/guide.md).

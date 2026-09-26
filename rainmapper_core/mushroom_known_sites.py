@@ -6,6 +6,7 @@ import copy
 import math
 import re
 import shutil
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ from rainmapper_core.mushroom_store import AUTOMATIC_BACKUPS_PER_FILE, write_jso
 
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 FILE_NAME = "mushroom_known_sites.json"
+MUTATION_LOCK = threading.RLock()
 
 
 def prune_automatic_backups(

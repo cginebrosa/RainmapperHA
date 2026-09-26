@@ -25,8 +25,8 @@ revisados; la descarga completa sigue pendiente.
 
 ## Regla de abundancia acordada para diseñar la importación
 
-El usuario pide asignar **Normal** cuando la fuente no permita determinar la
-abundancia. Se adopta como regla de la futura importación experimental, con estas
+El usuario confirma el 25/09 asignar **Normal** a las observaciones importadas.
+La implementación local conserva las cantidades originales para revisión, con estas
 condiciones de trazabilidad:
 
 - `flush_abundance = normal` será una asignación por defecto, no una medición de GBIF.
@@ -96,6 +96,13 @@ La conservación de la nueva procedencia durante edición, exportación y trabaj
 HA–worker necesitará pruebas cuando se implemente.
 
 ## Criterio inicial de incertidumbre espacial
+
+**Actualización de diseño, 25/09/2026:** para la futura importación, el usuario
+pide 0 m como valor de compatibilidad de observaciones existentes y 500 m
+asignados cuando GBIF no declare incertidumbre. El dato original desconocido se
+conserva aparte. Ver el [diseño de exportación e importación](gbif-rainmapper-export-import-design.md).
+El criterio siguiente documenta el piloto anterior; no sustituye esta nueva
+petición ni modifica por sí mismo el entrenamiento o los filtros del visor.
 
 El usuario propone usar únicamente registros con incertidumbre máxima declarada
 de **1.000 m** y mantener los desconocidos para decidir más adelante. Se adopta

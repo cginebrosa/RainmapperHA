@@ -1,12 +1,52 @@
-# Contexto activo — HA 0.2.323 publicada, instalación pendiente (25/09/2026)
+# Contexto activo — HA 0.2.324 publicada; instalación pendiente (26/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este archivo basta para
 retomar; [todo.md](todo.md) amplía las prioridades. No arrancar leyendo informes
 ni el [archivo histórico](reports/session-context-before-close-2026-09-22.md).
 
-## Estado actual: release HA 0.2.323 (25/09)
+## Release HA 0.2.324 publicada (26/09)
 
-- Usuario autoriza publicación y commit/push. Imagen GHCR **0.2.323/latest**
+El usuario aceptó expresamente la candidata local y autorizó publicar. GHCR
+`0.2.324` y `latest` verificados con el mismo digest
+`sha256:edc07e41ee0075b6af0f53a3d6ed2369d79786d7a43300c3c0edd6dcaf1a712b`
+y manifests `linux/amd64` / `linux/arm64`. Script de publicación terminado con
+código 0. Incluye GBIF, creación de setales y mantenimiento descritos más abajo,
+además de las correcciones siguientes. **Instalación en HA real pendiente, a cargo
+del usuario**; última versión instalada confirmada por él: 0.2.323.
+[Informe de release](reports/release-ha-0.2.324-2026-09-26.md).
+
+- Detalle de observación: hosts GIS con nombres comunes del catálogo según idioma,
+  usando la misma resolución que los árboles observados.
+- Filtros Desde/Hasta: corregida la pérdida de selección por `blur` al pulsar el
+  calendario. La sincronización de texto no cierra el calendario ni envía antes
+  de terminar; Enter/cambio de foco aplican la fecha y se conserva la validación.
+- Cambio de coordenadas desde el mapa: retira `site_context.gis_recovery` si
+  corresponde al punto anterior, conservando los datos de campo. Sin cambio de
+  punto conserva el GIS. La asignación de microárea continúa siendo explícita.
+- Diagnóstico de HA real por `/Volumes/share` **sólo lectura**: 523 observaciones,
+  41 con recuperación GIS y ninguna desajustada en el JSON guardado. El caso del
+  usuario conserva el GIS del punto anterior; las nuevas coordenadas están
+  dentro de Sarrat dera Creu. El rechazo no había cambiado la observación.
+- Chrome: selección/cambio/limpieza de calendario, escritura, Enter/blur, fecha
+  inválida y carga inicial sin reenvío: correctos. Nombres comunes comprobados
+  en es/ca/en; 11 pruebas GIS dirigidas correctas.
+- Smoke final: **1.815 pruebas, 52 skips, OK**, 86,337 s; script completo código 0.
+  Log `/private/tmp/rainmapper-0.2.324-smoke-final.log`.
+- HA local reconstruida/recreada; pantalla de observaciones responde correctamente.
+  Paridad **228 archivos**, sin diferencias, SHA
+  `81b71636c39b2c64d3db6fc11f2090fbe5093a9b6276df56dffe03eb68407801`.
+  Worker/coordinadores y huellas de observaciones privadas/política conservados.
+  Auditoría `tmp/release-0.2.324/`; navegador `/private/tmp/observation-dates-browser.log`.
+- No SSH, escrituras en HA real, entrenamiento ni precálculo. El smoke anterior
+  interrumpido queda sustituido por la ejecución completa indicada arriba.
+
+## Antecedente: release HA 0.2.323 (25/09)
+
+- **El usuario confirma 0.2.323 instalada y funcionando.** No se ha vuelto a
+  inspeccionar HA real en el estudio GBIF; distinguir confirmación del usuario
+  de la última comprobación técnica por SMB.
+
+- Autorización histórica para esta release: publicación y commit/push. Imagen GHCR **0.2.323/latest**
   verificada con el mismo digest
   `sha256:7a68ff2a0594d6a219f0dff54603fb0c891463898a590c94f2df983f4a3989f4`,
   manifests amd64/arm64; script finalizado con código 0.
@@ -23,12 +63,146 @@ ni el [archivo histórico](reports/session-context-before-close-2026-09-22.md).
   preservados. El trabajo que estaba activo terminó por sí mismo.
 - Observaciones privadas repo/local y política/suspensiones conservan sus hashes
   de inicio de release; JSON privado excluido del commit y de la imagen.
-- Instalación HA real **a cargo del usuario**, no ejecutada. Última versión real
-  comprobada por SMB en esta sesión: 0.2.321; revalidar antes de futuras acciones.
+- Instalación HA real **realizada por el usuario**, según su confirmación.
+  Última versión real comprobada técnicamente por SMB: 0.2.321; revalidar antes
+  de futuras acciones sobre HA real.
 - Pendiente separado: impedir `months_init`/`months_end` positivos **antes** de
   arrancar el backfill. Esta release rechaza filas ajenas, pero no bloquea aún
   esos parámetros. Tampoco modifica HGB ni los saltos de Aereus/Olvan.
 - [Informe y validaciones](reports/release-ha-0.2.323-2026-09-25.md).
+
+## Corrección local: círculo sobre setales existentes (26/09)
+
+Reproducido: el marcador de observación interceptaba el clic destinado al centro;
+el siguiente clic iniciaba un círculo diminuto sin terminar. Durante el dibujo,
+marcadores/popups dejan pasar los clics al mapa. Sólo geometrías terminadas pasan
+al formulario; abandonar un círculo sin terminar conserva el contorno previo.
+En setal existente, «Dibujar círculo» ofrece **Sustituir por círculo / Añadir círculo**.
+Sustituir conserva el original hasta completar el círculo; guardar sigue siendo
+explícito. Modo activo resaltado, instrucciones y radio en metros. Se oculta el
+contorno persistido de la selección mientras se edita para no tapar el borrador.
+
+Chrome: microárea existente, centro sobre marcador, radio ≈412 m comprobado,
+sustitución/guardado/reapertura, añadir/descartar y círculo incompleto: correctos.
+8 pruebas Python dirigidas correctas. HA local reconstruida/recreada; paridad 228
+archivos sin diferencias, SHA `347ab1e7cd6f0d15ed6a9272c4318aa56fdcb616390f24e97e96205fcb6a5738`.
+Huella del worker/coordinadores y datos privados conservada frente a esta revisión.
+Evidencia `tmp/sites-circle-20260926/` y `/private/tmp/sites-circle-browser-final.log`.
+Sin publicación, entrenamiento/precálculo, SSH ni cambios del worker.
+
+## Setales desde observaciones: mejora local (25/09)
+
+Implementado por petición del usuario y disponible en HA local: búsqueda directa
+por latitud/longitud junto a Photon; enlace desde el formulario abre la microárea
+seleccionada en otra pestaña y centra el punto de la observación, con datos al
+pulsarlo. Usa las coordenadas actuales del formulario, conservando el borrador
+original. Botón para volver al punto; contexto conservado al cambiar de setal.
+Dibujo circular para áreas/microáreas mediante centro y borde, persistido como
+polígono editable con guardado explícito. No modifica el formato de geometrías.
+
+Pruebas dirigidas (10), navegador con escrituras en almacén temporal y consulta
+sin escrituras en HA local: correctos. HA local reconstruida/recreada, paridad
+228 archivos sin diferencias: `dc724f23facf5ce6be995838c38ab51964ac55be3cb914e37c4ab03a944f026d`.
+Worker/coordinadores y huellas de observaciones/política conservados. Sin release,
+SSH, entrenamiento ni precálculo. [Detalles y evidencia](reports/known-sites-navigation-local-2026-09-25.md).
+El mapa más completo del plan de importación GBIF sigue aplazado en TODO.
+
+## Tarea actual: exportación/importación GBIF implementada en local (25/09)
+
+- El usuario autorizó implementar y probar **en local** y posteriormente pidió
+  publicar y aceptó la candidata local; ver la release actual arriba. Abundancia
+  **Normal**. Sin autorización de SSH, entrenamiento ni precálculo. HA real
+  0.2.323 según su confirmación.
+- Visor → **Exportar a Rainmapper**: todas las citas que cumplen los filtros,
+  también fuera del encuadre, selección/revisión congeladas y fotos originales.
+  Distingue carpeta de origen y archivo ZIP de destino; muestra ruta propuesta
+  de la página, carpeta elegida y nombre del ZIP. Nombre sugerido editable en
+  selector nativo, que permite elegir un ZIP existente. Recuerda la carpeta
+  autorizada; el navegador exige permiso inicial para leer los archivos locales.
+- Exportación a ZIP existente: lista de duplicados por ID GBIF con **Ignorar /
+  Reemplazar**, conservando las demás citas/fotos. No escribe hasta confirmar las
+  decisiones y verificar integridad y límites. Cada cita conserva su procedencia.
+- HA local → lista de observaciones → **Importar GBIF**: selección de nuevas y
+  **Mantener / Reemplazar** duplicados. Reemplazar conserva el ID de Rainmapper,
+  sustituye datos/fotos y devuelve a Borrador / Revisar antes de usar; si estaba
+  archivada, la restaura, según decisión expresa del usuario. Mantener no cambia
+  datos. Conflictos ambiguos bloqueados y revisiones concurrentes comprobadas.
+- Importación prepara automáticamente GIS/DEM y microárea activa que contenga
+  el punto. Conserva cartografía y campo separados; si faltan datos no los inventa,
+  y si varias microáreas contienen el punto elige el centro más cercano. Progreso
+  por cita (actual/total), seguido de guardado. Preparación persistida en pequeños
+  archivos por cita, sin reescribir todo el lote en cada paso.
+- Observador/origen GBIF, Normal y calidad 0,75 provisional/editable. Incertidumbre
+  declarada o 500 m asignados si desconocida, manteniendo el original. Existentes
+  sin precisión muestran 0; sin migración masiva. Campo recolocado en Ubicación.
+  Modal de importación con ayuda plegada, tabla desplazable, títulos/valores
+  alineados y pie fijo con aceptar/rechazar/cerrar.
+- Lotes de hasta 100 citas / 120 MiB de fotos; ZIP máximo 128 MiB. No confundir
+  límite de transporte con observaciones importables en total. Snapshot sin
+  recalcular: 1.928 citas, 2.291 fotos, 1.860.382.565 bytes, 173 citas sin foto.
+- Validación: smoke **1.800 pruebas / 52 skips, OK**; después de los últimos
+  ajustes de persistencia y presentación, **40 pruebas dirigidas, OK**, navegador
+  con exportación/importación/reemplazo en almacén temporal y modal local con
+  40 filas en escritorio y ventana estrecha. GIS/DEM real dentro de HA local
+  verificado con importación en almacén temporal y geometría de microárea fixture.
+- HA local reconstruida/recreada, paridad final **227 archivos sin diferencias**:
+  `54f75c1de952c823f7a174d7416ee8f6285fef80241ba960b0cdb42f8e4994b1`.
+  Worker conserva contenedor/arranque/imagen/coordinadores/credenciales. Auditoría
+  final conserva hashes de política/suspensiones y observaciones repo/local frente
+  a la línea base de esta revisión. El usuario realizó además sus propias pruebas
+  de importación/borrado; las confirmaciones automatizadas usan almacenes temporales.
+- [Contrato y uso](../local-apps/gbif/docs/gbif-rainmapper-export-import-design.md),
+  [validación local](reports/gbif-import-local-2026-09-25.md). Documentación de cierre
+  revisada; todo sigue **sin commit/push**. No tocar ni incluir el diff privado
+  preexistente de `mushroom-data/mushroom_observations.json` ni el JSON privado
+  no versionado de la raíz `mushroom_observations.json`.
+- Siguiente paso: continuar prueba manual local del usuario. Recargar ambas
+  páginas tras actualizar. Para enriquecer una cita importada antes del cambio,
+  el usuario puede reimportarla y elegir Reemplazar (restablece revisión).
+  No reconstruir/reiniciar worker ni publicar sin la aceptación correspondiente.
+
+## Ampliación local: creación automática de setales GBIF
+
+**Implementada por petición del usuario, pendiente de su prueba.** Importar GBIF
+ofrece «Crear áreas y microáreas cuando falten» (inicialmente desmarcado). Tras
+preparar las citas muestra plan de altas/ampliaciones, esquema geométrico,
+asignaciones y nombres nuevos editables; confirmar guarda zonas y observaciones.
+Se revisan nuevas seleccionadas y reemplazos por ID GBIF numérico, consultando
+lo creado/ampliado dentro del mismo lote. Reutiliza zonas de lotes anteriores.
+
+Radios acordados: área inicial **500 m**, microárea **495 m**. Usuario confirma
+que los 5 m son margen de contención, no incertidumbre. Área ampliada por unión
+geométrica, incluso si era manual; sin recortes/fusiones ni reactivar archivadas.
+Varias microáreas/áreas contenedoras: centro más cercano, empate por ID. Centros
+originales para círculos intactos; centroides métricos para polígonos manuales o
+editados. La incertidumbre de cada observación se conserva independientemente.
+
+Origen de creación persistido (`provenance.creation_source`: manual/gbif/futura
+fuente) y visible en las fichas; guardado manual conserva trazabilidad. Ampliar un
+área manual no cambia su origen. Nombre de área: municipio del snapshot, si existe,
+con sufijo GBIF/ID. Topónimo más cercano para microáreas: **pendiente de disponer de
+fuente**; nombre GBIF/ID provisional editable. No confundir localidad libre o núcleo
+vecino con municipio contenedor ni con topónimo más cercano verificado.
+
+GIS/DEM de nuevas zonas y áreas ampliadas mediante rutina de polígonos. **SoilGrids
+es por microárea**, en `derived_context.soilgrids_water`: se reutiliza cobertura
+local (`ensure_missing=False`); si faltan datos queda pendiente con contador. No
+se amplía territorio descargado por una importación ni se calculan modelos.
+Microáreas existentes sin cambiar no se recalculan sólo por ampliar su área.
+
+Plan sellado por selección y huella de setales; comprobación de concurrencia,
+bloqueo compartido con mantenimiento manual, diario y respaldo para guardar zonas
+antes de observaciones sin duplicarlas en reintentos. Rollback sólo de cambios
+propios intactos si no se guardaron observaciones ni aparecen referencias ajenas.
+
+Validación: smoke **1.810 pruebas, 52 skips, OK**, 84,401 s. Tras reducir duplicación
+de geometrías e incorporar SoilGrids, **40 dirigidas, OK**, 7,490 s. Navegador con
+confirmaciones en almacén temporal y sólo plan/cancelación en HA local persistente.
+Imagen local final reconstruida/recreada; paridad **228 archivos sin diferencias**:
+`380257648bc9c769f1d4cf977bf5c4542d8cefb6eb096e2b6ccb59dcf6f6e5d6`.
+La auditoría general de observaciones existentes que «no encajan» sigue reservada
+para el siguiente paso. Sin publicación, SSH, entrenamiento, precálculo ni operaciones
+sobre worker. Informe en `docs/reports/gbif-import-local-2026-09-25.md`.
 
 ## Diagnósticos y release anterior 0.2.322 (24/09)
 

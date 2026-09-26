@@ -23,3 +23,24 @@ node local-apps/gbif/code/check_gbif_viewer.mjs local-apps/gbif/data/snapshot-ca
 ```
 
 [Guía y procedencia](docs/guide.md).
+
+[Diseño de exportación a Rainmapper e importación pendiente de revisión](docs/gbif-rainmapper-export-import-design.md)
+(25/09/2026; implementación local pendiente de aceptación).
+
+Para exportar: aplicar filtros, pulsar **Exportar a Rainmapper**, seleccionar
+la carpeta del snapshot como origen y revisar el resumen. **Guardar ZIP** pide
+nombre y ubicación de destino (Chrome/Edge); las selecciones grandes se dividen
+en lotes. Después, desde la lista de observaciones de HA local, **Importar GBIF**
+permite previsualizar el ZIP y aceptar o rechazar las nuevas observaciones.
+Las aceptadas quedan como Borrador / Revisar antes de usar, con abundancia Normal.
+
+Actualización de la prueba local: el modal distingue origen/destino y muestra
+los nombres elegidos. En ZIP existentes permite ignorar/reemplazar IDs repetidos;
+en importación permite mantener/reemplazar, también restaurando citas archivadas.
+Al aceptar recupera GIS/DEM, asigna microárea por contención única y muestra
+progreso por cita. Los botones permanecen visibles mientras se desplaza la lista.
+
+La opción **Crear áreas y microáreas cuando falten** permite ampliar el registro
+de setales durante la importación: plan revisable, radios 500/495 m, ampliaciones
+automáticas y reutilización dentro del lote. Recupera GIS/DEM y SoilGrids local por
+microárea; conserva el origen de creación. Los nombres nuevos son editables.

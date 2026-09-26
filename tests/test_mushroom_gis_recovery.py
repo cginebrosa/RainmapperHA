@@ -74,6 +74,34 @@ class RecoveryFormTests(unittest.TestCase):
         from tests.test_web_server_auth import load_web_server_module
         cls.web = load_web_server_module()
 
+    def test_map_coordinate_save_discards_only_gis_for_previous_point(self):
+        handler = self.web.RainmapperHandler.__new__(self.web.RainmapperHandler)
+        for lat in (42., 42.1):
+            with self.subTest(lat=lat):
+                row = {'observation_id': 'map_move', 'species_id': 'boletus_edulis',
+                       'location': {'lat': 42., 'lon': 2.}, 'site_context': {
+                           'observed_host_ids': ['host_quercus_spp'],
+                           'gis_recovery': RecoveryTests().report()}}
+                store = Mock()
+                store.load.return_value = {'observations': [row]}
+                store.replace.return_value.ok = True
+                with (patch.object(self.web, 'default_store', return_value=store),
+                      patch.object(self.web, 'process_observation_media_cleanup_queue', return_value=([], [])),
+                      patch.object(self.web.mushroom_gis_lab, 'sample_dem', return_value={'status': 'ok', 'elevation_m': 800}),
+                      patch.object(self.web.mushroom_model_state, 'mark_species_pending'),
+                      patch.object(self.web, 'set_mushroom_profiles_flash')):
+                    handler.handle_mushroom_profiles_post({
+                        'profile_action': ['update_observation_coordinates'],
+                        'observation_id': ['map_move'], 'location_lat': [str(lat)],
+                        'location_lon': ['2']})
+                store.replace.assert_called_once()
+                saved = store.replace.call_args.args[1]['observations'][0]
+                self.assertEqual(saved['location']['lat'], lat)
+                self.assertEqual(saved['altitude']['meters'], 800)
+                self.assertEqual(saved['site_context']['observed_host_ids'], ['host_quercus_spp'])
+                self.assertEqual(saved['site_context'].get('gis_recovery'),
+                                 RecoveryTests().report() if lat == 42. else None)
+
     def test_save_keeps_field_and_gis_separate_and_discards_moved_evidence(self):
         form={'observation_species_id':['boletus_edulis'], 'observed_at':['2026-09-20'],
               'location_lat':['42'], 'location_lon':['2'], 'observed_host_ids':['host_quercus_spp'],

@@ -70,6 +70,51 @@ Campos obligatorios:
 - `validation_status`
 - `calibration_use`
 
+## Extensión GBIF opcional (implementación local, 25/09/2026)
+
+La importación local añade `external_source` sin obligar a migrar las observaciones
+anteriores. Las altas GBIF usan `normal`, `draft` y `review`, observador `GBIF` y
+origen `gbif`. Cada cita conserva todas sus fotos en `media`, con SHA-256 y
+`attribution` por foto (autor, proveedor, licencia y enlaces originales).
+
+`location.precision_m` expresa el radio efectivo en metros. El formulario muestra
+0 para valores históricos nulos y lo persiste al guardar; no hay conversión
+masiva del JSON privado. `location.precision_origin` distingue `declared`,
+`assumed_unknown_500m`, `legacy_default_zero` y `manual`.
+
+Ejemplo parcial de incertidumbre desconocida:
+
+```json
+{
+  "location": {"precision_m": 500, "precision_origin": "assumed_unknown_500m"},
+  "external_source": {
+    "provider": "gbif",
+    "gbif_id": "12345",
+    "coordinate_uncertainty_m": null,
+    "uncertainty_assumed": true,
+    "original": {},
+    "abundance_assigned": "normal",
+    "quality_assigned": 0.75
+  }
+}
+```
+
+La procedencia incluye además revisión del visor, snapshot/lote, fecha de
+importación y metadatos originales acotados. Se conserva al editar o añadir
+fotos. Una duplicación manual marca `is_copy` y `copied_from_observation_id`.
+Cambiar coordenadas reinicia el radio heredado a 0 sin borrar el dato GBIF
+original. Estos campos no se usan todavía como variables del entrenamiento.
+
+La preparación de importación guarda GIS/DEM en `site_context.gis_recovery`, con
+`recovery_mode = gbif_import`; no rellena como evidencia manual los `observed_*`.
+`external_source.site_assignment` registra la asignación por contención, ausencia de microárea y candidatas.
+Si varias contienen el punto, se elige centro más cercano con ID como desempate. El reemplazo explícito conserva el ID operativo, vuelve a `draft/review`
+y puede restaurar una cita archivada; el campo `import_token` permite reintentar
+esa operación sin pisar ediciones posteriores.
+
+Contrato ZIP, deduplicación, cotas y UI:
+[exportación/importación GBIF](../../local-apps/gbif/docs/gbif-rainmapper-export-import-design.md).
+
 ## Observacion completa
 
 ```json

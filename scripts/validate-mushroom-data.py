@@ -1133,6 +1133,24 @@ def validate_observations(
             if "precision_m" in obs_location and obs_location.get("precision_m") is not None:
                 validate_number(obs_location.get("precision_m"), f"{location}.location.precision_m", messages, minimum=0)
 
+        external = observation.get("external_source")
+        if external is not None:
+            if not isinstance(external, dict) or external.get("provider") != "gbif":
+                messages.append(error(f"{location}.external_source", "expected GBIF provenance object"))
+            else:
+                if not isinstance(external.get("gbif_id"), str) or not re.fullmatch(r"[0-9]{1,24}", external["gbif_id"]):
+                    messages.append(error(f"{location}.external_source.gbif_id", "invalid GBIF ID"))
+                if not isinstance(external.get("uncertainty_assumed"), bool):
+                    messages.append(error(f"{location}.external_source.uncertainty_assumed", "expected boolean"))
+                uncertainty = external.get("coordinate_uncertainty_m")
+                if uncertainty is not None:
+                    validate_number(uncertainty, f"{location}.external_source.coordinate_uncertainty_m", messages, minimum=0)
+                if not isinstance(external.get("original"), dict):
+                    messages.append(error(f"{location}.external_source.original", "expected original GBIF fields"))
+        if isinstance(obs_location, dict) and obs_location.get("precision_origin") is not None:
+            if obs_location["precision_origin"] not in {"declared", "assumed_unknown_500m", "legacy_default_zero", "manual"}:
+                messages.append(error(f"{location}.location.precision_origin", "invalid uncertainty origin"))
+
         altitude = observation.get("altitude")
         if altitude is not None:
             if not isinstance(altitude, dict):
@@ -1314,6 +1332,9 @@ def validate_mushroom_data(data_dir: Path = DEFAULT_DATA_DIR) -> list[Validation
         return messages
 
     ids_by_catalog = collect_catalog_ids(catalog_payload, messages)
+    # Built-in import origin remains valid with pre-existing user catalogs.
+    for group in ("observation_source_types", "observation_location_sources"):
+        ids_by_catalog.setdefault(group, set()).add("gbif")
     used_ids: dict[str, set[str]] = {catalog_name: set() for catalog_name in ids_by_catalog}
 
     validate_profiles(profile_payload, ids_by_catalog, messages, used_ids)

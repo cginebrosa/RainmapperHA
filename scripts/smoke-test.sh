@@ -124,6 +124,7 @@ check_ha_app_contains_only_ha_specific_code() {
       ! -name known-sites.js \
       ! -name known-sites.css \
       ! -name observation-gis.js \
+      ! -name observation-gbif-import.js \
       ! -name observation-map-gis.js \
       ! -name __pycache__ \
       -print
@@ -162,6 +163,8 @@ PY
 
 check_js_syntax() {
   node --check rainmapper-app/app/known-sites.js
+  node --check rainmapper-app/app/observation-gbif-import.js
+  node --check local-apps/gbif/code/gbif-export.js
   node --check rainmapper-app/app/observation-gis.js
   node --check rainmapper-app/app/observation-map-gis.js
   node --check rainmapper_core/viewers/leaflet-viewer/app.js

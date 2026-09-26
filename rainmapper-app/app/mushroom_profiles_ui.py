@@ -18,6 +18,7 @@ from urllib.parse import urlencode
 
 from rainmapper_core import mushroom_known_sites, mushroom_paths
 import mushroom_observation_gis_ui
+import mushroom_gbif_ui
 
 
 PROFILE_SELECT_VALUES = {
@@ -703,6 +704,10 @@ def catalog_select_options(
         options.append(
             f'<option value="{html.escape(item_id, quote=True)}"{selected}>{html.escape(label)}</option>'
         )
+    if group in {"observation_source_types", "observation_location_sources"} and "gbif" not in seen:
+        selected = " selected" if current == "gbif" else ""
+        options.append(f'<option value="gbif"{selected}>GBIF</option>')
+        seen.add("gbif")
     if current and current not in seen:
         options.append(
             f'<option value="{html.escape(current, quote=True)}" selected>{html.escape(current)} (missing)</option>'
@@ -840,7 +845,7 @@ def observation_catalog_names(catalogs: dict[str, object], group: str, values: o
     """Return readable observed site-context catalog labels."""
     if not isinstance(values, list) or not values:
         return "-"
-    labels = catalog_label_map(catalogs, group)
+    labels = host_observation_label_map(catalogs) if group == "host_taxa" else catalog_label_map(catalogs, group)
     return ", ".join(labels.get(str(value), str(value)) for value in values if str(value or ""))
 
 
@@ -1879,6 +1884,17 @@ def render_observation_photo_modal(
     label = str(media.get("original_filename", "") or media.get("stored_filename", "") or "photo")
     modal_id = observation_photo_modal_id(observation_id, media, index)
     raw_modal_id = observation_photo_raw_exif_modal_id(observation_id, media, index)
+    photo_rows = observation_photo_media(row)
+    photo_navigation = ""
+    if len(photo_rows) > 1:
+        position = next(i for i, (media_index, _) in enumerate(photo_rows) if media_index == index)
+        previous_index, previous_media = photo_rows[(position - 1) % len(photo_rows)]
+        next_index, next_media = photo_rows[(position + 1) % len(photo_rows)]
+        photo_navigation = (
+            f'<a class="button-link compact-button" href="#{html.escape(observation_photo_modal_id(observation_id, previous_media, previous_index), quote=True)}">←</a>'
+            f'<span>{position + 1} / {len(photo_rows)}</span>'
+            f'<a class="button-link compact-button" href="#{html.escape(observation_photo_modal_id(observation_id, next_media, next_index), quote=True)}">→</a>'
+        )
     rows = observation_photo_exif_rows(media)
     exif_rows = "".join(
         f"<tr><th>{html.escape(key)}</th><td>{html.escape(value)}</td></tr>"
@@ -1895,7 +1911,7 @@ def render_observation_photo_modal(
             "</video>"
         )
     else:
-        media_stage = f'<img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}">'
+        media_stage = f'<img src="{html.escape(url, quote=True)}" alt="{html.escape(label, quote=True)}" loading="lazy" decoding="async">'
     relative_path = str(media.get("path", "") or "")
     stage_actions = ""
     if str(media.get("kind", "photo") or "photo") == "photo" and relative_path:
@@ -1925,6 +1941,7 @@ def render_observation_photo_modal(
             <p class="meta">{html.escape(observation_id)}</p>
           </div>
           <div class="modal-header-actions">
+            {photo_navigation}
             <a class="button-link compact-button" href="#{html.escape(raw_modal_id, quote=True)}">Raw EXIF metadata</a>
             <a class="button-link compact-button" href="#" data-modal-history-close>{html.escape(ui_label("ui.close"))}</a>
           </div>
@@ -5304,6 +5321,9 @@ def render_observation_detail(
     <h2 id="observation-detail">{html.escape(ui_label("ui.observation_detail"))}</h2>
     {summary_html}
     {media_modals}
+    {value_row(ui_label("location.precision_m"), str((row.get("location") or {}).get("precision_m") or 0) + " m")}
+    <p class="meta">{mushroom_gbif_ui.precision_help(row, ui_label)}</p>
+    {mushroom_gbif_ui.provenance(row, ui_label)}
     {value_row("Setal", known_site_name(row.get("micro_area_id")))}
     {mushroom_observation_gis_ui.summary(row, catalogs, observation_catalog_names)}
     {value_row(compact_observation_detail_label("site_context.observed_host_ids"), observed_host_names(catalogs, site_context))}
@@ -5364,7 +5384,9 @@ def render_observation_form_modal(
     if observation_id:
         return_params["obs_id"] = observation_id
     known_sites_url = "./known-sites?" + urlencode(
-        {"return_to": "./profiles?" + urlencode(return_params) + f"#{modal_id}"}
+        {"return_to": "./profiles?" + urlencode(return_params) + f"#{modal_id}",
+         "observation_id": observation_id, "observation_lat": lat_value, "observation_lon": lon_value,
+         **({"kind": "micro_area", "id": str(row["micro_area_id"])} if row.get("micro_area_id") else {})}
     )
     exif_edit_fields = ""
     if action == "update_observation" or allow_exif_images:
@@ -5415,8 +5437,9 @@ def render_observation_form_modal(
               <div class="admin-field location-lon"><label>{html.escape(ui_label("location.lon"))}</label><input name="location_lon" type="number" step="any" value="{html.escape(lon_value, quote=True)}"></div>
               <button class="observation-copy-coordinates" type="button" data-copy-observation-coordinates title="Copiar coordenadas" aria-label="Copiar coordenadas">⧉</button>
               <div class="admin-field location-micro-area"><label>{html.escape(ui_label("ui.micro_area"))}</label><select name="micro_area_id">{known_site_select_options(row.get("micro_area_id"))}</select></div>
-              <a class="observation-manage-sites-link" href="{html.escape(known_sites_url, quote=True)}">{html.escape(ui_label("ui.manage_known_sites"))} ↗</a>
+              <a class="observation-manage-sites-link" target="_blank" rel="noopener" onclick="const f=this.closest('form'),u=new window.URL(this.href); for(const [q,n] of [['observation_lat','location_lat'],['observation_lon','location_lon']]) u.searchParams.set(q,f.elements[n]?.value||''); const m=f.elements['micro_area_id']?.value; if(m){{u.searchParams.set('kind','micro_area');u.searchParams.set('id',m);}}else{{u.searchParams.delete('kind');u.searchParams.delete('id');}} this.href=u.href;" href="{html.escape(known_sites_url, quote=True)}">{html.escape(ui_label("ui.manage_known_sites"))} ↗</a>
               <div class="admin-field compact location-altitude"><label>{html.escape(ui_label("altitude.meters"))}</label><div class="observation-altitude-input"><input name="altitude_m" type="number" step="1" value="{html.escape(altitude_value, quote=True)}"><span>m</span></div></div>
+              <div class="admin-field location-precision"><label>{html.escape(ui_label("location.precision_m"))}</label><input name="location_precision_m" type="number" min="0" step="any" value="{html.escape(str(location.get('precision_m') if location.get('precision_m') is not None else 0), quote=True)}" required><small>{mushroom_gbif_ui.precision_help(row, ui_label)}</small></div>
               <div class="admin-field location-source"><label>{html.escape(ui_label("catalog_group.observation_location_sources"))}</label><select name="location_source">{catalog_select_options(catalogs, "observation_location_sources", location_source, ui_label("ui.not_informed"))}</select></div>
               <div class="admin-field altitude-source"><label>{html.escape(ui_label("altitude.source"))}</label><select name="altitude_source">{catalog_select_options(catalogs, "observation_altitude_sources", str(altitude.get("source", "") if isinstance(altitude, dict) else ""), ui_label("ui.not_informed"))}</select></div>
             </div>
@@ -5596,7 +5619,7 @@ def render_observation_exif_import_form(
               <h3><span class="observation-section-icon">⌖</span>{html.escape(ui_label("ui.observation_group_location"))}</h3>
               <div class="observation-group-grid batch-location">
                 <div class="admin-field"><label>{html.escape(ui_label("ui.micro_area"))}</label><select name="micro_area_id">{known_site_select_options()}</select></div>
-                <a class="observation-manage-sites-link" href="{html.escape(known_sites_url, quote=True)}">{html.escape(ui_label("ui.manage_known_sites"))} ↗</a>
+                <a class="observation-manage-sites-link" target="_blank" rel="noopener" onclick="const f=this.closest('form'),u=new window.URL(this.href); for(const [q,n] of [['observation_lat','location_lat'],['observation_lon','location_lon']]) u.searchParams.set(q,f.elements[n]?.value||''); const m=f.elements['micro_area_id']?.value; if(m){{u.searchParams.set('kind','micro_area');u.searchParams.set('id',m);}}else{{u.searchParams.delete('kind');u.searchParams.delete('id');}} this.href=u.href;" href="{html.escape(known_sites_url, quote=True)}">{html.escape(ui_label("ui.manage_known_sites"))} ↗</a>
               </div>
             </section>
             <section class="observation-field-group observation-validation-group">
@@ -6310,6 +6333,7 @@ def render_observations_section(
       </div>
       <div class="profile-action-bar observations-main-actions maintenance-action-bar">
         <a class="button-link primary-link" href="#new-observation">{html.escape(ui_label("ui.new_observation"))}</a>
+        {mushroom_gbif_ui.render(ui_label)}
         <a class="button-link" href="#import-observation-exif">{html.escape(ui_label("ui.import_exif_images"))}</a>
         <a class="button-link" href="{html.escape(calibration_href, quote=True)}">{html.escape(ui_label("ui.open_calibration"))}</a>
       </div>

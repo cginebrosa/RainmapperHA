@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.323" \
+LABEL io.hass.version="0.2.324" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.323
+ENV RAINMAPPER_APP_VERSION=0.2.324
 
 WORKDIR /app
 
@@ -54,6 +54,7 @@ COPY rainmapper-app/app/mushroom_known_sites_ui.py /app/mushroom_known_sites_ui.
 COPY rainmapper-app/app/known-sites.js rainmapper-app/app/known-sites.css /app/
 COPY rainmapper-app/app/mushroom_profiles_ui.py /app/mushroom_profiles_ui.py
 COPY rainmapper-app/app/mushroom_observation_gis_ui.py rainmapper-app/app/observation-gis.js rainmapper-app/app/observation-map-gis.js /app/
+COPY rainmapper-app/app/mushroom_gbif_ui.py rainmapper-app/app/observation-gbif-import.js /app/
 COPY rainmapper-app/app/mushroom_predictor_ui.py /app/mushroom_predictor_ui.py
 COPY rainmapper-app/app/mushroom_predictor_weather_ui.py /app/mushroom_predictor_weather_ui.py
 COPY rainmapper-app/app/mushroom_prediction_map_ui.py /app/mushroom_prediction_map_ui.py

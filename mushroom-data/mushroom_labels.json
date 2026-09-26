@@ -930,9 +930,9 @@
     "ca": "Origen d'ubicacio"
   },
   "location.precision_m": {
-    "en": "Location precision",
-    "es": "Precision de ubicacion",
-    "ca": "Precisio d'ubicacio"
+    "es": "Incertidumbre de posición (m)",
+    "ca": "Incertesa de posició (m)",
+    "en": "Position uncertainty (m)"
   },
   "altitude.meters": {
     "en": "Altitude",
@@ -7250,22 +7250,34 @@
     "ca": "{outside} de {total} variables fora del rang observat en entrenar. Això no demostra fiabilitat en aquest punt."
   },
   "ui.prediction_map_applicability_variables": {
-    "en": "Inputs outside the training range", "es": "Variables fuera del rango de entrenamiento", "ca": "Variables fora del rang d’entrenament"
+    "en": "Inputs outside the training range",
+    "es": "Variables fuera del rango de entrenamiento",
+    "ca": "Variables fora del rang d’entrenament"
   },
   "ui.prediction_map_applicability_shown": {
-    "en": "Showing {shown} of {total} variables.", "es": "Mostrando {shown} de {total} variables.", "ca": "Es mostren {shown} de {total} variables."
+    "en": "Showing {shown} of {total} variables.",
+    "es": "Mostrando {shown} de {total} variables.",
+    "ca": "Es mostren {shown} de {total} variables."
   },
   "ui.prediction_map_applicability_more": {
-    "en": "Load more variables", "es": "Cargar más variables", "ca": "Carregar més variables"
+    "en": "Load more variables",
+    "es": "Cargar más variables",
+    "ca": "Carregar més variables"
   },
   "ui.prediction_map_applicability_loading": {
-    "en": "Loading variable details…", "es": "Cargando el detalle de las variables…", "ca": "Carregant el detall de les variables…"
+    "en": "Loading variable details…",
+    "es": "Cargando el detalle de las variables…",
+    "ca": "Carregant el detall de les variables…"
   },
   "ui.prediction_map_applicability_failed": {
-    "en": "Could not load the full list. Only examples are available; you can retry.", "es": "No se ha podido cargar la lista completa. Puedes volver a intentarlo; la lista mostrada es parcial.", "ca": "No s’ha pogut carregar la llista completa. Pots tornar-ho a provar; la llista mostrada és parcial."
+    "en": "Could not load the full list. Only examples are available; you can retry.",
+    "es": "No se ha podido cargar la lista completa. Puedes volver a intentarlo; la lista mostrada es parcial.",
+    "ca": "No s’ha pogut carregar la llista completa. Pots tornar-ho a provar; la llista mostrada és parcial."
   },
   "ui.prediction_map_applicability_changed": {
-    "en": "The prediction data changed. Query this point again to view its details.", "es": "Los datos de la predicción han cambiado. Consulta de nuevo este punto para ver su detalle.", "ca": "Les dades de la predicció han canviat. Consulta de nou aquest punt per veure’n el detall."
+    "en": "The prediction data changed. Query this point again to view its details.",
+    "es": "Los datos de la predicción han cambiado. Consulta de nuevo este punto para ver su detalle.",
+    "ca": "Les dades de la predicció han canviat. Consulta de nou aquest punt per veure’n el detall."
   },
   "ui.prediction_map_days_before_cutoff": {
     "en": "{days} days before weather cutoff",
@@ -7887,18 +7899,46 @@
     "es": "La consulta al worker ha fallado. Probando el servidor local…",
     "ca": "La consulta al worker ha fallat. Provant el servidor local…"
   },
-  "ui.prediction_map_history_month": {"es":"Mes","ca":"Mes","en":"Month"},
-  "ui.prediction_map_history_year": {"es":"Año","ca":"Any","en":"Year"},
-  "ui.prediction_map_history_previous_month": {"es":"Mes anterior","ca":"Mes anterior","en":"Previous month"},
-  "ui.prediction_map_history_next_month": {"es":"Mes siguiente","ca":"Mes següent","en":"Next month"},
-  "ui.prediction_map_history_yesterday": {"es":"Ayer","ca":"Ahir","en":"Yesterday"},
-  "ui.prediction_map_history_year_ago": {"es":"Hace un año","ca":"Fa un any","en":"A year ago"},
+  "ui.prediction_map_history_month": {
+    "es": "Mes",
+    "ca": "Mes",
+    "en": "Month"
+  },
+  "ui.prediction_map_history_year": {
+    "es": "Año",
+    "ca": "Any",
+    "en": "Year"
+  },
+  "ui.prediction_map_history_previous_month": {
+    "es": "Mes anterior",
+    "ca": "Mes anterior",
+    "en": "Previous month"
+  },
+  "ui.prediction_map_history_next_month": {
+    "es": "Mes siguiente",
+    "ca": "Mes següent",
+    "en": "Next month"
+  },
+  "ui.prediction_map_history_yesterday": {
+    "es": "Ayer",
+    "ca": "Ahir",
+    "en": "Yesterday"
+  },
+  "ui.prediction_map_history_year_ago": {
+    "es": "Hace un año",
+    "ca": "Fa un any",
+    "en": "A year ago"
+  },
   "ui.prediction_map_history_scope": {
     "es": "Solo se recalcula la zona visible. Acerca el mapa antes para reducir la espera.",
     "ca": "Només es recalcula la zona visible. Apropa el mapa abans per reduir l’espera.",
     "en": "Only the visible area is recalculated. Zoom in first to reduce waiting time."
   },
-  "ui.prediction_map_history_how": {"es":"Cómo funciona el modo histórico","ca":"Com funciona el mode històric","en":"How historical mode works"},
+  "ui.prediction_map_history_how": {
+    "es": "Cómo funciona el modo histórico",
+    "ca": "Com funciona el mode històric",
+    "en": "How historical mode works"
+  },
   "ui.prediction_map_history_station_loading": {
     "en": "Loading station history…",
     "es": "Cargando el histórico de la estación…",
@@ -7910,7 +7950,9 @@
     "ca": "No s’ha pogut carregar el detall de l’estació."
   },
   "ui.prediction_map_history_station_retry": {
-    "en": "Retry", "es": "Reintentar", "ca": "Tornar-ho a provar"
+    "en": "Retry",
+    "es": "Reintentar",
+    "ca": "Tornar-ho a provar"
   },
   "ui.prediction_map_history_error": {
     "en": "Could not load historical weather. Check availability and try again; the previous map is preserved.",
@@ -8096,5 +8138,590 @@
     "en": "Coverage: {percent}%",
     "es": "Cobertura: {percent}%",
     "ca": "Cobertura: {percent}%"
+  },
+  "ui.gbif_title": {
+    "es": "Importar GBIF",
+    "ca": "Importar GBIF",
+    "en": "Import GBIF"
+  },
+  "ui.gbif_help": {
+    "es": "Selecciona el ZIP exportado desde el visor. Elige las citas nuevas y decide mantener o reemplazar los duplicados por ID GBIF.",
+    "ca": "Selecciona el ZIP exportat des del visor. Tria les cites noves i decideix mantenir o reemplaçar els duplicats per ID GBIF.",
+    "en": "Select the exported ZIP. Choose new records and keep or replace duplicates by GBIF ID."
+  },
+  "ui.gbif_quality": {
+    "es": "Abundancia: Normal. Calidad provisional: 0,75, editable al revisar.",
+    "ca": "Abundància: Normal. Qualitat provisional: 0,75, editable en revisar.",
+    "en": "Abundance: Normal. Provisional quality: 0.75, editable during review."
+  },
+  "ui.gbif_choose": {
+    "es": "Archivo ZIP",
+    "ca": "Fitxer ZIP",
+    "en": "ZIP file"
+  },
+  "ui.gbif_preview": {
+    "es": "Revisar archivo",
+    "ca": "Revisar fitxer",
+    "en": "Preview file"
+  },
+  "ui.gbif_accept": {
+    "es": "Aceptar seleccionadas",
+    "ca": "Acceptar seleccionades",
+    "en": "Accept selected"
+  },
+  "ui.gbif_cancel": {
+    "es": "Rechazar lote",
+    "ca": "Rebutjar lot",
+    "en": "Reject batch"
+  },
+  "ui.gbif_all": {
+    "es": "Seleccionar nuevas",
+    "ca": "Seleccionar noves",
+    "en": "Select new records"
+  },
+  "ui.gbif_none": {
+    "es": "Desmarcar todas",
+    "ca": "Desmarcar totes",
+    "en": "Clear selection"
+  },
+  "ui.gbif_new": {
+    "es": "Nueva",
+    "ca": "Nova",
+    "en": "New"
+  },
+  "ui.gbif_duplicate": {
+    "es": "Ya existe",
+    "ca": "Ja existeix",
+    "en": "Already exists"
+  },
+  "ui.gbif_conflict": {
+    "es": "Posible duplicado; revisar origen",
+    "ca": "Possible duplicat; revisar origen",
+    "en": "Possible duplicate; review source"
+  },
+  "ui.gbif_invalid": {
+    "es": "No importable",
+    "ca": "No importable",
+    "en": "Cannot import"
+  },
+  "ui.gbif_photos": {
+    "es": "Fotos",
+    "ca": "Fotos",
+    "en": "Photos"
+  },
+  "ui.gbif_assigned": {
+    "es": "asignados",
+    "ca": "assignats",
+    "en": "assigned"
+  },
+  "ui.gbif_busy": {
+    "es": "Procesando…",
+    "ca": "Processant…",
+    "en": "Processing…"
+  },
+  "ui.gbif_done": {
+    "es": "Completado",
+    "ca": "Completat",
+    "en": "Complete"
+  },
+  "ui.gbif_created": {
+    "es": "Creadas",
+    "ca": "Creades",
+    "en": "Created"
+  },
+  "ui.gbif_skipped": {
+    "es": "Ya existentes",
+    "ca": "Ja existents",
+    "en": "Already present"
+  },
+  "ui.gbif_rejected": {
+    "es": "No seleccionadas",
+    "ca": "No seleccionades",
+    "en": "Not selected"
+  },
+  "ui.gbif_no_selection": {
+    "es": "Selecciona alguna cita nueva o un reemplazo, o rechaza el lote.",
+    "ca": "Selecciona alguna cita nova o un reemplaçament, o rebutja el lot.",
+    "en": "Select a new record or a replacement, or reject the batch."
+  },
+  "ui.gbif_unlicensed": {
+    "es": "Foto sin licencia informada",
+    "ca": "Foto sense llicència informada",
+    "en": "Photo license not supplied"
+  },
+  "ui.gbif_close": {
+    "es": "Cerrar",
+    "ca": "Tancar",
+    "en": "Close"
+  },
+  "ui.gbif_pending": {
+    "es": "Pendientes de revisión",
+    "ca": "Pendents de revisió",
+    "en": "Pending review"
+  },
+  "ui.gbif_resume": {
+    "es": "Continuar revisión",
+    "ca": "Continuar revisió",
+    "en": "Resume review"
+  },
+  "ui.gbif_uncertainty_assigned": {
+    "es": "500 m asignados: GBIF no informa la incertidumbre original. El original se conserva aunque edites este valor.",
+    "ca": "500 m assignats: GBIF no informa la incertesa original. L’original es conserva encara que editis aquest valor.",
+    "en": "500 m assigned: GBIF did not report uncertainty. The original is retained when this value is edited."
+  },
+  "ui.gbif_uncertainty_declared": {
+    "es": "Incertidumbre declarada por GBIF.",
+    "ca": "Incertesa declarada per GBIF.",
+    "en": "Uncertainty declared by GBIF."
+  },
+  "ui.gbif_uncertainty_legacy": {
+    "es": "0 m por compatibilidad; no significa posición exacta.",
+    "ca": "0 m per compatibilitat; no significa posició exacta.",
+    "en": "0 m for compatibility; this does not mean an exact position."
+  },
+  "ui.gbif_uncertainty_manual": {
+    "es": "Valor establecido manualmente. La procedencia original se conserva.",
+    "ca": "Valor establert manualment. La procedència original es conserva.",
+    "en": "Manually assigned value. Original provenance is retained."
+  },
+  "ui.gbif_original_author": {
+    "es": "Observador original",
+    "ca": "Observador original",
+    "en": "Original observer"
+  },
+  "ui.gbif_original_dataset": {
+    "es": "Colección de origen",
+    "ca": "Col·lecció d’origen",
+    "en": "Source dataset"
+  },
+  "ui.gbif_original_uncertainty": {
+    "es": "Incertidumbre original (m)",
+    "ca": "Incertesa original (m)",
+    "en": "Original uncertainty (m)"
+  },
+  "ui.gbif_original_license": {
+    "es": "Licencia del registro",
+    "ca": "Llicència del registre",
+    "en": "Record license"
+  },
+  "ui.gbif_unknown": {
+    "es": "Desconocida",
+    "ca": "Desconeguda",
+    "en": "Unknown"
+  },
+  "ui.gbif_provenance": {
+    "es": "Procedencia y atribución GBIF",
+    "ca": "Procedència i atribució GBIF",
+    "en": "GBIF provenance and attribution"
+  },
+  "ui.gbif_error_invalid": {
+    "es": "El paquete no es válido o está incompleto.",
+    "ca": "El paquet no és vàlid o és incomplet.",
+    "en": "The package is invalid or incomplete."
+  },
+  "ui.gbif_error_limit": {
+    "es": "El archivo supera los límites. Exporta lotes más pequeños.",
+    "ca": "El fitxer supera els límits. Exporta lots més petits.",
+    "en": "File exceeds the limits. Export smaller batches."
+  },
+  "ui.gbif_error_species": {
+    "es": "Especie sin correspondencia única en Rainmapper.",
+    "ca": "Espècie sense correspondència única a Rainmapper.",
+    "en": "Species has no unique Rainmapper mapping."
+  },
+  "ui.gbif_error_date": {
+    "es": "Fecha incompleta o intervalo: requiere revisión.",
+    "ca": "Data incompleta o interval: requereix revisió.",
+    "en": "Incomplete date or date interval: review required."
+  },
+  "ui.gbif_error_presence": {
+    "es": "El registro no declara presencia.",
+    "ca": "El registre no declara presència.",
+    "en": "Record does not declare presence."
+  },
+  "ui.gbif_error_coordinates": {
+    "es": "Coordenadas inválidas.",
+    "ca": "Coordenades invàlides.",
+    "en": "Invalid coordinates."
+  },
+  "ui.gbif_error_uncertainty": {
+    "es": "Incertidumbre inválida: requiere revisión.",
+    "ca": "Incertesa invàlida: requereix revisió.",
+    "en": "Invalid uncertainty: review required."
+  },
+  "ui.gbif_error_photo": {
+    "es": "Foto ausente, dañada o no compatible.",
+    "ca": "Foto absent, malmesa o no compatible.",
+    "en": "Photo missing, damaged or unsupported."
+  },
+  "ui.gbif_error_staging": {
+    "es": "Hay dos lotes pendientes. Continúa su revisión o recházalos antes de subir otro.",
+    "ca": "Hi ha dos lots pendents. Continua la revisió o rebutja’ls abans de pujar-ne un altre.",
+    "en": "Two batches are pending. Resume or reject them before uploading another."
+  },
+  "ui.gbif_error_space": {
+    "es": "No hay espacio libre suficiente.",
+    "ca": "No hi ha prou espai lliure.",
+    "en": "Insufficient free disk space."
+  },
+  "ui.gbif_error_owner": {
+    "es": "No tienes acceso a este lote.",
+    "ca": "No tens accés a aquest lot.",
+    "en": "You do not have access to this batch."
+  },
+  "ui.gbif_error_conflict": {
+    "es": "La selección contiene conflictos. Revisa el lote otra vez.",
+    "ca": "La selecció conté conflictes. Torna a revisar el lot.",
+    "en": "Selection contains conflicts. Review the batch again."
+  },
+  "ui.gbif_error_validation": {
+    "es": "Las observaciones no superan la validación. No se ha guardado el lote.",
+    "ca": "Les observacions no superen la validació. No s’ha desat el lot.",
+    "en": "Observations failed validation. The batch was not saved."
+  },
+  "ui.gbif_error_network": {
+    "es": "No se pudo completar la petición. Puedes continuar la revisión o reintentar.",
+    "ca": "No s’ha pogut completar la petició. Pots continuar la revisió o tornar-ho a provar.",
+    "en": "Request could not complete. Resume review or retry."
+  },
+  "ui.gbif_export_title": {
+    "es": "Exportar a Rainmapper",
+    "ca": "Exportar a Rainmapper",
+    "en": "Export to Rainmapper"
+  },
+  "ui.gbif_export_help": {
+    "es": "Se exportan todas las citas que cumplen los filtros actuales, también fuera del encuadre, con sus fotos. Elige la carpeta de este snapshot para leer los originales. La selección y revisión quedan fijadas al abrir esta ventana.",
+    "ca": "S’exporten totes les cites que compleixen els filtres actuals, també fora de l’enquadrament, amb les fotos. Tria la carpeta d’aquest snapshot per llegir els originals. La selecció i revisió queden fixades en obrir aquesta finestra.",
+    "en": "Exports every record matching current filters, including those outside the map view, with photos. Choose this snapshot’s folder to read originals. Selection and review are frozen when this window opens."
+  },
+  "ui.gbif_export_folder": {
+    "es": "1. Elegir carpeta de ORIGEN (datos y fotos GBIF)",
+    "ca": "1. Triar carpeta d’ORIGEN (dades i fotos GBIF)",
+    "en": "1. Choose SOURCE folder (GBIF data and photos)"
+  },
+  "ui.gbif_export_save": {
+    "es": "2. Elegir archivo DESTINO y guardar ZIP",
+    "ca": "2. Triar fitxer DESTINACIÓ i desar ZIP",
+    "en": "2. Choose DESTINATION file and save ZIP"
+  },
+  "ui.gbif_export_next": {
+    "es": "Guardar siguiente lote",
+    "ca": "Desar el lot següent",
+    "en": "Save next batch"
+  },
+  "ui.gbif_export_download": {
+    "es": "Volver a guardar este lote",
+    "ca": "Tornar a desar aquest lot",
+    "en": "Save this batch again"
+  },
+  "ui.gbif_export_wrong_snapshot": {
+    "es": "La carpeta no corresponde al snapshot abierto.",
+    "ca": "La carpeta no correspon al snapshot obert.",
+    "en": "Folder does not match the open snapshot."
+  },
+  "ui.gbif_export_records": {
+    "es": "observaciones",
+    "ca": "observacions",
+    "en": "observations"
+  },
+  "ui.gbif_export_batches": {
+    "es": "lotes ZIP",
+    "ca": "lots ZIP",
+    "en": "ZIP batches"
+  },
+  "ui.gbif_export_no_photo": {
+    "es": "sin foto local",
+    "ca": "sense foto local",
+    "en": "without local photo"
+  },
+  "ui.gbif_export_saved": {
+    "es": "ZIP guardado: lote",
+    "ca": "ZIP desat: lot",
+    "en": "ZIP saved: batch"
+  },
+  "ui.gbif_export_save_unsupported": {
+    "es": "Para elegir la carpeta y el nombre de destino, abre este visor con Chrome o Edge.",
+    "ca": "Per triar la carpeta i el nom de destinació, obre aquest visor amb Chrome o Edge.",
+    "en": "To choose the destination folder and filename, open this viewer in Chrome or Edge."
+  },
+  "ui.gbif_keep": {
+    "es": "Mantener",
+    "ca": "Mantenir",
+    "en": "Keep"
+  },
+  "ui.gbif_replace": {
+    "es": "Reemplazar",
+    "ca": "Reemplaçar",
+    "en": "Replace"
+  },
+  "ui.gbif_replaced": {
+    "es": "Reemplazadas",
+    "ca": "Reemplaçades",
+    "en": "Replaced"
+  },
+  "ui.gbif_archived": {
+    "es": "Archivada",
+    "ca": "Arxivada",
+    "en": "Archived"
+  },
+  "ui.gbif_replacement_help": {
+    "es": "Reemplazar sustituye los datos y las fotos, conserva el ID de Rainmapper y vuelve a Borrador / Revisar antes de usar. Si estaba archivada, se restaura. Mantener no cambia nada.",
+    "ca": "Reemplaçar substitueix les dades i les fotos, conserva l’ID de Rainmapper i torna a Esborrany / Revisar abans d’utilitzar. Si estava arxivada, es restaura. Mantenir no canvia res.",
+    "en": "Replace substitutes data and photos, keeps the Rainmapper ID and resets to Draft / Review before use. Archived records are restored. Keep leaves the record unchanged."
+  },
+  "ui.gbif_error_changed": {
+    "es": "La observación cambió desde la previsualización. Vuelve a revisar el lote antes de reemplazar.",
+    "ca": "L’observació ha canviat des de la previsualització. Torna a revisar el lot abans de reemplaçar.",
+    "en": "The observation changed after preview. Review the batch again before replacing."
+  },
+  "ui.gbif_export_source_help": {
+    "es": "Esta primera carpeta NO es el destino. Elige la carpeta snapshot-catalunya-20120619-20260916-full que contiene occurrences.json y media. Después podrás elegir el nombre y la ubicación del ZIP.",
+    "ca": "Aquesta primera carpeta NO és la destinació. Tria la carpeta snapshot-catalunya-20120619-20260916-full que conté occurrences.json i media. Després podràs triar el nom i la ubicació del ZIP.",
+    "en": "This first folder is NOT the destination. Choose snapshot-catalunya-20120619-20260916-full containing occurrences.json and media. Then choose the ZIP name and location."
+  },
+  "ui.gbif_export_missing": {
+    "es": "No se encuentra este archivo en la carpeta de origen:",
+    "ca": "No es troba aquest fitxer a la carpeta d’origen:",
+    "en": "File not found in the source folder:"
+  },
+  "ui.gbif_export_existing": {
+    "es": "El ZIP destino ya contiene estas citas. Ignorar conserva la versión del archivo; Reemplazar usa la selección actual y sus fotos. Las demás citas del ZIP se conservan.",
+    "ca": "El ZIP de destinació ja conté aquestes cites. Ignorar conserva la versió del fitxer; Reemplaçar utilitza la selecció actual i les fotos. Les altres cites del ZIP es conserven.",
+    "en": "The destination ZIP already contains these records. Ignore keeps the file’s version; Replace uses the current selection and its photos. Other ZIP records are preserved."
+  },
+  "ui.gbif_export_ignore": {
+    "es": "Ignorar nueva versión",
+    "ca": "Ignorar versió nova",
+    "en": "Ignore new version"
+  },
+  "ui.gbif_export_apply": {
+    "es": "Aplicar decisiones y guardar",
+    "ca": "Aplicar decisions i desar",
+    "en": "Apply choices and save"
+  },
+  "ui.gbif_export_abort": {
+    "es": "Cancelar guardado",
+    "ca": "Cancel·lar desat",
+    "en": "Cancel save"
+  },
+  "ui.gbif_export_destination_changed": {
+    "es": "El ZIP destino ha cambiado. Elige de nuevo el archivo y revisa los duplicados.",
+    "ca": "El ZIP de destinació ha canviat. Tria de nou el fitxer i revisa els duplicats.",
+    "en": "Destination ZIP changed. Choose it again and review duplicates."
+  },
+  "ui.gbif_export_merge_limit": {
+    "es": "La combinación supera 100 citas o 128 MiB. Elige otro archivo destino; el ZIP existente no se ha modificado.",
+    "ca": "La combinació supera 100 cites o 128 MiB. Tria un altre fitxer de destinació; el ZIP existent no s’ha modificat.",
+    "en": "The merged package exceeds 100 records or 128 MiB. Choose another destination; the existing ZIP was not changed."
+  },
+  "ui.gbif_export_source_selected": {
+    "es": "Origen seleccionado:",
+    "ca": "Origen seleccionat:",
+    "en": "Selected source:"
+  },
+  "ui.gbif_export_destination_selected": {
+    "es": "Archivo de destino:",
+    "ca": "Fitxer de destinació:",
+    "en": "Destination file:"
+  },
+  "ui.gbif_export_proposed_source": {
+    "es": "Carpeta propuesta: la de esta página del visor",
+    "ca": "Carpeta proposada: la d’aquesta pàgina del visor",
+    "en": "Suggested folder: this viewer page’s folder"
+  },
+  "ui.gbif_export_copy_path": {
+    "es": "Copiar ruta de origen",
+    "ca": "Copiar ruta d’origen",
+    "en": "Copy source path"
+  },
+  "ui.gbif_preparing": {
+    "es": "Preparando GIS/DEM y microárea:",
+    "ca": "Preparant GIS/DEM i microàrea:",
+    "en": "Preparing GIS/DEM and micro-area:"
+  },
+  "ui.gbif_saving": {
+    "es": "Guardando observaciones y fotos:",
+    "ca": "Desant observacions i fotos:",
+    "en": "Saving observations and photos:"
+  },
+  "ui.gbif_gis_gaps": {
+    "es": "Con datos GIS pendientes",
+    "ca": "Amb dades GIS pendents",
+    "en": "With pending GIS data"
+  },
+  "ui.gbif_auto_prepare": {
+    "es": "Al aceptar se recuperan GIS/DEM y la microárea que contenga el punto. Si hay varias, se elige la de centro más cercano. La cartografía se conserva separada de las observaciones de campo. Las citas siguen pendientes de revisión.",
+    "ca": "En acceptar es recuperen GIS/DEM i la microàrea que contingui el punt. Si n’hi ha diverses, es tria la de centre més proper. La cartografia es conserva separada de les observacions de camp. Les cites continuen pendents de revisió.",
+    "en": "Accepting retrieves GIS/DEM and a micro-area containing the point. If several match, the closest centre is chosen. Map data stays separate from field observations. Records remain pending review."
+  },
+  "ui.gbif_error_preparation": {
+    "es": "Falta preparar GIS/DEM de las citas seleccionadas. Vuelve a aceptar para continuar.",
+    "ca": "Falta preparar GIS/DEM de les cites seleccionades. Torna a acceptar per continuar.",
+    "en": "Selected records still need GIS/DEM preparation. Accept again to continue."
+  },
+  "ui.gbif_import_details": {
+    "es": "Cómo se importan y reemplazan las observaciones",
+    "ca": "Com s’importen i es reemplacen les observacions",
+    "en": "How observations are imported and replaced"
+  },
+  "ui.gbif_auto_sites": {
+    "es": "Crear áreas y microáreas cuando falten",
+    "ca": "Crear àrees i microàrees quan faltin",
+    "en": "Create missing areas and micro-areas"
+  },
+  "ui.gbif_auto_sites_help": {
+    "es": "Amplía también áreas manuales. Radios: área 500 m, microárea 495 m. Asigna el punto; conserva su incertidumbre.",
+    "ca": "Amplia també àrees manuals. Radis: àrea 500 m, microàrea 495 m. Assigna el punt; conserva la seva incertesa.",
+    "en": "Also expands manual areas. Radii: area 500 m, micro-area 495 m. Assigns the point; preserves its uncertainty."
+  },
+  "ui.gbif_sites_planning": {
+    "es": "Revisando setales del lote…",
+    "ca": "Revisant setals del lot…",
+    "en": "Planning sites for the batch…"
+  },
+  "ui.gbif_sites_prepare": {
+    "es": "Preparando GIS/DEM y SoilGrids de setales:",
+    "ca": "Preparant GIS/DEM i SoilGrids dels setals:",
+    "en": "Preparing site GIS/DEM and SoilGrids:"
+  },
+  "ui.gbif_sites_review": {
+    "es": "Setales que se guardarán con las observaciones",
+    "ca": "Setals que es desaran amb les observacions",
+    "en": "Sites to save with the observations"
+  },
+  "ui.gbif_sites_confirm": {
+    "es": "Confirmar importación y setales",
+    "ca": "Confirmar importació i setals",
+    "en": "Confirm import and sites"
+  },
+  "ui.gbif_sites_back": {
+    "es": "Volver a la selección",
+    "ca": "Tornar a la selecció",
+    "en": "Back to selection"
+  },
+  "ui.gbif_sites_area_created": {
+    "es": "Áreas nuevas",
+    "ca": "Àrees noves",
+    "en": "New areas"
+  },
+  "ui.gbif_sites_area_expanded": {
+    "es": "Áreas ampliadas",
+    "ca": "Àrees ampliades",
+    "en": "Expanded areas"
+  },
+  "ui.gbif_sites_micro_created": {
+    "es": "Microáreas nuevas",
+    "ca": "Microàrees noves",
+    "en": "New micro-areas"
+  },
+  "ui.gbif_sites_name": {
+    "es": "Nombre",
+    "ca": "Nom",
+    "en": "Name"
+  },
+  "ui.gbif_sites_action": {
+    "es": "Cambio",
+    "ca": "Canvi",
+    "en": "Change"
+  },
+  "ui.gbif_sites_assignments": {
+    "es": "Asignaciones por observación",
+    "ca": "Assignacions per observació",
+    "en": "Observation assignments"
+  },
+  "ui.gbif_error_sites_geometry": {
+    "es": "No se ha podido calcular la geometría de los setales. No se han guardado los cambios.",
+    "ca": "No s’ha pogut calcular la geometria dels setals. No s’han desat els canvis.",
+    "en": "Site geometry could not be calculated. Changes have not been saved."
+  },
+  "ui.known_site_creation_source": {
+    "es": "Origen de creación",
+    "ca": "Origen de creació",
+    "en": "Creation origin"
+  },
+  "ui.known_site_origin_manual": {
+    "es": "Manual",
+    "ca": "Manual",
+    "en": "Manual"
+  },
+  "ui.gbif_sites_soil_pending": {
+    "es": "Microáreas con SoilGrids pendiente",
+    "ca": "Microàrees amb SoilGrids pendent",
+    "en": "Micro-areas with pending SoilGrids"
+  },
+  "ui.sites_search": {
+    "es": "Municipio, topónimo o coordenadas",
+    "ca": "Municipi, topònim o coordenades",
+    "en": "Place or coordinates"
+  },
+  "ui.sites_search_hint": {
+    "es": "Nombre o latitud, longitud (42.09, 2.71)",
+    "ca": "Nom o latitud, longitud (42.09, 2.71)",
+    "en": "Name or latitude, longitude (42.09, 2.71)"
+  },
+  "ui.sites_coordinates_invalid": {
+    "es": "Coordenadas no válidas: latitud entre −90 y 90; longitud entre −180 y 180.",
+    "ca": "Coordenades no vàlides: latitud entre −90 i 90; longitud entre −180 i 180.",
+    "en": "Invalid coordinates: latitude −90 to 90; longitude −180 to 180."
+  },
+  "ui.sites_coordinates_found": {
+    "es": "Coordenadas localizadas",
+    "ca": "Coordenades localitzades",
+    "en": "Coordinates located"
+  },
+  "ui.sites_draw_circle": {
+    "es": "Dibujar círculo",
+    "ca": "Dibuixar cercle",
+    "en": "Draw circle"
+  },
+  "ui.sites_circle_help": {
+    "es": "Círculo activo: haz clic en el mapa para situar el centro y después en el borde para definir el radio.",
+    "ca": "Cercle actiu: fes clic al mapa per situar el centre i després a la vora per definir el radi.",
+    "en": "Circle mode active: click the map to place the centre, then the edge to set the radius."
+  },
+  "ui.sites_observation_point": {
+    "es": "Observación de origen",
+    "ca": "Observació d’origen",
+    "en": "Source observation"
+  },
+  "ui.sites_observation_draft_position": {
+    "es": "Posición del formulario; los demás datos corresponden a la observación guardada.",
+    "ca": "Posició del formulari; les altres dades corresponen a l’observació desada.",
+    "en": "Form position; other details are from the saved observation."
+  },
+  "ui.sites_focus_observation": {
+    "es": "Centrar observación",
+    "ca": "Centrar observació",
+    "en": "Centre observation"
+  },
+  "ui.sites_circle_edge": {
+    "es": "Radio: {radius} m · Haz clic para terminar el círculo.",
+    "ca": "Radi: {radius} m · Fes clic per acabar el cercle.",
+    "en": "Radius: {radius} m · Click to complete the circle."
+  },
+  "ui.sites_circle_complete": {
+    "es": "Círculo añadido al borrador. Pulsa Terminar dibujo y Guardar para conservarlo.",
+    "ca": "Cercle afegit a l’esborrany. Prem Acabar dibuix i Desar per conservar-lo.",
+    "en": "Circle added to the draft. Choose Finish drawing and Save to keep it."
+  },
+  "ui.sites_circle_choice": {
+    "es": "Dibujar círculo en un setal existente",
+    "ca": "Dibuixar cercle en un setal existent",
+    "en": "Draw a circle in an existing site"
+  },
+  "ui.sites_circle_choice_help": {
+    "es": "Elige si el círculo sustituye el contorno actual o se añade como otra parte. El contorno original se conserva hasta terminar el círculo; sólo se guarda al pulsar Guardar.",
+    "ca": "Tria si el cercle substitueix el contorn actual o s’afegeix com una altra part. El contorn original es conserva fins a acabar el cercle; només es desa en prémer Desar.",
+    "en": "Choose whether the circle replaces the current outline or adds another part. The original outline remains until the circle is completed; changes are saved only when you choose Save."
+  },
+  "ui.sites_circle_replace": {
+    "es": "Sustituir por círculo",
+    "ca": "Substituir per cercle",
+    "en": "Replace with circle"
+  },
+  "ui.sites_circle_add": {
+    "es": "Añadir círculo",
+    "ca": "Afegir cercle",
+    "en": "Add circle"
   }
 }

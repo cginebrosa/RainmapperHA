@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import math
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -64,6 +65,12 @@ def _area_options(payload: dict[str, object], selected: str = "") -> str:
     return "".join(options)
 
 
+def _creation_origin(row):
+    source = (row.get("provenance") or {}).get("creation_source", "manual")
+    name = label("ui.known_site_origin_manual") if source == "manual" else "GBIF" if source == "gbif" else str(source)
+    return f'<div class="admin-field"><label>{html.escape(label("ui.known_site_creation_source"))}</label><span>{html.escape(name)}</span></div>'
+
+
 def _area_form(row: dict[str, object], *, create: bool = False, return_to: str = "", geometry_id: str = "") -> str:
     row = row or mushroom_known_sites.empty_area()
     area_id = str(row.get("area_id", ""))
@@ -82,6 +89,7 @@ def _area_form(row: dict[str, object], *, create: bool = False, return_to: str =
       <div class="parameter-card-heading"><h2>{html.escape(label('ui.known_site_area'))}</h2></div>
       {f'<input type="hidden" name="area_id" value="{_text(area_id)}">' if create else ''}
       <div class="profile-grid two">
+        {_creation_origin(row)}
         {'' if create else f'<div class="admin-field"><label>{html.escape(label("ui.area_id"))}</label><input name="area_id" value="{_text(area_id)}" readonly></div>'}
         <div class="admin-field{' wide' if create else ''}"><label>{html.escape(label('ui.name'))}</label><input name="name" value="{_text(row.get('name'))}" required autofocus></div>
         <div class="admin-field wide"><label>{html.escape(label('ui.description'))}</label><input name="description" value="{_text(row.get('description'))}"></div>
@@ -127,6 +135,7 @@ def _micro_form(row: dict[str, object], payload: dict[str, object], *, create: b
       <div class="parameter-card-heading"><h2>{html.escape(label('ui.known_site_micro_area'))}</h2></div>
       {f'<input type="hidden" name="micro_area_id" value="{_text(micro_id)}">' if create else ''}
       <div class="profile-grid two">
+        {_creation_origin(row)}
         {'' if create else f'<div class="admin-field"><label>{html.escape(label("ui.micro_area_id"))}</label><input name="micro_area_id" value="{_text(micro_id)}" readonly></div>'}
         <div class="admin-field"><label>{html.escape(label('ui.parent_area'))}</label><select name="area_id" required>{_area_options(payload, str(row.get('area_id', '')))}</select></div>
         <div class="admin-field"><label>{html.escape(label('ui.name'))}</label><input name="name" value="{_text(row.get('name'))}" required autofocus></div>
@@ -320,8 +329,38 @@ def observation_page(payload: dict[str, object], observations: dict[str, object]
     return {"ok": True, "total": len(rows), "offset": offset, "items": items, "next": offset + 50 if offset + 50 < len(rows) else None}
 
 
+def observation_map_context(observations: dict[str, object], query: dict[str, list[str]], sites: dict[str, object] | None = None, catalogs: dict[str, object] | None = None) -> dict[str, object] | None:
+    """Only the requested observation, with validated optional form coordinates."""
+    observation_id = (query.get("observation_id") or [""])[0]
+    row = next((r for r in observations.get("observations", []) if observation_id and r.get("observation_id") == observation_id), {})
+    location = row.get("location") or {}
+    def coordinates(lat, lon):
+        try:
+            lat, lon = float(lat), float(lon)
+            return [lon, lat] if math.isfinite(lat) and math.isfinite(lon) and abs(lat) <= 90 and abs(lon) <= 180 else None
+        except (TypeError, ValueError):
+            return None
+    saved = coordinates(location.get("lat"), location.get("lon"))
+    point = coordinates((query.get("observation_lat") or [None])[0], (query.get("observation_lon") or [None])[0]) or saved
+    if point is None:
+        return None
+    details = []
+    micro = next((r for r in (sites or {}).get("micro_areas", []) if r.get("micro_area_id") == row.get("micro_area_id")), {})
+    flush_labels = mushroom_profiles_ui.catalog_label_map((catalogs or {}).get("catalogs", {}), "observation_flush_abundance")
+    for key, value in (("species_id", str(row.get("species_id", "")).replace("_", " ").capitalize()), ("ui.date_short", row.get("observed_at")),
+                       ("ui.flush_short", flush_labels.get(row.get("flush_abundance"), row.get("flush_abundance"))), ("observer.name", (row.get("observer") or {}).get("name")),
+                       ("location.precision_m", location.get("precision_m")), ("ui.micro_area", micro.get("name", row.get("micro_area_id")))):
+        if value is not None and value != "":
+            details.append([label(key), str(value)])
+    return {"id": observation_id if row else "", "coordinates": point, "details": details,
+            "draft_position": bool(row and point != saved),
+            "href": "./profiles?" + urlencode({"section": "observations", "id": row.get("species_id", ""), "obs_id": observation_id}) + "#observation-detail" if row else ""}
+
+
 def render_page(payload: dict[str, object], observations_payload: dict[str, object], query: dict[str, list[str]], flash: str = "", gis_preview: dict[str, object] | None = None, catalogs_payload: dict[str, object] | None = None, soilgrids_health: dict[str, object] | None = None) -> str:
     data = workspace_data(payload, observations_payload)
+    data["observation"] = observation_map_context(observations_payload, query, payload, catalogs_payload)
+    data["labels"] = {key: label("ui." + key) for key in ("sites_coordinates_invalid", "sites_coordinates_found", "sites_circle_help", "sites_circle_edge", "sites_circle_complete", "sites_observation_point", "sites_observation_draft_position", "observation_detail")}
     data["soilgrids_warning"] = label("ui.soilgrids_pending") if any(r["soilgrids_pending"] for r in data["rows"]) else ""
     data["return_to"] = (query.get("return_to") or ["./profiles?section=observations"])[0]
     # Escape '<' even inside JSON to keep user-entered names out of script markup.
@@ -335,13 +374,14 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
       <div class="sites-stage"><div id="known-site-map"></div>
         <aside id="sites-list" class="sites-floating"><div class="sites-list-tools"><input id="sites-filter" type="search" placeholder="Buscar setal…" aria-label="Buscar setal"><select id="sites-status" aria-label="Estado"><option value="active">Activos</option><option value="all">Todos</option><option value="archived">Archivados</option></select></div><nav id="sites-tree" aria-label="Áreas y microáreas"></nav></aside>
         <aside id="sites-detail" class="sites-floating" hidden></aside>
-        <div class="sites-map-controls"><button type="button" id="site-search-toggle" title="Buscar municipio o topónimo" aria-label="Buscar municipio o topónimo" aria-expanded="false"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg></button><button type="button" id="site-layer-toggle" title="Fondo del mapa" aria-label="Fondo del mapa" aria-expanded="false"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 8 9-5 9 5-9 5Zm0 5 9 5 9-5M3 18l9 5 9-5"/></svg></button><button type="button" id="site-terrain-toggle" title="Relieve 3D" aria-pressed="false">3D</button><button type="button" id="site-north-toggle" title="Orientar al norte">↑N</button><button type="button" id="site-fit-all" title="Encuadrar todos los setales">⊞</button><button type="button" id="site-fit-selected" title="Encuadrar selección" disabled>◎</button></div>
+        <div class="sites-map-controls"><button type="button" id="site-search-toggle" title="{_text(label('ui.sites_search'))}" aria-label="{_text(label('ui.sites_search'))}" aria-expanded="false"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></svg></button><button type="button" id="site-layer-toggle" title="Fondo del mapa" aria-label="Fondo del mapa" aria-expanded="false"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 8 9-5 9 5-9 5Zm0 5 9 5 9-5M3 18l9 5 9-5"/></svg></button><button type="button" id="site-terrain-toggle" title="Relieve 3D" aria-pressed="false">3D</button><button type="button" id="site-north-toggle" title="Orientar al norte">↑N</button><button type="button" id="site-fit-all" title="Encuadrar todos los setales">⊞</button><button type="button" id="site-focus-observation" title="{_text(label('ui.sites_focus_observation'))}" aria-label="{_text(label('ui.sites_focus_observation'))}" hidden>⌖</button><button type="button" id="site-fit-selected" title="Encuadrar selección" disabled>◎</button></div>
         <section id="site-layer-panel" class="sites-map-panel" hidden><strong>Fondo del mapa</strong><button data-basemap="satellite" class="active">Satélite+</button><button data-basemap="hybrid">Híbrido</button><button data-basemap="topographic">Topográfico</button></section>
-        <section id="site-search-panel" class="sites-map-panel" hidden><form id="site-search-form"><label for="site-search-input">Municipio o topónimo</label><div><input id="site-search-input" type="search" minlength="2" maxlength="160" required autocomplete="off" placeholder="Nombre, provincia o país"><button>Buscar</button></div></form><p id="site-search-status" role="status"></p><div id="site-search-results"></div><small>Búsqueda online: <a href="https://photon.komoot.io/" target="_blank" rel="noopener">Photon</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></small></section>
+        <section id="site-search-panel" class="sites-map-panel" hidden><form id="site-search-form"><label for="site-search-input">{_text(label("ui.sites_search"))}</label><div><input id="site-search-input" type="search" minlength="2" maxlength="160" required autocomplete="off" placeholder="{_text(label('ui.sites_search_hint'))}"><button>Buscar</button></div></form><p id="site-search-status" role="status"></p><div id="site-search-results"></div><small>Búsqueda online: <a href="https://photon.komoot.io/" target="_blank" rel="noopener">Photon</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></small></section>
         <div id="site-overlaps" class="sites-map-panel" hidden></div>
-        <div id="site-geometry-tools" hidden><span id="site-geometry-status">Sin geometría</span><button type="button" id="site-edit-geometry">Editar geometría</button><button type="button" id="site-draw-polygon" hidden>Dibujar polígono</button><button type="button" id="site-edit-polygon" hidden>Editar vértices</button><button type="button" id="site-finish-geometry" hidden>Terminar dibujo</button><button type="button" id="site-clear-geometry" hidden>Quitar geometría…</button><button type="button" id="site-recover-gis">Recuperar GIS / DEM</button></div>
+        <div id="site-geometry-tools" hidden><span id="site-geometry-status">Sin geometría</span><button type="button" id="site-edit-geometry">Editar geometría</button><button type="button" id="site-draw-polygon" hidden>Dibujar polígono</button><button type="button" id="site-draw-circle" hidden>{_text(label('ui.sites_draw_circle'))}</button><button type="button" id="site-edit-polygon" hidden>Editar vértices</button><button type="button" id="site-finish-geometry" hidden>Terminar dibujo</button><button type="button" id="site-clear-geometry" hidden>Quitar geometría…</button><button type="button" id="site-recover-gis">Recuperar GIS / DEM</button></div>
         <div id="sites-status-message" role="status" aria-live="polite">{_text(flash) or 'Selecciona un setal en el mapa o en la lista.'}</div>
       </div>
+      <dialog id="site-circle-choice"><h2>{_text(label('ui.sites_circle_choice'))}</h2><p>{_text(label('ui.sites_circle_choice_help'))}</p><div><button data-choice="cancel">{_text(label('ui.cancel'))}</button><button data-choice="add">{_text(label('ui.sites_circle_add'))}</button><button class="primary" data-choice="replace">{_text(label('ui.sites_circle_replace'))}</button></div></dialog>
       <dialog id="site-unsaved"><h2>Cambios sin guardar</h2><p>¿Qué quieres hacer antes de continuar?</p><div><button data-choice="cancel">Seguir editando</button><button data-choice="discard">Descartar</button><button class="primary" data-choice="save">Guardar y continuar</button></div></dialog>
       <dialog id="site-confirm"><h2 id="site-confirm-title"></h2><p id="site-confirm-text"></p><div><button data-choice="cancel">Cancelar</button><button class="danger" data-choice="confirm">Confirmar</button></div></dialog>
       <dialog id="site-busy" aria-labelledby="site-busy-title"><span class="sites-spinner" aria-hidden="true"></span><h2 id="site-busy-title">Operación en curso</h2><p id="site-busy-text"></p><small>Espera a que termine. Los datos del formulario se conservan si hay un error.</small></dialog>

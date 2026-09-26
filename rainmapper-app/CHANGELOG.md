@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.324
+
+- Export filtered GBIF observations with their photos and import ZIP batches for review, with per-record duplicate handling, provenance and positional uncertainty.
+- Recover GIS/DEM during import and optionally create or extend known areas and micro-areas, reusing sites across the batch and recording their origin.
+- Open known-site maintenance from observations with coordinate search, observation details and circular polygon drawing for new or existing sites.
+- Show common host names in observation details and fix calendar selection alongside manually entered date filters.
+- Discard GIS recovery for the previous point when saving new observation coordinates from the map, preserving field evidence.
+
 ## 0.2.323
 
 - Support both Wunderground station header layouts and explicit altitude units; validate station identity and coordinates while reusing saved metadata.

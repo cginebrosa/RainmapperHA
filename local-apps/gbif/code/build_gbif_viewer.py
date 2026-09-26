@@ -63,7 +63,7 @@ def main():
     for src, dest in ((args.maplibre_js, 'maplibre-gl.js'), (args.maplibre_css, 'maplibre-gl.css')):
         (assets / dest).write_bytes(src.read_bytes())
     here = Path(__file__).parent
-    for name in ('gbif-viewer.js', 'gbif-viewer.css', 'gbif-review-file.js'):
+    for name in ('gbif-viewer.js', 'gbif-viewer.css', 'gbif-review-file.js', 'gbif-export-labels.js', 'gbif-export.js'):
         (assets / name).write_bytes((here / name).read_bytes())
     # Preserve the initial full photo gallery and its validated data for comparison.
     if not (root / 'gallery.html').exists():

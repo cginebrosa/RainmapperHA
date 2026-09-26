@@ -6244,7 +6244,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-group-grid.location .location-altitude {{ grid-column:1/6;grid-row:4; }}
     .observation-group-grid.location .location-source {{ grid-column:6/-1;grid-row:4; }}
-    .observation-group-grid.location .altitude-source {{ grid-column:1/-1;grid-row:5; }}
+    .observation-group-grid.location .location-precision {{ grid-column:1/7;grid-row:5;min-width:0; }}
+    .observation-group-grid.location .location-precision input {{ width:100%;max-width:none;box-sizing:border-box; }}
+    .observation-group-grid.location .location-precision small {{ display:block;font-size:11px;line-height:1.35;color:var(--muted); }}
+    .observation-group-grid.location .altitude-source {{ grid-column:7/-1;grid-row:5; }}
     .observation-group-grid.location .location-altitude input {{ max-width:none;min-width:0;width:100%; }}
     .observation-altitude-input {{ display:grid;grid-template-columns:minmax(0,1fr) 26px; }}
     .observation-altitude-input input {{ border-radius:5px 0 0 5px; }}
@@ -7076,8 +7079,10 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       .observation-group-grid.location .location-micro-area,
       .observation-group-grid.location .location-altitude,
       .observation-group-grid.location .location-source,
+      .observation-group-grid.location .location-precision,
       .observation-group-grid.location .altitude-source,
       .observation-group-grid.source .source-url {{
+        grid-row:auto;
         grid-column: auto;
       }}
     }}
@@ -8925,12 +8930,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
         if (!hidden) return;
         var initialDate = observationDateFromIso(hidden.value);
         var calendar = null;
+        var calendarPointerDown = false;
         var lastSubmittedValue = hidden.value;
         var submitFilter = function() {{
           lastSubmittedValue = hidden.value;
           if (input.form) input.form.submit();
         }};
-        var syncTypedValue = function(submit) {{
+        var syncTypedValue = function(submit, reportError) {{
           var text = input.value.trim();
           if (!text) {{
             hidden.value = "";
@@ -8944,7 +8950,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
           if (!parsed) {{
             input.setCustomValidity("Introduce una fecha válida con formato dd/mm/aaaa.");
             input.setAttribute("aria-invalid", "true");
-            if (submit) input.reportValidity();
+            if (reportError) input.reportValidity();
             return;
           }}
           var nextValue = observationDateToIso(parsed);
@@ -8964,19 +8970,24 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
           else if (!input.value.trim()) {{ hidden.value = ""; if (calendar) calendar.clear({{ silent: true }}); }}
         }});
         input.addEventListener("blur", function() {{
+          // A calendar click blurs the text box before selecting the day. Do not
+          // clear/resynchronise the picker from the old text during that click.
+          if (calendarPointerDown) return;
           var complete = /^\\d{{2}}\\/\\d{{2}}\\/\\d{{4}}$/.test(input.value.trim());
           if (complete || !input.value.trim()) {{ syncTypedValue(true); }}
         }});
         input.addEventListener("keydown", function(event) {{
           if (event.key === "Enter") {{
             event.preventDefault();
+            event.stopImmediatePropagation();
             var complete = /^\\d{{2}}\\/\\d{{2}}\\/\\d{{4}}$/.test(input.value.trim());
-            if (complete || !input.value.trim()) {{ syncTypedValue(true); }}
+            if (complete || !input.value.trim()) {{ syncTypedValue(true, true); }}
           }}
         }});
         if (typeof window.AirDatepicker !== "function") return;
         calendar = new window.AirDatepicker(input, {{
-          autoClose: true,
+          // Close only after a calendar selection, not silent sync while typing.
+          autoClose: false,
           buttons: ["today", "clear"],
           dateFormat: "dd/MM/yyyy",
           disableMobile: true,
@@ -8997,8 +9008,15 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
             hidden.value = selected instanceof Date ? observationDateToIso(selected) : "";
             input.setCustomValidity("");
             input.removeAttribute("aria-invalid");
-            submitFilter();
+            if (hidden.value !== lastSubmittedValue) submitFilter();
+            if (calendar) calendar.hide();
           }}
+        }});
+        calendar.$datepicker.addEventListener("pointerdown", function() {{ calendarPointerDown = true; }}, true);
+        ["pointerup", "pointercancel"].forEach(function(type) {{
+          document.addEventListener(type, function() {{
+            window.setTimeout(function() {{ calendarPointerDown = false; }}, 0);
+          }});
         }});
       }});
     }}
@@ -11573,6 +11591,7 @@ def known_site_micro_area_from_form(form: dict[str, list[str]], existing: dict[s
                 "notes": catalog_form_string(form, "access_notes"),
             },
             "provenance": {
+                **(existing.get("provenance") or {} if isinstance(existing, dict) else {}),
                 "source": catalog_form_string(form, "provenance_source") or "manual",
                 "confidence": catalog_form_string(form, "provenance_confidence"),
                 "notes": catalog_form_string(form, "provenance_notes"),
@@ -18459,6 +18478,7 @@ def observation_payload_from_form(
 ) -> dict[str, object]:
     """Build a persisted observation from the server-side maintenance form."""
     existing = existing if isinstance(existing, dict) else {}
+    copy_source = find_observation_by_id(observations, catalog_form_string(form, "draft_map_source_observation_id")) if not existing else None
     species_id = catalog_form_string(form, "observation_species_id")
     observed_at = catalog_form_string(form, "observed_at")
     if not species_id:
@@ -18550,6 +18570,11 @@ def observation_payload_from_form(
     recovery = valid_recovery(candidate, observation["location"])
     if recovery:
         observation["site_context"]["gis_recovery"] = recovery
+    observation["metadata"] = {**existing_metadata, **observation["metadata"]}
+    observation = mushroom_observations.preserve_observation_provenance(
+        observation, existing or copy_source or {}, precision_supplied="location_precision_m" in form,
+        duplicate=bool(copy_source),
+    )
     return mushroom_observations.finalize_observation_payload(observation)
 
 
@@ -18570,6 +18595,7 @@ def clone_observation_payload(
     metadata["created_by"] = "rainmapper_ui_duplicate"
     metadata["updated_by"] = "rainmapper_ui_duplicate"
     clone["metadata"] = metadata
+    mushroom_observations.preserve_observation_provenance(clone, source, precision_supplied=True, duplicate=True)
     return mushroom_observations.finalize_observation_payload(clone)
 
 
@@ -20728,6 +20754,9 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             return MUSHROOM_PREDICTOR_CANCEL_MAX_BYTES
         if path.startswith("/api/mushrooms/workers/"):
             return MUSHROOM_WORKER_JSON_MAX_BYTES
+        if path == "/api/mushrooms/gbif-import":
+            from rainmapper_core.mushroom_gbif_import import MAX_PACKAGE_BYTES
+            return MAX_PACKAGE_BYTES
         if path == "/api/mushrooms/observation-exif-preview":
             return MUSHROOM_MEDIA_FILE_MAX_BYTES + MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES
         return MUSHROOM_MEDIA_BATCH_MAX_BYTES + MUSHROOM_MEDIA_REQUEST_OVERHEAD_BYTES
@@ -22837,6 +22866,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
         if not self.allow_listener_path("POST", path):
             return
+        if path == "/api/mushrooms/gbif-import":
+            import mushroom_gbif_ui
+            mushroom_gbif_ui.handle(self, default_store(), MUSHROOM_OBSERVATION_MUTATION_LOCK, load_archived_observations)
+            return
+
         if path == "/api/mushrooms/workers/jobs/precompute-artifact":
             # Authenticate/authorize before consuming the stream. Always close
             # this connection: errors can leave an unread HTTP body behind.
@@ -23726,6 +23760,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         return "./workers"
 
     def handle_mushroom_known_sites_post(self, form: dict[str, list[str]]) -> str:
+        with MUSHROOM_OBSERVATION_MUTATION_LOCK, mushroom_known_sites.MUTATION_LOCK:
+            return self._handle_mushroom_known_sites_post(form)
+
+    def _handle_mushroom_known_sites_post(self, form: dict[str, list[str]]) -> str:
         self.known_site_result = {"ok": True}
         action = self.form_action_value(form, "known_site_action")
         return_to_value = self.form_value(form, "return_to")
@@ -24387,6 +24425,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     raise ValueError(f"DEM altitude could not be recovered: {dem_result.get('status', 'unknown error')}.")
                 altitude_m = round(float(dem_result["elevation_m"]))
                 location = observation.get("location") if isinstance(observation.get("location"), dict) else {}
+                if (location.get("lat"), location.get("lon")) != (lat, lon):
+                    location.update(precision_m=0, precision_origin="legacy_default_zero")
                 location.update({
                     "input": f"{lat:.7f}, {lon:.7f}",
                     "lat": lat,
@@ -24394,6 +24434,13 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     "source": "manual_decimal",
                 })
                 observation["location"] = location
+                # GIS evidence is tied to its sampled point. Keep field notes,
+                # but discard recovery from the old coordinates before validation.
+                from rainmapper_core.mushroom_gis_recovery import valid_recovery
+                context = observation.get("site_context")
+                if isinstance(context, dict) and context.get("gis_recovery"):
+                    if not valid_recovery(context["gis_recovery"], location):
+                        context.pop("gis_recovery", None)
                 observation["altitude"] = {
                     "meters": altitude_m,
                     "source": "dem",

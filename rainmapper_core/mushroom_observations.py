@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import math
 from datetime import date
 from typing import Any
 
@@ -22,6 +23,40 @@ SEASON_BY_MONTH = {
     12: "winter",
 }
 VALID_SEASONS = set(SEASON_BY_MONTH.values())
+
+
+def preserve_observation_provenance(observation, existing, *, precision_supplied=False, duplicate=False):
+    """Preserve optional provenance through UI edits; imported identity is not cloned."""
+    previous = existing.get("location") or {}
+    location = observation["location"]
+    old_value = previous.get("precision_m")
+    effective_old = old_value if old_value is not None else 0
+    if not precision_supplied or location.get("precision_m") is None:
+        location["precision_m"] = effective_old
+    value = location["precision_m"]
+    if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or value < 0:
+        raise ValueError("Invalid positional uncertainty")
+    same_point = all(
+        isinstance(location.get(k), (float, int)) and isinstance(previous.get(k), (float, int))
+        and abs(location[k] - previous[k]) <= 1e-7 for k in ("lat", "lon")
+    )
+    if same_point and value == effective_old:
+        location["precision_origin"] = previous.get("precision_origin") or ("legacy_default_zero" if old_value is None else "manual")
+    else:
+        location["precision_origin"] = "manual"
+        # A radius from GBIF no longer describes a different point.
+        if not same_point and location.get("source") == "gbif":
+            location["source"] = "manual_decimal"
+        if not same_point and value == effective_old:
+            location["precision_m"] = 0
+            location["precision_origin"] = "legacy_default_zero"
+    external = existing.get("external_source")
+    if isinstance(external, dict):
+        observation["external_source"] = copy.deepcopy(external)
+        if duplicate:
+            observation["external_source"]["is_copy"] = True
+            observation["external_source"]["copied_from_observation_id"] = existing.get("observation_id")
+    return observation
 
 
 def derived_fields_from_observed_at(observed_at: object) -> dict[str, object]:
