@@ -1,4 +1,4 @@
-# Contexto activo — HA 0.2.327 publicada; instalación pendiente (27/09/2026)
+# Contexto activo — HA 0.2.328 publicada; instalación pendiente (27/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este documento basta para
 retomar; [todo.md](todo.md) amplía prioridades. No reconstruir sesiones leyendo
@@ -7,8 +7,14 @@ informes históricos. Los antecedentes completos se conservaron en el
 
 ## Estado y siguiente paso
 
-- **HA 0.2.327 publicada**, autorizada por el usuario tras validar las correcciones
-  locales de casillas GBIF y notas DEM. Instalación pendiente a cargo del usuario.
+- **HA 0.2.328 publicada**, validada en local y autorizada por el usuario para
+  probar en móvil. Tabla de observaciones aprovecha el panel y ficha del mapa
+  compacta con foto y Cómo llegar. Smoke 1.831 pruebas / 52 omitidas OK; tags
+  y plataformas verificados. Instalación pendiente a cargo del usuario.
+  [Release](reports/release-ha-0.2.328-2026-09-27.md).
+
+- **HA 0.2.327 instalada y funcionando**, confirmado por el usuario. Incluye las
+  correcciones locales de casillas GBIF y notas DEM.
   Smoke 1.831 pruebas / 52 omitidas OK; tags y plataformas verificados.
   [Release](reports/release-ha-0.2.327-2026-09-27.md).
 
@@ -257,8 +263,41 @@ la copia local de setales comprobada.
 
 ## Trabajo documental/Git y límites de actuación
 
-- Base de esta release: `81b1d36` (HA 0.2.326). Las correcciones GBIF, pruebas,
-  bump y continuidad se cierran en un único commit de release 0.2.327.
+### Publicado en 0.2.328 · altura de la lista de observaciones
+
+Tras confirmar 0.2.327 instalada, el usuario señala espacio vacío bajo la tabla.
+El límite fijo `max-height:500px` dejaba hueco cuando el detalle lateral hacía
+más alto el panel. `web_server.py` convierte la tarjeta de tabla en columna flex;
+el scroll conserva 500 px de base y crece hasta ocupar el espacio de la tarjeta.
+No cambia paginación ni datos. Navegador local a 1728×1200: antes tabla 500 px,
+hueco 212,6 px y 12 filas completas; después tabla 703,6 px, margen 9 px y 18
+filas completas. A 700×900 conserva 500 px y permite llegar a la última fila.
+Captura inspeccionada; comprobación repetida sobre HA local reconstruida/recreada
+sin inyectar CSS. SHA `web_server.py` idéntico al worktree:
+`a00dbdb5bf0d2531b72d3db8ad1393282a5fa28aec605b93691c1c602468977c`.
+Evidencia local en `docker-data/observation-table-layout`. Worker intacto.
+Usuario valida en local y autoriza publicar: incluido en 0.2.328.
+
+### Publicado en 0.2.328 · ficha de observaciones del mapa
+
+Etiqueta Bosque/Bosc/Forest, interlineado y separaciones compactos. Miniatura y
+enlace en una fila inferior que permanece visible; el texto largo se desplaza
+dentro de su zona. Ampliar foto oculta datos/pie y Volver los restaura. Enlace
+final acordado: Cómo llegar / Com arribar / Directions a Google Maps
+`/maps/dir/?api=1&destination=lat,lon`, sin fijar origen ni medio de transporte.
+El usuario elige sólo enlace: no círculo de incertidumbre. Maps URLs no ofrece
+parámetros de círculo o texto personalizado del marcador; no simularlos.
+
+Prueba del visor compartido en Chrome aislado correcta, incluida etiqueta,
+destino, foto visible/enlace a su derecha, ampliación/retorno y caso sin foto.
+HA local reconstruida/recreada, paridad de servidor, JS/CSS y etiquetas;
+recursos HTTP y etiquetas efectivas comprobados. Evidencia en
+`docker-data/observation-popup-layout`. Worker intacto; sin tareas operativas.
+Usuario valida en local y autoriza publicación junto al ajuste de altura de
+tabla: incluido en 0.2.328. Prueba real en móvil pendiente del usuario.
+
+- Base de esta release: `d055f08` (HA 0.2.327). Ajustes de interfaz, pruebas,
+  bump y continuidad se cierran en un único commit de release 0.2.328.
 - Privados preexistentes: `mushroom-data/mushroom_observations.json` modificado y
   `mushroom_observations.json` de la raíz sin seguimiento. **No incluirlos en Git,
   revertirlos ni usarlos para sobrescribir datos de HA.**

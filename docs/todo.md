@@ -4,12 +4,18 @@ Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-cont
 Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
 [archivo del cierre](reports/session-context-before-close-2026-09-22.md).
 
+## Release HA 0.2.328
+
+- [x] Lista aprovecha la altura del panel; ficha del mapa compacta, Bosque, foto
+  visible y Cómo llegar. Validación local aceptada y publicación verificada.
+- [ ] Usuario instala 0.2.328 y prueba la ficha/enlace desde móvil.
+
 ## Release HA 0.2.327
 
 - [x] Casillas GBIF compactas en lotes mixtos y notas DEM en microáreas nuevas;
   HA local reconstruida/verificada, autorización del usuario y publicación
   multi-arquitectura comprobada.
-- [ ] Usuario instala y confirma 0.2.327. No migra microáreas existentes.
+- [x] Usuario confirma 0.2.327 instalada y funcionando. No migra microáreas existentes.
 
 ## Release HA 0.2.326
 

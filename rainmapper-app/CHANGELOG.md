@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.328
+
+- Fill the available observation-list panel height so more rows remain visible before scrolling.
+- Compact observation map cards, shorten the forest label and keep the photo thumbnail visible beside the directions link.
+- Open Google Maps directions to the observation coordinates without fixing the origin or travel mode.
+
 ## 0.2.327
 
 - Keep GBIF import checkboxes compact when duplicate records add Keep/Replace selectors.

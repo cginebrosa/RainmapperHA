@@ -1250,13 +1250,19 @@ try {
   assert.ok(await evaluate("(()=>{const m=document.querySelector('.om-moon').getBoundingClientRect(),d=document.querySelector('.om-field-date').getBoundingClientRect();return m.left>=d.right && document.querySelector('.om-detail').scrollWidth<=document.querySelector('.om-detail').clientWidth;})()"),'Moon fits to the right of date without horizontal scrolling');
   await until("!!document.querySelector('.om-photo-thumb:not([hidden])')");
   assert.equal(await evaluate("document.querySelector('.om-field-uncertainty dt').textContent"),'Incertidumbre');
+  assert.equal(await evaluate("document.querySelector('.om-field-forest dt').textContent"),'Bosque');
+  assert.ok(await evaluate("(()=>{const a=document.querySelector('.om-google-maps'),u=new URL(a.href);return a.textContent==='Cómo llegar'&&u.origin==='https://www.google.com'&&u.pathname==='/maps/dir/'&&u.searchParams.get('api')==='1'&&u.searchParams.get('destination')==='42,1.9'&&!u.searchParams.has('origin')&&!u.searchParams.has('travelmode')&&a.target==='_blank'&&a.rel.includes('noopener');})()"));
+  assert.ok(await evaluate("(()=>{const d=document.querySelector('.om-detail').getBoundingClientRect(),p=document.querySelector('.om-photo-thumb').getBoundingClientRect(),a=document.querySelector('.om-google-maps').getBoundingClientRect();return p.bottom<=d.bottom+1&&a.left>=p.right;})()"),'Photo fits and Maps link sits to its right');
+  await fs.writeFile(path.join(profile,'observation-compact-footer.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
   await evaluate("document.querySelector('.om-photo-thumb').click()");
   await until("document.querySelector('.om-photo-viewer img')?.naturalWidth>0");
   assert.ok(await evaluate("document.querySelector('.om-detail dl').hidden"));
+  assert.equal(await evaluate("document.querySelector('.om-detail-footer').hidden"),true);
   assert.equal(await evaluate("document.querySelectorAll('.om-popup').length"),1);
   await fs.writeFile(path.join(profile,'observation-photo-expanded.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
   await evaluate("document.querySelector('.om-photo-viewer button').click()");
   assert.equal(await evaluate("document.querySelector('.om-detail dl').hidden"),false);
+  assert.equal(await evaluate("document.querySelector('.om-detail-footer').hidden"),false);
   assert.equal(await evaluate("document.querySelector('.om-field-id dd').textContent"),'obs-b');
   for (const [category, fraction, waxing, caption] of [['waxing',.875,true,'Creciente'],['full',.999,true,'Llena'],['new',.001,false,'Nueva'],['waning',.0815,false,'Menguante']]) {
     observationMoon={category,illuminated_fraction:fraction,waxing};
@@ -1272,6 +1278,7 @@ try {
   await evaluate("document.querySelector('.om-spider[data-observation-id=obs-c]').click()");
   await until("document.querySelector('.om-field-id dd')?.textContent==='obs-c'");
   assert.equal(await evaluate("document.querySelectorAll('.om-photo-thumb').length"),0,'No thumbnail without a photo');
+  assert.equal(await evaluate("document.querySelectorAll('.om-google-maps').length"),1,'Maps link also available without a photo');
   assert.equal(await evaluate("document.querySelectorAll('.om-popup').length"),1,'Another observation replaces the popup');
   await evaluate("document.querySelector('.om-marker[data-observation-id=obs-d]').click()");
   await until("document.querySelector('.om-field-id dd')?.textContent==='obs-d'");

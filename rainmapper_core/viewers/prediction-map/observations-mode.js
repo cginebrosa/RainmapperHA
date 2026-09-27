@@ -209,6 +209,13 @@ export function createObservationsMode(bridge) {
       }
       if(moon){const cell=document.createElement('div');cell.className='om-moon-cell';const dt=document.createElement('dt');dt.className='om-visually-hidden';dt.textContent=text('obs_moon');const dd=document.createElement('dd');dd.append(moon);cell.append(dt,dd);fields.append(cell);}
       body.append(fields);
+      const footer=document.createElement('div');footer.className='om-detail-footer';
+      if(coordinateText){
+        const maps=document.createElement('a');maps.className='om-google-maps';maps.textContent=text('obs_google_maps');
+        maps.href=`https://www.google.com/maps/dir/?${new URLSearchParams({api:'1',destination:`${coordinates[1]},${coordinates[0]}`})}`;
+        maps.target='_blank';maps.rel='noopener noreferrer';footer.append(maps);
+      }
+      body.append(footer);
       if(data.observation.has_photo){
         const signal=detailController.signal;
         const loadPhoto=async size=>{
@@ -221,18 +228,18 @@ export function createObservationsMode(bridge) {
           const url=URL.createObjectURL(blob);photoUrls.push(url);return url;
         };
         const thumb=document.createElement('button');thumb.type='button';thumb.className='om-photo-thumb';thumb.title=thumb.ariaLabel=text('obs_photo_open');thumb.hidden=true;
-        const image=document.createElement('img');image.alt=text('obs_photo');thumb.append(image);body.append(thumb);
+        const image=document.createElement('img');image.alt=text('obs_photo');thumb.append(image);footer.prepend(thumb);
         const viewer=document.createElement('div');viewer.className='om-photo-viewer';viewer.hidden=true;
         const back=document.createElement('button');back.type='button';back.textContent=text('obs_photo_back');
         const large=document.createElement('img');large.alt=text('obs_photo');
         const message=document.createElement('p');message.setAttribute('role','status');
         viewer.append(back,large,message);body.append(viewer);
-        const returnToDetails=()=>{viewer.hidden=true;fields.hidden=false;thumb.hidden=false;thumb.focus();current.setLngLat(current.getLngLat());};
+        const returnToDetails=()=>{viewer.hidden=true;fields.hidden=false;footer.hidden=false;thumb.hidden=false;thumb.focus();current.setLngLat(current.getLngLat());};
         back.onclick=returnToDetails;
         viewer.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();returnToDetails();}});
         let largeUrl=null;
         thumb.onclick=async()=>{
-          fields.hidden=true;thumb.hidden=true;viewer.hidden=false;back.focus();message.textContent=text('obs_loading');
+          fields.hidden=true;footer.hidden=true;thumb.hidden=true;viewer.hidden=false;back.focus();message.textContent=text('obs_loading');
           body.scrollTop=0;current.setLngLat(current.getLngLat());
           try{largeUrl=largeUrl||await loadPhoto('large');large.src=largeUrl;message.textContent='';}
           catch(error){if(error.name!=='AbortError')message.textContent=text('obs_photo_error');}

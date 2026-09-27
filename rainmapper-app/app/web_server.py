@@ -3895,7 +3895,18 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       width: 16px;
     }}
     .observations-table-card {{
+      display: flex;
+      flex-direction: column;
       min-width: 0;
+    }}
+    .observations-table-card > .observations-table-header {{
+      flex: none;
+    }}
+    .observations-table-card > .observations-table-shell {{
+      flex: 1 1 auto;
+      height: 500px;
+      max-height: none;
+      min-height: 0;
     }}
     .observations-table-header {{
       align-items: center;

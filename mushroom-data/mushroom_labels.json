@@ -8085,9 +8085,14 @@
     "ca": "Hosts"
   },
   "ui.prediction_map_obs_forest": {
-    "en": "Forest type",
-    "es": "Tipo de bosque",
-    "ca": "Tipus de bosc"
+    "en": "Forest",
+    "es": "Bosque",
+    "ca": "Bosc"
+  },
+  "ui.prediction_map_obs_google_maps": {
+    "en": "Directions",
+    "es": "Cómo llegar",
+    "ca": "Com arribar"
   },
   "ui.prediction_map_obs_observer": {
     "en": "Observer",
