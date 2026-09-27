@@ -306,6 +306,11 @@ def apply_plan(store, target, plan_id, accepted, replacements, writes, names):
             row['ecology'].update({k: report.get('gis', {}).get(k, []) for k in
                                    ('host_ids', 'forest_type_ids', 'soil_tendency_ids', 'habitat_feature_ids')})
             row['topography']['aspect_ids'] = report.get('dominant_aspect_ids', [])
+            slope = [report.get(key) for key in ('slope_mean_deg', 'slope_min_deg', 'slope_max_deg')]
+            if report.get('dem_status') == 'ok' and all(
+                type(value) in (int, float) and math.isfinite(value) for value in slope
+            ):
+                row['topography']['slope_notes'] = f"DEM: media {slope[0]}°, rango {slope[1]}°-{slope[2]}°"
     for row in writes:
         assignment = plan['assignments'].get(row['external_source']['gbif_id'])
         if not assignment:

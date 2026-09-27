@@ -425,7 +425,7 @@ class GBIFImportTests(unittest.TestCase):
         self.assertFalse(photo.exists())
         self.assertEqual([], self.store.load("observations")["observations"])
 
-    def plan_sites_fixture(self, records=None):
+    def plan_sites_fixture(self, records=None, *, dem_report=None):
         from rainmapper_core import mushroom_gbif_sites as sites
         token, package = self.upload(records)
         target = gbif.stage_path(self.store, token)
@@ -435,7 +435,10 @@ class GBIFImportTests(unittest.TestCase):
         accepted = [i['gbif_id'] for i in package['rows']]
         plan = sites.plan(self.store, target, package, accepted, {}, [])
         report = {'dem_status': 'ok', 'altitude_min_m': 100, 'altitude_max_m': 120,
-                  'altitude_mean_m': 110, 'gis': {'host_ids': []}}
+                  'altitude_mean_m': 110, 'gis': {'host_ids': []},
+                  'slope_mean_deg': 2.3, 'slope_min_deg': 1.2, 'slope_max_deg': 3.4}
+        if dem_report is not None:
+            report = dem_report
         from rainmapper_core import mushroom_soilgrids as sg
         def soil_fixture(_root, geometry, *, ensure_missing):
             self.assertFalse(ensure_missing)
@@ -502,11 +505,26 @@ class GBIFImportTests(unittest.TestCase):
         self.assertEqual('gbif', sites['areas'][0]['provenance']['creation_source'])
         self.assertEqual('gbif', sites['micro_areas'][0]['provenance']['creation_source'])
         self.assertEqual('pending', sites['micro_areas'][0]['derived_context']['soilgrids_water']['status'])
+        self.assertEqual('DEM: media 2.3°, rango 1.2°-3.4°', sites['micro_areas'][0]['topography']['slope_notes'])
+        self.assertEqual(2.3, sites['micro_areas'][0]['derived_context']['gis_dem']['slope_mean_deg'])
         row = self.store.load('observations')['observations'][0]
         self.assertEqual(sites['micro_areas'][0]['micro_area_id'], row['micro_area_id'])
         self.assertEqual(500, row['location']['precision_m'])
         self.assertEqual('draft', row['validation_status'])
         self.assertEqual(result, gbif.commit(self.store, token, 'owner', accepted, [], sites_plan_id=plan['id']))
+
+    def test_sites_commit_preserves_zero_dem_slope(self):
+        report = {'dem_status': 'ok', 'slope_mean_deg': 0.0, 'slope_min_deg': 0.0, 'slope_max_deg': 0.0}
+        token, _, accepted, plan = self.plan_sites_fixture(dem_report=report)
+        gbif.commit(self.store, token, 'owner', accepted, [], sites_plan_id=plan['id'])
+        micro = gbif.known_sites(self.store)['micro_areas'][0]
+        self.assertEqual('DEM: media 0.0°, rango 0.0°-0.0°', micro['topography']['slope_notes'])
+
+    def test_sites_commit_without_dem_does_not_invent_slope_notes(self):
+        token, _, accepted, plan = self.plan_sites_fixture(dem_report={'dem_status': 'unavailable'})
+        gbif.commit(self.store, token, 'owner', accepted, [], sites_plan_id=plan['id'])
+        micro = gbif.known_sites(self.store)['micro_areas'][0]
+        self.assertEqual('', micro['topography']['slope_notes'])
 
     def test_sites_failed_observation_write_rolls_back_then_retries(self):
         token, target, accepted, plan = self.plan_sites_fixture()

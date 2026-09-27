@@ -1,4 +1,4 @@
-# Contexto activo — HA 0.2.326 publicada; instalación pendiente (27/09/2026)
+# Contexto activo — HA 0.2.327 publicada; instalación pendiente (27/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este documento basta para
 retomar; [todo.md](todo.md) amplía prioridades. No reconstruir sesiones leyendo
@@ -7,12 +7,18 @@ informes históricos. Los antecedentes completos se conservaron en el
 
 ## Estado y siguiente paso
 
-- **HA 0.2.326 publicada y aceptada en local por el usuario.** Instalación real
-  pendiente a cargo del usuario. Añade coordenadas, incertidumbre y foto ampliable
+- **HA 0.2.327 publicada**, autorizada por el usuario tras validar las correcciones
+  locales de casillas GBIF y notas DEM. Instalación pendiente a cargo del usuario.
+  Smoke 1.831 pruebas / 52 omitidas OK; tags y plataformas verificados.
+  [Release](reports/release-ha-0.2.327-2026-09-27.md).
+
+- **HA 0.2.326 instalada y funcionando**, confirmado por el usuario el 27/09.
+  Añade coordenadas, incertidumbre y foto ampliable
   a las fichas del mapa; incorpora los scripts de memoria ya validados. Tags y
   plataformas verificados; [release](reports/release-ha-0.2.326-2026-09-27.md).
 
-- **HA real 0.2.325 instalada**, confirmada por el usuario y revalidada en
+- **Comprobación anterior de HA real 0.2.325**, confirmada entonces por el
+  usuario y revalidada en
   `/Volumes/share/rainmapper/diagnostics/runtime_state.json` durante este repaso:
   `app_version=0.2.325`, arranque `2026-09-26T20:11:03.600Z`.
 - **Worker 1.1.6 reconstruido y arrancado el 27/09 por petición del usuario**,
@@ -216,15 +222,43 @@ recreada desde este código, hashes de módulo, adaptador, JS, CSS y etiquetas
 idénticos al worktree; HTTP 200. Foto real local comprobada en el contenedor:
 miniatura 144×192 / 9.940 bytes, ampliación 720×960 / 137.733 bytes.
 Worker no reconstruido/reiniciado para esta UI. Usuario validó local y autorizó
-publicar: imagen 0.2.326 disponible; instalación real pendiente. Smoke completo
+publicar: imagen 0.2.326 disponible; instalación real confirmada por el usuario.
+Smoke completo
 correcto (1.829 pruebas, 52 omitidas). Código y documentación incluidos en el
 commit de release; JSON privados de observaciones excluidos.
 
+## Corrección publicada en 0.2.327 · casillas GBIF
+
+Tras instalar 0.2.326, el usuario comunica casillas enormes en lotes con duplicados.
+La columna comparte casillas y selectores Mantener/Reemplazar; las casillas
+heredaban `width:100%` y `min-height` de los campos generales. Regla acotada a
+`#gbif-import-dialog input[type=checkbox]`: ancho/alto mínimo y máximo de 16 px,
+sin padding. No cambia selección, duplicados ni importación. Prueba de navegador
+con estilos completos de `html_page`, lote mixto y aserciones de dimensiones
+correcta; captura inspeccionada. HA local reconstruida/recreada; SHA del módulo
+idéntico al worktree y HTTP 200 de observaciones. Worker intacto. Usuario autoriza publicar; incluida en 0.2.327.
+
+## Corrección publicada en 0.2.327 · notas de pendiente DEM en microáreas GBIF
+
+El usuario detecta notas de pendiente vacías en `gbif_micro_4993870809` al
+comparar con Recuperar GIS/DEM de setales. Confirmado en código: `apply_plan`
+guardaba el informe GIS/DEM y copiaba altitudes, orientaciones y ecología, pero
+omitía `topography.slope_notes`. Ahora copia media y rango con el mismo formato
+del mantenimiento, sólo con DEM disponible y tres valores numéricos finitos;
+conserva cero y no inventa notas si faltan datos. Las microáreas existentes no
+se migran ni se modifican automáticamente.
+
+Validación: 42 pruebas del importador correctas, incluidas persistencia, pendiente
+cero y DEM ausente. HA local reconstruida/recreada, hashes de importador y UI
+idénticos al worktree; observaciones HTTP 200. Worker intacto. Usuario autoriza publicar; incluida en 0.2.327.
+No se ha inspeccionado el JSON
+real de esa microárea: el fichero de share no estaba accesible y no figura en
+la copia local de setales comprobada.
+
 ## Trabajo documental/Git y límites de actuación
 
-- Base anterior a esta release: `63a3818`; release HA anterior `120e087`.
-  Corrección worker, pruebas, laboratorio IDW y documentación posterior
-  se cierran en el único commit de release 0.2.326.
+- Base de esta release: `81b1d36` (HA 0.2.326). Las correcciones GBIF, pruebas,
+  bump y continuidad se cierran en un único commit de release 0.2.327.
 - Privados preexistentes: `mushroom-data/mushroom_observations.json` modificado y
   `mushroom_observations.json` de la raíz sin seguimiento. **No incluirlos en Git,
   revertirlos ni usarlos para sobrescribir datos de HA.**

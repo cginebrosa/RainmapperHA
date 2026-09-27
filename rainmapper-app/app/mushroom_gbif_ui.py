@@ -66,6 +66,7 @@ def render(label):
       #gbif-import-dialog .gbif-upload {{display:flex;gap:10px;align-items:end;flex-wrap:wrap;}}
       #gbif-import-dialog .gbif-upload label {{flex:1;min-width:200px;}}
       #gbif-import-dialog input[type=file] {{width:100%;box-sizing:border-box;}}
+      #gbif-import-dialog input[type=checkbox] {{box-sizing:border-box;width:16px;min-width:16px;max-width:16px;height:16px;min-height:16px;max-height:16px;padding:0;margin:0;vertical-align:middle;}}
       #gbif-import-dialog>header,#gbif-import-dialog>.gbif-upload,#gbif-import-dialog>.gbif-status,#gbif-import-dialog>footer {{flex:none;}}
       #gbif-import-progress {{width:100%;height:12px;}}
       #gbif-import-pending {{max-height:100px;overflow:auto;}}

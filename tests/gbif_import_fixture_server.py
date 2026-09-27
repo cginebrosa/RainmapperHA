@@ -37,7 +37,8 @@ class Handler(web.RainmapperHandler):
         return True
 
     def do_GET(self):
-        self.send_bytes(200, ("<!doctype html><meta charset=utf-8>" + mushroom_gbif_ui.render(ui.ui_label)).encode(), "text/html; charset=utf-8")
+        body = '<section class="profile-section-screen">' + mushroom_gbif_ui.render(ui.ui_label) + '</section>'
+        self.send_bytes(200, web.html_page("GBIF import fixture", body, auto_refresh=False), "text/html; charset=utf-8")
 
 
 server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.327
+
+- Keep GBIF import checkboxes compact when duplicate records add Keep/Replace selectors.
+- Populate DEM slope notes when automatically creating GBIF micro-areas, preserving zero slopes and leaving unavailable measurements empty.
+
 ## 0.2.326
 
 - Show coordinates and uncertainty in observation map cards, preserving zero as `0 m`.

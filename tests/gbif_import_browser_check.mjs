@@ -73,6 +73,7 @@ try {
   assert.equal(await evaluate("(async()=>{try{await gbifExport.readPackage(new Blob(['not a zip']));return false;}catch{return true;}})()"),true);
   assert.equal(await evaluate("(async()=>{const p=await gbifExport.readPackage(window.__savedBlob),q=structuredClone(p.manifest.records[0]);for(let i=0;i<101;i++)p.manifest.records.push({...q,gbif_id:String(100000000+i)});try{gbifExport.mergePackages(p,p,new Set());return false;}catch{return true;}})()"),true);
   const before=fs.readFileSync(path.join(temporary,'data/mushroom_observations.json'));
+  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url:`http://127.0.0.1:${port}/mushrooms/profiles?section=observations`});await wait("!!document.getElementById('gbif-import-open')",'Importer loads');
   await evaluate("document.getElementById('gbif-import-open').click()");await wait("!document.getElementById('gbif-import-preview').disabled",'Pending list');
   await setFiles('#gbif-import-file',[zip]);await evaluate("document.getElementById('gbif-import-preview').click()");await wait("document.querySelectorAll('#gbif-import-rows tr').length===2&&!document.getElementById('gbif-import-accept').disabled",'Upload and validation');
@@ -89,6 +90,10 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('#gbif-import-rows select').length"),1,'Duplicate decision available');
   assert.equal(await evaluate("document.querySelector('#gbif-import-rows select').value"),'keep');
   assert.match(await evaluate("document.getElementById('gbif-import-rows').textContent"),/Ya existe/);
+  // A duplicate widens the selection column; native checkboxes must stay compact.
+  const checkboxSizes=await evaluate("[...document.querySelectorAll('#gbif-import-dialog input[type=checkbox]')].map(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height};})");
+  assert.ok(checkboxSizes.length>=2&&checkboxSizes.every(r=>r.width===16&&r.height===16),JSON.stringify(checkboxSizes));
+  const duplicateShot=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(temporary,'import-duplicate-checkboxes.png'),Buffer.from(duplicateShot.data,'base64'));
   const after=fs.readFileSync(path.join(temporary,'data/mushroom_observations.json'));
   await evaluate("document.getElementById('gbif-import-cancel').click()");await wait("document.getElementById('gbif-import-review').hidden&&!document.getElementById('gbif-import-cancel').disabled",'Reject');
   assert.deepEqual(fs.readFileSync(path.join(temporary,'data/mushroom_observations.json')),after);

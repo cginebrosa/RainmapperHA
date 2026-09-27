@@ -4,11 +4,18 @@ Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-cont
 Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
 [archivo del cierre](reports/session-context-before-close-2026-09-22.md).
 
+## Release HA 0.2.327
+
+- [x] Casillas GBIF compactas en lotes mixtos y notas DEM en microáreas nuevas;
+  HA local reconstruida/verificada, autorización del usuario y publicación
+  multi-arquitectura comprobada.
+- [ ] Usuario instala y confirma 0.2.327. No migra microáreas existentes.
+
 ## Release HA 0.2.326
 
 - [x] Ficha del mapa: coordenadas, incertidumbre y miniatura ampliable dentro de
   la ficha; validación local aceptada y publicación multi-arquitectura verificada.
-- [ ] Usuario instala 0.2.326 en HA real y comprueba la ficha. No requiere lanzar
+- [x] Usuario confirma 0.2.326 instalada y funcionando. No requiere lanzar
   entrenamiento ni precálculo por este cambio de presentación.
 
 ## Continuación inmediata · Worker y resultados del usuario
