@@ -8049,6 +8049,31 @@
     "es": "Microárea",
     "ca": "Microàrea"
   },
+  "ui.prediction_map_obs_coordinates": {
+    "en": "Coordinates",
+    "es": "Coordenadas",
+    "ca": "Coordenades"
+  },
+  "ui.prediction_map_obs_uncertainty": {
+    "en": "Uncertainty",
+    "es": "Incertidumbre",
+    "ca": "Incertesa"
+  },
+  "ui.prediction_map_obs_precision_declared": {
+    "en": "declared",
+    "es": "declarada",
+    "ca": "declarada"
+  },
+  "ui.prediction_map_obs_precision_assigned": {
+    "en": "assigned",
+    "es": "asignada",
+    "ca": "assignada"
+  },
+  "ui.prediction_map_obs_precision_manual": {
+    "en": "manual",
+    "es": "manual",
+    "ca": "manual"
+  },
   "ui.prediction_map_obs_abundance": {
     "en": "Abundance",
     "es": "Abundancia",
@@ -8723,5 +8748,25 @@
     "es": "Añadir círculo",
     "ca": "Afegir cercle",
     "en": "Add circle"
+  },
+  "ui.prediction_map_obs_photo": {
+    "en": "Observation photo",
+    "es": "Foto de la observación",
+    "ca": "Foto de l’observació"
+  },
+  "ui.prediction_map_obs_photo_open": {
+    "en": "Enlarge photo",
+    "es": "Ampliar foto",
+    "ca": "Ampliar foto"
+  },
+  "ui.prediction_map_obs_photo_back": {
+    "en": "Back to observation",
+    "es": "Volver a la observación",
+    "ca": "Tornar a l’observació"
+  },
+  "ui.prediction_map_obs_photo_error": {
+    "en": "Photo unavailable",
+    "es": "Foto no disponible",
+    "ca": "Foto no disponible"
   }
 }

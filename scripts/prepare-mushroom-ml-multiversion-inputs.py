@@ -114,6 +114,7 @@ def run_script(
     arguments: list[str],
     *,
     progress_event: Callable[[dict[str, object]], None] | None = None,
+    main_kwargs: dict | None = None,
 ) -> None:
     namespace = runpy.run_path(str(path), run_name=f"rainmapper_multiversion_{path.stem}")
     main = namespace.get("main")
@@ -125,7 +126,7 @@ def run_script(
         sys.argv = [str(path), *arguments]
         if progress_event is not None:
             sys.stdout = _JsonLineTee(previous_stdout, progress_event)  # type: ignore[assignment]
-        result = main()
+        result = main(**(main_kwargs or {}))
     finally:
         sys.argv = previous_argv
         sys.stdout = previous_stdout
@@ -373,9 +374,22 @@ def main() -> int:
         assert_json_species_scope(v5 / "biology-v5-lag.json", species_ids)
         emit_progress(args.progress_jsonl, step=step, total=total, phase="Built V5 raw-weather inputs")
     v2_v5_heldout = v5 / "heldout-predictions.jsonl"
+    v6_results = {}
+
+    def evaluate_shared_v6(temporal, benchmark):
+        # Called while the V5 source is still alive, after its V2--V5 consumers.
+        # Keep only reports/predictions; the large source is owned by the caller.
+        namespace = runpy.run_path(str(scripts / "evaluate-biology-v6-smooth-hierarchical.py"))
+        profiles = namespace["_selected_profiles"](set(args.profile_key or []))
+        tuning = json.loads(args.tuning_catalog.read_text(encoding="utf-8")) if args.tuning_catalog else None
+        v6_results.update(namespace["evaluate_temporal"](
+            benchmark, temporal=temporal, profiles=profiles,
+            output_dir=v6, tuning_catalog=tuning,
+        ))
+
     if needs_v2_v5_evaluation:
         step += 1
-        phase = "Evaluating selected V2--V5 hold-out rows"
+        phase = "Evaluating selected V2--V6 hold-out rows" if needs_v6 else "Evaluating selected V2--V5 hold-out rows"
         evaluation_arguments = ["--snapshot", str(snapshot), "--v5-dir", str(v5)]
         if args.tuning_catalog is not None:
             evaluation_arguments.extend(["--tuning-catalog", str(args.tuning_catalog)])
@@ -386,6 +400,7 @@ def main() -> int:
             scripts / "evaluate-biology-v5-raw-benchmark.py",
             evaluation_arguments,
             progress_event=stage_progress(step, phase),
+            main_kwargs={"after_temporal": evaluate_shared_v6} if needs_v6 else None,
         )
         assert_jsonl_species_scope(v2_v5_heldout, species_ids)
         emit_progress(args.progress_jsonl, step=step, total=total, phase="Evaluated selected V2--V5 hold-out rows")
@@ -414,6 +429,7 @@ def main() -> int:
             scripts / "evaluate-biology-v6-smooth-hierarchical.py",
             v6_arguments,
             progress_event=stage_progress(step, "Evaluating selected V6 hold-out rows"),
+            main_kwargs={"precomputed_results": v6_results} if needs_v2_v5_evaluation else None,
         )
         assert_jsonl_species_scope(v6_heldout, species_ids)
         emit_progress(args.progress_jsonl, step=step, total=total, phase="Evaluated selected V6 hold-out rows")

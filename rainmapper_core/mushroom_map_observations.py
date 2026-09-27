@@ -1,7 +1,8 @@
-"""Read-only, bounded observation overlay. Never exports source notes or media."""
+"""Read-only, bounded observation overlay with on-demand photo previews."""
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import math
 import threading
@@ -13,6 +14,7 @@ from rainmapper_core.lunar_phase import lunar_phase
 
 PERMISSION = 'can_use_observations_map'
 MAX_FILE_BYTES = 16 * 1024 * 1024
+MAX_PHOTO_BYTES = 32 * 1024 * 1024
 MAX_RECORDS = 10000
 MAX_SPECIES = 128
 MAX_ABUNDANCES = 64
@@ -57,6 +59,59 @@ def _coordinates(row):
     if all(type(v) in (int, float) and math.isfinite(v) and abs(v) <= limit for v, limit in ((lat, 90), (lon, 180))):
         return [lon, lat]
     return None
+
+
+def _uncertainty(row):
+    location = row.get('location') or {}
+    value = location.get('precision_m')
+    if value is None:
+        return {'meters': 0, 'origin': 'legacy_default_zero'}
+    if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+        return {'meters': None, 'origin': 'unknown'}
+    origin = location.get('precision_origin')
+    if origin not in ('declared', 'assumed_unknown_500m', 'legacy_default_zero'):
+        origin = 'manual'
+    return {'meters': value, 'origin': origin}
+
+
+def _photo_path(value):
+    """Resolve only a saved photo reference, never a client-supplied file path."""
+    if not isinstance(value, str) or not value.startswith('media/observation-photos/') or '\x00' in value:
+        return None
+    root = mushroom_paths.mushroom_observation_photos_dir().resolve()
+    candidate = (root / value.removeprefix('media/observation-photos/')).resolve()
+    return candidate if root in candidate.parents else None
+
+
+def photo(params):
+    """Bounded raster preview; the API adapter authenticates before calling."""
+    from PIL import Image, ImageOps, UnidentifiedImageError
+    data = snapshot()
+    if params.get('revision') != data['revision']:
+        raise ObservationError('observations_changed', 409)
+    row = data['records'].get(params.get('id'))
+    path = _photo_path(row.get('photo_path')) if row else None
+    if not path or not path.is_file():
+        raise ObservationError('not_found', 404)
+    size = params.get('size', 'thumb')
+    if size not in ('thumb', 'large'):
+        raise ObservationError('invalid_photo_size')
+    if path.stat().st_size > MAX_PHOTO_BYTES:
+        raise ObservationError('photo_limit', 413)
+    try:
+        with Image.open(path) as source:
+            if source.format not in ('JPEG', 'PNG', 'WEBP'):
+                raise ObservationError('unsupported_photo', 415)
+            if source.width * source.height > 40_000_000:
+                raise ObservationError('photo_limit', 413)
+            edge = 192 if size == 'thumb' else 960
+            source.thumbnail((edge, edge))
+            image = ImageOps.exif_transpose(source).convert('RGB')
+            output = io.BytesIO()
+            image.save(output, format='JPEG', quality=85)
+            return output.getvalue()
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError) as exc:
+        raise ObservationError('photo_unavailable', 404) from exc
 
 
 def _label(row):
@@ -131,10 +186,12 @@ def snapshot():
             fields, gis = _reviewed_fields(row)
             micro, area = micros.get(row.get('micro_area_id'), ('', ''))
             record = {'id': oid, 'species_id': sid, 'date': _string(row.get('observed_at'), 32),
-                      'coordinates': _coordinates(row), 'area': area, 'microarea': micro,
+                      'coordinates': _coordinates(row), 'uncertainty': _uncertainty(row), 'area': area, 'microarea': micro,
                       'abundance': _string(row.get('flush_abundance'), 128),
                       **fields, 'gis': gis,
                       'observer': _string((row.get('observer') or {}).get('name'))}
+            record['photo_path'] = next((m.get('path') for m in (row.get('media') or [])
+                if isinstance(m, dict) and m.get('kind') == 'photo' and _photo_path(m.get('path'))), None)
             records[oid] = record
             favorable_counts[sid] = favorable_counts.get(sid, 0) + abundance_favorable.get(record['abundance'], 0)
             if record['coordinates']:
@@ -186,11 +243,12 @@ def response(action, params):
         except (ValueError, TypeError, OverflowError):
             moon = None  # A missing/invalid date must not hide the other fields.
         return {'revision': data['revision'], 'observation': {
-            **{k: row[k] for k in ('id', 'date', 'area', 'microarea', 'observer')},
+            **{k: row[k] for k in ('id', 'date', 'area', 'microarea', 'observer', 'coordinates', 'uncertainty')},
             'species': data['names'].get(row['species_id'], row['species_id']),
             'abundance': label('observation_flush_abundance', row['abundance']),
             'gis': row['gis'],
             'moon': moon,
+            'has_photo': bool(row['photo_path'] and _photo_path(row['photo_path']).is_file()),
             'hosts': [label('host_taxa', k) for k in row['hosts']],
             'forest': [label('forest_types', k) for k in row['forest']]}}
     raise ObservationError('not_found', 404)

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.326
+
+- Show coordinates and uncertainty in observation map cards, preserving zero as `0 m`.
+- Add an authenticated photo thumbnail with an enlarged view inside the same card and a return-to-details button.
+- Keep photo previews bounded, load them on demand and adapt the card height to the available map space.
+- Include the validated V2–V6 evaluation input reuse to avoid repeated loading and normalization of large weather datasets.
+
 ## 0.2.325
 
 - Query complete UTC daily buckets for Meteocat so a partial first day cannot overwrite stored rain, temperature or humidity.

@@ -178,9 +178,15 @@ export function createObservationsMode(bridge) {
   async function detail(row) {
     closeDetail();bridge.closePopups();const own=++serial;
     detailController=new AbortController();const body=document.createElement('section');body.className='om-detail';body.textContent=text('obs_loading');
+    const point=map.project([row[1],row[2]]),mapHeight=map.getContainer().clientHeight;
+    const availableHeight=Math.max(120,Math.min(460,Math.max(point.y,mapHeight-point.y)-50));
+    body.style.maxHeight=`${availableHeight}px`;
+    body.style.setProperty('--om-photo-height',`${Math.max(80,availableHeight-90)}px`);
     popup=new maplibregl.Popup({maxWidth:'330px',closeOnClick:false,focusAfterOpen:false,className:'om-popup'}).setLngLat([row[1],row[2]]).setDOMContent(body).addTo(map);
     currentDetail=row; // Also allow toggling closed while the request is pending.
     const current=popup;current.on('close',()=>{if(popup===current){detailController?.abort();popup=null;currentDetail=null;}});
+    const photoUrls=[];
+    current.on('close',()=>{for(const url of photoUrls)URL.revokeObjectURL(url);});
     try {
       const data=await get('detail',{id:row[0],revision,lang:bridge.language()},detailController.signal);
       if(!enabled||own!==serial||popup!==current)return;
@@ -190,12 +196,52 @@ export function createObservationsMode(bridge) {
       if(moon)fields.classList.add('om-fields-with-moon');
       const contextValues=key=>data.observation[key].map((value,index)=>
         data.observation.gis?.[key]?.includes(index)?`${value} (${text('obs_gis_accepted')})`:value).join(', ');
-      for(const [key,value] of Object.entries({date:date(data.observation.date),area:data.observation.area,microarea:data.observation.microarea,abundance:data.observation.abundance,hosts:contextValues('hosts'),forest:contextValues('forest'),observer:data.observation.observer,id:data.observation.id})){
+      const coordinates=data.observation.coordinates;
+      const coordinateText=Array.isArray(coordinates)&&coordinates.length===2&&coordinates.every(Number.isFinite)
+        ?`${coordinates[1].toFixed(6)}, ${coordinates[0].toFixed(6)}`:'';
+      const uncertainty=data.observation.uncertainty;
+      const uncertaintyLabel={declared:'obs_precision_declared',assumed_unknown_500m:'obs_precision_assigned',manual:'obs_precision_manual'}[uncertainty?.origin];
+      const uncertaintyText=Number.isFinite(uncertainty?.meters)
+        ?`${uncertainty.meters.toLocaleString(bridge.language(),{maximumFractionDigits:3})} m${uncertainty.meters!==0&&uncertaintyLabel?' · '+text(uncertaintyLabel):''}`:'';
+      for(const [key,value] of Object.entries({date:date(data.observation.date),area:data.observation.area,microarea:data.observation.microarea,coordinates:coordinateText,uncertainty:uncertaintyText,abundance:data.observation.abundance,hosts:contextValues('hosts'),forest:contextValues('forest'),observer:data.observation.observer,id:data.observation.id})){
         const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=text(`obs_${key}`);dd.textContent=value||text('obs_unknown');
         const group=document.createElement('div');group.className=`om-field om-field-${key}`;group.append(dt,dd);fields.append(group);
       }
       if(moon){const cell=document.createElement('div');cell.className='om-moon-cell';const dt=document.createElement('dt');dt.className='om-visually-hidden';dt.textContent=text('obs_moon');const dd=document.createElement('dd');dd.append(moon);cell.append(dt,dd);fields.append(cell);}
       body.append(fields);
+      if(data.observation.has_photo){
+        const signal=detailController.signal;
+        const loadPhoto=async size=>{
+          const params=new URLSearchParams({id:row[0],revision,size});
+          const response=await bridge.fetch(`${bridge.config.apiBase}/observations/photo?${params}`,{cache:'no-store',signal});
+          if(response.status===401||response.status===403){deactivate();throw Error('forbidden');}
+          if(!response.ok)throw Error('photo_unavailable');
+          const blob=await response.blob();
+          if(signal.aborted||popup!==current)throw new DOMException('Closed','AbortError');
+          const url=URL.createObjectURL(blob);photoUrls.push(url);return url;
+        };
+        const thumb=document.createElement('button');thumb.type='button';thumb.className='om-photo-thumb';thumb.title=thumb.ariaLabel=text('obs_photo_open');thumb.hidden=true;
+        const image=document.createElement('img');image.alt=text('obs_photo');thumb.append(image);body.append(thumb);
+        const viewer=document.createElement('div');viewer.className='om-photo-viewer';viewer.hidden=true;
+        const back=document.createElement('button');back.type='button';back.textContent=text('obs_photo_back');
+        const large=document.createElement('img');large.alt=text('obs_photo');
+        const message=document.createElement('p');message.setAttribute('role','status');
+        viewer.append(back,large,message);body.append(viewer);
+        const returnToDetails=()=>{viewer.hidden=true;fields.hidden=false;thumb.hidden=false;thumb.focus();current.setLngLat(current.getLngLat());};
+        back.onclick=returnToDetails;
+        viewer.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();returnToDetails();}});
+        let largeUrl=null;
+        thumb.onclick=async()=>{
+          fields.hidden=true;thumb.hidden=true;viewer.hidden=false;back.focus();message.textContent=text('obs_loading');
+          body.scrollTop=0;current.setLngLat(current.getLngLat());
+          try{largeUrl=largeUrl||await loadPhoto('large');large.src=largeUrl;message.textContent='';}
+          catch(error){if(error.name!=='AbortError')message.textContent=text('obs_photo_error');}
+        };
+        image.onload=()=>{if(!signal.aborted&&popup===current){thumb.hidden=false;current.setLngLat(current.getLngLat());}};
+        image.onerror=()=>thumb.remove();
+        loadPhoto('thumb').then(url=>{image.src=url;}).catch(()=>thumb.remove());
+      }
+      current.setLngLat(current.getLngLat());
     }catch(error){if(error.name!=='AbortError'&&popup===current)body.textContent=text(error.message==='observations_changed'?'obs_changed':'obs_error');}
   }
   function collapse(){if(expanded){expanded=null;render();}}

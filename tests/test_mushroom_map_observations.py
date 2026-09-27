@@ -1,5 +1,6 @@
 """Observation map read contract: bounded, independent of historical dates."""
 import json
+import io
 import tempfile
 import unittest
 from pathlib import Path
@@ -45,7 +46,22 @@ class ObservationOverlayTests(unittest.TestCase):
             self.assertEqual(localized['hosts'],[host])
             self.assertEqual(localized['forest'],[forest])
         self.assertNotIn('PRIVATE',overlay.encode(detail).decode())
-        self.assertNotIn('coordinates',detail)
+        self.assertEqual(detail['coordinates'],[1.9,42])
+        self.assertEqual(detail['uncertainty'],{'meters':0,'origin':'legacy_default_zero'})
+
+    def test_detail_uncertainty_preserves_declared_assigned_and_edited_values(self):
+        for value, origin, expected in [(5,'declared',(5,'declared')),
+                (500,'assumed_unknown_500m',(500,'assumed_unknown_500m')),
+                (80,'manual',(80,'manual')), (None,None,(0,'legacy_default_zero')),
+                (0,'declared',(0,'declared')), (-1,'manual',(None,'unknown')),
+                (True,'declared',(None,'unknown'))]:
+            with self.subTest(value=value,origin=origin):
+                self.rows[0]['location'].update(precision_m=value,precision_origin=origin)
+                self.rows[0]['external_source']={'uncertainty_assumed':True,'private':'PRIVATE'}
+                self.write('mushroom_observations.json',{'observations':self.rows})
+                detail=overlay.response('detail',{'id':'o0'})['observation']
+                self.assertEqual(detail['uncertainty'],dict(zip(('meters','origin'),expected)))
+                self.assertNotIn('PRIVATE',overlay.encode(detail).decode())
 
     def test_invalid_coordinates_and_missing_fields(self):
         self.rows[0]['location']={'lat':True,'lon':1.9}
@@ -55,6 +71,38 @@ class ObservationOverlayTests(unittest.TestCase):
         self.assertEqual(overlay.response('species',{})['species'][0]['mapped_count'],1)
         row=overlay.response('detail',{'id':'o2'})['observation']
         self.assertEqual(row['microarea'],'');self.assertEqual(row['hosts'],[])
+
+    def test_photo_is_bounded_raster_by_observation_id_without_exposing_path(self):
+        from PIL import Image
+        path=self.root/'media/observation-photos/2025/example.jpg'
+        path.parent.mkdir(parents=True)
+        Image.new('RGB',(1200,800),'green').save(path)
+        self.rows[0]['media']=[{'kind':'photo','path':'media/observation-photos/2025/example.jpg'}]
+        self.write('mushroom_observations.json',{'observations':self.rows})
+        detail=overlay.response('detail',{'id':'o0'})
+        self.assertTrue(detail['observation']['has_photo'])
+        self.assertNotIn('example.jpg',overlay.encode(detail).decode())
+        params={'id':'o0','revision':detail['revision']}
+        for size,edge in [('thumb',192),('large',960)]:
+            image=Image.open(io.BytesIO(overlay.photo({**params,'size':size})))
+            self.assertEqual(image.format,'JPEG');self.assertEqual(image.width,edge)
+            self.assertFalse(image.getexif())
+        with self.assertRaisesRegex(overlay.ObservationError,'changed'):
+            overlay.photo({**params,'revision':'old'})
+        with self.assertRaisesRegex(overlay.ObservationError,'not_found'):
+            overlay.photo({**params,'id':'o1'})
+        with mock.patch.object(overlay,'MAX_PHOTO_BYTES',1):
+            with self.assertRaisesRegex(overlay.ObservationError,'photo_limit'):
+                overlay.photo(params)
+        path.unlink()
+        self.assertFalse(overlay.response('detail',{'id':'o0'})['observation']['has_photo'])
+
+    def test_photo_rejects_paths_outside_photo_storage_including_symlinks(self):
+        for value in ('../secret.jpg','media/observation-photos/../../secret.jpg','https://example.com/x.jpg'):
+            self.assertIsNone(overlay._photo_path(value))
+        root=self.root/'media/observation-photos';root.mkdir(parents=True)
+        (root/'escape.jpg').symlink_to(self.root/'mushroom_observations.json')
+        self.assertIsNone(overlay._photo_path('media/observation-photos/escape.jpg'))
 
     def test_moon_uses_observation_date_only_and_is_detail_only(self):
         for action, params in (('species', {}), ('points', {'species_id':'sp'})):

@@ -289,7 +289,57 @@ def _selected_profiles(profile_keys: set[str]) -> list[dict]:
     return selected
 
 
-def main() -> int:
+def evaluate_temporal(benchmark, *, temporal, profiles, output_dir, tuning_catalog):
+    """Reuse one immutable source across profiles; return only compact results."""
+    reference = holdout.eligible_samples(benchmark)
+    results = {}
+    for profile in profiles:
+        version_id = profile["version_id"]
+        profile_id = profile["profile_id"]
+        window_days = profile["window_days"]
+        profile_rows, artifacts = [], {}
+        for group_days in (7, 14):
+            train, test = chronological_group_split(reference, group_days=group_days)
+            split_id = f"fruiting_groups_{group_days}d"
+            print(json.dumps({"temporal": temporal, "split": split_id, "profile_id": profile_id}), flush=True)
+            report, rows = evaluate_split(
+                benchmark, train, test, split_id=split_id, group_days=group_days,
+                version_id=version_id, profile_id=profile_id, window_days=window_days,
+                tuning_catalog=tuning_catalog,
+            )
+            path = output_dir / f"comparison-{profile_id}-{temporal}-groups{group_days}.json"
+            path.write_text(json.dumps({"kind": "biology_v6_smooth_hierarchical_comparison", "temporal": temporal,
+                "report": report, "model_artifact_written": False, "operational_candidate_trained": False}, indent=2) + "\n", encoding="utf-8")
+            artifacts[path.name] = sha256(path)
+            profile_rows.extend(rows)
+        train, test = campaign_split(reference)
+        print(json.dumps({"temporal": temporal, "split": "campaign_area_year_70_30", "profile_id": profile_id}), flush=True)
+        report, rows = evaluate_split(
+            benchmark, train, test, split_id="campaign_area_year_70_30", group_days=14,
+            version_id=version_id, profile_id=profile_id, window_days=window_days,
+            tuning_catalog=tuning_catalog,
+        )
+        path = output_dir / f"sensitivity-{profile_id}-{temporal}-campaign.json"
+        path.write_text(json.dumps({"kind": "biology_v6_campaign_sensitivity", "temporal": temporal,
+            "report": report, "model_artifact_written": False, "operational_candidate_trained": False}, indent=2) + "\n", encoding="utf-8")
+        artifacts[path.name] = sha256(path)
+        profile_rows.extend(rows)
+
+        results[(profile_id, temporal)] = (profile_rows, artifacts)
+    return results
+
+
+def load_and_evaluate_temporal(args, profiles, temporal, tuning_catalog):
+    # Function scope releases benchmark, normalized samples and split references
+    # before the next source is loaded. No cache survives this evaluation job.
+    benchmark = load(args.v5_dir / f"biology-v5-{temporal}.json")
+    return evaluate_temporal(
+        benchmark, temporal=temporal, profiles=profiles,
+        output_dir=args.output_dir, tuning_catalog=tuning_catalog,
+    )
+
+
+def main(*, precomputed_results=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--snapshot", required=True, type=Path)
     parser.add_argument("--v5-dir", required=True, type=Path)
@@ -300,40 +350,17 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     profiles = _selected_profiles({str(value) for value in (args.profile_key or [])})
     tuning_catalog = load(args.tuning_catalog) if args.tuning_catalog else None
+    results = {} if precomputed_results is None else precomputed_results
+    if precomputed_results is None and profiles:
+        for temporal in ("fixed", "lag"):
+            results.update(load_and_evaluate_temporal(args, profiles, temporal, tuning_catalog))
+    # Retain the original profile/temporal row and manifest ordering.
     all_rows, artifacts = [], {}
     for profile in profiles:
-        version_id = profile["version_id"]
-        profile_id = profile["profile_id"]
-        window_days = profile["window_days"]
         for temporal in ("fixed", "lag"):
-            benchmark = load(args.v5_dir / f"biology-v5-{temporal}.json")
-            reference = holdout.eligible_samples(benchmark)
-            for group_days in (7, 14):
-                train, test = chronological_group_split(reference, group_days=group_days)
-                split_id = f"fruiting_groups_{group_days}d"
-                print(json.dumps({"temporal": temporal, "split": split_id, "profile_id": profile_id}), flush=True)
-                report, rows = evaluate_split(
-                    benchmark, train, test, split_id=split_id, group_days=group_days,
-                    version_id=version_id, profile_id=profile_id, window_days=window_days,
-                    tuning_catalog=tuning_catalog,
-                )
-                path = args.output_dir / f"comparison-{profile_id}-{temporal}-groups{group_days}.json"
-                path.write_text(json.dumps({"kind": "biology_v6_smooth_hierarchical_comparison", "temporal": temporal,
-                    "report": report, "model_artifact_written": False, "operational_candidate_trained": False}, indent=2) + "\n", encoding="utf-8")
-                artifacts[path.name] = sha256(path)
-                all_rows.extend(rows)
-            train, test = campaign_split(reference)
-            print(json.dumps({"temporal": temporal, "split": "campaign_area_year_70_30", "profile_id": profile_id}), flush=True)
-            report, rows = evaluate_split(
-                benchmark, train, test, split_id="campaign_area_year_70_30", group_days=14,
-                version_id=version_id, profile_id=profile_id, window_days=window_days,
-                tuning_catalog=tuning_catalog,
-            )
-            path = args.output_dir / f"sensitivity-{profile_id}-{temporal}-campaign.json"
-            path.write_text(json.dumps({"kind": "biology_v6_campaign_sensitivity", "temporal": temporal,
-                "report": report, "model_artifact_written": False, "operational_candidate_trained": False}, indent=2) + "\n", encoding="utf-8")
-            artifacts[path.name] = sha256(path)
+            rows, reports = results[(profile["profile_id"], temporal)]
             all_rows.extend(rows)
+            artifacts.update(reports)
 
     phases = error_analysis.assign_observed_phases(all_rows)
     errors = []

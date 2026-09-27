@@ -148,7 +148,8 @@ const server = createServer(async (req, res) => {
       const revision='observations-test';
       if(name==='species')return send({revision,abundance_favorable:observationFavorableFlags,species:[{id:'obs-sp',name:'Observed species',count:4,mapped_count:4,favorable_count:['normal','absent','unknown','scarce'].filter(key=>observationFavorableFlags[key]===1).length}]});
       if(name==='points')return send({revision,points:[['obs-a',1.9,42,'2020-01-01','normal'],['obs-b',1.9,42,'2030-01-01','absent'],['obs-c',1.9,42,'2030-01-01','unknown'],['obs-d',1.94,42,'2021-02-03','scarce']],next_offset:null});
-      if(name==='detail')return send({revision,observation:{id:url.searchParams.get('id'),species:'Observed species',date:'2030-01-01',area:'Test area',microarea:'Test microarea',abundance:'Abundante',hosts:['Pinus','Quercus'],forest:['Pinar'],gis:{hosts:[1],forest:[0]},moon:observationMoon,observer:'<script>Not HTML</script>'}});
+      if(name==='photo')return send(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAKAAAAB4CAIAAAD6wG44AAACRElEQVR4nO3dsU1DMRRGYSdKg0TnGRiLliEyAEMwER0FJQUT0CHR0lJQRc++v4/P6SOR+3GtQF5eTm+f7824nat/ABubwPAEhicwPIHhCQxPYHgCwxMYnsDwBIYnMDyB4QkM79KIfT0/3fbAfn1prE5Lvx98M+Q+8OsBT0NlYK8BXI66LnY0cKzrQtKJwAu55ksHAS/tGisdAQyjjWIuBgbThjCXAW9CW85c86/KDXVb0bOevcF70hau8tQNVnf+HOYBq1syjRlHtLSFx/XwDVa3dj5jgdUtn9JAYHUTZuUlO/BGAbu+IRMbAqxuztw8ouEdD+z6Rk3PDYZ3MLDrmzZDNxjekcCub+Ak3WB4AsMTGJ7A8ASGJzA8geEJDO9M+hwOpn7cJN1geAcDu8RpM3SD4R0P7BJHTc8NhjcE2CXOmduoDdY4ZGIe0fAGArvECbMau8Eal09p+BGtce185t2jw0vySn71573IcpVLpjH1VbTG8+dQcyO0bY/rPv0d1Zq/g/dc5V7xrL1X5Yx2vFflJid2rz6rIoCRzL2aNg6YId0zXKOBV5TuYa5rAOdL91TXxYCjsHs86trAf/Obz+DA//Zwf/d6fdxhO/cFvu2BH98/DZeX7MATGJ7A8ASGJzA8geEJDE9geALDExiewPAEhicwPIHhCQxPYHgCwxMYnsDwBIYnMDyB4QkMT2B4AsMTGJ7A8ASGJzC8S8OF/JDgzbnB8ASGJzA8geEJDE9geALDExiewPAEhicwPIHhCdzY/QJklcm7NER4tQAAAABJRU5ErkJggg==','base64'),'image/png');
+      if(name==='detail')return send({revision,observation:{id:url.searchParams.get('id'),species:'Observed species',date:'2030-01-01',area:'Test area',microarea:'Test microarea',abundance:'Abundante',hosts:['Pinus','Quercus'],forest:['Pinar'],gis:{hosts:[1],forest:[0]},has_photo:url.searchParams.get('id')==='obs-b',moon:observationMoon,coordinates:[1.9,42],uncertainty:{meters:500,origin:'assumed_unknown_500m'},observer:'<script>Not HTML</script>'}});
     }
     if (name === "demo" || name === "queries") {
       calls++;
@@ -1241,10 +1242,22 @@ try {
   await until("!!document.querySelector('.om-detail dl')");
   assert.ok(await evaluate("document.querySelector('.om-detail').textContent.includes('<script>Not HTML</script>')"));
   assert.equal(await evaluate("document.querySelectorAll('.om-detail script').length"),0);
+  assert.equal(await evaluate("document.querySelector('.om-field-coordinates dd').textContent"),'42.000000, 1.900000');
+  assert.equal(await evaluate("document.querySelector('.om-field-uncertainty dd').textContent"),'500 m · asignada');
   assert.ok(await evaluate("document.querySelector('.om-detail').textContent.includes('Quercus (GIS aceptado)')"));
   assert.ok(await evaluate("document.querySelector('.om-detail').textContent.includes('Pinar (GIS aceptado)')"));
   assert.equal(await evaluate("document.querySelector('.om-moon figcaption').textContent"),'Menguante');
   assert.ok(await evaluate("(()=>{const m=document.querySelector('.om-moon').getBoundingClientRect(),d=document.querySelector('.om-field-date').getBoundingClientRect();return m.left>=d.right && document.querySelector('.om-detail').scrollWidth<=document.querySelector('.om-detail').clientWidth;})()"),'Moon fits to the right of date without horizontal scrolling');
+  await until("!!document.querySelector('.om-photo-thumb:not([hidden])')");
+  assert.equal(await evaluate("document.querySelector('.om-field-uncertainty dt').textContent"),'Incertidumbre');
+  await evaluate("document.querySelector('.om-photo-thumb').click()");
+  await until("document.querySelector('.om-photo-viewer img')?.naturalWidth>0");
+  assert.ok(await evaluate("document.querySelector('.om-detail dl').hidden"));
+  assert.equal(await evaluate("document.querySelectorAll('.om-popup').length"),1);
+  await fs.writeFile(path.join(profile,'observation-photo-expanded.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  await evaluate("document.querySelector('.om-photo-viewer button').click()");
+  assert.equal(await evaluate("document.querySelector('.om-detail dl').hidden"),false);
+  assert.equal(await evaluate("document.querySelector('.om-field-id dd').textContent"),'obs-b');
   for (const [category, fraction, waxing, caption] of [['waxing',.875,true,'Creciente'],['full',.999,true,'Llena'],['new',.001,false,'Nueva'],['waning',.0815,false,'Menguante']]) {
     observationMoon={category,illuminated_fraction:fraction,waxing};
     const beforeClose=observationCalls;
@@ -1258,6 +1271,7 @@ try {
   }
   await evaluate("document.querySelector('.om-spider[data-observation-id=obs-c]').click()");
   await until("document.querySelector('.om-field-id dd')?.textContent==='obs-c'");
+  assert.equal(await evaluate("document.querySelectorAll('.om-photo-thumb').length"),0,'No thumbnail without a photo');
   assert.equal(await evaluate("document.querySelectorAll('.om-popup').length"),1,'Another observation replaces the popup');
   await evaluate("document.querySelector('.om-marker[data-observation-id=obs-d]').click()");
   await until("document.querySelector('.om-field-id dd')?.textContent==='obs-d'");

@@ -84,7 +84,178 @@ def _write_csv(path: Path, rows: list[dict]) -> None:
             })
 
 
-def main() -> int:
+def evaluate_temporal(args, temporal_name, source, selected, tuning_catalog):
+    all_reports, all_rows, all_selections = {}, [], []
+    v2 = build_observation_altitude_v2_common_idw_benchmark(source["v3"])
+    available_datasets = {
+        "altitude_v2|common_idw": (v2, "altitude_v2", "common_idw", "current"),
+        "biology_v3|core": (source["v3"], "biology_v3", "core", "current"),
+    }
+    if source["v4"] is not None:
+        available_datasets.update(
+            {
+                "biology_v3|common_idw_plus_physical_state": (
+                    biology_v3_physical.materialize_benchmark(source["v4"]),
+                    "biology_v3",
+                    biology_v3_physical.PROFILE_ID,
+                    "current",
+                ),
+                "biology_v4|extended_weather": (
+                    biology_v4.materialize_comparison_benchmark(
+                        source["v4"], profile_id="extended_weather"
+                    ),
+                    "biology_v4", "extended_weather", "current",
+                ),
+                "biology_v4|climatic_balance": (
+                    biology_v4.materialize_comparison_benchmark(
+                        source["v4"], profile_id="climatic_balance"
+                    ),
+                    "biology_v4", "climatic_balance", "current",
+                ),
+            }
+        )
+    if source["v5"] is not None:
+        for profile_id in (
+            "raw_primary", "raw_primary_no_calendar", "raw_primary_plus_physical",
+            "raw_primary_plus_physical_no_calendar", "raw_primary_plus_physical_state",
+            "raw_primary_plus_physical_state_no_calendar",
+        ):
+            available_datasets[f"biology_v5|{profile_id}"] = (
+                source["v5"], "biology_v5_raw_weather_discovery", profile_id, "v5"
+            )
+        for window_days in raw_weather.WINDOW_DAYS_OPTIONS:
+            profile_id = raw_weather.windowed_profile_id(window_days)
+            available_datasets[f"biology_v5_windowed|{profile_id}"] = (
+                source["v5"], raw_weather.WINDOWED_VERSION_ID, profile_id, "v5"
+            )
+    datasets = {
+        name: dataset
+        for name, dataset in available_datasets.items()
+        if not selected or f"{dataset[1]}/{dataset[2]}" in selected
+    }
+    if not datasets:
+        return {}, [], []
+    # Several profiles share a benchmark. Normalization copies feature dicts;
+    # retain one normalized view per source, not one per profile.
+    normalized_sources = {}
+    eligible_maps = {}
+    for name, dataset in datasets.items():
+        source_key = id(dataset[0])
+        if source_key not in normalized_sources:
+            normalized_sources[source_key] = {
+                holdout.comparison_key(row): row
+                for row in holdout.eligible_samples(dataset[0])
+            }
+        eligible_maps[name] = normalized_sources[source_key]
+    common = set.intersection(*(set(rows) for rows in eligible_maps.values()))
+    reference_name = (
+        "biology_v3|core" if "biology_v3|core" in eligible_maps else next(iter(eligible_maps))
+    )
+    reference = [row for key, row in eligible_maps[reference_name].items() if key in common]
+    for group_days in (7, 14):
+        train, test = chronological_group_split(reference, group_days=group_days)
+        train_keys = {holdout.comparison_key(row) for row in train}
+        test_keys = {holdout.comparison_key(row) for row in test}
+        comparison_id = f"{temporal_name}-groups{group_days}"
+        reports = {}
+        for name, (benchmark, version_id, profile_id, mode) in datasets.items():
+            print(json.dumps({"comparison": comparison_id, "dataset": name}), flush=True)
+            report, rows, selections = holdout.evaluate_dataset(
+                benchmark,
+                version_id=version_id,
+                profile_id=profile_id,
+                group_days=group_days,
+                train_keys=train_keys,
+                test_keys=test_keys,
+                mode=mode,
+                tuning_catalog=tuning_catalog,
+            )
+            reports[name] = report
+            all_rows.extend(rows)
+            all_selections.extend(selections)
+        comparison = {
+            "kind": "biology_v2_v3_v4_v5_row_level_comparison",
+            "temporal_contract": temporal_name,
+            "group_days": group_days,
+            "jointly_eligible": len(common),
+            "train_rows": len(train_keys),
+            "test_rows": len(test_keys),
+            "reports": reports,
+            "model_artifact_written": False,
+            "operational_candidate_trained": False,
+        }
+        path = args.v5_dir / f"comparison-{comparison_id}.json"
+        path.write_text(json.dumps(comparison, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        all_reports[comparison_id] = {"path": path.name, "sha256": sha256(path)}
+
+    campaign_train, campaign_test = _campaign_split(reference)
+    campaign_train_keys = {holdout.comparison_key(row) for row in campaign_train}
+    campaign_test_keys = {holdout.comparison_key(row) for row in campaign_test}
+    campaign_reports = {}
+    campaign_profiles = (
+        (
+            "raw_primary_no_calendar", "raw_primary", "raw_primary_plus_physical_no_calendar",
+            "raw_primary_plus_physical", "raw_primary_plus_physical_state_no_calendar",
+            "raw_primary_plus_physical_state",
+        )
+        if not selected
+        else (
+            ("raw_primary_plus_physical_state",)
+            if "biology_v5_raw_weather_discovery/raw_primary_plus_physical_state" in selected
+            else ()
+        )
+    )
+    for profile in campaign_profiles:
+        report, rows, selections = holdout.evaluate_dataset(
+            source["v5"],
+            version_id="biology_v5_raw_weather_discovery",
+            profile_id=profile,
+            group_days=14,
+            train_keys=campaign_train_keys,
+            test_keys=campaign_test_keys,
+            mode="v5",
+            split_id="campaign_area_year_70_30",
+            tuning_catalog=tuning_catalog,
+        )
+        campaign_reports[profile] = report
+        all_rows.extend(rows)
+        all_selections.extend(selections)
+    if campaign_profiles:
+        campaign_path = args.v5_dir / f"sensitivity-{temporal_name}-campaign.json"
+        campaign_path.write_text(
+            json.dumps({
+                "kind": "biology_v5_campaign_sensitivity",
+                "temporal_contract": temporal_name,
+                "train_rows": len(campaign_train_keys),
+                "test_rows": len(campaign_test_keys),
+                "reports": campaign_reports,
+                "model_artifact_written": False,
+                "operational_candidate_trained": False,
+            }, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        all_reports[f"{temporal_name}-campaign"] = {"path": campaign_path.name, "sha256": sha256(campaign_path)}
+
+    return all_reports, all_rows, all_selections
+
+
+def load_and_evaluate_temporal(args, temporal, selected, tuning_catalog, needs_v4, needs_v5, after_temporal):
+    source = {
+        "v3": _load(args.snapshot / f"biology-v3-{temporal}.json"),
+        "v4": _load(args.snapshot / f"biology-v4-{temporal}.json") if needs_v4 else None,
+        "v5": _load(args.v5_dir / f"biology-v5-{temporal}.json") if needs_v5 or after_temporal else None,
+    }
+    result = evaluate_temporal(args, temporal, source, selected, tuning_catalog)
+    # V2--V5 evaluation locals have gone; V6 consumes the very same V5 object.
+    # Release other source families before V6 and all sources on return.
+    benchmark = source["v5"]
+    source.clear()
+    if after_temporal is not None:
+        after_temporal(temporal, benchmark)
+    return result
+
+
+def main(*, after_temporal=None) -> int:
     args = parse_args()
     args.v5_dir.mkdir(parents=True, exist_ok=True)
     selected = {str(value) for value in (args.profile_key or [])}
@@ -99,163 +270,14 @@ def main() -> int:
         or key.startswith(f"{raw_weather.WINDOWED_VERSION_ID}/")
         for key in selected
     )
-    sources = {
-        "fixed": {
-            "v3": _load(args.snapshot / "biology-v3-fixed.json"),
-            "v4": _load(args.snapshot / "biology-v4-fixed.json") if needs_v4 else None,
-            "v5": _load(args.v5_dir / "biology-v5-fixed.json") if needs_v5 else None,
-        },
-        "lag": {
-            "v3": _load(args.snapshot / "biology-v3-lag.json"),
-            "v4": _load(args.snapshot / "biology-v4-lag.json") if needs_v4 else None,
-            "v5": _load(args.v5_dir / "biology-v5-lag.json") if needs_v5 else None,
-        },
-    }
-    all_reports: dict[str, object] = {}
-    all_rows: list[dict] = []
-    all_selections: list[dict] = []
-    for temporal_name, source in sources.items():
-        v2 = build_observation_altitude_v2_common_idw_benchmark(source["v3"])
-        available_datasets = {
-            "altitude_v2|common_idw": (v2, "altitude_v2", "common_idw", "current"),
-            "biology_v3|core": (source["v3"], "biology_v3", "core", "current"),
-        }
-        if source["v4"] is not None:
-            available_datasets.update(
-                {
-                    "biology_v3|common_idw_plus_physical_state": (
-                        biology_v3_physical.materialize_benchmark(source["v4"]),
-                        "biology_v3",
-                        biology_v3_physical.PROFILE_ID,
-                        "current",
-                    ),
-                    "biology_v4|extended_weather": (
-                        biology_v4.materialize_comparison_benchmark(
-                            source["v4"], profile_id="extended_weather"
-                        ),
-                        "biology_v4", "extended_weather", "current",
-                    ),
-                    "biology_v4|climatic_balance": (
-                        biology_v4.materialize_comparison_benchmark(
-                            source["v4"], profile_id="climatic_balance"
-                        ),
-                        "biology_v4", "climatic_balance", "current",
-                    ),
-                }
-            )
-        if source["v5"] is not None:
-            for profile_id in (
-                "raw_primary", "raw_primary_no_calendar", "raw_primary_plus_physical",
-                "raw_primary_plus_physical_no_calendar", "raw_primary_plus_physical_state",
-                "raw_primary_plus_physical_state_no_calendar",
-            ):
-                available_datasets[f"biology_v5|{profile_id}"] = (
-                    source["v5"], "biology_v5_raw_weather_discovery", profile_id, "v5"
-                )
-            for window_days in raw_weather.WINDOW_DAYS_OPTIONS:
-                profile_id = raw_weather.windowed_profile_id(window_days)
-                available_datasets[f"biology_v5_windowed|{profile_id}"] = (
-                    source["v5"], raw_weather.WINDOWED_VERSION_ID, profile_id, "v5"
-                )
-        datasets = {
-            name: dataset
-            for name, dataset in available_datasets.items()
-            if not selected or f"{dataset[1]}/{dataset[2]}" in selected
-        }
-        if not datasets:
-            continue
-        eligible_maps = {
-            name: {holdout.comparison_key(row): row for row in holdout.eligible_samples(dataset[0])}
-            for name, dataset in datasets.items()
-        }
-        common = set.intersection(*(set(rows) for rows in eligible_maps.values()))
-        reference_name = (
-            "biology_v3|core" if "biology_v3|core" in eligible_maps else next(iter(eligible_maps))
+    all_reports, all_rows, all_selections = {}, [], []
+    for temporal in ("fixed", "lag"):
+        reports, rows, selections = load_and_evaluate_temporal(
+            args, temporal, selected, tuning_catalog, needs_v4, needs_v5, after_temporal,
         )
-        reference = [row for key, row in eligible_maps[reference_name].items() if key in common]
-        for group_days in (7, 14):
-            train, test = chronological_group_split(reference, group_days=group_days)
-            train_keys = {holdout.comparison_key(row) for row in train}
-            test_keys = {holdout.comparison_key(row) for row in test}
-            comparison_id = f"{temporal_name}-groups{group_days}"
-            reports = {}
-            for name, (benchmark, version_id, profile_id, mode) in datasets.items():
-                print(json.dumps({"comparison": comparison_id, "dataset": name}), flush=True)
-                report, rows, selections = holdout.evaluate_dataset(
-                    benchmark,
-                    version_id=version_id,
-                    profile_id=profile_id,
-                    group_days=group_days,
-                    train_keys=train_keys,
-                    test_keys=test_keys,
-                    mode=mode,
-                    tuning_catalog=tuning_catalog,
-                )
-                reports[name] = report
-                all_rows.extend(rows)
-                all_selections.extend(selections)
-            comparison = {
-                "kind": "biology_v2_v3_v4_v5_row_level_comparison",
-                "temporal_contract": temporal_name,
-                "group_days": group_days,
-                "jointly_eligible": len(common),
-                "train_rows": len(train_keys),
-                "test_rows": len(test_keys),
-                "reports": reports,
-                "model_artifact_written": False,
-                "operational_candidate_trained": False,
-            }
-            path = args.v5_dir / f"comparison-{comparison_id}.json"
-            path.write_text(json.dumps(comparison, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-            all_reports[comparison_id] = {"path": path.name, "sha256": sha256(path)}
-
-        campaign_train, campaign_test = _campaign_split(reference)
-        campaign_train_keys = {holdout.comparison_key(row) for row in campaign_train}
-        campaign_test_keys = {holdout.comparison_key(row) for row in campaign_test}
-        campaign_reports = {}
-        campaign_profiles = (
-            (
-                "raw_primary_no_calendar", "raw_primary", "raw_primary_plus_physical_no_calendar",
-                "raw_primary_plus_physical", "raw_primary_plus_physical_state_no_calendar",
-                "raw_primary_plus_physical_state",
-            )
-            if not selected
-            else (
-                ("raw_primary_plus_physical_state",)
-                if "biology_v5_raw_weather_discovery/raw_primary_plus_physical_state" in selected
-                else ()
-            )
-        )
-        for profile in campaign_profiles:
-            report, rows, selections = holdout.evaluate_dataset(
-                source["v5"],
-                version_id="biology_v5_raw_weather_discovery",
-                profile_id=profile,
-                group_days=14,
-                train_keys=campaign_train_keys,
-                test_keys=campaign_test_keys,
-                mode="v5",
-                split_id="campaign_area_year_70_30",
-                tuning_catalog=tuning_catalog,
-            )
-            campaign_reports[profile] = report
-            all_rows.extend(rows)
-            all_selections.extend(selections)
-        if campaign_profiles:
-            campaign_path = args.v5_dir / f"sensitivity-{temporal_name}-campaign.json"
-            campaign_path.write_text(
-                json.dumps({
-                    "kind": "biology_v5_campaign_sensitivity",
-                    "temporal_contract": temporal_name,
-                    "train_rows": len(campaign_train_keys),
-                    "test_rows": len(campaign_test_keys),
-                    "reports": campaign_reports,
-                    "model_artifact_written": False,
-                    "operational_candidate_trained": False,
-                }, indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
-            all_reports[f"{temporal_name}-campaign"] = {"path": campaign_path.name, "sha256": sha256(campaign_path)}
+        all_reports.update(reports)
+        all_rows.extend(rows)
+        all_selections.extend(selections)
 
     phases = error_analysis.assign_observed_phases(all_rows)
     error_rows = []

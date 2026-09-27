@@ -159,7 +159,13 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
             values = parse_qs(query, max_num_fields=6)
             if any(len(v) != 1 for v in values.values()):
                 raise observations.ObservationError('invalid_parameters')
-            payload = observations.response(action.removeprefix('/observations/'), {k: v[0] for k, v in values.items()})
+            params = {k: v[0] for k, v in values.items()}
+            if action == '/observations/photo':
+                handler.send_bytes(200, observations.photo(params), 'image/jpeg',
+                                   {'Cache-Control': 'private, no-store, max-age=0',
+                                    'X-Content-Type-Options': 'nosniff'})
+                return
+            payload = observations.response(action.removeprefix('/observations/'), params)
             handler.send_bytes(200, observations.encode(payload), 'application/json; charset=utf-8',
                                {'Cache-Control': 'private, no-store, max-age=0'})
         except observations.ObservationError as exc:

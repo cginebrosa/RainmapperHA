@@ -1,10 +1,34 @@
-# TODO — cierre 22/09/2026
+# TODO — revisión 27/09/2026
 
 Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-context.md).
 Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
 [archivo del cierre](reports/session-context-before-close-2026-09-22.md).
 
-## Publicado · Modo histórico HA 0.2.320
+## Release HA 0.2.326
+
+- [x] Ficha del mapa: coordenadas, incertidumbre y miniatura ampliable dentro de
+  la ficha; validación local aceptada y publicación multi-arquitectura verificada.
+- [ ] Usuario instala 0.2.326 en HA real y comprueba la ficha. No requiere lanzar
+  entrenamiento ni precálculo por este cambio de presentación.
+
+## Continuación inmediata · Worker y resultados del usuario
+
+- [x] Reconstruir el worker con reutilización de entradas V2–V6; 122 archivos
+  en paridad y 25 pruebas correctas dentro de la imagen. Coordinadores e identidad
+  conservados. [Alcance y medición](reports/worker-evaluation-memory-2026-09-27.md).
+- [x] Ciclo del usuario verificado el 27/09: multiversión 10:04, 792/792 ajustes;
+  precálculo 9:39, revisión 261 activa y SHA idéntico HA/worker. Sin OOM/reinicios,
+  pico cgroup 6,86 GiB desde arranque; timeouts recuperados. No confundir esta
+  medida con el −57 % del ensayo aislado de carga V6. Optimización general pendiente.
+- [x] Reexaminar rovelló/Els Ports: ahora RF–V3/IFF 37. Curva plana explicada
+  por entradas al corte y baja sensibilidad al horizonte (0/200 árboles cambian).
+  No acredita que la reparación resuelva todas las asociaciones aprendidas.
+  [Caso anterior](reports/rovello-els-ports-dry-prediction-2026-09-26.md).
+- [x] Piloto local de calidad espacial de lluvia: no acredita mejora global.
+  Mantener IDW operativo; ampliaciones sólo si se retoma expresamente.
+  [Resultados y límites](../local-apps/rainfall-qc/README.md).
+
+## Publicado · Modo histórico desde HA 0.2.320
 
 - [x] Calendario y fecha común; modelos actuales, meteorología hasta D−1.
 - [x] Permiso por usuario false por defecto, también admin.
@@ -22,11 +46,13 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
 - [x] Precálculo local del usuario revisión 74 recibido/activo; identidad, SHA,
   recuentos y limpieza terminal verificados contra la generación nueva.
 - [x] Publicación 0.2.320/latest, digest común y AMD64/ARM64 verificados.
-- [ ] Usuario instala 0.2.320 en HA real y habilita el permiso histórico desde Usuarios.
+- [x] Instalación antigua superada: HA real ya está en 0.2.325.
+- [ ] Confirmar el permiso histórico del usuario que vaya a probarlo en real;
+  instalar una versión no acredita que se haya habilitado desde Usuarios.
   [Release y circuito completo](reports/release-ha-0.2.320-2026-09-22.md).
   [Evidencia y tiempos](reports/historical-map-local-2026-09-22.md).
 
-## P0 · Terminar aceptación de HA 0.2.319 en real
+## Verificación pendiente · Detalle de variables publicado desde HA 0.2.319
 
 - [x] Corregir lista parcial de variables con detalle paginado, scroll y contador.
 - [x] Reconstruir HA local y worker; comprobar paridad 217/117 y conservar destinos.
@@ -35,13 +61,21 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
   [Informe y excepción autorizada](reports/release-ha-0.2.319-2026-09-22.md).
 - [x] Instalación confirmada por el usuario y versión 0.2.319 comprobada por SMB
   LAN en estado/registro de arranque. [Evidencia](reports/ha-0.2.319-smb-2026-09-22.md).
-- [ ] Probar en real el detalle completo en ambos ejecutores: no se persiste y
-  SMB no basta; pendiente consulta viva del mapa. No reconstruir worker por rutina.
+- [ ] Probar en la versión vigente de HA real el detalle completo en ambos
+  ejecutores: no se persiste y SMB no basta; pendiente consulta viva del mapa.
+  No reconstruir worker por rutina.
 - [ ] Ante fallo, consultar logs/códigos y procedencia de datos. No repetir
   entrenamiento ni precálculo como diagnóstico.
 
 ## P1 · Memoria y tiempos en Raspberry Pi 4 (4 GB)
 
+- [ ] **Trabajo huérfano tras perder el worker** (27/09/2026, aplazado por el
+  usuario): HA mantiene `running` y un contador creciente después de caducar
+  la comunicación; caso confirmado con OOM del worker al 46 %. Mostrar pérdida
+  de comunicación y hora del último progreso, distinguir desconexión transitoria
+  de terminación confirmada y resolver el estado sin relanzamientos automáticos
+  ni duplicar trabajos. Requiere cambio futuro de HA, separado de la corrección
+  local de reutilización de entradas V2–V6.
 - [ ] **Duración creciente del precálculo automático** (26/09/2026, aplazado):
   el usuario observa un aumento aproximado de 9 a 11 minutos en las últimas
   ejecuciones. Contrastar registros persistidos por fase (preparación, cálculo,
@@ -76,8 +110,9 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
   [Informe](reports/querigut-predictor-2026-09-21.md).
 - [ ] Medir el balance real de errores evitados/aciertos perdidos y cobertura de
   alternativas; no extrapolar la retrospectiva selectiva 39/10 al selector por área.
-- [ ] Confirmar modo de HA real antes de interpretar avisos. Local está shadow;
-  no activar ni ampliar a deliciosus/aereus sin decisión explícita.
+- [ ] Confirmar modo de HA real antes de interpretar avisos. El último estado local
+  documentado era shadow; revalidarlo si se utiliza.
+  No activar ni ampliar a deliciosus/aereus sin decisión explícita.
 - [ ] Incorporar sólo GBIF revisado/aprobado por el usuario antes de nueva evaluación.
 - [ ] Auditar tres falsos positivos del 18/09 (Vallcebre ×2, Bellver/Riu), recuperando
   fecha/esfuerzo y modelo/generación. [Puntos](mushrooms/SMI/adoption-2026-09-20/field-feedback.md).
@@ -108,6 +143,15 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
   historial en archivo, no quedan instalaciones antiguas como tareas actuales.
 
 ## Pendientes del usuario y aplazamientos explícitos
+
+- [ ] **Setales:** auditar observaciones que no encajen en el área/microárea
+  asignada, como siguiente bloque independiente de la importación GBIF.
+- [ ] **Nombres GBIF:** resolver municipio/topónimo más cercano con una fuente
+  verificada; el nombre actual derivado del snapshot no acredita proximidad.
+  Conservar IDs estables y permitir editar nombres sin perder asociaciones.
+- [ ] **WU · backfill:** impedir offsets mensuales futuros antes de lanzar el
+  trabajo; revalidar el caso y evidencia en `tmp/backfill-future-20260924/`.
+  No repetir descargas ni alterar el CSV para investigar este pendiente.
 
 - [ ] **GBIF · previsualización de setales** (aplazado por el usuario, 25/09/2026):
   sustituir el esquema de contornos del plan de importación por un mapa con fondo

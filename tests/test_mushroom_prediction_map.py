@@ -143,16 +143,23 @@ class PredictionMapRouteTests(unittest.TestCase):
         from rainmapper_core import mushroom_map_observations as overlay
         for role in ('admin','pro','basic','free'):
             self.assertFalse(self.web.user_auth_payload({'username':'test','role':role})[overlay.PERMISSION])
-        with mock.patch.object(overlay,'response',return_value={'species':[]}) as read:
-            for action in ('species','points','detail'):
+        with mock.patch.object(overlay,'response',return_value={'species':[]}) as read, \
+                mock.patch.object(overlay,'photo',return_value=b'jpeg') as photo:
+            for action in ('species','points','detail','photo'):
                 path=contract.API_PATH+'/observations/'+action
                 for user in (None,{'username':'test','role':'admin'}, {'username':'test',contract.PERMISSION:True}):
                     handler=self.handler(path,user=user);handler.do_GET()
                     self.assertIn(self.response(handler)[0],(401,403))
                 read.assert_not_called()
+                photo.assert_not_called()
             handler=self.handler(contract.API_PATH+'/observations/points?species_id=sp&revision=rev',user={'username':'test',overlay.PERMISSION:True})
             handler.do_GET();self.assertEqual(self.response(handler)[0],200)
             read.assert_called_once_with('points',{'species_id':'sp','revision':'rev'})
+            handler=self.handler(contract.API_PATH+'/observations/photo?id=o&revision=rev&size=thumb',user={'username':'test',overlay.PERMISSION:True})
+            handler.do_GET()
+            photo.assert_called_once_with({'id':'o','revision':'rev','size':'thumb'})
+            self.assertEqual(handler.send_bytes.call_args.args[2],'image/jpeg')
+            self.assertIn('private, no-store',handler.send_bytes.call_args.args[3]['Cache-Control'])
         with mock.patch.object(ui,'broker') as broker:
             handler=self.handler(contract.API_PATH+'/capabilities',user={'username':'test',overlay.PERMISSION:True})
             handler.do_GET();self.assertTrue(self.response(handler)[1][overlay.PERMISSION]);broker.assert_not_called()
