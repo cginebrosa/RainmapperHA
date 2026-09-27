@@ -405,6 +405,16 @@ def _verified_result(
             receipts=receipts,
         ):
             raise ValueError("Multiversion quality audit catalog integrity failed")
+    observation_ref = batch_manifest.get("training_observations")
+    if isinstance(observation_ref, Mapping):
+        observation_path = extracted / Path(observation_ref["path"]).relative_to(
+            Path("batches") / result["batch_id"]
+        )
+        if (not observation_path.is_file()
+                or observation_path.stat().st_size != observation_ref["size_bytes"]
+                or not _matches_received_digest(result_root, observation_path,
+                    observation_ref["sha256"], receipts=receipts)):
+            raise ValueError("Multiversion training observation index integrity failed")
     training_input_ref = batch_manifest.get("training_input_manifest")
     if isinstance(training_input_ref, Mapping):
         training_input_path = extracted / Path(str(training_input_ref["path"])).relative_to(

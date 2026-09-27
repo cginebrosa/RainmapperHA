@@ -4,6 +4,13 @@ Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-cont
 Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
 [archivo del cierre](reports/session-context-before-close-2026-09-22.md).
 
+## Release HA 0.2.329
+
+- [x] Comprobar predicción desde observaciones, trazabilidad del entrenamiento,
+  altitud y bocadillo; validación local y publicación multi-arquitectura verificadas.
+  [Evidencia](reports/release-ha-0.2.329-2026-09-27.md).
+- [ ] Usuario instala 0.2.329 en HA real y comprueba el visor.
+
 ## Release HA 0.2.328
 
 - [x] Lista aprovecha la altura del panel; ficha del mapa compacta, Bosque, foto

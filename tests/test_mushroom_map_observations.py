@@ -10,6 +10,10 @@ from rainmapper_core.lunar_phase import lunar_phase
 
 
 class ObservationOverlayTests(unittest.TestCase):
+    def test_detail_includes_stable_species_id_for_prediction(self):
+        detail=overlay.response('detail',{'id':'o0'})['observation']
+        self.assertEqual(detail['species_id'],'sp')
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name)
@@ -62,6 +66,14 @@ class ObservationOverlayTests(unittest.TestCase):
                 detail=overlay.response('detail',{'id':'o0'})['observation']
                 self.assertEqual(detail['uncertainty'],dict(zip(('meters','origin'),expected)))
                 self.assertNotIn('PRIVATE',overlay.encode(detail).decode())
+
+    def test_detail_altitude_uses_saved_meters_including_zero(self):
+        for meters in (0, -12.5, 754.8, None, True, '500', float('nan')):
+            self.rows[0]['altitude'] = {'meters': meters, 'source': 'manual'}
+            self.write('mushroom_observations.json', {'observations':self.rows})
+            detail = overlay.response('detail', {'id':'o0'})['observation']
+            expected = meters if type(meters) in (float,int) and meters == meters else None
+            self.assertEqual(detail['altitude_m'], expected)
 
     def test_invalid_coordinates_and_missing_fields(self):
         self.rows[0]['location']={'lat':True,'lon':1.9}

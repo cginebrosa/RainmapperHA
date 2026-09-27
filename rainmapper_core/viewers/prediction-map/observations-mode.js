@@ -182,7 +182,7 @@ export function createObservationsMode(bridge) {
     const availableHeight=Math.max(120,Math.min(460,Math.max(point.y,mapHeight-point.y)-50));
     body.style.maxHeight=`${availableHeight}px`;
     body.style.setProperty('--om-photo-height',`${Math.max(80,availableHeight-90)}px`);
-    popup=new maplibregl.Popup({maxWidth:'330px',closeOnClick:false,focusAfterOpen:false,className:'om-popup'}).setLngLat([row[1],row[2]]).setDOMContent(body).addTo(map);
+    popup=new maplibregl.Popup({maxWidth:'330px',offset:18,closeOnClick:false,focusAfterOpen:false,className:'om-popup'}).setLngLat([row[1],row[2]]).setDOMContent(body).addTo(map);
     currentDetail=row; // Also allow toggling closed while the request is pending.
     const current=popup;current.on('close',()=>{if(popup===current){detailController?.abort();popup=null;currentDetail=null;}});
     const photoUrls=[];
@@ -203,17 +203,34 @@ export function createObservationsMode(bridge) {
       const uncertaintyLabel={declared:'obs_precision_declared',assumed_unknown_500m:'obs_precision_assigned',manual:'obs_precision_manual'}[uncertainty?.origin];
       const uncertaintyText=Number.isFinite(uncertainty?.meters)
         ?`${uncertainty.meters.toLocaleString(bridge.language(),{maximumFractionDigits:3})} m${uncertainty.meters!==0&&uncertaintyLabel?' · '+text(uncertaintyLabel):''}`:'';
-      for(const [key,value] of Object.entries({date:date(data.observation.date),area:data.observation.area,microarea:data.observation.microarea,coordinates:coordinateText,uncertainty:uncertaintyText,abundance:data.observation.abundance,hosts:contextValues('hosts'),forest:contextValues('forest'),observer:data.observation.observer,id:data.observation.id})){
+      const altitudeText=Number.isFinite(data.observation.altitude_m)
+        ?`${data.observation.altitude_m.toLocaleString(bridge.language(),{maximumFractionDigits:1})} m`:'';
+      for(const [key,value] of Object.entries({date:date(data.observation.date),altitude:altitudeText,area:data.observation.area,microarea:data.observation.microarea,coordinates:coordinateText,uncertainty:uncertaintyText,abundance:data.observation.abundance,hosts:contextValues('hosts'),forest:contextValues('forest'),observer:data.observation.observer,id:data.observation.id})){
         const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=text(`obs_${key}`);dd.textContent=value||text('obs_unknown');
         const group=document.createElement('div');group.className=`om-field om-field-${key}`;group.append(dt,dd);fields.append(group);
       }
       if(moon){const cell=document.createElement('div');cell.className='om-moon-cell';const dt=document.createElement('dt');dt.className='om-visually-hidden';dt.textContent=text('obs_moon');const dd=document.createElement('dd');dd.append(moon);cell.append(dt,dd);fields.append(cell);}
       body.append(fields);
       const footer=document.createElement('div');footer.className='om-detail-footer';
+      const actions=document.createElement('div');actions.className='om-detail-actions';
+      footer.append(actions);
       if(coordinateText){
         const maps=document.createElement('a');maps.className='om-google-maps';maps.textContent=text('obs_google_maps');
         maps.href=`https://www.google.com/maps/dir/?${new URLSearchParams({api:'1',destination:`${coordinates[1]},${coordinates[0]}`})}`;
-        maps.target='_blank';maps.rel='noopener noreferrer';footer.append(maps);
+        maps.target='_blank';maps.rel='noopener noreferrer';actions.append(maps);
+        if(bridge.checkPrediction && data.observation.species_id){
+          const check=document.createElement('button');check.type='button';check.className='om-check-prediction';check.textContent=text('obs_check_prediction');
+          actions.append(check);
+          check.onclick=async()=>{
+            check.disabled=true;
+            try{
+              await bridge.checkPrediction(data.observation,()=>{if(enabled&&!destroyed)detail(row);},
+                ()=>popup===current,closeDetail);
+            }catch(error){
+              if(popup===current){check.disabled=false;check.textContent=text('obs_check_error');}
+            }
+          };
+        }
       }
       body.append(footer);
       if(data.observation.has_photo){

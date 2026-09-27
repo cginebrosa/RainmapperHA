@@ -55,7 +55,7 @@ def parse_request(raw: bytes) -> dict:
     if history.is_request(payload):
         return history.parse(payload)
     required = {"contract", "request_id", "point", "start_date", "horizon_days", "history_days"}
-    if not isinstance(payload, dict) or set(payload) - required - {"species_ids", "execution", "calendar_timezone", "applicability_page"} or not required <= set(payload):
+    if not isinstance(payload, dict) or set(payload) - required - {"species_ids", "execution", "calendar_timezone", "applicability_page", "observation_id"} or not required <= set(payload):
         raise ValueError("invalid_fields")
     if 'calendar_timezone' in payload:
         validate_calendar_timezone(payload['calendar_timezone'])
@@ -95,6 +95,10 @@ def parse_request(raw: bytes) -> dict:
         raise ValueError("invalid_species")
     if len(set(species)) != len(species):
         raise ValueError("duplicate_species")
+    if 'observation_id' in payload:
+        from rainmapper_core.mushroom_training_observations import valid_id
+        if len(species) != 1 or not valid_id(payload['observation_id']):
+            raise ValueError('invalid_observation_id')
     if 'applicability_page' in payload:
         page = payload['applicability_page']
         if (len(species) != 1 or not isinstance(page, dict) or set(page) != {'day', 'offset'}
@@ -226,6 +230,13 @@ def validate_result(result, request):
             not isinstance(reasons,list) or len(reasons)!=len(expected_dates)):
             raise ValueError('invalid_result_species')
         seen.add(sid)
+        if 'training_observation_usage' in row:
+            from rainmapper_core.mushroom_training_observations import STATES
+            usage = row['training_observation_usage']
+            if (not request.get('observation_id') or not isinstance(usage, list)
+                    or len(usage) != len(expected_dates)
+                    or any(not isinstance(state, str) or state not in STATES for state in usage)):
+                raise ValueError('invalid_training_observation_usage')
         if 'selection_notices' in row or 'selection_notice_details' in row:
             refs = row.get('selection_notices'); details = row.get('selection_notice_details')
             if (not isinstance(refs, list) or len(refs) != len(expected_dates)

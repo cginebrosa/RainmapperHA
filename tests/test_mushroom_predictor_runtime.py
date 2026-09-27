@@ -750,6 +750,10 @@ class PredictorRuntimeTests(TestCase):
             quality_audit_path = batch_path.parent / "quality-audit-catalog.json"
             quality_path.write_text("{}", encoding="utf-8")
             quality_audit_path.write_text("{}", encoding="utf-8")
+            from rainmapper_core import mushroom_training_observations as trace
+            writer = trace.Writer(batch_path.parent / trace.FILENAME)
+            writer.add(model_ref.artifact_ref.key, ('test-scope',), [{'metadata': {'observation_id': 'obs-test'}}])
+            trace_reference = writer.finish('batch-a')
             batch_path.write_text(
                 json.dumps(
                     {
@@ -757,6 +761,7 @@ class PredictorRuntimeTests(TestCase):
                         "kind": "mushroom_ml_runtime_batch",
                         "batch_id": "batch-a",
                         "snapshot_id": "sha256:" + "a" * 64,
+                        "training_observations": trace_reference,
                         "artifacts": [
                             {
                                 "artifact_ref": model_ref.artifact_ref.as_dict(),
@@ -826,6 +831,7 @@ class PredictorRuntimeTests(TestCase):
             self.assertIn(f"models/{relative.as_posix()}", sources)
             self.assertIn("models/batches/batch-a/manifest.json", sources)
             self.assertIn("models/batches/batch-a/quality-catalog.json", sources)
+            self.assertIn('models/batches/batch-a/'+trace.FILENAME, sources)
             self.assertNotIn(
                 "models/batches/batch-a/quality-audit-catalog.json", sources
             )

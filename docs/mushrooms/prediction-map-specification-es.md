@@ -1,5 +1,44 @@
 # Mapa de predicción — especificación central
 
+## Comprobar predicción desde una observación · HA 0.2.329
+
+La ficha de observación incorpora **Comprobar predicción** debajo de Cómo llegar,
+para usuarios con permiso de predicción. Reutiliza la consulta y la ficha completas
+del mapa: coordenadas exactas de la observación, su `species_id` y fecha como
+inicio de los siete días. Incluye IFF/modelo, meteorología observada, estado hídrico
+/ SMI y terreno, además de la abundancia registrada y retorno a la observación.
+No cambia la fecha global del mapa ni carga el histórico de todas las estaciones.
+Conserva la ejecución elegida y el fallback existente; la consulta es cancelable.
+
+Es una reconstrucción con modelos/evidencia instalados actualmente y meteorología
+previa a la fecha de emisión, no una predicción archivada de entonces ni un nuevo
+entrenamiento. La ficha muestra solo especie, fecha, abundancia y «Usada para
+entrenar: SÍ» (verde) o «NO» (rojo), además del retorno. Los estados sin evidencia
+usan «SIN DATOS» y la ausencia de modelo «SIN MODELO», sin párrafos explicativos.
+Una observación usada para entrenar no constituye validación independiente.
+Mantiene las abstenciones
+y explicaciones normales del mapa, sin forzar un IFF cuando faltan datos.
+
+**Trazabilidad de entrenamiento:** la petición opcional `observation_id` exige
+permiso de observaciones además del de predicción y una sola especie. La respuesta
+incluye `training_observation_usage` por día para el artefacto realmente elegido:
+`used`, `not_used`, `legacy`, `unavailable` o `no_model`. El ajuste final V2–V6 escribe
+un índice SQLite por lote, compartido entre estimadores que usan la misma matriz;
+no se añaden listas de IDs a cada joblib ni a la respuesta del mapa. El manifiesto
+sella tamaño y SHA-256 y el índice viaja en recepción, instalación y runtime.
+Dos búsquedas por clave, con reutilización del resultado por artefacto en la semana.
+La comprobación de integridad completa ocurre al cargar/cambiar el runtime, no
+en cada búsqueda. IDs ausentes en una fuente antigua, índice incompleto/corrupto
+o sin correspondencia no se presentan como «No». La ausencia del ID en el ajuste
+no prueba independencia de la evaluación/selección. No compara revisiones del
+contenido de una observación editada conservando el mismo ID.
+
+La ficha de observación muestra `altitude.meters` bajo Fecha, antes de Área,
+sin nuevas llamadas DEM, y conserva cero y valores negativos. Un valor no
+informado se presenta como tal. La punta del bocadillo se muestra en los ocho
+anclajes y deja 18 px hasta el centro del marcador.
+[Validación local](../reports/observation-prediction-check-local-2026-09-27.md).
+
 Fecha: 11/09/2026. **Referencia principal del diseño del Mapa de predicción.**
 Actualización de estado contrastada con código: **18/09/2026, HA 0.2.312**.
 Integración HA/worker operativa en el código empaquetado. Buscador Photon con POI,

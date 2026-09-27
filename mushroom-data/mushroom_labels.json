@@ -8094,6 +8094,51 @@
     "es": "Cómo llegar",
     "ca": "Com arribar"
   },
+  "ui.prediction_map_obs_check_prediction": {
+    "es": "Comprobar predicción",
+    "ca": "Comprovar predicció",
+    "en": "Check prediction"
+  },
+  "ui.prediction_map_obs_check_error": {
+    "es": "No se pudo abrir. Reintentar",
+    "ca": "No s’ha pogut obrir. Reintentar",
+    "en": "Could not open. Retry"
+  },
+  "ui.prediction_map_obs_check_back": {
+    "es": "Volver a la observación",
+    "ca": "Tornar a l’observació",
+    "en": "Back to observation"
+  },
+  "ui.prediction_map_obs_training_used": {
+    "es": "SÍ",
+    "ca": "SÍ",
+    "en": "YES"
+  },
+  "ui.prediction_map_obs_training_not_used": {
+    "es": "NO",
+    "ca": "NO",
+    "en": "NO"
+  },
+  "ui.prediction_map_obs_training_legacy": {
+    "es": "SIN DATOS",
+    "ca": "SENSE DADES",
+    "en": "UNKNOWN"
+  },
+  "ui.prediction_map_obs_training_unavailable": {
+    "es": "SIN DATOS",
+    "ca": "SENSE DADES",
+    "en": "UNKNOWN"
+  },
+  "ui.prediction_map_obs_training_no_model": {
+    "es": "SIN MODELO",
+    "ca": "SENSE MODEL",
+    "en": "NO MODEL"
+  },
+  "ui.prediction_map_obs_altitude": {
+    "es": "Altitud",
+    "ca": "Altitud",
+    "en": "Altitude"
+  },
   "ui.prediction_map_obs_observer": {
     "en": "Observer",
     "es": "Observador",
@@ -8773,5 +8818,10 @@
     "en": "Photo unavailable",
     "es": "Foto no disponible",
     "ca": "Foto no disponible"
+  },
+  "ui.prediction_map_obs_training_label": {
+    "es": "Usada para entrenar",
+    "ca": "Usada per entrenar",
+    "en": "Used for training"
   }
 }

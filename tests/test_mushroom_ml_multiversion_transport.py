@@ -328,6 +328,10 @@ class MushroomMLMultiversionTransportTests(TestCase):
                 ).stat().st_ino,
             )
             self.assertFalse((staging / job_id / "multiversion" / "batch").exists())
+            from rainmapper_core import mushroom_training_observations as trace
+            index_path = models / batch_manifest['training_observations']['path']
+            self.assertTrue(index_path.is_file())
+            self.assertEqual(trainer.sha256(index_path), batch_manifest['training_observations']['sha256'])
             self.assertEqual([], list((models / "batches").glob(".*.install")))
 
     def test_benchmark_result_is_archived_without_changing_runtime(self) -> None:

@@ -199,6 +199,8 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
         try:
             request = contract.parse_request(handler.read_request_body(contract.MAX_REQUEST_BYTES))
             historical = history.is_request(request)
+            if request.get('observation_id') and user.get(observations.PERMISSION) is not True:
+                raise QueryError('forbidden', 403)
             if not (user.get(history.PERMISSION) is True if historical else contract.can_access(user)):
                 raise QueryError('forbidden', 403)
             if historical:
@@ -222,6 +224,9 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
         if cancelling or (not post and len(parts) == 3):
             try:
                 historical = broker().is_history(str(user.get('username', 'admin')), parts[2])
+                if (broker().is_observation_check(str(user.get('username', 'admin')), parts[2])
+                        and user.get(observations.PERMISSION) is not True):
+                    raise QueryError('forbidden', 403)
                 if not (user.get(history.PERMISSION) is True if historical else contract.can_access(user)):
                     raise QueryError('forbidden', 403)
                 status, result = broker().status(str(user.get("username","admin")),parts[2],cancel=cancelling)

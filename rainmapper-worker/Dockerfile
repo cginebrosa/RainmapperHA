@@ -35,6 +35,7 @@ RUN pip install --no-cache-dir \
 COPY rainmapper_core/__init__.py \
      rainmapper_core/media_layout.py \
      rainmapper_core/mushroom_prediction_map.py \
+     rainmapper_core/mushroom_training_observations.py \
      rainmapper_core/mushroom_map_municipalities.py \
      rainmapper_core/mushroom_map_terrain.py \
      rainmapper_core/mushroom_map_land.py \

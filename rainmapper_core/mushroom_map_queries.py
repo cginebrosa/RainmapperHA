@@ -118,6 +118,13 @@ class QueryBroker:
                 raise QueryError('query_not_found', 404)
             return history.is_request(row['request'])
 
+    def is_observation_check(self, owner, key):
+        with self.lock:
+            row = self.queries.get(key)
+            if not row or row['owner'] != owner:
+                raise QueryError('query_not_found', 404)
+            return bool(row['request'].get('observation_id'))
+
     def status(self, owner, key, cancel=False):
         with self.lock:
             self._prune()

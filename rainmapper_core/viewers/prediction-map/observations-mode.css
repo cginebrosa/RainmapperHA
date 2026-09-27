@@ -11,3 +11,10 @@
 .om-detail [hidden]{display:none!important}.om-photo-thumb{flex:none;display:block;margin:0;padding:3px;border:1px solid #bed2de;border-radius:6px;background:#fff;cursor:zoom-in}.om-photo-thumb img{display:block;width:72px;height:64px;object-fit:cover;border-radius:3px}.om-photo-viewer{min-height:0;overflow:auto;clear:both;display:flex;flex-direction:column;gap:10px}.om-photo-viewer button{align-self:flex-start;padding:7px 10px;border:1px solid #bed2de;border-radius:5px;background:#eef5fa;color:#193b50;cursor:pointer}.om-photo-viewer img{width:100%;height:var(--om-photo-height,320px);object-fit:contain;background:#10202b;border-radius:5px}.om-photo-viewer p:empty{display:none}
 
 .om-detail-footer{flex:none;display:flex;align-items:center;gap:12px;padding-top:8px}.om-detail-footer:empty{display:none}.om-google-maps{color:#096c9e;font-weight:600;text-decoration:underline;text-underline-offset:2px}.om-google-maps:focus-visible{outline:2px solid #096c9e;outline-offset:3px}
+.om-detail-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}.om-check-prediction{font:inherit;color:#096c9e;border:1px solid #96b4c7;border-radius:5px;background:#f4f9fc;padding:6px 8px;cursor:pointer}.om-check-prediction:disabled{opacity:.6;cursor:wait}
+.om-popup .maplibregl-popup-tip{display:block}
+.om-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip,.om-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,.om-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip{border-top:none;border-bottom-color:#fff}
+.om-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,.om-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,.om-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip{border-bottom:none;border-top-color:#fff}
+.om-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip{border-left:none;border-right-color:#fff}
+.om-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip{border-right:none;border-left-color:#fff}
+.om-fields-with-moon .om-field-altitude{grid-column:1;grid-row:2}.om-field-area{grid-row:3}.om-moon-cell{grid-row:1/4}

@@ -661,7 +661,7 @@ def main() -> int:
                     "sha256": _sha256(result_batch / filename),
                 }
             )
-        for key in ("benchmark_report", "holdout_predictions"):
+        for key in ("benchmark_report", "holdout_predictions", "training_observations"):
             reference = manifest.get(key)
             if isinstance(reference, dict):
                 filename = Path(reference["path"]).name

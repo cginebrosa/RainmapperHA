@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.329
+
+- Check a prediction from an observation using its coordinates, species and date, with the full weather and soil-water detail and a return-to-observation button.
+- Record training observation IDs in a compact SQLite index and show whether the selected model used the observation; preserve unknown states for older models.
+- Show saved altitude in observation cards and anchor their speech-bubble pointer to the observation marker.
+- Keep the comparison card concise with species, date, abundance and a colored training-use indicator.
+
 ## 0.2.328
 
 - Fill the available observation-list panel height so more rows remain visible before scrolling.

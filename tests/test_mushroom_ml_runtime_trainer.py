@@ -265,6 +265,7 @@ class MushroomMLRuntimeTrainerTests(TestCase):
                     "predictive_features": {"test_feature": float(index)},
                     "quality": {"training_eligible": True},
                     "metadata": {
+                        "observation_id": f"obs-{index}",
                         "species_id": "boletus_edulis",
                         "area_id": "area-a",
                         "target_date": f"2025-01-{index + 1:02d}",
@@ -291,6 +292,11 @@ class MushroomMLRuntimeTrainerTests(TestCase):
             )
 
             stored = json.loads((destination / "manifest.json").read_text())
+            from rainmapper_core import mushroom_training_observations as trace
+            index_path = models_root / stored['training_observations']['path']
+            self.assertEqual(trainer.sha256(index_path), stored['training_observations']['sha256'])
+            self.assertEqual(trace.lookup(models_root, stored, artifact_ref.key, 'obs-0'), 'used')
+            self.assertEqual(trace.lookup(models_root, stored, artifact_ref.key, 'obs-not-in-training'), 'not_used')
             model_path = models_root / stored["artifacts"][0]["path"]
             self.assertTrue(model_path.is_file())
             self.assertEqual(trainer.sha256(model_path), stored["artifacts"][0]["sha256"])

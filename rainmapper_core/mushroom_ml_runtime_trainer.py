@@ -588,6 +588,8 @@ def write_batch(
     matrix_cache: dict[tuple[str, str], dict[str, Any]] = {}
     matrix_cache_hits = 0
     matrix_cache_bytes = 0
+    from rainmapper_core import mushroom_training_observations as training_observations
+    observation_index = training_observations.Writer(staging / training_observations.FILENAME)
     try:
         for fit_index, fit in enumerate(fits, start=1):
             if not isinstance(fit, Mapping):
@@ -666,6 +668,7 @@ def write_batch(
             joblib.dump(bundle, target)
             duration_seconds = round(time.perf_counter() - fit_started, 6)
             artifact_digest = sha256(target)
+            observation_index.add(artifact_ref.key, prepared_inputs["scope"], prepared_inputs["samples"])
             artifacts.append(
                 {
                     "artifact_ref": artifact_ref.as_dict(),
@@ -727,6 +730,7 @@ def write_batch(
                 "path": Path("batches", batch_id, "tuning-catalog.json").as_posix(),
                 "sha256": sha256(tuning_catalog_path),
             }
+        observation_index_reference = observation_index.finish(batch_id)
         manifest = catalog.validate_batch_manifest(
             checked_registry,
             {
@@ -751,6 +755,7 @@ def write_batch(
                 "failed_fits": failed_fits,
                 "fit_results": fit_results,
                 "tuning_catalog": tuning_catalog_reference,
+                "training_observations": observation_index_reference,
                 },
             )
         (staging / "manifest.json").write_text(
@@ -760,6 +765,7 @@ def write_batch(
         os.replace(staging, destination)
         return destination, manifest
     finally:
+        observation_index.close()
         if staging.exists():
             import shutil
 

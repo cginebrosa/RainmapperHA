@@ -22,6 +22,13 @@ def request(**changes):
 
 
 class PredictionMapContractTests(unittest.TestCase):
+    def test_observation_trace_request_is_bounded(self):
+        value = request(observation_id='obs-a', species_ids=['amanita_caesarea'])
+        self.assertEqual(contract.parse_request(json.dumps(value).encode())['observation_id'], 'obs-a')
+        for changes in ({'observation_id':''}, {'observation_id':'x'*257}, {'observation_id':['x']}, {'species_ids':[]}):
+            with self.assertRaises(ValueError):
+                contract.parse_request(json.dumps({**value, **changes}).encode())
+
     def test_model_error_is_bounded_and_cannot_accompany_predictions(self):
         req = request()
         result = contract.prediction_result(req)
@@ -204,6 +211,18 @@ class PredictionMapRouteTests(unittest.TestCase):
         handler.do_POST()
         self.assertEqual(self.response(handler)[0], 413)
         self.assertEqual(handler.rfile.tell(), 0)
+
+    def test_training_membership_requires_observations_permission(self):
+        user = {'username':'test', contract.PERMISSION: True}
+        payload = request(observation_id='obs-a', species_ids=['demo_a'])
+        handler = self.handler(contract.API_PATH+'/demo', user=user, body=payload)
+        handler.do_POST()
+        self.assertEqual(self.response(handler)[0], 403)
+        from rainmapper_core import mushroom_map_observations
+        user[mushroom_map_observations.PERMISSION] = True
+        handler = self.handler(contract.API_PATH+'/demo', user=user, body=payload)
+        handler.do_POST()
+        self.assertEqual(self.response(handler)[0], 200)
 
     def test_both_routes_compose_the_same_unified_map(self):
         bare = self.handler(contract.VIEWER_PATH)

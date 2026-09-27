@@ -5,6 +5,7 @@ No training, area substitution, artifact publication or learned-model fallback.
 from __future__ import annotations
 
 from rainmapper_core import mushroom_recommendation_policy as recommendations
+from rainmapper_core import mushroom_training_observations as training_observations
 
 from collections import OrderedDict
 from datetime import date, timedelta
@@ -166,8 +167,16 @@ class PointModelRuntime:
         qpath = (self.models_root/qref['path']).resolve()
         if not qpath.is_relative_to(self.models_root):
             raise ValueError('quality_path_outside_root')
+        training_signature = None
+        if isinstance(manifest.get('training_observations'), dict):
+            try:
+                training_path = (self.models_root / manifest['training_observations']['path']).resolve()
+                if training_path.is_relative_to(self.models_root):
+                    training_signature = fingerprint(training_path)
+            except (KeyError, OSError):
+                pass
         signature = (fingerprint(self.registry_path), policy.revision(registry),
-                     str(path), fingerprint(path), fingerprint(qpath))
+                     str(path), fingerprint(path), fingerprint(qpath), training_signature)
         if signature == self.signature:
             return
         checked = catalog.validate_batch_manifest(registry,manifest)
@@ -178,6 +187,19 @@ class PointModelRuntime:
             raise ValueError('quality_snapshot_mismatch')
         self.registry, self.manifest, self.quality = registry, checked, q
         self.catalog_profiles = catalog.catalog_entries(registry)
+        self.training_index_valid = True
+        training_ref = checked.get('training_observations')
+        if training_ref:
+            training_path = (self.models_root / training_ref['path']).resolve()
+            try:
+                if (not training_path.is_relative_to(self.models_root)
+                        or training_path.stat().st_size != training_ref['size_bytes']):
+                    self.training_index_valid = False
+                else:
+                    with training_path.open('rb') as stream:
+                        self.training_index_valid = hashlib.file_digest(stream, 'sha256').hexdigest() == training_ref['sha256']
+            except OSError:
+                self.training_index_valid = False
         self.installed = [v['version_id'] for v in registry['versions'] if versions.installed_generation(registry,v['version_id'])]
         self.resolutions = {}
         for row in q['species_selections']:
@@ -192,11 +214,16 @@ class PointModelRuntime:
         issue = date.fromisoformat(request['start_date']); horizon = request['horizon_days']
         ecology = geography.get('ecology',{})
         self.last_diagnostics = {}
+        observation_id = request.get('observation_id')
+        training_usage_cache = {}
         selected = prediction_candidates(ecology, request.get('species_ids'))
         rows = [{'species_id':s['species_id'],'label_key':s['species_id'],'status':'no_model',
                  'probabilities':[None]*horizon,'reasons':['model_unavailable']*horizon} for s in selected]
         output = {'data_mode':'prediction','species':rows,'provenance':{'engine':'existing_python_predictor',
                   'scientifically_validated':False,'selection_scope':'species','point_validation':'not_established'}}
+        if observation_id:
+            for row in rows:
+                row['training_observation_usage'] = ['no_model'] * horizon
         if not rows:
             return output
         self._refresh()
@@ -307,6 +334,18 @@ class PointModelRuntime:
                     if not reference and active.get('runtime_selection_status') == 'winner':
                         reference = candidate
                 label = model_source_label(reference)
+                if observation_id and reference and probability is not None:
+                    try:
+                        artifact = catalog.artifact_ref_for_model_ref(self.registry, reference)
+                        if artifact.key not in training_usage_cache:
+                            training_usage_cache[artifact.key] = (
+                                training_observations.lookup(self.models_root, self.manifest, artifact.key, observation_id)
+                                if getattr(self, 'training_index_valid', True) and artifact.batch_id == self.manifest['batch_id']
+                                else 'unavailable'
+                            )
+                        row['training_observation_usage'][i] = training_usage_cache[artifact.key]
+                    except ValueError:
+                        row['training_observation_usage'][i] = 'unavailable'
                 if label:
                     try:
                         inputs = input_details.get(catalog.ModelRef.from_mapping(reference).key)

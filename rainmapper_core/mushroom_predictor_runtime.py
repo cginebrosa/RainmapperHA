@@ -269,6 +269,7 @@ def build_manifest(
             for reference_name in (
                 "quality_catalog",
                 "training_input_manifest",
+                "training_observations",
             ):
                 reference = batch.get(reference_name)
                 if not isinstance(reference, dict):

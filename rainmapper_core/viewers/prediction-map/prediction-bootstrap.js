@@ -9,6 +9,8 @@
   let session = "";
   let button = null;
   let mode = null;
+  let modeLoading = null;
+  let predictionCapability = null;
   let observations = null;
   let observationsRevision = 0;
   const mobileScreen = matchMedia('(max-width: 767px), (pointer: coarse) and (max-height: 600px)');
@@ -114,11 +116,26 @@
     observationsRevision++;
     observations?.destroy(); observations = null;
     historicalMap?.destroy(); historicalMap = null;
-    mode?.setEnabled(false);
+    mode?.cancelQuery();mode?.closePopup();mode?.setEnabled(false);
+    mode=null;modeLoading=null;predictionCapability=null;
     button?.remove();
     button = null;
     settings?.remove();
     settings = null;
+  }
+
+  async function ensurePredictionMode(next) {
+    if(!predictionCapability || session!==next)throw Error('forbidden');
+    if(mode)return mode;
+    if(!modeLoading){
+      let style=document.getElementById('prediction-mode-style');
+      if(!style){style=document.createElement('link');style.id='prediction-mode-style';style.rel='stylesheet';style.href=new URL('prediction-mode.css',assetBase);document.head.append(style);}
+      modeLoading=import(new URL('prediction-mode.js',assetBase));
+    }
+    const module=await modeLoading;
+    if(session!==next || !predictionCapability)throw Error('forbidden');
+    if(!mode)mode=module.createPredictionMode({...bridge,dataMode:predictionCapability.data_mode});
+    return mode;
   }
 
   async function installObservations(next, allowed) {
@@ -132,6 +149,12 @@
     const module=await import(new URL('observations-mode.js',assetBase));
     if(session!==next || own!==observationsRevision)return;
     observations=module.createObservationsMode({...bridge,
+      checkPrediction:predictionCapability ? async(observation,onReturn,isCurrent,closeDetail)=>{
+        const predictor=await ensurePredictionMode(next);
+        if(!isCurrent() || session!==next)return;
+        closeDetail();
+        await predictor.checkObservation(observation,onReturn);
+      } : null,
       after:()=>document.getElementById('historical-mode-toggle') || button || document.getElementById('estimated-field-toggle'),
       closePopups:()=>{mode?.closePopup();closeHoverPopup();currentPopup?.remove();},
     });
@@ -242,6 +265,7 @@
       if (session !== next) return;
       if (capability.can_use_prediction_map === true || capability.can_use_historical_map === true) settings = installSettings(capability, devicePayload.settings || {});
       if (capability.can_use_prediction_map === true) {
+      predictionCapability=capability;
       const control = document.createElement("button");
       control.type = "button";
       control.className = "map-control-button pm-mode-toggle";
@@ -257,14 +281,7 @@
         if (loading || button !== control) return;
         loading = true;
         try {
-          if (!mode) {
-            const stylesheet = document.createElement("link");
-            stylesheet.rel = "stylesheet";
-            stylesheet.href = new URL("prediction-mode.css", assetBase);
-            document.head.append(stylesheet);
-            const module = await import(new URL("prediction-mode.js", assetBase));
-            mode = module.createPredictionMode({...bridge, dataMode: capability.data_mode});
-          }
+          await ensurePredictionMode(next);
           if (session !== next || button !== control) return;
           mode.setEnabled(!mode.enabled);
           control.setAttribute("aria-pressed", String(mode.enabled));

@@ -16,6 +16,7 @@ export function createPredictionMode(bridge) {
   let popup = null;
   let result = null;
   let resultRequest = null;
+  let observationCheck = null;
   let dayIndex = 0;
   let remoteQuery = null;
   let elapsedMs = null;
@@ -58,6 +59,7 @@ export function createPredictionMode(bridge) {
     const old = popup;
     popup = null;
     result = null;
+    observationCheck = null;
     old?.remove();
   }
   function cancelQuery() {
@@ -69,9 +71,15 @@ export function createPredictionMode(bridge) {
       bridge.fetch(`${config.apiBase}/queries/${encodeURIComponent(id)}/cancel`, { method: "POST" }).catch(() => {});
     }
     if (dialog.open) dialog.close();
+    observationCheck = null;
+    if (!enabled) dialog.remove();
   }
-  cancel.addEventListener("click", cancelQuery);
-  dialog.addEventListener("cancel", (event) => { event.preventDefault(); cancelQuery(); });
+  function returnToObservation() {
+    const restore=observationCheck?.onReturn;
+    cancelQuery();closePopup();restore?.();
+  }
+  cancel.addEventListener("click", returnToObservation);
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); returnToObservation(); });
 
   const dateText = (day, weekday = "long") => formatCalendarDate(day, bridge.language(), weekday);
 
@@ -314,11 +322,15 @@ export function createPredictionMode(bridge) {
     return data?.contract === config.contract && data.request_id === request.request_id &&
       ["simulation","prediction"].includes(data.data_mode) && data.provenance?.scientifically_validated === false &&
       data.point?.lat === request.point.lat && data.point?.lon === request.point.lon &&
-      Array.isArray(data.dates) && data.dates.length === 7 &&
+      Array.isArray(data.dates) && data.dates.length === request.horizon_days &&
       data.dates.every((day) => typeof day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(day)) &&
+      (request.horizon_days !== 1 || data.dates[0] === request.start_date) &&
       validEcology(data.ecology, data.dates) &&
       Array.isArray(data.species) && data.species.length <= 32 && data.species.every((row) =>
         typeof row.label_key === "string" && ["available", "no_model"].includes(row.status) &&
+        (row.training_observation_usage === undefined || (request.observation_id &&
+          Array.isArray(row.training_observation_usage) && row.training_observation_usage.length === data.dates.length &&
+          row.training_observation_usage.every(state => ['used','not_used','legacy','unavailable','no_model'].includes(state)))) &&
         (row.model_details === undefined || (Array.isArray(row.model_details) &&
           row.model_details.length === row.model_labels?.length && row.model_details.every(detail => detail === null ||
             (detail && Object.keys(detail).sort().join() === "estimator,inputs,window_days" &&
@@ -338,10 +350,12 @@ export function createPredictionMode(bridge) {
         row.probabilities.every((value) => value === null ||
           (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1)));
   }
-  async function query(event) {
-    if (!enabled || bridge.historyBusy?.() || dialog.open || bridge.isStation(event.point) || bridge.wasLongPress()) return;
+  async function query(event, observation = null) {
+    if (!observation && (!enabled || bridge.historyBusy?.() || dialog.open || bridge.isStation(event.point) || bridge.wasLongPress())) return;
     cancelQuery();
     closePopup();
+    observationCheck = observation;
+    if (!dialog.isConnected) document.body.append(dialog);
     const ownRevision = revision;
     const controller = new AbortController();
     pending = controller;
@@ -357,9 +371,10 @@ export function createPredictionMode(bridge) {
     const request = {
       contract: config.contract,
       request_id: globalThis.crypto?.randomUUID?.() || `demo_${Date.now()}_${revision}`,
-      point: { lat: event.lngLat.lat, lon: event.lngLat.lng }, start_date: localDay(),
+      point: { lat: event.lngLat.lat, lon: event.lngLat.lng }, start_date: observation?.date || localDay(),
       calendar_timezone: bridge.calendarTimezone(),
-      horizon_days: 7, history_days: 60, species_ids: [],
+      horizon_days: 7, history_days: 60, species_ids: observation ? [observation.species_id] : [],
+      ...(observation ? {observation_id: observation.id} : {}),
       execution: bridge.execution(),
     };
     const started = performance.now();
@@ -373,7 +388,7 @@ export function createPredictionMode(bridge) {
       if (request.execution === "worker" && response.status === 503) {
         const failure = await response.clone().json().catch(() => null);
         if (["executor_unavailable", "worker_busy"].includes(failure?.error)) {
-          if (!enabled || revision !== ownRevision || controller.signal.aborted) return;
+          if (revision !== ownRevision || controller.signal.aborted) return;
           // A rejected submission has no queued query. Retry once locally;
           // the user's saved executor and the worker protocol stay unchanged.
           request.execution = "local";
@@ -408,7 +423,7 @@ export function createPredictionMode(bridge) {
       if (new TextEncoder().encode(raw).length > 256 * 1024) throw new Error("oversized");
       const data = JSON.parse(raw);
       if (!validResponse(data, request)) throw new Error("invalid_response");
-      if (!enabled || revision !== ownRevision) return;
+      if (revision !== ownRevision) return;
       if (data.model_status === "unavailable") {
         const codes = ["quality_read_limit", "quality_compressed_limit", "quality_digest_mismatch", "no_installed_batch"];
         const error = new Error("model_runtime_failed");
@@ -423,7 +438,7 @@ export function createPredictionMode(bridge) {
       dayIndex = 0;
       showResult(event.lngLat);
     } catch (error) {
-      if (!enabled || revision !== ownRevision) return;
+      if (revision !== ownRevision) return;
       pending = null;
       spinner.hidden = true;
       notice.hidden = true;
@@ -487,6 +502,17 @@ export function createPredictionMode(bridge) {
     exclusions.append(make("summary", text("ecology_exclusions")), entries);
     const render = () => {
       list.replaceChildren();
+      if (observationCheck) {
+        const model = predicted.get(observationCheck.species_id);
+        const state = model?.training_observation_usage?.[dayIndex] ||
+          (Number.isFinite(model?.probabilities?.[dayIndex]) ? 'unavailable' : 'no_model');
+        const usage = container.querySelector('.pm-training-usage');
+        if (usage) {
+          usage.replaceChildren(document.createTextNode(`${text('obs_training_label')}: `),
+            make('strong', text(`obs_training_${state}`), 'pm-training-value'));
+          usage.dataset.state = state;
+        }
+      }
       const probability = row => predicted.get(row.species_id)?.probabilities?.[dayIndex];
       const eligible = ecology.status === "available" && !ecology.abstention_reason
         ? ecology.species.filter(row => row.status === "compatible" &&
@@ -689,7 +715,15 @@ export function createPredictionMode(bridge) {
     if (result.data_mode !== "prediction") {
       header.append(make("strong", modeNotice, "pm-simulation"));
     }
-    header.append(make("h2", text("result")));
+    header.append(make("h2", text(observationCheck ? "obs_check_prediction" : "result")));
+    if(observationCheck){
+      const comparison=make('section',undefined,'pm-observation-comparison');
+      comparison.append(make('strong',observationCheck.species),
+        make('p',`${dateText(observationCheck.date)} · ${text('obs_abundance')}: ${observationCheck.abundance}`),
+        make('p',undefined,'pm-training-usage'));
+      const back=make('button',text('obs_check_back'),'pm-observation-back');back.type='button';
+      back.onclick=returnToObservation;comparison.append(back);body.append(comparison);
+    }
     const heading = make("div", undefined, "pm-place-heading");
     const place = make("div", undefined, "pm-place-name");
     const location = result.location;
@@ -969,7 +1003,7 @@ export function createPredictionMode(bridge) {
     body.append(weatherDetail, hydrologyDetail, terrainDetail);
     popup = bridge.openPopup(lngLat, container);
     const ownPopup = popup;
-    ownPopup.on("close", () => { if (popup === ownPopup) { popup = null; result = null; } });
+    ownPopup.on("close", () => { if (popup === ownPopup) { popup = null; result = null; observationCheck = null; } });
   }
 
   function refreshLanguage() {
@@ -994,5 +1028,8 @@ export function createPredictionMode(bridge) {
       cancelQuery(); closePopup(); banner.remove(); dialog.remove();
     }
   }
-  return { get enabled() { return enabled; }, setEnabled, refreshLanguage, cancelQuery, closePopup };
+  return { get enabled() { return enabled; }, setEnabled, refreshLanguage, cancelQuery, closePopup,
+    checkObservation(observation,onReturn){
+      return query({lngLat:{lat:observation.coordinates[1],lng:observation.coordinates[0]}},{...observation,onReturn});
+    } };
 }

@@ -92,6 +92,15 @@ class ProjectionTests(unittest.TestCase):
                 applicability.update(status='caution',outside_feature_count=33,checked_feature_count=460)
                 base_request = {'start_date':'2026-09-15','horizon_days':7,
                                 'point':{'lat':42,'lon':2},'species_ids':['test']}
+                with patch(module+'catalog.artifact_ref_for_model_ref', return_value=SimpleNamespace(key='exact-artifact', batch_id='test')), \
+                     patch(module+'training_observations.lookup', return_value='used') as membership:
+                    traced = r.predict({**base_request, 'observation_id':'obs-used'}, geography)
+                    self.assertEqual(traced['species'][0]['training_observation_usage'], ['used']*7)
+                    membership.assert_called_once_with(r.models_root, r.manifest, 'exact-artifact', 'obs-used')
+                    membership.reset_mock()
+                    plain_trace = r.predict(base_request, geography)
+                    self.assertNotIn('training_observation_usage', plain_trace['species'][0])
+                    membership.assert_not_called()
                 plain = r.predict(base_request, geography)
                 self.assertNotIn('applicability_page', plain)
                 for offset, count in ((0,32),(32,1)):

@@ -1,4 +1,4 @@
-# Contexto activo — HA 0.2.328 publicada; instalación pendiente (27/09/2026)
+# Contexto activo — HA 0.2.329 publicada; instalación pendiente (27/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este documento basta para
 retomar; [todo.md](todo.md) amplía prioridades. No reconstruir sesiones leyendo
@@ -6,6 +6,31 @@ informes históricos. Los antecedentes completos se conservaron en el
 [archivo del repaso del 27/09](reports/session-context-before-refresh-2026-09-27.md).
 
 ## Estado y siguiente paso
+
+- **HA 0.2.329 publicada, instalación pendiente:** Comprobar predicción desde la
+  ficha de observación, debajo de Cómo llegar. Abre la ficha completa del mapa
+  para las coordenadas/especie/fecha registradas: siete días, IFF/modelo,
+  meteorología, SMI y terreno; añade abundancia observada y vuelta a la ficha.
+  Conserva fecha global del mapa. Añade trazabilidad del ID por modelo/día mediante
+  SQLite generado al ajustar los modelos V2–V6; modelos anteriores se identifican
+  como sin trazabilidad. Bocadillo con punta en todos los anclajes y altitud guardada
+  entre Fecha y Área. Worker reconstruido y dos ajustes sintéticos comprobados,
+  con ambos coordinadores conservados. El entrenamiento local del usuario terminó:
+  lote `operational_20260927T184246Z`, 792/792 ajustes, cero fallos, verificado y
+  cinco versiones instaladas. Índice SQLite de 573.440 bytes, 792 modelos y
+  226 conjuntos completos; tamaño, SHA y `quick_check` correctos.
+  101 pruebas dirigidas de trazabilidad/transporte, navegador y consulta HTTP local
+  correctos; adición de altitud comprobada con 37 pruebas y navegador.
+  Smoke de release: 1.838 pruebas / 52 omitidas, OK. HA local reconstruida/recreada
+  con etiqueta 0.2.329, HTTP 200 y paridad SHA de 19 archivos; nueve archivos del
+  worker coinciden, sin reconstruirlo de nuevo ni cambiar coordinadores.
+  Ficha simplificada posteriormente por petición del usuario: especie, fecha,
+  abundancia y SÍ verde / NO rojo; sin párrafos de explicación. Por acuerdo final
+  del usuario se mantiene el entrenamiento actual: evaluación previa y ajuste final
+  con todas las filas elegibles. No se implementó interruptor ni reparto nuevo.
+  Tags/digest/plataformas GHCR verificados y publicación autorizada por el usuario.
+  [Release](reports/release-ha-0.2.329-2026-09-27.md).
+  [Evidencia](reports/observation-prediction-check-local-2026-09-27.md).
 
 - **HA 0.2.328 publicada**, validada en local y autorizada por el usuario para
   probar en móvil. Tabla de observaciones aprovecha el panel y ficha del mapa
@@ -27,7 +52,8 @@ informes históricos. Los antecedentes completos se conservaron en el
   usuario y revalidada en
   `/Volumes/share/rainmapper/diagnostics/runtime_state.json` durante este repaso:
   `app_version=0.2.325`, arranque `2026-09-26T20:11:03.600Z`.
-- **Worker 1.1.6 reconstruido y arrancado el 27/09 por petición del usuario**,
+- **Comprobación anterior del worker 1.1.6, previa a la trazabilidad**, reconstruido
+  y arrancado el 27/09 por petición del usuario,
   sin nueva release HA. Imagen efectiva
   `sha256:79440107723a685b3e8eb32b2161a2ec0f9224f02cc7a09339101a4553eaa747`.
   122 archivos Python en paridad; 25 pruebas dirigidas correctas dentro de la

@@ -541,6 +541,11 @@ def validate_batch_manifest(
         "artifacts": checked_artifacts,
     }
     input_revisions = payload.get("input_revisions")
+    if payload.get("training_observations") is not None:
+        from rainmapper_core import mushroom_training_observations
+        result["training_observations"] = mushroom_training_observations.validate_reference(
+            payload["training_observations"], batch_id
+        )
     if input_revisions is not None:
         from rainmapper_core import mushroom_ml_version_registry  # noqa: PLC0415
 

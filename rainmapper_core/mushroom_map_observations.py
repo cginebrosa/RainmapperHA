@@ -185,7 +185,11 @@ def snapshot():
             counts[sid] = counts.get(sid, 0) + 1
             fields, gis = _reviewed_fields(row)
             micro, area = micros.get(row.get('micro_area_id'), ('', ''))
+            altitude = row.get('altitude')
+            meters = altitude.get('meters') if isinstance(altitude, dict) else None
+            meters = meters if type(meters) in (int, float) and math.isfinite(meters) else None
             record = {'id': oid, 'species_id': sid, 'date': _string(row.get('observed_at'), 32),
+                      'altitude_m': meters,
                       'coordinates': _coordinates(row), 'uncertainty': _uncertainty(row), 'area': area, 'microarea': micro,
                       'abundance': _string(row.get('flush_abundance'), 128),
                       **fields, 'gis': gis,
@@ -244,6 +248,8 @@ def response(action, params):
             moon = None  # A missing/invalid date must not hide the other fields.
         return {'revision': data['revision'], 'observation': {
             **{k: row[k] for k in ('id', 'date', 'area', 'microarea', 'observer', 'coordinates', 'uncertainty')},
+            'species_id': row['species_id'],
+            'altitude_m': row['altitude_m'],
             'species': data['names'].get(row['species_id'], row['species_id']),
             'abundance': label('observation_flush_abundance', row['abundance']),
             'gis': row['gis'],

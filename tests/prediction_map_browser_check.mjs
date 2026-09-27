@@ -149,7 +149,7 @@ const server = createServer(async (req, res) => {
       if(name==='species')return send({revision,abundance_favorable:observationFavorableFlags,species:[{id:'obs-sp',name:'Observed species',count:4,mapped_count:4,favorable_count:['normal','absent','unknown','scarce'].filter(key=>observationFavorableFlags[key]===1).length}]});
       if(name==='points')return send({revision,points:[['obs-a',1.9,42,'2020-01-01','normal'],['obs-b',1.9,42,'2030-01-01','absent'],['obs-c',1.9,42,'2030-01-01','unknown'],['obs-d',1.94,42,'2021-02-03','scarce']],next_offset:null});
       if(name==='photo')return send(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAKAAAAB4CAIAAAD6wG44AAACRElEQVR4nO3dsU1DMRRGYSdKg0TnGRiLliEyAEMwER0FJQUT0CHR0lJQRc++v4/P6SOR+3GtQF5eTm+f7824nat/ABubwPAEhicwPIHhCQxPYHgCwxMYnsDwBIYnMDyB4QkM79KIfT0/3fbAfn1prE5Lvx98M+Q+8OsBT0NlYK8BXI66LnY0cKzrQtKJwAu55ksHAS/tGisdAQyjjWIuBgbThjCXAW9CW85c86/KDXVb0bOevcF70hau8tQNVnf+HOYBq1syjRlHtLSFx/XwDVa3dj5jgdUtn9JAYHUTZuUlO/BGAbu+IRMbAqxuztw8ouEdD+z6Rk3PDYZ3MLDrmzZDNxjekcCub+Ak3WB4AsMTGJ7A8ASGJzA8geEJDO9M+hwOpn7cJN1geAcDu8RpM3SD4R0P7BJHTc8NhjcE2CXOmduoDdY4ZGIe0fAGArvECbMau8Eal09p+BGtce185t2jw0vySn71573IcpVLpjH1VbTG8+dQcyO0bY/rPv0d1Zq/g/dc5V7xrL1X5Yx2vFflJid2rz6rIoCRzL2aNg6YId0zXKOBV5TuYa5rAOdL91TXxYCjsHs86trAf/Obz+DA//Zwf/d6fdxhO/cFvu2BH98/DZeX7MATGJ7A8ASGJzA8geEJDE9geALDExiewPAEhicwPIHhCQxPYHgCwxMYnsDwBIYnMDyB4QkMT2B4AsMTGJ7A8ASGJzC8S8OF/JDgzbnB8ASGJzA8geEJDE9geALDExiewPAEhicwPIHhCdzY/QJklcm7NER4tQAAAABJRU5ErkJggg==','base64'),'image/png');
-      if(name==='detail')return send({revision,observation:{id:url.searchParams.get('id'),species:'Observed species',date:'2030-01-01',area:'Test area',microarea:'Test microarea',abundance:'Abundante',hosts:['Pinus','Quercus'],forest:['Pinar'],gis:{hosts:[1],forest:[0]},has_photo:url.searchParams.get('id')==='obs-b',moon:observationMoon,coordinates:[1.9,42],uncertainty:{meters:500,origin:'assumed_unknown_500m'},observer:'<script>Not HTML</script>'}});
+      if(name==='detail')return send({revision,observation:{id:url.searchParams.get('id'),species:'Observed species',species_id:'lactarius_deliciosus',date:url.searchParams.get('id')==='obs-a'?'2020-01-01':'2030-01-01',area:'Test area',microarea:'Test microarea',abundance:'Abundante',hosts:['Pinus','Quercus'],forest:['Pinar'],gis:{hosts:[1],forest:[0]},has_photo:url.searchParams.get('id')==='obs-b',moon:observationMoon,coordinates:[1.9,42],altitude_m:734,uncertainty:{meters:500,origin:'assumed_unknown_500m'},observer:'<script>Not HTML</script>'}});
     }
     if (name === "demo" || name === "queries") {
       calls++;
@@ -251,6 +251,16 @@ const server = createServer(async (req, res) => {
         response.ecology.mapped_context={soil_tendencies:[
           {id:'calcareous',label:{es:'Calizo',ca:'Calcari',en:'Calcareous'}},
           {id:'sandy',label:{es:'Arenoso',ca:'Sorrenc',en:'Sandy'}}]};
+      }
+      if (!preview && query.start_date==='2020-01-01' && query.species_ids?.[0]==='lactarius_deliciosus') {
+        response.dates=Array.from({length:7},(_,i)=>new Date(Date.parse(query.start_date+'T00:00:00Z')+i*86400000).toISOString().slice(0,10));
+        response.data_mode='prediction';
+        response.ecology={status:'available',abstention_reason:null,dates:response.dates,species:[{
+          species_id:'lactarius_deliciosus',name:'Observed species',scientific_name:'Lactarius deliciosus',
+          status:'compatible',daily_statuses:Array(7).fill('compatible'),daily_season_phases:Array(7).fill('main'),reasons:[]}]};
+        response.species=[{species_id:'lactarius_deliciosus',label_key:'lactarius_deliciosus',status:'available',
+          probabilities:[.37,.38,.39,.4,.41,.42,.43],models:Array(7).fill(0),model_labels:['LR-V3'],
+          training_observation_usage:['used','not_used','legacy','unavailable','used','used','used']}];
       }
       response.execution = {mode:lastExecution,compute_ms:performance.now()-started};
       response.calendar_timezone = query.calendar_timezone;
@@ -1299,6 +1309,54 @@ try {
   assert.equal(calls,beforeObservationClick,'Observation click must not query a prediction');
   assert.equal(await evaluate('historicalMap.date'),'2026-09-12');
   await evaluate("document.getElementById('prediction-mode-toggle').click()");
+  // An observation check works without enabling prediction clicks on the map.
+  await evaluate("document.querySelector('.om-spider[data-observation-id=obs-a]').click()");
+  await until("document.querySelector('.om-field-id dd')?.textContent==='obs-a'");
+  assert.equal(await evaluate("document.querySelector('.om-check-prediction').textContent"),'Comprobar predicción');
+  assert.equal(await evaluate("document.querySelector('.om-field-altitude dd').textContent"),'734 m');
+  assert.ok(await evaluate("document.querySelector('.om-field-altitude').getBoundingClientRect().top>document.querySelector('.om-field-date').getBoundingClientRect().top && document.querySelector('.om-field-altitude').getBoundingClientRect().top<document.querySelector('.om-field-area').getBoundingClientRect().top"));
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.om-popup .maplibregl-popup-tip')).display"),'block');
+  assert.ok(await evaluate("['Top','Bottom','Left','Right'].some(side=>getComputedStyle(document.querySelector('.om-popup .maplibregl-popup-tip'))['border'+side+'Color']==='rgb(255, 255, 255)')"));
+  assert.ok(await evaluate("document.querySelector('.om-check-prediction').getBoundingClientRect().top>=document.querySelector('.om-google-maps').getBoundingClientRect().bottom"));
+  const checkCalls=calls, checkHistory=historyCalls.length;
+  await evaluate("document.querySelector('.om-check-prediction').click()");
+  await until("!!document.querySelector('.pm-observation-comparison')");
+  assert.equal(calls,checkCalls+1);
+  assert.equal(lastStartDate,'2020-01-01');
+  assert.deepEqual(executionRequests.at(-1).point,{lat:42,lon:1.9});
+  assert.deepEqual(executionRequests.at(-1).species_ids,['lactarius_deliciosus']);
+  assert.equal(executionRequests.at(-1).horizon_days,7);
+  assert.equal(executionRequests.at(-1).observation_id,'obs-a');
+  assert.equal(await evaluate("document.querySelector('.pm-training-usage').dataset.state"),'used');
+  for (const [day,state] of [[1,'not_used'],[2,'legacy'],[3,'unavailable'],[0,'used']]) {
+    await evaluate(`{const select=document.querySelector('.pm-popup select');select.value='${day}';select.dispatchEvent(new Event('change'));}`);
+    assert.equal(await evaluate("document.querySelector('.pm-training-usage').dataset.state"),state);
+  }
+  assert.equal(historyCalls.length,checkHistory,'No station historical map is loaded for a point check');
+  assert.equal(await evaluate('historicalMap.date'),'2026-09-12');
+  assert.equal(await evaluate("document.getElementById('prediction-mode-toggle').getAttribute('aria-pressed')"),'false');
+  assert.ok(await evaluate("document.querySelector('.pm-observation-comparison').textContent.includes('Abundante') && document.querySelector('.pm-observation-comparison').textContent.includes('Usada para entrenar: SÍ')"));
+  assert.ok(await evaluate("document.querySelector('.pm-species').textContent.includes('37/100') && document.querySelector('.pm-species').textContent.includes('LR-V3')"));
+  assert.equal(await evaluate("document.querySelectorAll('.pm-result-header select option').length"),7);
+  assert.ok(await evaluate("!!document.querySelector('.pm-weather') && !!document.querySelector('.pm-hydrology')"),'Observation checks retain observed weather and SMI');
+  await fs.writeFile(path.join(profile,'observation-prediction-check.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  await evaluate("document.querySelector('.pm-observation-back').click()");
+  await until("document.querySelector('.om-field-id dd')?.textContent==='obs-a'");
+  delay=2500;
+  await evaluate("document.querySelector('.om-check-prediction').click()");
+  await until("!!document.querySelector('.pm-wait[open]')");
+  await evaluate("document.querySelector('.pm-wait button').click()");
+  await until("document.querySelector('.om-field-id dd')?.textContent==='obs-a'");
+  await pause(2600);delay=0;
+  assert.equal(await evaluate("document.querySelectorAll('.pm-result').length"),0,'Cancelled check cannot reopen a result');
+  failure=true;
+  await evaluate("document.querySelector('.om-check-prediction').click()");
+  await until("!!document.querySelector('.pm-wait[open] .pm-error-detail:not([hidden])')");
+  await evaluate("document.querySelector('.pm-wait button').click()");
+  await until("document.querySelector('.om-field-id dd')?.textContent==='obs-a'");
+  failure=false;
+
+
   await evaluate("document.querySelector('.om-popup .maplibregl-popup-close-button').click();map.fire('click',{point:map.project([1.95,42])});void 0");
   await until("document.querySelectorAll('.om-spider').length===0");
   await evaluate("document.getElementById('observations-mode-toggle').click()");
@@ -1405,6 +1463,11 @@ try {
   await until("!!document.getElementById('observations-mode-toggle')");
   await evaluate("document.getElementById('observations-mode-toggle').click()");
   await until("document.querySelectorAll('#observations-species option').length===2");
+  await evaluate("map.jumpTo({center:[1.9,42],zoom:11});document.getElementById('observations-species').value='obs-sp';document.getElementById('observations-species').dispatchEvent(new Event('change'))");
+  await until("!!document.querySelector('.om-cluster')");
+  await evaluate("document.querySelector('.om-cluster').click();document.querySelector('.om-spider[data-observation-id=obs-a]').click()");
+  await until("!!document.querySelector('.om-field-id')");
+  assert.equal(await evaluate("document.querySelectorAll('.om-check-prediction').length"),0,'Observation access does not grant prediction access');
   observationsAllowed=false;
   await evaluate('validateStoredSession()');
   await until("!document.getElementById('observations-mode-toggle')");
