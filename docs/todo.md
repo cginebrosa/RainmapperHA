@@ -1,8 +1,35 @@
-# TODO — revisión 27/09/2026
+# TODO — revisión 28/09/2026
 
 Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-context.md).
 Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
 [archivo del cierre](reports/session-context-before-close-2026-09-22.md).
+
+## Geografía preparada y expansión territorial
+
+- [ ] Medir disco y latencia por capa de `mushroom-map-GIS`: separar originales,
+  duplicados, índices y rasters efectivamente consultados. El tamaño en disco no
+  equivale al volumen leído por punto.
+- [ ] Extender el patrón MVC50 preparado a España/Francia cuando corresponda:
+  atributos mínimos, índices espaciales, deduplicación por contenido y paquetes
+  incrementales. Para DEM, evaluar teselas/compresión/resolución conservando la
+  precisión necesaria de altitud y pendiente. Sin borrar originales antes de
+  auditar consumidores y demostrar equivalencia.
+- [x] Unificar recuperación de microáreas y reconstrucción con las fuentes
+  preparadas del mapa. Prioridad por punto antes de agregar muestras del polígono;
+  dataset científico de referencias a archivos existentes, caché compartida.
+  Validación dirigida en ambas imágenes y ciclo operativo local completado y
+  auditado: 517 reconstrucciones, 792 ajustes y precálculo activo.
+- [ ] Antes de retirar originales, adaptar/auditar el inventario de valores GIS
+  para mantenimiento de mapeos; la migración operativa no autoriza borrarlos.
+
+## Release HA 0.2.330
+
+- [x] Coherencia territorial y comprobación de todas las especies; ciclo local
+  aceptado, imagen publicada y tags/plataformas verificados.
+  [Evidencia](reports/release-ha-0.2.330-preparation-2026-09-28.md).
+- [ ] Usuario instala 0.2.330 en HA real.
+- [ ] Registrar/activar allí el MVC50 ya copiado y preparar metadatos científicos
+  en reposo, sin volver a transportar los assets. No borrar originales.
 
 ## Release HA 0.2.329
 

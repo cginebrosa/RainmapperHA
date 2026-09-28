@@ -14,6 +14,7 @@ import math
 import os
 import subprocess
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -61,7 +62,8 @@ def gis_root(configured_root: Path | None = None) -> Path:
     configured = os.environ.get("RAINMAPPER_MUSHROOM_GIS_ROOT", "").strip()
     if configured:
         return Path(configured)
-    for shared in (Path('/media/rainmapper/geography/mushroom-GIS'),
+    for shared in (Path('/media/rainmapper/geography'),
+                   Path('/media/rainmapper/geography/mushroom-GIS'),
                    Path('/media/rainmapper/geography/datasets/mushroom_gis_v0/current')):
         if (shared / 'geography-dataset.json').is_file():
             return shared
@@ -74,9 +76,15 @@ def gis_root(configured_root: Path | None = None) -> Path:
     return repo_root() / "mushroom-GIS"
 
 
+def legacy_gis_root(configured_root: Path | None = None) -> Path:
+    root = gis_root(configured_root)
+    # The prepared scientific dataset shares the publication's ordinary files.
+    return root/'mushroom-GIS' if (root/'territorial-context.json').is_file() else root
+
+
 def dem_path(gis_root_path: Path | None = None) -> Path:
     return (
-        gis_root(gis_root_path)
+        legacy_gis_root(gis_root_path)
         / "model-elevacions-terreny-topografic-catalunya-5m-2009-2018"
         / "extracted"
         / "model-elevacions-terreny-topografic-catalunya-5m-2009-2018.tif"
@@ -85,7 +93,7 @@ def dem_path(gis_root_path: Path | None = None) -> Path:
 
 def andorra_dem_path(gis_root_path: Path | None = None) -> Path:
     return (
-        gis_root(gis_root_path)
+        legacy_gis_root(gis_root_path)
         / "dem-andorra"
         / "extracted"
         / "rainmapper-dem-andorra-5m-elevation-m-epsg27563.tif"
@@ -94,7 +102,7 @@ def andorra_dem_path(gis_root_path: Path | None = None) -> Path:
 
 def ign_mtn50_592_dem_path(gis_root_path: Path | None = None) -> Path:
     return (
-        gis_root(gis_root_path)
+        legacy_gis_root(gis_root_path)
         / "dem-ign-mtn50-592"
         / "extracted"
         / "PNOA_MDT25_ETRS89_HU30_0592_LID.tif"
@@ -103,7 +111,7 @@ def ign_mtn50_592_dem_path(gis_root_path: Path | None = None) -> Path:
 
 def france_rge_alti_dem_path(gis_root_path: Path | None = None) -> Path:
     return (
-        gis_root(gis_root_path)
+        legacy_gis_root(gis_root_path)
         / "dem-france-rge-alti-5m"
         / "extracted"
         / "rainmapper-dem-france-rge-alti-5m.tif"
@@ -111,7 +119,7 @@ def france_rge_alti_dem_path(gis_root_path: Path | None = None) -> Path:
 
 
 def vector_layers(gis_root_path: Path | None = None) -> tuple[VectorLayer, ...]:
-    root = gis_root(gis_root_path)
+    root = legacy_gis_root(gis_root_path)
     return (
         VectorLayer(
             source_id="mvc50",
@@ -798,6 +806,13 @@ def build_gis_context_v0(reconstruction: dict[str, Any]) -> dict[str, Any]:
         for source_field, target_field in GIS_V0_OUTPUT_FIELDS.items():
             append_unique(context[target_field], mapped.get(source_field))
 
+    from .mushroom_territorial_context import resolve_context, layer_candidates
+    resolution = resolve_context(layer_candidates(layers))
+    if isinstance(reconstruction.get('territorial_resolution'), dict):
+        resolution = reconstruction['territorial_resolution']
+    context.update({key: resolution['values'][key] for key in GIS_V0_OUTPUT_FIELDS.values()})
+    evidence['territorial_resolution'] = resolution
+
     dem = layers.get("dem_5m")
     if isinstance(dem, dict) and dem.get("status") == "ok":
         try:
@@ -1099,6 +1114,31 @@ def derive_site_gis_dem(
     raw_distributions: dict[str, dict[str, int]] = {}
     mapped_ids: dict[str, set[str]] = {field: set() for field in GIS_V0_OUTPUT_FIELDS.values()}
     suggested_ids: dict[str, set[str]] = {field: set() for field in GIS_V0_OUTPUT_FIELDS.values()}
+    from .mushroom_gis_recovery import territorial_session
+    with territorial_session(gis_payload, catalogs_payload) as session:
+        if session is not None:
+            conflicts, source_sets = [], {field: set() for field in mapped_ids}
+            selected = samples[::max(1, len(samples)//9)]
+            for lon, lat, _row, _column in selected:
+                resolved = session.lookup(lat, lon)
+                resolution = resolved['resolution']
+                for field in mapped_ids:
+                    mapped_ids[field].update(resolution['values'][field])
+                    source_sets[field].update(resolution['sources'][field])
+                for conflict in resolution['conflicts']:
+                    if conflict not in conflicts: conflicts.append(conflict)
+                for source, layer in resolved['land_context'].items():
+                    label = str(layer.get('properties', {}).get('LLVA_niv2t') or layer.get('code') or layer.get('status'))
+                    distribution = raw_distributions.setdefault(source, {})
+                    distribution[label] = distribution.get(label, 0) + 1
+            values = {key: sorted(value) for key, value in mapped_ids.items()}
+            from .mushroom_territorial_context import POLICY
+            report['gis'] = {**values, 'accepted_exact_ids': values,
+                             'review_suggested_ids': {key: [] for key in mapped_ids},
+                             'raw_distributions': raw_distributions, 'sample_count': len(selected),
+                             'territorial_policy': POLICY, 'conflicts': conflicts,
+                             'sources': {key: sorted(value) for key, value in source_sets.items()}}
+            return report
     for lon, lat, _row, _column in samples[:: max(1, len(samples) // 9)]:
         try:
             x, y = transform_wgs84_to_utm31(lon, lat)
@@ -1153,8 +1193,15 @@ def reconstruct_observation(
     gis_payload: dict[str, Any] | None = None,
     catalogs_payload: dict[str, Any] | None = None,
     gis_root_path: Path | None = None,
+    _territorial_session=None,
 ) -> dict[str, Any]:
     from .mushroom_gis_recovery import reviewed_context
+    from .mushroom_territorial_reader import dataset_config, TerritorialSession
+    if _territorial_session is None:
+        config = dataset_config(gis_root(gis_root_path))
+        if config is not None:
+            with TerritorialSession(config, gis_payload, catalogs_payload) as session:
+                return reconstruct_observation(row, gis_payload, catalogs_payload, gis_root_path, session)
     observation_id = str(row.get("observation_id", "") or "")
     location = observation_location(row)
     base: dict[str, Any] = {
@@ -1178,6 +1225,23 @@ def reconstruct_observation(
         "source": "mushroom_observations",
     }
     base["location_redacted"] = False
+    if _territorial_session is not None:
+        result = _territorial_session.lookup(lat, lon)
+        base['territorial_resolution'] = result['resolution']
+        for key, value in result['land_context'].items():
+            source = 'mfe25' if key == 'trees' else value.get('source_id', key)
+            properties = value.get('properties', {})
+            if value.get('field'):
+                properties = {value['field']: value.get('code'), 'Descripcio': value.get('label', '')}
+            layer = {'status': 'ok' if value.get('status') == 'available' else value.get('status', 'unavailable'),
+                     'properties': properties, 'source_id': source, 'edition': value.get('edition')}
+            layer['mapped'] = apply_exact_layer_mappings(source, layer, gis_payload, catalogs_payload)
+            base['layers'][source] = layer
+        base['layers']['dem_5m'] = sample_dem(lon, lat, row.get('altitude'), gis_root_path)
+        base['gaps'] = [key for key, value in base['layers'].items() if value.get('status') != 'ok']
+        base['status'] = 'complete_with_gaps' if base['gaps'] else 'complete'
+        base['gis_context_v0'] = reviewed_context(build_gis_context_v0(base), row)
+        return base
     try:
         x, y = transform_wgs84_to_utm31(lon, lat)
     except Exception as exc:
@@ -1224,17 +1288,21 @@ def reconstruct_observations(
     rows = [row for row in observations if str(row.get("observation_id", "")) in selected_set]
     results = []
     total = len(rows)
-    for index, row in enumerate(rows, start=1):
-        results.append(
-            reconstruct_observation(
-                row,
-                gis_payload=gis_payload,
-                catalogs_payload=catalogs_payload,
-                gis_root_path=gis_root_path,
+    from .mushroom_territorial_reader import dataset_config, TerritorialSession
+    config = dataset_config(gis_root(gis_root_path))
+    with (TerritorialSession(config, gis_payload, catalogs_payload) if config else nullcontext()) as session:
+        for index, row in enumerate(rows, start=1):
+            results.append(
+                reconstruct_observation(
+                    row,
+                    gis_payload=gis_payload,
+                    catalogs_payload=catalogs_payload,
+                    gis_root_path=gis_root_path,
+                    **({'_territorial_session': session} if session is not None else {}),
+                )
             )
-        )
-        if progress_callback:
-            progress_callback(index, total)
+            if progress_callback:
+                progress_callback(index, total)
     unmapped_candidates = collect_unmapped_candidates(results)
     written_qgis_points_path = write_qgis_points(rows, qgis_points_path)
     payload: dict[str, Any] = {

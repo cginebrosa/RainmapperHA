@@ -40,6 +40,66 @@ class PortableGeographyTest(unittest.TestCase):
         self.addCleanup(pub.close)
         return pub
 
+    def test_extend_map_preserves_old_assets_and_scientific_dataset(self):
+        original_dataset = (self.root/'mushroom-GIS/geography-dataset.json').read_bytes()
+        path = self.root/'map/mvc.sqlite'; path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'index')
+        asset = {'path': 'map/mvc.sqlite', 'bytes': 5, 'mtime_ns': path.stat().st_mtime_ns,
+                 'sha256': hashlib.sha256(b'index').hexdigest()}
+        old = self.publication().reference()
+        report = portable.add_map_asset(self.root, asset, 'mvc50_index', 'with-mvc')
+        self.assertEqual(report['hashed_asset_bytes'], 0)
+        self.assertNotEqual(old['fingerprint'], report['fingerprint'])
+        pub = self.publication(); snapshot = pub.lookup(pub.reference()['fingerprint'])
+        config = geo.config_for_geography({}, snapshot['root'], snapshot['manifest'], snapshot['identities'])
+        self.assertEqual(config['mvc50_index'], str(path))
+        self.assertEqual(config['terrain_index'], str(self.file))
+        self.assertEqual((self.root/'mushroom-GIS/geography-dataset.json').read_bytes(), original_dataset)
+        with self.assertRaises(ValueError): portable.add_map_asset(self.root, asset, 'mvc50_index', 'duplicate')
+
+    def test_territorial_rebuild_reuses_map_assets_and_only_transfers_small_config(self):
+        from rainmapper_core.mushroom_territorial_reader import CONFIG_FILE
+        from rainmapper_core.mushroom_rebuild_snapshot import gis_file_records
+        path = self.root/'mvc.sqlite'
+        path.write_bytes(b'prepared mvc')
+        asset = {'path': 'mvc.sqlite', 'bytes': path.stat().st_size,
+                 'mtime_ns': path.stat().st_mtime_ns, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+        portable.add_map_asset(self.root, asset, 'mvc50_index', 'mvc')
+        with patch('rainmapper_core.mushroom_rebuild_snapshot.sha256_file', side_effect=AssertionError('large GIS hash')):
+            plan = portable.territorial_dataset_plan(self.root)
+            self.assertFalse((self.root/CONFIG_FILE).exists())
+            self.assertEqual(plan['copied_asset_bytes'], 0)
+            self.assertLess(plan['configuration_bytes'], 8192)
+            portable.activate_territorial_dataset(self.root, plan)
+            self.assertEqual(gis_file_records(self.root), plan['dataset']['files'])
+        pub = self.publication()
+        snapshot = pub.lookup(pub.reference()['fingerprint'])
+        def post(action, reference, **kwargs):
+            if action == 'geography_manifest': return io.BytesIO(geo.encode(snapshot['manifest']))
+            actual, count = pub.object(reference['fingerprint'], kwargs['file'], kwargs['offset'])
+            return io.BytesIO(actual.read_bytes()[kwargs['offset']:kwargs['offset']+count])
+        worker = self.root.parent/'territorial-worker'
+        cache = geo.GeographyCache(worker, 'coordinator_1234567890abcdef', post)
+        self.addCleanup(cache.close)
+        cache.prepare(pub.reference())
+        downloads = []
+        def fetch(row, destination):
+            downloads.append(row['path'])
+            self.assertEqual(row['path'], CONFIG_FILE, 'GIS already cached must not be downloaded')
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(self.root/row['path'], destination)
+            return row['size_bytes'], row['sha256']
+        report = datasets.sync_from_fetcher({'datasets': [plan['dataset']]}, worker, fetch_file=fetch)
+        self.assertEqual(downloads, [CONFIG_FILE])
+        self.assertEqual(report['transferred_size_bytes'], plan['configuration_bytes'])
+        cached = Path(datasets.resolve_current(worker)['path'])
+        identities = SourceIdentities(cached/IDENTITIES_FILE)
+        self.assertEqual(identities.stamp(cached/'mvc.sqlite'), [asset['bytes'], asset['mtime_ns']])
+        downloads.clear()
+        report = datasets.sync_from_fetcher({'datasets': [plan['dataset']]}, worker, fetch_file=fetch)
+        self.assertEqual(downloads, [])
+        self.assertEqual(report['transferred_size_bytes'], 0)
+
     def test_copy_to_different_disk_identity_is_read_only_from_first_open(self):
         copied = self.root.parent/'other-mount'
         shutil.copytree(self.root, copied, copy_function=shutil.copy2)

@@ -373,7 +373,7 @@ export function createPredictionMode(bridge) {
       request_id: globalThis.crypto?.randomUUID?.() || `demo_${Date.now()}_${revision}`,
       point: { lat: event.lngLat.lat, lon: event.lngLat.lng }, start_date: observation?.date || localDay(),
       calendar_timezone: bridge.calendarTimezone(),
-      horizon_days: 7, history_days: 60, species_ids: observation ? [observation.species_id] : [],
+      horizon_days: 7, history_days: 60, species_ids: [],
       ...(observation ? {observation_id: observation.id} : {}),
       execution: bridge.execution(),
     };
@@ -533,6 +533,7 @@ export function createPredictionMode(bridge) {
       for (const row of eligible) {
         const item = make("li");
         item.dataset.speciesId = row.species_id || "";
+        item.classList.toggle("pm-observed-species", row.species_id === observationCheck?.species_id);
         const value = probability(row);
         const calculated = result.data_mode === "prediction";
         const name = make("strong", row.name, "pm-species-name");
@@ -578,6 +579,7 @@ export function createPredictionMode(bridge) {
       for (const row of excluded) {
         const item = make("li");
         item.dataset.speciesId = row.species_id || "";
+        item.classList.toggle("pm-observed-species", row.species_id === observationCheck?.species_id);
         item.append(make("strong", row.name));
         const phase = row.daily_season_phases[dayIndex];
         if (!["main", "secondary"].includes(phase)) {
@@ -798,7 +800,8 @@ export function createPredictionMode(bridge) {
         const candidates = item?.labels ? [item.labels[bridge.language()], item.scientific_name] : [item?.label, item?.scientific_name];
         return candidates.find(name => typeof name === "string" && name.trim() && name.length <= 128);
       }).filter(Boolean) : [];
-    const terrainNames = [...names, ...contextNames("habitats")];
+    const resolvedHosts = contextNames("hosts");
+    const terrainNames = [...(resolvedHosts.length ? resolvedHosts : names), ...contextNames("habitats")];
     if (terrainNames.length) {
       for (const name of new Set(terrainNames)) trees.append(make("span", name, "pm-tree-chip"));
     } else {

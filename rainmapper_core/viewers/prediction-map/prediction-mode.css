@@ -206,5 +206,6 @@
 .pm-legend-help { appearance:none; background:none; border:0; border-bottom:1px dotted currentColor; padding:0; font:inherit; cursor:help; }
 .pm-legend-tooltip { bottom:100%; left:0; width:max-content; max-width:100%; margin-bottom:5px; white-space:normal; }
 .pm-observation-comparison{padding:10px;background:#f1f7fb;border:1px solid #c6dbe8;border-radius:6px;margin-bottom:10px}.pm-observation-comparison p{margin:6px 0;font-size:12px;line-height:1.35}.pm-observation-back{padding:7px 10px;border:1px solid #96b4c7;border-radius:5px;background:white;color:#096c9e;cursor:pointer}
+.pm-ecology li.pm-observed-species { border:2px solid #096c9e; border-radius:6px; padding:8px; margin:6px 0; background:#f1f7fb; }
 .pm-training-usage[data-state="used"] .pm-training-value{color:#237a36}
 .pm-training-usage[data-state="not_used"] .pm-training-value{color:#b42318}

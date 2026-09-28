@@ -45,7 +45,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(old, ['host_oak'])
         with self.assertRaises(ValueError): recovery.merge_value(900, 950, 'merge')
 
-    def test_point_preview_combines_sources_without_inventing_hosts_or_soil(self):
+    def test_point_preview_prefers_mfe_hosts_without_inventing_soil(self):
         with (patch.object(gis, 'reconstruct_observation', return_value={
                 'gis_context_v0': {'host_ids':['host_quercus_spp'], 'altitude_m':924.7},
                 'layers': {'mvc50': {'mapped': {'mapped_host_ids':['host_quercus_spp']}}}, 'gaps': []}),
@@ -53,9 +53,9 @@ class RecoveryTests(unittest.TestCase):
                   {'scientific_name':'Pinus sylvestris','host_id':'host_pinus_sylvestris'},
                   {'scientific_name':'Unknown','host_id':None}]})):
             result = recovery.observation_preview(42,2,{}, {})
-        self.assertEqual(result['values']['host_ids'], ['host_pinus_sylvestris','host_quercus_spp'])
+        self.assertEqual(result['values']['host_ids'], ['host_pinus_sylvestris'])
         self.assertEqual(result['values']['soil_tendency_ids'], [])
-        self.assertEqual(result['sources']['host_ids'], ['mvc50','mfe25'])
+        self.assertEqual(result['sources']['host_ids'], ['mfe25'])
         self.assertLess(len(json.dumps(result).encode()), 2048)
 
     def test_microarea_unions_mfe_hosts_and_keeps_missing_source_status(self):

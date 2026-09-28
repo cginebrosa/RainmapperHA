@@ -252,7 +252,7 @@ const server = createServer(async (req, res) => {
           {id:'calcareous',label:{es:'Calizo',ca:'Calcari',en:'Calcareous'}},
           {id:'sandy',label:{es:'Arenoso',ca:'Sorrenc',en:'Sandy'}}]};
       }
-      if (!preview && query.start_date==='2020-01-01' && query.species_ids?.[0]==='lactarius_deliciosus') {
+      if (!preview && query.start_date==='2020-01-01' && query.observation_id==='obs-a') {
         response.dates=Array.from({length:7},(_,i)=>new Date(Date.parse(query.start_date+'T00:00:00Z')+i*86400000).toISOString().slice(0,10));
         response.data_mode='prediction';
         response.ecology={status:'available',abstention_reason:null,dates:response.dates,species:[{
@@ -261,6 +261,11 @@ const server = createServer(async (req, res) => {
         response.species=[{species_id:'lactarius_deliciosus',label_key:'lactarius_deliciosus',status:'available',
           probabilities:[.37,.38,.39,.4,.41,.42,.43],models:Array(7).fill(0),model_labels:['LR-V3'],
           training_observation_usage:['used','not_used','legacy','unavailable','used','used','used']}];
+        if (!query.species_ids.length) {
+          response.ecology.species.push({...response.ecology.species[0],species_id:'amanita_caesarea',name:'Other species',scientific_name:'Amanita caesarea'});
+          response.species.push({species_id:'amanita_caesarea',label_key:'amanita_caesarea',status:'available',
+            probabilities:Array(7).fill(.8),models:Array(7).fill(0),model_labels:['RF-V4'],training_observation_usage:Array(7).fill('not_used')});
+        }
       }
       response.execution = {mode:lastExecution,compute_ms:performance.now()-started};
       response.calendar_timezone = query.calendar_timezone;
@@ -703,6 +708,7 @@ try {
   // Real ecological eligibility must suppress every simulated percentage.
   richTerrain = false;
   ecologyFixture = {status:"available", abstention_reason:null, mapped_context:{
+    hosts:[{id:"host_quercus_suber",label:{es:"Alcornoque",ca:"Surera",en:"Cork oak"}}],
     habitats:[{id:"meadow",label:{es:"Prado",ca:"Prat",en:"Meadow"}}],
     lithologies:[{id:"limestone",label:{es:"Caliza"}},{id:"sandstone",label:{es:"Arenisca"}}],
     soil_tendencies:[{id:"calcareous",label:{es:"Calizo"}},{id:"sandy",label:{es:"Arenoso"}}]
@@ -719,7 +725,7 @@ try {
   assert.equal(await evaluate("!!document.querySelector('.pm-chart')"),false);
   assert.ok(await evaluate("!document.querySelector('.pm-result').textContent.includes('Especie de ejemplo')"));
   assert.equal(await evaluate("document.querySelector('.pm-summary-trees-label').textContent"),"Terreno");
-  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-tree-chip'),n=>n.textContent)"),["Calizo","Arenoso","Prado"]);
+  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-tree-chip'),n=>n.textContent)"),["Calizo","Arenoso","Alcornoque","Prado"]);
   assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-summary-trees .pm-soil-chip'),n=>n.textContent)"),["Calizo","Arenoso"]);
   assert.ok(await evaluate("document.querySelector('.pm-soil-tendencies').textContent.includes('Calizo, Arenoso')"));
   assert.ok(await evaluate("document.querySelector('.pm-materials').textContent.includes('Caliza, Arenisca')"));
@@ -1324,19 +1330,22 @@ try {
   assert.equal(calls,checkCalls+1);
   assert.equal(lastStartDate,'2020-01-01');
   assert.deepEqual(executionRequests.at(-1).point,{lat:42,lon:1.9});
-  assert.deepEqual(executionRequests.at(-1).species_ids,['lactarius_deliciosus']);
+  assert.deepEqual(executionRequests.at(-1).species_ids,[]);
   assert.equal(executionRequests.at(-1).horizon_days,7);
   assert.equal(executionRequests.at(-1).observation_id,'obs-a');
   assert.equal(await evaluate("document.querySelector('.pm-training-usage').dataset.state"),'used');
   for (const [day,state] of [[1,'not_used'],[2,'legacy'],[3,'unavailable'],[0,'used']]) {
     await evaluate(`{const select=document.querySelector('.pm-popup select');select.value='${day}';select.dispatchEvent(new Event('change'));}`);
     assert.equal(await evaluate("document.querySelector('.pm-training-usage').dataset.state"),state);
+    assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.pm-observed-species'),n=>n.dataset.speciesId)"),['lactarius_deliciosus']);
   }
   assert.equal(historyCalls.length,checkHistory,'No station historical map is loaded for a point check');
   assert.equal(await evaluate('historicalMap.date'),'2026-09-12');
   assert.equal(await evaluate("document.getElementById('prediction-mode-toggle').getAttribute('aria-pressed')"),'false');
   assert.ok(await evaluate("document.querySelector('.pm-observation-comparison').textContent.includes('Abundante') && document.querySelector('.pm-observation-comparison').textContent.includes('Usada para entrenar: SÍ')"));
   assert.ok(await evaluate("document.querySelector('.pm-species').textContent.includes('37/100') && document.querySelector('.pm-species').textContent.includes('LR-V3')"));
+  assert.ok(await evaluate("document.querySelector('.pm-species [data-species-id=amanita_caesarea]').textContent.includes('80/100')"));
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.pm-observed-species')).borderTopWidth"),'2px');
   assert.equal(await evaluate("document.querySelectorAll('.pm-result-header select option').length"),7);
   assert.ok(await evaluate("!!document.querySelector('.pm-weather') && !!document.querySelector('.pm-hydrology')"),'Observation checks retain observed weather and SMI');
   await fs.writeFile(path.join(profile,'observation-prediction-check.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));

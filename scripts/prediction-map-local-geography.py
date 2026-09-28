@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from rainmapper_core.mushroom_map_municipalities import MunicipalityReader
 from rainmapper_core.mushroom_map_terrain import TerrainReader
 from rainmapper_core.mushroom_map_land import LandReader
+from rainmapper_core.mushroom_map_vegetation import VegetationReader
 from rainmapper_core.mushroom_map_forest import ForestReader
 from rainmapper_core.mushroom_map_ecology import EcologyReader, POLICY, prediction_candidates
 from rainmapper_core.mushroom_map_ph import OpenLandMapPHReader
@@ -27,6 +28,7 @@ def main():
     parser.add_argument("--soil-root")
     parser.add_argument("--dem-root")
     parser.add_argument("--regional-root")
+    parser.add_argument("--mvc50-index")
     parser.add_argument("--land-cover")
     parser.add_argument("--geology")
     parser.add_argument("--land-cover-parts")
@@ -45,7 +47,7 @@ def main():
     if any(ecology_paths) and not all(ecology_paths):
         parser.error("Ecology requires profiles, catalogs and GIS mappings")
     with ExitStack() as cleanup:
-        municipality = terrain = forest = openlandmap = None
+        municipality = terrain = forest = openlandmap = mvc50 = None
         ecology = None
         if args.profiles:
             try:
@@ -64,6 +66,12 @@ def main():
                 cleanup.callback(forest.close)
             except (ImportError, OSError, ValueError, RuntimeError, sqlite3.Error) as error:
                 logging.getLogger(__name__).exception("Prediction map geography: forest reader initialization failed")
+        if args.mvc50_index:
+            try:
+                mvc50 = VegetationReader(args.mvc50_index)
+                cleanup.callback(mvc50.close)
+            except (ImportError, OSError, ValueError, RuntimeError, sqlite3.Error):
+                logging.getLogger(__name__).exception("MVC50 reader initialization failed")
         land_readers = {}
         for kind, path in (("vegetation", args.land_cover), ("geology", args.geology)):
             if path:
@@ -97,7 +105,7 @@ def main():
             if request.get("op") == "capabilities":
                 required = [terrain is not None]
                 for configured, reader in ((args.municipalities,municipality),
-                        (args.forest_index,forest),(args.profiles,ecology),
+                        (args.forest_index,forest),(args.mvc50_index,mvc50),(args.profiles,ecology),
                         (args.openlandmap_ph,openlandmap)):
                     if configured:
                         required.append(reader is not None)
@@ -113,6 +121,11 @@ def main():
             except (ValueError, RuntimeError, OSError, sqlite3.Error):
                 logging.getLogger(__name__).exception("Prediction map geography: forest query failed")
                 result["land_context"]["trees"] = {"status": "unavailable"}
+            try:
+                result['land_context']['mvc50'] = mvc50.lookup(request['lat'], request['lon']) if mvc50 else {'status': 'unavailable' if args.mvc50_index else 'not_connected'}
+            except (ValueError, RuntimeError, OSError, sqlite3.Error):
+                logging.getLogger(__name__).exception("MVC50 point query failed")
+                result['land_context']['mvc50'] = {'status': 'unavailable'}
             for kind, path in (("vegetation", args.land_cover), ("geology", args.geology)):
                 try:
                     reader = land_readers.get(kind)

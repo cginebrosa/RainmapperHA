@@ -408,7 +408,7 @@ class MushroomGisLabTests(unittest.TestCase):
         self.assertEqual(context["host_ids"], ["host_pinus_sylvestris"])
         self.assertEqual(context["forest_type_ids"], ["forest_montane_pine"])
         self.assertEqual(context["habitat_feature_ids"], ["feature_mature_forest"])
-        self.assertEqual(context["soil_tendency_ids"], ["soil_siliceous", "soil_calcareous", "soil_basic"])
+        self.assertEqual(set(context["soil_tendency_ids"]), {"soil_siliceous", "soil_calcareous", "soil_basic"})
         self.assertNotIn("lithology_ids", context)
         self.assertEqual(context["altitude_m"], 1420.24)
         self.assertEqual(context["altitude_source"], "dem_5m")

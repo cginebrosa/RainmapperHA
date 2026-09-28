@@ -1,11 +1,14 @@
 # Mapa de predicción — especificación central
 
-## Comprobar predicción desde una observación · HA 0.2.329
+## Comprobar predicción desde una observación · HA 0.2.329 y ampliación local
 
 La ficha de observación incorpora **Comprobar predicción** debajo de Cómo llegar,
 para usuarios con permiso de predicción. Reutiliza la consulta y la ficha completas
-del mapa: coordenadas exactas de la observación, su `species_id` y fecha como
-inicio de los siete días. Incluye IFF/modelo, meteorología observada, estado hídrico
+del mapa: coordenadas exactas de la observación y fecha como
+inicio de los siete días. La ampliación local del 27/09 calcula todas las especies,
+como una consulta normal, y enmarca la especie observada con un borde azul.
+El indicador de entrenamiento sigue referido a esa especie y al día seleccionado.
+Incluye IFF/modelo, meteorología observada, estado hídrico
 / SMI y terreno, además de la abundancia registrada y retorno a la observación.
 No cambia la fecha global del mapa ni carga el histórico de todas las estaciones.
 Conserva la ejecución elegida y el fallback existente; la consulta es cancelable.
@@ -20,7 +23,8 @@ Mantiene las abstenciones
 y explicaciones normales del mapa, sin forzar un IFF cuando faltan datos.
 
 **Trazabilidad de entrenamiento:** la petición opcional `observation_id` exige
-permiso de observaciones además del de predicción y una sola especie. La respuesta
+permiso de observaciones además del de predicción. Admite el filtro normal de
+especies (vacío para todas); la versión 0.2.329 lo limitaba a una especie. La respuesta
 incluye `training_observation_usage` por día para el artefacto realmente elegido:
 `used`, `not_used`, `legacy`, `unavailable` o `no_model`. El ajuste final V2–V6 escribe
 un índice SQLite por lote, compartido entre estimadores que usan la misma matriz;

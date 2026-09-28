@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import sys
 import threading
+from contextlib import contextmanager
 
 FIELDS = {
     'host_ids': 'host_taxa', 'forest_type_ids': 'forest_types',
@@ -16,6 +17,38 @@ FIELDS = {
 }
 MAX_BYTES = 60000
 _lock = threading.Lock()
+
+
+@contextmanager
+def territorial_session(gis_payload, catalogs_payload):
+    """Administrative reads use the current publication; rebuilds never call this."""
+    from .mushroom_map_execution import load_config
+    from .mushroom_map_geography_runtime import GeographyPublication, config_for_geography
+    from .mushroom_territorial_reader import TerritorialSession, PATH_FLAGS
+    configured = os.environ.get('RAINMAPPER_PREDICTION_MAP_CONFIG')
+    paths = [Path(configured)] if configured else [
+        Path('/share/rainmapper/prediction-map/config.json'),
+        Path('/media/rainmapper/geography/map-config.json')]
+    path = next((p for p in paths if p.is_file()), None)
+    if path is None:
+        yield None
+        return
+    config, root = load_config(path)
+    publication = None
+    try:
+        if config.get('geography_publication_root'):
+            publication = GeographyPublication(root/config['geography_publication_root'], start=False)
+            reference = publication.reference()
+            snap = publication.lookup(reference['fingerprint'])
+            config = config_for_geography(config, snap['root'], snap['manifest'], snap['identities'])
+        for key in (*PATH_FLAGS, 'geography_sources'):
+            if config.get(key): config[key] = str(root/config[key])
+        with TerritorialSession(config, gis_payload, catalogs_payload) as session:
+            yield session
+        if publication and publication.reference() != reference:
+            raise ValueError('geography_changed_during_recovery')
+    finally:
+        if publication: publication.close()
 
 
 def merge_value(current, proposed, mode):
@@ -61,10 +94,14 @@ def forest_lookup(*, geometry=None, lat=None, lon=None):
             reference = publication.reference()
             snapshot = publication.lookup(reference['fingerprint'])
             config = config_for_geography(config, snapshot['root'], snapshot['manifest'], snapshot['identities'])
-        if not config.get('forest_index'):
+        if not any(config.get(key) for key in ('forest_index', 'mvc50_index', 'land_cover', 'geology')):
             return {'source_id': 'mfe25', 'status': 'not_connected'}
-        args = ['--index', str(root / config['forest_index']),
-                '--catalogs', str(mushroom_paths.mushroom_reference_catalogs_path())]
+        args = ['--catalogs', str(mushroom_paths.mushroom_reference_catalogs_path())]
+        for key, flag in (('forest_index', '--index'), ('mvc50_index', '--mvc50-index'),
+                          ('land_cover', '--land-cover'), ('geology', '--geology'),
+                          ('land_cover_parts', '--land-cover-parts'), ('geology_parts', '--geology-parts')):
+            if config.get(key):
+                args += [flag, str(root / config[key])]
         if config.get('geography_sources'):
             args += ['--sources', str(root / config['geography_sources'])]
         reader = ResidentReader(config.get('geography_python', sys.executable),
@@ -92,22 +129,44 @@ def forest_lookup(*, geometry=None, lat=None, lon=None):
 def observation_preview(lat, lon, gis_payload, catalogs_payload):
     from . import mushroom_gis_lab as gis
     location = point(lat, lon)
+    with territorial_session(gis_payload, catalogs_payload) as session:
+        if session is not None:
+            result = session.lookup(**location)
+            resolution = result['resolution']
+            dem = gis.sample_dem(location['lon'], location['lat'], None)
+            report = {'version': 1, 'location': location,
+                      'recovered_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                      'values': {k: resolution['values'][k] for k in FIELDS},
+                      'sources': {k: resolution['sources'][k] for k in FIELDS},
+                      'forest': dict(result['land_context']['trees'], land_context=result['land_context']),
+                      'territorial_policy': resolution['policy'], 'conflicts': resolution['conflicts'],
+                      'gaps': [k for k,v in result['land_context'].items() if v.get('status') != 'available']}
+            if dem.get('status') == 'ok':
+                report.update(altitude_m=dem['elevation_m'], altitude_source=dem.get('source_id', 'dem_5m'))
+            if len(json.dumps(report, allow_nan=False).encode()) > MAX_BYTES:
+                raise ValueError('gis_recovery_result_limit')
+            return report
     result = gis.reconstruct_observation({'location': location}, gis_payload, catalogs_payload)
     context = result.get('gis_context_v0', {})
     trees = forest_lookup(**location)
-    hosts = [item['host_id'] for item in trees.get('items', []) if item.get('host_id')]
-    values = {key: sorted(set(context.get(key, []))) for key in FIELDS}
-    values['host_ids'] = sorted(set(values['host_ids'] + hosts))
-    sources = {key: [] for key in FIELDS}
-    for source, layer in result.get('layers', {}).items():
-        for key in FIELDS:
-            if layer.get('mapped', {}).get('mapped_' + key):
-                sources[key].append(source)
-    if hosts:
-        sources['host_ids'].append('mfe25')
+    from .mushroom_territorial_context import resolve_context, layer_candidates
+    from .mushroom_map_ecology import compile_exact_mappings, resolve_land_context
+    if 'land_context' in trees:
+        ids = gis.catalog_ids_by_group(catalogs_payload)
+        mapped = compile_exact_mappings(gis_payload, ids)
+        land = dict(trees['land_context'], trees=trees)
+        resolution, _ = resolve_land_context(land, mapped, ids.get('host_taxa', set()))
+    else:
+        candidates = layer_candidates(result.get('layers', {}))
+        if trees.get('status') == 'available' and trees.get('catalog_status') != 'unavailable':
+            candidates['mfe25'] = {'host_ids': [item['host_id'] for item in trees.get('items', []) if item.get('host_id')]}
+        resolution = resolve_context(candidates)
+    values = {key: resolution['values'][key] for key in FIELDS}
+    sources = {key: resolution['sources'][key] for key in FIELDS}
     report = {'version': 1, 'location': location,
               'recovered_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
               'values': values, 'sources': sources, 'forest': trees,
+              'territorial_policy': resolution['policy'], 'conflicts': resolution['conflicts'],
               'gaps': result.get('gaps', [])}
     if 'altitude_m' in context:
         report['altitude_m'] = context['altitude_m']

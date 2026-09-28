@@ -138,6 +138,8 @@ def _copy_and_hash(source: Path, destination: Path, chunk_size: int = 4 * 1024 *
 
 
 def _write_cache_manifest(version_dir: Path, dataset: dict[str, Any]) -> None:
+    from .mushroom_territorial_reader import install_dataset_identities
+    install_dataset_identities(version_dir, dataset['files'])
     payload = {
         "schema_version": SCHEMA_VERSION,
         "kind": CACHE_MANIFEST_KIND,

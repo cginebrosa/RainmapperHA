@@ -97,7 +97,7 @@ def parse_request(raw: bytes) -> dict:
         raise ValueError("duplicate_species")
     if 'observation_id' in payload:
         from rainmapper_core.mushroom_training_observations import valid_id
-        if len(species) != 1 or not valid_id(payload['observation_id']):
+        if not valid_id(payload['observation_id']):
             raise ValueError('invalid_observation_id')
     if 'applicability_page' in payload:
         page = payload['applicability_page']

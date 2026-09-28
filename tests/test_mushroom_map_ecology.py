@@ -142,9 +142,9 @@ class EcologyTests(unittest.TestCase):
                 self.assertEqual(self.row()['status'],expected)
 
     def set_meadow_mapping(self):
-        self.mapping['exact_value_mappings']=[{'source_id':'cover','edition':'2024','field':'code',
+        self.mapping['exact_value_mappings']=[{'source_id':'icgc_cobertes_2024','edition':'2024','field':'code',
             'raw_value':'228','review_status':'accepted','mapped_forest_type_ids':['meadow']}]
-        self.geo['land_context']['vegetation']={'source_id':'cover','edition':'2024','field':'code',
+        self.geo['land_context']['vegetation']={'source_id':'icgc_cobertes_2024','edition':'2024','field':'code',
                                               'code':'228','status':'available'}
         self.save()
 
@@ -175,10 +175,10 @@ class EcologyTests(unittest.TestCase):
         self.profile['ecology'].update(ph_min=3.5, ph_max=6.8, soil_filter={
             'accepted_soil_ids':['siliceous'], 'excluded_soil_ids':['calcareous'],
             'ph_conflict':'estimated_interval_overlap', 'review_ref':'test-review'})
-        self.mapping['exact_value_mappings'] = [{'source_id':'geology','edition':'2024',
+        self.mapping['exact_value_mappings'] = [{'source_id':'geology_50000','edition':'2024',
             'field':'code','raw_value':'rock','review_status':'accepted',
             'mapped_soil_tendency_ids':['siliceous']}]
-        self.geo['land_context']['geology'] = {'source_id':'geology','edition':'2024',
+        self.geo['land_context']['geology'] = {'source_id':'geology_50000','edition':'2024',
             'field':'code','code':'rock','status':'available'}
         self.geo['terrain']['ph_openlandmap'] = {
             'status':'available','estimate':7.5,'lower':6.6,'upper':8.1}
@@ -331,11 +331,11 @@ class EcologyTests(unittest.TestCase):
         self.catalog['catalogs']['lithology_types']=[{'id':s} for s in ('limestone','sandstone','gypsum')]
         self.profile['ecology']['soil_affinities']=[{'id':'sandy','relationship':'preferred','affinity':0}]
         self.profile['ecology']['lithology_affinities']=[{'id':'limestone','relationship':'possible','affinity':0}]
-        self.mapping['exact_value_mapping_groups']=[{'source_id':'geology','edition':'2024',
+        self.mapping['exact_value_mapping_groups']=[{'source_id':'geology_50000','edition':'2024',
             'field':'Codi','raw_values':['mix1','mix2'],'review_status':'accepted','review_ref':'local-review.json',
             'mapped_lithology_ids':['limestone','sandstone','gypsum'],
             'mapped_soil_tendency_ids':['calcareous','sandy','gypsum','calcareous']}]
-        self.geo['land_context']['geology']={'source_id':'geology','edition':'2024','field':'Codi','code':'mix2','status':'available'}
+        self.geo['land_context']['geology']={'source_id':'geology_50000','edition':'2024','field':'Codi','code':'mix2','status':'available'}
         self.save()
         result=self.result()
         self.assertEqual(len(result['mapped_context']['soil_tendencies']),3)
@@ -344,8 +344,8 @@ class EcologyTests(unittest.TestCase):
         self.assertIn('ph_unbounded',self.row()['reasons'])
         self.assertIn('soil_preference_match',self.row()['reasons'])
         self.assertIn('lithology_preference_match',self.row()['reasons'])
-        first=self.reader.mappings[('geology','2024','Codi','mix1')]
-        self.assertIs(first,self.reader.mappings[('geology','2024','Codi','mix2')])
+        first=self.reader.mappings[('geology_50000','2024','Codi','mix1')]
+        self.assertIs(first,self.reader.mappings[('geology_50000','2024','Codi','mix2')])
         self.geo['land_context']['geology']['code']='unknown'
         self.assertEqual(self.row()['status'],'compatible')
         self.assertNotIn('soil_preference_match',self.row()['reasons'])

@@ -39,6 +39,9 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_map_municipalities.py \
      rainmapper_core/mushroom_map_terrain.py \
      rainmapper_core/mushroom_map_land.py \
+     rainmapper_core/mushroom_map_vegetation.py \
+     rainmapper_core/mushroom_territorial_context.py \
+     rainmapper_core/mushroom_territorial_reader.py \
      rainmapper_core/mushroom_map_forest.py \
      rainmapper_core/mushroom_map_ecology.py \
      rainmapper_core/mushroom_phenology.py \

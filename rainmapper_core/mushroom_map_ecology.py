@@ -11,7 +11,7 @@ from pathlib import Path
 import threading
 from rainmapper_core.mushroom_phenology import season_phase_for_months
 
-POLICY = 'territorial_and_seasonal_windows_v6'
+POLICY = 'territorial_and_seasonal_windows_v7'
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_PROFILES = 32
 MAX_MAPPING_RULES = 512
@@ -40,9 +40,15 @@ def prediction_candidates(ecology, species_ids=()):
 
 
 def mapping_key(row, value):
+    from .mushroom_map_vegetation import EDITION, FIELDS
+    # Legacy MVC mappings refer to the single pinned November 2019 product.
+    if row.get('source_id') == 'mvc50' and row.get('field') in FIELDS:
+        row = dict(row, edition=row.get('edition') or EDITION)
+        value = " ".join(str(value or "").casefold().split())
     identity = tuple(row.get(k) for k in ('source_id', 'edition', 'field'))
     if (any(not isinstance(v, str) or not v or len(v) > 128 for v in identity)
-            or type(value) not in (str, int) or not str(value) or len(str(value)) > 128):
+            or type(value) not in (str, int) or not str(value)
+            or len(str(value)) > (512 if identity[0] == 'mvc50' else 128)):
         return None
     # Older map publications used a map-only alias for this same product.
     # Adapt it here, keeping the editable source and reconstruction unchanged.
@@ -90,6 +96,36 @@ def compile_exact_mappings(payload, ids):
                 raise ValueError('duplicate_ecology_mapping')
             index[key] = row
     return index
+
+
+def resolve_land_context(land, mappings, hosts):
+    """Resolve accepted point evidence with the same policy as GIS recovery."""
+    from .mushroom_map_vegetation import FIELDS
+    from .mushroom_territorial_context import PRIORITIES, resolve_context
+    candidates, states = {}, {}
+    trees = land.get('trees', {})
+    if trees.get('status') == 'available' and trees.get('catalog_status') != 'unavailable':
+        candidates['mfe25'] = {'host_ids': [row['host_id'] for row in trees.get('items', [])
+                                          if row.get('host_id') in hosts]}
+    for kind in ('vegetation', 'geology', 'mvc50'):
+        row = land.get(kind, {})
+        rules = []
+        if row.get('status') == 'available':
+            fields = FIELDS if kind == 'mvc50' else (row.get('field'),)
+            for field in fields:
+                value = row.get('properties', {}).get(field) if kind == 'mvc50' else row.get('code')
+                key = mapping_key(dict(row, field=field), value)
+                rule = mappings.get(key)
+                if rule:
+                    rules.append(rule)
+        states[kind] = 'accepted' if rules else 'unresolved'
+        source = row.get('source_id')
+        if source == 'icgc_geologia_50000':
+            source = 'geology_50000'
+        if source:
+            candidates[source] = {field: sorted({v for rule in rules for v in rule.get('mapped_' + field, [])})
+                                  for field in PRIORITIES}
+    return resolve_context(candidates, cover=land.get('vegetation')), states
 
 
 def number(value):
@@ -218,7 +254,7 @@ class EcologyReader:
         # Hash the exact catalog bytes already read, not a normalized second copy.
         self.catalog_revision = catalog_revision
         self.context_labels = {group:{row['id']:row.get('label', {}) for row in catalogs[group]}
-                               for group in ('forest_types', 'soil_types', 'lithology_types')}
+                               for group in ('host_taxa', 'forest_types', 'soil_types', 'lithology_types')}
 
     def host_matches(self, observed, required):
         if observed not in self.hosts or required not in self.hosts:
@@ -244,18 +280,11 @@ class EcologyReader:
                     and trees.get('catalog_revision') != self.catalog_revision):
                 return {'status':'unavailable','policy':POLICY,'species':[],
                         'reason':'host_catalog_mismatch'}
-            observed = {row.get('host_id') for row in trees.get('items', []) if row.get('host_id') in self.hosts} if trees.get('status')=='available' and trees.get('catalog_status')!='unavailable' else set()
-            forest, soil, lithology, mapping_states = set(), set(), set(), {}
-            for kind in ('vegetation','geology'):
-                row = land.get(kind,{})
-                key = mapping_key(row, row.get('code'))
-                mapped = self.mappings.get(key) if row.get('status')=='available' else None
-                mapping_states[kind] = 'accepted' if mapped else 'unresolved'
-                if mapped:
-                    observed.update(mapped.get('mapped_host_ids',[]))
-                    forest.update(mapped.get('mapped_forest_type_ids',[]))
-                    soil.update(mapped.get('mapped_soil_tendency_ids',[]))
-                    lithology.update(mapped.get('mapped_lithology_ids',[]))
+            resolved, mapping_states = resolve_land_context(land, self.mappings, self.hosts)
+            observed = set(resolved['values']['host_ids'])
+            forest = set(resolved['values']['forest_type_ids'])
+            soil = set(resolved['values']['soil_tendency_ids'])
+            lithology = set(resolved['values']['lithology_ids'])
             context_available = bool(observed or forest)
             terrain = geography.get('terrain', {})
             elevation = terrain.get('elevation', {})
@@ -281,9 +310,11 @@ class EcologyReader:
                     'ph_selection':{'source':self.ph_source,
                                     'statistic':'mean' if self.ph_source=='openlandmap' else 'interval'},
                     'dates':[d.isoformat() for d in days],'mapping_states':mapping_states,'species':rows,
+                    'territorial_resolution':resolved,
                     'mapped_context':{
                         name:[{'id':key,'label':dict(self.context_labels[group][key])} for key in sorted(values)]
-                        for name,group,values in (('habitats','forest_types',forest),
+                        for name,group,values in (('hosts','host_taxa',observed),
+                                                 ('habitats','forest_types',forest),
                                                  ('soil_tendencies','soil_types',soil),
                                                  ('lithologies','lithology_types',lithology))},
                     'abstention_reason':None if context_available else 'terrain_context_missing'}

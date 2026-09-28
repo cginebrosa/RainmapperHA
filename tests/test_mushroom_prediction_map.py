@@ -25,7 +25,11 @@ class PredictionMapContractTests(unittest.TestCase):
     def test_observation_trace_request_is_bounded(self):
         value = request(observation_id='obs-a', species_ids=['amanita_caesarea'])
         self.assertEqual(contract.parse_request(json.dumps(value).encode())['observation_id'], 'obs-a')
-        for changes in ({'observation_id':''}, {'observation_id':'x'*257}, {'observation_id':['x']}, {'species_ids':[]}):
+        for species in ([], ['amanita_caesarea', 'lactarius_deliciosus']):
+            parsed = contract.parse_request(json.dumps({**value, 'species_ids':species}).encode())
+            self.assertEqual(parsed['species_ids'], species)
+            self.assertEqual(parsed['observation_id'], 'obs-a')
+        for changes in ({'observation_id':''}, {'observation_id':'x'*257}, {'observation_id':['x']}):
             with self.assertRaises(ValueError):
                 contract.parse_request(json.dumps({**value, **changes}).encode())
 

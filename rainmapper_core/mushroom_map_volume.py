@@ -14,7 +14,7 @@ import sqlite3
 FORMAT = 'prediction_map_volume_v1'
 MAX_FILES = 20000
 MAX_MANIFEST_BYTES = 8 * 1024 * 1024
-GEO_FILES = ('terrain_index', 'municipalities', 'land_cover', 'geology',
+GEO_FILES = ('mvc50_index', 'terrain_index', 'municipalities', 'land_cover', 'geology',
              'land_cover_parts', 'geology_parts', 'forest_index', 'openlandmap_ph')
 GEO_ROOTS = ('soil_root', 'dem_root', 'regional_root')
 

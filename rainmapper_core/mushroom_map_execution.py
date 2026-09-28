@@ -108,7 +108,7 @@ class PointExecutor:
                      "--dem-root",path("dem_root"),"--regional-root",path("regional_root")]
         if config.get("municipalities"):
             geography += ["--municipalities",path("municipalities"),"--municipalities-edition",str(config.get("municipalities_edition","unspecified"))]
-        for key, flag in (("land_cover", "--land-cover"), ("geology", "--geology"),
+        for key, flag in (("mvc50_index", "--mvc50-index"), ("land_cover", "--land-cover"), ("geology", "--geology"),
                           ("land_cover_parts", "--land-cover-parts"), ("geology_parts", "--geology-parts"),
                           ("forest_index", "--forest-index"), ("forest_catalogs", "--forest-catalogs"),
                           ("profiles", "--profiles"), ("ecology_catalogs", "--ecology-catalogs"),

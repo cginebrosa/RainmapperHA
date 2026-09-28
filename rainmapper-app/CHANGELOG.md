@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.330
+
+- Use a shared field-by-field GIS source policy for observation recovery, microarea samples, reconstruction and map predictions, with explicit source fallback and conflict reporting.
+- Reuse cached map GIS assets during reconstruction; transfer only missing content through the existing dataset cache.
+- Add bounded MVC50 point queries from a prepared SQLite spatial index; registering the new geographic asset is a separate installation step.
+- Preserve usable GIS sources when another layer cannot be opened or queried.
+- Compare all species when checking an observation prediction and highlight the observed species.
+
 ## 0.2.329
 
 - Check a prediction from an observation using its coordinates, species and date, with the full weather and soil-water detail and a return-to-observation button.

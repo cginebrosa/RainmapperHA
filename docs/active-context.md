@@ -1,4 +1,4 @@
-# Contexto activo — HA 0.2.329 publicada; instalación pendiente (27/09/2026)
+# Contexto activo — HA 0.2.330 publicada; instalación pendiente (28/09/2026)
 
 Leer primero [codex-start-here.md](codex-start-here.md). Este documento basta para
 retomar; [todo.md](todo.md) amplía prioridades. No reconstruir sesiones leyendo
@@ -6,6 +6,47 @@ informes históricos. Los antecedentes completos se conservaron en el
 [archivo del repaso del 27/09](reports/session-context-before-refresh-2026-09-27.md).
 
 ## Estado y siguiente paso
+
+- **HA 0.2.330 publicada tras completar y auditar el circuito local.**
+  Completada la coherencia entre mapa, recuperación puntual, microáreas por
+  muestreo y reconstrucción: MFE25 para árboles; MVC50 para bosque/sustrato;
+  alternativas Cobertes/geología por campo. La reconstrucción usa un único
+  lector por trabajo y el dataset preparado, conservando evidencia revisada.
+  Dataset local activado en `docker-media/rainmapper/geography`: 14 referencias,
+  configuración 1.997 bytes. El worker ya tenía los 13 assets en caché; no se
+  duplican ni transportan de nuevo. Se reutiliza el transporte existente.
+  HA local/worker reconstruidos y recreados tras verificar reposo. Paridad
+  SHA 17/12 archivos, ambos coordinadores y hashes intactos. Smoke 1.854 pruebas,
+  55 omitidas; 87 dirigidas; tres puntos reales y microárea coherentes en ambas
+  imágenes. Evidencia `docker-data/territorial-validation/coherent-*` y `parity.json`.
+  **Circuito terminado:** 517 observaciones con política nueva; 792/792 ajustes
+  sin fallos y cinco versiones promovidas; precálculo 28/09–04/10 activo en HA
+  local y confirmado por worker. SQLite íntegro, recibos coincidentes y limpieza
+  completa. Duraciones: reconstrucción 1:06, base 0:24, multiversión 10:26,
+  precálculo 10:47. Auditoría `operational-cycle-audit.json` en la misma carpeta.
+  Publicación autorizada por «pues publica»; script terminado con código 0 y
+  tags `0.2.330`/`latest` verificados con el mismo digest y amd64/arm64.
+  Digest `sha256:e932c63ad4d207c64f8e2a634264a2ca5efe96ac782a73ba96a2f7b57e98b8fb`.
+  **Siguiente paso:** el usuario instala HA; después activar metadatos en real.
+  No repetir el ciclo local.
+
+- **HA real:** sólo índice MVC50 copiado y verificado (479.780.864 bytes).
+  Aún no registrado: `/media/rainmapper/geography/CURRENT.json` conserva
+  `local-20260914` en la última comprobación. Faltan instalación compatible y
+  activación de metadatos. No borrar MVC50 original: queda el inventario de
+  mantenimiento de mapeos por auditar/adaptar.
+  [Preparación](reports/release-ha-0.2.330-preparation-2026-09-28.md),
+  [política y procedimiento](mushrooms/territorial-source-policy-es.md).
+
+- **Cambio incluido en 0.2.330:**
+  Comprobar predicción consulta todas las especies y enmarca la observada en azul;
+  la trazabilidad sigue vinculada a la especie observada y día seleccionado.
+  42 pruebas dirigidas y navegador correctos (77 consultas, 25 de histórico).
+  HA local y worker reconstruidos/recreados; paridad SHA de los tres archivos HA
+  afectados y contrato del worker, HTTP local 200. Ambos coordinadores conservados.
+  Se esperó a que los canales del worker estuvieran libres antes de recrearlo.
+  No requiere entrenamiento/precálculo. Logs en
+  `docker-data/observation-all-species-{browser,ha-build,worker-build}.log`.
 
 - **HA 0.2.329 publicada, instalación pendiente:** Comprobar predicción desde la
   ficha de observación, debajo de Cómo llegar. Abre la ficha completa del mapa
