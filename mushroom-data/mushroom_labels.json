@@ -8744,6 +8744,31 @@
     "ca": "Coordenades localitzades",
     "en": "Coordinates located"
   },
+  "ui.sites_circle_edit": {
+    "es": "Editar círculo",
+    "ca": "Editar cercle",
+    "en": "Edit circle"
+  },
+  "ui.sites_edit_shape": {
+    "es": "Editar geometría",
+    "ca": "Editar geometria",
+    "en": "Edit geometry"
+  },
+  "ui.sites_circle_edit_help": {
+    "es": "Arrastra el centro para mover el círculo o el control del borde para cambiar el radio.",
+    "ca": "Arrossega el centre per moure el cercle o el control de la vora per canviar el radi.",
+    "en": "Drag the centre to move the circle or the edge handle to change its radius."
+  },
+  "ui.sites_circle_center": {
+    "es": "Mover centro",
+    "ca": "Moure el centre",
+    "en": "Move centre"
+  },
+  "ui.sites_circle_radius": {
+    "es": "Cambiar radio",
+    "ca": "Canviar el radi",
+    "en": "Change radius"
+  },
   "ui.sites_draw_circle": {
     "es": "Dibujar círculo",
     "ca": "Dibuixar cercle",

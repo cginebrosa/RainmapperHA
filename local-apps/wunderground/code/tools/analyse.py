@@ -1,12 +1,15 @@
 import json,math,re,hashlib,csv,collections
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+from rainmapper_core.mushroom_map_geography_runtime import published_geography_config
 from osgeo import ogr,osr
 import numpy as np
-ROOT=Path.cwd(); OUT=ROOT/'local-apps/wunderground/data'
+ROOT=Path(__file__).resolve().parents[4]; OUT=ROOT/'local-apps/wunderground/data'
 wgs=osr.SpatialReference();wgs.ImportFromEPSG(4326);wgs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 utm=osr.SpatialReference();utm.ImportFromEPSG(25831);utm.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 fwd=osr.CoordinateTransformation(wgs,utm);rev=osr.CoordinateTransformation(utm,wgs)
-ds=ogr.Open(str(ROOT/'mushroom-map-GIS/ign-municipios/prepared/municipalities-2026-08-10.gpkg'),0)
+ds=ogr.Open(published_geography_config()['municipalities'],0)
 layer=ds.GetLayer(0);layer.SetAttributeFilter("national_code LIKE '3409%'")
 mun=[]
 for f in layer:

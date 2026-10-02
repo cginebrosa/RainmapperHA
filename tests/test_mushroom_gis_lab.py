@@ -447,7 +447,9 @@ class MushroomGisLabTests(unittest.TestCase):
             patch.object(mushroom_gis_lab, "apply_exact_layer_mappings", return_value=mapped_payload),
             patch.object(mushroom_gis_lab, "sample_dem", return_value={"status": "ok", "elevation_m": 1200.0}),
         ):
-            result = mushroom_gis_lab.reconstruct_observation(observation)
+            # This fixture exercises the legacy layer adapter, independent of
+            # any prepared geography installed on the developer's machine.
+            result = mushroom_gis_lab.reconstruct_observation(observation, gis_root_path=Path('/fixture-legacy-gis'))
 
         self.assertEqual(result["status"], "complete")
         self.assertEqual(result["location"], {"lat": 42.0, "lon": 2.0, "source": "mushroom_observations"})

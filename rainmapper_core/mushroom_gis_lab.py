@@ -73,6 +73,9 @@ def gis_root(configured_root: Path | None = None) -> Path:
     share_copy = mushroom_paths.share_root() / "mushroom-GIS"
     if share_copy.exists():
         return share_copy
+    local_geography = mushroom_paths.geography_root()
+    if (local_geography / 'geography-dataset.json').is_file():
+        return local_geography
     return repo_root() / "mushroom-GIS"
 
 

@@ -3,6 +3,7 @@ import json
 import os
 import sys
 from http.server import ThreadingHTTPServer
+from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -27,8 +28,12 @@ payload=sites.default_payload()
 area=sites.empty_area('fixture_area');area['name']='Área de prueba'
 area['geometry']={"type":"Polygon","coordinates":[[[1.42,42.13],[1.46,42.13],[1.46,42.17],[1.42,42.17],[1.42,42.13]]]}
 micro=sites.empty_micro_area('fixture_micro','fixture_area');micro['name']='Microárea de prueba'
-micro['geometry']={"type":"Polygon","coordinates":[[[1.435,42.145],[1.445,42.145],[1.445,42.155],[1.435,42.155],[1.435,42.145]]]}
-payload['areas']=[area];payload['micro_areas']=[micro]
+micro['geometry']={"type":"Polygon","coordinates":[[[1.435000000000001,42.145],[1.445,42.145],[1.445,42.155],[1.435,42.155],[1.435000000000001,42.145]]]}
+# Generated with GDAL: WGS84 AEQD at 42.15,1.44, Buffer(500/cos(pi/256),64),
+# then transformed to EPSG:4326, exactly as GBIF's area creation does.
+gbif_area=sites.empty_area('fixture_gbif_circle');gbif_area['name']='Círculo GBIF sintético'
+gbif_area['geometry']=json.loads((ROOT / 'tests/fixtures/known_sites_gbif_circle.json').read_text())
+payload['areas']=[area,gbif_area];payload['micro_areas']=[micro]
 sites.persistent_path().write_text(json.dumps(payload))
 web.default_store=lambda:store
 # A geometry save must not download new geography in this test.
@@ -38,7 +43,11 @@ class Handler(web.RainmapperHandler):
     def trusted_worker_control_request(self): return True
     def allow_listener_path(self, method, path): return True
     def do_GET(self):
-        if urlparse(self.path).path == '/mushrooms/fixture-observation':
+        if urlparse(self.path).path == '/auth/device-settings':
+            cookie = SimpleCookie(self.headers.get('Cookie', ''))
+            language = cookie.get('fixture_language')
+            self.send_json(200, {'ok': True, 'settings': {'language': language.value} if language else {}})
+        elif urlparse(self.path).path == '/mushrooms/fixture-observation':
             form=ui.render_observation_form_modal(store.load('profiles')['species_profiles'],store.load('catalogs')['catalogs'],row,
                 modal_id='edit-fixture',action='update_observation',title='Fixture',selected_species_id='amanita_caesarea')
             self.send_bytes(200,web.html_page('Fixture',form,auto_refresh=False),'text/html; charset=utf-8')

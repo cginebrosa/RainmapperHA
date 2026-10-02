@@ -1,8 +1,9 @@
 # Release HA 0.2.330 — 28/09/2026
 
-Estado: **imagen publicada y verificada en GHCR**, instalación pendiente.
-El usuario autorizó la publicación con «pues publica» tras la auditoría del
-circuito operativo local. No se ha instalado ni activado geografía en HA real.
+Estado al cierre del 28/09: **instalada en HA real, geografía activada**.
+El usuario confirma entrenamiento y precálculo reales terminados. No se ha
+reauditado ese último ciclo; las cifras detalladas más abajo son del ciclo local.
+El usuario autorizó la publicación con «pues publica» tras su aceptación local.
 
 La revisión que detectó diferencias en microáreas/reconstrucción ya está
 corregida y validada de forma dirigida. Ambas imágenes locales se reconstruyeron
@@ -30,7 +31,7 @@ auditado el 28/09/2026 y aceptado para publicar.
 La preparación del código y las pruebas dirigidas están descritas en
 [la política territorial](../mushrooms/territorial-source-policy-es.md).
 
-## Índice copiado a HA real, sin activar
+## Copia inicial del índice a HA real (estado anterior a activación)
 
 Autorización del usuario: «puedes subir el archivo MVC50 nuevo a HA real».
 Montaje verificado: `//Carlos@100.111.77.48/media` → `/Volumes/media-1`.
@@ -45,11 +46,12 @@ Destino dentro de media:
   renombrado tras verificar. No se han sobrescrito originales.
 - `CURRENT.json` idéntico antes/después: generación `local-20260914`, huella
   `sha256:8ab40e26cddf9567b878611f11c39d079579eb455105839a40ac67610e3f1336`.
-- No se ha registrado ni activado MVC50 en HA real.
+- En ese momento todavía no se había registrado ni activado MVC50 en HA real;
+  la activación posterior se documenta más abajo.
 - Recibo y comprobantes locales: `docker-data/territorial-validation/ha-upload.json`,
   `ha-CURRENT-before-upload.json`, `package/mvc50-receipt.json`.
 
-## Validación actual y pendientes
+## Validación local previa a publicación
 
 - Smoke `coherent-release-smoke.log`: 1.854 pruebas, 55 omitidas; correcto.
 - 87 pruebas dirigidas; pruebas de caché impiden volver a descargar assets
@@ -63,15 +65,22 @@ Destino dentro de media:
 - Evidencia en `docker-data/territorial-validation/coherent-*`,
   `coherence-tests.log`, `territorial-dataset-plan.json` y `parity.json`.
 
-Pendiente en HA real:
+## Activación real completada después de instalar
 
-- Instalación de 0.2.330 por el usuario.
-- Registrar/activar el índice geográfico real y preparar allí los metadatos
-  científicos con `prepare-territorial-dataset.py --activate`, en reposo.
-  El `CURRENT.json` está en `geography/`, junto a `generations/`.
+- Registro `local-mvc50-20260928`, huella
+  `sha256:e4252f943945412ae4cfc38f81d685778fbdbadb2351f9523620cf9e262ddbea`;
+  fuentes `map-sources-local-mvc50-20260928.json`.
+- Puntero `/media/rainmapper/geography/CURRENT.json`, junto a `generations/`.
+- Dataset científico activado: 14 referencias, huella
+  `sha256:64c6115afbc657246dea6b1aa738e1d4eaf9f7ba42a584ac5a606f9f11550649`;
+  configuración 1.997 bytes y listado 2.992 bytes. Cero bytes GIS copiados o
+  hasheados durante esta activación; copia del índice ya verificada antes.
+- Recibos releídos al cierre: `ha-register-mvc50.json` y
+  `ha-territorial-activation.json` en `docker-data/territorial-validation/`.
+- Originales conservados. Confirmación final del usuario: instalada y
+  entrenamiento/precálculo terminados. No pendiente de nueva instalación.
 
-
-## Circuito operativo auditado tras finalizar el usuario
+## Circuito operativo local auditado tras finalizar el usuario
 
 Evidencia: `docker-data/territorial-validation/operational-cycle-audit.json`.
 Fuentes: registro de trabajos local, reconstrucción GIS promovida, registro de
@@ -102,4 +111,4 @@ versiones, manifiesto del lote y SQLite/recibo de precálculo activo.
 - Paridad actual repetida: 17 archivos HA y 12 worker iguales al worktree.
 
 No se ha vuelto a entrenar ni precalcular para auditar. La imagen HA se ha
-publicado después de esta auditoría; la nueva geografía sigue sin activar en HA real.
+publicado después de esta auditoría. La activación real posterior está documentada arriba.

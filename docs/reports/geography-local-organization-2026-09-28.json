@@ -1,0 +1,164 @@
+{
+  "ha": {
+    "exact_response_match": true,
+    "points": 4,
+    "geography_ready": true
+  },
+  "worker": {
+    "exact_response_match": true,
+    "points": 4,
+    "geography_ready": true
+  },
+  "operational_tree_unchanged": true,
+  "date": "2026-09-28",
+  "scope": "Mac repository, HA local and existing local worker; no HA real access or mutation",
+  "preserved_files": 5891,
+  "preserved_bytes": 22238484702,
+  "source_adjustments": [
+    "geography-sources/originals/mushroom-map-GIS/acquire-geode.py",
+    "geography-sources/originals/mushroom-map-GIS/soilgrids-shared/coverage-audit/audit.py",
+    "geography-sources/originals/mushroom-GIS/README.md"
+  ],
+  "retained_old_roots": [
+    "mushroom-GIS-todelete",
+    "mushroom-map-GIS-todelete"
+  ],
+  "operational_root": "docker-media/rainmapper/geography",
+  "sources_root": "geography-sources",
+  "smoke": {
+    "tests": 1859,
+    "skipped": 55,
+    "passed": true
+  },
+  "directed_tests_after_rename": {
+    "tests": 51,
+    "passed": true
+  },
+  "parity": {
+    "ha": {
+      "matched_files": 147,
+      "required_matches": [
+        "rainmapper_core/mushroom_paths.py",
+        "rainmapper_core/mushroom_gis_lab.py",
+        "rainmapper_core/mushroom_soilgrids.py",
+        "rainmapper_core/mushroom_map_geography_runtime.py"
+      ],
+      "old_roots_absent": true
+    },
+    "worker": {
+      "matched_files": 106,
+      "required_matches": [
+        "rainmapper_core/mushroom_paths.py",
+        "rainmapper_core/mushroom_gis_lab.py",
+        "rainmapper_core/mushroom_soilgrids.py",
+        "rainmapper_core/mushroom_map_geography_runtime.py"
+      ],
+      "old_roots_absent": true
+    }
+  },
+  "worker_configuration": {
+    "config/coordinator.json": {
+      "sha256": "5a9d558d8237c843502ee8d19791e009f30707df972224fe6919fbc027a46b10",
+      "structure": {
+        "rainmapper_url": "http://100.111.77.48:8100"
+      }
+    },
+    "config/additional-coordinators.json": {
+      "sha256": "22055bcf85d410f42a24e2d347467fd8f4e78499f47618f768dfeb26730cc5c0",
+      "structure": {
+        "coordinators": [
+          {
+            "coordinator_id": "coordinator_fde2e9b1c6c1f5b2",
+            "label": "HA local",
+            "rainmapper_url": "http://rainmapper-ha-ui:8100"
+          }
+        ]
+      }
+    },
+    "identity/worker.json": {
+      "sha256": "051ea1adda3359ea7fc3c5568e3922d3812970c46f0fbc4e4ee08e08e5001f32",
+      "structure": {
+        "worker_id": "worker_1a9a232c20fe2ee2"
+      }
+    }
+  },
+  "local_tool_checks": {
+    "gbif_fixture_records": 1,
+    "elevation_available": true,
+    "municipality_available": true,
+    "wu_open_checked": [
+      "rank.py",
+      "analyse.py"
+    ],
+    "full_wu_research_not_run": true
+  },
+  "pending": [
+    "User acceptance of local result",
+    "Decide HA real review/adaptation separately",
+    "Confirm final deletion of -todelete after full review"
+  ],
+  "subsequent_real_precompute": {
+    "job_id": "worker_job_BPJgkkhMwTKo",
+    "coordinator_id": "primary",
+    "claimed_at_utc": "2026-09-28T15:07:59.387537670Z",
+    "ha_activation_finished_at": "2026-09-28T15:19:22+00:00",
+    "worker_activation_finished_at": "2026-09-28T15:19:39+00:00",
+    "finish_acknowledged": true,
+    "worker_total_seconds": 699.879147,
+    "calculation_seconds": 578.04502,
+    "ha_publish_seconds": 99.823347,
+    "runtime_sync_seconds": 0.574451,
+    "upload_round_trip_seconds": 102.100174,
+    "estimated_transfer_seconds": 2.276827,
+    "worker_activation_seconds": 16.779103,
+    "worker_cleanup_status": "complete",
+    "worker_cleaned_at": "2026-09-28T15:19:44+00:00",
+    "coverage_review": {
+      "source": "HA active.sqlite3 coverage rows compared with job area_ids_by_species and desired date range; read-only immutable",
+      "expected_species_area_days": 987,
+      "actual_species_area_days": 987,
+      "missing": 0,
+      "extra": 0,
+      "coverage_start": "2026-09-28",
+      "coverage_end": "2026-10-04",
+      "species": 10,
+      "species_area_pairs": 141,
+      "batch_requests": 1134,
+      "batch_executed_requests": 228,
+      "sqlite_write_mode": "async_single_writer"
+    },
+    "artifact_size_bytes": 45613056,
+    "artifact_id": "sha256:c4fde51b1b914c0e11e8c75719732d194abfe6d1a1286903875f3295b49ac3c9",
+    "worker_publication_state": "complete",
+    "pending_finish": false,
+    "staged_files": [],
+    "evidence": [
+      "docker logs --since 6h --timestamps rainmapper-worker (job_claimed, predictor_precompute_complete, job_thread_released)",
+      "Read-only metadata from /var/lib/rainmapper-worker/predictor_precompute/active.sqlite3",
+      "Worker /health: idle in both lanes"
+    ],
+    "limits": "Initial worker-only check was followed by direct read-only HA verification after user clarified already-mounted Tailscale volumes may be used. Full SQLite contents were not rehashed. No remote mutations.",
+    "ha_direct_verification": {
+      "revision": 277,
+      "job_status": "complete",
+      "job_error": "",
+      "worker_activation": "active",
+      "artifact_ids_match": true,
+      "publication_state": "complete",
+      "receipt": {
+        "artifact_id": "sha256:c4fde51b1b914c0e11e8c75719732d194abfe6d1a1286903875f3295b49ac3c9",
+        "desired_revision": 277,
+        "file_sha256": "sha256:b2e388dc194598d9c0ebcaeb55eb55b87143ced298e1c710465b612bae24cd94",
+        "receipt_id": "sha256:f74c6c5e15eee15333f0937e272937d92ca2541f53f1c27ee10071a83a94f57e",
+        "schema_version": "1.0",
+        "size_bytes": 45613056
+      },
+      "sources": [
+        "/Volumes/media-1/rainmapper/results/predictor-precompute/active-receipt.json",
+        "/Volumes/media-1/rainmapper/results/predictor-precompute/desired.json",
+        "/Volumes/media-1/rainmapper/results/predictor-precompute/active.sqlite3 metadata (read-only immutable)",
+        "/Volumes/share/rainmapper/mushroom-data/mushroom_worker_jobs.json"
+      ]
+    }
+  }
+}

@@ -181,6 +181,7 @@ def _known_sites_map_assets() -> str:
             '<style>' + (root / "known-sites.css").read_text(encoding="utf-8") + '</style>'
             '<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>'
             '<script src="https://cdn.jsdelivr.net/npm/@watergis/maplibre-gl-terradraw@1.0.1/dist/maplibre-gl-terradraw.umd.js"></script>'
+            '<script>' + (root / "known-sites-circles.js").read_text(encoding="utf-8") + '</script>'
             '<script>' + (root / "known-sites.js").read_text(encoding="utf-8") + '</script>')
 
 
@@ -361,6 +362,13 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
     data = workspace_data(payload, observations_payload)
     data["observation"] = observation_map_context(observations_payload, query, payload, catalogs_payload)
     data["labels"] = {key: label("ui." + key) for key in ("sites_coordinates_invalid", "sites_coordinates_found", "sites_circle_help", "sites_circle_edge", "sites_circle_complete", "sites_observation_point", "sites_observation_draft_position", "observation_detail")}
+    circle_keys = ("sites_draw_circle", "sites_circle_help", "sites_circle_edge", "sites_circle_complete",
+                   "sites_circle_choice", "sites_circle_choice_help", "sites_circle_add", "sites_circle_replace",
+                   "sites_circle_edit", "sites_circle_edit_help", "sites_circle_center", "sites_circle_radius",
+                   "sites_edit_shape", "cancel")
+    data["translations"] = {language: {key: mushroom_profiles_ui.ui_label("ui." + key, language)
+                                      for key in (*data["labels"], *circle_keys)}
+                            for language in ("en", "es", "ca")}
     data["soilgrids_warning"] = label("ui.soilgrids_pending") if any(r["soilgrids_pending"] for r in data["rows"]) else ""
     data["return_to"] = (query.get("return_to") or ["./profiles?section=observations"])[0]
     # Escape '<' even inside JSON to keep user-entered names out of script markup.
@@ -378,10 +386,10 @@ def render_page(payload: dict[str, object], observations_payload: dict[str, obje
         <section id="site-layer-panel" class="sites-map-panel" hidden><strong>Fondo del mapa</strong><button data-basemap="satellite" class="active">Satélite+</button><button data-basemap="hybrid">Híbrido</button><button data-basemap="topographic">Topográfico</button></section>
         <section id="site-search-panel" class="sites-map-panel" hidden><form id="site-search-form"><label for="site-search-input">{_text(label("ui.sites_search"))}</label><div><input id="site-search-input" type="search" minlength="2" maxlength="160" required autocomplete="off" placeholder="{_text(label('ui.sites_search_hint'))}"><button>Buscar</button></div></form><p id="site-search-status" role="status"></p><div id="site-search-results"></div><small>Búsqueda online: <a href="https://photon.komoot.io/" target="_blank" rel="noopener">Photon</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></small></section>
         <div id="site-overlaps" class="sites-map-panel" hidden></div>
-        <div id="site-geometry-tools" hidden><span id="site-geometry-status">Sin geometría</span><button type="button" id="site-edit-geometry">Editar geometría</button><button type="button" id="site-draw-polygon" hidden>Dibujar polígono</button><button type="button" id="site-draw-circle" hidden>{_text(label('ui.sites_draw_circle'))}</button><button type="button" id="site-edit-polygon" hidden>Editar vértices</button><button type="button" id="site-finish-geometry" hidden>Terminar dibujo</button><button type="button" id="site-clear-geometry" hidden>Quitar geometría…</button><button type="button" id="site-recover-gis">Recuperar GIS / DEM</button></div>
+        <div id="site-geometry-tools" hidden><span id="site-geometry-status">Sin geometría</span><button type="button" id="site-edit-geometry">Editar geometría</button><button type="button" id="site-draw-polygon" hidden>Dibujar polígono</button><button type="button" id="site-draw-circle" data-site-label="sites_draw_circle" hidden>{_text(label('ui.sites_draw_circle'))}</button><button type="button" id="site-edit-polygon" hidden>Editar vértices</button><button type="button" id="site-finish-geometry" hidden>Terminar dibujo</button><button type="button" id="site-clear-geometry" hidden>Quitar geometría…</button><button type="button" id="site-recover-gis">Recuperar GIS / DEM</button></div>
         <div id="sites-status-message" role="status" aria-live="polite">{_text(flash) or 'Selecciona un setal en el mapa o en la lista.'}</div>
       </div>
-      <dialog id="site-circle-choice"><h2>{_text(label('ui.sites_circle_choice'))}</h2><p>{_text(label('ui.sites_circle_choice_help'))}</p><div><button data-choice="cancel">{_text(label('ui.cancel'))}</button><button data-choice="add">{_text(label('ui.sites_circle_add'))}</button><button class="primary" data-choice="replace">{_text(label('ui.sites_circle_replace'))}</button></div></dialog>
+      <dialog id="site-circle-choice"><h2 data-site-label="sites_circle_choice">{_text(label('ui.sites_circle_choice'))}</h2><p data-site-label="sites_circle_choice_help">{_text(label('ui.sites_circle_choice_help'))}</p><div><button data-choice="cancel" data-site-label="cancel">{_text(label('ui.cancel'))}</button><button data-choice="add" data-site-label="sites_circle_add">{_text(label('ui.sites_circle_add'))}</button><button class="primary" data-choice="replace" data-site-label="sites_circle_replace">{_text(label('ui.sites_circle_replace'))}</button></div></dialog>
       <dialog id="site-unsaved"><h2>Cambios sin guardar</h2><p>¿Qué quieres hacer antes de continuar?</p><div><button data-choice="cancel">Seguir editando</button><button data-choice="discard">Descartar</button><button class="primary" data-choice="save">Guardar y continuar</button></div></dialog>
       <dialog id="site-confirm"><h2 id="site-confirm-title"></h2><p id="site-confirm-text"></p><div><button data-choice="cancel">Cancelar</button><button class="danger" data-choice="confirm">Confirmar</button></div></dialog>
       <dialog id="site-busy" aria-labelledby="site-busy-title"><span class="sites-spinner" aria-hidden="true"></span><h2 id="site-busy-title">Operación en curso</h2><p id="site-busy-text"></p><small>Espera a que termine. Los datos del formulario se conservan si hay un error.</small></dialog>

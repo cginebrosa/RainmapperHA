@@ -1,382 +1,253 @@
-# Contexto activo — HA 0.2.330 publicada; instalación pendiente (28/09/2026)
+# Contexto activo — actualización 03/10/2026
 
-Leer primero [codex-start-here.md](codex-start-here.md). Este documento basta para
-retomar; [todo.md](todo.md) amplía prioridades. No reconstruir sesiones leyendo
-informes históricos. Los antecedentes completos se conservaron en el
-[archivo del repaso del 27/09](reports/session-context-before-refresh-2026-09-27.md).
+Leer [codex-start-here.md](codex-start-here.md) y este documento basta para
+continuar. [todo.md](todo.md) amplía pendientes; ningún pendiente autoriza por sí
+solo su ejecución. No hay una publicación ni un trabajo operativo que Codex deba
+lanzar al reabrir.
 
-## Estado y siguiente paso
+## Release actual: HA 0.2.331 publicada; pendiente instalación del usuario
 
-- **HA 0.2.330 publicada tras completar y auditar el circuito local.**
-  Completada la coherencia entre mapa, recuperación puntual, microáreas por
-  muestreo y reconstrucción: MFE25 para árboles; MVC50 para bosque/sustrato;
-  alternativas Cobertes/geología por campo. La reconstrucción usa un único
-  lector por trabajo y el dataset preparado, conservando evidencia revisada.
-  Dataset local activado en `docker-media/rainmapper/geography`: 14 referencias,
-  configuración 1.997 bytes. El worker ya tenía los 13 assets en caché; no se
-  duplican ni transportan de nuevo. Se reutiliza el transporte existente.
-  HA local/worker reconstruidos y recreados tras verificar reposo. Paridad
-  SHA 17/12 archivos, ambos coordinadores y hashes intactos. Smoke 1.854 pruebas,
-  55 omitidas; 87 dirigidas; tres puntos reales y microárea coherentes en ambas
-  imágenes. Evidencia `docker-data/territorial-validation/coherent-*` y `parity.json`.
-  **Circuito terminado:** 517 observaciones con política nueva; 792/792 ajustes
-  sin fallos y cinco versiones promovidas; precálculo 28/09–04/10 activo en HA
-  local y confirmado por worker. SQLite íntegro, recibos coincidentes y limpieza
-  completa. Duraciones: reconstrucción 1:06, base 0:24, multiversión 10:26,
-  precálculo 10:47. Auditoría `operational-cycle-audit.json` en la misma carpeta.
-  Publicación autorizada por «pues publica»; script terminado con código 0 y
-  tags `0.2.330`/`latest` verificados con el mismo digest y amd64/arm64.
-  Digest `sha256:e932c63ad4d207c64f8e2a634264a2ca5efe96ac782a73ba96a2f7b57e98b8fb`.
-  **Siguiente paso:** el usuario instala HA; después activar metadatos en real.
-  No repetir el ciclo local.
+El usuario confirmó «ya funciona» en local y autorizó publicar con «adelante».
+Publicación completada el 03/10: `0.2.331` y `latest`, mismo digest
+`sha256:be84ceaedf2289f73157b39661b7d4480c69c23de276d4d61a47dc5685dde90b`,
+con manifests `linux/amd64` y `linux/arm64`. No instalar ni reiniciar HA real
+por cuenta de Codex. Última versión real confirmada por el usuario: **0.2.330**;
+no dar 0.2.331 por instalada hasta confirmación. No repetir publicación.
 
-- **HA real:** sólo índice MVC50 copiado y verificado (479.780.864 bytes).
-  Aún no registrado: `/media/rainmapper/geography/CURRENT.json` conserva
-  `local-20260914` en la última comprobación. Faltan instalación compatible y
-  activación de metadatos. No borrar MVC50 original: queda el inventario de
-  mantenimiento de mapeos por auditar/adaptar.
-  [Preparación](reports/release-ha-0.2.330-preparation-2026-09-28.md),
-  [política y procedimiento](mushrooms/territorial-source-policy-es.md).
+Incluye controles de círculos ES/CA/EN según idioma del dispositivo, edición
+por centro/radio y encuadre visible. Reconoce anillos TerraDraw y WGS84/AEQD
+GBIF; admite sus 16 decimales sin redondear el original al abrir. Se corrigió
+el rechazo `Feature has invalid coordinates` detectado por el usuario en
+Riudarenes. Navegador: ampliar/reducir/mover, guardar/reabrir, no-op exacto,
+añadir/sustituir/descartar, tres idiomas, y datos locales intactos tras descartar.
 
-- **Cambio incluido en 0.2.330:**
-  Comprobar predicción consulta todas las especies y enmarca la observada en azul;
-  la trazabilidad sigue vinculada a la especie observada y día seleccionado.
-  42 pruebas dirigidas y navegador correctos (77 consultas, 25 de histórico).
-  HA local y worker reconstruidos/recreados; paridad SHA de los tres archivos HA
-  afectados y contrato del worker, HTTP local 200. Ambos coordinadores conservados.
-  Se esperó a que los canales del worker estuvieran libres antes de recrearlo.
-  No requiere entrenamiento/precálculo. Logs en
-  `docker-data/observation-all-species-{browser,ha-build,worker-build}.log`.
+También registra los cambios de organización geográfica ya validados en local
+(y herramientas WU/GBIF). No migra carpetas ni datos en HA. Conserva los
+`-todelete`; su retirada y los recorridos funcionales pendientes siguen separados.
 
-- **HA 0.2.329 publicada, instalación pendiente:** Comprobar predicción desde la
-  ficha de observación, debajo de Cómo llegar. Abre la ficha completa del mapa
-  para las coordenadas/especie/fecha registradas: siete días, IFF/modelo,
-  meteorología, SMI y terreno; añade abundancia observada y vuelta a la ficha.
-  Conserva fecha global del mapa. Añade trazabilidad del ID por modelo/día mediante
-  SQLite generado al ajustar los modelos V2–V6; modelos anteriores se identifican
-  como sin trazabilidad. Bocadillo con punta en todos los anclajes y altitud guardada
-  entre Fecha y Área. Worker reconstruido y dos ajustes sintéticos comprobados,
-  con ambos coordinadores conservados. El entrenamiento local del usuario terminó:
-  lote `operational_20260927T184246Z`, 792/792 ajustes, cero fallos, verificado y
-  cinco versiones instaladas. Índice SQLite de 573.440 bytes, 792 modelos y
-  226 conjuntos completos; tamaño, SHA y `quick_check` correctos.
-  101 pruebas dirigidas de trazabilidad/transporte, navegador y consulta HTTP local
-  correctos; adición de altitud comprobada con 37 pruebas y navegador.
-  Smoke de release: 1.838 pruebas / 52 omitidas, OK. HA local reconstruida/recreada
-  con etiqueta 0.2.329, HTTP 200 y paridad SHA de 19 archivos; nueve archivos del
-  worker coinciden, sin reconstruirlo de nuevo ni cambiar coordinadores.
-  Ficha simplificada posteriormente por petición del usuario: especie, fecha,
-  abundancia y SÍ verde / NO rojo; sin párrafos de explicación. Por acuerdo final
-  del usuario se mantiene el entrenamiento actual: evaluación previa y ajuste final
-  con todas las filas elegibles. No se implementó interruptor ni reparto nuevo.
-  Tags/digest/plataformas GHCR verificados y publicación autorizada por el usuario.
-  [Release](reports/release-ha-0.2.329-2026-09-27.md).
-  [Evidencia](reports/observation-prediction-check-local-2026-09-27.md).
+Smoke de release sobre código definitivo: **1.859 pruebas / 55 omitidas**,
+correcto; incluye regresión JS independiente con anillo sintético generado por
+GDAL. Paridad revalidada antes del bump: nueve archivos afectados de HA local
+y cuatro módulos compartidos del worker iguales al worktree. Las reconstrucciones
+y pruebas locales precedentes seguían vigentes; sin nuevo código ejecutable
+entre la aceptación, el smoke y la publicación, salvo bump/cache-busters mecánicos.
+No se reinició el worker ni se lanzaron trabajos operativos.
 
-- **HA 0.2.328 publicada**, validada en local y autorizada por el usuario para
-  probar en móvil. Tabla de observaciones aprovecha el panel y ficha del mapa
-  compacta con foto y Cómo llegar. Smoke 1.831 pruebas / 52 omitidas OK; tags
-  y plataformas verificados. Instalación pendiente a cargo del usuario.
-  [Release](reports/release-ha-0.2.328-2026-09-27.md).
+[Informe de release y evidencias](reports/release-ha-0.2.331-2026-10-03.md).
+Siguiente paso: el usuario instala 0.2.331 y comprueba la edición en HA real.
 
-- **HA 0.2.327 instalada y funcionando**, confirmado por el usuario. Incluye las
-  correcciones locales de casillas GBIF y notas DEM.
-  Smoke 1.831 pruebas / 52 omitidas OK; tags y plataformas verificados.
-  [Release](reports/release-ha-0.2.327-2026-09-27.md).
+## Tarea actual: organización geográfica local
 
-- **HA 0.2.326 instalada y funcionando**, confirmado por el usuario el 27/09.
-  Añade coordenadas, incertidumbre y foto ampliable
-  a las fichas del mapa; incorpora los scripts de memoria ya validados. Tags y
-  plataformas verificados; [release](reports/release-ha-0.2.326-2026-09-27.md).
+Autorizada el 28/09, implementada y validada **sólo en Mac, HA local y worker**.
+Código incluido en 0.2.331; pendientes recorridos funcionales restantes y
+aceptación para retirar antiguos. HA real ya usaba la raíz correcta.
+[Plan, incidencias, evidencia y retirada de antiguos](mushrooms/geography-local-organization-plan-es.md).
 
-- **Comprobación anterior de HA real 0.2.325**, confirmada entonces por el
-  usuario y revalidada en
-  `/Volumes/share/rainmapper/diagnostics/runtime_state.json` durante este repaso:
-  `app_version=0.2.325`, arranque `2026-09-26T20:11:03.600Z`.
-- **Comprobación anterior del worker 1.1.6, previa a la trazabilidad**, reconstruido
-  y arrancado el 27/09 por petición del usuario,
-  sin nueva release HA. Imagen efectiva
-  `sha256:79440107723a685b3e8eb32b2161a2ec0f9224f02cc7a09339101a4553eaa747`.
-  122 archivos Python en paridad; 25 pruebas dirigidas correctas dentro de la
-  imagen. Al verificar el arranque estaba `running/healthy`, `idle`, sin trabajos.
-  Ese estado puntual no permite presumir que continúe libre: **revalidar antes
-  de operarlo**, aunque los trabajos comprobados hayan terminado.
-- Coordinador primario conservado: `http://100.111.77.48:8100`; adicional:
-  `http://rainmapper-ha-ui:8100`. Identidad `worker_1a9a232c20fe2ee2`, M1 Personal.
-  Configuración de ambos e identidad idénticas por hash antes/después; acceso
-  autenticado a ambos correcto al arrancar. No cambiar destinos ni credenciales.
-- **Ciclo del usuario completado y verificado el 27/09:** reconstrucción 2:05,
-  V0 0:27, multiversión 10:04 (792/792 ajustes, 0 fallos); cinco versiones
-  instaladas del lote `operational_20260926T223720Z`. Precálculo 9:39, revisión
-  261 activa en HA/worker para 27/09–03/10, SHA idéntico leído en ambos SQLite.
-  Worker sin reinicios/OOM, ambos carriles libres al comprobar. Pico cgroup
-  6,86 GiB desde arranque, no RSS aislado ni pico atribuible a una fase.
-  Hubo timeouts de comunicación recuperados. Codex no lanzó trabajos.
-  [Resultados, tiempos y límites](reports/worker-evaluation-memory-2026-09-27.md).
-  Rovelló/Els Ports reexaminado: RF–V3 da IFF 37 toda la semana; ver abajo.
-- Pendientes aplazados: estado huérfano de HA tras perder worker; duración del
-  precálculo (9 → 11 minutos). Ambos en TODO; no están corregidos por el rebuild.
+El usuario confirmó el 03/10 la edición circular en local. Siguen sin
+confirmación completa la asignación de observaciones, recuperación geográfica
+en setales e importación GBIF; las comprobaciones técnicas y el registro
+sintético GBIF no sustituyen esos recorridos. Conservar
+ambos `-todelete` hasta completar la revisión funcional y acordar su retirada.
+No lanzar entrenamientos ni precálculos para suplir estas pruebas.
 
-## Corrección de memoria del worker
+- Operativa completa en `docker-media/rainmapper/geography/`; archivos y contratos
+  activos conservados. Fuentes/expansión/preparaciones en `geography-sources/`.
+- Raíces anteriores renombradas `mushroom-GIS-todelete/` y
+  `mushroom-map-GIS-todelete/`: 5.891 archivos intactos. No borrar hasta la revisión
+  y confirmación finales documentadas en el plan; no usarlas como fallback.
+- Retirado montaje antiguo de HA local, herramientas WU/GBIF adaptadas.
+  Imágenes existentes reconstruidas/recreadas, paridad 147 archivos HA/106 worker,
+  URLs e identidad del worker intactas. Sin nuevos jobs operativos.
+- Cuatro puntos antes/después idénticos en ambos contenedores; inventario de
+  mapeos idéntico. Smoke 1.859 pruebas/55 omitidas y 51 dirigidas después de
+  renombrar correctos. WU: apertura municipal; GBIF: un registro sintético.
+- La implementación no modificó HA real; después se consultó en lectura el
+  precálculo automático mediante los volúmenes montados. No hay release ni
+  borrado autorizado por el mero hecho de que la validación local haya pasado.
+- Cambios en worktree sin commit/push. Preservar documentación previa y
+  observaciones privadas; no incluir estas últimas en un commit.
 
-El contenedor anterior murió por OOM a las 22:58:59 del 26/09 (20:58:59 UTC),
-salida 137. El trabajo `worker_job_XpH0Q6p3EQaUxiyF` llevaba unos ocho minutos,
-aunque HA seguía mostrando `running`, 46 %, con lease caducada. Ese era el estado
-observado durante el incidente, no el del nuevo contenedor ni una cola vigente.
-Reconstrucción y V0 anteriores habían terminado; la caída ocurrió durante V6.
+## Volúmenes montados: aclaración vigente del usuario (28/09)
 
-`biology-v5-lag.json`: 528.821.763 bytes, 3.493 muestras. No se recortan los
-365 días ni el SMI. V2–V5 y V6 ahora comparten la misma entrada por contrato:
-cargar `fixed`, evaluar sus consumidores, liberar; después lo mismo con `lag`.
-Se comparte normalización por fuente y se conserva el orden final de resultados.
-No hay caché permanente. El entrenamiento final es otro proceso con su propia
-lectura; no confundir esta mejora con una única lectura en todo el pipeline.
+Está permitido usar los volúmenes que el usuario haya montado, aunque sean por
+Tailscale. Codex no debe montarlos por su cuenta. Verificar origen antes de leer;
+esta autorización no implica SSH ni cambios/escrituras no solicitados.
 
-Medición con archivos reales, **sin ajustar modelos**: pico RSS de carga V6
-3,99 → 1,71 GiB (−57 %); lecturas por archivo 3 → 1. Las 25 pruebas incluyen
-igualdad exacta de resultados sintéticos para 30/60/90 y 365 días. No demuestra
-el pico completo ni garantiza por sí sola que el trabajo entero evite OOM.
-[Implementación, medición, rebuild y límites](reports/worker-evaluation-memory-2026-09-27.md).
+Precálculo automático posterior a reorganización comprobado también directamente
+en HA real mediante esos volúmenes: revisión **277**, trabajo
+`worker_job_BPJgkkhMwTKo` en `complete`, error vacío, mismo artefacto/recibo en
+estado deseado, SQLite activo y resultado del trabajo. Activación HA 15:19:22 UTC,
+cierre 15:19:39 UTC; 11 min 40 s. Sin cambios remotos ni relanzamientos.
+Revisión ampliada del mismo precálculo: 987/987 combinaciones especie–área–día
+del trabajo presentes en SQLite, sin faltantes ni extras, del 28/09 al 04/10.
+Telemetría: cálculo 578,045 s, publicación HA 99,823 s, transferencia estimada
+2,277 s y activación worker 16,779 s. Limpieza registrada como completa a las
+15:19:44 UTC. El diagnóstico de lote registra 228 solicitudes ejecutadas para
+1.134 solicitudes totales. No se ha investigado aquí la causa del aumento de
+duración respecto a otros ciclos ni vuelto a ejecutar el cálculo.
 
-## Meteocat: reparación ya aplicada; preservar datos nuevos
+El usuario aplaza la investigación del disco hasta terminar esta revisión.
+Mantener pendiente conciliar su bajada de 145–150 a 115,44 GB disponibles; la
+auditoría parcial y los límites están en el plan geográfico. No limpiar nada.
 
-HA 0.2.325 corrige el recorte del primer día UTC que sobrescribía lluvia y otros
-campos con horas parciales. Reparación aplicada en real el 26/09 a las 20:09 UTC,
-con add-on parado por el usuario: 6.700 filas / 24.034 celdas de 01/08–25/09/2026,
-incluidas 1.171 lluvias; otras fuentes preservadas. YB 09/09=54,8 y 16/09=7,1 mm;
-W9=44,7 y 14,5 mm. No se certifica todo el histórico anterior al 01/08.
-[Release](reports/release-ha-0.2.325-2026-09-26.md),
-[diagnóstico y reparación](reports/meteocat-partial-days-2026-09-26.md).
+Auditoría de geografía de HA real solicitada posteriormente y completada sólo
+en lectura: 3.603 archivos, 16,11 GB lógicos; no aparece una gran copia sobrante
+retirable directamente. Original MVC50 y originales SoilGrids siguen teniendo
+consumidores; importaciones/históricos candidatos a archivar suman 4,02 MB.
+[Informe y límites](reports/ha-geography-files-audit-2026-09-28.md).
+HA ya usa `/media/rainmapper/geography`; esta organización no requiere migración
+ni release HA. El usuario exige hablar antes de borrar: ningún archivo retirado.
 
-La reparación introdujo mezcla de coma/punto en el CSV: validación insuficiente.
-El runner posterior recuperó 1.498 filas y reescribió todo el CSV con coma; lector
-real comprobado, 33.707 filas y cinco columnas float64. La auditoría posterior
-conservó las 24.034 celdas reparadas y ninguna clave estación/fecha desapareció.
-Total histórico tras runner: 5.550.605 filas. **No ejecutar
-`tmp/meteocat-repair-20260926/deploy_csv_decimal_fix.py`**: su candidata es anterior
-a esos datos nuevos. Evidencia `after-runner.json` y `runner-history-audit.json`
-en ese directorio. Si se necesita confirmar el último runner completo, leer su
-registro vigente: aquel NOK describía un intento anterior, no el CSV reescrito.
+## Estado operativo y evidencia
 
-## Histórico, piloto IDW y rovelló con sequía
+- **HA 0.2.330 instalada en HA real. Entrenamiento y precálculo terminados**,
+  confirmados por el usuario al pedir este cierre. No se ha auditado de nuevo ese
+  último ciclo real ni se atribuyen a él cifras del ciclo local. Tampoco se deduce
+  de esa confirmación que el worker esté libre en una sesión futura.
+- Release en commit `14398c0`, rama `inicial` (comprobados con `git log` al cerrar).
+  Publicación previamente verificada: tags `0.2.330`/`latest`, amd64 y arm64,
+  digest `sha256:e932c63ad4d207c64f8e2a634264a2ca5efe96ac782a73ba96a2f7b57e98b8fb`.
+  No repetir build, publicación, instalación ni ciclo local.
+- **Geografía real activada durante esta sesión**, ya no pendiente. Recibo
+  `docker-data/territorial-validation/ha-register-mvc50.json`: generación
+  `local-mvc50-20260928`, huella
+  `sha256:e4252f943945412ae4cfc38f81d685778fbdbadb2351f9523620cf9e262ddbea`.
+  El puntero está en `/media/rainmapper/geography/CURRENT.json`, junto a
+  `generations/`, no dentro de ella.
+- Dataset científico activado: 14 referencias, huella
+  `sha256:64c6115afbc657246dea6b1aa738e1d4eaf9f7ba42a584ac5a606f9f11550649`.
+  Recibo `ha-territorial-activation.json`: `activated=true`, configuración
+  1.997 bytes, listado 2.992 bytes, cero bytes GIS copiados o hasheados al activar.
+  `territorial-context.json` y `geography-dataset.json` están en la raíz geográfica.
+  Esos recibos se han releído en el cierre; acreditan la activación realizada,
+  no una inspección nueva de todos los archivos remotos.
+- Índice preparado real:
+  `/media/rainmapper/geography/mushroom-map-GIS/mvc50/prepared/mvc50-2019-11-v1.sqlite`.
+  479.780.864 bytes, 116.468 entidades, SHA
+  `7fd80b927641e1a335b72ca50c40a8ca1187f337ea53d6688fb3419bd96c7eb5`.
+  Copia verificada al subir; no volver a hashearla sin causa nueva.
+- Worker privado: último rebuild local de organización geográfica sobre 1.1.6. Conservar primario
+  `http://100.111.77.48:8100` y adicional `http://rainmapper-ha-ui:8100`, identidad
+  `worker_1a9a232c20fe2ee2` (M1 Personal). Revalidar reposo y URL persistida antes
+  de cualquier operación; no cambiar destinos ni credenciales.
+- Aceptación **local previa a release**, no resultados del último ciclo real:
+  517 reconstrucciones, 792/792 ajustes, cinco versiones promovidas y precálculo
+  activo; smoke 1.854 pruebas / 55 omitidas. Detalle en
+  [release 0.2.330](reports/release-ha-0.2.330-preparation-2026-09-28.md).
 
-- Muestreo: 668 pares cercanos y 10.103 comparaciones mensuales. No aparece un
-  déficit general de Meteocat frente a AEMET; 88 jornadas de siete estaciones
-  coinciden con el API oficial. Hay datos de origen incompletos: DF 06/07/2025
-  publica 0 mm con 28/48 lecturas. No confundirlos con nuestra pérdida corregida.
-  La auditoría de agosto detectó diferencias menores desde 09/08 y pérdidas
-  ≥5 mm desde 13/08; no asegurar que antes no exista ningún problema.
-  [Método y límites](reports/weather-cross-source-sample-2026-09-26.md).
-- Usuario autorizó un piloto **local**, con datos y salidas en `docker-data`.
-  Última sincronización verificada: generación
-  `20260926T204049825478Z-635f090343b7`, 5.550.605 registros; 6,6 MB descargados,
-  resto reutilizado. No presumir que coincide con HA después de nuevos runners.
-  24 referencias, 23.631 jornadas, 48 verificaciones contra IDW canónico.
-  MAE diario 1,091417 → 1,091530 mm con reducción de peso; tampoco mejora el
-  descarte. **Mantener IDW operativo actual**: el piloto no acredita una mejora.
-  [Reglas, resultados y limitaciones](../local-apps/rainfall-qc/README.md).
-- Rovelló/Els Ports: artefacto del precálculo 258, 26/09, IFF 78; modelo LR–V4
-  del 24/09, anterior a la reparación. Reproducción algebraica de sus
-  coeficientes: asociaciones con baja humedad/pocos días lluviosos compensan
-  penalizaciones hídricas. Sus 33 entradas no incluyen agua disponible del suelo.
-  Sin evidencia local de área; evidencia global 5/5 recomendaciones acertadas
-  entre 19 observaciones (9 positivas), límite inferior Wilson 95 % 56,55 %.
-  Seguimiento del 27/09: lote nuevo y revisión 261 seleccionan RF–V3, IFF 37
-  constante. Sólo cambia el horizonte entre sus 27 entradas; ninguno de los
-  200 árboles cambia de hoja en Els Ports. En Vallcebre cambia cuatro árboles,
-  IFF 76,41→75,96, todos redondean a 76. Agua del suelo observada al corte, no
-  proyectada diariamente. No confundir RF con LR ni atribuir toda la mejora a
-  la reparación meteorológica: también cambian muestras, selección y fecha.
-  [Informe y evidencia](reports/rovello-els-ports-dry-prediction-2026-09-26.md).
+## GIS: política entregada y caso Campins cerrado
 
-## GBIF y setales: entregado; decisiones que deben conservarse
+Mapa normal/histórico, recuperación puntual GIS/DEM, muestras de microáreas y
+reconstrucción comparten `territorial_sources_v1`, por campo:
 
-Las funciones aceptadas por el usuario se publicaron en HA 0.2.324 y están
-incluidas en 0.2.325. No son una implementación pendiente de publicar.
-[Contrato y uso](../local-apps/gbif/docs/gbif-rainmapper-export-import-design.md),
-[validación](reports/gbif-import-local-2026-09-25.md),
-[release 0.2.324](reports/release-ha-0.2.324-2026-09-26.md).
+| Campo | Primera fuente | Alternativa si no resuelve |
+|---|---|---|
+| Árboles | MFE25 | MVC50 |
+| Bosque | MVC50 `LLVA_niv2t` | Cobertes 2024 |
+| Sustrato | MVC50 `LLVA_Subst` | Geología 1:50.000 |
+| Litología | Geología 1:50.000 | Ninguna |
 
-- ZIP con citas que cumplen filtros, también fuera del encuadre, y fotos.
-  Selector de carpeta origen y archivo destino, nombre editable y ZIP existente.
-  Duplicados GBIF al exportar: Ignorar/Reemplazar; al importar: Mantener/Reemplazar.
-- Importadas como Borrador/Revisar antes de usar; observador/origen GBIF,
-  abundancia Normal y calidad provisional 0,75. Reemplazar conserva ID Rainmapper,
-  sustituye datos/fotos y devuelve a revisión; restaura si estaba archivada.
-- Incertidumbre original conservada: declarada o 500 m asignados si desconocida;
-  existentes sin precisión muestran 0 por compatibilidad, sin migración masiva.
-- GIS/DEM y microárea contenedora recuperados al importar, con progreso por cita;
-  varios contenedores: centro más cercano. Cartografía separada de datos de campo.
-- Alta automática opcional de setales, desmarcada inicialmente: examina todo el
-  lote reutilizando altas previas. Radios área 500 m / microárea 495 m; ampliar
-  el área por unión geométrica para mantener margen de 5 m, también si era manual.
-  Sin recortar/fusionar ni reactivar zonas archivadas. Empates resueltos por ID.
-- Origen `provenance.creation_source` manual/GBIF/futuro. Ampliar área manual
-  conserva su origen. Nombres editables no cambian IDs ni asociaciones.
-  Nombre del área usa municipio del snapshot si existe, con sufijo GBIF/ID;
-  topónimo más cercano sigue pendiente de fuente verificada.
-- SoilGrids por microárea, cobertura local (`ensure_missing=False`); si falta,
-  queda pendiente. Importar no amplía descargas ni lanza modelos. Plan sellado,
-  control de concurrencia y diario de guardado según contrato; no deshacer cambios ajenos.
-- Lotes: hasta 100 citas / 120 MiB de fotos; ZIP máximo 128 MiB.
-- Setales: búsqueda por coordenadas/Photon, navegación desde observación con
-  marcador y detalle; círculos como polígonos editables. Sustituir/Añadir círculo,
-  clic centro/borde y guardado explícito. Usuario acepta su funcionamiento.
-- Pendientes: mapa cartográfico del plan (aplazado), nombres por topónimo y
-  auditoría de observaciones que no encajan en sus zonas. No ejecutar por rutina.
+Sólo mapeos aceptados; no inferir sustrato del nombre de un bosque ni del pH.
+Conservar conflictos explícitos. La evidencia revisada/guardada no se sobrescribe
+por consultar el mapa. Una observación antigua puede conservar su recuperación
+anterior hasta revisión explícita. Un lector por reconstrucción, snapshots
+sellados y caché de assets por contenido; no duplicar GIS por observación/modelo.
+[Política y procedimiento](mushrooms/territorial-source-policy-es.md).
 
-## Decisiones vigentes que afectan al siguiente paso
+**Campins, decisión final del usuario: «pues así se queda».** Respuestas HA real
+persistidas y releídas en `docker-data/territorial-validation/campins-*-point.json`:
 
-**Consenso de recomendaciones (incluido desde 0.2.318):** Workers y trabajos →
-Modelos de predicción → Desactivado / Solo comparar / Aplicar
-(`legacy` / `shadow` / `prudent`). En Ou de reig, Edulis y Pinícola, cuando hay
-recomendación favorable e IFF ≥60, consulta exactamente dos familias alternativas
-fijas de la semana, posteriores al ganador en el ranking sellado. Aplicar exige
-las dos disponibles y ≥60; si discrepan o faltan, se abstiene. Conserva ganador e
-IFF, no suaviza diferencias espaciales. Aereus/deliciosus quedan fuera de este veto.
-Ausencia de alternativas no es desacuerdo. Descartes por datos cuentan sólo
-familias evaluadas; no las que el mapa no ejecutó. Conclusión verde/roja, ámbar si
-faltan alternativas, debajo de temporada; un Detalle con perfiles visibles.
+- `41.72509, 2.47462`: MVC50 `Indiferent`; geología **Qv3**, abanico aluvial con
+  gravas/bloques y matriz arenosoarcillosa. Sustrato no determinado.
+- `41.72471, 2.47513`: mismo polígono MVC50; geología **POa**, arcosas,
+  conglomerados y lutitas, resuelta por el mapping vigente como silícea.
+- Ambas consultas tienen capas disponibles, sin huecos ni conflictos reportados.
+  La diferencia no acredita pérdida de cobertura: son polígonos geológicos
+  distintos. **No añadir Qv3→silíceo ni una regla por vecinos/alcornoques.**
+  La leyenda ICGC no determina la composición de Qv3; investigación y fuentes
+  en la decisión del 28/09. No queda una corrección pendiente de ese caso.
 
-El usuario exige evitar más errores que aciertos perdidos. Rechazó la regla
-global que evitaba 130 errores pero perdía 156 aciertos. La retrospectiva selectiva
-39/10 motivó esta dirección, **no acredita ese balance futuro ni el selector
-completo por área**: ámbito elegido tras ver datos, observaciones reutilizadas por
-plazo y familias correlacionadas. Mantener modo reversible y medir con nuevas
-observaciones/GBIF revisado antes de ampliar especies o activar por rutina.
+No borrar el MVC50 original bajo `mushroom-GIS/MVC50mil`: sigue pendiente auditar/
+adaptar el inventario del mantenimiento de mapeos. La migración de consumidores
+operativos no autoriza su retirada. Expansión España/Francia y reducción de otros
+GIS/DEM son futuros, no cobertura ya entregada.
 
-**Querigut/rovelló:** el informe del lote real de septiembre reprodujo 99→90,
-no encontró consenso general sobre esos IFF y detectó exclusiones por huecos de
-lluvia/estado hídrico e imputación en V5/V6. Suelo/hosts GIS ausentes y estado
-hídrico son problemas distintos; las microáreas inspeccionadas tenían retención
-SoilGrids. No atribuirlo todo a Francia, ni tratar 99 como 99% de acierto.
-El filtro de consenso no cubre deliciosus. Informe opcional:
-`docs/reports/querigut-predictor-2026-09-21.md`; conclusiones de ese snapshot,
-no prueba de los modelos actuales después de otros entrenamientos.
+## Funciones y decisiones que no hay que rehacer
 
-**Memoria (corregida desde 0.2.318):** verificación secuencial de respuestas y
-recepción de artefacto por bloques, conservando SHA, límites y activación atómica.
-Benchmark histórico con la misma copia en Mac: pico 825→304 MiB, 16,00→15,66 s;
-no es medida del servidor RPi. Falta medir en real y explicar consumo inicial y
-retención/cachés. No está demostrada una fuga. La percepción de lentitud tampoco
-se aisló en un A/B con mismos datos/modelos. Ver informe de memoria si se retoma.
+- Ficha de observación: coordenadas, altitud, Incertidumbre (0 se muestra **0 m**),
+  Bosque, foto ampliable dentro del bocadillo y Cómo llegar a Google Maps; sin
+  círculo de incertidumbre. Tabla de observaciones aprovecha la altura disponible.
+  Casillas GBIF corregidas; microáreas GBIF nuevas copian notas DEM, sin migración
+  automática de microáreas antiguas.
+- **Comprobar predicción** abre la predicción histórica completa de siete días,
+  con meteorología/SMI/terreno; consulta todas las especies y enmarca la observada.
+  Conserva fecha global del mapa. Bloque breve: especie, fecha, abundancia y
+  Usada para entrenar: SÍ verde / NO rojo. Estados sin modelo/trazabilidad siguen
+  siendo distintos de NO. Trazabilidad por ID y modelo/día en SQLite.
+- **Entrenamiento: mantener lo existente**, decisión final del usuario. Evaluación
+  previa y ajuste final con todas las filas elegibles. No implementar interruptor,
+  reparto persistente nuevo ni benchmark obligatorio. Una comprobación de una
+  observación usada por el modelo final no es evaluación independiente; el IFF
+  no es porcentaje de acierto. Detalles científicos en `decisions.md`.
+- **IDW operativo sin filtro de consenso espacial.** Piloto local no acreditó
+  mejora global (MAE 1,091417→1,091530 mm con reducción de peso).
+  [Piloto](../local-apps/rainfall-qc/README.md). No confundirlo con el consenso
+  de recomendaciones ya disponible (`legacy`/`shadow`/`prudent`): Ou/Edulis/Pinícola,
+  dos familias alternativas; deliciosus/aereus fuera del veto. Revalidar modo real
+  antes de interpretarlo; no ampliarlo/activarlo automáticamente.
+- SMI operativo compartido: regulado + Penman–Monteith + una capa 0–30 cm;
+  simple sólo visual. Mantener suspensiones. No cambiar contratos por intuición.
 
-**Datos de lluvia:** copiar `Data/` no actualiza el GeoJSON de `PublicData/`.
-La ficha de estación puede seguir mostrando el mapa generado antes; la predicción
-puntual lee su histórico meteorológico por otro camino. Comprobar generación,
-configuración y modelos antes de afirmar paridad entre HA real y local.
+## Reparaciones previas que condicionan cualquier continuación
 
-**Ciencia conservada:** SMI común regulado + PM + una capa 0–30 cm con IDW;
-modelo simple sólo visual. Host/suelo GIS filtran compatibilidad en el mapa;
-no inferir entradas entrenadas por el nombre del modelo: mirar sus columnas.
-No cambiar IDW, suspensiones ni modelo operativo por intuición o por acuerdo visual.
+- Meteocat reparado en real el 26/09: primer día UTC parcial sobrescribía datos.
+  Ventana reparada 01/08–25/09/2026, 6.700 filas / 24.034 celdas; otras fuentes
+  preservadas. No certifica todo el histórico anterior. Mezcla decimal corregida
+  después por runner; no volver a aplicar la candidata antigua
+  `tmp/meteocat-repair-20260926/deploy_csv_decimal_fix.py`, perdería datos nuevos.
+  [Evidencia](reports/meteocat-partial-days-2026-09-26.md).
+- Copiar `Data/` no actualiza el mapa meteorológico de `PublicData/`. Para comparar
+  local/real identificar generaciones, fuentes y modelos; no asumir sincronía.
+- OOM worker corregido mediante reutilización de entradas V2–V6 por contrato,
+  liberándolas tras su último consumidor. No se recortaron los 365 días/SMI.
+  Ensayo de carga V6: 3,99→1,71 GiB; no es el pico integral del entrenamiento.
+  [Informe](reports/worker-evaluation-memory-2026-09-27.md).
+- Rovelló/Els Ports y curvas RF planas ya investigados: entradas hídricas al corte
+  y poca sensibilidad de los árboles al horizonte; no imputar por defecto fallo
+  de UI. IFF 37 del snapshot anterior no describe el último modelo real.
+  [Informe](reports/rovello-els-ports-dry-prediction-2026-09-26.md).
 
-## Publicado en 0.2.326 · ficha de observaciones del mapa (27/09)
+## Próximos bloques, sólo cuando el usuario los priorice
 
-Añadidas coordenadas latitud/longitud (seis decimales) e incertidumbre en metros
-al detalle del visor de observaciones. **Petición expresa del usuario: mostrar
-0 como «0 m», sin aclaraciones ni tooltip de compatibilidad.** La procedencia
-se conserva internamente. Valores no nulos pueden indicar declarada/asignada/manual;
-se usa `precision_origin` vigente, sin confundir el origen GBIF con una edición.
-Sin migración de datos ni cambio de modelos. Etiquetas es/ca/en.
+1. **P1 recursos/operación:** estado huérfano después de perder worker y desglose
+   del tiempo de entrenamiento/precálculo (crecimiento observado de 9 a 11 min).
+   Usar metadatos existentes, no nuevos entrenamientos como diagnóstico.
+2. **P2 GIS:** consumidores restantes del MVC50 original, disco/latencia por capa
+   y paquetes preparados para expansión. No hay limpieza autorizada.
+3. Setales fuera de sus áreas, topónimos GBIF y mapa del plan de importación;
+   pendientes funcionales y de ciencia restantes en `todo.md`.
 
-Etiqueta abreviada a **Incertidumbre / Incertesa / Uncertainty**. Si hay foto local,
-la ficha muestra una miniatura de la primera foto asociada; al pulsarla ocupa
-la misma ficha con «Volver a la observación». Altura ajustada al espacio del mapa.
-Lectura autenticada con permiso de observaciones, por ID y revisión, sin exponer
-rutas ni abrir URLs externas. Vistas JPEG en memoria (192/960 px), sin alterar
-originales ni crear ficheros; cargas canceladas y URLs temporales liberadas al cerrar.
+## Archivos para una tarea concreta y límites de cierre
 
-33 pruebas de API/observaciones correctas, incluida denegación de acceso a fotos,
-rutas fuera del directorio, revisión antigua, límites y ausencia de archivo.
-Batería `prediction_map_browser_check.mjs` correcta: miniatura, ampliación, vuelta
-a datos y caso sin foto. Captura ampliada inspeccionada. HA local reconstruida y
-recreada desde este código, hashes de módulo, adaptador, JS, CSS y etiquetas
-idénticos al worktree; HTTP 200. Foto real local comprobada en el contenedor:
-miniatura 144×192 / 9.940 bytes, ampliación 720×960 / 137.733 bytes.
-Worker no reconstruido/reiniciado para esta UI. Usuario validó local y autorizó
-publicar: imagen 0.2.326 disponible; instalación real confirmada por el usuario.
-Smoke completo
-correcto (1.829 pruebas, 52 omitidas). Código y documentación incluidos en el
-commit de release; JSON privados de observaciones excluidos.
-
-## Corrección publicada en 0.2.327 · casillas GBIF
-
-Tras instalar 0.2.326, el usuario comunica casillas enormes en lotes con duplicados.
-La columna comparte casillas y selectores Mantener/Reemplazar; las casillas
-heredaban `width:100%` y `min-height` de los campos generales. Regla acotada a
-`#gbif-import-dialog input[type=checkbox]`: ancho/alto mínimo y máximo de 16 px,
-sin padding. No cambia selección, duplicados ni importación. Prueba de navegador
-con estilos completos de `html_page`, lote mixto y aserciones de dimensiones
-correcta; captura inspeccionada. HA local reconstruida/recreada; SHA del módulo
-idéntico al worktree y HTTP 200 de observaciones. Worker intacto. Usuario autoriza publicar; incluida en 0.2.327.
-
-## Corrección publicada en 0.2.327 · notas de pendiente DEM en microáreas GBIF
-
-El usuario detecta notas de pendiente vacías en `gbif_micro_4993870809` al
-comparar con Recuperar GIS/DEM de setales. Confirmado en código: `apply_plan`
-guardaba el informe GIS/DEM y copiaba altitudes, orientaciones y ecología, pero
-omitía `topography.slope_notes`. Ahora copia media y rango con el mismo formato
-del mantenimiento, sólo con DEM disponible y tres valores numéricos finitos;
-conserva cero y no inventa notas si faltan datos. Las microáreas existentes no
-se migran ni se modifican automáticamente.
-
-Validación: 42 pruebas del importador correctas, incluidas persistencia, pendiente
-cero y DEM ausente. HA local reconstruida/recreada, hashes de importador y UI
-idénticos al worktree; observaciones HTTP 200. Worker intacto. Usuario autoriza publicar; incluida en 0.2.327.
-No se ha inspeccionado el JSON
-real de esa microárea: el fichero de share no estaba accesible y no figura en
-la copia local de setales comprobada.
-
-## Trabajo documental/Git y límites de actuación
-
-### Publicado en 0.2.328 · altura de la lista de observaciones
-
-Tras confirmar 0.2.327 instalada, el usuario señala espacio vacío bajo la tabla.
-El límite fijo `max-height:500px` dejaba hueco cuando el detalle lateral hacía
-más alto el panel. `web_server.py` convierte la tarjeta de tabla en columna flex;
-el scroll conserva 500 px de base y crece hasta ocupar el espacio de la tarjeta.
-No cambia paginación ni datos. Navegador local a 1728×1200: antes tabla 500 px,
-hueco 212,6 px y 12 filas completas; después tabla 703,6 px, margen 9 px y 18
-filas completas. A 700×900 conserva 500 px y permite llegar a la última fila.
-Captura inspeccionada; comprobación repetida sobre HA local reconstruida/recreada
-sin inyectar CSS. SHA `web_server.py` idéntico al worktree:
-`a00dbdb5bf0d2531b72d3db8ad1393282a5fa28aec605b93691c1c602468977c`.
-Evidencia local en `docker-data/observation-table-layout`. Worker intacto.
-Usuario valida en local y autoriza publicar: incluido en 0.2.328.
-
-### Publicado en 0.2.328 · ficha de observaciones del mapa
-
-Etiqueta Bosque/Bosc/Forest, interlineado y separaciones compactos. Miniatura y
-enlace en una fila inferior que permanece visible; el texto largo se desplaza
-dentro de su zona. Ampliar foto oculta datos/pie y Volver los restaura. Enlace
-final acordado: Cómo llegar / Com arribar / Directions a Google Maps
-`/maps/dir/?api=1&destination=lat,lon`, sin fijar origen ni medio de transporte.
-El usuario elige sólo enlace: no círculo de incertidumbre. Maps URLs no ofrece
-parámetros de círculo o texto personalizado del marcador; no simularlos.
-
-Prueba del visor compartido en Chrome aislado correcta, incluida etiqueta,
-destino, foto visible/enlace a su derecha, ampliación/retorno y caso sin foto.
-HA local reconstruida/recreada, paridad de servidor, JS/CSS y etiquetas;
-recursos HTTP y etiquetas efectivas comprobados. Evidencia en
-`docker-data/observation-popup-layout`. Worker intacto; sin tareas operativas.
-Usuario valida en local y autoriza publicación junto al ajuste de altura de
-tabla: incluido en 0.2.328. Prueba real en móvil pendiente del usuario.
-
-- Base de esta release: `d055f08` (HA 0.2.327). Ajustes de interfaz, pruebas,
-  bump y continuidad se cierran en un único commit de release 0.2.328.
-- Privados preexistentes: `mushroom-data/mushroom_observations.json` modificado y
-  `mushroom_observations.json` de la raíz sin seguimiento. **No incluirlos en Git,
-  revertirlos ni usarlos para sobrescribir datos de HA.**
-- Usar `docker-data` para nuevas copias/experimentos; el usuario tiene copia de
-  `share/rainmapper` y rechaza respaldos adicionales en HA real. No limpiar datos,
-  volúmenes o históricos ajenos. Conservar coordinadores, identidad y suspensiones.
-- Montajes usados en la investigación reciente: `/Volumes/share` y
-  `/Volumes/media-1`. Revalidar origen/montaje antes de acceder: los nombres
-  históricos `/Volumes/share-1` o `/Volumes/media` no acreditan el destino actual.
-- Instalar/parar/arrancar HA corresponde al usuario. Sin SSH salvo petición
-  expresa; no usar Tailscale ni montar SMB por Tailscale. Conservar, sin sustituir,
-  la URL Tailscale persistida que utiliza el worker.
-- No lanzar entrenamiento, precálculo ni runner. No reiniciar un worker ocupado.
-  Una revisión documental no autoriza desplegar ni publicar. Mantener updates
-  breves cada minuto y responder al usuario sin abandonar la tarea activa.
+- GIS: `rainmapper_core/mushroom_territorial_context.py`,
+  `mushroom_territorial_reader.py`, `mushroom_geography_portable.py`;
+  scripts `prepare-mvc50-point-index.py`, `register-mvc50-map-index.py`,
+  `prepare-territorial-dataset.py`.
+- Mapa/trazabilidad: `rainmapper_core/mushroom_map_model_runtime.py`,
+  `mushroom_training_observations.py`, `viewers/prediction-map/`.
+- Evidencia local: `docker-data/territorial-validation/`; informes opcionales
+  enlazados. El [contexto archivado](reports/session-context-before-close-2026-09-28.md)
+  conserva detalles de releases/ciclos anteriores; no es requisito de arranque.
+- Git al comenzar este cierre: sólo privados ajenos modificados
+  `mushroom-data/mushroom_observations.json` y raíz `mushroom_observations.json`
+  sin seguimiento. **No incluirlos, revertirlos ni copiarlos a HA.**
+- Cierre actual: release 0.2.331 autorizada y publicada; sin cambios en HA real
+  ni trabajos operativos. Instalación/parada/arranque HA y trabajos operativos
+  los hace el usuario. No SSH sin autorización expresa; no montar SMB por Tailscale.
+- Usar `docker-data` para experimentos. El usuario tiene copia local y rechaza
+  backups adicionales en HA. Últimos montajes usados `/Volumes/share` y
+  `/Volumes/media-1`: verificar origen antes de volver a usarlos. Conservar la URL
+  persistida del worker aunque use Tailscale.
+- Comprobación proporcional: no releer/hashing de GIS ya verificados ni repetir
+  smoke por documentación. La release 0.2.331 ya tiene su smoke final. La siguiente sesión revalida
+  sólo lo pertinente a su tarea.

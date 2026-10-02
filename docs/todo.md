@@ -1,11 +1,38 @@
-# TODO — revisión 28/09/2026
+# TODO — revisión 03/10/2026
 
 Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-context.md).
 Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
 [archivo del cierre](reports/session-context-before-close-2026-09-22.md).
 
-## Geografía preparada y expansión territorial
+## UI · Círculos de setales (03/10)
 
+- [x] Traducciones ES/CA/EN, edición por centro/radio y corrección de coordenadas
+  GBIF de 16 decimales. Pruebas locales completas y confirmación del usuario.
+  Publicado en **HA 0.2.331**, con los ajustes geográficos locales ya validados.
+  [Release, alcance y comprobaciones](reports/release-ha-0.2.331-2026-10-03.md).
+- [ ] Instalación de 0.2.331 y comprobación en HA real, a cargo del usuario.
+
+## P2 · Geografía preparada y expansión territorial
+
+- [ ] **EN CURSO · Organización local de geografía operativa y fuentes**
+  (28/09): **local y worker validados; código publicado en 0.2.331**.
+  Pruebas funcionales restantes a cargo del usuario: asignación de
+  observaciones, recuperación geográfica en setales e importación GBIF.
+  Edición circular local confirmada el 03/10. Conservar `-todelete`
+  hasta completarlas y acordar su retirada.
+  `geography-sources/` preparada; 5.891 archivos antiguos conservados en
+  `mushroom-GIS-todelete/` y `mushroom-map-GIS-todelete/`. Imágenes locales
+  reconstruidas, lecturas antes/después idénticas, smoke 1.859/55 y 51 pruebas
+  dirigidas correctos. Sin cambios en HA real ni borrados. Quedan decisión sobre
+  HA real y retirada expresa de `-todelete` tras aceptación y revisión final.
+  Precálculo automático posterior confirmado también directamente en HA real:
+  revisión 277, activación HA/worker y cierre reconocido, 11 min 40 s;
+  987/987 combinaciones especie–área–día, sin faltantes/extras; limpieza completa.
+  [Plan, pasos, incidencias y retirada](mushrooms/geography-local-organization-plan-es.md).
+  [Auditoría posterior HA real](reports/ha-geography-files-audit-2026-09-28.md):
+  ya usa la raíz correcta; 16,11 GB lógicos, sin gran copia sobrante identificada
+  que pueda retirarse directamente. Históricos candidatos: 4,02 MB. No borrar
+  ni archivar antes de hablarlo con el usuario; sin necesidad de release por ello.
 - [ ] Medir disco y latencia por capa de `mushroom-map-GIS`: separar originales,
   duplicados, índices y rasters efectivamente consultados. El tamaño en disco no
   equivale al volumen leído por punto.
@@ -22,43 +49,28 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
 - [ ] Antes de retirar originales, adaptar/auditar el inventario de valores GIS
   para mantenimiento de mapeos; la migración operativa no autoriza borrarlos.
 
-## Release HA 0.2.330
+## Entregado y cerrado · HA 0.2.330 (28/09)
 
-- [x] Coherencia territorial y comprobación de todas las especies; ciclo local
-  aceptado, imagen publicada y tags/plataformas verificados.
-  [Evidencia](reports/release-ha-0.2.330-preparation-2026-09-28.md).
-- [ ] Usuario instala 0.2.330 en HA real.
-- [ ] Registrar/activar allí el MVC50 ya copiado y preparar metadatos científicos
-  en reposo, sin volver a transportar los assets. No borrar originales.
+- [x] Coherencia territorial entre mapa, recuperación, microáreas y reconstrucción;
+  ciclo local aceptado y release publicada. [Evidencia](reports/release-ha-0.2.330-preparation-2026-09-28.md).
+- [x] Instalación en HA real confirmada por el usuario; incluye las mejoras de
+  observaciones/GBIF de 0.2.326–0.2.329. No quedan instalaciones intermedias pendientes.
+- [x] Registrar MVC50 y activar metadatos científicos en real: generación
+  `local-mvc50-20260928`, 14 referencias; sin nuevas copias ni hashes de GIS
+  durante la activación. Originales conservados.
+- [x] Usuario confirma entrenamiento y precálculo reales terminados al cierre.
+  No se ha reauditado este último ciclo ni se reutilizan sus cifras locales como reales.
+- [x] Comprobar predicción para todas las especies, observada enmarcada;
+  trazabilidad por ID, altitud, bocadillo, foto y Cómo llegar entregados.
+- [x] Campins: dos puntos contrastados contra recuperación HA real; Qv3 queda
+  no determinado y POa silíceo según mapping vigente. Usuario acepta conservarlo.
+  No hay una corrección pendiente ni se añade clasificación Qv3 por vecinos.
+- [x] Discusión de entrenamiento cerrada: conservar evaluación previa y ajuste
+  final con filas elegibles; no implementar interruptor ni nuevo reparto.
+- [ ] Prueba específica de ficha/enlace en móvil: no hay confirmación explícita
+  de ese caso. Sólo retomar si el usuario lo necesita; no bloquea esta release.
 
-## Release HA 0.2.329
-
-- [x] Comprobar predicción desde observaciones, trazabilidad del entrenamiento,
-  altitud y bocadillo; validación local y publicación multi-arquitectura verificadas.
-  [Evidencia](reports/release-ha-0.2.329-2026-09-27.md).
-- [ ] Usuario instala 0.2.329 en HA real y comprueba el visor.
-
-## Release HA 0.2.328
-
-- [x] Lista aprovecha la altura del panel; ficha del mapa compacta, Bosque, foto
-  visible y Cómo llegar. Validación local aceptada y publicación verificada.
-- [ ] Usuario instala 0.2.328 y prueba la ficha/enlace desde móvil.
-
-## Release HA 0.2.327
-
-- [x] Casillas GBIF compactas en lotes mixtos y notas DEM en microáreas nuevas;
-  HA local reconstruida/verificada, autorización del usuario y publicación
-  multi-arquitectura comprobada.
-- [x] Usuario confirma 0.2.327 instalada y funcionando. No migra microáreas existentes.
-
-## Release HA 0.2.326
-
-- [x] Ficha del mapa: coordenadas, incertidumbre y miniatura ampliable dentro de
-  la ficha; validación local aceptada y publicación multi-arquitectura verificada.
-- [x] Usuario confirma 0.2.326 instalada y funcionando. No requiere lanzar
-  entrenamiento ni precálculo por este cambio de presentación.
-
-## Continuación inmediata · Worker y resultados del usuario
+## Completado · Memoria del worker, IDW y diagnóstico de curvas
 
 - [x] Reconstruir el worker con reutilización de entradas V2–V6; 122 archivos
   en paridad y 25 pruebas correctas dentro de la imagen. Coordinadores e identidad
@@ -93,7 +105,7 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
 - [x] Precálculo local del usuario revisión 74 recibido/activo; identidad, SHA,
   recuentos y limpieza terminal verificados contra la generación nueva.
 - [x] Publicación 0.2.320/latest, digest común y AMD64/ARM64 verificados.
-- [x] Instalación antigua superada: HA real ya está en 0.2.325.
+- [x] Instalación antigua superada: HA 0.2.330 confirmada por el usuario.
 - [ ] Confirmar el permiso histórico del usuario que vaya a probarlo en real;
   instalar una versión no acredita que se haya habilitado desde Usuarios.
   [Release y circuito completo](reports/release-ha-0.2.320-2026-09-22.md).
@@ -182,6 +194,9 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
 - [ ] Crecimiento de disco y caché Buildx: medir físicamente y conservar datos,
   fuentes y backups. Limpieza adicional requiere alcance explícito; no borrar
   imágenes/manifests mientras se está instalando HA real.
+  El 28/09 el usuario aplaza esta investigación hasta cerrar la revisión del
+  precálculo. Pendiente conciliar caída de 145–150 a 115,44 GB disponibles;
+  [mediciones parciales y límites](mushrooms/geography-local-organization-plan-es.md).
 - [ ] Validación geográfica independiente/AMD64 antes de retirar originales.
 - [ ] Revalidar incidente Barcelona/Erinya antes de actuar:
   [informe histórico](reports/weather-coordinate-conflict-2026-09-13.json).

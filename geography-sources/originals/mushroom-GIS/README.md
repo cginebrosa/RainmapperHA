@@ -1,14 +1,18 @@
-# Local mushroom GIS workspace
+# Catálogo de fuentes científicas conservadas
 
-This directory retains unique local GIS downloads, experiments, scripts and
-source documentation. Operational HA local datasets live in
-`../docker-media/rainmapper/geography/mushroom-GIS/`.
+This archive retains local GIS downloads, experiments and source documentation.
+Operational HA local datasets live in
+`../../../docker-media/rainmapper/geography/`. This directory is not a runtime fallback.
+
+Moved on 2026-09-28 from the former root `mushroom-GIS/`; the complete previous
+tree remains in `../../../mushroom-GIS-todelete/` until final acceptance. See
+[the organization plan](../../../docs/mushrooms/geography-local-organization-plan-es.md).
 
 On 2026-09-19, 1,422 duplicate data files were removed here after comparing both
 copies by SHA-256. Unique files and documentation were preserved. The source
 catalogue below is historical: some listed rasters now exist only in the
 canonical media directory. See the
-[cleanup record](../docs/reports/local-gis-duplicate-cleanup-2026-09-19.json).
+[cleanup record](../../../docs/reports/local-gis-duplicate-cleanup-2026-09-19.json).
 
 The actual GIS datasets are intentionally ignored by Git and must not be
 included in the Home Assistant image. Keep downloaded shapefiles, rasters,

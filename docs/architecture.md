@@ -59,9 +59,10 @@ La arquitectura actual no separa completamente dominio, infraestructura y UI: to
 - `Tomap/`: CSV intermedios para mapas, ignorados por Git.
 - `Plots/`: HTML Bokeh generados, ignorados por Git.
 - `docker-data/`: volumenes locales Docker, ignorados por Git.
-- `mushroom-map-GIS/`: preparación local de fuentes geográficas, excluida de
-  Git y Docker. Los ejecutores consumen publicaciones activadas mediante
-  configuración/manifiestos; la mera existencia de esta carpeta no activa un dataset.
+- `docker-media/rainmapper/geography/`: geografía operativa completa de HA local.
+- `geography-sources/`: originales, expansión y preparaciones anteriores,
+  datos excluidos de Git/Docker y notas de procedencia conservadas en Git. Los ejecutores consumen publicaciones
+  activadas mediante configuración/manifiestos, no las carpetas de fuentes.
 - `local-apps/wunderground/code/`: visor local WU;
   no empaquetado en HA. Revisiones y caché en SQLite bajo `local-apps/wunderground/data/`.
 - `local-apps/gbif/code/`: código del visor local; snapshots y fotografías en
@@ -96,6 +97,38 @@ Geografía pesada y modelos son datos persistentes distribuidos fuera de la
 imagen; configuración explícita y manifiestos determinan lo activo. La integración
 GEODE/MFE nacional y la agregación SoilGrids para áreas siguen siendo trabajo
 separado de la lectura puntual. No deducir cobertura completa del mapa visible.
+
+## Política territorial compartida y geografía preparada (0.2.330)
+
+Ampliación acotada del 28/09/2026, sin reauditar el resto de esta arquitectura.
+`mushroom_territorial_context.resolve_context` aplica prioridades por campo a
+IDs aceptados: árboles MFE25→MVC50, bosque MVC50→Cobertes, sustrato
+MVC50→geología. Registra contradicciones explícitas; no clasifica por nombres.
+`mushroom_territorial_reader.TerritorialSession` comparte lector/catálogo durante
+reconstrucción; microáreas resuelven por muestra antes de agregar. Recuperación
+puntual y mapa consumen la misma política. Evidencia revisada queda preservada.
+
+MVC50 preparado es SQLite/RTree con geometrías exactas y atributos mínimos;
+consulta acotada, no lectura completa del original por punto. La configuración
+geográfica y manifiestos seleccionan capas; las prioridades semánticas están en
+código. `prepare-mvc50-point-index.py` prepara fuera de HA;
+`register-mvc50-map-index.py` registra la publicación y su puntero
+`geography/CURRENT.json`. `prepare-territorial-dataset.py` activa metadatos
+`territorial-context.json` y `geography-dataset.json` referenciando assets existentes.
+Transporte/caché por contenido reutilizados, sin segundo circuito de GIS ni
+copias por observación. Originales todavía necesarios para inventario de mapeos.
+[Contrato, fuentes, límites y procedimiento](mushrooms/territorial-source-policy-es.md).
+
+## Observaciones y trazabilidad del ajuste (0.2.329–0.2.330)
+
+La ficha del mapa enlaza una consulta histórica completa con contexto de
+observación. La consulta abarca todas las especies y resalta la observada.
+`mushroom_training_observations.py` mantiene trazabilidad indexada SQLite por
+modelo e ID; `mushroom_map_model_runtime.py` la consulta para el modelo seleccionado
+en cada día. Se transporta el índice con los artefactos, no listas completas por
+predicción. Ausencia de trazabilidad no equivale a observación excluida.
+El ajuste operativo final y el protocolo de evaluación no cambian por añadirla.
+[Implementación y pruebas](reports/observation-prediction-check-local-2026-09-27.md).
 
 ## Diagnóstico paginado del mapa (0.2.319)
 
@@ -515,9 +548,11 @@ la evidencia de cada publicación y despliegue está en `active-context.md`.
   El derivado andorrano operativo está en metros y con EPSG:27563 embebido; el
   francés usa EPSG:2154. Ambos se manifiestan con el resto del dataset GIS y el
   worker reutiliza por SHA-256 los objetos que no cambian.
-  Las únicas raíces operativas son `mushroom-GIS/` en el laboratorio y
-  `/media/rainmapper/mushroom-GIS/` en HA (más los fallbacks explícitos del
-  resolver). `mushroom-GIS-HA` no es una capa arquitectónica ni un staging.
+  Las raíces operativas son `docker-media/rainmapper/geography/` en el Mac,
+  `/media/rainmapper/geography/` en HA y `geography/` en el volumen del worker.
+  Incluyen todos los originales que todavía necesitan los lectores. Las rutas
+  antiguas del resolver se conservan por compatibilidad con otras instalaciones;
+  `geography-sources/` y los archivos `-todelete` nunca son fallbacks automáticos.
 - Meteorologia transportada: el histórico canónico es una generación
   transaccional particionada por fuente/año. El snapshot manifiesta sus objetos
   inmutables y el worker reutiliza por hash las particiones sin cambios. Los CSV

@@ -104,6 +104,9 @@ def default_cache_root(gis_root: Path | None = None) -> Path:
     shared_root = mushroom_paths.share_root() / "mushroom-GIS"
     if shared_root.exists():
         return shared_root / "soilgrids"
+    local_gis = mushroom_paths.geography_root() / "mushroom-GIS"
+    if (local_gis / 'geography-dataset.json').is_file() and (local_gis / 'soilgrids').is_dir():
+        return local_gis / 'soilgrids'
     return mushroom_paths.repo_root() / "mushroom-GIS" / "soilgrids"
 
 

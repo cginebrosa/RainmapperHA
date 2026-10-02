@@ -57,7 +57,6 @@ services:
     volumes:
       - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}:/share/rainmapper
       - ${RAINMAPPER_LOCAL_MEDIA_ROOT:-../docker-media/rainmapper}:/media/rainmapper
-      - ../mushroom-GIS:/app/mushroom-GIS:ro
       - ../tmp:/app/tmp
       - ./options.local-ha-ui.json:/data/options.json:ro
       - ../tmp/mushroom-lab/runtime/config-www:/config/www

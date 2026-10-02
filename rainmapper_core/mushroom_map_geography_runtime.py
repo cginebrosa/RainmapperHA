@@ -109,6 +109,17 @@ def config_for_geography(config, root, manifest, identities=None):
     return result
 
 
+def published_geography_config(root=None):
+    """Read the active publication for host tools, including portable aliases."""
+    from .mushroom_paths import geography_root
+    publication = GeographyPublication(root if root is not None else geography_root(), start=False)
+    try:
+        snapshot = publication.lookup(publication.reference()['fingerprint'])
+        return config_for_geography({}, snapshot['root'], snapshot['manifest'], snapshot['identities'])
+    finally:
+        publication.close()
+
+
 def publish(root, generation, *, restore_timestamps=False):
     """Offline/import boundary: reuse sealed hashes and check file stats once."""
     root = Path(root).resolve()

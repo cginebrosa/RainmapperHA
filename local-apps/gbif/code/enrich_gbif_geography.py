@@ -13,6 +13,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from rainmapper_core.mushroom_map_municipalities import MunicipalityReader
 from rainmapper_core.mushroom_map_terrain import TerrainReader
+from rainmapper_core.mushroom_map_geography_runtime import published_geography_config
+from rainmapper_core.mushroom_geography_store import SourceIdentities
 
 
 def sha(path):
@@ -23,19 +25,20 @@ def sha(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--snapshot', type=Path, required=True)
+    parser.add_argument('--geography-root', type=Path, help='Prepared operational geography; defaults to local media')
     args = parser.parse_args()
     root = args.snapshot
-    index = Path('mushroom-map-GIS/terrain-index/point-inputs-2026-09-12.sqlite')
-    municipalities = Path('mushroom-map-GIS/ign-municipios/prepared/municipalities-2026-08-10.gpkg')
-    roots = {'regional': 'mushroom-GIS', 'dem': 'mushroom-map-GIS/ign-mdt25',
-             'soil': 'mushroom-map-GIS/soilgrids-shared'}
+    geography = published_geography_config(args.geography_root)
+    index = Path(geography['terrain_index'])
+    municipalities = Path(geography['municipalities'])
+    roots = {key: geography[key + '_root'] for key in ('regional', 'dem', 'soil')}
     manifest = json.loads((root / 'manifest.json').read_text())
     guarded = [*manifest['protected_sha256_before'], str(root / 'occurrences.json')]
     before = {p: sha(p) for p in guarded}
     records = json.loads((root / 'occurrences.json').read_text())
     cache, result, used_assets = {}, {}, {}
-    terrain = TerrainReader(str(index), roots)
-    municipal = MunicipalityReader(str(municipalities), edition='2026-08-10')
+    terrain = TerrainReader(str(index), roots, sources=SourceIdentities(geography.get('geography_sources')))
+    municipal = MunicipalityReader(str(municipalities), edition=geography['municipalities_edition'])
     try:
         for row in records:
             lat, lon = row['decimalLatitude'], row['decimalLongitude']
@@ -63,7 +66,7 @@ def main():
     output = {'generated_at': datetime.now(timezone.utc).isoformat(), 'summary': summary,
               'method': 'DEM pixel and containing municipal polygon at published coordinates; no uncertainty-area inference.',
               'terrain_index': {'path': str(index), 'sha256': sha(index)},
-              'municipalities': {'path': str(municipalities), 'sha256': sha(municipalities), 'edition': '2026-08-10'},
+              'municipalities': {'path': str(municipalities), 'sha256': sha(municipalities), 'edition': geography['municipalities_edition']},
               'dem_assets': used_assets, 'roots': roots, 'records': result,
               'input_and_operational_sha256': before}
     target = root / 'metadata/geography.json'

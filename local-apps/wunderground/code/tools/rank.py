@@ -1,5 +1,8 @@
 import json,datetime,collections,csv
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+from rainmapper_core.mushroom_map_geography_runtime import published_geography_config
 from osgeo import ogr,osr
 import numpy as np
 O=Path(__file__).resolve().parents[2]/'data'
@@ -8,7 +11,7 @@ b=load('baseline-summary.json');stations=load('stations.json');grid=load('grid.j
 w= osr.SpatialReference();w.ImportFromEPSG(4326);w.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 u=osr.SpatialReference();u.ImportFromEPSG(25831);u.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 transform=osr.CoordinateTransformation(w,u)
-ds=ogr.Open('mushroom-map-GIS/ign-municipios/prepared/municipalities-2026-08-10.gpkg',0)
+ds=ogr.Open(published_geography_config()['municipalities'],0)
 layer=ds.GetLayer(0);layer.SetAttributeFilter("national_code LIKE '3409%'")
 municipalities=[(f['name'],f.GetGeometryRef().Clone()) for f in layer]
 def locate(lon,lat):

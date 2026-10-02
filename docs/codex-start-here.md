@@ -39,6 +39,11 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   Reúne objetivo, componentes, visor, permisos, datos, HA–worker, integración,
   pruebas y decisiones abiertas. Los siguientes documentos del mapa son anexos
   técnicos, evidencia o seguimiento; no sustituyen esta referencia principal.
+- Política territorial común (mapa, recuperación, microáreas y reconstrucción),
+  MVC50 preparado y activación geográfica por metadatos:
+  `docs/mushrooms/territorial-source-policy-es.md`.
+  No borrar originales por haber migrado los lectores operativos; el inventario
+  de mapeos tiene consumidores propios. Estado desplegado en `active-context.md`.
 - GIS/DEM/SoilGrids, consumidores, copias locales y cálculo HA–worker:
   `docs/mushrooms/mushroom-map-compute-data-placement-es.md`
 - SoilGrids, diseño del lector compartido, altas/cambios y pruebas de recursos:
@@ -60,8 +65,9 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - Mapa de predicción: nuevo informe por coordenadas, complementario al Predictor;
   análisis sin implementación:
   `docs/mushrooms/mushroom-map-point-prediction-feasibility-es.md`
-- Fuentes descargadas para ese módulo, separadas en `mushroom-map-GIS/` con
-  README junto a los archivos: `docs/mushrooms/mushroom-map-gis-downloads-es.md`
+- Fuentes descargadas: `geography-sources/` (originales, expansión y preparaciones).
+  [Organización y transición local](mushrooms/geography-local-organization-plan-es.md).
+  Catálogo histórico: `docs/mushrooms/mushroom-map-gis-downloads-es.md`.
 - Auditoría documental con referencias al código: `docs/reports/documentation-audit-2026-09-18.md`.
 - Investigación local de estaciones WU: `docs/station-research-es.md`.
 - Media, compatibilidad de rutas y migración explícita: `docs/mushrooms/ha-media-organization-proposal-es.md`.
@@ -217,9 +223,11 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   lanzarlo de una solicitud de release, diagnóstico o cierre. No crear otro
   worker, volumen o imagen auxiliar para pruebas; utilizar servicios existentes
   sólo dentro del alcance autorizado, sin modificar sus coordinadores.
-- Codex no debe usar Tailscale ni abrir SMB mediante Tailscale. Esta restricción
-  no autoriza a retirar la URL Tailscale persistida que el worker real necesita
-  cuando opera fuera de la red local.
+- Codex no debe montar volúmenes SMB ni abrirlos mediante Tailscale por su cuenta.
+  **Aclaración expresa del usuario, 28/09/2026:** puede usar los volúmenes que
+  el usuario ya haya montado, aunque sean Tailscale; verificar su origen antes
+  de acceder. Esto no autoriza SSH, cambios de red ni escrituras ajenas a la tarea.
+  Conservar la URL Tailscale persistida que el worker real necesita fuera de LAN.
 - No tocar CSV meteorológicos reales sin `docs/history-safety.md`.
 - No inventar features, umbrales, pesos, ventanas o reglas micológicas.
 - HA real corre en una Raspberry Pi 4 compartida. No usar fuerza bruta,
@@ -249,8 +257,10 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   `/share/rainmapper/mushroom-data/media/observation-photos/`.
 - Resolver canónico: `rainmapper_core/mushroom_paths.py`.
 - Geografía local canónica organizada: `docker-media/rainmapper/geography/`.
-  Las carpetas GIS raíz conservan descargas/pruebas/fuentes aún no integradas;
-  no asumir duplicación por nombre. Ver manifiestos y consumidores antes de mover.
+  Fuentes no operativas en `geography-sources/`. Transición autorizada en el
+  [plan local](mushrooms/geography-local-organization-plan-es.md); conservar las
+  raíces `mushroom-GIS-todelete/` y `mushroom-map-GIS-todelete/` hasta su retirada
+  expresamente confirmada. Nunca usarlas como fallback ni incluirlas en imágenes.
 - Visores locales: `local-apps/{wunderground,gbif}/code/`; sus datos/fotos/revisiones
   en `data/`, fuera de Git e imágenes. No volver a alojarlos en docs o tmp.
 - `tmp/mushroom-lab/` es laboratorio, no fuente operativa.

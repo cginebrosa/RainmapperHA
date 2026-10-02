@@ -64,6 +64,14 @@ def media_root() -> Path:
     return Path("/media/rainmapper")
 
 
+def geography_root() -> Path:
+    """Operational geography in HA, or its mounted directory on the local host."""
+    media = media_root()
+    if os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip() or media.is_dir():
+        return media / "geography"
+    return repo_root() / "docker-media" / "rainmapper" / "geography"
+
+
 def derived_storage_enabled() -> bool:
     """Return whether HA media storage is explicitly configured or mounted."""
     return bool(os.environ.get("RAINMAPPER_MEDIA_ROOT", "").strip()) or Path(

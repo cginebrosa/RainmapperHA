@@ -122,6 +122,7 @@ check_ha_app_contains_only_ha_specific_code() {
       ! -name web_server.py \
       ! -name 'mushroom_*_ui.py' \
       ! -name known-sites.js \
+      ! -name known-sites-circles.js \
       ! -name known-sites.css \
       ! -name observation-gis.js \
       ! -name observation-gbif-import.js \
@@ -163,6 +164,8 @@ PY
 
 check_js_syntax() {
   node --check rainmapper-app/app/known-sites.js
+  node --check rainmapper-app/app/known-sites-circles.js
+  node tests/known_sites_circles_check.mjs
   node --check rainmapper-app/app/observation-gbif-import.js
   node --check local-apps/gbif/code/gbif-export.js
   node --check rainmapper-app/app/observation-gis.js

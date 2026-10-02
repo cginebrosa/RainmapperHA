@@ -803,8 +803,10 @@ mushroom_gis_mappings.json
 ml_models/                   <- directorio con los .joblib entrenados
 ```
 
-Las capas GIS/DEM deben ir en `/media/rainmapper/mushroom-GIS/` (no en `/share`;
-ese directorio puede ser grande y inflaria los backups de HA).
+La geografía operativa completa debe ir en `/media/rainmapper/geography/`, con
+sus manifiestos, índices y todos los originales que necesitan los lectores.
+No trasladarla a `/share`, porque inflaría los backups de HA. Las descargas y
+preparaciones no operativas se conservan aparte en el Mac, en `geography-sources/`.
 
 ### Pantalla Predictor
 

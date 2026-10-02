@@ -1,5 +1,119 @@
 # Decisions
 
+## 2026-09-28 — [VIGENTE][GIS] Política territorial común por campo y dataset preparado
+
+Desde HA 0.2.330, mapa, recuperación GIS/DEM, microáreas por muestreo y
+reconstrucción resuelven con `territorial_sources_v1`. Árboles MFE25→MVC50;
+bosque MVC50→Cobertes 2024; sustrato MVC50 `LLVA_Subst`→geología 1:50.000;
+litología geológica. Se pasa a la alternativa cuando el campo no tiene valores
+aceptados, no sólo cuando falta el polígono. No deducir suelo por palabras del
+bosque ni convertir pH en litología. Contradicciones explícitas se conservan
+como conflictos; evidencia revisada no se sobrescribe automáticamente.
+
+MVC50 noviembre 2019 preparado en SQLite/RTree, geometrías exactas y tres
+atributos: 116.468 entidades, 479.780.864 bytes frente a 884.213.441 bytes de
+componentes originales necesarios. Un lector por reconstrucción, prioridad por
+muestra antes de agregar microáreas. Dataset científico de 14 referencias a
+assets existentes; reutilización por SHA del transporte/caché actuales. No
+replicar GIS por trabajo/modelo ni transportar el original para estos lectores.
+
+Registro real y activación terminados; instalación, entrenamiento y precálculo
+reales confirmados por el usuario al cierre. Metadatos activados sin copiar ni
+hashear otra vez assets ya verificados. No retirar el original hasta auditar/
+adaptar el inventario de mapeos que aún lo necesita. La misma política no garantiza
+que toda coordenada tenga clasificación ni que cartografía de distintas fechas
+represente el estado histórico del terreno.
+
+Fuentes: `mushroom_territorial_context.py`, `mushroom_territorial_reader.py`,
+`mushroom_geography_portable.py`; [contrato, límites y validación](mushrooms/territorial-source-policy-es.md),
+[release y activación](reports/release-ha-0.2.330-preparation-2026-09-28.md).
+Reemplaza la divergencia operativa de fuentes entre recuperación y mapa, no los
+mapeos aceptados ni la evidencia de campo guardada.
+
+## 2026-09-28 — [VIGENTE][GIS] Qv3 no se convierte a silíceo por proximidad
+
+Usuario acepta «pues así se queda» tras contrastar Campins. Respuestas reales del
+endpoint `/api/mushrooms/observation-gis-preview` con `location_lat/location_lon`:
+
+- 41.72509, 2.47462: MVC50 `Indiferent`, geología Qv3, sin sustrato determinado.
+- 41.72471, 2.47513: mismo MVC50, geología POa, mapping vigente silíceo.
+- Capas disponibles en ambos puntos; la clasificación ausente no es un hueco
+  de cobertura. Evidencia: `docker-data/territorial-validation/campins-*-point.json`.
+
+La [leyenda oficial ICGC 1:50.000, abril 2025, p. 7](https://datacloud.ide.cat/especificacions/geologia-territorial-50000-geologic-v3r0-20250430-llegenda.pdf)
+describe Qv3 como un abanico aluvial de gravas/bloques y matriz arenosoarcillosa,
+sin fijar su composición silícea o carbonatada. [Guardiola et al., 2020, p. 10](https://publicacions.iec.cat/repository/pdf/00000300/00000081.pdf#page=8)
+documenta afloramientos carbonatados entre Can Bruguera y Can Tomàs, Campins,
+dentro de un entorno ácido. No prueba composición calcárea en el punto del usuario;
+sí impide usar el entorno como garantía suficiente de homogeneidad.
+
+No se modifican mapeos. Revisar sólo si aparece evidencia específica de composición
+del depósito/suelo; no clasificar automáticamente por alcornoques o vecinos.
+
+## 2026-09-27 — [VIGENTE][ML] Conservar evaluación previa y ajuste operativo final
+
+Tras la discusión, el usuario decide mantener el entrenamiento existente. No se
+implementa el interruptor propuesto para omitir el ajuste final, ni un nuevo
+reparto persistente, ni una obligación de lanzar benchmarks manuales.
+
+La evaluación previa con filas excluidas del ajuste estima el rendimiento de ese
+procedimiento bajo su partición; el ajuste operativo final utiliza todas las filas
+elegibles. La evaluación previa no desaparece por ese ajuste, pero tampoco es una
+evaluación independiente del artefacto final sobre las mismas observaciones.
+Los aciertos al consultar observaciones usadas para el ajuste final no demuestran
+generalización; no confundir IFF con tasa de acierto. Elegir entre candidatos por
+sus resultados de evaluación puede introducir optimismo en la nota del ganador,
+aunque esas filas no ajusten directamente sus pesos. No se cambió aquí el diseño
+para resolver esa limitación ni se afirma que el conjunto actual sea un examen
+final independiente de toda selección.
+
+La consulta de trazabilidad por modelo/día verifica IDs realmente registrados,
+no pertenencia a la especie. SQLite evita cargar listas JSON completas por
+consulta. El estado «NO» exige trazabilidad completa y ausencia del ID; ausencia de índice
+antiguo o de modelo son estados distintos de NO. El reentrenamiento genera nueva
+trazabilidad. Fuentes: `mushroom_training_observations.py`,
+`mushroom_map_model_runtime.py`; [validación](reports/observation-prediction-check-local-2026-09-27.md).
+
+## 2026-09-27 — [VIGENTE][UI] Comprobar predicción y ficha de observación compactas
+
+Comprobar predicción usa coordenadas/fecha de la observación y predicción histórica
+completa: siete días, meteorología, SMI y terreno. Desde 0.2.330 consulta todas las
+especies y enmarca la observada; trazabilidad asociada al modelo/día de esa especie.
+El mapa conserva su fecha global. Bloque de observación: especie, fecha, abundancia,
+«Usada para entrenar: SÍ» verde / «NO» rojo; sin la explicación larga. Mantener
+estados honestos sin modelo/sin trazabilidad, no convertirlos a NO.
+
+Ficha anclada como bocadillo, altitud entre Fecha y Área, etiqueta Incertidumbre,
+0 como «0 m» sin explicación de compatibilidad en el visor. Bosque abreviado,
+interlineado compacto, miniatura ampliable en la misma ficha y Cómo llegar a
+Google Maps (`/maps/dir/?api=1&destination=lat,lon`). Sin origen ni transporte
+impuestos; no círculo ni texto personalizado de marcador. La tabla de observaciones
+aprovecha la altura del panel, manteniendo paginación. Casillas GBIF acotadas;
+notas DEM copiadas a microáreas nuevas sin migración automática de existentes.
+[Archivo de implementación y pruebas](reports/session-context-before-close-2026-09-28.md).
+
+## 2026-09-27 — [VIGENTE][DATOS] Mantener IDW y reutilizar entradas del worker
+
+Piloto local de consenso espacial de lluvia sin mejora global acreditada: mantener
+IDW operativo sin descartar/reducir estaciones automáticamente. No confundir con
+el consenso de recomendaciones. [Reglas y métricas](../local-apps/rainfall-qc/README.md).
+
+V2–V6 reutilizan una entrada por contrato durante evaluación y la liberan al
+terminar sus consumidores; no caché permanente, ni recorte de 365 días/SMI.
+El ajuste final separado puede volver a leerla: no afirmar una lectura para todo
+el pipeline. Medición aislada de carga V6 3,99→1,71 GiB, no pico integral.
+[Medición y ciclo posterior](reports/worker-evaluation-memory-2026-09-27.md).
+
+## 2026-09-28 — [DUDA][RECURSOS] Pendientes sin causa general demostrada
+
+Siguen pendientes el estado de HA tras pérdida del worker, desglose del tiempo
+creciente de precálculo, memoria real en RPi y optimización de otros GIS/DEM.
+El tamaño de volumen/disco no equivale a datos leídos por consulta. No atribuir
+sin medidas el tiempo a nuevas áreas ni diagnosticar fuga/OOM vigente por un
+incidente antiguo. Primero registros existentes; no lanzar ciclos ni repetir
+hashes completos para un cierre documental. [Prioridades](todo.md).
+
+
 ## 2026-09-22 — [VIGENTE][DIAGNÓSTICO] Variables completas bajo demanda, no en cada predicción
 
 HA 0.2.319 añade `applicability_page` opcional, una especie/día y offset múltiplo

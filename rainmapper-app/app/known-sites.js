@@ -3,13 +3,29 @@
   'use strict';
   const $ = id => document.getElementById(id);
   let data = JSON.parse($('sites-bootstrap').textContent);
-  const text = key => data.labels[key];
+  let language = (navigator.language || 'en').slice(0,2).toLowerCase();
+  const text = key => data.translations?.[language]?.[key] || data.translations?.en?.[key] || data.labels[key];
+  const circles = window.RainmapperSiteCircles;
+  let circleHandles = [];
+  function applyCircleLanguage() {
+    document.querySelectorAll('[data-site-label]').forEach(node => {node.textContent = text(node.dataset.siteLabel);});
+    for (const handle of circleHandles) {
+      const node = handle.marker.getElement();
+      node.title = text(handle.key);node.setAttribute('aria-label', text(handle.key));
+    }
+    if (state.editing) updateEditLabel();
+  }
   const observationContext = data.observation;
   const contextParams = new URLSearchParams(location.search);
   const initial = JSON.parse($('sites-initial').textContent);
   const stage = document.querySelector('.sites-stage');
   const endpoint = name => location.pathname.replace(/\/mushrooms\/known-sites\/?$/, '') + '/api/mushrooms/' + name;
   const state = {selection:null, form:null, dirty:false, editing:false, busy:false, draw:null, request:null, seq:0, previous:null, finishedFeatures:new Set(), replaceWithCircle:false};
+  applyCircleLanguage();
+  fetch(location.pathname.replace(/\/mushrooms\/known-sites\/?$/, '') + '/auth/device-settings', {credentials:'same-origin'})
+    .then(r => r.ok ? r.json() : null).then(result => {
+      if (['en','es','ca'].includes(result?.settings?.language)) {language=result.settings.language;applyCircleLanguage();}
+    }).catch(() => {});
   const keyOf = s => s && `${s.kind}:${s.id}`;
   const message = (text, error=false) => { $('sites-status-message').textContent=text; $('sites-status-message').classList.toggle('error',error); };
   function dirty(value=true) {state.dirty=value; if($('site-save-state')) $('site-save-state').textContent=value?'Cambios sin guardar':'Guardado';}
@@ -76,16 +92,64 @@
   function selectionControls(){const s=state.selection,existing=s&&!s.create;$('site-archive').disabled=!existing;$('site-archive').textContent=s?.archived?'Restaurar':'Archivar';$('site-delete').hidden=!existing||!s.archived;$('site-fit-selected').disabled=!s;$('site-detail-toggle').disabled=!s;$('site-geometry-tools').hidden=!s;$('site-recover-gis').disabled=!existing;}
   function geometry(){try{return JSON.parse(state.form?.querySelector('[name=geometry_json]').value||'null');}catch{return null;}}
   function geomStatus(){const g=geometry();$('site-geometry-status').textContent=state.editing?'Editando geometría · cambios sin guardar':g?'Geometría definida':'Sin polígono · dibuja o guarda para completar más tarde';}
-  function stopDrawing(){if(state.draw){loadingDraw=true;state.draw.getTerraDrawInstance().setMode('render');state.draw.getTerraDrawInstance().clear();loadingDraw=false;}state.editing=false;state.replaceWithCircle=false;stage.classList.remove('geometry-editing');drawModeUI('render');for(const id of ['site-draw-polygon','site-draw-circle','site-edit-polygon','site-finish-geometry','site-clear-geometry'])$(id).hidden=true;$('site-edit-geometry').hidden=false;geomStatus();}
-  function syncGeometry(){if(loadingDraw||!state.editing||!state.form)return;const polygons=(state.draw.getFeatures()?.features||[]).filter(f=>f.geometry?.type==='Polygon'&&state.finishedFeatures.has(f.id));const g=polygons.length===1?polygons[0].geometry:polygons.length?{type:'MultiPolygon',coordinates:polygons.map(f=>f.geometry.coordinates)}:null;if(JSON.stringify(g)!==JSON.stringify(geometry())){state.form.querySelector('[name=geometry_json]').value=g?JSON.stringify(g):'';geometryChanged=true;dirty();} }
-  function drawFeatures(g){if(!g)return[];return (g.type==='MultiPolygon'?g.coordinates:[g.coordinates]).map((coordinates,i)=>({type:'Feature',properties:{mode:'polygon'},geometry:{type:'Polygon',coordinates}}));}
-  function startDrawing(){if(!state.form||!state.draw){message('Las herramientas de dibujo no están disponibles. Recarga la página.',true);return;}loadingDraw=true;const terra=state.draw.getTerraDrawInstance();terra.clear();const g=geometry();if(g){const results=terra.addFeatures(drawFeatures(g));if(results?.some(r=>r.valid===false)){loadingDraw=false;message('No se ha podido cargar la geometría para editar. Se conserva el polígono original.',true);return;}}state.finishedFeatures=new Set((state.draw.getFeatures()?.features||[]).map(f=>f.id));state.editing=true;stage.classList.add('geometry-editing');loadingDraw=false;terra.setMode(g?'select':'polygon');drawModeUI(g?'select':'polygon');for(const id of ['site-draw-polygon','site-draw-circle','site-edit-polygon','site-finish-geometry','site-clear-geometry'])$(id).hidden=false;$('site-edit-geometry').hidden=true;geomStatus();updateMap();}
+  function stopDrawing(){clearCircleHandles();if(state.draw){loadingDraw=true;state.draw.getTerraDrawInstance().setMode('render');state.draw.getTerraDrawInstance().clear();loadingDraw=false;}state.editing=false;state.replaceWithCircle=false;stage.classList.remove('geometry-editing');drawModeUI('render');for(const id of ['site-draw-polygon','site-draw-circle','site-edit-polygon','site-finish-geometry','site-clear-geometry'])$(id).hidden=true;$('site-edit-geometry').hidden=false;geomStatus();}
+  function syncGeometry(){if(loadingDraw||!state.editing||!state.form)return;const current=new Map((state.draw.getFeatures()?.features||[]).map(f=>[f.id,f]));const polygons=[...state.finishedFeatures].map(id=>current.get(id)).filter(f=>f?.geometry?.type==='Polygon');const g=polygons.length===1?polygons[0].geometry:polygons.length?{type:'MultiPolygon',coordinates:polygons.map(f=>f.geometry.coordinates)}:null;if(JSON.stringify(g)!==JSON.stringify(geometry())){state.form.querySelector('[name=geometry_json]').value=g?JSON.stringify(g):'';geometryChanged=true;dirty();} }
+  function drawFeatures(g){if(!g)return[];return (g.type==='MultiPolygon'?g.coordinates:[g.coordinates]).map(coordinates=>{const geometry={type:'Polygon',coordinates};return {type:'Feature',properties:{mode:circles.recognise(geometry)?'circle':'polygon'},geometry};});}
+  function clearCircleHandles(){circleHandles.forEach(h=>h.marker.remove());circleHandles=[];}
+  function updateEditLabel(){
+    const fs=(state.draw?.getFeatures()?.features||[]).filter(f=>state.finishedFeatures.has(f.id));
+    $('site-edit-polygon').textContent=text(fs.length&&fs.every(f=>circles.recognise(f.geometry))?'sites_circle_edit':'sites_edit_shape');
+  }
+  function showCircleHandles(){
+    clearCircleHandles();updateEditLabel();
+    if(!state.editing||state.draw.getTerraDrawInstance().getMode()!=='select')return;
+    const terra=state.draw.getTerraDrawInstance();
+    for(const feature of state.draw.getFeatures()?.features||[]){
+      if(!state.finishedFeatures.has(feature.id))continue;
+      const circle=circles.recognise(feature.geometry);if(!circle)continue;
+      const handles={};
+      for(const [kind,key] of [['center','sites_circle_center'],['radius','sites_circle_radius']]){
+        const element=document.createElement('button');element.type='button';element.className='site-circle-handle site-circle-'+kind;
+        element.title=text(key);element.setAttribute('aria-label',text(key));element.textContent=kind==='center'?'✛':'↔';
+        // TerraDraw listens to pointer events on the map container. These handles
+        // belong to MapLibre's drag interaction, not polygon vertex selection.
+        for(const event of ['pointerdown','click','dblclick'])element.addEventListener(event,e=>e.stopPropagation());
+        const marker=new maplibregl.Marker({element,draggable:true}).setLngLat(kind==='center'?circle.center:circles.edge(circle)).addTo(map);
+        handles[kind]=marker;circleHandles.push({marker,key});
+        marker.on('dragstart',()=>{loadingDraw=true;terra.setMode('render');loadingDraw=false;});
+        marker.on('drag',()=>{
+          const location=marker.getLngLat().toArray();
+          if(kind==='center'){
+            if(Math.abs(location[1])>=85){marker.setLngLat(circle.center);return;}
+            circle.center=location;handles.radius.setLngLat(circles.edge(circle));
+          }else{
+            const radius=circles.radiusAt(circle,location);
+            if(!Number.isFinite(radius)||radius<0.1)return;
+            circle.radiusMeters=radius;
+          }
+          const replacement={...feature,properties:{mode:'circle'},geometry:circles.geometry(circle)};
+          loadingDraw=true;
+          try{
+            terra.removeFeatures([feature.id]);
+            const result=terra.addFeatures([replacement]);
+            if(result.some(r=>!r.valid))terra.addFeatures([feature]);
+            else feature.geometry=replacement.geometry;
+          }finally{loadingDraw=false;}
+          syncGeometry();showDraft();
+          message(text('sites_circle_radius')+': '+Math.round(circle.radiusMeters)+' m');
+        });
+        marker.on('dragend',()=>{handles.radius.setLngLat(circles.edge(circle));terra.setMode('select');});
+      }
+    }
+    if(circleHandles.length)message(text('sites_circle_edit_help'));
+  }
+  function startDrawing(){clearCircleHandles();if(!state.form||!state.draw){message('Las herramientas de dibujo no están disponibles. Recarga la página.',true);return;}loadingDraw=true;const terra=state.draw.getTerraDrawInstance();terra.clear();const g=geometry();if(g){const results=terra.addFeatures(drawFeatures(g));if(results?.some(r=>r.valid===false)){loadingDraw=false;message('No se ha podido cargar la geometría para editar. Se conserva el polígono original.',true);return;}}state.finishedFeatures=new Set((state.draw.getFeatures()?.features||[]).map(f=>f.id));state.editing=true;stage.classList.add('geometry-editing');loadingDraw=false;terra.setMode(g?'select':'polygon');drawModeUI(g?'select':'polygon');for(const id of ['site-draw-polygon','site-draw-circle','site-edit-polygon','site-finish-geometry','site-clear-geometry'])$(id).hidden=false;$('site-edit-geometry').hidden=true;geomStatus();updateMap();showCircleHandles();if(g&&circleHandles.length)fit(g);}
   $('site-edit-geometry').onclick=startDrawing;$('site-draw-polygon').onclick=()=>setDrawMode('polygon');$('site-edit-polygon').onclick=()=>{syncGeometry();startDrawing();setDrawMode('select');};
   function drawModeUI(mode){for(const [id,value] of [['site-draw-polygon','polygon'],['site-draw-circle','circle'],['site-edit-polygon','select']]){$(id).classList.toggle('active',mode===value);$(id).setAttribute('aria-pressed',String(mode===value));}}
-  function setDrawMode(mode){if(mode!=='circle')state.replaceWithCircle=false;state.draw?.getTerraDrawInstance().setMode(mode);drawModeUI(mode);if(mode==='circle')message(text('sites_circle_help'));}
+  function setDrawMode(mode){clearCircleHandles();if(mode!=='circle')state.replaceWithCircle=false;state.draw?.getTerraDrawInstance().setMode(mode);drawModeUI(mode);if(mode==='circle')message(text('sites_circle_help'));if(mode==='select')showCircleHandles();}
   $('site-draw-circle').onclick=async()=>{let choice='add';if(geometry())choice=await dialog('site-circle-choice');if(choice==='cancel')return;state.replaceWithCircle=choice==='replace';setDrawMode('circle');};
   $('site-finish-geometry').onclick=()=>{syncGeometry();stopDrawing();showDraft();};
-  $('site-clear-geometry').onclick=async()=>{if(await dialog('site-confirm','Quitar geometría','Se retirará el polígono del borrador. Solo se aplicará al guardar; el setal y sus observaciones se conservan.')==='confirm'){state.draw.getTerraDrawInstance().clear();syncGeometry();showDraft();}};
+  $('site-clear-geometry').onclick=async()=>{if(await dialog('site-confirm','Quitar geometría','Se retirará el polígono del borrador. Solo se aplicará al guardar; el setal y sus observaciones se conservan.')==='confirm'){clearCircleHandles();state.draw.getTerraDrawInstance().clear();syncGeometry();showDraft();updateEditLabel();}};
   function showDraft(){if(!ready)return;updateMap();const g=geometry();map.getSource('site-draft').setData({type:'FeatureCollection',features:g?[{type:'Feature',geometry:g,properties:{}}]:[]});}
   const environment=new Set(['altitude_min_m','altitude_max_m','altitude_source','aspect_ids','slope_notes','exposure_notes','host_ids','forest_type_ids','soil_tendency_ids','habitat_feature_ids','ecology_notes']);
   const notes=new Set(['notes','access_difficulty','access_notes','provenance_source','provenance_confidence','provenance_notes']);
@@ -136,7 +200,7 @@
     map.addLayer({id:'sites-selected-point',type:'circle',source:'sites',filter:['==',['get','key'],''],paint:{'circle-color':'#15a9f1','circle-radius':9,'circle-stroke-color':'#fff','circle-stroke-width':3}});
     map.addSource('site-draft',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
     map.addLayer({id:'site-draft-line',type:'line',source:'site-draft',paint:{'line-color':'#40bcff','line-width':3,'line-dasharray':[2,1]}});
-    try{state.draw=new MaplibreTerradrawControl.MaplibreTerradrawControl({modes:['render','polygon','circle','select'],open:false});map.addControl(state.draw,'bottom-left');const terra=state.draw.getTerraDrawInstance();terra.setMode('render');terra.on('change',()=>{if(!loadingDraw){syncGeometry();showDraft();if(state.editing&&terra.getMode()==='circle'){const pending=(state.draw.getFeatures()?.features||[]).find(f=>f.properties?.mode==='circle'&&!state.finishedFeatures.has(f.id));if(pending)message(text('sites_circle_edge').replace('{radius}',Math.round((pending.properties.radiusKilometers||0)*1000)));}}});terra.on('finish',id=>{if(loadingDraw)return;state.finishedFeatures.add(id);if(state.replaceWithCircle&&terra.getMode()==='circle'){state.replaceWithCircle=false;const others=(state.draw.getFeatures()?.features||[]).filter(f=>f.id!==id).map(f=>f.id);loadingDraw=true;terra.removeFeatures(others);loadingDraw=false;state.finishedFeatures=new Set([id]);}syncGeometry();showDraft();if(terra.getMode()==='circle')message(text('sites_circle_complete'));});}catch(error){message('El mapa está disponible, pero no se pudieron cargar las herramientas de dibujo.',true);}
+    try{const selectMode=MaplibreTerradrawControl.getDefaultModeOptions().select;selectMode.flags.circle={feature:{draggable:false,coordinates:{}}};state.draw=new MaplibreTerradrawControl.MaplibreTerradrawControl({modes:['render','polygon','circle','select'],modeOptions:{select:selectMode},adapterOptions:{coordinatePrecision:16},open:false});map.addControl(state.draw,'bottom-left');const terra=state.draw.getTerraDrawInstance();terra.setMode('render');terra.on('change',()=>{if(!loadingDraw){syncGeometry();showDraft();if(state.editing&&terra.getMode()==='circle'){const pending=(state.draw.getFeatures()?.features||[]).find(f=>f.properties?.mode==='circle'&&!state.finishedFeatures.has(f.id));if(pending)message(text('sites_circle_edge').replace('{radius}',Math.round((pending.properties.radiusKilometers||0)*1000)));}}});terra.on('finish',id=>{if(loadingDraw)return;state.finishedFeatures.add(id);if(state.replaceWithCircle&&terra.getMode()==='circle'){state.replaceWithCircle=false;const others=(state.draw.getFeatures()?.features||[]).filter(f=>f.id!==id).map(f=>f.id);loadingDraw=true;terra.removeFeatures(others);loadingDraw=false;state.finishedFeatures=new Set([id]);}syncGeometry();showDraft();if(terra.getMode()==='circle')message(text('sites_circle_complete'));});}catch(error){message('El mapa está disponible, pero no se pudieron cargar las herramientas de dibujo.',true);}
     renderTree();if(initial?.selected){if(initial.selection.archived)$('sites-status').value='all';applyFragment(initial);if(!observationContext)fit(featureFor(keyOf(initial.selection))?.geometry||initial.selection.parent_geometry);if(initial.gis_html)location.hash='gis-dem-review';}else if(!observationContext)fitAll();
     observationMarker();focusObservation();
   });

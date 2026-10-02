@@ -40,6 +40,12 @@ class PortableGeographyTest(unittest.TestCase):
         self.addCleanup(pub.close)
         return pub
 
+    def test_host_tools_resolve_physical_assets_from_active_publication(self):
+        config = geo.published_geography_config(self.root)
+        self.assertEqual(Path(config['terrain_index']), self.file)
+        identities = SourceIdentities(config['geography_sources'])
+        self.assertEqual(identities.stamp(self.file), [self.row['bytes'], self.row['mtime_ns']])
+
     def test_extend_map_preserves_old_assets_and_scientific_dataset(self):
         original_dataset = (self.root/'mushroom-GIS/geography-dataset.json').read_bytes()
         path = self.root/'map/mvc.sqlite'; path.parent.mkdir(parents=True, exist_ok=True)

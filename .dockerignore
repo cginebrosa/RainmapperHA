@@ -19,6 +19,9 @@ docker-empty-test
 tmp
 mushroom-GIS
 mushroom-map-GIS
+geography-sources
+mushroom-GIS-todelete
+mushroom-map-GIS-todelete
 
 # Project data generated or reconstructed at runtime
 Data

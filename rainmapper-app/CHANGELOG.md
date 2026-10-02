@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.331
+
+- Translate circle drawing and editing controls into English, Spanish and Catalan using the device language.
+- Edit saved circles with centre and radius handles instead of individual vertices; keep the original geometry when closing without changes.
+- Accept full-precision GBIF coordinates and recognise WGS84 circles alongside circles drawn on the map.
+- Resolve local geographic tools through the published operational geography; separate retained source material from runtime paths without migrating HA data.
+
 ## 0.2.330
 
 - Use a shared field-by-field GIS source policy for observation recovery, microarea samples, reconstruction and map predictions, with explicit source fallback and conflict reporting.

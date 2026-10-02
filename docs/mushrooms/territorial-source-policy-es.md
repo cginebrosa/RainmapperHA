@@ -1,7 +1,8 @@
 # Resolución común de fuentes territoriales
 
-Publicado en HA 0.2.330 el 28/09/2026, pendiente de instalación y activación de
-metadatos en HA real. No modifica
+Publicado en HA 0.2.330 e instalado en HA real; metadatos activados el 28/09/2026.
+El usuario confirma entrenamiento y precálculo reales terminados al cierre.
+La activación de metadatos por sí sola no modifica
 observaciones guardadas, evidencia de campo ni modelos ya entrenados.
 
 ## Política por campo
@@ -109,8 +110,10 @@ Validación inicial del 28/09/2026, anterior a completar reconstrucción/microá
 El ciclo operativo local posterior ha terminado y está auditado: 517
 observaciones reconstruidas, 792 ajustes sin fallos y precálculo activo. Véase
 el informe de preparación 0.2.330.
-En HA real sólo se ha copiado el SQLite MVC50, sin registrarlo ni activarlo;
-el código y CURRENT.json siguen sin cambios.
+En HA real se registró `local-mvc50-20260928` y se activó el dataset científico
+preparado. Recibos: `ha-register-mvc50.json` y `ha-territorial-activation.json`
+en la carpeta de evidencia. No se volvieron a copiar ni hashear assets al activar.
+Véase el [informe de release](../reports/release-ha-0.2.330-preparation-2026-09-28.md).
 
 La prueba de 82 puntos comparte lectores reales y comprueba la resolución; sus
 llamadas a recuperación están sustituidas para aislar esa política. La prueba de
@@ -145,5 +148,14 @@ Validación posterior: 87 pruebas dirigidas; smoke de 1.854 pruebas (55 omitidas
 paridad de 17 archivos HA/12 worker y prueba sin mocks en ambas imágenes:
 Tordera, Riudarenes y Olvan coinciden entre mapa, recuperación y reconstrucción;
 una microárea pequeña de Tordera coincide también. Logs `coherent-*` en
-`docker-data/territorial-validation/`. Circuito operativo posterior completado y auditado; pendiente aceptación antes
-de publicar.
+`docker-data/territorial-validation/`. Circuito operativo local posterior completado, auditado y aceptado antes de publicar.
+
+
+## Clasificación ausente con cobertura disponible: Campins
+
+Caso aceptado sin modificación de mapeos el 28/09/2026. En 41.72509, 2.47462,
+MVC50 indica `Indiferent` y geología Qv3 no permite determinar sustrato; en
+41.72471, 2.47513, el mismo MVC50 coincide con geología POa, mapeada a silíceo.
+Las dos consultas reales tienen capas disponibles. No deducir que un campo sin
+clasificar sea falta de cobertura ni clasificar Qv3 por los polígonos vecinos.
+Fuentes y decisión científica en `docs/decisions.md`, entrada del 28/09.
