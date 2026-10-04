@@ -84,6 +84,7 @@ const base = path.join(root, "rainmapper_core/viewers/maplibre-viewer");
 const extension = path.join(root, "rainmapper_core/viewers/prediction-map");
 let predictionAllowed = true, historyAllowed = false, observationsAllowed = false;
 let observationsMobileEnabled=false, observationCalls=0;
+let sitesCalls=0, sitesDelay=0, sitesFailure=false;
 const historyCalls=[];let historyFailure=false, historyWorkerError=null, historyLocalDelay=0;
 let role = "admin", calls = 0, delay = 0, failure = false, richTerrain = true, lastExecution = null;
 let compactMobileFixture = false;
@@ -142,6 +143,14 @@ const server = createServer(async (req, res) => {
       return send({ ok: true, user: { username: preview ? "preview" : "test", role, can_use_heatmap: true, can_use_layer_metrics: true, can_use_estimated_field: true, can_use_prediction_map: predictionAllowed, can_use_historical_map:historyAllowed, can_use_observations_map:observationsAllowed } });
     }
     if (name === "capabilities") return send({ can_use_prediction_map: predictionAllowed, can_use_historical_map:historyAllowed, can_use_observations_map:observationsAllowed, admin_only: false, data_mode:preview ? "simulation" : "prediction", executors:{local:true,worker:!preview} }, "application/json", (predictionAllowed || historyAllowed || observationsAllowed) ? 200 : 403);
+    if(name==='known-sites') {
+      sitesCalls++;
+      const features=[{type:'Feature',id:'area:a',properties:{kind:'area',name:'Test area',label_point:[1.9,42.02]},
+        geometry:{type:'Polygon',coordinates:[[[1.88,41.98],[1.96,41.98],[1.96,42.04],[1.88,42.04],[1.88,41.98]]]}},
+        {type:'Feature',id:'micro_area:m',properties:{kind:'micro_area',name:'<b>Test microarea</b>',label_point:[1.925,42]},
+        geometry:{type:'Polygon',coordinates:[[[1.91,41.99],[1.94,41.99],[1.94,42.01],[1.91,42.01],[1.91,41.99]]]}}];
+      return setTimeout(()=>send({type:'FeatureCollection',features},'application/json',!observationsAllowed?403:sitesFailure?503:200),sitesDelay);
+    }
     if(url.pathname.includes('/observations/')) {
       observationCalls++;
       if(!observationsAllowed)return send({error:'forbidden'},'application/json',403);
@@ -298,7 +307,7 @@ const server = createServer(async (req, res) => {
       return send(name.endsWith(".geojson") ? { type: "FeatureCollection", features: [station] } : {});
     }
     if (["app.js", "style.css", "translations.json"].includes(name)) return send(await fs.readFile(path.join(base, name)), name.endsWith(".css") ? "text/css" : name.endsWith(".json") ? "application/json" : "application/javascript");
-    if (["prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css"].includes(name)) return send(await fs.readFile(path.join(extension, name)), name.endsWith(".css") ? "text/css" : "application/javascript");
+    if (["prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css", "known-sites-mode.js", "known-sites-mode.css"].includes(name)) return send(await fs.readFile(path.join(extension, name)), name.endsWith(".css") ? "text/css" : "application/javascript");
     return send({}, "application/json", 404);
   } catch (error) { res.writeHead(500); res.end(String(error)); }
 });
@@ -1229,6 +1238,42 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('#observations-species option')[1].textContent"),'Observed species (4)');
   await evaluate("document.getElementById('observations-species').value='obs-sp';document.getElementById('observations-species').dispatchEvent(new Event('change'))");
   await until("!!document.querySelector('.om-cluster')");
+  await until("!!document.getElementById('known-sites-mode-toggle')");
+  assert.equal(await evaluate("document.getElementById('observations-mode-toggle').nextElementSibling.id"),'known-sites-mode-toggle');
+  assert.equal(sitesCalls,0,'Known sites load only on activation');
+  const beforeSitesCalls=calls;
+  await evaluate("document.getElementById('known-sites-mode-toggle').click()");
+  await until("!!map.getLayer('known-sites-line')");
+  assert.equal(calls,beforeSitesCalls,'Overlay must not request prediction or weather');
+  assert.equal(await evaluate("document.getElementById('observations-mode-toggle').getAttribute('aria-pressed')"),'true');
+  assert.equal(await evaluate("map.getSource('known-sites')._data.features.length"),2);
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.ks-labels')).pointerEvents"),'none');
+  await evaluate("map.jumpTo({zoom:13});void 0");
+  await until("document.querySelector('.ks-labels').textContent.includes('<b>Test microarea</b>')");
+  assert.equal(await evaluate("document.querySelectorAll('.ks-labels b').length"),0);
+  assert.ok(await evaluate("document.querySelector('.ks-legend').getBoundingClientRect().left>document.querySelector('.rain-legend').getBoundingClientRect().right"));
+  const sitesShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'known-sites.png'),Buffer.from(sitesShot.data,'base64'));
+  await evaluate("map.setStyle({version:8,sources:{},layers:[]});void 0");
+  await until("map.isStyleLoaded() && !!map.getLayer('known-sites-line')");
+  await evaluate("addStationLayer();map.jumpTo({zoom:11});void 0");
+  await until("!!map.getLayer('station-circles')");
+  assert.equal(sitesCalls,1,'Style changes must reuse the already loaded geometries');
+  await evaluate("document.getElementById('known-sites-mode-toggle').click()");
+  assert.equal(await evaluate("!!map.getSource('known-sites')"),false);
+  assert.equal(await evaluate("document.querySelectorAll('.ks-labels span').length"),0);
+  sitesDelay=200;
+  await evaluate("document.getElementById('known-sites-mode-toggle').click()");
+  await pause(30);
+  await evaluate("document.getElementById('known-sites-mode-toggle').click()");
+  await pause(250);
+  assert.equal(await evaluate("!!map.getSource('known-sites')"),false,'Late responses must not reactivate a hidden layer');
+  sitesDelay=0;sitesFailure=true;
+  await evaluate("document.getElementById('known-sites-mode-toggle').click()");
+  await until("document.querySelector('.ks-legend').textContent.includes('No se pudieron')");
+  sitesFailure=false;
+  await evaluate("document.getElementById('known-sites-mode-toggle').click();document.getElementById('known-sites-mode-toggle').click()");
+  await until("!!map.getLayer('known-sites-line')");
   assert.equal(await evaluate("document.querySelector('.om-outcome-filter input:checked').value"),'all');
   assert.ok(await evaluate("document.querySelector('.om-outcome-filter').getBoundingClientRect().bottom<document.getElementById('observations-species').getBoundingClientRect().top"));
   const beforeOutcomeFilter=observationCalls;
@@ -1385,6 +1430,10 @@ try {
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await until("!document.getElementById('observations-mode-toggle')");
   assert.equal(await evaluate('historicalMap.date'),'2026-09-12','Mobile availability must not reset history');
+  assert.ok(await evaluate("!!document.getElementById('known-sites-mode-toggle') && !!map.getLayer('known-sites-line')"));
+  assert.ok(await evaluate("(()=>{const r=document.querySelector('.ks-legend').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth})()"));
+  const sitesMobileShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'known-sites-mobile.png'),Buffer.from(sitesMobileShot.data,'base64'));
   assert.equal(observationCalls,beforeMobile);
   await evaluate('viewerConfig.predictionMap.observationsMobileEnabled=true');
   await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
@@ -1481,6 +1530,7 @@ try {
   await evaluate('validateStoredSession()');
   await until("!document.getElementById('observations-mode-toggle')");
   assert.equal(await evaluate("document.querySelectorAll('.om-marker,.om-panel,.om-popup').length"),0);
+  assert.equal(await evaluate("!!document.getElementById('known-sites-mode-toggle') || !!map.getSource('known-sites')"),false);
   assert.equal(errors.length, 0, JSON.stringify(errors));
   console.log(JSON.stringify({ ok: true, checks: "shared viewer, lazy module, station hover/click, modal, popup, dates, cancellation, errors, repeated toggles, mobile, non-admin, original route, historical opt-in, historical prediction date, viewport coverage cache, fallback, rollback", screenshots: profile, demo_requests: calls, historical_requests:historyCalls.length }));
 } finally {

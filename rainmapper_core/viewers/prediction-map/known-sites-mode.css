@@ -1,0 +1,8 @@
+#known-sites-mode-toggle svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+#known-sites-mode-toggle[aria-pressed="true"]{background:#eee5fb;color:#653dab;border-color:#916cc9}
+#known-sites-mode-toggle[aria-busy="true"]{opacity:.6}
+.ks-labels{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:4}
+.ks-labels span{position:absolute;transform:translate(-50%,-50%);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:4px;padding:2px 5px;background:#ffffffe6;font:600 11px/1.4 system-ui,sans-serif;box-shadow:0 1px 3px #0003}
+.ks-area{color:#653dab}.ks-micro{color:#9c5700}
+.ks-legend{position:absolute;bottom:78px;left:56px;max-width:calc(100% - 126px);z-index:7;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;padding:5px 8px;border:1px solid #c8b9d9;border-radius:6px;background:#fffffff0;font:12px/1.4 system-ui,sans-serif;color:#344a5a}
+.ks-legend[hidden]{display:none}.ks-legend .ks-area:before,.ks-legend .ks-micro:before{content:'';display:inline-block;width:13px;height:9px;margin-right:5px;border:2px solid currentColor;vertical-align:-1px}.ks-legend [role="status"]:empty{display:none}

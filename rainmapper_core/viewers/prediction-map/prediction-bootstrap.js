@@ -12,6 +12,7 @@
   let modeLoading = null;
   let predictionCapability = null;
   let observations = null;
+  let knownSites = null;
   let observationsRevision = 0;
   const mobileScreen = matchMedia('(max-width: 767px), (pointer: coarse) and (max-height: 600px)');
   let loading = false;
@@ -115,6 +116,7 @@
   function reset() {
     observationsRevision++;
     observations?.destroy(); observations = null;
+    knownSites?.destroy(); knownSites = null;
     historicalMap?.destroy(); historicalMap = null;
     mode?.cancelQuery();mode?.closePopup();mode?.setEnabled(false);
     mode=null;modeLoading=null;predictionCapability=null;
@@ -249,6 +251,7 @@
       settings?.refreshText();
       historicalMap?.refreshLanguage();
       observations?.refreshLanguage();
+      knownSites?.refreshLanguage();
       return;
     }
     session = next;
@@ -321,6 +324,18 @@
         });
       }
       await installObservations(next,capability.can_use_observations_map === true);
+      if (capability.can_use_observations_map === true) {
+        let style = document.getElementById('known-sites-mode-style');
+        if (!style) {
+          style = document.createElement('link'); style.id = 'known-sites-mode-style'; style.rel = 'stylesheet';
+          style.href = new URL('known-sites-mode.css', assetBase); document.head.append(style);
+        }
+        const module = await import(new URL('known-sites-mode.js', assetBase));
+        if (session !== next) return;
+        knownSites = module.createKnownSitesMode({...bridge,
+          after: () => document.getElementById('observations-mode-toggle') || document.getElementById('historical-mode-toggle') || button || document.getElementById('estimated-field-toggle'),
+        });
+      }
     } catch (_error) {
       // No authorization means no predictive controls; the weather UI owns login.
     }

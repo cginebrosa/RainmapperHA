@@ -1,5 +1,29 @@
 # Mapa de predicción — especificación central
 
+## Capa de áreas y microáreas conocidas · 04/10/2026
+
+Botón de polígonos en la barra derecha, inmediatamente debajo de Observaciones
+cuando ese control está visible. Activa/desactiva una capa independiente, con
+áreas violetas y microáreas naranjas, contornos, relleno suave y nombres al
+acercarse. Convive con estaciones, observaciones, predicción, meteorología
+histórica y cambios de mapa base; no captura los clics de consulta ni cambia
+la fecha o el encuadre. En móvil sigue disponible aunque Observaciones esté
+oculto por su configuración existente.
+
+Comparte el permiso explícito `can_use_observations_map`, confirmado por el
+usuario. `GET /api/mushrooms/prediction-map/known-sites` devuelve únicamente las
+geometrías, nombres y posiciones de etiquetas desde `mushroom_known_sites.json`;
+no envía notas, fotos, fichas completas ni observaciones. Excluye archivados y
+microáreas de áreas archivadas. Si sólo existe una ubicación representativa,
+se muestra un punto sin inventar límites. La consulta no crea ficheros ni trabajos.
+
+La carga ocurre al activar la capa; desactivarla cancela la petición y retira
+geometrías/etiquetas. Logout o retirada del permiso retiran también el control.
+El servidor conserva sólo una respuesta codificada por revisión del fichero,
+con límites previos de fuente, entidades y vértices, y codificación acotada.
+Medición local inicial: 72 áreas + 113 microáreas, 10.371 vértices y respuesta
+de 411.808 bytes. No requiere entrenamiento, precálculo ni cambios del worker.
+
 ## Comprobar predicción desde una observación · HA 0.2.329 y ampliación local
 
 La ficha de observación incorpora **Comprobar predicción** debajo de Cómo llegar,

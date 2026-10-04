@@ -1,11 +1,38 @@
-# Contexto activo — actualización 03/10/2026
+# Contexto activo — actualización 04/10/2026
+
+## Release actual: HA 0.2.332 publicada; pendiente instalación del usuario
+
+El usuario confirmó que la capa de áreas y microáreas funciona en HA local y
+autorizó publicar con «pues publicamos version de HA». GHCR verificado el 04/10:
+`0.2.332` y `latest`, mismo digest
+`sha256:6e48babc0868d84a76509bb95cd0418ff778d8926f59df8f7e74b623703717b2`,
+con manifests `linux/amd64` y `linux/arm64`.
+
+Botón debajo de Observaciones; capa independiente y compatible con las demás.
+Comparte `can_use_observations_map` en interfaz y API; sólo carga geometrías y
+nombres al activarse. HA local reconstruida/recreada y aceptada; seis huellas
+revalidadas antes del bump. 28 pruebas dirigidas, navegador escritorio/móvil y
+smoke de release correcto: 1.911 pruebas, 55 omitidas. Después sólo cambiaron
+versiones/cache-busters y documentación. Sin operaciones sobre el worker.
+
+El usuario autorizó expresamente las dos limpiezas automáticas de Docker del
+script de publicación. Se retiró la etiqueta local HA 0.2.331 y Buildx informó
+de 6,486 GB recuperados. Esa autorización no amplía la auditoría de disco ni
+permite retirar fuentes, datos privados o carpetas históricas.
+
+[Informe y evidencias](reports/release-ha-0.2.332-2026-10-04.md).
+Siguiente paso: el usuario instala y prueba 0.2.332 en HA real. No se ha instalado
+ni reiniciado HA real; no repetir publicación ni lanzar trabajos operativos.
+La discusión científica sigue pendiente, sin nueva métrica aprobada.
+
+## Contexto anterior (03/10/2026; histórico)
 
 Leer [codex-start-here.md](codex-start-here.md) y este documento basta para
 continuar. [todo.md](todo.md) amplía pendientes; ningún pendiente autoriza por sí
 solo su ejecución. No hay una publicación ni un trabajo operativo que Codex deba
 lanzar al reabrir.
 
-## Release actual: HA 0.2.331 publicada; pendiente instalación del usuario
+## Release anterior: HA 0.2.331 publicada; pendiente instalación del usuario
 
 El usuario confirmó «ya funciona» en local y autorizó publicar con «adelante».
 Publicación completada el 03/10: `0.2.331` y `latest`, mismo digest

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.332
+
+- Add a known areas and micro-areas layer below the observations button, with distinct outlines and labels in English, Spanish and Catalan.
+- Keep the layer compatible with observations, predictions, weather and base-map changes on desktop and mobile.
+- Require the observations-map permission for both the control and its read-only API; load bounded geometry data only when the layer is enabled.
+
 ## 0.2.331
 
 - Translate circle drawing and editing controls into English, Spanish and Catalan using the device language.

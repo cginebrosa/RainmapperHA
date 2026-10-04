@@ -13,6 +13,7 @@ import mushroom_profiles_ui
 from rainmapper_core import mushroom_prediction_map as contract
 from rainmapper_core import mushroom_map_history as history
 from rainmapper_core import mushroom_map_observations as observations
+from rainmapper_core import mushroom_map_known_sites as known_sites
 from rainmapper_core.mushroom_map_queries import QueryBroker, QueryError
 
 _broker = None
@@ -146,6 +147,21 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
     if not user:
         return
     action = path.removeprefix(contract.API_PATH)
+    if action == '/known-sites':
+        if user.get(known_sites.PERMISSION) is not True:
+            send_json(handler, 403, {'error': 'forbidden'})
+            return
+        if post:
+            send_json(handler, 405, {'error': 'method_not_allowed'})
+            return
+        try:
+            handler.send_bytes(200, known_sites.response(), 'application/json; charset=utf-8',
+                               {'Cache-Control': 'private, no-store, max-age=0'})
+        except known_sites.SitesError as exc:
+            send_json(handler, exc.status, {'error': str(exc)})
+        except (OSError, ValueError, TypeError, KeyError):
+            send_json(handler, 503, {'error': 'known_sites_unavailable'})
+        return
     if action.startswith('/observations/'):
         if user.get(observations.PERMISSION) is not True:
             send_json(handler, 403, {'error': 'forbidden'})
@@ -267,7 +283,7 @@ def serve_viewer(handler, requested_path: str, *, assets: Path, config_js: str, 
         handler.send_bytes(200, source.encode("utf-8"), "application/javascript",
                            {"Cache-Control": "no-store, max-age=0"})
         return
-    if relative in {"prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css"}:
+    if relative in {"prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css", "known-sites-mode.js", "known-sites-mode.css"}:
         content_type = "text/css" if relative.endswith(".css") else "application/javascript"
         try:
             source = (extension_assets / relative).read_bytes()

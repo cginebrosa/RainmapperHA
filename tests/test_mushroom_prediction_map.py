@@ -175,6 +175,26 @@ class PredictionMapRouteTests(unittest.TestCase):
             handler=self.handler(contract.API_PATH+'/capabilities',user={'username':'test',overlay.PERMISSION:True})
             handler.do_GET();self.assertTrue(self.response(handler)[1][overlay.PERMISSION]);broker.assert_not_called()
 
+    def test_known_sites_requires_observations_permission_and_never_creates_jobs(self):
+        from rainmapper_core import mushroom_map_known_sites as overlay
+        import mushroom_prediction_map_ui as ui
+        path = contract.API_PATH + '/known-sites'
+        with mock.patch.object(overlay, 'response', return_value=b'{"type":"FeatureCollection","features":[]}') as read, \
+                mock.patch.object(ui, 'broker') as broker:
+            for user in (None, {'username':'test','role':'admin'}, {'username':'test',contract.PERMISSION:True},
+                         {'username':'test',overlay.PERMISSION:False}):
+                handler = self.handler(path, user=user); handler.do_GET()
+                self.assertIn(self.response(handler)[0], (401, 403))
+            read.assert_not_called()
+            user = {'username':'test',overlay.PERMISSION:True}
+            handler = self.handler(path, user=user); handler.do_GET()
+            self.assertEqual(self.response(handler)[0], 200)
+            self.assertIn('private, no-store', handler.send_bytes.call_args.args[3]['Cache-Control'])
+            read.assert_called_once_with()
+            handler = self.handler(path, user=user, body={}); handler.do_POST()
+            self.assertEqual(self.response(handler)[0], 405)
+            broker.assert_not_called()
+
     def test_observations_mobile_setting_defaults_off(self):
         import os
         for configured in ('false','true'):

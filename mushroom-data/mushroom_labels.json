@@ -264,6 +264,36 @@
     "es": "Esperando al worker…",
     "ca": "Esperant el worker…"
   },
+  "ui.prediction_map_sites_mode": {
+    "en": "Known areas and micro-areas",
+    "es": "Áreas y microáreas conocidas",
+    "ca": "Àrees i microàrees conegudes"
+  },
+  "ui.prediction_map_sites_areas": {
+    "en": "Areas",
+    "es": "Áreas",
+    "ca": "Àrees"
+  },
+  "ui.prediction_map_sites_microareas": {
+    "en": "Micro-areas",
+    "es": "Microáreas",
+    "ca": "Microàrees"
+  },
+  "ui.prediction_map_sites_loading": {
+    "en": "Loading areas…",
+    "es": "Cargando áreas…",
+    "ca": "Carregant àrees…"
+  },
+  "ui.prediction_map_sites_empty": {
+    "en": "No known areas with a saved location.",
+    "es": "No hay áreas conocidas con ubicación guardada.",
+    "ca": "No hi ha àrees conegudes amb ubicació desada."
+  },
+  "ui.prediction_map_sites_error": {
+    "en": "Areas could not be loaded. Turn the layer off and on to retry.",
+    "es": "No se pudieron cargar las áreas. Desactiva y activa la capa para reintentar.",
+    "ca": "No s’han pogut carregar les àrees. Desactiva i activa la capa per tornar-ho a provar."
+  },
   "ui.prediction_map_mode": {
     "en": "Prediction mode",
     "es": "Modo predicción",
