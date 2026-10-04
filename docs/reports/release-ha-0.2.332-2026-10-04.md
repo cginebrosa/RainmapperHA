@@ -1,8 +1,9 @@
 # Release HA 0.2.332 · 04/10/2026
 
 Publicada tras la aceptación expresa de HA local por el usuario y su instrucción
-«pues publicamos version de HA». La instalación y prueba en HA real quedan a
-cargo del usuario; no se ha instalado ni reiniciado HA real desde esta sesión.
+«pues publicamos version de HA». El 04/10, después de la publicación, el usuario
+confirmó «instalada y funcionando». Instalación y funcionamiento en HA real
+confirmados por el usuario; Codex no ha instalado ni reiniciado HA real.
 
 ## Cambio publicado
 
@@ -72,6 +73,6 @@ publican en un único commit tras comprobar GHCR. Los cambios locales previos
 ajenos a esta release y las observaciones privadas se conservan sin incorporarlos.
 No se ha cambiado el coordinador ni reiniciado/reconstruido el worker.
 
-El usuario puede instalar 0.2.332 en HA y comprobar el botón y su permiso. La
-discusión sobre utilidad de aereus/caesarea sigue pendiente; esta release no
+Release cerrada con la confirmación del usuario de instalación y funcionamiento
+en HA real. La discusión sobre utilidad de aereus/caesarea sigue pendiente; esta release no
 aprueba k=2, 3, 4 ni inicia experimentos.

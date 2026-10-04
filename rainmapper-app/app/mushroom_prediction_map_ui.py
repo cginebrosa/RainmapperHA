@@ -283,7 +283,7 @@ def serve_viewer(handler, requested_path: str, *, assets: Path, config_js: str, 
         handler.send_bytes(200, source.encode("utf-8"), "application/javascript",
                            {"Cache-Control": "no-store, max-age=0"})
         return
-    if relative in {"prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css", "known-sites-mode.js", "known-sites-mode.css"}:
+    if relative in {"prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css", "known-sites-mode.js", "known-sites-mode.css", "measurement-mode.js", "measurement-mode.css", "measurement-terrain.js"}:
         content_type = "text/css" if relative.endswith(".css") else "application/javascript"
         try:
             source = (extension_assets / relative).read_bytes()

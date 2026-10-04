@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.333
+
+- Add a distance tool after the north control, available without a specific map permission in 2D and 3D.
+- Measure multipoint paths with a live preview, draggable points, undo and restart; tap the last point to finish or continue.
+- Show approximate terrain distance, horizontal distance, net elevation change and accumulated ascent/descent using bounded Mapzen elevation sampling, independent of visual terrain exaggeration.
+- Keep the mobile panel compact and place detailed instructions under expandable help in English, Spanish and Catalan.
+- Allow predictions, station details and terrain information while a finished measurement remains visible; capture map clicks again when drawing resumes.
+
 ## 0.2.332
 
 - Add a known areas and micro-areas layer below the observations button, with distinct outlines and labels in English, Spanish and Catalan.

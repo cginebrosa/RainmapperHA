@@ -307,7 +307,7 @@ const server = createServer(async (req, res) => {
       return send(name.endsWith(".geojson") ? { type: "FeatureCollection", features: [station] } : {});
     }
     if (["app.js", "style.css", "translations.json"].includes(name)) return send(await fs.readFile(path.join(base, name)), name.endsWith(".css") ? "text/css" : name.endsWith(".json") ? "application/json" : "application/javascript");
-    if (["prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css", "known-sites-mode.js", "known-sites-mode.css"].includes(name)) return send(await fs.readFile(path.join(extension, name)), name.endsWith(".css") ? "text/css" : "application/javascript");
+    if (["prediction-bootstrap.js", "prediction-mode.js", "prediction-mode.css", "prediction-weather.js", "historical-mode.js", "historical-mode.css", "observations-mode.js", "observations-mode.css", "known-sites-mode.js", "known-sites-mode.css", "measurement-mode.js", "measurement-mode.css", "measurement-terrain.js"].includes(name)) return send(await fs.readFile(path.join(extension, name)), name.endsWith(".css") ? "text/css" : "application/javascript");
     return send({}, "application/json", 404);
   } catch (error) { res.writeHead(500); res.end(String(error)); }
 });
@@ -337,6 +337,10 @@ async function until(expression) {
 async function clickAt(lon, lat) {
   const point = await evaluate(`(()=>{const p=map.project([${lon},${lat}]);const r=map.getCanvas().getBoundingClientRect();return {x:r.left+p.x,y:r.top+p.y}})()`);
   for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type, ...point, button: type === "mouseMoved" ? "none" : "left", clickCount: type === "mouseMoved" ? 0 : 1 });
+}
+async function clickMeasurementPoint(index) {
+  const point = await evaluate(`(()=>{const r=document.querySelectorAll('.mm-point')[${index}].getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+  for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', {type, ...point, button:type==='mouseMoved'?'none':'left', clickCount:type==='mouseMoved'?0:1});
 }
 async function checkFixedHeader() {
   const state = await evaluate(`(()=>{
@@ -369,6 +373,181 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   await send("Page.navigate", { url: origin + "/protected/prediction-map/index.html" });
   await until("!!document.getElementById('prediction-mode-toggle') && !!map.getLayer('station-circles')");
+  // Measuring is a basic map tool, with physical DEM independent of the camera.
+  await until("!!document.getElementById('measurement-mode-toggle')");
+  assert.equal(await evaluate("document.getElementById('north-toggle').nextElementSibling.id"), 'measurement-mode-toggle');
+  assert.equal(await evaluate("document.getElementById('measurement-mode-toggle').nextElementSibling.id"), 'info-toggle');
+  const beforeMeasurement = calls;
+  await evaluate(`(async()=>{window.measurementTestFetch=window.fetch;window.measurementTileCalls=0;window.measurementFailure=false;window.measurementDelay=false;
+    const dem=document.createElement('canvas');dem.width=dem.height=256;const ctx=dem.getContext('2d');
+    ctx.fillStyle='rgb(128,100,0)';ctx.fillRect(0,0,256,256);
+    window.measurementDemUrl=dem.toDataURL('image/png');
+    window.measurementBlob=await new Promise(resolve=>dem.toBlob(resolve));
+    window.fetch=(url,options)=>String(url).startsWith('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/')?
+      (window.measurementTileCalls++,window.measurementDelay?new Promise(resolve=>{window.finishMeasurement=()=>resolve(new Response(window.measurementBlob))}):Promise.resolve(new Response(window.measurementBlob,{status:window.measurementFailure?503:200}))):window.measurementTestFetch(url,options);
+    map.jumpTo({center:[1.9,42],zoom:13,pitch:0});applyLanguage('es');
+    document.getElementById('prediction-mode-toggle').click();})()`);
+  await until("document.getElementById('prediction-mode-toggle').getAttribute('aria-pressed')==='true'");
+  await evaluate("document.getElementById('measurement-mode-toggle').click()");
+  assert.ok(await evaluate("(()=>{const s=getComputedStyle(document.querySelector('.mm-reset'));return s.color!==s.backgroundColor})()"));
+  assert.equal(await evaluate("document.querySelector('.mm-reset').ariaLabel"),'Nueva medición');
+  await clickAt(1.9,42);
+  assert.equal(await evaluate("document.querySelectorAll('.mm-point').length"),1);
+  assert.equal(await evaluate("document.querySelector('.mm-point').textContent"),'A');
+  const anchorBefore = await evaluate("document.querySelector('.mm-point').style.transform");
+  const pointer = await evaluate("(()=>{const p=map.project([1.906,42.003]),r=map.getCanvas().getBoundingClientRect();return {x:p.x+r.left,y:p.y+r.top}})()");
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...pointer,button:'none'});
+  await until("map.getSource('map-measurement')._data.features.length===1");
+  assert.equal(await evaluate("document.querySelector('.mm-point').style.transform"),anchorBefore,'Point A stays anchored during preview');
+  assert.equal(await evaluate('window.measurementTileCalls'),0,'Moving the preview does not fetch DEM');
+  const previewShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'measurement-preview.png'),Buffer.from(previewShot.data,'base64'));
+  await clickAt(1.906,42.003);
+  await until("document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  assert.equal(await evaluate("document.querySelectorAll('.mm-point').length"),2);
+  assert.equal(calls,beforeMeasurement,'Measurement must not request predictions, even over a station');
+  assert.equal(await evaluate("document.querySelector('[data-measure=change]').textContent"),'0 m');
+  const measured = await evaluate("document.querySelector('.mm-values').textContent");
+  const pickedPoints = await evaluate("(()=>{const c=map.getSource('map-measurement')._data.features[0].geometry.coordinates;return [c[0],c.at(-1)]})()");
+  const tileCalls = await evaluate('window.measurementTileCalls');
+  await evaluate(`window.measurementMapErrors=[];map.on('error',e=>window.measurementMapErrors.push(String(e.error)));
+    map.addSource(TERRAIN_SOURCE_ID,{type:'raster-dem',tiles:[window.measurementDemUrl],tileSize:256,encoding:'terrarium',maxzoom:15});undefined`);
+  await until('map.isStyleLoaded()');
+  await evaluate('terrainExaggeration=1;setTerrainEnabled(true);map.jumpTo({pitch:50,bearing:25});undefined');
+  // MapLibre 4.7.1's queryTerrainElevation is relative to the camera target;
+  // the synthetic plane is therefore zero there. Verify its loaded absolute DEM.
+  try { await until("map.isStyleLoaded() && map.transform.elevation>90"); }
+  catch(error) { console.error('Measurement terrain fixture',await evaluate("({terrain:map.getTerrain(),elevation:map.transform.elevation,enabled:terrainEnabled,loaded:map.isStyleLoaded(),errors:window.measurementMapErrors})"));throw error; }
+  assert.equal(await evaluate("document.querySelector('.mm-values').textContent"),measured);
+  await evaluate("terrainExaggeration=3;applyTerrain();undefined");
+  await until('map.isStyleLoaded()');
+  assert.equal(await evaluate("document.querySelector('.mm-values').textContent"),measured,'Visual exaggeration must not change physical distances');
+  assert.equal(await evaluate('window.measurementTileCalls'),tileCalls);
+  await evaluate("document.querySelector('.mm-reset').click()");
+  await clickAt(1.9,42);await clickAt(1.906,42.003);
+  await until("document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  const picked3D = await evaluate("(()=>{const c=map.getSource('map-measurement')._data.features[0].geometry.coordinates;return [c[0],c.at(-1)]})()");
+  for(let i=0;i<2;i++) {
+    const delta=await evaluate(`new maplibregl.LngLat(...${JSON.stringify(pickedPoints[i])}).distanceTo(new maplibregl.LngLat(...${JSON.stringify(picked3D[i])}))`);
+    assert.ok(delta<25,'Ground picking in 3D stays within two screen pixels at zoom 13');
+  }
+  // Mouse coordinates have pixel precision. Replay the exact picked coordinates
+  // to check numerical invariance independently from that selection tolerance.
+  await evaluate(`document.querySelector('.mm-reset').click();${JSON.stringify(pickedPoints)}.forEach(p=>map.fire('click',{lngLat:{lng:p[0],lat:p[1]},point:map.project(p),originalEvent:{target:map.getCanvas()}}));undefined`);
+  await until("document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  assert.equal(await evaluate("document.querySelector('.mm-values').textContent"),measured);
+  // A real pointer drag moves B on the tilted terrain and recalculates after release.
+  const dragFrom=await evaluate("(()=>{const r=document.querySelectorAll('.mm-point')[1].getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()");
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...dragFrom,button:'none'});
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',...dragFrom,button:'left',clickCount:1});
+  for(let i=1;i<=5;i++)await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:dragFrom.x+10*i,y:dragFrom.y+5*i,button:'left',buttons:1});
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:dragFrom.x+50,y:dragFrom.y+25,button:'left',clickCount:1});
+  await until("document.querySelector('[data-measure=terrain]').textContent.includes('≈') && document.querySelector('.mm-values').textContent!=="+JSON.stringify(measured));
+  // A third point extends both horizontal and terrain totals; moving the pointer
+  // only previews the next leg, leaving all confirmed totals and vertices intact.
+  const twoPointLength=await evaluate("document.querySelector('[data-measure=horizontal]').textContent");
+  await clickAt(1.91,41.998);
+  await until("document.querySelectorAll('.mm-point').length===3 && document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  assert.equal(await evaluate("Array.from(document.querySelectorAll('.mm-point'),e=>e.textContent).join('')"),'ABC');
+  assert.notEqual(await evaluate("document.querySelector('[data-measure=horizontal]').textContent"),twoPointLength);
+  const pathConfirmed=await evaluate("({values:document.querySelector('.mm-values').textContent,coordinates:map.getSource('map-measurement')._data.features[0].geometry.coordinates,tiles:window.measurementTileCalls})");
+  const nextPointer=await evaluate("(()=>{const p=map.project([1.905,41.996]),r=map.getCanvas().getBoundingClientRect();return {x:p.x+r.left,y:p.y+r.top}})()");
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...nextPointer,button:'none'});
+  await until("map.getSource('map-measurement')._data.features.length===2 && !document.querySelector('.mm-preview').hidden");
+  assert.equal(await evaluate("document.querySelector('.mm-values').textContent"),pathConfirmed.values);
+  assert.equal(await evaluate('window.measurementTileCalls'),pathConfirmed.tiles);
+  assert.deepEqual(await evaluate("map.getSource('map-measurement')._data.features[0].geometry.coordinates"),pathConfirmed.coordinates);
+  assert.deepEqual(await evaluate("map.getSource('map-measurement')._data.features[1].geometry.coordinates[0]"),pathConfirmed.coordinates.at(-1));
+  // Clicking the last marker finishes without adding a point. A second click
+  // resumes, and undo removes just the last leg and restores the previous totals.
+  await pause(325);
+  await clickMeasurementPoint(2);
+  await until("document.querySelector('.mm-status').textContent.includes('Recorrido terminado')");
+  // With predictions off, clicking free map space leaves a finished path intact.
+  await evaluate("document.getElementById('prediction-mode-toggle').click()");
+  await clickAt(1.905,41.996);
+  assert.equal(await evaluate("document.querySelectorAll('.mm-point').length"),3);
+  assert.equal(await evaluate("map.getSource('map-measurement')._data.features.length"),1);
+  assert.ok(await evaluate("document.querySelector('.mm-preview').hidden"));
+  await evaluate("document.getElementById('prediction-mode-toggle').click()");
+  await until("document.getElementById('prediction-mode-toggle').getAttribute('aria-pressed')==='true'");
+  await clickMeasurementPoint(2);
+  await clickAt(1.905,41.996);
+  await until("document.querySelectorAll('.mm-point').length===4 && document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  await evaluate("document.querySelector('.mm-undo').click()");
+  await until("document.querySelectorAll('.mm-point').length===3 && document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  assert.equal(await evaluate("document.querySelector('.mm-values').textContent"),pathConfirmed.values);
+  // Moving the intermediate vertex changes the full route, preserving A and C.
+  const middle=await evaluate("(()=>{const r=document.querySelectorAll('.mm-point')[1].getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()");
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...middle,button:'none'});
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',...middle,button:'left',clickCount:1});
+  for(let i=1;i<=5;i++)await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:middle.x-8*i,y:middle.y-5*i,button:'left',buttons:1});
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:middle.x-40,y:middle.y-25,button:'left',clickCount:1});
+  await until("document.querySelector('[data-measure=terrain]').textContent.includes('≈') && document.querySelector('.mm-values').textContent!=="+JSON.stringify(pathConfirmed.values));
+  assert.deepEqual(await evaluate("(()=>{const c=map.getSource('map-measurement')._data.features[0].geometry.coordinates;return [c[0],c.at(-1)]})()"),[pathConfirmed.coordinates[0],pathConfirmed.coordinates.at(-1)]);
+  assert.equal(await evaluate("document.querySelectorAll('.mm-point').length"),3);
+  assert.equal(calls,beforeMeasurement,'Editing a path does not request predictions');
+  await pause(325);
+  await clickMeasurementPoint(2);
+  await until("document.querySelector('.mm-status').textContent.includes('Recorrido terminado')");
+  const terrainShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'measurement-3d.png'),Buffer.from(terrainShot.data,'base64'));
+  await evaluate("setTerrainEnabled(false);map.jumpTo({pitch:0,bearing:0});map.setStyle({version:8,sources:{},layers:[]});undefined");
+  await until("map.isStyleLoaded() && !!map.getLayer('map-measurement-line')");
+  assert.equal(await evaluate("document.querySelectorAll('.mm-point').length"),3);
+  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  assert.ok(await evaluate("(()=>{const r=document.querySelector('.mm-panel').getBoundingClientRect(),b=document.getElementById('measurement-mode-toggle').getBoundingClientRect();return r.left>=0&&r.right<b.left&&r.bottom<=innerHeight})()"));
+  const measureMobile=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'measurement-mobile.png'),Buffer.from(measureMobile.data,'base64'));
+  // Compact results leave room to use the map; full instructions are opt-in.
+  const measurementMobileLayouts=[];
+  for (const [width,height] of [[320,568],[360,640],[390,844]]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+    for (const language of ['es','ca','en']) {
+      await evaluate(`applyLanguage('${language}');undefined`);
+      const layout=await evaluate(`(()=>{
+        const panel=document.querySelector('.mm-panel'), r=panel.getBoundingClientRect(),
+          undo=document.querySelector('.mm-undo').getBoundingClientRect(), reset=document.querySelector('.mm-reset').getBoundingClientRect(),
+          toolbar=document.getElementById('measurement-mode-toggle').getBoundingClientRect();
+        return {height:r.height,width:r.width,fits:r.left>=0&&r.right<toolbar.left&&r.bottom<=innerHeight,
+          singleRow:undo.top===reset.top,overflow:panel.scrollWidth>panel.clientWidth,
+          helpClosed:!document.querySelector('.mm-help').open};
+      })()`);
+      assert.ok(layout.fits && layout.singleRow && !layout.overflow && layout.helpClosed && layout.height<=270,JSON.stringify({width,height,language,...layout}));
+      measurementMobileLayouts.push({width,height,language,...layout});
+      if(language==='ca'){
+        const screenshot=await send('Page.captureScreenshot',{format:'png'});
+        await fs.writeFile(path.join(profile,`measurement-compact-${width}.png`),Buffer.from(screenshot.data,'base64'));
+      }
+    }
+    const valuesBeforeHelp=await evaluate("document.querySelector('.mm-values').textContent");
+    await evaluate("document.querySelector('.mm-help summary').click()");
+    assert.ok(await evaluate("document.querySelector('.mm-help').open && document.querySelector('.mm-note').getBoundingClientRect().height>0"));
+    assert.ok(await evaluate("document.querySelector('.mm-panel').getBoundingClientRect().bottom<=innerHeight"));
+    assert.equal(await evaluate("document.querySelector('.mm-values').textContent"),valuesBeforeHelp);
+    assert.equal(await evaluate("document.querySelectorAll('.mm-point').length"),3);
+    await evaluate("document.querySelector('.mm-help summary').click()");
+  }
+  console.log(JSON.stringify({measurement_mobile:measurementMobileLayouts}));
+  await evaluate("applyLanguage('es');undefined");
+  await evaluate("document.querySelector('.mm-reset').click()");
+  assert.equal(await evaluate("document.querySelectorAll('.mm-point').length"),0);
+  await evaluate("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+  assert.equal(await evaluate("!!map.getSource('map-measurement')"),false);
+  assert.equal(await evaluate('map.doubleClickZoom.isEnabled()'),true);
+  // Missing DEM remains explicitly unavailable; a late response cannot restore a closed tool.
+  await evaluate("window.measurementFailure=true;document.getElementById('measurement-mode-toggle').click();map.fire('click',{lngLat:{lng:2.1,lat:42},originalEvent:{target:map.getCanvas()}});map.fire('click',{lngLat:{lng:2.105,lat:42.003},originalEvent:{target:map.getCanvas()}});undefined");
+  await until("document.querySelector('.mm-status').textContent.includes('Elevación no disponible')");
+  assert.equal(await evaluate("document.querySelector('[data-measure=terrain]').textContent"),'—');
+  assert.notEqual(await evaluate("document.querySelector('[data-measure=horizontal]').textContent"),'—');
+  await evaluate("document.querySelector('.mm-reset').click();window.measurementFailure=false;window.measurementDelay=true;map.fire('click',{lngLat:{lng:2.3,lat:42},originalEvent:{target:map.getCanvas()}});map.fire('click',{lngLat:{lng:2.301,lat:42.001},originalEvent:{target:map.getCanvas()}});undefined");
+  await until("typeof window.finishMeasurement==='function'");
+  await evaluate("document.getElementById('measurement-mode-toggle').click();window.finishMeasurement();window.measurementDelay=false;undefined");
+  await pause(75);
+  assert.equal(await evaluate("!!map.getSource('map-measurement') || document.querySelectorAll('.mm-point').length>0"),false);
+  await evaluate("window.fetch=window.measurementTestFetch;document.getElementById('prediction-mode-toggle').click();map.jumpTo({center:[1.9,42],zoom:9});addStationLayer();undefined");
+  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
+  await until('!map.isMoving() && map.isStyleLoaded() && map.getCanvas().clientWidth===1280');
   // Place navigation is independent from prediction and preserves station data.
   assert.equal(await evaluate("document.getElementById('settings-toggle').nextElementSibling.id"),'place-search-toggle');
   assert.equal(await evaluate("document.getElementById('place-search-toggle').nextElementSibling.id"),'terrain-mode-toggle');
@@ -384,7 +563,7 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('#place-search-results b').length"),0);
   assert.equal(await evaluate("getComputedStyle(document.getElementById('place-search-panel')).backgroundColor"),'rgb(255, 255, 255)');
   await evaluate("document.querySelector('#place-search-results button').click()");
-  await until('!map.isMoving()');
+  await until('!map.isMoving() && Math.abs(map.getCenter().lat-42.35)<.0001');
   assert.equal(await evaluate('Math.abs(map.getCenter().lat-42.35)<.0001'),true);
   assert.equal(await evaluate("document.querySelector('.map-place-marker').textContent"),'Molló <b>literal</b>');
   assert.equal(await evaluate("document.querySelectorAll('.map-place-marker b').length"),0);
@@ -601,6 +780,74 @@ try {
   await until("document.querySelector('.pm-wait h2')?.textContent.includes('No se ha podido')");
   await evaluate("document.querySelector('.pm-wait button').click()");
   failure = false;
+  // A finished measurement stays visible while normal map queries work again.
+  // Use nearby vertices away from the station so its real click target is free.
+  const beforeFinishedMeasurement=calls;
+  await evaluate(`(async()=>{
+    window.measurementQueryFetch=window.fetch;
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
+    const ctx=canvas.getContext('2d');ctx.fillStyle='rgb(128,100,0)';ctx.fillRect(0,0,256,256);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve));
+    window.fetch=(url,options)=>String(url).startsWith('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/')?
+      Promise.resolve(new Response(blob)):window.measurementQueryFetch(url,options);
+    map.jumpTo({center:[1.9,42],zoom:13});document.getElementById('measurement-mode-toggle').click();
+  })()`);
+  await clickAt(1.903,42.001);await clickAt(1.908,42.003);
+  await until("document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  assert.equal(calls,beforeFinishedMeasurement);
+  assert.ok(await evaluate("mapMeasurement.capturing && !map.doubleClickZoom.isEnabled()"));
+  await clickMeasurementPoint(1);
+  assert.ok(await evaluate("mapMeasurement.enabled && !mapMeasurement.capturing && map.doubleClickZoom.isEnabled()"));
+  // Editing a vertex on a finished path captures the gesture, then restores
+  // consultation without turning that drag into a prediction or a new segment.
+  const finishedVertex=await evaluate("(()=>{const r=document.querySelectorAll('.mm-point')[0].getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()");
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...finishedVertex,button:'none'});
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',...finishedVertex,button:'left',clickCount:1});
+  for(let i=1;i<=4;i++)await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:finishedVertex.x+6*i,y:finishedVertex.y+5*i,button:'left',buttons:1});
+  assert.equal(await evaluate('mapMeasurement.capturing'),true);
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:finishedVertex.x+24,y:finishedVertex.y+20,button:'left',clickCount:1});
+  await until("!mapMeasurement.capturing && document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  assert.equal(calls,beforeFinishedMeasurement);
+  assert.equal(await evaluate("document.querySelectorAll('.mm-point').length"),2);
+  assert.notEqual(await evaluate("getComputedStyle(map.getCanvas()).cursor"),'crosshair');
+  const retainedMeasurement=await evaluate("({values:document.querySelector('.mm-values').textContent,geometry:map.getSource('map-measurement')._data})");
+  await clickAt(1.895,41.997);
+  await until("!!document.querySelector('.pm-result')");
+  assert.equal(calls,beforeFinishedMeasurement+1,'Finished measurement allows point prediction');
+  assert.deepEqual(await evaluate("({values:document.querySelector('.mm-values').textContent,geometry:map.getSource('map-measurement')._data})"),retainedMeasurement);
+  const coexistShot=await send('Page.captureScreenshot',{format:'png'});
+  await fs.writeFile(path.join(profile,'measurement-with-prediction.png'),Buffer.from(coexistShot.data,'base64'));
+  await evaluate("document.querySelector('.pm-close').click()");
+  const activeStationPoint=await evaluate("(()=>{const p=map.project([1.9,42]),r=map.getCanvas().getBoundingClientRect();return {x:r.left+p.x,y:r.top+p.y}})()");
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...activeStationPoint});
+  await until('!!hoverPopup && !currentPopup');
+  await clickAt(1.9,42);
+  await until("!!currentPopup && activeStationPopupId!==null");
+  assert.ok(await evaluate("!!currentPopup.getElement().querySelector('.popup-metrics') && activeStationPopupProperties.Code==='TEST'"));
+  assert.equal(calls,beforeFinishedMeasurement+1,'Finished measurement allows station info without a prediction');
+  const infoPoint=await evaluate("(()=>{const p=map.project([1.886,41.99]),r=map.getCanvas().getBoundingClientRect();return {x:r.left+p.x,y:r.top+p.y}})()");
+  for(const type of ['mouseMoved','mousePressed','mouseReleased'])await send('Input.dispatchMouseEvent',{type,...infoPoint,button:type==='mouseMoved'?'none':'right',clickCount:type==='mouseMoved'?0:1});
+  await until('!!currentPopup && activeStationPopupId===null');
+  assert.ok(await evaluate("Math.abs(currentPopup.getLngLat().lng-1.886)<.0001"));
+  assert.deepEqual(await evaluate("({values:document.querySelector('.mm-values').textContent,geometry:map.getSource('map-measurement')._data})"),retainedMeasurement);
+  await clickMeasurementPoint(1);
+  assert.ok(await evaluate("mapMeasurement.capturing && !currentPopup && !hoverPopup"));
+  await clickAt(1.9,42);
+  await until("document.querySelectorAll('.mm-point').length===3 && document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  assert.equal(calls,beforeFinishedMeasurement+1,'Resuming measurement captures clicks again, including stations');
+  assert.equal(await evaluate('!!currentPopup || !!hoverPopup'),false);
+  await evaluate("map.fire('contextmenu',{lngLat:{lng:1.9,lat:42},point:map.project([1.9,42]),originalEvent:{target:map.getCanvas()}});undefined");
+  assert.equal(await evaluate('!!currentPopup'),false,'Point info is blocked only while drawing');
+  await clickMeasurementPoint(2);
+  assert.equal(await evaluate('mapMeasurement.capturing'),false);
+  await evaluate("document.querySelector('.mm-undo').click()");
+  assert.equal(await evaluate('mapMeasurement.capturing'),true);
+  await until("document.querySelector('[data-measure=terrain]').textContent.includes('≈')");
+  await clickMeasurementPoint(1);
+  await evaluate("document.querySelector('.mm-reset').click()");
+  assert.ok(await evaluate("mapMeasurement.capturing && document.querySelectorAll('.mm-point').length===0"));
+  assert.equal(calls,beforeFinishedMeasurement+1,'Measurement controls never query predictions');
+  await evaluate("document.getElementById('measurement-mode-toggle').click();window.fetch=window.measurementQueryFetch;map.jumpTo({center:[1.9,42],zoom:9});undefined");
   // A successful transport carrying a failed model reader must not look like
   // a scientific result without IFF. Test both executors and old workers.
   for (const execution of ['worker', 'local']) {
@@ -1531,6 +1778,14 @@ try {
   await until("!document.getElementById('observations-mode-toggle')");
   assert.equal(await evaluate("document.querySelectorAll('.om-marker,.om-panel,.om-popup').length"),0);
   assert.equal(await evaluate("!!document.getElementById('known-sites-mode-toggle') || !!map.getSource('known-sites')"),false);
+  predictionAllowed=false;historyAllowed=false;observationsAllowed=false;
+  await evaluate('validateStoredSession()');
+  await until("!!document.getElementById('measurement-mode-toggle') && !document.getElementById('prediction-mode-toggle')");
+  await evaluate("document.getElementById('measurement-mode-toggle').click()");
+  assert.equal(await evaluate("document.getElementById('measurement-mode-toggle').getAttribute('aria-pressed')"),'true','No map-specific permissions required for measuring');
+  await evaluate('showLogin()');
+  await until("!document.getElementById('measurement-mode-toggle')");
+  assert.equal(await evaluate("!!map.getSource('map-measurement') || document.querySelectorAll('.mm-point').length>0"),false);
   assert.equal(errors.length, 0, JSON.stringify(errors));
   console.log(JSON.stringify({ ok: true, checks: "shared viewer, lazy module, station hover/click, modal, popup, dates, cancellation, errors, repeated toggles, mobile, non-admin, original route, historical opt-in, historical prediction date, viewport coverage cache, fallback, rollback", screenshots: profile, demo_requests: calls, historical_requests:historyCalls.length }));
 } finally {

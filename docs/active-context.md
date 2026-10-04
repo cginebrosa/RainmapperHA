@@ -1,6 +1,35 @@
 # Contexto activo — actualización 04/10/2026
 
-## Release actual: HA 0.2.332 publicada; pendiente instalación del usuario
+## Release actual: HA 0.2.333 publicada; pendiente instalación del usuario
+
+El usuario autorizó publicar con «publicamos version de HA» después de la
+validación local de la medición por recorridos y su convivencia con las consultas.
+GHCR verificado: `0.2.333` y `latest`, mismo digest
+`sha256:3980114db78a60a0d44a720d51773af7f311607567e20f43ad9455fb18630832`,
+con manifests `linux/amd64` y `linux/arm64`.
+
+- Medición A→B→C… en 2D/3D, línea provisional, vértices arrastrables, Deshacer y
+  Nueva. Pulsar el último punto termina/reanuda. Icono después de norte y antes
+  de Créditos; sin permiso específico.
+- Distancia horizontal, relieve aproximado y desniveles acumulados; cálculo
+  Mapzen/Terrarium acotado e independiente de la exageración visual.
+- Panel compacto ES/CA/EN, ayuda plegada y acciones en una fila; móvil comprobado
+  a 320, 360 y 390 px. Un recorrido terminado conserva sus resultados y permite
+  consultar predicciones, estaciones e información del terreno.
+- HA local reconstruida/recreada y ocho huellas revalidadas contra el código
+  aceptado. Navegador completo correcto y smoke definitivo: 1.911 pruebas,
+  55 omitidas. Después sólo bump/cache-busters y documentación.
+- Una publicación supervisada, salida 0 y GHCR verificado. Limpiezas Docker ya
+  autorizadas: retirada de etiqueta local 0.2.332 y 5,796 GB de caché recuperados.
+  Fuentes, observaciones privadas y volúmenes conservados.
+
+[Informe y evidencias](reports/release-ha-0.2.333-2026-10-04.md).
+Siguiente paso: el usuario instala y prueba 0.2.333 en HA real. Última instalación
+confirmada: 0.2.332. Codex no ha instalado ni reiniciado HA real ni operado sobre
+el worker/coordinador. No repetir publicación, entrenamiento ni precálculo.
+La discusión de utilidad para aereus/caesarea sigue pendiente; ningún k aprobado.
+
+## Release anterior: HA 0.2.332 instalada y funcionando, confirmada por el usuario
 
 El usuario confirmó que la capa de áreas y microáreas funciona en HA local y
 autorizó publicar con «pues publicamos version de HA». GHCR verificado el 04/10:
@@ -21,8 +50,10 @@ de 6,486 GB recuperados. Esa autorización no amplía la auditoría de disco ni
 permite retirar fuentes, datos privados o carpetas históricas.
 
 [Informe y evidencias](reports/release-ha-0.2.332-2026-10-04.md).
-Siguiente paso: el usuario instala y prueba 0.2.332 en HA real. No se ha instalado
-ni reiniciado HA real; no repetir publicación ni lanzar trabajos operativos.
+El usuario confirmó el 04/10 «instalada y funcionando» tras publicar 0.2.332.
+Instalación y funcionamiento en HA real confirmados por el usuario; Codex no ha
+instalado ni reiniciado HA real. Release cerrada; no repetir publicación ni
+lanzar trabajos operativos.
 La discusión científica sigue pendiente, sin nueva métrica aprobada.
 
 ## Contexto anterior (03/10/2026; histórico)

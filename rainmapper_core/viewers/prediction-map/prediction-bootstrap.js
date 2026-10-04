@@ -38,6 +38,7 @@
     calendarTimezone: () => calendarTimezone,
     referenceDate: () => historicalMap?.date,
     historyBusy: () => historicalMap?.busy,
+    measuring: () => mapMeasurement?.capturing === true,
     isStation: (point) => map.getLayer(CIRCLE_LAYER_ID) &&
       map.queryRenderedFeatures(point, { layers: [CIRCLE_LAYER_ID] }).length > 0,
     wasLongPress: () => didTriggerLongPress,
@@ -114,6 +115,7 @@
   };
 
   function reset() {
+    mapMeasurement?.destroy(); mapMeasurement = null;
     observationsRevision++;
     observations?.destroy(); observations = null;
     knownSites?.destroy(); knownSites = null;
@@ -252,12 +254,31 @@
       historicalMap?.refreshLanguage();
       observations?.refreshLanguage();
       knownSites?.refreshLanguage();
+      mapMeasurement?.refreshLanguage();
       return;
     }
     session = next;
     reset();
     if (!next) return;
     try {
+      // A basic map tool: no prediction, history or observations permission.
+      let measurementStyle = document.getElementById('measurement-mode-style');
+      if (!measurementStyle) {
+        measurementStyle = document.createElement('link'); measurementStyle.id = 'measurement-mode-style';
+        measurementStyle.rel = 'stylesheet'; measurementStyle.href = new URL('measurement-mode.css', assetBase);
+        document.head.append(measurementStyle);
+      }
+      const measurementModule = await import(new URL('measurement-mode.js', assetBase));
+      if (session !== next) return;
+      mapMeasurement = measurementModule.createMeasurementMode({...bridge,
+        terrainTiles: TERRAIN_TILES[0],
+        after: () => document.getElementById('north-toggle'),
+        marker: element => new maplibregl.Marker({element, draggable: true, anchor: 'center'}),
+        closePopups: () => {
+          mode?.cancelQuery(); mode?.closePopup(); closeHoverPopup(); currentPopup?.remove();
+          clearLongPressTimer(); didTriggerLongPress = false;
+        },
+      });
       const response = await authFetch(`${config.apiBase}/capabilities`, { cache: "no-store" });
       if (!response.ok || session !== next) return;
       const capability = await response.json();

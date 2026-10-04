@@ -1,5 +1,92 @@
 # Mapa de predicción — especificación central
 
+## Medición de distancia sobre el relieve · HA 0.2.333 · 04/10/2026
+
+Control de regla después de reorientar al norte y antes de Créditos. Disponible
+para cualquier usuario del mapa, sin permiso específico ni dependencia de los
+permisos de predicción, histórico u observaciones. Conserva el acceso habitual
+del visor. Publicado en 0.2.333 tras validar HA local y recibir la autorización
+expresa del usuario. Pendiente instalación/prueba en HA real.
+[Informe de release](../reports/release-ha-0.2.333-2026-10-04.md).
+
+Al activar, se marca A y permanece anclado. Cada clic añade B, C, D…; una línea
+discontinua sigue el cursor desde el último punto. Pulsar el último punto marcado
+termina el recorrido; volver a pulsarlo permite continuar. Todos los puntos son
+arrastrables y se recalcula al soltar. Deshacer último punto elimina sólo el último
+vértice y permite seguir trazando. Nueva medición borra todos los puntos;
+Escape, cerrar o desactivar retiran la medición y cancelan peticiones pendientes.
+Los totales corresponden a los tramos fijados. La vista previa muestra por separado
+la longitud horizontal del siguiente tramo y el total provisional, sin descargar
+elevaciones ni alterar los resultados confirmados.
+Mientras se traza o se arrastra un vértice, los clics no consultan predicciones ni
+abren fichas de estaciones u observaciones. Al terminar, el recorrido y los
+totales quedan visibles y vuelven a funcionar las consultas de predicción,
+estaciones (clic/hover) e información del terreno (pulsación larga/clic derecho),
+con los modos y permisos habituales. Se restaura también el doble clic de zoom
+si estaba habilitado. Pulsar el último punto, Deshacer o Nueva vuelve a capturar
+los clics para medir y cierra las consultas abiertas. Arrastrar un vértice de un
+recorrido terminado sólo captura el gesto; al soltar vuelve a permitir consultas.
+Los marcadores de la medición conservan su propia interacción y no consultan el
+punto o estación que pueda haber debajo. Se conservan las capas del mapa.
+
+Panel compacto tras la revisión del usuario: indicación breve del siguiente gesto,
+resultados y botones «Deshacer»/«Nueva» en una fila. Las instrucciones completas
+y la explicación del relieve quedan en «Cómo medir», cerrado inicialmente y
+accesible también en móvil. Se conservan los nombres completos de las acciones
+para lectores de pantalla. «Desnivel neto» corresponde a inicio→final.
+
+La misma medición funciona en 2D y 3D. Los eventos del mapa seleccionan coordenadas
+sobre el terreno representado; el cálculo usa altitudes físicas independientes
+de inclinación, zoom y exageración visual. Se muestra distancia aproximada sobre
+el relieve, distancia horizontal, desnivel neto inicio→final y ascenso/descenso
+acumulados de todo el recorrido. Cada tramo sigue la geodésica entre sus puntos;
+el trazado no se ajusta automáticamente a caminos. Volver al punto inicial cuenta
+todos los tramos recorridos, aunque el desnivel neto sea cero.
+
+El navegador muestrea con espaciado objetivo de 25 m y suma
+`hypot(distancia horizontal, diferencia de elevación)` entre muestras. Conserva
+todos los vértices y amplía ligeramente el espaciado si hace falta para respetar
+el máximo global de 2.001 muestras. Usa la fuente Terrarium/Mapzen ya empleada
+por el visor, zoom fijo 13 e interpolación bilineal continua entre teselas.
+25 m es el espaciado del muestreo, no una garantía de resolución o precisión del
+DEM. La distancia sobre el relieve es una estimación; no una medición topográfica.
+Si falta elevación, se informa expresamente y sólo queda la distancia horizontal.
+
+Límites: 100 puntos marcados, 50 km totales, 2.001 muestras y 48 teselas por medición,
+cuatro descargas simultáneas, caché de 32 teselas decodificadas y plazo de 12 s.
+La línea confirmada se limita a 257 coordenadas y la provisional a 65.
+No se crean trabajos HA/worker, no se persiste el
+trazado ni se modifica el coordinador. No se usa el DEM privado del predictor.
+
+Implementación: `measurement-mode.{js,css}` y `measurement-terrain.js`, con
+integración en el adaptador y guardas en los clics del visor compartido. Fuente
+de la selección 3D contrastada en
+[MapLibre 4.7.1, Map.unproject](https://github.com/maplibre/maplibre-gl-js/blob/v4.7.1/src/ui/map.ts#L1111).
+
+Validación local de la ampliación: prueba analítica de plano, pendiente, cumbre
+intermedia, distancia nula, ida/vuelta, vértices, antimeridiano, límites globales,
+unión bilineal de teselas, cancelación y DEM ausente; navegador compartido completo
+con tres/cuatro puntos, cierre/reanudación pulsando el último, deshacer, línea
+dinámica, arrastre de un punto intermedio en 3D, invariancia para las mismas
+coordenadas, exageración, cambio de estilo, móvil y ausencia de permisos específicos.
+Las 28 pruebas Python de la implementación A–B anteceden esta ampliación, que no
+modifica Python. Las pruebas de clic
+admiten la resolución del píxel; el cálculo sobre coordenadas idénticas coincide.
+HA local reconstruida/recreada; ocho SHA-256 coincidentes con el worktree.
+Módulo servido HTTP 200 e idéntico al worktree.
+Evidencia del recorrido: `tmp/measurement-path-20261004/validation.json`.
+Revisión compacta posterior: navegador completo repetido, incluidos 320×568,
+360×640 y 390×844 con ES/CA/EN. Panel terminado ~249 px de alto, acciones en una
+fila y sin desbordamiento; desplegar ayuda conserva puntos y totales. HA local
+reconstruida/recreada nuevamente y ocho huellas coincidentes. Evidencia y capturas:
+`tmp/measurement-compact-20261004/validation.json`.
+Revisión de convivencia posterior: navegador completo correcto con consulta de
+predicción, clic/hover de estación y clic derecho de información del terreno
+mientras el recorrido terminado conserva geometría y totales. Arrastrar un vértice
+terminado captura el gesto sin consultar; reanudar, Deshacer y Nueva restauran el
+trazado. HA local reconstruida/recreada y ocho huellas coincidentes. Evidencia:
+`tmp/measurement-queries-20261004/validation.json`.
+
 ## Capa de áreas y microáreas conocidas · 04/10/2026
 
 Botón de polígonos en la barra derecha, inmediatamente debajo de Observaciones

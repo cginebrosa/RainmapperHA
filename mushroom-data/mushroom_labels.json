@@ -8878,5 +8878,145 @@
     "es": "Usada para entrenar",
     "ca": "Usada per entrenar",
     "en": "Used for training"
+  },
+  "ui.prediction_map_measure_mode": {
+    "en": "Measure distance",
+    "es": "Medir distancia",
+    "ca": "Mesurar distància"
+  },
+  "ui.prediction_map_measure_close": {
+    "en": "Close measurement",
+    "es": "Cerrar medición",
+    "ca": "Tancar mesurament"
+  },
+  "ui.prediction_map_measure_reset": {
+    "en": "New measurement",
+    "es": "Nueva medición",
+    "ca": "Nou mesurament"
+  },
+  "ui.prediction_map_measure_first": {
+    "en": "Mark the first point.",
+    "es": "Marca el primer punto.",
+    "ca": "Marca el primer punt."
+  },
+  "ui.prediction_map_measure_second": {
+    "en": "Mark the next point.",
+    "es": "Marca el siguiente punto.",
+    "ca": "Marca el punt següent."
+  },
+  "ui.prediction_map_measure_loading": {
+    "en": "Calculating terrain…",
+    "es": "Calculando relieve…",
+    "ca": "Calculant relleu…"
+  },
+  "ui.prediction_map_measure_ready": {
+    "en": "Tap {point} to finish.",
+    "es": "Pulsa {point} para terminar.",
+    "ca": "Prem {point} per acabar."
+  },
+  "ui.prediction_map_measure_drag": {
+    "en": "Release the point to recalculate.",
+    "es": "Suelta el punto para recalcular.",
+    "ca": "Deixa anar el punt per recalcular."
+  },
+  "ui.prediction_map_measure_limit": {
+    "en": "Terrain calculation supports a total path length up to 50 km; shorten the path.",
+    "es": "El cálculo del relieve admite recorridos de hasta 50 km en total; acorta el trazado.",
+    "ca": "El càlcul del relleu admet recorreguts de fins a 50 km en total; escurça el traçat."
+  },
+  "ui.prediction_map_measure_unavailable": {
+    "en": "Elevation unavailable. Only horizontal distance is shown. Move a point to retry.",
+    "es": "Elevación no disponible. Sólo se muestra la distancia horizontal. Mueve un punto para reintentar.",
+    "ca": "Elevació no disponible. Només es mostra la distància horitzontal. Mou un punt per tornar-ho a provar."
+  },
+  "ui.prediction_map_measure_point": {
+    "en": "Move point",
+    "es": "Mover punto",
+    "ca": "Moure punt"
+  },
+  "ui.prediction_map_measure_horizontal": {
+    "en": "Horizontal",
+    "es": "Horizontal",
+    "ca": "Horitzontal"
+  },
+  "ui.prediction_map_measure_terrain": {
+    "en": "Over terrain",
+    "es": "Sobre el terreno",
+    "ca": "Sobre el terreny"
+  },
+  "ui.prediction_map_measure_change": {
+    "en": "Start → finish height difference",
+    "es": "Desnivel inicio → final",
+    "ca": "Desnivell inici → final"
+  },
+  "ui.prediction_map_measure_ascent": {
+    "en": "Ascent",
+    "es": "Ascenso",
+    "ca": "Ascens"
+  },
+  "ui.prediction_map_measure_descent": {
+    "en": "Descent",
+    "es": "Descenso",
+    "ca": "Descens"
+  },
+  "ui.prediction_map_measure_note": {
+    "en": "Totals for fixed legs. Approximate terrain along your path; no automatic routing along trails. Elevation: Mapzen.",
+    "es": "Totales de los tramos fijados. Relieve aproximado por tu trazado; no busca caminos automáticamente. Elevación: Mapzen.",
+    "ca": "Totals dels trams fixats. Relleu aproximat pel teu traçat; no cerca camins automàticament. Elevació: Mapzen."
+  },
+  "ui.prediction_map_measure_finished": {
+    "en": "Path finished.",
+    "es": "Recorrido terminado.",
+    "ca": "Recorregut acabat."
+  },
+  "ui.prediction_map_measure_finish": {
+    "en": "Tap to finish the path",
+    "es": "Pulsar para terminar el recorrido",
+    "ca": "Prem per acabar el recorregut"
+  },
+  "ui.prediction_map_measure_continue": {
+    "en": "Tap to continue the path",
+    "es": "Pulsar para continuar el recorrido",
+    "ca": "Prem per continuar el recorregut"
+  },
+  "ui.prediction_map_measure_undo": {
+    "en": "Undo last point",
+    "es": "Deshacer último punto",
+    "ca": "Desfer l’últim punt"
+  },
+  "ui.prediction_map_measure_preview": {
+    "en": "Next: +{leg} · Horizontal total: {total}",
+    "es": "Siguiente: +{leg} · Total horizontal: {total}",
+    "ca": "Següent: +{leg} · Total horitzontal: {total}"
+  },
+  "ui.prediction_map_measure_points_limit": {
+    "en": "Up to 100 points per path. Undo the last point to adjust.",
+    "es": "Hasta 100 puntos por recorrido. Deshaz el último punto para ajustar.",
+    "ca": "Fins a 100 punts per recorregut. Desfés l’últim punt per ajustar."
+  },
+  "ui.prediction_map_measure_reset_short": {
+    "en": "New",
+    "es": "Nueva",
+    "ca": "Nova"
+  },
+  "ui.prediction_map_measure_undo_short": {
+    "en": "Undo",
+    "es": "Deshacer",
+    "ca": "Desfer"
+  },
+  "ui.prediction_map_measure_help": {
+    "en": "How to measure",
+    "es": "Cómo medir",
+    "ca": "Com mesurar"
+  },
+  "ui.prediction_map_measure_change_short": {
+    "en": "Net elevation",
+    "es": "Desnivel neto",
+    "ca": "Desnivell net"
+  },
+  "ui.prediction_map_measure_instructions": {
+    "en": "Mark points to trace a path. Tap the last point to finish or continue. Drag any point to adjust; Undo removes the last one. Elevation change is measured from start to finish.",
+    "es": "Marca puntos para trazar un recorrido. Pulsa el último para terminar o continuar. Arrastra cualquier punto para ajustar; Deshacer elimina el último. El desnivel neto va del inicio al final.",
+    "ca": "Marca punts per traçar un recorregut. Prem l’últim per acabar o continuar. Arrossega qualsevol punt per ajustar; Desfer elimina l’últim. El desnivell net va de l’inici al final."
   }
 }

@@ -351,7 +351,7 @@ export function createPredictionMode(bridge) {
           (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1)));
   }
   async function query(event, observation = null) {
-    if (!observation && (!enabled || bridge.historyBusy?.() || dialog.open || bridge.isStation(event.point) || bridge.wasLongPress())) return;
+    if (!observation && (!enabled || bridge.measuring?.() || event.originalEvent?.target?.closest('.mm-point') || bridge.historyBusy?.() || dialog.open || bridge.isStation(event.point) || bridge.wasLongPress())) return;
     cancelQuery();
     closePopup();
     observationCheck = observation;

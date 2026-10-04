@@ -1,0 +1,13 @@
+#measurement-mode-toggle svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#measurement-mode-toggle[aria-pressed="true"]{color:#a71951;background:#fff0f6;border-color:#b2205d}
+.mm-drawing .maplibregl-canvas{cursor:crosshair!important}
+.mm-drawing .om-marker,.mm-drawing .om-cluster{pointer-events:none}
+.mm-panel{position:absolute;top:12px;left:56px;z-index:7;width:280px;max-width:calc(100% - 108px);max-height:calc(100% - 24px);overflow:auto;box-sizing:border-box;background:#fffffff2;color:#17232d;border:1px solid #d4b6c3;border-radius:12px;padding:12px;box-shadow:0 3px 15px #0002;font:14px/1.4 system-ui,sans-serif}
+.mm-panel[hidden],.mm-panel [hidden]{display:none}.mm-panel>strong{font-size:16px;padding-right:24px;display:block}
+.mm-close{position:absolute;right:8px;top:6px;width:32px;height:32px;border:0;background:transparent;font-size:26px;cursor:pointer;color:inherit}
+.mm-status{margin:6px 0;color:#4c5d68;font-size:13px}.mm-values{display:grid;grid-template-columns:1fr auto;gap:4px 10px;margin:8px 0}.mm-values dt{color:#4c5d68}.mm-values dd{margin:0;font-weight:650;font-variant-numeric:tabular-nums}.mm-values dd:first-of-type{color:#a71951}
+.mm-climbs{margin:6px 0;font-variant-numeric:tabular-nums}.mm-note{font-size:12px;color:#64717a;margin:8px 0}.mm-preview{color:#a71951;font-size:13px;margin:8px 0}.mm-actions{display:flex;flex-wrap:wrap;gap:6px}.mm-actions button{border:1px solid #c6b5bd;border-radius:7px;background:#fff;color:inherit;padding:7px 10px;font:inherit;cursor:pointer;min-height:36px}.mm-actions button:disabled{opacity:.5;cursor:default}
+.mm-help{margin-top:4px;font-size:13px;color:#4c5d68}.mm-help summary{cursor:pointer;min-height:32px;display:list-item;align-content:center}.mm-help p{margin:6px 0}.mm-help summary:focus-visible{outline:2px solid #a71951;outline-offset:2px}
+.mm-point{width:30px;height:30px;box-sizing:border-box;border:2px solid #fff;border-radius:50%;background:#b2205d;color:#fff;box-shadow:0 1px 5px #0006;display:grid;place-items:center;font:bold 15px system-ui;cursor:grab;touch-action:none;user-select:none}.mm-point:active{cursor:grabbing}
+.mm-point.mm-last{box-shadow:0 0 0 3px #b2205d55,0 1px 5px #0006}.mm-point:focus-visible{outline:3px solid #17232d;outline-offset:4px}
+@media(max-height:500px){.mm-panel{top:6px;max-height:calc(100% - 18px);overflow:auto;padding:10px}.mm-note{margin:4px 0}}

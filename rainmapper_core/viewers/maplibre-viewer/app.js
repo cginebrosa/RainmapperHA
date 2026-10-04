@@ -4,6 +4,7 @@ const defaultDataBase = viewerConfig.dataBase || (window.location.pathname.inclu
   : "data/");
 const DATA_BASE = new URLSearchParams(window.location.search).get("data") || defaultDataBase;
 let historicalMap = null;
+let mapMeasurement = null;
 let mapLoadRevision = 0;
 const AUTH_REQUIRED = Boolean(viewerConfig.authRequired);
 const AUTH_BASE = viewerConfig.authBase || "/auth";
@@ -3435,6 +3436,7 @@ function showTerrainPopup(lngLat) {
 function setupLongPressElevation() {
   function startLongPress(event) {
     didTriggerLongPress = false;
+    if (mapMeasurement?.capturing || event.originalEvent?.target?.closest('.mm-point')) { clearLongPressTimer(); return; }
     longPressStartPoint = event.point;
     clearLongPressTimer();
     longPressTimer = window.setTimeout(() => {
@@ -3472,6 +3474,7 @@ function setupLongPressElevation() {
     if (event.originalEvent?.preventDefault) {
       event.originalEvent.preventDefault();
     }
+    if (mapMeasurement?.capturing || event.originalEvent?.target?.closest('.mm-point')) return;
     didTriggerLongPress = true;
     cancelLongPress();
     showTerrainPopup(event.lngLat);
@@ -4616,6 +4619,7 @@ map.on("load", async () => {
 });
 
 map.on("click", CIRCLE_LAYER_ID, (event) => {
+  if (mapMeasurement?.capturing || event.originalEvent?.target?.closest('.mm-point')) return;
   if (didTriggerLongPress) {
     didTriggerLongPress = false;
     return;
@@ -4628,11 +4632,13 @@ map.on("click", CIRCLE_LAYER_ID, (event) => {
   openStationPopup(feature);
 });
 
-map.on("mouseenter", CIRCLE_LAYER_ID, () => {
+map.on("mouseenter", CIRCLE_LAYER_ID, (event) => {
+  if (mapMeasurement?.capturing || event.originalEvent?.target?.closest('.mm-point')) return;
   map.getCanvas().style.cursor = "pointer";
 });
 
 map.on("mousemove", CIRCLE_LAYER_ID, (event) => {
+  if (mapMeasurement?.capturing || event.originalEvent?.target?.closest('.mm-point')) return;
   const feature = event.features?.[0];
   if (feature) {
     showHoverPopup(feature);
