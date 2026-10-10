@@ -94,6 +94,11 @@ class QueryBroker:
                 if mode == "worker" and self.workers:
                     raise QueryError("worker_busy",503)
                 raise QueryError("executor_unavailable",503)
+            if mode == 'worker' and request.get('competing_selection'):
+                from rainmapper_core.mushroom_map_competing import CAPABILITY
+                if not any(state[2] and CAPABILITY in self.worker_capabilities.get(key, [])
+                           for key, state in self.workers.items()):
+                    raise QueryError('executor_unavailable', 503)
             if len(self.queries) >= MAX_QUERIES:
                 disposable = next((key for key,row in self.queries.items() if row.get("delivered") or row["state"] in ("cancelled","failed")),None)
                 if disposable:
@@ -147,6 +152,10 @@ class QueryBroker:
         if any(row["state"] == "running" and row["worker_id"] == worker_id for row in self.queries.values()):
             return None
         for key,row in self.queries.items():
+            if mode == 'worker' and row['request'].get('competing_selection'):
+                from rainmapper_core.mushroom_map_competing import CAPABILITY
+                if CAPABILITY not in self.worker_capabilities.get(worker_id, []):
+                    continue
             if mode == 'worker' and history.is_request(row['request']) and history.CAPABILITY not in self.worker_capabilities.get(worker_id, []):
                 continue
             if row["mode"] == mode and row["state"] == "queued":

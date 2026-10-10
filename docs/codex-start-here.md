@@ -34,6 +34,10 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 
 ## Mapa documental
 
+- Organización privada de runtime, cachés, evidencias y temporales:
+  [local-workspace-layout-es.md](local-workspace-layout-es.md).
+  Nuevas pruebas en `tmp/jobs/`; resultados conservados en `local/evidence/`.
+  Los enlaces antiguos de compatibilidad no son candidatos a limpieza.
 - **Mapa de predicción — especificación central y punto de entrada al diseño:**
   [prediction-map-specification-es.md](mushrooms/prediction-map-specification-es.md).
   Reúne objetivo, componentes, visor, permisos, datos, HA–worker, integración,
@@ -68,6 +72,10 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - Fuentes descargadas: `geography-sources/` (originales, expansión y preparaciones).
   [Organización y transición local](mushrooms/geography-local-organization-plan-es.md).
   Catálogo histórico: `docs/mushrooms/mushroom-map-gis-downloads-es.md`.
+- Auditoría y limpieza del disco del Mac, recibos y conciliación Finder/APFS:
+  `docs/reports/mac-disk-audit-2026-10-03.md`. Estado y permisos de continuidad
+  en `active-context.md`; no releer toda la auditoría al arrancar ni sumar
+  tamaños aparentes, clones o partes de Docker como consumos independientes.
 - Auditoría documental con referencias al código: `docs/reports/documentation-audit-2026-09-18.md`.
 - Investigación local de estaciones WU: `docs/station-research-es.md`.
 - Media, compatibilidad de rutas y migración explícita: `docs/mushrooms/ha-media-organization-proposal-es.md`.
@@ -114,6 +122,12 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   `docs/decisions.md` (22/09); implementación en
   `rainmapper_core/mushroom_recommendation_policy.py`. Estado del despliegue y
   modo local/real exclusivamente en `docs/active-context.md`.
+- Investigaciones de predicción para aereus y caesarea: [índice de agentes](agents/README.md).
+  [Umbral favorable](agents/prediction-thresholds/README.md): comparación completada.
+  [Selección del ganador](agents/prediction-model-selection/README.md): comparación
+  completada el 04/10; mantener referencia, con señales exploratorias para caesarea.
+  [Informe](agents/prediction-model-selection/resultados-2026-10-04.md).
+  No repetir cálculos cerrados. Estado y alcance vigentes en `active-context.md`.
 - Entrenamiento ML/dataset: `docs/mushrooms/mushroom-ml-training-plan-es.md`
 - Versiones canónicas de contratos ML:
   `docs/mushrooms/mushroom-ml-contract-versions-es.md`
@@ -258,12 +272,15 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - Resolver canónico: `rainmapper_core/mushroom_paths.py`.
 - Geografía local canónica organizada: `docker-media/rainmapper/geography/`.
   Fuentes no operativas en `geography-sources/`. Transición autorizada en el
-  [plan local](mushrooms/geography-local-organization-plan-es.md); conservar las
-  raíces `mushroom-GIS-todelete/` y `mushroom-map-GIS-todelete/` hasta su retirada
-  expresamente confirmada. Nunca usarlas como fallback ni incluirlas en imágenes.
+  [plan local](mushrooms/geography-local-organization-plan-es.md). Las raíces
+  `mushroom-GIS-todelete/` y `mushroom-map-GIS-todelete/` se retiraron el 03/10
+  con autorización. Conservar `geography-sources/` y la geografía operativa;
+  no recrear las raíces antiguas ni usarlas como fallback.
 - Visores locales: `local-apps/{wunderground,gbif}/code/`; sus datos/fotos/revisiones
   en `data/`, fuera de Git e imágenes. No volver a alojarlos en docs o tmp.
-- `tmp/mushroom-lab/` es laboratorio, no fuente operativa.
+- El runtime de HA local está en `local/runtime/mushroom-lab/`;
+  `tmp/mushroom-lab/runtime` es un enlace de compatibilidad, no un temporal.
+  Nuevos trabajos provisionales en `tmp/jobs/`, nunca como fuente operativa.
 
 ## Validación habitual
 

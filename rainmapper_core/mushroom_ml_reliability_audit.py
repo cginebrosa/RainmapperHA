@@ -175,16 +175,9 @@ def _binary_roc_auc(y: np.ndarray, probabilities: np.ndarray) -> float:
     order = np.argsort(probabilities, kind="mergesort")
     sorted_probabilities = probabilities[order]
     ranks = np.empty(len(probabilities), dtype=float)
-    start = 0
-    while start < len(probabilities):
-        end = start + 1
-        while (
-            end < len(probabilities)
-            and sorted_probabilities[end] == sorted_probabilities[start]
-        ):
-            end += 1
-        ranks[order[start:end]] = (start + 1 + end) / 2.0
-        start = end
+    starts = np.r_[0, np.flatnonzero(sorted_probabilities[1:] != sorted_probabilities[:-1]) + 1]
+    ends = np.r_[starts[1:], len(probabilities)]
+    ranks[order] = np.repeat((starts + 1 + ends) / 2.0, ends - starts)
     positive = y == 1
     positive_count = int(np.sum(positive))
     negative_count = len(y) - positive_count
@@ -217,6 +210,14 @@ def _evaluate(
     baseline_probabilities = np.asarray(
         [value["baseline_probability"] for value in values], dtype=float
     )
+    return _evaluate_arrays(candidate, y, probabilities, baseline_probabilities, policy,
+        population_id=_population_id(cases),
+        validation_group_count=len({value["group_id"] for value in values}))
+
+
+def _evaluate_arrays(candidate, y, probabilities, baseline_probabilities, policy, *,
+                     population_id, validation_group_count):
+    """Same audit arithmetic for pre-indexed, already validated replay inputs."""
     favorable = probabilities >= FAVORABLE_THRESHOLD
     unfavorable = probabilities <= UNFAVORABLE_THRESHOLD
     positive = y == 1
@@ -228,9 +229,9 @@ def _evaluate(
     favorable_calls = true_favorable + false_favorable
     positive_count = int(np.sum(positive))
     negative_count = int(np.sum(negative))
-    brier = float(np.mean(np.square(y - probabilities))) if values else None
+    brier = float(np.mean(np.square(y - probabilities))) if len(y) else None
     baseline_brier = (
-        float(np.mean(np.square(y - baseline_probabilities))) if values else None
+        float(np.mean(np.square(y - baseline_probabilities))) if len(y) else None
     )
     brier_delta = (
         baseline_brier - brier
@@ -255,9 +256,9 @@ def _evaluate(
     return {
         "candidate": _candidate_payload(candidate),
         "candidate_key": list(candidate),
-        "population_id": _population_id(cases),
-        "observation_count": len(values),
-        "validation_group_count": len({value["group_id"] for value in values}),
+        "population_id": population_id,
+        "observation_count": len(y),
+        "validation_group_count": validation_group_count,
         "positive_observation_count": positive_count,
         "negative_observation_count": negative_count,
         "favorable_call_count": favorable_calls,
@@ -429,11 +430,11 @@ def _operational_days(
     include_candidates: bool,
     include_stability: bool,
     constant_species_candidates: set[CandidateKey] | None = None,
+    evaluation_cache: dict | None = None,
 ) -> list[dict[str, Any]]:
     days: list[dict[str, Any]] = []
-    evaluation_cache: dict[
-        tuple[CandidateKey, str | None], dict[str, Any]
-    ] = {}
+    if evaluation_cache is None:
+        evaluation_cache = {}
     for prediction_day in range(1, 8):
         applicable = _operational_day_candidates(candidates, prediction_day)
         ranked, population, audited_candidates = _rank_candidates(
@@ -477,6 +478,7 @@ def audit_rows(
     top: int = 5,
     include_candidates: bool = False,
     include_stability: bool = True,
+    include_area_scopes: bool = True,
 ) -> dict[str, Any]:
     active_policy = policy or AuditPolicy()
     grouped: dict[
@@ -560,19 +562,20 @@ def audit_rows(
                     "must be finite and between 0 and 1"
                 )
             candidate = _candidate_key(row, estimator_id)
-            cases = grouped[scope][candidate]
-            if observation_id in cases:
-                raise ValueError(
-                    "duplicate candidate/evaluation case: "
-                    f"scope={scope!r}, candidate={candidate!r}, "
-                    f"observation_id={observation_id!r}"
-                )
-            cases[observation_id] = {
-                "y": y_true,
-                "probability": probability,
-                "baseline_probability": baseline,
-                "group_id": validation_group_id,
-            }
+            if include_area_scopes:
+                cases = grouped[scope][candidate]
+                if observation_id in cases:
+                    raise ValueError(
+                        "duplicate candidate/evaluation case: "
+                        f"scope={scope!r}, candidate={candidate!r}, "
+                        f"observation_id={observation_id!r}"
+                    )
+                cases[observation_id] = {
+                    "y": y_true,
+                    "probability": probability,
+                    "baseline_probability": baseline,
+                    "group_id": validation_group_id,
+                }
             species_case_id = json.dumps(
                 [area_id, observation_id], separators=(",", ":")
             )
@@ -652,7 +655,7 @@ def audit_rows(
             }
         )
 
-    selected_splits = sorted({scope["split_id"] for scope in scopes})
+    selected_splits = sorted({scope["split_id"] for scope in scopes + species_scopes})
     warnings: list[str] = []
     if len(selected_splits) > 1:
         warnings.append(

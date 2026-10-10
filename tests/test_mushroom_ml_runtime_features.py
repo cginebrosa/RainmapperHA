@@ -48,6 +48,38 @@ class MushroomMLRuntimeFeaturesTests(TestCase):
         self.assertIsNone(result["significant_rain_event_date"])
         self.assertIsNone(result["significant_rain_event_amount_mm"])
 
+    def test_historical_runtime_can_skip_only_unused_diagnostics(self):
+        ref = self.ref(version_id=raw.WINDOWED_VERSION_ID, contract=raw.LAG_CONTRACT_ID,
+                       profile=raw.windowed_profile_id(90), estimator='fixture', horizon=3)
+        args = dict(target_date=date(2024,12,31), area_id='area-a', area_context=None,
+                    area_series=self.area_series(), stations={})
+        full = runtime_features.build_runtime_features(ref, **args)
+        with mock.patch.object(raw, 'diagnostic_weather_summary', side_effect=AssertionError('unused work')):
+            minimal = runtime_features.build_runtime_features(ref, **args, include_diagnostics=False)
+        full['metadata'].pop('diagnostic_weather_summary')
+        self.assertEqual(full, minimal)
+
+    def test_prepared_raw_runtime_matches_direct_for_all_horizons_and_missing_rain(self):
+        for contract in (raw.FIXED_CONTRACT_ID, raw.LAG_CONTRACT_ID):
+            for days in (0, 30, 365):
+                series = self.area_series()
+                for field in raw.AREA_SERIES_KEYS.values():
+                    series[field] = [None if i % 13 == 0 or i >= days else v
+                                     for i, v in enumerate(series[field])]
+                for h in (range(1, 8) if contract == raw.LAG_CONTRACT_ID else (7,)):
+                    ref = self.ref(version_id=raw.WINDOWED_VERSION_ID, contract=contract,
+                        profile=raw.windowed_profile_id(90), estimator='fixture', horizon=h)
+                    prepared = runtime_features.prepare_raw_runtime(ref, series)
+                    args = dict(target_date=date(2024, 12, 20)+timedelta(days=h),
+                        area_id='area', area_context=None, stations={}, include_diagnostics=False)
+                    direct = runtime_features.build_runtime_features(ref, area_series=series, **args)
+                    with (mock.patch.object(raw, 'build_raw_features', side_effect=AssertionError('duplicate features')),
+                          mock.patch.object(raw, 'coverage_by_channel', side_effect=AssertionError('duplicate coverage'))):
+                        actual = runtime_features.build_runtime_features(ref, area_series={}, prepared_raw=prepared, **args)
+                    self.assertEqual(actual, direct)
+                    actual['quality']['raw365_coverage_by_channel'].clear()
+                    self.assertEqual(runtime_features.build_runtime_features(ref, area_series={}, prepared_raw=prepared, **args), direct)
+
     def test_raw_rain_quality_identifies_exact_daily_idw_event(self) -> None:
         area_series = self.area_series()
         rain = [0.0] * raw.LOOKBACK_DAYS

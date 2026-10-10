@@ -1,12 +1,238 @@
 # Mapa de predicción — especificación central
 
+## Iₖ de comparación por fecha · ampliación 10/10/2026
+
+El mismo trabajo de **Selección y comparación** conserva acumulados por especie,
+fecha de observación y K, aprovechando las decisiones ya calculadas para Habitual
+y A/B/C/D. No reproduce las semanas de nuevo por cada fecha histórica. Los
+procesos paralelos suman diferencias diarias y producen los mismos acumulados.
+
+Cada fila guarda fecha, visitas totales/comunes, favorables reales y los quince
+contadores enteros TP/FP/abstención de los cinco procedimientos, en séptimos.
+Las ausencias técnicas se guardan por fecha con un diccionario compartido de
+motivos. No incluye IDs de observaciones ni modelos o meteorología duplicados.
+Al consultar una fecha se usa sólo lo observado **antes** de ella. Se mantienen
+denominador común, exclusiones, abstenciones, empates y evidencia insuficiente;
+no se destaca ganador cuando falta soporte. La predicción principal no cambia.
+
+La ficha recibe sólo cinco notas y sus contadores/periodo, nunca el histórico
+completo. Consultar un punto o cambiar la fecha no lanza trabajos. Para disponer
+de los acumulados por primera vez hay que ejecutar el trabajo existente; un
+artefacto anterior sigue sirviendo las notas actuales y muestra un mensaje
+específico si se pide una fecha para la que no tiene acumulados.
+
+Presupuestos vigentes: máximo 10.000 visitas por comparación y reserva conservadora
+de 2 MiB por histórico/K antes de añadir filas. Se usa la tabla numérica compacta
+ya existente; el artefacto completo conserva el límite de 16 MiB y hasta ocho K.
+No se aumenta ningún presupuesto operativo. La ampliación no prepara todas las
+K ni cambia el alcance de especies. [Validación](../reports/competing-history-local-2026-10-10.md).
+
+## Comparación común de Habitual y A/B/C/D · acuerdo 06/10/2026
+
+El usuario aprueba conservar las cuatro reglas competidoras actuales y añadir
+la regla **Habitual** a una evaluación común. A no representa la selección
+habitual: ordena por Iₖ en 12 meses; B en 24 meses; C en 24 meses con elección
+diaria; D en todo el histórico. Habitual mantiene el orden nativo, sin ordenar
+por Iₖ. La predicción principal y su gráfica siguen usando Habitual.
+
+Se distinguen dos notas:
+
+- **Iₖ de selección**: nota del candidato dentro de la ventana de A/B/C/D;
+  sirve para elegirlo, pero las ventanas distintas impiden comparar directamente
+  esas cuatro notas como rendimiento de las reglas.
+- **Iₖ de comparación**: resultado de cada procedimiento completo sobre las
+  mismas visitas históricas. Habitual también recibe esta nota. Se calcula
+  `100 × (TP − K × FP) / P`, con el mismo P para los cinco procedimientos.
+
+Para cada visita se reproducen las siete semanas que habrían incluido su fecha
+en los horizontes 1–7. Cada semana se resuelve completa antes de leer el día
+observado, conservando continuidad, fallback, temporadas, aplicabilidad y política
+de recomendación. Cada visita pesa uno y cada horizonte 1/7. El orden de candidatos
+se reconstruye sólo con evidencia anterior a la emisión, excluyendo el episodio
+evaluado y los 14 días anteriores. Los ajustes de validación siguen usando años
+anteriores al evaluado; no se evalúa con pesos que aprendieron de la visita.
+La selección de candidatos y la preparación de su semana no reciben la respuesta
+de la visita evaluada como entrada predictiva.
+
+Una ausencia técnica que impida reproducir cualquiera de las cinco reglas
+excluye esa visita del denominador de las cinco y se cuenta por motivo. La
+abstención ordinaria permanece como oportunidad evaluada. Las observaciones
+fuente, incluidas las antiguas, se conservan. Sin ambas clases observadas o si
+alguna regla se abstiene en todas las oportunidades no se destaca ganador.
+No se ha acordado un umbral mínimo de utilidad ni de evidencia: el verde señala
+un máximo descriptivo (todos los empatados), **no superioridad demostrada**.
+Una regla que nunca aconseja favorable puede puntuar cero; la ficha conserva
+cantidad de consejos, TP/FP, precisión y oportunidades detectadas para advertirlo.
+
+La comparación es retrospectiva de las reglas actuales: reconstruye el orden
+nativo desde predicciones temporales anteriores, con el inventario de familias,
+temporadas y política actuales. No reconstruye exactamente los catálogos ni los
+modelos que estuvieron instalados en cada fecha. Usa meteorología y contexto de
+las **áreas de las visitas históricas**, no una validación del punto ahora pulsado.
+Por tanto, la nota común es por especie/K/estado del histórico, mientras el IFF
+mostrado cambia con el punto. No sustituye una comprobación prospectiva posterior.
+
+Proceso: el worker guarda las probabilidades de las semanas completas en SQLite
+privado, con referencias compartidas. La preparación inicial o entradas cambiadas
+pueden requerir nuevos ajustes aislados de validación; no se promueven ni repiten
+los estudios cerrados. Un cambio sólo de K reutiliza esas probabilidades y vuelve
+a resolver las cinco reglas; **no vuelve a ajustar modelos** cuando su generación
+privada sigue disponible. La comparación se calcula al final del **mismo trabajo**
+que prepara la selección, aprovechando las semanas guardadas durante esos ajustes.
+La revisión posterior al trabajo cancelado reutiliza la base meteorológica y ET₀
+entre candidatos; guarda variables por sus entradas consumidas en SQLite y
+predice las semanas por lotes. Esa caché ocupa hasta 32 MiB dentro del límite
+existente de unidades de 256 MiB. Sólo sus entradas reconstruibles pueden
+evictarse; las unidades y fuentes se conservan. Las unidades del productor
+anterior revisado se reutilizan únicamente si coinciden los datos actuales de
+ajuste/prueba y las variables de sus semanas. El progreso global no retrocede
+entre familias. Workers presenta **Selección y comparación** en un desplegable
+cerrado por defecto. [Verificación de la optimización](../reports/competing-reuse-local-2026-10-06.md).
+El mapa sólo consulta lo preparado: **ni un clic, ni una K sin resultado, ni guardar
+ajustes lanzan trabajos históricos**. Si falta la nota, la ficha indica pendiente.
+El runner conserva la actualización por cambios de entradas y K del add-on; el
+botón existente de Workers permite adelantarla y usa la K personal del dispositivo
+(o la del add-on si hereda). Para probar una K aún no preparada, cambiar el ajuste
+y usar ese botón; no se cambia la preferencia de los demás usuarios. Un trabajo
+activo no se duplica ni se invalida por otra solicitud; habrá que repetir la
+actualización explícita al terminar si correspondía a otra K.
+Se conservan hasta ocho resúmenes de K para la misma
+generación de entradas, de modo que un usuario no borra la comparación de otro.
+El runner sigue solicitando la preparación inicial y las actualizaciones del
+histórico. Desactivar Competing selection oculta este experimento y conserva la
+consulta habitual; no cancela un trabajo compartido ya en curso.
+
+Límites: SQLite de semanas 96 MiB, previsión máxima de 375.000 celdas y presupuesto
+previo por cardinalidad; paquete por visita/familia 128 KiB, índice de generación
+deduplicado 2 MiB. HA recibe sólo el artefacto resumido, máximo 1 MiB incluyendo
+notas, sin semanas completas ni identificadores de visitas en el bloque común.
+La planificación con las fuentes actuales estimó 317.608 celdas/81.307.648 bytes;
+es una cota de planificación, no una medición del tamaño final ni del tiempo de
+ejecución. La duración de primera preparación y de cambio sólo de K queda por
+medir con un trabajo real lanzado por el usuario. El límite protege recursos;
+la ampliación a más especies requiere particionar y medir, no elevarlo sin más.
+
+Presentación: cinco tarjetas compactas en el desplegable existente, Habitual
+primero, cada una con modelo actual, IFF e Iₖ de comparación. Detalles plegados
+para soporte, aciertos/fallos y, en A/B/C/D, Iₖ de selección y años. El máximo
+común se recuadra en verde, incluidos empates. Coincidencia 4/4 sigue refiriéndose
+a A/B/C/D y se informa de modelos distintos. Faltas de evidencia o K pendiente
+no fabrican una nota ni un ganador. Defaults false/K=4 y preferencias personales
+se conservan. [Verificación y límites](../reports/competing-comparison-local-2026-10-06.md).
+
+## Selección competidora e histórico actualizable · acuerdo 05/10/2026
+
+**Antecedente del 05/10; ampliado por el acuerdo del 06/10 anterior.**
+No autoriza publicación ni repetición de los estudios cerrados.
+[Verificación local y pendientes](../reports/competing-selection-local-2026-10-05.md).
+
+En ajustes de predicción, `Competing selection` activa una comparación adicional
+A/B/C/D, conservando la predicción habitual como referencia. `K value` penaliza
+los falsos favorables históricos: se ordena por el **mayor**
+`I_k = 100 × (TP − k × FP) / favorables reales`, no por proximidad a cero.
+Defaults del add-on: desactivado y K=4. Las preferencias por dispositivo prevalecen;
+«Usar valor del add-on» elimina el override. Sin activar, el comportamiento
+habitual permanece. Se usan los permisos de predicción existentes.
+
+La ficha presenta modelo elegido, predicción y coincidencia entre criterios,
+con el número de modelos distintos: cuatro criterios de acuerdo no equivalen a
+cuatro pruebas independientes. Datos o candidatos ausentes no cuentan como votos.
+Se mantienen umbral favorable, aplicabilidad, temporadas y demás guardas nativas.
+
+La selección debe incorporar observaciones nuevas y correcciones. No basta con
+el estudio congelado ni con el hold-out del lote instalado. La evaluación
+histórica se prepara en un **trabajo propio del worker**, visible y lanzable en
+Workers y trabajos, con progreso, duración, revisión de entradas y estado del
+último resultado válido. El precálculo comprueba cambios y solicita ese trabajo
+sólo si corresponde, sin bloquear su ejecución normal ni duplicar solicitudes.
+La primera preparación también se solicita por esta vía automática. El botón
+de Workers es opcional: no es necesario pulsarlo antes. Competing selection
+controla la visualización, no la preparación compartida del histórico.
+No se hace evaluación histórica ni ajuste de modelos al consultar un punto.
+Cambiar K reordena la evidencia de selección y, desde el acuerdo del 06/10,
+reproduce las reglas sobre probabilidades históricas guardadas, sin nuevos ajustes.
+
+Invalidan la evaluación las observaciones añadidas, corregidas o retiradas,
+los candidatos/contratos de modelo y los datos históricos utilizados. Un cambio
+meteorológico ajeno a los casos históricos no justifica repetirlos. Se conserva
+una caché por unidad de validación y huellas de sus dependencias: una corrección
+antigua puede afectar a más de un período posterior. La revisión del conjunto
+de entradas se comprueba otra vez antes de activar el resultado, para impedir
+que un trabajo termine publicando una evaluación ya obsoleta. Fallo o cancelación
+conserva la última versión válida, identificada como pendiente de actualizar.
+
+**Extensión e incrementalidad — aclaración del usuario 05/10:** la prueba actual
+se limita a aereus y caesarea; si se aprueba, deberá ampliarse a todas las especies.
+El algoritmo y las pruebas deben admitir especies que aparecen más tarde en el
+histórico. Añadir una observación de deliciosus no debe invalidar las evaluaciones
+independientes de aereus. La unidad de dependencia real incluye familia de modelo,
+período y datos consumidos: una familia compartida puede depender de varias
+especies, y una corrección antigua puede afectar a ajustes de años posteriores.
+No sería correcto conservar esos resultados compartidos si cambiaron sus entradas.
+
+La caché actual evita repetir unidades de validación con las mismas entradas,
+incluidas las familias independientes de otra especie. Todavía se prepara el
+conjunto de variables históricas y cada unidad compartida reúne la evaluación de
+varias especies; no equivale a un proceso enteramente incremental por especie.
+Antes de extender el alcance, optimizar y medir por separado preparación de
+variables por observación, ajuste por familia/período/datos de entrenamiento y
+evaluación por especie/observación. Añadir sólo un caso de evaluación debería
+reutilizar el ajuste compatible y las predicciones existentes. Se deben registrar
+unidades reutilizadas/recalculadas y el motivo; validar altas, correcciones,
+bajas y aparición de una especie nueva sin modificar las fuentes.
+
+Reentrenar obliga a revisar el catálogo instalado y los selectores afectados,
+potencialmente todos si se renueva todo el catálogo. Eso no implica descartar
+automáticamente validaciones históricas aisladas cuyas familias, entradas y
+protocolo siguen siendo idénticos; los pesos operativos instalados no se usan
+para evaluar observaciones de las que aprendieron. La optimización anterior es
+un requisito de extensión, no una afirmación de que ya esté implementada entera.
+
+Evaluar una observación con un modelo que aprendió de ella no constituye un
+acierto histórico de validación. Se reutiliza evidencia temporal compatible y
+se calculan las partes que falten en el worker, con ajustes de validación
+aislados cuando sean necesarios, sin promoverlos como modelos operativos.
+Las familias históricas y sus pesos de cada época deben distinguirse de los
+modelos instalados que producen la predicción actual. Las observaciones iniciales
+sin historia suficiente se conservan y se informa del motivo de no evaluación.
+No se importan módulos de investigación al runtime ni se depende de carpetas tmp.
+
+**Ventanas operativas aprobadas:** A usa los últimos 12 meses, B los últimos 24
+con selección semanal, C los mismos 24 con selección diaria y D todo el histórico
+disponible. Las cuatro incluyen el año actual hasta antes de la fecha consultada.
+Se usan meses naturales móviles, ajustando al último día del mes si es necesario.
+El usuario confirmó expresamente también «D todas». El estudio cerrado usaba
+años naturales completos anteriores: estas ventanas operativas no deben
+presentarse como una reproducción idéntica de sus resultados.
+
+La primera construcción y las actualizaciones incrementales se cronometran por
+separado. Aún no hay una duración medida del nuevo proceso. Los 23 s de ordenación
+y unos 20 min de otras evaluaciones del estudio no son estimaciones del trabajo
+operativo. CPU, matrices y evidencia detallada permanecen en el worker; HA recibe
+un resumen acotado, validado antes de materializar/enviar, sin fotos ni datos de
+observadores. La validación incluye aislamiento temporal, cambios de entradas,
+deduplicación, cancelación, resultado obsoleto, K sin recálculo, herencia de ajustes,
+mapa desactivado y navegador móvil. Después corresponde validar los componentes
+afectados en HA local antes de solicitar aceptación.
+
+Elección de formatos revisada ante la pregunta del usuario: matrices de variables
+del proceso nuevo en **Parquet**, con columnas numéricas, escritura por bloques y
+lectura sólo de las entradas del perfil; caché incremental por unidad de validación
+en **SQLite**, con clave y transacción; control, especificaciones y respuesta pequeña
+del mapa en **JSON**. La caché SQLite conserva cada resultado pequeño serializado
+como JSON, no una matriz completa. Los builders conservan su salida JSON por
+defecto para los consumidores existentes y añaden Parquet para este flujo.
+No se migran ni modifican observaciones originales o estudios cerrados. No hay aún
+comparación de tiempos del recorrido completo entre formatos.
+
 ## Medición de distancia sobre el relieve · HA 0.2.333 · 04/10/2026
 
 Control de regla después de reorientar al norte y antes de Créditos. Disponible
 para cualquier usuario del mapa, sin permiso específico ni dependencia de los
 permisos de predicción, histórico u observaciones. Conserva el acceso habitual
 del visor. Publicado en 0.2.333 tras validar HA local y recibir la autorización
-expresa del usuario. Pendiente instalación/prueba en HA real.
+expresa del usuario. El 04/10 confirmó la instalación y el funcionamiento de
+0.2.333 en HA real.
 [Informe de release](../reports/release-ha-0.2.333-2026-10-04.md).
 
 Al activar, se marca A y permanece anclado. Cada clic añade B, C, D…; una línea

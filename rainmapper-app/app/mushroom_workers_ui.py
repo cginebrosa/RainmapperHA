@@ -416,6 +416,31 @@ def render_worker_choices(
     return "".join(choices)
 
 
+def render_history_state(summary, worker_statuses):
+    from rainmapper_core.mushroom_competing_control import CAPABILITY
+    options = []
+    selected = str(summary.get('worker_id', ''))
+    for row in worker_statuses:
+        worker = row.get('payload') or {}
+        if row.get('reachable') and CAPABILITY in worker.get('capabilities', []):
+            wid = str(worker.get('worker_id', ''))
+            options.append(f'<option value="{_text(wid)}"{" selected" if wid == selected else ""}>'
+                           f'{_text(worker.get("display_name") or wid)}</option>')
+    status = str(summary.get('status') or 'not_prepared')
+    status = status if status in {'not_prepared','pending','queued','running','ready','failed'} else 'pending'
+    seconds = summary.get('last_seconds')
+    return f'''<div class="precompute-summary">
+      <strong>{_text(_label('ui.worker_history_' + status))}</strong>
+      {('<span>' + _text(_label('ui.worker_history_duration')) + ': ' + _text(_seconds(seconds)) + '</span>') if seconds is not None else ''}
+      {('<span>' + _text(summary.get('updated_at')) + '</span>') if summary.get('updated_at') else ''}
+      {('<span>' + _text(summary.get('error')) + '</span>') if summary.get('error') else ''}
+      </div><div class="precompute-actions"><form method="post" action="">
+      <input type="hidden" name="worker_action" value="run_competing_history">
+      <select name="worker_id" aria-label="Worker">{''.join(options)}</select>
+      <button type="submit"{' disabled' if not options or summary.get('job_id') else ''}>{_text(_label('ui.worker_history_launch'))}</button>
+      </form></div>'''
+
+
 def render_precompute_state(precompute_summary: dict[str, object]) -> str:
     """Render the independently refreshable precompute summary and actions."""
     summary = dict(precompute_summary or {})
@@ -504,6 +529,7 @@ def render_recent_jobs(
             "worker_predictor_precompute_v1": _label(
                 "ui.worker_predictor_precompute_job_type"
             ),
+            "worker_competing_history_v1": _label("ui.worker_history_title"),
             "local_predictor_precompute": _label(
                 "ui.worker_predictor_precompute_job_type"
             ),
@@ -559,8 +585,11 @@ def render_recent_jobs(
             "worker_ml_train_v0",
             "worker_ml_multiversion_v1",
             "worker_predictor_precompute_v1",
+            "worker_competing_history_v1",
         }
-        local_job = bool(job.get("opens_rebuild_modal")) or job.get("executor") == "home_assistant"
+        local_job = job.get("executor") == "home_assistant" or (
+            bool(job.get("opens_rebuild_modal")) and job.get("executor") != "worker"
+        )
         job_display_name = _label("ui.worker_local_job") if local_job else job_id[:12]
         job_reference = (
             f'<a href="?rebuild_job={_text(job_id)}" title="{_text(job_id)}"><strong>{_text(job_display_name)}</strong></a>'
@@ -628,6 +657,7 @@ def render_recent_jobs(
             "worker_ml_multiversion_v1",
             "worker_predictor_v1",
             "worker_predictor_precompute_v1",
+            "worker_competing_history_v1",
         }:
             action_parts = []
             if benchmark_action:
@@ -790,6 +820,7 @@ def render_page(
     selected_benchmark_report: dict[str, object] | None = None,
     benchmark_report_error: str = "",
     precompute_summary: dict[str, object] | None = None,
+    history_summary: dict[str, object] | None = None,
     model_settings_html: str = "",
 ) -> str:
     default_worker_status = next(
@@ -919,6 +950,8 @@ def render_page(
     precompute_summary = dict(precompute_summary or {})
     precompute_state = render_precompute_state(precompute_summary)
     precompute_state_signature = refresh_signature(precompute_state)
+    history_state = render_history_state(history_summary or {}, worker_statuses)
+    history_state_signature = refresh_signature(history_state)
 
     recent_jobs = render_recent_jobs(
         jobs,
@@ -1092,6 +1125,11 @@ def render_page(
         <div class="worker-submit-row"><button class="primary" type="submit"{" disabled" if not selected_executor else ""}>{_text(_label('ui.start_rebuild'))}</button></div>
       </form>
     </details>
+    <details id="worker-selection-comparison" class="workers-panel worker-action-panel history-panel precompute-panel">
+      <summary><span class="worker-action-title">{_text(_label('ui.worker_history_title'))}</span></summary>
+      <p class="meta">{_text(_label('ui.worker_history_help'))}</p>
+      <div id="worker-history-state" class="precompute-state" data-refresh-signature="{history_state_signature}">{history_state}</div>
+    </details>
     <section class="workers-panel precompute-panel">
       <div class="worker-panel-head"><h2>{_text(_label('ui.worker_precompute_title'))}</h2></div>
       <p class="meta">{_text(_label('ui.worker_precompute_help_local') if precompute_summary.get('local_executor') else _label('ui.worker_precompute_help'))}</p>
@@ -1152,6 +1190,7 @@ def render_page(
       const destinations=document.getElementById('worker-destination-choices');
       const jobs=document.getElementById('worker-recent-jobs');
       const precomputeState=document.getElementById('worker-precompute-state');
+      const historyState=document.getElementById('worker-history-state');
       const flashRegion=document.getElementById('worker-flash-region');
       if(!cards||!destinations||!jobs||!precomputeState||!flashRegion)return;
       const appBasePath=window.location.pathname.replace(/\\/mushrooms\\/workers\\/?$/,'');
@@ -1201,7 +1240,7 @@ def render_page(
         const submitter=event.submitter;
         if(submitter){{submitter.disabled=true;submitter.setAttribute('aria-busy','true');}}
         const action=event.target.querySelector('input[name="worker_action"]')?.value||'';
-        if(['start_rebuild','run_worker_ml_multiversion','run_predictor_precompute','run_ml_benchmark'].includes(action)){{
+        if(['start_rebuild','run_worker_ml_multiversion','run_predictor_precompute','run_ml_benchmark','run_competing_history'].includes(action)){{
           const launchBackdrop=document.getElementById('worker-launch-backdrop');
           if(launchBackdrop){{launchBackdrop.hidden=false;document.body.setAttribute('aria-busy','true');}}
         }}
@@ -1246,6 +1285,7 @@ def render_page(
           const destinationsChanged=replaceRegion(destinations,payload.worker_choices_html,payload.worker_choices_signature);
           const jobsChanged=replaceRegion(jobs,payload.recent_jobs_html,payload.recent_jobs_signature);
           replaceRegion(precomputeState,payload.precompute_state_html,payload.precompute_state_signature);
+          if(historyState)replaceRegion(historyState,payload.history_state_html,payload.history_state_signature);
           if(jobsChanged)applyJobSort();
           const restored=Array.from(document.querySelectorAll('input[name="executor"]')).find(item=>item.value===selected);
           if(restored&&!restored.disabled)restored.checked=true;

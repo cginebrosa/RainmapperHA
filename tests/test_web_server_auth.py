@@ -11,6 +11,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import tempfile
 import threading
 import time
@@ -111,6 +112,11 @@ class AuthDeviceLimitTests(unittest.TestCase):
         )
         reconcile_patcher.start()
         self.addCleanup(reconcile_patcher.stop)
+        # Historical scheduling has its own isolated integration tests. A
+        # precompute fixture must not start background work against real files.
+        history_patcher = mock.patch.object(self.web_server, "schedule_mushroom_competing_history", return_value=False)
+        history_patcher.start()
+        self.addCleanup(history_patcher.stop)
 
     def reset_run_state(self) -> None:
         with self.web_server.RUN_LOCK:
@@ -8896,6 +8902,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("/api/mushrooms/rebuild-cancel", html)
         self.assertIn("window.location.href = refreshUrl", html)
         self.assertIn("modal.remove();", html)
+        close_tag = re.search(r'<button[^>]*id="mushroom-rebuild-progress-close"[^>]*>', html).group(0)
+        self.assertNotIn("hidden", close_tag)
+        self.assertIn("if (!modal.isConnected) return;", html)
         self.assertIn("window.requestAnimationFrame", html)
         self.assertLess(html.index("modal.remove();"), html.index("window.location.href = refreshUrl"))
         self.assertIn('window.location.pathname.replace(new RegExp("/mushrooms/(profiles|workers)/?$"), "")', html)
@@ -9508,9 +9517,12 @@ class AuthDeviceLimitTests(unittest.TestCase):
         self.assertIn("Rebuild and retrain operational models", page)
         self.assertIn('value="run_ml_benchmark"', page)
         self.assertIn("Run scientific benchmark", page)
+        self.assertIn("Selection and comparison", page)
+        history_tag = re.search(r'<details[^>]*id="worker-selection-comparison"[^>]*>', page).group(0)
+        self.assertNotIn('open', history_tag)
         self.assertIn('id="worker-launch-backdrop"', page)
         self.assertIn("Preparing the job…", page)
-        self.assertIn("['start_rebuild','run_worker_ml_multiversion','run_predictor_precompute','run_ml_benchmark']", page)
+        self.assertIn("['start_rebuild','run_worker_ml_multiversion','run_predictor_precompute','run_ml_benchmark','run_competing_history']", page)
 
     def test_workers_page_renders_benchmark_selection_history_and_report(self) -> None:
         report = {
@@ -11637,6 +11649,33 @@ class AuthDeviceLimitTests(unittest.TestCase):
             [{**job, "worker_display_name": "M1 Personal", "elapsed": "43s"}]
         )
         self.assertIn("?rebuild_job=worker_job_training_detail", rendered)
+
+    def test_history_job_has_detail_link_and_polling_payload_in_all_states(self) -> None:
+        job = {'job_id': 'worker_job_history_detail', 'job_type': 'worker_competing_history_v1',
+               'target_display_name': 'M1 Personal', 'phase': 'Preparing historical V4 (lag)',
+               'message': 'soil states: 25/100', 'overall_percent': 23,
+               'created_at': '2026-10-05T21:01:48+00:00', 'claim_token': 'private-claim'}
+        for status in ('queued', 'running', 'failed', 'complete', 'cancelled'):
+            with self.subTest(status=status):
+                current = {**job, 'status': status,
+                           'error': 'Missing source manifest' if status == 'failed' else ''}
+                with (mock.patch.object(self.web_server.mushroom_worker_jobs, 'get_job', return_value=current),
+                      mock.patch.object(self.web_server.mushroom_worker_jobs, 'recent_jobs', return_value=[current])):
+                    payload = self.web_server.get_mushroom_rebuild_job_status(job['job_id'])
+                    jobs = self.web_server.mushroom_workers_recent_jobs()
+                self.assertIsNotNone(payload)
+                self.assertEqual(payload['title'], self.web_server.mushroom_profiles_ui.ui_label('ui.worker_history_title'))
+                self.assertEqual(payload['status'], status)
+                self.assertEqual(payload['message'], current['message'])
+                self.assertEqual(payload['error'], current['error'])
+                self.assertEqual(payload['overall_percent'], 23)
+                self.assertEqual(payload['eta'], '')
+                self.assertNotIn('claim_token', payload)
+                row = next(row for row in jobs if row['job_id'] == job['job_id'])
+                self.assertTrue(row['opens_rebuild_modal'])
+                rendered = self.web_server.mushroom_workers_ui.render_recent_jobs([row])
+                self.assertIn('?rebuild_job=worker_job_history_detail', rendered)
+                self.assertIn('<strong>worker_job_h</strong>', rendered)
 
     def test_remote_precompute_progress_has_clear_hierarchy(self) -> None:
         job = {
@@ -14327,6 +14366,22 @@ class AuthDeviceLimitTests(unittest.TestCase):
             self.assertEqual(self.web_server.settings_for_device('device-a')['prediction_timezone'],'Atlantic/Canary')
         for invalid in (None,True,'/etc/passwd','../UTC'):
             self.assertNotIn('prediction_timezone',self.web_server.sanitize_device_settings({'prediction_timezone':invalid}))
+
+    def test_competing_preferences_inherit_and_survive_other_viewer_saves(self):
+        self.web_server.write_devices({'device-a':{'username':'alice','settings':{}},
+                                       'device-b':{'username':'alice','settings':{}}})
+        self.web_server.update_device_settings('device-a',{'prediction_competing_selection':False,'prediction_k_value':0})
+        self.web_server.update_device_settings('device-a',{'period':'07d.geojson'})
+        settings = self.web_server.settings_for_device('device-a')
+        self.assertIs(settings['prediction_competing_selection'], False)
+        self.assertEqual(settings['prediction_k_value'], 0)
+        self.assertNotIn('prediction_k_value',self.web_server.settings_for_device('device-b'))
+        self.web_server.update_device_settings('device-a',{'prediction_competing_selection':None,'prediction_k_value':None})
+        settings = self.web_server.settings_for_device('device-a')
+        self.assertNotIn('prediction_competing_selection', settings)
+        self.assertNotIn('prediction_k_value', settings)
+        for invalid in [True, '4', -1, float('nan'), float('inf')]:
+            self.assertNotIn('prediction_k_value', self.web_server.sanitize_device_settings({'prediction_k_value':invalid}))
 
     def test_users_page_does_not_auto_refresh(self) -> None:
         page = self.web_server.html_page("Users", "<h1>Users</h1>", auto_refresh=False).decode("utf-8")

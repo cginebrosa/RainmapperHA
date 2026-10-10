@@ -19,6 +19,8 @@
   let settings = null;
   let execution = "worker";
   let calendarTimezone = config.defaultCalendarTimezone || "Europe/Madrid";
+  let competingPreference = null, kPreference = null;
+  let predictionDefaults = {competing_selection:false, k_value:4};
   // Extend the existing save-on-panel-close payload only on the new route.
   const weatherDeviceSettings = currentDeviceSettings;
   currentDeviceSettings = function () {
@@ -26,6 +28,8 @@
     if (settings) {
       values.prediction_execution = execution;
       values.prediction_timezone = calendarTimezone;
+      values.prediction_competing_selection = competingPreference;
+      values.prediction_k_value = kPreference;
     }
     return values;
   };
@@ -36,6 +40,8 @@
     language: () => currentLanguage,
     execution: () => execution,
     calendarTimezone: () => calendarTimezone,
+    competing: () => ({competing_selection:competingPreference ?? predictionDefaults.competing_selection,
+                      k_value:kPreference ?? predictionDefaults.k_value}),
     referenceDate: () => historicalMap?.date,
     historyBusy: () => historicalMap?.busy,
     measuring: () => mapMeasurement?.capturing === true,
@@ -203,6 +209,34 @@
     if (!zones.includes(calendarTimezone)) calendarTimezone = "Europe/Madrid";
     zones.forEach(zone => { const option = document.createElement("option"); option.value = option.textContent = zone; calendarSelect.append(option); });
     calendarSelect.value = calendarTimezone;
+    predictionDefaults = capability.prediction_defaults || {competing_selection:false, k_value:4};
+    competingPreference = typeof savedSettings.prediction_competing_selection === 'boolean' ? savedSettings.prediction_competing_selection : null;
+    kPreference = Number.isFinite(savedSettings.prediction_k_value) ? savedSettings.prediction_k_value : null;
+    const competingRow = document.createElement('label'); competingRow.className = 'map-settings-row';
+    const competingLabel = document.createElement('span');
+    const competingSelect = document.createElement('select'); competingSelect.id = 'prediction-competing-selector';
+    for (const value of ['inherit','true','false']) {
+      const option = document.createElement('option'); option.value = value; competingSelect.append(option);
+    }
+    competingSelect.value = competingPreference === null ? 'inherit' : String(competingPreference);
+    const kRow = document.createElement('label'); kRow.className = 'map-settings-row';
+    const kLabel = document.createElement('span');
+    const kInput = document.createElement('input'); kInput.id = 'prediction-k-value';
+    kInput.type = 'number'; kInput.min = '0'; kInput.max = '1000'; kInput.step = 'any';
+    kInput.style.width = '100px'; kInput.value = kPreference ?? '';
+    kInput.placeholder = String(predictionDefaults.k_value);
+    const inheritK = document.createElement('button'); inheritK.type = 'button';
+    const competingHelp = document.createElement('p'); competingHelp.style.cssText = note.style.cssText;
+    const changed = () => {markDeviceSettingsChanged(); mode?.cancelQuery(); mode?.closePopup();};
+    competingSelect.addEventListener('change', () => {
+      competingPreference = competingSelect.value === 'inherit' ? null : competingSelect.value === 'true'; changed();
+    });
+    kInput.addEventListener('change', () => {
+      if (!kInput.checkValidity()) {kInput.reportValidity(); kInput.value = kPreference ?? ''; return;}
+      kPreference = kInput.value === '' ? null : Number(kInput.value); changed();
+    });
+    inheritK.addEventListener('click', () => {kPreference = null; kInput.value = ''; changed();});
+    competingRow.append(competingLabel, competingSelect); kRow.append(kLabel, kInput);
     const calendarNote = document.createElement("p");
     calendarNote.style.cssText = note.style.cssText;
     const refreshText = () => {
@@ -211,6 +245,15 @@
       note.textContent = text("execution_help") + (execution === "local" && capability.executors?.local === false ? ` ${text("executor_unavailable")}` : "");
       calendarLabel.textContent = calendarSelect.ariaLabel = text("calendar_timezone");
       calendarNote.textContent = text("calendar_timezone_help");
+      competingLabel.textContent = competingSelect.ariaLabel = 'Competing selection';
+      kLabel.textContent = kInput.ariaLabel = 'K value';
+      [...competingSelect.options].forEach(option => {
+        option.textContent = option.value === 'inherit'
+          ? `${text('competing_inherit')} (${text(predictionDefaults.competing_selection ? 'competing_on' : 'competing_off')})`
+          : text(option.value === 'true' ? 'competing_on' : 'competing_off');
+      });
+      inheritK.textContent = `${text('competing_inherit')} (K=${predictionDefaults.k_value})`;
+      competingHelp.textContent = text('competing_settings_help');
     };
     select.addEventListener("change", () => {
       execution = select.value;
@@ -224,7 +267,7 @@
       historicalMap?.invalidate();
     });
     row.append(label, select); calendarRow.append(calendarLabel, calendarSelect);
-    section.append(row, note, calendarRow, calendarNote); tabs.append(tab); panel.append(section);
+    section.append(row, note, calendarRow, calendarNote, competingRow, kRow, inheritK, competingHelp); tabs.append(tab); panel.append(section);
     const click = event => {
       const target = event.target.closest("button");
       if (target === tab) {

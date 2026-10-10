@@ -9,6 +9,20 @@ from rainmapper_core import mushroom_observation_context
 
 
 class MushroomObservationContextTests(unittest.TestCase):
+    def test_compact_daily_record_keeps_serialization_and_dataclass_operations(self):
+        from dataclasses import asdict, replace
+        import pickle
+        from rainmapper_core.mushroom_map_weather import MapWeatherRecord
+        values = dict(source='test', station_code='A', station_name='Station', day=date(2026,1,1),
+                      lat=42., lon=2., rain_mm=3., temp_max_c=20., temp_min_c=10.,
+                      humidity_max_pct=80., humidity_min_pct=40., wind_avg_kmh=5., wind_gust_kmh=10.,
+                      wind_direction_deg=None, wind_source_height_m=None)
+        record = mushroom_observation_context.DailyWeatherRecord(**values)
+        self.assertEqual(asdict(record), values)
+        self.assertEqual(pickle.loads(pickle.dumps(record)), record)
+        self.assertEqual(replace(record, rain_mm=4.).rain_mm, 4.)
+        self.assertEqual(asdict(MapWeatherRecord(**values)), values)
+
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)

@@ -125,6 +125,19 @@ class MushroomWorkerTransportTests(unittest.TestCase):
             )
         )
 
+    def test_history_download_checks_inputs_without_syncing_or_using_gis(self) -> None:
+        self.history_only = True
+        with mock.patch.object(mushroom_worker_transport,'_sync_required_dataset',side_effect=AssertionError('unused GIS')), \
+             mock.patch.object(mushroom_worker_dataset_cache,'resolve_current',side_effect=AssertionError('unused GIS')):
+            self.test_worker_downloads_and_verifies_immutable_bundle_over_http()
+        path = self.worker_data/'jobs'/self.job_id/'snapshot/inputs/mushroom-data/mushroom_observations.json'
+        path.write_text('{}')
+        with self.assertRaisesRegex(ValueError,'verification|identity mismatch'):
+            mushroom_worker_transport.download_input_bundle('http://unused',{
+                'job_id':self.job_id,'job_type':'worker_competing_history_v1',
+                'input_bundle':{**self.metadata,'endpoint':'/api/mushrooms/workers/jobs/input'}},
+                self.worker_data,worker_id='worker_12345678',claim_token='claim-secret')
+
     def test_worker_downloads_and_verifies_immutable_bundle_over_http(self) -> None:
         seen_headers: list[tuple[str, str, str]] = []
 
@@ -160,6 +173,7 @@ class MushroomWorkerTransportTests(unittest.TestCase):
         progress: list[dict[str, object]] = []
         job = {
             "job_id": self.job_id,
+            "job_type": 'worker_competing_history_v1' if getattr(self,'history_only',False) else 'worker_candidate_rebuild',
             "input_bundle": {
                 **self.metadata,
                 "endpoint": "/api/mushrooms/workers/jobs/input",

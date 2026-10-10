@@ -59,15 +59,23 @@ def _project_sample(
     temporal_contract_id: str,
     state: Mapping[str, object] | None,
     inference: bool,
+    physical_features: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     v4_contract = _v4_contract(temporal_contract_id)
-    physical = biology_v4.build_biology_v4_sample(
-        source,
-        temporal_contract_id=v4_contract,
-        area_soil_water_state=state,
-    )
+    if physical_features is None:
+        physical = biology_v4.build_biology_v4_sample(
+            source,
+            temporal_contract_id=v4_contract,
+            area_soil_water_state=state,
+        )
+        predictive = dict(physical.get('predictive_features') or {})
+    else:
+        # A V4 benchmark already contains the exact climatic computation. The
+        # soil variant is attached separately, as in build_biology_v4_sample.
+        predictive = dict(physical_features)
+        state_features = (state.get('predictive_features') or {}) if isinstance(state, Mapping) else {}
+        predictive.update({field.name: state_features.get(field.name) for field in biology_v4.SOIL_WATER_FIELDS})
     columns = predictive_columns(temporal_contract_id)
-    predictive = dict(physical.get("predictive_features") or {})
     source_predictive = dict(source.get("predictive_features") or {})
     missing = [name for name in columns if predictive.get(name) is None]
     source_quality = source.get("quality")
@@ -193,6 +201,7 @@ def materialize_benchmark(payload: Mapping[str, object]) -> dict[str, object]:
                 temporal_contract_id=temporal_contract_id,
                 state=state if isinstance(state, Mapping) else None,
                 inference=False,
+                physical_features=source.get('predictive_features'),
             )
         )
     columns = list(predictive_columns(temporal_contract_id))

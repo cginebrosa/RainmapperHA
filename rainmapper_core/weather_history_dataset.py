@@ -491,6 +491,7 @@ def iter_weather_history(
     end_date: str | None = None,
     batch_size: int = 16_384,
     allow_unbounded: bool = True,
+    use_threads: bool = True,
 ) -> Iterator[pa.RecordBatch]:
     """Yield filtered canonical rows while holding one immutable generation."""
     if batch_size <= 0:
@@ -517,7 +518,7 @@ def iter_weather_history(
             if station_filter is not None and partition.source not in station_codes_by_source:
                 continue
             parquet = pq.ParquetFile(generation.object_path(partition.path))
-            for batch in parquet.iter_batches(batch_size=batch_size, columns=required_columns):
+            for batch in parquet.iter_batches(batch_size=batch_size, columns=required_columns, use_threads=use_threads):
                 mask: pa.Array | None = None
                 if start_date is not None:
                     mask = pc.greater_equal(batch.column("local_date"), start_date)

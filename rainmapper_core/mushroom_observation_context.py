@@ -168,7 +168,7 @@ JSON_EXTRA_FIELDS = (
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DailyWeatherRecord:
     source: str
     station_code: str
@@ -580,6 +580,7 @@ def load_daily_weather_parquet(
     station_filter: set[tuple[str, str]] | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
+    stream_records: bool = False,
 ) -> dict[tuple[str, str], WeatherStation]:
     """Load weather stations from Parquet, optionally with read-time filtering.
 
@@ -619,6 +620,14 @@ def load_daily_weather_parquet(
             "max_humidity_percent", "min_humidity_percent", "wind_avg_kmh",
             "wind_gust_kmh", "wind_source_height_m",
         ]
+        if stream_records:
+            from rainmapper_core.weather_history_dataset import iter_weather_history
+            batches = iter_weather_history(data_dir, columns=columns, station_filter=normalized_filter,
+                start_date=start_date.strftime('%Y%m%d') if start_date else None,
+                end_date=end_date.strftime('%Y%m%d') if end_date else None,
+                allow_unbounded=False, use_threads=False)
+            return _streamed_weather_stations(batches, columns=columns,
+                catalog_altitudes=station_altitudes_from_catalog(data_dir), progress_callback=progress_callback)
         df = read_weather_history(
             data_dir,
             columns=columns,
@@ -759,6 +768,67 @@ def load_daily_weather_parquet(
         )
 
     emit_progress(progress_callback, 100, f"Estaciones cargadas desde Parquet: {len(stations)}.")
+    return stations
+
+
+def _streamed_weather_stations(batches, *, columns, catalog_altitudes, progress_callback=None):
+    """Consume canonical Arrow batches without retaining/copying a DataFrame.
+
+    Preserve the legacy loader's first valid station location/name/altitude,
+    per-record names, and last-record-wins ordering for duplicate days.
+    """
+    stations = {}; dates = {}; names = {}; count = 0
+    def number(value):
+        if value is None:
+            return None
+        try:
+            result = float(value)
+            return None if math.isnan(result) else result
+        except (ValueError, TypeError):
+            return None
+    for batch in batches:
+        values = batch.to_pydict()
+        for source, code, name, raw_day, lat, lon, altitude, rain, tmax, tmin, hmax, hmin, wind, gust, height in zip(
+                *(values[c] for c in columns), strict=True):
+            source, code = str(source or '').strip(), str(code or '').strip()
+            lat, lon = number(lat), number(lon)
+            if not source or not code or lat is None or lon is None:
+                continue
+            raw_day = str(raw_day)
+            if raw_day in dates:
+                day = dates[raw_day]
+            else:
+                try:
+                    canonical_day = (len(raw_day) == 8 and raw_day.isdigit()) or (
+                        len(raw_day) == 10 and raw_day[4] == raw_day[7] == '-')
+                    day = date.fromisoformat(raw_day) if canonical_day else None
+                except ValueError:
+                    day = None
+                if len(dates) < 16384:
+                    dates[raw_day] = day
+            if day is None:
+                continue
+            name = str(name or '').strip()
+            if len(names) < 8192:
+                name = names.setdefault(name, name)
+            key = source, code
+            station = stations.get(key)
+            if station is None:
+                altitude = number(altitude)
+                station = WeatherStation(source=source, station_code=code, station_name=name,
+                    lat=lat, lon=lon, records_by_day={},
+                    altitude_m=altitude if altitude is not None else catalog_altitudes.get(key))
+                stations[key] = station
+            station.records_by_day[day] = DailyWeatherRecord(
+                source=station.source, station_code=station.station_code, station_name=name,
+                day=day, lat=station.lat, lon=station.lon,
+                rain_mm=number(rain), temp_max_c=number(tmax), temp_min_c=number(tmin),
+                humidity_max_pct=number(hmax), humidity_min_pct=number(hmin),
+                wind_avg_kmh=number(wind), wind_gust_kmh=number(gust), wind_source_height_m=number(height),
+                wind_direction_deg=None)
+        count += batch.num_rows
+        emit_progress(progress_callback, 60, f'Construyendo indice de estaciones: {count} registros.')
+    emit_progress(progress_callback, 100, f'Estaciones cargadas desde Parquet: {len(stations)}.')
     return stations
 
 

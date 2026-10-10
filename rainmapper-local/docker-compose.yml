@@ -58,8 +58,11 @@ services:
       - ${RAINMAPPER_LOCAL_DATA_ROOT:-../docker-data}:/share/rainmapper
       - ${RAINMAPPER_LOCAL_MEDIA_ROOT:-../docker-media/rainmapper}:/media/rainmapper
       - ../tmp:/app/tmp
+      # Private local evidence and compatibility links; never part of the image.
+      - ../local:/app/local
+      - ../local:/share/local
       - ./options.local-ha-ui.json:/data/options.json:ro
-      - ../tmp/mushroom-lab/runtime/config-www:/config/www
+      - ../local/runtime/mushroom-lab/config-www:/config/www
     networks:
       - rainmapper-local-compute
 

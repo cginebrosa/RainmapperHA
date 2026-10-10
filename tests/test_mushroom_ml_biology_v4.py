@@ -137,6 +137,21 @@ class MushroomMLBiologyV4Tests(unittest.TestCase):
             benchmark["samples"][0]["predictive_features"],
             inference["predictive_features"],
         )
+        # Private matrices may omit the source weather only because the
+        # already computed V4 climatic values are consumed directly by V3+.
+        from unittest.mock import patch
+        from rainmapper_core import mushroom_ml_benchmark_io as io
+        frozen_source = {**source, 'predictive_features': {
+            name: stored['predictive_features'].get(name)
+            for name in biology_v4.predictive_columns(biology_v4.FIXED_GAP_7D_BIOLOGY_V4_ID, 'core')}}
+        reference = biology_v3_physical._project_sample(frozen_source,
+            temporal_contract_id=biology_v3.FIXED_GAP_7D_BIOLOGY_V3_ID,
+            state=state, inference=False)
+        self.assertEqual(benchmark['samples'][0], reference)
+        compact = {**payload, 'samples':[io.training_sample(stored)]}
+        with patch.object(biology_v4, 'build_biology_v4_sample', side_effect=AssertionError('no repeated physics')):
+            projected = biology_v3_physical.materialize_benchmark(compact)
+        self.assertEqual(projected['samples'][0], io.training_sample(reference))
 
     def test_extended_weather_contributions_are_declarative_and_isolated(self) -> None:
         core = set(biology_v4.predictive_columns(

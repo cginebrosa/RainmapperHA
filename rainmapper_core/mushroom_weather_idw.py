@@ -11,6 +11,7 @@ import math
 import re
 from dataclasses import dataclass
 from datetime import date, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Mapping
 
@@ -319,6 +320,13 @@ def build_daily_weather_idw_series(
     return result
 
 
+@lru_cache(maxsize=32)
+def _date_axis(raw_dates):
+    parsed = tuple(date.fromisoformat(str(value)) for value in raw_dates)
+    consecutive = all((right - left).days == 1 for left, right in zip(parsed, parsed[1:]))
+    return parsed, consecutive
+
+
 def slice_daily_weather_idw_series(
     series: Mapping[str, object],
     *,
@@ -340,19 +348,28 @@ def slice_daily_weather_idw_series(
     if not isinstance(raw_dates, list) or not raw_dates:
         raise ValueError("weather IDW series has no daily_dates")
     try:
-        parsed_dates = [date.fromisoformat(str(value)) for value in raw_dates]
+        # Cache by values, never mutable list identity. Keep unusual oversized
+        # axes out of the bounded memo; edits still invalidate validation.
+        parse = _date_axis if len(raw_dates) <= 10000 else _date_axis.__wrapped__
+        parsed_dates, consecutive = parse(tuple(raw_dates))
     except ValueError as exc:
         raise ValueError("weather IDW series contains an invalid daily date") from exc
     start_day = end_day - timedelta(days=days - 1)
     try:
-        start_index = parsed_dates.index(start_day)
-        end_index = parsed_dates.index(end_day) + 1
+        if consecutive:
+            start_index = (start_day - parsed_dates[0]).days
+            end_index = (end_day - parsed_dates[0]).days + 1
+            if start_index < 0 or end_index > len(parsed_dates):
+                raise ValueError('outside range')
+        else:
+            start_index = parsed_dates.index(start_day)
+            end_index = parsed_dates.index(end_day) + 1
     except ValueError as exc:
         raise ValueError("requested weather IDW window is outside the cached range") from exc
     if end_index - start_index != days:
         raise ValueError("cached weather IDW dates are not consecutive for the requested window")
-    expected_dates = [start_day + timedelta(days=offset) for offset in range(days)]
-    if parsed_dates[start_index:end_index] != expected_dates:
+    if not consecutive and parsed_dates[start_index:end_index] != tuple(
+            start_day + timedelta(days=offset) for offset in range(days)):
         raise ValueError("cached weather IDW dates are not consecutive for the requested window")
 
     total_days = len(raw_dates)

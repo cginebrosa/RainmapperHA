@@ -22,6 +22,7 @@ import threading
 import time
 import unicodedata
 from datetime import UTC, date, datetime, timedelta
+from contextvars import ContextVar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
@@ -64,6 +65,9 @@ from rainmapper_core import mushroom_storage_reconciler
 from rainmapper_core import mushroom_predictor_runtime
 from rainmapper_core import mushroom_predictor_precompute
 from rainmapper_core import mushroom_predictor_precompute_control
+from rainmapper_core import mushroom_competing_control
+from rainmapper_core import mushroom_competing_evidence
+from rainmapper_core import mushroom_competing_inputs
 from rainmapper_core import mushroom_predictor_stats
 from rainmapper_core import mushroom_ml_model_catalog
 from rainmapper_core import mushroom_ml_benchmark_reports
@@ -4119,7 +4123,11 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       border-radius: 8px;
       box-shadow: 0 18px 50px rgba(0, 0, 0, .42);
       color: var(--text);
+      box-sizing: border-box;
+      max-height: calc(100dvh - 48px);
       max-width: 720px;
+      overflow-y: auto;
+      overflow-wrap: anywhere;
       padding: 18px;
       width: min(720px, 100%);
     }}
@@ -4208,10 +4216,18 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       overflow-wrap: anywhere;
     }}
     .mushroom-progress-actions {{
+      background: #172029;
+      bottom: 0;
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       justify-content: flex-end;
       margin-top: 14px;
+      padding-top: 8px;
+      position: sticky;
+    }}
+    .mushroom-progress-actions [hidden] {{
+      display: none;
     }}
     @media (max-width: 720px) {{
       .mushroom-progress-grid,
@@ -6043,6 +6059,7 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .modal-card.observation-form {{
       gap: 12px;
+      grid-template-columns: minmax(0, 1fr);
       max-height: calc(100vh - 36px);
       max-width: min(1660px, calc(100vw - 48px));
       padding: 16px;
@@ -6050,6 +6067,13 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
     }}
     .observation-form .modal-head {{
       padding-bottom: 10px;
+    }}
+    .observation-form .modal-head > div {{
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }}
+    .observation-form .modal-head > a {{
+      flex-shrink: 0;
     }}
     .observation-form .admin-field label,
     .observation-form .catalog-toggle-field .field-label {{
@@ -7236,6 +7260,44 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       }}
     }}
     var observationDetailController = null;
+    async function loadObservationEditor() {{
+      var id;
+      try {{ id = decodeURIComponent(window.location.hash.slice(1)); }} catch (_) {{ return; }}
+      var modal = document.getElementById(id);
+      if (!modal || !modal.hasAttribute("data-observation-editor") || modal.dataset.editorLoading === "1") return;
+      modal.dataset.editorLoading = "1";
+      modal.setAttribute("aria-busy", "true");
+      var status = modal.querySelector("[data-editor-status]");
+      var retry = modal.querySelector("[data-editor-retry]");
+      retry.hidden = true;
+      try {{
+        var response = await fetch(mushroomApiBasePath() + modal.dataset.observationEditor, {{credentials: "same-origin", headers: {{Accept: "application/json"}}}});
+        var payload = await response.json();
+        if (!response.ok || !payload.ok || !payload.html) throw new Error("editor unavailable");
+        var template = document.createElement("template");
+        template.innerHTML = payload.html;
+        var editor = template.content.firstElementChild;
+        if (!editor || editor.id !== id || !editor.querySelector("form.observation-form")) throw new Error("invalid editor");
+        modal.replaceChildren(...editor.childNodes);
+        modal.removeAttribute("data-observation-editor");
+        window.rainmapperObservationGIS?.refresh();
+        var paste = modal.querySelector("[data-paste-field-evidence]");
+        if (paste) {{
+          try {{ paste.hidden = !localStorage.getItem("rainmapper_field_evidence_clipboard"); }} catch (_) {{ paste.hidden = true; }}
+        }}
+      }} catch (_) {{
+        status.textContent = status.dataset.editorError;
+        retry.hidden = false;
+      }} finally {{
+        delete modal.dataset.editorLoading;
+        modal.removeAttribute("aria-busy");
+      }}
+    }}
+    window.addEventListener("hashchange", loadObservationEditor);
+    document.addEventListener("click", function(event) {{
+      if (event.target.closest("[data-editor-retry]")) loadObservationEditor();
+    }});
+    document.addEventListener("DOMContentLoaded", loadObservationEditor);
     function observationDetailEndpoint(href) {{
       var selectedUrl = new URL(href, window.location.href);
       return mushroomApiBasePath() + "/api/mushrooms/observation-detail?" + selectedUrl.searchParams.toString();
@@ -7452,7 +7514,14 @@ def html_page(title: str, body: str, auto_refresh: bool = True, page_class: str 
       writeSpeciesModalHistory(stack);
       rememberSelectedDetailScroll({{ ifMissing: true }});
       rememberScrollRestoreForUrl(returnUrl, returnEntry.y);
-      window.location.href = returnUrl;
+      var closingEditor = link.closest('[id^="edit-observation-"]');
+      if (closingEditor && sameDocumentRelativeUrl(returnUrl)) {{
+        // Removing a fragment via location.href can reload the page and lose
+        // the lazily loaded draft. Only change the fragment within this page.
+        window.location.hash = new URL(returnUrl, window.location.origin).hash;
+      }} else {{
+        window.location.href = returnUrl;
+      }}
       if (sameDocumentRelativeUrl(returnUrl) && Number.isFinite(Number(returnEntry.y))) {{
         window.setTimeout(function() {{
           window.scrollTo({{ top: Number(returnEntry.y) }});
@@ -11343,6 +11412,11 @@ def sanitize_device_settings(raw_settings: object) -> dict[str, object]:
 
     if raw_settings.get("prediction_execution") in ("local", "worker"):
         settings["prediction_execution"] = raw_settings["prediction_execution"]
+    if type(raw_settings.get('prediction_competing_selection')) is bool:
+        settings['prediction_competing_selection'] = raw_settings['prediction_competing_selection']
+    from rainmapper_core.mushroom_map_competing import valid_k
+    if valid_k(raw_settings.get('prediction_k_value')):
+        settings['prediction_k_value'] = raw_settings['prediction_k_value']
     if 'prediction_timezone' in raw_settings:
         try:
             settings['prediction_timezone'] = mushroom_prediction_map.validate_calendar_timezone(raw_settings['prediction_timezone'])
@@ -11371,6 +11445,10 @@ def update_device_settings(device_id: str, raw_settings: object) -> tuple[bool, 
     previous = sanitize_device_settings(device.get("settings", {}))
     for key in ('prediction_execution','prediction_timezone'):
         if key not in settings and key in previous:
+            settings[key] = previous[key]
+    for key in ('prediction_competing_selection', 'prediction_k_value'):
+        # Omitted by other viewers: preserve. Explicit null: inherit add-on.
+        if isinstance(raw_settings, dict) and key not in raw_settings and key in previous:
             settings[key] = previous[key]
     device["settings"] = settings
     device["last_seen_at"] = utc_now()
@@ -11873,7 +11951,13 @@ def mushroom_profiles_flash() -> str:
     return message
 
 
-def set_mushroom_profiles_flash(message: str) -> None:
+MUSHROOM_PROFILE_ACTION_RESULT = ContextVar("mushroom_profile_action_result", default=None)
+
+
+def set_mushroom_profiles_flash(message: str, *, error: bool = False) -> None:
+    result = MUSHROOM_PROFILE_ACTION_RESULT.get()
+    if error and result is not None:
+        result.update(ok=False, error=message)
     with RUN_LOCK:
         RUN_STATE["mushroom_profiles_flash"] = message
 
@@ -13647,6 +13731,132 @@ def start_local_mushroom_predictor_precompute(
         return dict(MUSHROOM_REBUILD_JOBS[job_id])
 
 
+MUSHROOM_COMPETING_CHECK_LOCK = threading.Lock()
+
+
+def mushroom_competing_state_path() -> Path:
+    return mushroom_paths.mushroom_ml_version_registry_path().parent / "prediction-competing-control.json"
+
+
+def mushroom_competing_summary():
+    try:
+        state = mushroom_competing_control.load(mushroom_competing_state_path())
+        if state.get("job_id"):
+            job = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=state["job_id"])
+            state["status"] = "running" if job.get("status") in {"claimed", "running", "cancel_requested"} else "queued"
+            if job.get("status") in mushroom_worker_jobs.TERMINAL_STATUSES:
+                state.update(status="pending", job_id="")
+        return state
+    except (OSError, ValueError, KeyError) as exc:
+        return {"status":"failed", "error":str(exc)}
+
+
+def mushroom_competing_plan(comparison_k=None):
+    return mushroom_competing_inputs.plan(
+        registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
+        models_root=mushroom_paths.mushroom_ml_models_dir(),
+        observations_path=mushroom_paths.mushroom_observations_path(),
+        known_sites_path=mushroom_paths.mushroom_known_sites_path(), stations_path=STATIONS_PATH,
+        features_path=mushroom_paths.mushroom_observation_features_json_path(),
+        weather_data_dir=mushroom_paths.weather_data_dir(),
+        weather_cache_path=mushroom_competing_state_path().with_name("prediction-competing-weather.json"),
+        cutoff=datetime.now(get_timezone()).date().isoformat(),
+        profiles_path=mushroom_paths.mushroom_profiles_path(), comparison_k=comparison_k,
+    )
+
+
+def request_mushroom_competing_history(worker_id: str = "", *, origin: str = "manual", comparison_k=None):
+    """Prepare one immutable worker request, independent of the weekly job."""
+    if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
+        return 409, {"ok": False, "error": "Another input bundle is being prepared."}
+    try:
+        previous = mushroom_competing_control.load(mushroom_competing_state_path())
+        if not worker_id:
+            worker_id = str(previous.get("worker_id", "")) or preferred_mushroom_precompute_worker()[0]
+        spec, dependencies = mushroom_competing_plan(comparison_k)
+        with RUN_LOCK:
+            destination = mushroom_competing_state_path().with_name('prediction-competing.json')
+            if destination.is_file() and 'history_revision' in spec:
+                saved = mushroom_competing_inputs.read_json(destination, mushroom_competing_evidence.MAX_BYTES)
+                if (saved.get('history_revision') == spec['history_revision'] and
+                        any(row['k'] == spec['comparison_k'] for row in saved.get('comparisons', []))):
+                    return 200, {'ok': True, 'reused': True}
+            if previous.get('job_id'):
+                active = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=previous['job_id'])
+                if active.get('status') in mushroom_worker_jobs.ACTIVE_STATUSES:
+                    return 200, {'ok': True, 'job': active, 'reused': True}
+            state = mushroom_competing_control.observe(mushroom_competing_state_path(), dependencies)
+            if state.get("job_id"):
+                try:
+                    pending = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=state["job_id"])
+                except ValueError:
+                    pending = {}
+                if pending.get("status") in mushroom_worker_jobs.ACTIVE_STATUSES:
+                    return 200, {"ok": True, "job": pending, "reused": True}
+                state = mushroom_competing_control.finish(mushroom_competing_state_path(),
+                    job_id=state["job_id"], result_revision=state.get("job_revision", ""), seconds=0,
+                    error=str(pending.get("error") or "Previous worker job ended before publication."))
+            if not mushroom_competing_control.needs_job(state):
+                return 200, {"ok": True, "reused": True}
+        worker = next((r.get("payload", {}) for r in registered_mushroom_worker_statuses()
+                       if r.get("reachable") and r.get("payload", {}).get("worker_id") == worker_id), None)
+        if worker is None or mushroom_competing_control.CAPABILITY not in worker.get("capabilities", []):
+            return 409, {"ok": False, "error": "Choose a connected worker with historical evaluation support."}
+        job_id = "worker_job_" + secrets.token_urlsafe(12)
+        with tempfile.TemporaryDirectory(prefix="competing-spec-") as temporary:
+            spec_path = Path(temporary) / "competing-spec.json"
+            spec_path.write_bytes(mushroom_competing_inputs.canonical(spec))
+            bundle = mushroom_worker_transport.prepare_coordinator_bundle(
+                mushroom_worker_input_bundles_path(), job_id=job_id,
+                observations_path=mushroom_paths.mushroom_observations_path(),
+                reference_catalogs_path=mushroom_paths.mushroom_reference_catalogs_path(),
+                gis_mappings_path=mushroom_paths.mushroom_data_file("mushroom_gis_mappings.json"),
+                weather_data_dir=mushroom_paths.weather_data_dir(), gis_root=mushroom_gis_lab.gis_root(),
+                prefer_weather_parquet=mushroom_worker_supports(worker, mushroom_worker_registry.WEATHER_PARQUET_CAPABILITY),
+                allow_partitioned_weather_history=mushroom_worker_supports(worker, mushroom_worker_registry.PARTITIONED_WEATHER_HISTORY_CAPABILITY),
+                extra_inputs={"competing-spec.json": spec_path,
+                    "known-sites.json": mushroom_paths.mushroom_known_sites_path(), "stations.txt": STATIONS_PATH,
+                    "observation-features.json": mushroom_paths.mushroom_observation_features_json_path()},
+            )
+        current, current_dependencies = mushroom_competing_plan(comparison_k)
+        with RUN_LOCK:
+            state = mushroom_competing_control.observe(mushroom_competing_state_path(), current_dependencies)
+            if current["revision"] != spec["revision"]:
+                return 409, {"ok": False, "error": "Inputs changed during preparation; retry the update."}
+            job = mushroom_worker_jobs.create_competing_history_job(mushroom_worker_jobs_path(),
+                worker_id=worker_id, worker_display_name=str(worker.get("display_name") or worker_id),
+                input_bundle=bundle, revision=spec["revision"], job_id=job_id, trigger_origin=origin)
+            state = mushroom_competing_control.attach_job(mushroom_competing_state_path(),
+                job_id=job_id, expected_revision=spec["revision"])
+            state["worker_id"] = worker_id
+            mushroom_competing_control.write(mushroom_competing_state_path(), state)
+        return 202, {"ok": True, "job": job}
+    except (OSError, ValueError, RuntimeError, KeyError) as exc:
+        return 409, {"ok": False, "error": str(exc)}
+    finally:
+        MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+
+
+def schedule_mushroom_competing_history(worker_id: str = "", *, origin: str = "precompute", comparison_k=None):
+    # The runner/precompute also initializes history. The map preference only
+    # controls presentation; it must not gate preparation of shared evidence.
+    if not MUSHROOM_COMPETING_CHECK_LOCK.acquire(blocking=False):
+        return False
+    if origin == "manual":
+        set_mushroom_workers_flash("Preparando la actualización histórica.")
+    def check():
+        try:
+            status, result = request_mushroom_competing_history(worker_id, origin=origin, comparison_k=comparison_k)
+            if origin == "manual":
+                set_mushroom_workers_flash(str(result.get("error") or
+                    ("Evaluación histórica en cola." if status == 202 else "Evaluación histórica sin cambios.")),
+                    error=status >= 400)
+        finally:
+            MUSHROOM_COMPETING_CHECK_LOCK.release()
+    threading.Thread(target=check, daemon=True, name="competing-history-check").start()
+    return True
+
+
 def request_mushroom_predictor_precompute(
     *,
     trigger_origin: str,
@@ -13654,6 +13864,7 @@ def request_mushroom_predictor_precompute(
     expected_worker_id: str = "",
 ) -> tuple[int, dict[str, object]]:
     """Persist the newest desire and queue it only when its preferred worker is compatible."""
+    schedule_mushroom_competing_history()
     try:
         target_worker_id, payload, compatible = preferred_mushroom_precompute_worker()
         local_executor = bool(
@@ -15423,6 +15634,65 @@ def progress_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tu
     return 200, {"ok": True, "job": mushroom_worker_job_wire_payload(job)}
 
 
+def accept_mushroom_competing_result(job, payload):
+    """Called under RUN_LOCK after worker authentication; validates claim first."""
+    mushroom_worker_jobs.authorize_input_download(mushroom_worker_jobs_path(),
+        job_id=job["job_id"], worker_id=str(payload.get("worker_id", "")),
+        claim_token=str(payload.get("claim_token", "")))
+    status = payload.get("status")
+    if status not in {"complete", "failed", "cancelled"}:
+        raise ValueError("Worker job final status is invalid.")
+    if job.get("status") not in {"running", "cancel_requested"} or (
+            job.get("status") == "cancel_requested" and status != "cancelled"):
+        raise ValueError("Historical evaluation cannot finish from its current state.")
+    raw_result = payload.get("result") or {}
+    if not isinstance(raw_result, dict):
+        raise ValueError("Historical result must be an object.")
+    seconds = raw_result.get("seconds", 0)
+    state_path = mushroom_competing_state_path()
+    if status != "complete":
+        mushroom_competing_control.finish(state_path, job_id=job["job_id"],
+            result_revision=job["history_revision"], seconds=seconds,
+            error=str(payload.get("error") or payload.get("status") or "Worker evaluation failed."))
+        return None
+    if job.get("status") != "running":
+        raise ValueError("Historical evaluation is no longer running.")
+    value = mushroom_competing_evidence.validate(raw_result.get("evidence"))
+    raw = mushroom_competing_evidence.encode(value)
+    if value["revision"] != job["history_revision"]:
+        raise ValueError("Historical result revision does not match its job.")
+    comparisons = value.get('comparisons', [])
+    requested_k = comparisons[-1]['k'] if comparisons else None
+    spec, dependencies = mushroom_competing_plan(requested_k)
+    if value['revision'] == spec['revision'] and (
+            value.get('history_revision') != spec.get('history_revision')):
+        raise ValueError('Historical comparison input binding is invalid.')
+    mushroom_competing_control.observe(state_path, dependencies)
+    current_manifest = spec["manifest"]
+    if (value["batch_id"] != current_manifest["batch_id"] or
+            value["snapshot_id"] != current_manifest["snapshot_id"] or
+            value["quality_sha256"] != current_manifest["quality_catalog"]["sha256"]):
+        # A model update invalidates publication just like a new observation.
+        if value["revision"] == spec["revision"]:
+            raise ValueError("Historical result model binding is invalid.")
+    def publish():
+        destination = state_path.with_name("prediction-competing.json")
+        temporary = destination.with_suffix(".tmp")
+        temporary.write_bytes(raw); temporary.replace(destination)
+    destination = state_path.with_name('prediction-competing.json')
+    if destination.is_file() and value.get('history_revision'):
+        previous = mushroom_competing_inputs.read_json(destination, mushroom_competing_evidence.MAX_BYTES)
+        if previous.get('history_revision') == value['history_revision']:
+            existing = [c for c in previous.get('comparisons', []) if c['k'] != requested_k]
+            value['comparisons'] = [*existing[-7:], *comparisons]
+            mushroom_competing_evidence.validate(value)
+            raw = mushroom_competing_evidence.encode(value)
+    digest = hashlib.sha256(raw).hexdigest()
+    mushroom_competing_control.finish(state_path, job_id=job["job_id"],
+        result_revision=value["revision"], seconds=seconds, publish=publish, receipt_sha256=digest)
+    return {"revision":value["revision"], "artifact_sha256":digest, "seconds":seconds}
+
+
 def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
     if not mushroom_worker_api_enabled():
         return 404, {"ok": False, "error": "Worker API is not enabled."}
@@ -15459,6 +15729,8 @@ def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tupl
                     "job": mushroom_worker_job_wire_payload(reused_job),
                 }
             trusted_result = payload.get("result") if isinstance(payload.get("result"), dict) else None
+            if current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_COMPETING_HISTORY:
+                trusted_result = accept_mushroom_competing_result(current_job, payload)
             if (
                 current_job.get("job_type") == mushroom_worker_jobs.JOB_TYPE_CANDIDATE_REBUILD
                 and str(payload.get("status", "")) == "complete"
@@ -16506,6 +16778,7 @@ def mushroom_workers_recent_jobs(
             mushroom_worker_jobs.JOB_TYPE_ML_TRAIN,
             mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION,
             mushroom_worker_jobs.JOB_TYPE_PREDICTOR_PRECOMPUTE,
+            mushroom_competing_control.JOB_TYPE,
         }
         jobs.append(
             {
@@ -16582,6 +16855,7 @@ def mushroom_workers_status_refresh_payload() -> dict[str, object]:
     precompute_state_html = mushroom_workers_ui.render_precompute_state(
         predictor_precompute_summary()
     )
+    history_state_html = mushroom_workers_ui.render_history_state(mushroom_competing_summary(), worker_statuses)
     activity_active = mushroom_worker_activity_active(jobs)
     flash, flash_error, flash_clear_when_idle = mushroom_workers_flash_details()
     if flash_clear_when_idle and not activity_active:
@@ -16614,6 +16888,8 @@ def mushroom_workers_status_refresh_payload() -> dict[str, object]:
         "precompute_state_signature": mushroom_workers_ui.refresh_signature(
             precompute_state_html
         ),
+        "history_state_html": history_state_html,
+        "history_state_signature": mushroom_workers_ui.refresh_signature(history_state_html),
         "worker_last_checks": worker_last_checks,
         "worker_activity_active": activity_active,
         "flash_update": bool(flash),
@@ -16950,6 +17226,7 @@ def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
                 "ui.worker_candidate_rebuild"
             ),
             mushroom_worker_jobs.JOB_TYPE_ML_TRAIN: "ui.worker_ml_train_job_type",
+            mushroom_competing_control.JOB_TYPE: "ui.worker_history_title",
             mushroom_worker_jobs.JOB_TYPE_ML_MULTIVERSION: (
                 "ui.worker_operational_training_job"
                 if external.get("job_purpose") == "operational"
@@ -16958,6 +17235,9 @@ def get_mushroom_rebuild_job_status(job_id: str) -> dict[str, object] | None:
         }.get(job_type)
         if title_key is None:
             return None
+        if job_type == mushroom_competing_control.JOB_TYPE:
+            # Phase weights do not yet support a measured time estimate.
+            eta_seconds = None
         return {
             "job_id": external.get("job_id", ""),
             "job_type": job_type,
@@ -17165,7 +17445,7 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
         <footer class="mushroom-progress-actions">
           <button id="mushroom-rebuild-progress-cancel" class="button-link" type="button" hidden>{cancel_label}</button>
           <a id="mushroom-rebuild-progress-refresh" class="button-link" href="{safe_refresh_url}" hidden>{refresh_screen}</a>
-          <button id="mushroom-rebuild-progress-close" class="button-link" type="button" hidden>{close_label}</button>
+          <button id="mushroom-rebuild-progress-close" class="button-link" type="button">{close_label}</button>
         </footer>
       </section>
     </div>
@@ -17229,9 +17509,11 @@ def render_mushroom_rebuild_progress_modal(job_id: str, refresh_url: str) -> str
       const statusUrl = `${{appBasePath}}/api/mushrooms/rebuild-status`;
       const cancelUrl = `${{appBasePath}}/api/mushrooms/rebuild-cancel`;
       async function poll() {{
+        if (!modal.isConnected) return;
         try {{
           const response = await fetch(`${{statusUrl}}?job_id=${{encodeURIComponent(jobId)}}`, {{cache: "no-store"}});
           const payload = await response.json();
+          if (!modal.isConnected) return;
           if (!payload.ok) throw new Error(payload.error || "Cannot read rebuild status.");
           const job = payload.job || {{}};
           if (job.title) setText(fields.title, job.title);
@@ -18831,6 +19113,39 @@ def enrich_media_fields_with_dem_altitude(fields: dict[str, object]) -> dict[str
     return enriched
 
 
+def run_observation_video_conversion(command: list[str], input_path: Path) -> None:
+    """Retry only an invalid H.264 colour header, using a private temporary copy."""
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+        return
+    except subprocess.CalledProcessError as original:
+        if "Invalid color space" not in (original.stderr or ""):
+            raise
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+             "stream=codec_name", "-of", "json", str(input_path)],
+            check=True, capture_output=True, text=True,
+        )
+        streams = json.loads(probe.stdout).get("streams", [])
+        if not streams or streams[0].get("codec_name") != "h264":
+            raise original
+        # Reserved matrix coefficients are not usable colour information.
+        # Mark the matrix as unspecified (2), without guessing a colour space
+        # or changing valid primaries/transfer characteristics. Copy packets;
+        # decoding and the usual resize/encode happen in the command below.
+        repaired = input_path.with_name("normalized-colour.mkv")
+        subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+             "-i", str(input_path), "-t", str(MUSHROOM_OBSERVATION_VIDEO_MAX_SECONDS),
+             "-map", "0:v:0", "-map", "0:a:0?", "-map_metadata", "0", "-c", "copy",
+             "-bsf:v", "h264_metadata=matrix_coefficients=2", str(repaired)],
+            check=True, capture_output=True, text=True,
+        )
+        retry = list(command)
+        retry[retry.index("-i") + 1] = str(repaired)
+        subprocess.run(retry, check=True, capture_output=True, text=True)
+
+
 def video_poster_jpeg(filename: str, content: bytes) -> bytes:
     """Extract a compact representative JPEG frame from one uploaded video."""
     suffix = Path(filename).suffix.lower() or ".mov"
@@ -18839,12 +19154,12 @@ def video_poster_jpeg(filename: str, content: bytes) -> bytes:
         output_path = Path(temporary_dir) / "poster.jpg"
         input_path.write_bytes(content)
         command = [
-            "ffmpeg", "-nostdin", "-y", "-ss", "0.1", "-i", str(input_path),
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-ss", "0.1", "-i", str(input_path),
             "-frames:v", "1", "-vf", "scale=480:-2:force_original_aspect_ratio=decrease",
             "-q:v", "4", str(output_path),
         ]
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            run_observation_video_conversion(command, input_path)
         except (FileNotFoundError, subprocess.CalledProcessError) as exc:
             raise ValueError("video thumbnail could not be generated") from exc
         return output_path.read_bytes()
@@ -19164,6 +19479,9 @@ def save_observation_video_media(
         input_path.write_bytes(content)
         command = [
             "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
             "-nostdin",
             "-y",
             "-i",
@@ -19204,12 +19522,12 @@ def save_observation_video_media(
             command.extend(["-metadata", "location=" + location, "-metadata", "location-eng=" + location])
         command.append(str(output_path))
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            run_observation_video_conversion(command, input_path)
         except FileNotFoundError as exc:
             raise ValueError("FFmpeg is required to import videos") from exc
         except subprocess.CalledProcessError as exc:
             message = (exc.stderr or exc.stdout or "FFmpeg could not convert the video").strip()
-            raise ValueError("video conversion failed: " + message[-600:]) from exc
+            raise ValueError("video conversion failed: " + message[:600]) from exc
         output_content = output_path.read_bytes()
 
     year = observation_media_year(observed_at)
@@ -19819,7 +20137,7 @@ def save_profile_entry_from_partial_form(
             None,
         )
     if not isinstance(existing, dict):
-        set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
+        set_mushroom_profiles_flash(f"Species profile {species_id} was not found.", error=True)
         return profile_query_url(species_id, section=section, profile_view=profile_view) + "#mushroom-profile-message"
     entry = updater(existing, form)
     semantic_errors = profile_semantic_error_messages(entry)
@@ -21831,6 +22149,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 selected_benchmark_report=selected_benchmark_report,
                 benchmark_report_error=benchmark_report_error,
                 precompute_summary=predictor_precompute_summary(),
+                history_summary=mushroom_competing_summary(),
                 model_settings_html=mushroom_model_settings_ui.render(
                     benchmark_registry, store.load("profiles")
                 ),
@@ -22286,8 +22605,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             "text/html; charset=utf-8",
         )
 
-    def serve_mushroom_observation_detail(self, query: dict[str, list[str]]) -> None:
-        """Return one lightweight observation detail fragment for row selection."""
+    def serve_mushroom_observation_detail(self, query: dict[str, list[str]], *, editor: bool = False) -> None:
+        """Return one detail or editor fragment, sharing the same lookup contract."""
         observation_id = (query.get("obs_id") or [""])[0].strip()
         if not observation_id:
             self.send_json(400, {"ok": False, "error": "Observation ID is required."})
@@ -22297,7 +22616,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             profiles_payload = store.load("profiles")
             catalogs_payload = store.load("catalogs")
             observations_payload = store.load("observations")
-            archived_observations_payload = load_archived_observations(store)
+            archived_observations_payload = {} if editor else load_archived_observations(store)
         except Exception as exc:
             self.send_json(500, {"ok": False, "error": f"Cannot load observation data: {exc}"})
             return
@@ -22309,6 +22628,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         row = next((item for item in rows if str(item.get("observation_id", "")) == observation_id), None)
         if row is None:
             self.send_json(404, {"ok": False, "error": "Observation was not found."})
+            return
+        if editor:
+            filters = {key: (query.get(key) or [""])[0] for key in (
+                "date_from", "date_to", "result", "validation", "obs_q", "obs_species",
+                "sort", "dir", "page", "page_size", "obs_id", "q",
+            )}
+            editor_html = mushroom_profiles_ui.render_observation_edit_modals(
+                [row], profiles, catalogs, (query.get("id") or [""])[0], filters,
+            )
+            self.send_json(200, {"ok": True, "observation_id": observation_id, "html": editor_html})
             return
         archived_rows = observation_dicts_from_payload(
             archived_observations_payload if isinstance(archived_observations_payload, dict) else {}
@@ -22623,6 +22952,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
 
         if path == "/api/mushrooms/observation-detail":
             self.serve_mushroom_observation_detail(parse_qs(parsed.query))
+            return
+
+        if path == "/api/mushrooms/observation-editor":
+            self.serve_mushroom_observation_detail(parse_qs(parsed.query), editor=True)
             return
 
         if path == "/api/mushrooms/observation-gis-preview":
@@ -23236,7 +23569,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.headers.get("X-Rainmapper-Async", "").strip() == "1"
                 or self.form_value(form, "rainmapper_async") == "1"
             ):
-                self.send_json(200, {"ok": True, "redirect": redirect_location})
+                result = getattr(self, "profile_action_result", {"ok": True})
+                self.send_json(200 if result["ok"] else 422, {**result, "redirect": redirect_location})
             else:
                 self.redirect_to(redirect_location)
             return
@@ -23621,6 +23955,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     "La regeneración comparativa V2--V6 se ha puesto en cola; no modifica V2 operativo.",
                     clear_when_idle=True,
                 )
+            return "./workers"
+        if action == "run_competing_history":
+            _token, device_id = self.auth_credentials()
+            # The explicit Workers action can prepare the user's chosen K.
+            # Point queries and ordinary settings saves never start history work.
+            k = settings_for_device(device_id).get('prediction_k_value')
+            started = schedule_mushroom_competing_history(self.form_value(form, "worker_id"),
+                origin="manual", comparison_k=k)
+            if not started:
+                set_mushroom_workers_flash("La comprobación histórica ya está en marcha.")
             return "./workers"
         if action == "run_predictor_precompute":
             status, response = start_mushroom_predictor_precompute(
@@ -24135,7 +24479,14 @@ class RainmapperHandler(BaseHTTPRequestHandler):
         files: dict[str, list[dict[str, object]]] | None = None,
     ) -> str:
         with MUSHROOM_OBSERVATION_MUTATION_LOCK:
-            return self._handle_mushroom_profiles_post_unlocked(form, files)
+            # Keep async errors on this request; another user's page can consume
+            # the legacy flash, so it cannot be used as the save acknowledgement.
+            self.profile_action_result = {"ok": True}
+            token = MUSHROOM_PROFILE_ACTION_RESULT.set(self.profile_action_result)
+            try:
+                return self._handle_mushroom_profiles_post_unlocked(form, files)
+            finally:
+                MUSHROOM_PROFILE_ACTION_RESULT.reset(token)
 
     def _handle_mushroom_profiles_post_unlocked(
         self,
@@ -24307,7 +24658,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 profiles = profile_dicts_from_payload(profiles_payload)
                 source = find_profile_by_id(profiles, species_id)
                 if not source:
-                    set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
+                    set_mushroom_profiles_flash(f"Species profile {species_id} was not found.", error=True)
                     return profile_message_url(species_id)
                 ok, message = validate_new_species_id(new_species_id, profiles)
                 if not ok:
@@ -24336,7 +24687,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 profiles = profile_dicts_from_payload(profiles_payload)
                 source = find_profile_by_id(profiles, species_id)
                 if not source:
-                    set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
+                    set_mushroom_profiles_flash(f"Species profile {species_id} was not found.", error=True)
                     return profile_message_url(species_id)
                 archive_payload = load_archived_profiles(store)
                 archived = [profile for profile in archived_profile_dicts(archive_payload) if str(profile.get("species_id", "")) != species_id]
@@ -24364,7 +24715,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 archived = archived_profile_dicts(archive_payload)
                 source = find_profile_by_id(archived, species_id)
                 if not source:
-                    set_mushroom_profiles_flash(f"Archived species profile {species_id} was not found.")
+                    set_mushroom_profiles_flash(f"Archived species profile {species_id} was not found.", error=True)
                     return profile_message_url()
                 profiles_payload["species_profiles"] = profiles + [json.loads(json.dumps(source))]
                 semantic_errors = profiles_payload_semantic_error_messages(profiles_payload)
@@ -24392,7 +24743,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 archived = archived_profile_dicts(archive_payload)
                 remaining = [profile for profile in archived if str(profile.get("species_id", "")) != species_id]
                 if len(remaining) == len(archived):
-                    set_mushroom_profiles_flash(f"Archived species profile {species_id} was not found.")
+                    set_mushroom_profiles_flash(f"Archived species profile {species_id} was not found.", error=True)
                     return profile_message_url()
                 archive_payload["archived_species_profiles"] = remaining
                 write_archived_profiles(store, archive_payload)
@@ -24640,11 +24991,11 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             if action == "create_observation":
                 observations_payload = store.load("observations")
                 if not isinstance(observations_payload, dict):
-                    set_mushroom_profiles_flash("Observation was not saved: observations payload must be an object.")
+                    set_mushroom_profiles_flash("Observation was not saved: observations payload must be an object.", error=True)
                     return observations_return_url(form, species_id, anchor="new-observation")
                 observations = observations_payload.get("observations")
                 if not isinstance(observations, list):
-                    set_mushroom_profiles_flash("Observation was not saved: observations list is missing.")
+                    set_mushroom_profiles_flash("Observation was not saved: observations list is missing.", error=True)
                     return observations_return_url(form, species_id, anchor="new-observation")
                 existing_rows = [row for row in observations if isinstance(row, dict)]
                 uploaded_exif = [
@@ -24687,7 +25038,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         working_rows.append(observation)
                     observation_species_id = catalog_form_string(form, "observation_species_id") or species_id
                     if not imported:
-                        set_mushroom_profiles_flash("Observation was not saved: " + "; ".join(skipped[:3]))
+                        set_mushroom_profiles_flash("Observation was not saved: " + "; ".join(skipped[:3]), error=True)
                         return observations_return_url(form, observation_species_id)
                     observations_payload["observations"] = observations + imported
                     metadata = observations_payload.get("metadata")
@@ -24706,12 +25057,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             obs_id=str(imported[0].get("observation_id", "")),
                         )
                     error_text = "; ".join(message.message for message in result.errors[:3])
-                    set_mushroom_profiles_flash("Observation was not saved: " + error_text)
+                    set_mushroom_profiles_flash("Observation was not saved: " + error_text, error=True)
                     return observations_return_url(form, observation_species_id)
                 try:
                     observation = observation_payload_from_form(form, existing_rows)
                 except ValueError as exc:
-                    set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
+                    set_mushroom_profiles_flash("Observation was not saved: " + str(exc), error=True)
                     return observations_return_url(form, catalog_form_string(form, "observation_species_id"), anchor="new-observation")
                 # When duplicating, copy media references from the source observation so that
                 # a single photo shared across multiple species stays associated with all of them.
@@ -24737,7 +25088,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     set_mushroom_profiles_flash(f"Created observation {observation.get('observation_id')}." + suffix)
                     return observations_return_url(form, observation_species_id, obs_id=str(observation.get("observation_id", "")))
                 error_text = "; ".join(message.message for message in result.errors[:3])
-                set_mushroom_profiles_flash("Observation was not saved: " + error_text)
+                set_mushroom_profiles_flash("Observation was not saved: " + error_text, error=True)
                 return observations_return_url(form, observation_species_id, anchor="new-observation")
             if action in {"unlink_observation_media", "delete_observation_media"}:
                 observation_id = catalog_form_string(form, "observation_id")
@@ -24795,12 +25146,12 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 observation_id = catalog_form_string(form, "observation_id")
                 observations_payload = store.load("observations")
                 if not isinstance(observations_payload, dict):
-                    set_mushroom_profiles_flash("Observation was not saved: observations payload must be an object.")
+                    set_mushroom_profiles_flash("Observation was not saved: observations payload must be an object.", error=True)
                     return observations_return_url(form, species_id)
                 observations = observation_dicts_from_payload(observations_payload)
                 existing = find_observation_by_id(observations, observation_id)
                 if not existing:
-                    set_mushroom_profiles_flash(f"Observation {observation_id} was not found.")
+                    set_mushroom_profiles_flash(f"Observation {observation_id} was not found.", error=True)
                     return observations_return_url(form, species_id)
                 uploaded_exif = [
                     item
@@ -24808,7 +25159,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     if isinstance(item, dict) and item.get("filename") and item.get("content")
                 ]
                 if len(uploaded_exif) > 1:
-                    set_mushroom_profiles_flash("Observation was not saved: only one image/video is allowed per observation.")
+                    set_mushroom_profiles_flash("Observation was not saved: only one image/video is allowed per observation.", error=True)
                     return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                 image_import_mode = catalog_form_string(form, "observation_image_import_mode") or "image_and_exif"
                 if image_import_mode not in {"image_only", "exif_only", "image_and_exif"}:
@@ -24834,16 +25185,16 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     updated_form = observation_form_with_exif_fields(form, exif_uploads[0][0]) if exif_uploads and apply_exif_data else form
                     updated = observation_payload_from_form(updated_form, observations, existing)
                 except ValueError as exc:
-                    set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
+                    set_mushroom_profiles_flash("Observation was not saved: " + str(exc), error=True)
                     return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                 if uploaded_exif and not exif_uploads:
-                    set_mushroom_profiles_flash("Observation was not saved: " + "; ".join(skipped[:3]))
+                    set_mushroom_profiles_flash("Observation was not saved: " + "; ".join(skipped[:3]), error=True)
                     return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                 if exif_uploads and attach_image:
                     replacement_action = catalog_form_string(form, "media_replacement_action")
                     existing_media = updated.get("media") if isinstance(updated.get("media"), list) else []
                     if existing_media and replacement_action not in {"unlink", "delete"}:
-                        set_mushroom_profiles_flash("Observation was not saved: confirm how the existing media file must be replaced.")
+                        set_mushroom_profiles_flash("Observation was not saved: confirm how the existing media file must be replaced.", error=True)
                         return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                     old_media_paths = [str(item.get("path", "")) for item in existing_media if isinstance(item, dict) and item.get("path")]
                     if replacement_action == "delete":
@@ -24855,7 +25206,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                                 if isinstance(media_item, dict) and str(media_item.get("path", "")) == old_path
                             )
                             if reference_count != 1:
-                                set_mushroom_profiles_flash(f"Observation was not saved: image {old_path} is still used by {reference_count} observations.")
+                                set_mushroom_profiles_flash(f"Observation was not saved: image {old_path} is still used by {reference_count} observations.", error=True)
                                 return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                     try:
                         new_media = save_observation_image_media(
@@ -24864,7 +25215,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                             updated.get("observed_at"),
                         )
                     except ValueError as exc:
-                        set_mushroom_profiles_flash("Observation was not saved: " + str(exc))
+                        set_mushroom_profiles_flash("Observation was not saved: " + str(exc), error=True)
                         return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
                     updated["media"] = []
                     append_observation_media(updated, new_media)
@@ -24921,7 +25272,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     set_mushroom_profiles_flash(f"Updated observation {observation_id}." + imported_text + suffix)
                     return observations_return_url(form, str(updated.get("species_id", species_id)), obs_id=observation_id)
                 error_text = "; ".join(message.message for message in result.errors[:3])
-                set_mushroom_profiles_flash("Observation was not saved: " + error_text)
+                set_mushroom_profiles_flash("Observation was not saved: " + error_text, error=True)
                 return observations_return_url(form, str(existing.get("species_id", species_id)), obs_id=observation_id)
             if action == "duplicate_observation":
                 observation_id = catalog_form_string(form, "observation_id")
@@ -24932,7 +25283,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 observations = observation_dicts_from_payload(observations_payload)
                 source = find_observation_by_id(observations, observation_id)
                 if not source:
-                    set_mushroom_profiles_flash(f"Observation {observation_id} was not found.")
+                    set_mushroom_profiles_flash(f"Observation {observation_id} was not found.", error=True)
                     return observations_return_url(form, species_id)
                 set_mushroom_profiles_flash(f"Loaded observation {observation_id} as a new unsaved observation template.")
                 return observations_return_url(
@@ -25007,7 +25358,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 observations = observation_dicts_from_payload(observations_payload)
                 source = find_observation_by_id(observations, observation_id)
                 if not source:
-                    set_mushroom_profiles_flash(f"Observation {observation_id} was not found.")
+                    set_mushroom_profiles_flash(f"Observation {observation_id} was not found.", error=True)
                     return observations_return_url(form, species_id, archive_open=True, obs_id="")
                 archived_payload = load_archived_observations(store)
                 previous_archived = json.loads(json.dumps(archived_payload))
@@ -25055,7 +25406,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 archived = observation_dicts_from_payload(archived_payload)
                 source = find_observation_by_id(archived, observation_id)
                 if not source:
-                    set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.")
+                    set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.", error=True)
                     return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 observations_payload["observations"] = observations + [json.loads(json.dumps(source))]
                 archived_payload["observations"] = [
@@ -25087,7 +25438,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 archived = observation_dicts_from_payload(archived_payload)
                 remaining = [row for row in archived if str(row.get("observation_id", "")) != observation_id]
                 if len(remaining) == len(archived):
-                    set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.")
+                    set_mushroom_profiles_flash(f"Archived observation {observation_id} was not found.", error=True)
                     return observations_return_url(form, species_id, anchor="archived-observations", archive_open=True)
                 deleted_media: list[str] = []
                 cleanup_errors: list[str] = []
@@ -25142,7 +25493,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                         None,
                     )
                 if not isinstance(existing, dict):
-                    set_mushroom_profiles_flash(f"Species profile {species_id} was not found.")
+                    set_mushroom_profiles_flash(f"Species profile {species_id} was not found.", error=True)
                     return profile_save_return_url(species_id, form, message=True)
                 entry = profile_from_form(existing, form)
                 if "soil_filter" in entry.get("ecology", {}):
@@ -25208,7 +25559,7 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             set_mushroom_profiles_flash(f"Invalid JSON: line {exc.lineno}, column {exc.colno}: {exc.msg}")
             return profile_message_url(species_id)
         except Exception as exc:
-            set_mushroom_profiles_flash(f"Species action failed: {exc}")
+            set_mushroom_profiles_flash(f"Species action failed: {exc}", error=True)
             return profile_message_url(species_id)
         return profile_query_url(species_id) if species_id else "?"
 

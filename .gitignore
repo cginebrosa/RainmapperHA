@@ -16,6 +16,7 @@ MERGED_*.csv
 /docker-empty-test/
 /backups/
 /tmp/
+/local/
 /mushroom-GIS/*
 /mushroom-map-GIS/
 !/mushroom-GIS/.gitignore

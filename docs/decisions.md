@@ -1,5 +1,279 @@
 # Decisions
 
+## 2026-10-06 — [VIGENTE][PREDICCIÓN] Comparar Habitual y A/B/C/D en visitas comunes
+
+**Aclaración posterior expresa:** selección y comparación deben prepararse en
+el mismo trabajo histórico, compartiendo los datos/ajustes. El mapa sólo consume
+los resultados; queda retirado el disparo al consultar un punto con K pendiente.
+El runner mantiene la actualización por cambios de entradas y el botón de
+Workers es la vía explícita, también para preparar una K personal nueva desde
+probabilidades guardadas. Guardar ajustes tampoco inicia trabajo histórico.
+
+Usuario aprueba añadir una evaluación histórica común detrás de Competing
+selection, incluyendo expresamente Habitual y su Iₖ. Se conservan A 12 meses,
+B 24 semanal, C 24 diario y D todo el histórico, ordenadas por mayor Iₖ; Habitual
+mantiene su regla nativa y el IFF principal. El Iₖ de selección de cada ventana
+queda separado del Iₖ de comparación de las cinco reglas sobre las mismas visitas.
+Cada visita pesa uno, sus horizontes 1/7; se reproducen semanas completas con
+evidencia anterior, exclusión de episodio y separación temporal. Se destaca en
+verde el máximo común, incluidos empates, sin atribuir superioridad demostrada.
+
+El worker prepara semanas históricas privadas reutilizables; cambiar sólo K
+repite elecciones y contadores, sin ajustar modelos. HA recibe el resumen acotado.
+Comparación retrospectiva con contexto de áreas y familias/política actuales,
+no reproducción exacta de instalaciones históricas ni validación del punto pulsado.
+No se fija todavía un mínimo de utilidad/evidencia ni se amplía a otras especies.
+Proceso, límites y validación en la [especificación](mushrooms/prediction-map-specification-es.md).
+No autoriza release ni lanzamiento desde Codex de trabajos operativos.
+
+## 2026-10-05 — [VIGENTE][PREDICCIÓN] Evaluación histórica actualizable en worker
+
+Usuario aprueba documentar e implementar un trabajo propio en Workers y trabajos
+para actualizar la selección A/B/C/D con observaciones nuevas/corregidas. El
+precálculo comprueba revisiones y solicita actualización sólo si cambian las
+entradas pertinentes, sin bloquearse ni duplicar tareas. Cambiar K sólo ordena
+estadísticas; gana el mayor I_k. Default desactivado/K=4 y override por dispositivo.
+No basta con congelar el estudio D ni con resumir sólo el hold-out instalado.
+La validación histórica debe excluir los casos del ajuste que los evalúa y
+conservar procedencia y compatibilidad con las familias candidatas. Reutilizar
+lo compatible y preparar sólo lo invalidado; no promover ajustes de validación.
+La duración del nuevo trabajo todavía no se ha medido. Usuario aprueba ventanas
+móviles incluyendo el año actual: A 12 meses, B/C 24 meses y D todo el histórico
+anterior a la consulta (B semanal, C diario). D se confirma expresamente. Estas
+ventanas difieren de los años naturales completos del estudio. Alcance, límites
+y aceptación local: [especificación](mushrooms/prediction-map-specification-es.md).
+No se autoriza release, cambio de coordinador ni repetición del estudio cerrado.
+
+## 2026-10-04 — [VIGENTE][CONTINUIDAD] Estudios cerrados y revisión de utilidad aplazada
+
+Arrancar sólo con `codex-start-here.md` y `active-context.md`; `todo.md` opcional.
+El usuario pidió guardar la discusión de utilidad para revisarla después y cerrar
+la sesión. Conservar lo completado y las propuestas pendientes, sin lanzar otro
+agente ni repetir investigaciones por leer TODO. El contexto anterior se archiva
+en [el snapshot 04/10](reports/session-context-before-close-2026-10-04.md).
+
+El estado operativo sigue siendo la última confirmación del usuario: HA 0.2.331
+instalada y funcionando. Este cierre no realiza una comprobación viva de HA,
+worker ni montajes. No autoriza entrenamiento, precálculo, release, limpieza,
+SSH, cambios de coordinador ni commit/push. Progreso breve aproximadamente cada
+minuto y revalidación proporcional a la siguiente tarea expresamente elegida.
+El mapa general y la arquitectura no cambiaron durante este cierre documental.
+
+## 2026-10-04 — [VIGENTE][INVESTIGACIÓN] Separar experimentos, operación y confirmación
+
+Las investigaciones autorizadas de umbrales y selección están completadas.
+La carpeta inicial `docs/agents/prediction/` se renombró a
+`docs/agents/prediction-thresholds/`; la segunda es
+`docs/agents/prediction-model-selection/`. Cada una conserva método, reglas,
+estado y ejemplo de lanzamiento. Reabrir o lanzar otra investigación exige otro
+encargo; los lanzadores son ejemplos, no órdenes activas de continuidad.
+
+En selección, A usa ranking Y−1, B añade Y−2 y C usa el catálogo B con selección
+diaria, conservando los modelos finales. Las letras del estudio de umbrales
+representan otro contraste. Los 116 casos externos y sus 812 emisiones por
+variante no son 812 visitas independientes: cada observación pesa uno en total
+entre siete horizontes. Los 68 casos objetivo anteriores a 2024 se utilizaron
+para desarrollo; no se omitieron del trabajo.
+
+Se conserva la decisión del 27/09: evaluación previa y ajuste operativo final
+con todas las filas elegibles. El antiguo 30% no es una reserva independiente
+frente a ese ajuste. Los repartos experimentales excluyen sus casos externos del
+ajuste correspondiente, pero reutilizar los años que orientaron las hipótesis
+no los convierte en una confirmación independiente intacta. No cambiar el
+entrenamiento instalado ni usar sus propias filas como examen final.
+
+Aclaraciones expresas del usuario: GBIF `normal` cuenta como favorable igual que
+cualquier otro `normal`, sin excluir ni penalizar por origen. El entrenamiento
+real del 28/09 explica el desfase respecto a las últimas observaciones descargadas;
+no lanzar trabajos para «corregir» esas fechas. Conservar originales y datos privados.
+
+Los cierres registran 11 pruebas en el primer estudio y 35 en el segundo, además
+de tres catálogos reproducidos, 812 controles y 19.514 comparaciones B/C. Son
+evidencias históricas, no pruebas operativas repetidas en este cierre. El límite
+de 120 minutos era un techo, no una estimación de tiempo restante; el usuario
+autorizó 8 GiB por proceso, sin ampliar por ello otros límites ni HA real.
+Fuentes: [informe de umbrales](agents/prediction-thresholds/resultados-2026-10-03.md),
+[informe de selección](agents/prediction-model-selection/resultados-2026-10-04.md)
+y sus `closure.json` privados. Ediciones explicativas posteriores tienen
+enmiendas separadas; no reescribir sellos originales ni resultados para acomodarlas.
+
+## 2026-10-04 — [VIGENTE][PREDICCIÓN] Priorizar precisión favorable con utilidad suficiente
+
+El usuario prefiere 10 recomendaciones favorables con nueve aciertos a 40 con
+30, siempre que se emita una cantidad razonable de consejos. No convertir este
+ejemplo en una precisión mínima obligatoria del 90% ni en un coste exacto.
+Penalizar más los falsos favorables no equivale a aceptar abstenerse siempre.
+
+En informes, mostrar cantidades y denominadores junto al porcentaje. Distinguir
+precisión `TP/(TP+FP)`, detección `TP/P`, frecuencia favorable `(TP+FP)/N` y
+cobertura total de consejos favorables o desfavorables. `P` son favorables
+reales y `N` todos los casos; los recuentos decimales provienen del promedio
+entre horizontes. La abstención no se presenta como un acierto desfavorable.
+
+El filtro original de nominación lo fijó el agente; no era la relación de costes
+acordada con el usuario. Conservar ese criterio cerrado y reconocer sus límites:
+que B/C no lo superen no demuestra que A sea óptima. Caesarea B mejora precisión
+con pocos errores; C recupera más oportunidades. Son señales exploratorias,
+no una promoción operativa ni una confirmación suficiente para sustituir modelos.
+La coherencia entre selección semanal y veto posterior merece una hipótesis
+separada si se autoriza, sin añadir retrospectivamente otra variante al estudio.
+
+## 2026-10-04 — [DUDA][UTILIDAD] Índice por oportunidades y costes pendientes de acuerdo
+
+Propuesta para discutir: `I_k = 100 × (TP − k × FP) / P`, con `P` = todos los
+favorables reales, incluidos los no detectados. Son puntos por cada 100
+oportunidades, no porcentajes de acierto; k=2/3/4 son ejemplos, ninguno aprobado.
+La tabla completa está en [TODO](todo.md) y la derivación y límites en
+[el informe](agents/prediction-model-selection/resultados-2026-10-04.md#indice-utilidad-oportunidades).
+
+Máximo 100 al detectar todos los positivos sin falsos favorables; el índice no
+distingue aciertos desfavorables de abstenciones en negativos. Abstenerse siempre
+da 0 cuando `P > 0`; `P = 0` es NE. Puede bajar de −100. Para saldo positivo,
+con consejos favorables, precisión mayor que `k/(1+k)`: 2/3, 75% u 80% para
+k=2, 3 o 4. Son consecuencias matemáticas, no umbrales operativos aceptados.
+
+Sobre los mismos casos, la preferencia del usuario exige `9 − k > 30 − 10k`,
+es decir, `k > 7/3`. k=2 la invierte; k=3/4 la respetan, sin determinar el peso
+definitivo. El índice pondera oportunidades y errores, pero no garantiza cantidad
+absoluta suficiente ni evidencia independiente: un acierto sobre una oportunidad
+puede dar 100 sin demostrar fiabilidad.
+
+Quedan pendientes fórmula definitiva, coste, mínimo `I_k`, cantidad/frecuencia
+útil, soporte de observaciones/episodios, incertidumbre y estabilidad por campaña.
+No escoger el coste para hacer ganar una alternativa ni presentar esta propuesta
+posterior al análisis como regla predeclarada. No se calcularon intervalos para
+este nuevo índice. Fijar requisitos antes de otra evaluación y prever confirmación
+con predicciones fechadas antes de visitas registradas independientemente del consejo.
+
+## 2026-10-04 — [REEMPLAZADA][UTILIDAD] Denominador inicial de todos los casos
+
+La primera propuesta de conversación era `100 × (TP − k × FP) / N`, beneficio
+por caso evaluado. Se sustituyó en la discusión por dividir entre favorables
+reales `P`, para distinguir pocas recomendaciones cuando había pocas oportunidades
+de pocas recomendaciones cuando había muchas. Ninguna fórmula se implementó.
+Dividir entre los consejos favorables `TP+FP` se descartó para este objetivo:
+sería una transformación de la precisión que perdería la detección de oportunidades.
+El ejemplo de mínimo 5 con el denominador anterior no queda aprobado ni trasladado
+a la nueva escala. Cambiar N por P no reordena A/B/C dentro de la misma especie.
+
+## 2026-10-04 — [VIGENTE][DISCO] Auditoría detenida, sin conciliación nueva
+
+El usuario decidió dejar la auditoría después de recuperar espacio. No retomar
+los ~35,8 GB pendientes, barrer temporales ni repetir WhatsApp/geografía/release
+por iniciativa propia. Había preferido medir desde Terminal con permiso macOS
+y comunicó 2,6 GB para Fotos; es un dato del usuario, no una medición nueva ni
+una conciliación física del resto. No restarlo sin comprobar ámbitos y solapamientos.
+Se conserva la autorización previa y el error de retirada de la sesión Codex
+pendiente, pero las limpiezas quedan aplazadas. Fuentes, originales, archivos
+privados, instaladores y montajes se conservan. [Pendientes](todo.md).
+
+## 2026-10-03 — [REEMPLAZADA][CONTINUIDAD] Cierre compacto y auditoría de disco como tarea abierta
+
+Sustituida por el cierre del 04/10: se mantienen las reglas de lectura y protección,
+pero el disco ya no es la tarea activa. La siguiente revisión está guardada en TODO.
+
+Arrancar sólo con `codex-start-here.md` y `active-context.md`; TODO opcional.
+Contexto sustituido archivado, sin eliminar decisiones científicas. HA 0.2.331
+instalada/funcionando según usuario; release, pruebas locales y publicación ya
+cerradas. Una auditoría de disco o este cierre no autoriza procesos operativos,
+releases ni cambios del coordinador. Informar brevemente aproximadamente cada
+minuto y limitar lecturas/revalidación a la siguiente tarea. Un snapshot no
+acredita que un servicio siga libre ni que un permiso/instalador siga igual.
+
+## 2026-10-03 — [VIGENTE][GIS] Operativa completa, fuentes conservadas y antiguos retirados
+
+Definición expresa del usuario: operativa es todo lo necesario para funcionar,
+incluidos originales todavía consultados. Raíces: `docker-media/rainmapper/geography`
+local, `/media/rainmapper/geography` real y `geography/` del volumen worker.
+`geography-sources/` separa originales/descargas, expansión y preparaciones/ensayos;
+no es fallback operativo. El worker mantiene su persistencia y caché por contenido.
+
+Tras validación local/worker, aceptación de 0.2.331 y revisión final, el usuario
+autoriza retirar las dos raíces Mac `mushroom-GIS-todelete` y
+`mushroom-map-GIS-todelete`. Retirada realizada: 5.891 archivos con destino
+conservado, +21,83 GB libres observados. No recrear antiguos, borrar fuentes ni
+retirar originales operativos por extensión o tamaño. HA real ya usa la raíz
+correcta; no se hizo migración ni borrado remoto. El alcance autorizado no cubre
+otras limpiezas. [Plan](mushrooms/geography-local-organization-plan-es.md),
+[retirada y evidencia](reports/geography-todelete-review-2026-10-03.md).
+
+## 2026-10-03 — [VIGENTE][UI] Los círculos se editan por centro/radio y conservan geometría
+
+HA 0.2.331 incluye controles ES/CA/EN según idioma del dispositivo; círculos
+reconocidos TerraDraw y WGS84/AEQD GBIF se editan por centro/radio, sin presentar
+miles de vértices como único modo. Se conserva GeoJSON y precisión original al
+abrir/descartar/no modificar; polígonos alterados no se fuerzan a círculo.
+Se admite precisión GBIF de 16 decimales, causa del rechazo de Riudarenes.
+Aceptación local expresa y publicación cerradas. No migración masiva de geometrías.
+[Validación y release](reports/release-ha-0.2.331-2026-10-03.md).
+
+## 2026-10-03 — [VIGENTE][DISCO] Autorización concreta de limpieza, no borrado general
+
+Usuario no necesita las conversaciones archivadas de Codex y acepta su pérdida.
+Usar CLI nativa para entradas registradas; retirar huérfanos sólo verificando
+que no están indexados. Se retiraron 61/62 archivos y 247 directorios temporales
+de pruebas de navegador comprobados inactivos. Pérdida aceptada de transcripciones,
+perfiles, capturas y logs de esas pruebas; no tocar sesiones activas ni datos
+privados Rainmapper. No editar SQLite a mano ni ejecutar VACUUM por inferencia.
+El incremento observado del libre para ambas limpiezas fue 20,76 GB; incluye ya
+los 0,60 GB de navegador y puede estar afectado por actividad concurrente.
+
+Queda autorizada la retirada de una sesión archivada de 524 MB, pero la CLI falla;
+se conserva archivo e índice hasta resolverlo. Los instaladores no se retiraron:
+eran versiones posteriores preparadas y DMG de Docker montados. Revalidar uso y
+resolver actualización antes de concretar retirada. No se autoriza parar Docker,
+worker o HA por limpiar. Lightroom, fuentes, auditorías, Buildx y WhatsApp no
+forman parte de estos borrados. La posibilidad de desinstalar WhatsApp planteada
+por el usuario no es una orden ejecutada ni una autorización general para sus datos.
+[Alcance, recibos y límites](reports/mac-disk-audit-2026-10-03.md).
+
+Actualización 04/10: el usuario detuvo la auditoría. Esta autorización delimitada
+se conserva, pero no habilita retomar limpiezas durante la revisión de predicciones.
+
+## 2026-10-03 — [VIGENTE][DISCO] Conciliar ámbito, clones e intervalos antes de sumar
+
+Hardlinks se cuentan una vez por inodo; clones APFS requieren metadatos de flujo
+compartido. `du` por carpeta no acredita espacio exclusivo ni ahorro al borrar.
+WhatsApp: 263,08 GB sumados, 2,443 GB contando cada clone-id una vez; aplicación
+2,31 GB. Chrome: 42,87 → 5,274 GB por el mismo criterio. No son hardlinks y no
+se promete recuperación igual al tamaño deduplicado: puede haber compartición
+externa. No se leyeron conversaciones ni contenidos multimedia.
+
+Finder 305,36 GB usados corresponde a System+Data (~305,37 GB); contenedor APFS
+completo ~329,08 GB añade volúmenes auxiliares/metadatos. Sus 179,82 GB disponibles
+incluyen 14,5 GB purgables (~165,3 GB libres físicos). No sumar purgables otra vez.
+Docker.raw ya contiene volumen worker, imágenes y Buildx; no sumarlos además.
+Para comparar partidas usar el mismo ámbito, unidades e instante y declarar
+accesos denegados. La API usada y sus definiciones Apple están en el informe.
+
+## 2026-10-03 — [REEMPLAZADA][DISCO] Interpretaciones iniciales de tamaños
+
+Descartada la hipótesis GB/GiB para los 305 frente a 329: la captura contiene
+bytes explícitos y `diskutil` confirma ámbitos distintos. Descartado interpretar
+los ~262 GB de WhatsApp como vídeos físicos exclusivos. La tabla inicial de
+221,6 GB era parcial e incluía volúmenes auxiliares; no permite deducir por sí
+sola el espacio no atribuido frente a Finder. Prevalece el balance corregido del
+informe, no las cifras iniciales archivadas.
+
+## 2026-10-03 — [DUDA][DISCO] Atribución física pendiente y error de borrado Codex
+
+Dentro del ámbito Finder, ~269,6 GB atribuidos y ~35,8 GB pendientes son una
+aproximación, no conciliación física exacta: faltan carpetas protegidas, hay
+redondeos y posibles clones entre categorías. El acceso elevado también falla
+para Downloads, Trash, Fotos, MobileSync y otros directorios protegidos. No se
+conoce su tamaño ni se les atribuye automáticamente el resto. Resolver acceso
+macOS o recibir tamaños del usuario antes de cerrar; no eludir privacidad.
+
+Actualización 04/10: el usuario comunicó 2,6 GB para Fotos y prefirió Terminal;
+después detuvo la auditoría. No se rehízo el balance ni se resolvieron los demás
+accesos. La duda persiste como pendiente aplazado, no como siguiente acción.
+
+Causa de `codex delete` fallido para `01a073a6-7e39-77e2-8585-e5ab8cfcc5f0`
+desconocida; conservar estado consistente hasta diagnosticar. Tampoco se conoce
+la causa de tantos clones WhatsApp ni la distribución exacta de la caída histórica
+de libre 145–150 →115 GB: las medidas posteriores no reconstruyen aquel instante.
+
+
 ## 2026-09-28 — [VIGENTE][GIS] Política territorial común por campo y dataset preparado
 
 Desde HA 0.2.330, mapa, recuperación GIS/DEM, microáreas por muestreo y

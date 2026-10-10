@@ -1,4 +1,14 @@
 {
+  "ui.observation_editor_loading": {
+    "es": "Cargando observación…",
+    "ca": "Carregant observació…",
+    "en": "Loading observation…"
+  },
+  "ui.observation_editor_error": {
+    "es": "No se pudo cargar la observación. Vuelve a intentarlo.",
+    "ca": "No s’ha pogut carregar l’observació. Torna-ho a provar.",
+    "en": "The observation could not be loaded. Try again."
+  },
   "ui.prediction_map_hydrology": {
     "es": "Estado hídrico del suelo",
     "ca": "Estat hídric del sòl",
@@ -9014,9 +9024,182 @@
     "es": "Desnivel neto",
     "ca": "Desnivell net"
   },
+  "ui.prediction_map_competing_inherit": {
+    "en": "Use add-on value",
+    "es": "Usar valor del add-on",
+    "ca": "Usar valor de l’add-on"
+  },
+  "ui.prediction_map_competing_on": {
+    "en": "On",
+    "es": "Activado",
+    "ca": "Activat"
+  },
+  "ui.prediction_map_competing_off": {
+    "en": "Off",
+    "es": "Desactivado",
+    "ca": "Desactivat"
+  },
+  "ui.prediction_map_competing_settings_help": {
+    "en": "A–B–C–D compares historical selection criteria. Higher K penalizes false favorable calls more. Preferences apply to this device.",
+    "es": "A–B–C–D compara criterios de selección histórica. Un K mayor penaliza más los falsos favorables. Preferencias de este dispositivo.",
+    "ca": "A–B–C–D compara criteris de selecció històrica. Un K més alt penalitza més els falsos favorables. Preferències d’aquest dispositiu."
+  },
+  "ui.prediction_map_competing_agreement": {
+    "en": "Agreement",
+    "es": "Coincidencia",
+    "ca": "Coincidència"
+  },
+  "ui.prediction_map_competing_models": {
+    "en": "distinct models",
+    "es": "modelos distintos",
+    "ca": "models diferents"
+  },
+  "ui.prediction_map_competing_missing": {
+    "en": "No comparable evidence",
+    "es": "Sin evidencia comparable",
+    "ca": "Sense evidència comparable"
+  },
+  "ui.prediction_map_competing_favorable": {
+    "en": "Agreement on favorable advice",
+    "es": "Coincidencia en consejo favorable",
+    "ca": "Coincidència en consell favorable"
+  },
+  "ui.prediction_map_competing_not_favorable": {
+    "en": "Agreement on no favorable advice",
+    "es": "Coincidencia en no aconsejar favorable",
+    "ca": "Coincidència en no aconsellar favorable"
+  },
+  "ui.prediction_map_competing_A": {
+    "en": "12 months · weekly",
+    "es": "12 meses · semanal",
+    "ca": "12 mesos · setmanal"
+  },
+  "ui.prediction_map_competing_B": {
+    "en": "24 months · weekly",
+    "es": "24 meses · semanal",
+    "ca": "24 mesos · setmanal"
+  },
+  "ui.prediction_map_competing_C": {
+    "en": "24 months · daily",
+    "es": "24 meses · diario",
+    "ca": "24 mesos · diari"
+  },
+  "ui.prediction_map_competing_D": {
+    "en": "All history · weekly",
+    "es": "Todo el histórico · semanal",
+    "ca": "Tot l’històric · setmanal"
+  },
+  "ui.prediction_map_competing_help": {
+    "en": "A/B/C/D select candidates by the highest selection Iₖ within their window. Missing predictions do not count as agreement; the criteria are not independent tests.",
+    "es": "A/B/C/D eligen por el mayor Iₖ de selección en su ventana. Las ausencias no cuentan como coincidencia; los criterios no son pruebas independientes.",
+    "ca": "A/B/C/D trien pel major Iₖ de selecció en la seva finestra. Les absències no compten com a coincidència; els criteris no són proves independents."
+  },
+  "ui.prediction_map_competing_habitual": {
+    "en": "Usual selection", "es": "Selección habitual", "ca": "Selecció habitual"
+  },
+  "ui.prediction_map_competing_comparison_score": {
+    "en": "Comparison Iₖ", "es": "Iₖ de comparación", "ca": "Iₖ de comparació"
+  },
+  "ui.prediction_map_competing_selection_score": {
+    "en": "Selection Iₖ", "es": "Iₖ de selección", "ca": "Iₖ de selecció"
+  },
+  "ui.prediction_map_competing_comparison_winner": {
+    "en": "Highest comparison Iₖ", "es": "Mayor Iₖ de comparación", "ca": "Major Iₖ de comparació"
+  },
+  "ui.prediction_map_competing_comparison_pending": {
+    "en": "Common comparison pending for this K. Check Workers and refresh when complete.",
+    "es": "Comparación común pendiente para este K. Consulta Trabajos y vuelve a consultar al terminar.",
+    "ca": "Comparació comuna pendent per aquest K. Consulta Treballs i torna a consultar en acabar."
+  },
+  "ui.prediction_map_competing_comparison_insufficient": {
+    "en": "Insufficient common evidence to highlight a winner.",
+    "es": "Evidencia común insuficiente para destacar una ganadora.",
+    "ca": "Evidència comuna insuficient per destacar una guanyadora."
+  },
+  "ui.prediction_map_competing_comparison_historical_missing": {
+    "en": "Comparison by date not prepared. Run Selection and comparison to add historical scores.",
+    "es": "Comparación por fecha sin preparar. Ejecuta Selección y comparación para añadir las notas históricas.",
+    "ca": "Comparació per data sense preparar. Executa Selecció i comparació per afegir les notes històriques."
+  },
+  "ui.prediction_map_competing_common_sample": {
+    "en": "Same {n}/{total} historical visits · each visit weighs one",
+    "es": "Mismas {n}/{total} visitas históricas · cada visita pesa uno",
+    "ca": "Mateixes {n}/{total} visites històriques · cada visita pesa un"
+  },
+  "ui.prediction_map_competing_score_details": {
+    "en": "Score details", "es": "Detalle de las notas", "ca": "Detall de les notes"
+  },
+  "ui.prediction_map_competing_calls_counts": {
+    "en": "Recommendations: {calls} · hits: {tp} · misses: {fp}",
+    "es": "Consejos: {calls} · aciertos: {tp} · fallos: {fp}",
+    "ca": "Consells: {calls} · encerts: {tp} · errors: {fp}"
+  },
+  "ui.prediction_map_competing_rates": {
+    "en": "Precision: {precision}% · opportunities detected: {recall}%",
+    "es": "Precisión: {precision}% · oportunidades detectadas: {recall}%",
+    "ca": "Precisió: {precision}% · oportunitats detectades: {recall}%"
+  },
+  "ui.prediction_map_competing_comparison_method": {
+    "en": "How the comparison works", "es": "Cómo se compara", "ca": "Com es compara"
+  },
+  "ui.prediction_map_competing_comparison_help": {
+    "en": "Comparison Iₖ evaluates the five rules on the same past visits, using only earlier evidence and replaying complete weeks. Seven horizons share one visit's weight. Evaluation uses the observation areas; it does not validate this point. Green means the highest observed score, including ties, not a favorable prediction or proof of superiority.",
+    "es": "El Iₖ de comparación evalúa las cinco reglas sobre las mismas visitas pasadas, usando sólo evidencia anterior y reproduciendo semanas completas. Los siete horizontes comparten el peso de una visita. Se evalúan las áreas de las observaciones; no se valida este punto. Verde indica la mayor nota observada, incluidos empates: no una predicción favorable ni una superioridad demostrada.",
+    "ca": "L’Iₖ de comparació avalua les cinc regles sobre les mateixes visites passades, amb evidència anterior i reproduint setmanes completes. Els set horitzons comparteixen el pes d’una visita. S’avaluen les àrees de les observacions; no es valida aquest punt. Verd indica la nota observada més alta, inclosos empats: no una predicció favorable ni una superioritat demostrada."
+  },
   "ui.prediction_map_measure_instructions": {
     "en": "Mark points to trace a path. Tap the last point to finish or continue. Drag any point to adjust; Undo removes the last one. Elevation change is measured from start to finish.",
     "es": "Marca puntos para trazar un recorrido. Pulsa el último para terminar o continuar. Arrastra cualquier punto para ajustar; Deshacer elimina el último. El desnivel neto va del inicio al final.",
     "ca": "Marca punts per traçar un recorregut. Prem l’últim per acabar o continuar. Arrossega qualsevol punt per ajustar; Desfer elimina l’últim. El desnivell net va de l’inici al final."
+  },
+  "ui.worker_history_title": {
+    "en": "Selection and comparison",
+    "es": "Selección y comparación",
+    "ca": "Selecció i comparació"
+  },
+  "ui.worker_history_help": {
+    "en": "Prepares A/B/C/D selection and compares it with the usual selection in the same job, reusing historical inputs and evaluations. The runner requests updates when needed. This button brings the check forward using your K setting; map clicks do not start it.",
+    "es": "Prepara la selección A/B/C/D y su comparación con la habitual en el mismo trabajo, reutilizando datos y evaluaciones históricas. El runner solicita las actualizaciones necesarias. Este botón adelanta la comprobación con tu valor de K; los clics en el mapa no la inician.",
+    "ca": "Prepara la selecció A/B/C/D i la comparació amb l’habitual en el mateix treball, reutilitzant dades i avaluacions històriques. El runner sol·licita les actualitzacions necessàries. Aquest botó avança la comprovació amb el teu valor de K; els clics al mapa no l’inicien."
+  },
+  "ui.worker_history_launch": {
+    "en": "Check and update",
+    "es": "Comprobar y actualizar",
+    "ca": "Comprovar i actualitzar"
+  },
+  "ui.worker_history_duration": {
+    "en": "Last duration",
+    "es": "Última duración",
+    "ca": "Última durada"
+  },
+  "ui.worker_history_not_prepared": {
+    "en": "Not prepared",
+    "es": "Sin preparar",
+    "ca": "Sense preparar"
+  },
+  "ui.worker_history_pending": {
+    "en": "Update pending",
+    "es": "Actualización pendiente",
+    "ca": "Actualització pendent"
+  },
+  "ui.worker_history_queued": {
+    "en": "Queued",
+    "es": "En cola",
+    "ca": "En cua"
+  },
+  "ui.worker_history_running": {
+    "en": "Evaluating history",
+    "es": "Evaluando histórico",
+    "ca": "Avaluant l’històric"
+  },
+  "ui.worker_history_ready": {
+    "en": "Up to date",
+    "es": "Actualizada",
+    "ca": "Actualitzada"
+  },
+  "ui.worker_history_failed": {
+    "en": "Update failed",
+    "es": "Actualización fallida",
+    "ca": "Actualització fallida"
   }
 }

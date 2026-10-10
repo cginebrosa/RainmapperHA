@@ -8,6 +8,7 @@ pointer for each coordinator's map. No training jobs or TAR transports.
 from __future__ import annotations
 
 from rainmapper_core import mushroom_recommendation_policy as recommendations
+from rainmapper_core import mushroom_map_competing as competing
 
 import hashlib
 import json
@@ -157,6 +158,10 @@ class MapPublication:
         if policy_path.exists():
             stat = policy_path.stat()
             result.append((str(policy_path), stat.st_size, stat.st_mtime_ns, stat.st_ino))
+        evidence = self.inputs['model_registry'].parent / competing.FILENAME
+        if evidence.exists():
+            stat = evidence.stat()
+            result.append((str(evidence), stat.st_size, stat.st_mtime_ns, stat.st_ino))
         return tuple(result)
 
     def _small(self, path):
@@ -257,6 +262,11 @@ class MapPublication:
         small[weather_current] = current_raw
         hashes = {PRIVATE_FILES[k]: v[1] for k, v in inputs.items()}
         hashes[weather_current] = current_sha
+        evidence_path = self.inputs['model_registry'].parent / competing.FILENAME
+        if evidence_path.is_file():
+            raw, sha = self._small(evidence_path)
+            logical = 'data/' + competing.FILENAME
+            small[logical] = raw; hashes[logical] = sha
         selected = [r for r in selected if r['path'] not in small]
         for path, raw in small.items():
             selected.append({'role': path.split('/')[0], 'path': path,

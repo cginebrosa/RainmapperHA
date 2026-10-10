@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.333"
+version: "0.2.334"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -32,6 +32,8 @@ options:
   mode: serve
   timezone: Europe/Madrid
   ui_language: en
+  prediction_competing_selection: false
+  prediction_k_value: 4
   schedule_enabled: false
   schedule_time: "23:50"
   schedule_days: "all"
@@ -94,6 +96,8 @@ options:
   gmap_api_key: ""
   aemet_api_key: ""
 schema:
+  prediction_competing_selection: bool
+  prediction_k_value: float(0,1000)
   mode: list(help|update|maps|all|serve)
   timezone: str
   ui_language: list(en|es|ca)

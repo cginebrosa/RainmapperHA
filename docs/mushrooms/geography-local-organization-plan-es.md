@@ -1,7 +1,8 @@
 # Geografía operativa y fuentes — plan local, 28/09/2026
 
-Estado: **LOCAL Y WORKER VALIDADOS; pendiente aceptación del usuario**.
-Tarea global en curso hasta decidir HA real y la retirada de los antiguos.
+Estado: **ORGANIZACIÓN Y RETIRADA LOCAL COMPLETADAS (03/10/2026)**.
+HA 0.2.331 funcionando según el usuario. Antiguos borrados con autorización;
+fuentes y operativa conservadas. Las entradas fechadas anteriores son históricas.
 Autorizado por el usuario el 28/09/2026.
 
 ## Objetivo y límites
@@ -44,9 +45,9 @@ reposo efectivo antes de recrear contenedores, no suponer que esa ventana se amp
   existen/no se recrean y que `-todelete` no sostiene las pruebas.
 - [x] 7. Revisar diff, validación proporcional, resultados e incidencias;
   actualizar TODO/contexto y entregar para aceptación local del usuario.
-- [ ] Fase posterior: sólo tras aceptación local, decidir si hay que adaptar
-  HA real. No está incluida su modificación ni la eliminación de `-todelete`.
-- [ ] **Retirada final de antiguos:** tras comprobar y aceptar el funcionamiento,
+- [x] Fase HA real: revisada en lectura; ya usa la raíz correcta, sin migración
+  necesaria. 0.2.331 instalada y funcionando según el usuario.
+- [x] **Retirada final de antiguos (ejecutada 03/10, ver cierre):** tras comprobar y aceptar el funcionamiento,
   revisar que cada archivo conservable existe en geografía operativa o fuentes,
   que no hay referencias/montajes a los antiguos y que las pruebas se ejecutaron
   sin ellos. Presentar el inventario final y obtener la confirmación de borrado;
@@ -299,3 +300,48 @@ Se mantienen todos los archivos de HA y los `-todelete` del Mac.
   sus carpetas: la revisión previa confirmó la raíz operativa correcta.
 - [ ] Siguen pendientes los recorridos funcionales restantes y la autorización
   específica para retirar `-todelete`. Publicar código no autoriza ese borrado.
+
+### Revisión de retirada final (03/10/2026)
+
+- [x] Usuario confirma HA 0.2.331 instalada y funcionando.
+- [x] Revalidado inventario final: 5.891 archivos, todos con destino conservado;
+  metadatos sin cambios salvo adaptaciones documentadas y Finder. Sin nuevas
+  fuentes únicas, referencias operativas, montajes ni enlaces a antiguos.
+- [x] Montajes share/media de HA verificados y recorridos completos en lectura:
+  no existen nombres `todelete`. Ninguna carpeta remota se propone para borrar.
+- [x] Presentar propuesta: retirar únicamente los dos `-todelete` locales,
+  unos 22,32 GB asignados. [Informe](../reports/geography-todelete-review-2026-10-03.md).
+- [x] Confirmación específica del usuario recibida: «pues adelante».
+- [x] Eliminadas esas dos carpetas; fuentes/operativa conservadas. Espacio libre
+  medido antes/después: 94,44 → 116,27 GB (+21,83 GB).
+
+Los recorridos funcionales restantes se mantienen en TODO. La revisión actual
+permite separar su seguimiento de mantener otra copia completa de fuentes ya
+preservadas sin dependencias de los antiguos.
+
+## Eliminación autorizada y completada — 03/10/2026
+
+Tras preguntar por la conservación de originales, el usuario confirmó «pues
+adelante». Se eliminaron exclusivamente `mushroom-GIS-todelete/` y
+`mushroom-map-GIS-todelete/` del Mac a las 08:13 UTC. Revalidación final previa:
+5.891 archivos cubiertos por el inventario, sin fuentes únicas ni destinos ausentes.
+
+Medición `shutil.disk_usage` sobre el volumen del repositorio, en bytes decimales:
+
+- Libre antes: **94.439.452.672 bytes (94,44 GB)**.
+- Libre después: **116.266.102.784 bytes (116,27 GB)**.
+- Aumento observado: **21.826.650.112 bytes (21,83 GB)**.
+
+Es el cambio global de espacio libre durante la operación, no una equivalencia
+exacta con los 22,32 GB previamente contabilizados por archivos. No se ha
+investigado la diferencia ni se atribuye a una causa sin comprobarla.
+
+Ambas carpetas ausentes tras el borrado. Comprobados antes/después tamaño,
+mtime e inodo de los **5.897 archivos de `geography-sources/`** y los **3.600 de
+`docker-media/rainmapper/geography/`**, sin cambios. No se modificaron HA real,
+volumen/configuración del worker, datos privados ni otras carpetas. No se
+lanzaron pruebas operativas ni reconstrucciones.
+
+Recibo: `tmp/geography-retirement-20261003/deletion.json`; comprobación final
+`pre-delete-check.log`. Retirada final completada; conservar las fuentes y la
+geografía operativa. Los recorridos funcionales restantes siguen en TODO.

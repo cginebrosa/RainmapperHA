@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from rainmapper_core import mushroom_recommendation_policy as recommendations
 from rainmapper_core import mushroom_training_observations as training_observations
+from rainmapper_core import mushroom_map_competing as competing
 
 from collections import OrderedDict
 from datetime import date, timedelta
@@ -227,6 +228,8 @@ class PointModelRuntime:
         if not rows:
             return output
         self._refresh()
+        competing_evidence = (competing.read(self.registry_path.parent / competing.FILENAME, self.manifest)
+                              if request.get('competing_selection') else None)
         output['provenance'].update(model_revision=self.revision,batch_id=self.manifest['batch_id'])
         if not any(self.resolutions.get(row['species_id']) for row in selected):
             return output
@@ -244,6 +247,7 @@ class PointModelRuntime:
         today = map_today(calendar_timezone)
         self.last_diagnostics = {}
         input_details = {}
+        materialized_cache = competing.PointCache()
         def observe_inputs(reference, columns):
             input_details[catalog.ModelRef.from_mapping(reference).key] = model_input_details(
                 reference, columns, self.catalog_profiles)
@@ -263,6 +267,11 @@ class PointModelRuntime:
                 if not refs: return {'members':[]}
                 if len(refs)>96: raise ValueError('point_candidate_limit')
                 days, physical = comparison._weather_requirements(refs,catalog_profiles=self.catalog_profiles)
+                cache_key = ((species_id, target_date, days, physical, applicability_offset, tuple(r.key for r in refs))
+                             if request.get('competing_selection') else None)
+                cached = materialized_cache.get(cache_key) if cache_key is not None else None
+                if cached is not None:
+                    return cached
                 series_by_horizon={}; context=None; stations=None
                 for h in sorted({r.horizon_days for r in refs}):
                     cutoff=target_date-timedelta(days=h)
@@ -279,11 +288,14 @@ class PointModelRuntime:
                     context,series,stations=weather_cache[key]
                     series_by_horizon[h]=series
                 # Cache is per materialization: no inputs survive a point/date.
-                return comparison.compare_prepared(self.registry,self.manifest,refs,models_root=self.models_root,
+                result = comparison.compare_prepared(self.registry,self.manifest,refs,models_root=self.models_root,
                     target_date=target_date,area_id=context.area_id,area_context=context,
                     area_series_by_horizon=series_by_horizon,stations=stations,checked_manifest=self.manifest,
                     comparison_cache={'quality_catalog':self.quality}, model_inputs_observer=observe_inputs,
                     **({'applicability_offset': applicability_offset} if applicability_offset is not None else {}))
+                if request.get('competing_selection'):
+                    materialized_cache.put(cache_key, result)
+                return result
             return materialize
         for source,row in zip(selected,rows):
             sid=row['species_id']; resolutions=self.resolutions.get(sid)
@@ -366,6 +378,47 @@ class PointModelRuntime:
                 diagnostic.append({'day':i+1,'candidate':candidate,'weekly':active.get('weekly_model_selection'),
                     'runtime_status':active.get('runtime_selection_status'),'reason':reason})
             self.last_diagnostics[sid]=diagnostic
+            if request.get('competing_selection') and not request.get('applicability_page'):
+                alternatives = []; labels = []; identities = []
+                for method in 'ABCD':
+                    ranked, years, scores = competing.rank(resolutions, competing_evidence, sid,
+                                                           issue, method, request['k_value'])
+                    def order_alternative(indexed):
+                        ordered = competing.order_week(indexed)
+                        for resolution in ordered.values():
+                            for entry in resolution.get('candidate_chain', []):
+                                scores[competing.identity(entry['candidate'])] = entry['competing_score']
+                        return ordered
+                    alternative = resolve_species_week(species_id=sid, point_id='map-query', issue_date=issue,
+                        resolutions_by_day=ranked, installed_version_ids=self.installed, materialize=materializer(sid),
+                        season_phase=lambda day: season_phase_for_months(day, phenology.get('main_months', []),
+                                                                        phenology.get('secondary_months', [])),
+                        phenology=phenology, lazy_families=True, recommendation_policy=recommendations.settings(self.registry),
+                        independent_days=method == 'C', order_week=order_alternative)
+                    values = []
+                    for i, day in enumerate(alternative['days'][:horizon]):
+                        operational = day['operational_comparison']
+                        winners = operational.get('selected_winners', [])
+                        winner = winners[0] if len(winners) == 1 else {}
+                        probability = winner.get('probability')
+                        ref = winner.get('model_ref') or {}
+                        active = day['reliability_selection']
+                        if active.get('runtime_selection_status') == 'abstain' or probability is None:
+                            values.append([None, None, None]); continue
+                        key = competing.identity(ref)
+                        if key not in identities:
+                            identities.append(key)
+                            labels.append(model_source_label(ref))
+                        notice = recommendations.map_notice(operational)
+                        decision = notice.get('recommendation_decision') or {}
+                        withheld = decision.get('mode') == 'prudent' and decision.get('legacy_recommend') and not decision.get('prudent_recommend')
+                        values.append([round(probability, 6), identities.index(key),
+                                       round(scores[key], 2) if key in scores else None, bool(withheld)])
+                    alternatives.append({'method':method, 'years':years, 'days':values})
+                row['competing'] = {'labels':labels, 'criteria':alternatives,
+                                    'comparison': competing.comparison_for(competing_evidence, sid, issue, request['k_value']),
+                                    'comparison_unavailable_reason': competing.comparison_unavailable_reason(competing_evidence, sid, issue, request['k_value']),
+                                    'evidence': 'temporal_history' if competing_evidence else 'unavailable'}
             # Diagnostic-only second request: one selected model/day, 32 compact
             # rows at a time. Never attach full feature vectors to weekly reports.
             page = request.get('applicability_page')

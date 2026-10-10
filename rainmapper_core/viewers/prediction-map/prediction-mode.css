@@ -209,3 +209,16 @@
 .pm-ecology li.pm-observed-species { border:2px solid #096c9e; border-radius:6px; padding:8px; margin:6px 0; background:#f1f7fb; }
 .pm-training-usage[data-state="used"] .pm-training-value{color:#237a36}
 .pm-training-usage[data-state="not_used"] .pm-training-value{color:#b42318}
+.pm-competing {grid-column:1 / -1;font-size:13px;margin-top:6px;min-width:0}
+.pm-competing summary {cursor:pointer;font-weight:600}
+.pm-competing > small {display:block}
+.pm-competing-row {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:6px 0;border-bottom:1px solid #cad5dc}
+.pm-competing-row small {grid-column:1 / -1;overflow-wrap:anywhere}
+.pm-competing-row > strong {overflow-wrap:anywhere}
+.pm-competing-row.pm-comparison-winner {border:2px solid #287841;border-radius:6px;padding:6px;margin:5px 0;background:rgba(225,244,228,.6)}
+.pm-competing-details {grid-column:1 / -1;min-width:0;margin-top:4px}
+.pm-competing-details > small {display:block}
+.pm-competing-details > summary {font-weight:normal;font-size:12px}
+.pm-comparison-score {font-weight:600}
+.pm-comparison-winner-label {color:#205f34}
+.pm-competing p {font-size:12px;line-height:1.35;margin:6px 0}

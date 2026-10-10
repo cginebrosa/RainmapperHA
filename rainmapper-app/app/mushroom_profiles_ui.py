@@ -12,6 +12,8 @@ import html
 import json
 import os
 import re
+from contextvars import ContextVar
+from functools import wraps
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -67,10 +69,36 @@ def icon(name: str) -> str:
     return ICONS.get(name, "")
 
 
+_known_sites_snapshot: ContextVar[dict | None] = ContextVar("observation_known_sites", default=None)
+
+
+def with_known_sites_snapshot(render):
+    """Share one lazy read within a render, never across requests or threads."""
+    @wraps(render)
+    def scoped(*args, **kwargs):
+        if _known_sites_snapshot.get() is not None:
+            return render(*args, **kwargs)
+        token = _known_sites_snapshot.set({})
+        try:
+            return render(*args, **kwargs)
+        finally:
+            _known_sites_snapshot.reset(token)
+    return scoped
+
+
+def known_sites_payload() -> dict:
+    snapshot = _known_sites_snapshot.get()
+    if snapshot is None:
+        return mushroom_known_sites.load_payload()
+    if "payload" not in snapshot:
+        snapshot["payload"] = mushroom_known_sites.load_payload()
+    return snapshot["payload"]
+
+
 def known_site_names_by_micro_area() -> dict[str, tuple[str, str]]:
     """Return display names for every saved micro-area and its parent area."""
     try:
-        payload = mushroom_known_sites.load_payload()
+        payload = known_sites_payload()
     except Exception:
         return {}
     area_names = {
@@ -106,7 +134,7 @@ def known_site_geometry_context(micro_area_id: object) -> dict[str, object]:
     if not micro_id:
         return {}
     try:
-        payload = mushroom_known_sites.load_payload()
+        payload = known_sites_payload()
     except Exception:
         return {}
     micro = next(
@@ -129,7 +157,7 @@ def known_site_geometry_context(micro_area_id: object) -> dict[str, object]:
 def all_known_site_geometries() -> list[dict[str, object]]:
     """Return every active saved site geometry for contextual map display."""
     try:
-        payload = mushroom_known_sites.load_payload()
+        payload = known_sites_payload()
     except Exception:
         return []
     features = []
@@ -150,7 +178,7 @@ def all_known_site_geometries() -> list[dict[str, object]]:
 def known_site_select_options(selected: object = "") -> str:
     selected_id = str(selected or "").strip()
     try:
-        options = mushroom_known_sites.micro_area_options(mushroom_known_sites.load_payload())
+        options = mushroom_known_sites.micro_area_options(known_sites_payload())
     except Exception:
         options = []
     rendered = [f'<option value="">{html.escape(ui_label("ui.not_informed"))}</option>']
@@ -165,7 +193,7 @@ def known_site_select_options(selected: object = "") -> str:
 def known_area_select_options() -> str:
     """Render active parent areas for quick micro-area creation."""
     try:
-        rows = mushroom_known_sites.load_payload().get("areas", [])
+        rows = known_sites_payload().get("areas", [])
     except Exception:
         rows = []
     return "".join(
@@ -5340,6 +5368,7 @@ def render_observation_detail(
     """
 
 
+@with_known_sites_snapshot
 def render_observation_form_modal(
     profiles: list[dict[str, object]],
     catalogs: dict[str, object],
@@ -5707,6 +5736,30 @@ def render_observation_edit_modals(
         for row in visible_rows
         if row.get("observation_id")
     )
+
+
+def render_observation_editor_placeholders(rows, selected_species_id="", filters=None) -> str:
+    """Keep deep links and close controls; fetch a form only when opened."""
+    modals = []
+    for row in rows:
+        observation_id = str(row.get("observation_id", ""))
+        if not observation_id:
+            continue
+        query = dict(filters or {})
+        query.update(id=selected_species_id, obs_id=observation_id)
+        endpoint = "/api/mushrooms/observation-editor?" + urlencode(query)
+        modals.append(f'''
+        <div id="edit-observation-{html.escape(observation_id, quote=True)}" class="modal-layer"
+             data-observation-editor="{html.escape(endpoint, quote=True)}">
+          <a class="modal-backdrop" href="#" aria-label="{html.escape(ui_label('ui.cancel'), quote=True)}"></a>
+          <div class="modal-card">
+            <header class="modal-head"><h2>{html.escape(ui_label('ui.edit_observation'))}</h2>
+              <a class="button-link" href="#">{html.escape(ui_label('ui.cancel'))}</a></header>
+            <p role="status" data-editor-status data-editor-error="{html.escape(ui_label('ui.observation_editor_error'), quote=True)}">{html.escape(ui_label('ui.observation_editor_loading'))}</p>
+            <button type="button" data-editor-retry hidden>{html.escape(ui_label('ui.prediction_map_retry'))}</button>
+          </div>
+        </div>''')
+    return "".join(modals)
 
 
 def render_observation_map_modals(
@@ -6216,6 +6269,7 @@ def render_observation_gis_lab(
     """
 
 
+@with_known_sites_snapshot
 def render_observations_section(
     profile: dict[str, object] | None,
     profiles: list[dict[str, object]],
@@ -6341,7 +6395,7 @@ def render_observations_section(
       {render_observation_create_form(profiles, catalogs, selected_species_id, form_message, filters)}
       {render_observation_exif_import_form(profiles, catalogs, selected_species_id, filters)}
       {render_observation_duplicate_form(rows, profiles, catalogs, selected_species_id, filters)}
-      {render_observation_edit_modals(page_rows, profiles, catalogs, selected_species_id, filters)}
+      {render_observation_editor_placeholders(page_rows, selected_species_id, filters)}
       {render_observation_map_modals(page_rows, selected_species_id, search, filters)}
       {render_observation_photo_modals(page_rows)}
       {mushroom_observation_gis_ui.script()}

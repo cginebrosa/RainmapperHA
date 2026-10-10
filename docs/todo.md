@@ -1,8 +1,88 @@
-# TODO — revisión 03/10/2026
+# TODO — revisión 04/10/2026
 
 Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-context.md).
 Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
 [archivo del cierre](reports/session-context-before-close-2026-09-22.md).
+
+## P1 pendiente · Utilidad de las predicciones de aereus y caesarea (04/10)
+
+- [x] Completar las dos comparaciones locales: umbral favorable y selección del
+  ganador. Conservar artefactos, reglas y controles; no repetir lotes cerrados ni
+  presentar las hipótesis reutilizadas como confirmación independiente.
+- [x] Hacer legibles los informes: cantidades / denominadores → porcentajes,
+  referencia ideal, explicación de columnas, promedios entre siete horizontes
+  y comparación de caesarea A/B/C por campaña. Incluye el anexo de umbrales.
+- [x] Documentar la preferencia del usuario y el índice por favorables reales;
+  calcular k=2/3/4 desde los resultados guardados y conservar su carácter provisional.
+- [x] Cerrar la continuidad: contexto compacto, decisiones etiquetadas y contexto
+  sustituido archivado. Lectura inicial limitada a los dos documentos de arranque.
+
+- [ ] **Retomar la revisión conjunta de selección, umbrales y utilidad**, sin
+  repetir las investigaciones cerradas. [Informe de selección e índice propuesto](agents/prediction-model-selection/resultados-2026-10-04.md#indice-utilidad-oportunidades)
+  e [informe de umbrales](agents/prediction-thresholds/resultados-2026-10-03.md).
+  El usuario prefiere 10 consejos favorables con nueve aciertos a 40 con 30,
+  siempre que la cantidad de recomendaciones sea útil; 90% no es un mínimo acordado.
+- [ ] Acordar el coste `k`, el mínimo del índice y la cantidad/frecuencia útil
+  de consejos, distinguiendo precisión, oportunidades detectadas y cobertura
+  total de consejos. Fórmula discutida: `I_k = 100 × (TP − k × FP) / P`, donde
+  `P` son **todos los favorables reales**, incluidos los no detectados; no los
+  casos totales ni sólo los consejos favorables del modelo. Ningún `k` ni mínimo
+  queda aprobado. Revisar también si esta fórmula representa bien la preferencia.
+- [ ] Contrastar esa preferencia con la penalización: sobre los mismos casos,
+  para preferir nueve aciertos/un error a 30 aciertos/diez errores se requiere
+  `9 − k > 30 − 10k`, es decir, **`k > 7/3 ≈ 2,33`**. Con `k = 2` se invierte
+  aquel ejemplo; `k = 3` y `k = 4` lo respetan, sin fijar por ello el coste definitivo.
+- [ ] Definir soporte de observaciones y episodios independientes, incertidumbre
+  y estabilidad por campaña antes de una nueva validación. Un índice alto con
+  una única oportunidad no demuestra fiabilidad; un promedio positivo tampoco
+  elimina una campaña sin consejos, como caesarea B en 2025. Distinguir ajuste
+  experimental, evidencia ya utilizada y confirmación futura independiente.
+
+Comparación aritmética guardada para retomar, en **puntos de utilidad, no %**.
+Estos A/B/C pertenecen al estudio de selección; no equivalen a las letras del
+estudio de umbrales. Fuente: `tmp/prediction-model-selection/analysis/results.json`,
+agregados `species.<especie>.strata.pooled.average`, sin redondear antes del cálculo.
+Denominadores: caesarea 35 favorables reales; aereus 36.
+
+| Especie | Variante | k = 2 | k = 3 | k = 4 |
+|---|---|---:|---:|---:|
+| Caesarea | A | −12,65 | −31,43 | −50,20 |
+| Caesarea | B | +23,67 | +16,73 | +9,80 |
+| Caesarea | C | +17,55 | −2,45 | −22,45 |
+| Aereus | A | +5,95 | −15,48 | −36,90 |
+| Aereus | B | −9,52 | −32,14 | −54,76 |
+| Aereus | C | −2,78 | −27,38 | −51,98 |
+
+**Guardado como pendiente por el usuario, no como orden de ejecución.** No lanzar
+otro agente, repetir entrenamientos/precálculos, promover B/C ni cambiar HA o el
+worker/coordinador. Conservar resultados, reglas originales y archivos privados.
+
+## Aplazado · Disco del Mac (03/10)
+
+Auditoría detenida por decisión del usuario; conservar lo pendiente sin retomarlo.
+
+- [x] Auditar repo, datos de apps y temporales; primero en lectura y después
+  únicamente las limpiezas autorizadas indicadas abajo.
+  [Desglose y límites](reports/mac-disk-audit-2026-10-03.md).
+- [x] Limpieza autorizada: 247 carpetas de pruebas y 61 archivos de sesiones
+  archivadas retirados; aumento observado del espacio libre de unos 20,76 GB.
+- [ ] Resolver fallo de `codex delete` de una sesión archivada restante (524 MB);
+  archivo e índice conservados. Instaladores pendientes son actualizaciones
+  preparadas, con DMG de Docker montados: no eliminados.
+- [x] Explicar los 262 GB aparentes de WhatsApp: clones APFS verificados,
+  2,443 GB contando cada flujo una vez, cerca de los 2,31 GB indicados por la app.
+- [x] Conciliar Finder/contenedor: 305,36 GB usados de System+Data frente a
+  ~329,08 GB del contenedor con auxiliares; no era diferencia GB/GiB.
+  Disponible 179,82 GB ya incluye 14,5 GB purgables.
+- [ ] **Pendiente aplazado:** atribuir ~35,8 GB restantes dentro de los 305,36 GB de
+  Finder (~269,6 GB inventariados, orientativos). Downloads, Trash, Fotos,
+  MobileSync y otros directorios bloqueados incluso fuera del sandbox. Resolver
+  acceso macOS o pedir tamaños; no repetir barridos de clones ya comprobados.
+- [ ] Decidir tratamiento de instaladores tras revalidar actualizaciones/montajes.
+  No borrar contenido montado ni detener Docker/worker para limpiar sin acuerdo.
+- [ ] Lightroom, auditorías antiguas y Buildx sólo si se acuerdan por separado.
+  Fuentes, geografía operativa y volumen worker se conservan. No desinstalar
+  WhatsApp ni equiparar tamaño aparente a espacio recuperable.
 
 ## UI · Círculos de setales (03/10)
 
@@ -10,29 +90,25 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
   GBIF de 16 decimales. Pruebas locales completas y confirmación del usuario.
   Publicado en **HA 0.2.331**, con los ajustes geográficos locales ya validados.
   [Release, alcance y comprobaciones](reports/release-ha-0.2.331-2026-10-03.md).
-- [ ] Instalación de 0.2.331 y comprobación en HA real, a cargo del usuario.
+- [x] HA 0.2.331 instalada y funcionando, confirmado por el usuario.
 
 ## P2 · Geografía preparada y expansión territorial
 
-- [ ] **EN CURSO · Organización local de geografía operativa y fuentes**
-  (28/09): **local y worker validados; código publicado en 0.2.331**.
-  Pruebas funcionales restantes a cargo del usuario: asignación de
+- [x] **Retirada `-todelete` completada** (03/10), autorizada por el usuario:
+  eliminadas sólo las dos carpetas antiguas del Mac. Espacio libre
+  94,44 → 116,27 GB (**+21,83 GB**). Fuentes y geografía operativa intactas.
+  Share/media de HA real sin `todelete`; ninguna eliminación remota.
+  [Revisión, autorización y mediciones](reports/geography-todelete-review-2026-10-03.md).
+- [x] **Organización local de geografía operativa y fuentes**: local/worker
+  validados, código publicado en 0.2.331 e instalación real confirmada.
+  [Plan, pasos e incidencias](mushrooms/geography-local-organization-plan-es.md).
+- [ ] Recorridos funcionales generales restantes del usuario: asignación de
   observaciones, recuperación geográfica en setales e importación GBIF.
-  Edición circular local confirmada el 03/10. Conservar `-todelete`
-  hasta completarlas y acordar su retirada.
-  `geography-sources/` preparada; 5.891 archivos antiguos conservados en
-  `mushroom-GIS-todelete/` y `mushroom-map-GIS-todelete/`. Imágenes locales
-  reconstruidas, lecturas antes/después idénticas, smoke 1.859/55 y 51 pruebas
-  dirigidas correctos. Sin cambios en HA real ni borrados. Quedan decisión sobre
-  HA real y retirada expresa de `-todelete` tras aceptación y revisión final.
-  Precálculo automático posterior confirmado también directamente en HA real:
-  revisión 277, activación HA/worker y cierre reconocido, 11 min 40 s;
-  987/987 combinaciones especie–área–día, sin faltantes/extras; limpieza completa.
-  [Plan, pasos, incidencias y retirada](mushrooms/geography-local-organization-plan-es.md).
-  [Auditoría posterior HA real](reports/ha-geography-files-audit-2026-09-28.md):
-  ya usa la raíz correcta; 16,11 GB lógicos, sin gran copia sobrante identificada
-  que pueda retirarse directamente. Históricos candidatos: 4,02 MB. No borrar
-  ni archivar antes de hablarlo con el usuario; sin necesidad de release por ello.
+  Edición circular local y funcionamiento de HA 0.2.331 confirmados.
+- [ ] Otros posibles archivos sobrantes de HA: la auditoría del 28/09 no encontró
+  una gran copia retirable; históricos candidatos sumaban 4,02 MB. No borrar ni
+  archivar sin revisión y acuerdo específicos.
+  [Auditoría HA](reports/ha-geography-files-audit-2026-09-28.md).
 - [ ] Medir disco y latencia por capa de `mushroom-map-GIS`: separar originales,
   duplicados, índices y rasters efectivamente consultados. El tamaño en disco no
   equivale al volumen leído por punto.
@@ -191,12 +267,11 @@ Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas e
   justifica. El fallo quality_read_limit ya se corrigió sin elevar los 64 MiB.
 - [ ] Paridad meteorológica: Data y PublicData son capas diferentes. Comprobar
   generación del GeoJSON y fuente de histórico antes de culpar a IDW/predicción.
-- [ ] Crecimiento de disco y caché Buildx: medir físicamente y conservar datos,
-  fuentes y backups. Limpieza adicional requiere alcance explícito; no borrar
-  imágenes/manifests mientras se está instalando HA real.
-  El 28/09 el usuario aplaza esta investigación hasta cerrar la revisión del
-  precálculo. Pendiente conciliar caída de 145–150 a 115,44 GB disponibles;
-  [mediciones parciales y límites](mushrooms/geography-local-organization-plan-es.md).
+- [ ] Caché Buildx: auditoría de disco realizada el 03/10; limpieza separada
+  todavía no autorizada. 19,8 GB declarados incluían capas compartidas; 8,39 GB
+  privados según la captura. No sumarlos además de Docker.raw ni prometer ese
+  ahorro sin revalidar. La bajada histórica de libre no está atribuida con certeza.
+  Continuar desde el bloque **P1 activo · Disco del Mac**, no repetir la auditoría.
 - [ ] Validación geográfica independiente/AMD64 antes de retirar originales.
 - [ ] Revalidar incidente Barcelona/Erinya antes de actuar:
   [informe histórico](reports/weather-coordinate-conflict-2026-09-13.json).

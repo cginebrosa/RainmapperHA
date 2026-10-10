@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.334
+
+- Add optional `Competing selection` and `K value` map settings, with device overrides and add-on defaults of disabled and K=4; preserve the usual prediction.
+- Compare the usual selection with A/B/C/D on common historical observations, display their comparison scores and highlight the best supported score, including ties.
+- Prepare selection and comparison in one worker job, reuse compatible features, validation units and fits, and update only affected species when possible; map clicks never launch this work.
+- Store compact dated comparison totals for historical map queries without repeating the historical evaluation for each requested date.
+- Add the collapsed Selection and comparison panel and accessible progress details, with a Close button that leaves running jobs active.
+- Speed up observation maintenance by sharing one known-sites read per render and loading editors on demand; preserve filters, drafts and mobile close controls.
+- Retry H.264 video conversion with invalid color-matrix metadata and report asynchronous save failures instead of silently dropping attachments.
+
 ## 0.2.333
 
 - Add a distance tool after the north control, available without a specific map permission in 2D and 3D.

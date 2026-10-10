@@ -36,6 +36,8 @@ from rainmapper_core import mushroom_predictor_precompute
 from rainmapper_core import mushroom_predictor_precompute_control
 from rainmapper_core import mushroom_ml_multiversion_transport
 from rainmapper_core import mushroom_model_explorer
+from rainmapper_core import mushroom_competing_control
+from rainmapper_core import mushroom_competing_evidence
 from rainmapper_core.mushroom_predictor_service import PredictorService
 
 
@@ -53,7 +55,7 @@ _T = TypeVar("_T")
 def _job_update_timeout(action: str, job_type: str) -> float:
     return (
         PREDICTOR_FINISH_TIMEOUT_SECONDS
-        if action == "finish" and job_type == "worker_predictor_v1"
+        if action == "finish" and job_type in {"worker_predictor_v1", mushroom_competing_control.JOB_TYPE}
         else 3.0
     )
 
@@ -95,6 +97,12 @@ class _BoundedStderrCapture:
         return self.tail_bytes()[-max(1, int(max_bytes)):].decode(
             "utf-8", errors="replace"
         )
+
+    def failure_text(self) -> str:
+        """Keep the final exception visible even when the job UI truncates it."""
+        detail = self.text().strip()
+        summary = detail.splitlines()[-1][:350] if detail else 'No error detail from process'
+        return summary + '\n' + detail
 
 
 def _start_quiet_process(command: list[str]) -> tuple[subprocess.Popen[bytes], _BoundedStderrCapture]:
@@ -374,6 +382,7 @@ def worker_status(
             mushroom_worker_registry.ML_MULTIVERSION_TRAINING_CAPABILITY,
             mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY,
             mushroom_worker_registry.ML_BENCHMARK_REPORT_CAPABILITY,
+            mushroom_competing_control.CAPABILITY,
         ],
         "dataset_cache": {
             "status": cache["status"],
@@ -1320,6 +1329,7 @@ def serve(
                     "worker_ml_multiversion_v1",
                     "worker_predictor_v1",
                     "worker_predictor_precompute_v1",
+                    mushroom_competing_control.JOB_TYPE,
                 }:
                     raise ValueError("Worker received an unsupported job type.")
                 job_update(
@@ -1328,6 +1338,59 @@ def serve(
                 )
                 started = True
                 set_runtime(lane, "busy", job_id, coordinator_id)
+                if job_type == mushroom_competing_control.JOB_TYPE:
+                    telemetry = _CoalescedJobTelemetry(
+                        telemetry_update,
+                        base_payload={"job_id": job_id, "worker_id": identity["worker_id"],
+                                      "claim_token": claim_token},
+                        cancel_message="Historical selection update was cancelled.",
+                    )
+                    inputs = with_transport_retry(lambda: mushroom_worker_transport.download_input_bundle(
+                        ha_url, job, worker_data_dir.resolve(), worker_id=identity["worker_id"],
+                        claim_token=claim_token, token=token, progress_callback=telemetry.publish,
+                        coordinator_id=storage_coordinator_id))
+                    job_dir = Path(str(inputs["input_dir"])).resolve()
+                    output = job_dir / "competing-result.json"
+                    progress_path = job_dir / "competing-progress.jsonl"
+                    if not output.is_file():
+                        cache = worker_data_dir / "competing-history" / storage_coordinator_id
+                        command = [sys.executable, "/app/scripts/run-mushroom-competing-history.py",
+                                   "--input-dir", str(job_dir), "--cache-dir", str(cache),
+                                   "--output", str(output), "--progress-jsonl", str(progress_path)]
+                        compute_process, compute_stderr = _start_quiet_process(command)
+                        last_progress = None
+                        while compute_process.poll() is None:
+                            telemetry.poll_control()
+                            if progress_path.is_file():
+                                with progress_path.open("rb") as stream:
+                                    stream.seek(max(0, progress_path.stat().st_size - 8192))
+                                    lines = stream.read(8192).splitlines()
+                                if lines:
+                                    try:
+                                        event = json.loads(lines[-1])
+                                    except (ValueError, UnicodeDecodeError):
+                                        event = None  # writer may not have finished this line
+                                    if event and event != last_progress:
+                                        telemetry.publish(event)
+                                        last_progress = event
+                            if stop_event.wait(.5):
+                                raise InterruptedError("Worker is stopping.")
+                        compute_stderr.wait()
+                        if compute_process.returncode != 0:
+                            raise RuntimeError("Historical evaluation failed: " + compute_stderr.failure_text())
+                    with output.open("rb") as stream:
+                        raw = stream.read(mushroom_competing_evidence.MAX_BYTES + 1)
+                    if len(raw) > mushroom_competing_evidence.MAX_BYTES:
+                        raise ValueError("Historical evaluation result is too large.")
+                    result = mushroom_competing_evidence.validate(json.loads(raw))
+                    if result["revision"] != job["history_revision"]:
+                        raise ValueError("Historical evaluation result belongs to another revision.")
+                    telemetry.flush()
+                    job_update("finish", {"job_id": job_id, "worker_id": identity["worker_id"],
+                        "claim_token": claim_token, "status": "complete", "result": {
+                            "revision": result["revision"], "evidence": result,
+                            "seconds": time.perf_counter() - job_thread_started}})
+                    return
                 if job_type == "worker_predictor_v1":
                     runtime_reference = job.get("runtime_manifest_ref")
                     lookup_fingerprint = str(

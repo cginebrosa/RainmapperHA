@@ -215,6 +215,64 @@ export function createPredictionMode(bridge) {
     }
   }
 
+  function appendCompeting(item, model) {
+    const data = model?.competing;
+    if (!result.competing_selection) return;
+    const panel = make('details', undefined, 'pm-competing');
+    const criteria = data?.criteria || [];
+    const values = criteria.map(row => row.days[dayIndex]);
+    const available = values.filter(row => Number.isFinite(row?.[0]));
+    const favorable = available.filter(row => row[0] >= .60 && !row[3]).length;
+    const agree = Math.max(favorable, available.length - favorable);
+    const distinct = new Set(available.map(row => row[1])).size;
+    panel.append(make('summary', available.length
+      ? `${text('competing_agreement')}: ${agree}/4 · ${distinct} ${text('competing_models')} · K=${result.k_value}`
+      : text('competing_missing')));
+    if (available.length) panel.append(make('small', text(favorable >= available.length-favorable ? 'competing_favorable' : 'competing_not_favorable')));
+    const comparison = data?.comparison?.species?.[model.species_id];
+    const number = n => Number.isFinite(n) ? n.toLocaleString(bridge.language(), {maximumFractionDigits:2}) : '—';
+    const native = model?.models?.[dayIndex];
+    const nativeLabel = Number.isInteger(native) ? model.model_labels[native] : text('competing_missing');
+    const nativeDecision = model?.selection_notice_details?.[model?.selection_notices?.[dayIndex]]?.recommendation_decision;
+    const nativeWithheld = nativeDecision?.mode === 'prudent' && nativeDecision.legacy_recommend && !nativeDecision.prudent_recommend;
+    const entries = criteria.length ? [{method:'habitual', days:[[model.probabilities?.[dayIndex], null, null, nativeWithheld]]}, ...criteria] : [];
+    if (comparison) {
+      panel.append(make('small', text('competing_common_sample').replace('{n}', comparison.visits).replace('{total}', comparison.total_visits)));
+      if (comparison.status !== 'ready') panel.append(make('small', text('competing_comparison_insufficient')));
+    } else panel.append(make('small', text(data?.comparison_unavailable_reason === 'historical_not_prepared'
+      ? 'competing_comparison_historical_missing' : 'competing_comparison_pending')));
+    for (const criterion of entries) {
+      const usual = criterion.method === 'habitual';
+      const [probability, ref, score, withheld] = criterion.days[usual ? 0 : dayIndex];
+      const evaluated = comparison?.methods?.[criterion.method];
+      const winner = comparison?.winners?.includes(criterion.method);
+      const row = make('div', undefined, 'pm-competing-row');
+      row.dataset.method = criterion.method;
+      row.classList.toggle('pm-comparison-winner', !!winner);
+      row.append(make('strong', usual ? text('competing_habitual') : `${criterion.method} · ${text('competing_'+criterion.method)}`),
+        make('span', !Number.isFinite(probability) ? '—' : `IFF:${indexText(probability)}${withheld ? ' · '+text('consensus_abstain') : ''}`),
+        make('small', usual ? nativeLabel : probability === null ? text('competing_missing') : data.labels[ref]),
+        make('small', `${text('competing_comparison_score')}: ${number(evaluated?.ik)}`, 'pm-comparison-score'));
+      if (winner) row.append(make('small', text('competing_comparison_winner'), 'pm-comparison-winner-label'));
+      const more = make('details', undefined, 'pm-competing-details');
+      more.append(make('summary', text('competing_score_details')));
+      if (!usual) more.append(make('small', `${text('competing_selection_score')}: ${number(score)} · ${criterion.years.join(', ') || '—'}`));
+      if (evaluated) {
+        more.append(make('small', text('competing_calls_counts').replace('{calls}', number(evaluated.calls))
+          .replace('{tp}', number(evaluated.tp)).replace('{fp}', number(evaluated.fp))),
+          make('small', text('competing_rates').replace('{precision}', number(evaluated.precision === null ? null : 100*evaluated.precision))
+            .replace('{recall}', number(evaluated.recall === null ? null : 100*evaluated.recall))),
+          make('small', `${comparison.start || '—'} → ${comparison.end || '—'}`));
+      }
+      row.append(more);
+      panel.append(row);
+    }
+    const help = make('details', undefined, 'pm-competing-details');
+    help.append(make('summary', text('competing_comparison_method')), make('p', text('competing_help')),
+      make('p', text('competing_comparison_help')));
+    panel.append(help); item.append(panel);
+  }
+
   function appendApplicability(item, model) {
     const info = model?.applicability_details?.[model?.applicability?.[dayIndex]];
     if (!info || !["caution", "outside_domain"].includes(info.status)) return;
@@ -318,8 +376,39 @@ export function createPredictionMode(bridge) {
         Array.isArray(row.daily_season_phases) && row.daily_season_phases.length === dates.length &&
         row.daily_season_phases.every(p => ["main","secondary","out_of_season","unknown"].includes(p)));
   }
+  function validCompeting(data, horizon) {
+    return ['temporal_history','unavailable'].includes(data?.evidence) &&
+      Array.isArray(data.labels) && data.labels.length <= 28 &&
+      data.labels.every(label => typeof label === 'string' && label.length > 0 && label.length <= 96) &&
+      Array.isArray(data.criteria) && data.criteria.length === 4 && data.criteria.every((row, i) =>
+        row.method === 'ABCD'[i] && Array.isArray(row.years) && row.years.length <= 101 &&
+        row.years.every(y => Number.isInteger(y) && y >= 2000 && y <= 2100) &&
+        Array.isArray(row.days) && row.days.length === horizon && row.days.every(day =>
+          Array.isArray(day) && (day.length === 3 && day.every(v => v === null) ||
+          day.length === 4 && Number.isFinite(day[0]) && day[0] >= 0 && day[0] <= 1 &&
+          Number.isInteger(day[1]) && day[1] >= 0 && day[1] < data.labels.length &&
+          Number.isFinite(day[2]) && typeof day[3] === 'boolean')));
+  }
+  function validRuleComparison(value, sid, request) {
+    if (value == null) return true;
+    const methods = ['habitual','A','B','C','D'];
+    const row = value.species?.[sid];
+    if (value.protocol !== 'common_selection_walk_forward_v1' || value.k !== request.k_value ||
+        typeof value.cutoff !== 'string' || value.cutoff > request.start_date || !row ||
+        !['ready','insufficient'].includes(row.status) ||
+        !['visits','positive','total_visits'].every(k => Number.isInteger(row[k]) && row[k] >= 0 && row[k] <= 10000) ||
+        row.positive > row.visits || row.visits > row.total_visits ||
+        !Array.isArray(row.winners) || !row.winners.every(m => methods.includes(m)) ||
+        !methods.every(m => row.methods?.[m] &&
+          ['tp','fp','calls','abstentions'].every(k => Number.isFinite(row.methods[m][k]) && row.methods[m][k] >= 0 && row.methods[m][k] <= row.visits) &&
+          (row.methods[m].ik === null || Number.isFinite(row.methods[m].ik)))) return false;
+    const best = row.status === 'ready' ? Math.max(...methods.map(m => row.methods[m].ik)) : null;
+    return methods.every(m => row.winners.includes(m) === (best !== null && Math.abs(row.methods[m].ik-best) <= 1e-9));
+  }
   function validResponse(data, request) {
     return data?.contract === config.contract && data.request_id === request.request_id &&
+      (!!data.competing_selection === !!request.competing_selection) &&
+      (!request.competing_selection || data.k_value === request.k_value) &&
       ["simulation","prediction"].includes(data.data_mode) && data.provenance?.scientifically_validated === false &&
       data.point?.lat === request.point.lat && data.point?.lon === request.point.lon &&
       Array.isArray(data.dates) && data.dates.length === request.horizon_days &&
@@ -327,6 +416,8 @@ export function createPredictionMode(bridge) {
       (request.horizon_days !== 1 || data.dates[0] === request.start_date) &&
       validEcology(data.ecology, data.dates) &&
       Array.isArray(data.species) && data.species.length <= 32 && data.species.every((row) =>
+        (row.competing === undefined || (request.competing_selection && validCompeting(row.competing, data.dates.length) &&
+          validRuleComparison(row.competing.comparison, row.species_id, request))) &&
         typeof row.label_key === "string" && ["available", "no_model"].includes(row.status) &&
         (row.training_observation_usage === undefined || (request.observation_id &&
           Array.isArray(row.training_observation_usage) && row.training_observation_usage.length === data.dates.length &&
@@ -376,6 +467,7 @@ export function createPredictionMode(bridge) {
       horizon_days: 7, history_days: 60, species_ids: [],
       ...(observation ? {observation_id: observation.id} : {}),
       execution: bridge.execution(),
+      ...(bridge.competing?.() || {}),
     };
     const started = performance.now();
     const timeout = setTimeout(() => controller.abort(), 60000);
@@ -561,6 +653,7 @@ export function createPredictionMode(bridge) {
         }
         item.append(seasonSummary);
         appendSelectionNotice(item, predicted.get(row.species_id));
+        appendCompeting(item, predicted.get(row.species_id));
         appendApplicability(item, predicted.get(row.species_id));
         if (row.reasons?.includes("ph_conflict_soil_supported")) {
           item.append(make("small", text("soil_ph_supported"), "pm-soil-ph-supported"));

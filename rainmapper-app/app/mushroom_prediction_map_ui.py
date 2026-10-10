@@ -14,6 +14,7 @@ from rainmapper_core import mushroom_prediction_map as contract
 from rainmapper_core import mushroom_map_history as history
 from rainmapper_core import mushroom_map_observations as observations
 from rainmapper_core import mushroom_map_known_sites as known_sites
+from rainmapper_core import mushroom_map_competing as competing
 from rainmapper_core.mushroom_map_queries import QueryBroker, QueryError
 
 _broker = None
@@ -208,6 +209,7 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
             "admin_only": False, "data_mode": data_mode, "worker_ready": available["worker"],
             "executors": available,
             "calendar_timezone": getattr(current.executor,'calendar_timezone','Europe/Madrid'),
+            "prediction_defaults": competing.defaults(),
             "max_horizon_days": 7, "max_species": contract.MAX_SPECIES,
         })
         return
@@ -215,6 +217,15 @@ def serve_api(handler, path: str, *, post: bool = False) -> None:
         try:
             request = contract.parse_request(handler.read_request_body(contract.MAX_REQUEST_BYTES))
             historical = history.is_request(request)
+            if not historical:
+                defaults = competing.defaults()
+                enabled = request.get('competing_selection', defaults['competing_selection'])
+                if enabled:
+                    request['competing_selection'] = True
+                    request.setdefault('k_value', defaults['k_value'])
+                else:
+                    request.pop('competing_selection', None)
+                    request.pop('k_value', None)
             if request.get('observation_id') and user.get(observations.PERMISSION) is not True:
                 raise QueryError('forbidden', 403)
             if not (user.get(history.PERMISSION) is True if historical else contract.can_access(user)):

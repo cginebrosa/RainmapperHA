@@ -12,6 +12,7 @@ import math
 import statistics
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Literal, Mapping, Sequence
 
@@ -532,8 +533,17 @@ def _parse_observed_day(value: object) -> date | None:
     text = str(value or "").strip()
     if not text:
         return None
+    day_text = text[:10]
+    # Daily weather arrays use ISO dates. Avoid the general-purpose strptime
+    # machinery for those millions of repeated reads; retain its historical
+    # acceptance of non-padded dates for imported observations.
+    if len(day_text) == 10 and day_text[4] == '-' and day_text[7] == '-':
+        try:
+            return date.fromisoformat(day_text)
+        except ValueError:
+            pass
     try:
-        return datetime.strptime(text[:10], "%Y-%m-%d").date()
+        return datetime.strptime(day_text, "%Y-%m-%d").date()
     except ValueError:
         return None
 
@@ -824,6 +834,28 @@ def _dry_spell(values: Sequence[float | None]) -> tuple[int | None, bool]:
     return (run if run else None), True
 
 
+@lru_cache(maxsize=16)
+def _cached_cutoff_axis(raw_dates, cutoff):
+    """Share only date ordering; values and missing-data gates stay live."""
+    parsed = tuple(_parse_observed_day(value) for value in raw_dates)
+    if any(value is None for value in parsed):
+        return None
+    order = tuple(sorted(range(len(parsed)), key=parsed.__getitem__))
+    indices = tuple(i for i in order if parsed[i] <= cutoff)
+    unique = len(set(parsed)) == len(parsed)
+    enough = unique and [parsed[i] for i in indices[-EVENT_LOOKBACK_DAYS:]] == list(
+        weather_context.date_window(cutoff, EVENT_LOOKBACK_DAYS))
+    return indices, unique, enough
+
+
+def _cutoff_axis(raw_dates, cutoff):
+    # Unusual/unbounded inputs use the original validator below. Cache size is
+    # bounded by both entries and dates, never by the observation count.
+    if len(raw_dates) <= 366 and all(type(value) is str for value in raw_dates):
+        return _cached_cutoff_axis(tuple(raw_dates), cutoff)
+    return None
+
+
 def _rainfall_at_cutoff(
     area_rainfall: Mapping[str, object] | None,
     cutoff_day: date,
@@ -846,6 +878,13 @@ def _rainfall_at_cutoff(
         suppressed = [0] * len(raw_values)
     if len(imputed) != len(raw_values):
         imputed = [0] * len(raw_values)
+    axis = _cutoff_axis(raw_dates, cutoff_day)
+    if axis is not None:
+        indices, unique_axis, enough_history = axis
+        values = [(_float_or_none(v), int(s or 0), int(i or 0))
+                  for v,s,i in zip(raw_values, suppressed, imputed, strict=True)]
+        return ([values[i][0] for i in indices], [values[i][1] for i in indices],
+                [values[i][2] for i in indices], unique_axis, enough_history, None)
     parsed: list[tuple[date, float | None, int, int]] = []
     for raw_day, raw_value, raw_suppressed, raw_imputed in zip(
         raw_dates, raw_values, suppressed, imputed, strict=True
@@ -889,6 +928,13 @@ def _area_weather_metric_at_cutoff(
         return [], [], False, False, "area_weather_series_unaligned"
     if len(raw_availability) != len(raw_values):
         raw_availability = [0] * len(raw_values)
+    axis = _cutoff_axis(raw_dates, cutoff_day)
+    if axis is not None:
+        indices, unique_axis, enough_history = axis
+        values = [(_float_or_none(v), int(n or 0))
+                  for v,n in zip(raw_values, raw_availability, strict=True)]
+        return ([values[i][0] for i in indices], [values[i][1] for i in indices],
+                unique_axis, enough_history, None)
     parsed: list[tuple[date, float | None, int]] = []
     for raw_day, raw_value, raw_count in zip(
         raw_dates, raw_values, raw_availability, strict=True
@@ -1508,8 +1554,13 @@ def build_biology_v3_benchmark(
     area_rainfall_by_date: Mapping[tuple[str, str], Mapping[str, object]],
     stations: Mapping[tuple[str, str], weather_context.WeatherStation],
     horizons: Iterable[int] = tuple(range(1, 8)),
+    stream_samples: bool = False,
 ) -> dict[str, object]:
-    """Build an auditable benchmark without aggregating original observations."""
+    """Build an auditable benchmark without aggregating original observations.
+
+    Streaming consumers exhaust ``samples`` before publishing the header: its
+    eligible counter is accumulated while yielding the exact same source rows.
+    """
     try:
         feature_set = BIOLOGY_V3_FEATURE_SETS[feature_set_id]
     except KeyError as exc:
@@ -1523,37 +1574,34 @@ def build_biology_v3_benchmark(
     validation_groups_14d = observation_validation_groups(
         observations, micro_area_to_area=micro_area_to_area, max_duration_days=14
     )
-    samples: list[dict[str, object]] = []
-    for observation_index, observation in enumerate(observations):
-        micro_area_id = str(observation.get("micro_area_id") or "")
-        area_id = str(observation.get("area_id") or micro_area_to_area.get(micro_area_id) or "")
-        observed_day = _parse_observed_day(observation.get("observed_at"))
-        area_context = area_contexts.get(area_id)
-        rainfall = area_rainfall_by_date.get(
-            (area_id, observed_day.isoformat() if observed_day else "")
-        )
-        for horizon_days in horizon_values:
-            builder = (
-                build_fixed_gap_7d_biology_v3
-                if feature_set.horizon_mode == "fixed_7d"
-                else build_lag_event_biology_v3
+    def rows():
+        for observation_index, observation in enumerate(observations):
+            micro_area_id = str(observation.get("micro_area_id") or "")
+            area_id = str(observation.get("area_id") or micro_area_to_area.get(micro_area_id) or "")
+            observed_day = _parse_observed_day(observation.get("observed_at"))
+            area_context = area_contexts.get(area_id)
+            rainfall = area_rainfall_by_date.get(
+                (area_id, observed_day.isoformat() if observed_day else "")
             )
-            kwargs: dict[str, object] = {
-                "area_context": area_context,
-                "area_rainfall": rainfall,
-                "stations": stations,
-            }
-            if feature_set.horizon_mode == "variable":
-                kwargs["horizon_days"] = horizon_days
-            sample = builder(observation, **kwargs)
-            sample["metadata"]["validation_group_7d"] = validation_groups_7d[
-                observation_index
-            ]
-            sample["metadata"]["validation_group_14d"] = validation_groups_14d[
-                observation_index
-            ]
-            samples.append(sample)
-    return {
+            for horizon_days in horizon_values:
+                builder = (
+                    build_fixed_gap_7d_biology_v3
+                    if feature_set.horizon_mode == "fixed_7d"
+                    else build_lag_event_biology_v3
+                )
+                kwargs: dict[str, object] = {
+                    "area_context": area_context,
+                    "area_rainfall": rainfall,
+                    "stations": stations,
+                }
+                if feature_set.horizon_mode == "variable":
+                    kwargs["horizon_days"] = horizon_days
+                sample = builder(observation, **kwargs)
+                sample["metadata"]["validation_group_7d"] = validation_groups_7d[observation_index]
+                sample["metadata"]["validation_group_14d"] = validation_groups_14d[observation_index]
+                result['training_eligible_sample_count'] += bool(sample['quality']['training_eligible'])
+                yield sample
+    result = {
         "schema_version": "3.0-benchmark",
         "kind": "mushroom_ml_biology_v3_benchmark",
         "target_contract_id": TARGET_CONTRACT_ID,
@@ -1567,12 +1615,11 @@ def build_biology_v3_benchmark(
         "observation_count": len(observations),
         "validation_group_count_7d": len(set(validation_groups_7d)),
         "validation_group_count_14d": len(set(validation_groups_14d)),
-        "sample_count": len(samples),
-        "training_eligible_sample_count": sum(
-            bool(sample["quality"]["training_eligible"]) for sample in samples
-        ),
-        "samples": samples,
+        "sample_count": len(observations) * len(horizon_values),
+        "training_eligible_sample_count": 0,
     }
+    result['samples'] = rows() if stream_samples else list(rows())
+    return result
 
 
 def observation_validation_groups(

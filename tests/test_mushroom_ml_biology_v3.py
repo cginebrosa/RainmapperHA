@@ -2,7 +2,7 @@ import json
 import copy
 import tempfile
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
@@ -10,6 +10,40 @@ from rainmapper_core import mushroom_observation_context as weather_context
 
 
 class MushroomMLBiologyV3Tests(unittest.TestCase):
+    def test_observed_day_fast_path_preserves_import_date_acceptance(self):
+        cases = [None, '', 0, '2026-10-07', '2026-10-07T13:20:00',
+                 ' 2026-10-07 ', '2026-1-7', '2024-02-29', '2026-02-29',
+                 '2026-13-01', '20261007', '2026-W41-3', 'x026-10-07',
+                 date(2026, 10, 7), datetime(2026, 10, 7, 13, 20)]
+        for value in cases:
+            try:
+                expected = datetime.strptime(str(value or '').strip()[:10], '%Y-%m-%d').date()
+            except ValueError:
+                expected = None
+            with self.subTest(value=value):
+                self.assertEqual(biology_v3._parse_observed_day(value), expected)
+
+    def test_shared_cutoff_axis_preserves_native_results_and_changed_values(self):
+        from unittest.mock import patch
+        cutoff = date(2026, 8, 12)
+        source = self.area_rainfall(missing_ages={1, 8, 55})
+        metric = dict(value_key='daily_temp_min_idw_mean_c', availability_key='daily_temp_min_microareas_available')
+        scenarios = [source, copy.deepcopy(source), copy.deepcopy(source), copy.deepcopy(source)]
+        for key, value in scenarios[1].items():
+            if isinstance(value, list): value.reverse()
+        scenarios[2]['daily_dates'][3] = scenarios[2]['daily_dates'][4]
+        scenarios[3]['daily_dates'][3] = 'invalid-date'
+        for row in scenarios:
+            with patch.object(biology_v3, '_cutoff_axis', return_value=None):
+                native = (biology_v3._rainfall_at_cutoff(row, cutoff),
+                          biology_v3._area_weather_metric_at_cutoff(row, cutoff, **metric))
+            self.assertEqual((biology_v3._rainfall_at_cutoff(row, cutoff),
+                              biology_v3._area_weather_metric_at_cutoff(row, cutoff, **metric)), native)
+        before = biology_v3._rainfall_at_cutoff(source, cutoff)
+        source['daily_rain_idw_mean_mm'][-3] = 123.
+        self.assertNotEqual(biology_v3._rainfall_at_cutoff(source, cutoff), before)
+        self.assertLessEqual(biology_v3._cached_cutoff_axis.cache_info().currsize, 16)
+
     def observation(self, observation_id: str, **updates: object) -> dict[str, object]:
         row: dict[str, object] = {
             "observation_id": observation_id,
@@ -455,6 +489,25 @@ class MushroomMLBiologyV3Tests(unittest.TestCase):
             {sample["metadata"]["observation_id"] for sample in payload["samples"]},
             {"one", "two"},
         )
+
+    def test_streamed_benchmark_keeps_all_rows_and_final_header_counts(self) -> None:
+        from rainmapper_core import mushroom_ml_benchmark_io as io
+        from pathlib import Path
+        import tempfile
+        args = dict(observations=[self.observation('one'), self.observation('two')],
+            feature_set_id=biology_v3.LAG_EVENT_BIOLOGY_V3_ID,
+            micro_area_to_area={'site_a':'area'}, area_contexts={'area':self.area_context()},
+            area_rainfall_by_date={('area','2026-08-13'):self.area_rainfall()},
+            stations={('test','COMPLETE'):self.complete_station('COMPLETE')})
+        expected = biology_v3.build_biology_v3_benchmark(**args)
+        streamed = biology_v3.build_biology_v3_benchmark(**args, stream_samples=True)
+        self.assertNotIsInstance(streamed['samples'], list)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'v3.parquet'
+            io.write_rows(path, streamed, streamed['samples'],
+                          columns=streamed['feature_set']['candidate_predictive_feature_cols'],
+                          count=streamed['sample_count'], refresh_header=True)
+            self.assertEqual(io.read(path), expected)
 
     def test_lag_benchmark_defaults_to_every_operational_week_horizon(self) -> None:
         payload = biology_v3.build_biology_v3_benchmark(

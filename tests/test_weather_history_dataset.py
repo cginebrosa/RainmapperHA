@@ -179,6 +179,38 @@ class WeatherHistoryDatasetTests(unittest.TestCase):
             datetime(2025, 12, 31).date(), datetime(2026, 1, 1).date()
         })
 
+    def test_streamed_station_loader_matches_dataframe_without_materializing_it(self):
+        arguments = dict(station_filter={('meteocat','A'), ('meteocat','B'), ('wunderground','W')},
+                         start_date=datetime(2025,12,31).date(), end_date=datetime(2026,1,1).date())
+        with mock.patch.dict('os.environ', {'RAINMAPPER_PARTITIONED_WEATHER_HISTORY':'true'}):
+            expected = mushroom_observation_context.load_daily_weather_parquet(self.data_dir, **arguments)
+            with mock.patch.object(weather_history_dataset, 'read_weather_history',
+                                   side_effect=AssertionError('must stream')):
+                actual = mushroom_observation_context.load_daily_weather_parquet(
+                    self.data_dir, **arguments, stream_records=True)
+        self.assertEqual(actual, expected)
+        day = datetime(2025,12,31).date()
+        self.assertIs(actual['meteocat','A'].records_by_day[day].day,
+                      actual['meteocat','B'].records_by_day[day].day)
+
+    def test_streamed_station_records_keep_first_metadata_and_last_duplicate(self):
+        columns = ['source','station_code','station_name','local_date','lat','lon','altitude',
+            'rain_mm','max_temp_celsius','min_temp_celsius','max_humidity_percent','min_humidity_percent',
+            'wind_avg_kmh','wind_gust_kmh','wind_source_height_m']
+        records = [['test','A',' Old ','20251231',42.,2.,None,1.,18.,None,80.,40.,None,20.,10.],
+                   ['test','A','New','20260101',43.,3.,900.,2.,None,5.,None,None,8.,None,None],
+                   ['test','A','New','20260101',43.,3.,900.,3.,None,6.,None,None,8.,None,None],
+                   ['test','A','Bad day','not-a-date',42.,2.,800.,99.,None,None,None,None,None,None,None]]
+        batches = [pa.RecordBatch.from_pydict({c:[row[i]] for i,c in enumerate(columns)}) for row in records]
+        stations = mushroom_observation_context._streamed_weather_stations(
+            batches, columns=columns, catalog_altitudes={('test','A'):700.})
+        station = stations['test','A']
+        self.assertEqual((station.lat,station.lon,station.altitude_m,station.station_name),(42.,2.,700.,'Old'))
+        self.assertEqual(len(station.records_by_day),2)
+        last = station.records_by_day[datetime(2026,1,1).date()]
+        self.assertEqual((last.rain_mm,last.temp_min_c,last.lat,last.lon,last.station_name),(3.,6.,42.,2.,'New'))
+        self.assertIsNone(last.humidity_max_pct)
+
     def test_partitioned_predictor_loader_rejects_unbounded_dataframe_read(self):
         with mock.patch.dict(
             "os.environ", {"RAINMAPPER_PARTITIONED_WEATHER_HISTORY": "true"}

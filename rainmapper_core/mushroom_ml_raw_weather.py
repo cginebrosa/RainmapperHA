@@ -1,8 +1,10 @@
 """Biology V5 daily-lag feature contract for benchmark and optional runtime."""
 
 from __future__ import annotations
+from functools import lru_cache
 
 import math
+from array import array
 from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Any
@@ -111,12 +113,30 @@ def _as_float(value: object) -> float | None:
     return number if math.isfinite(number) else None
 
 
+@lru_cache(maxsize=32)
+def _lag_plan(columns):
+    requested = set(columns) if columns is not None else None
+    plan = []
+    for channel in DAILY_CHANNELS:
+        fields = ((lag_feature_name(channel, lag), lag) for lag in range(LOOKBACK_DAYS))
+        plan.append((channel, tuple((name, lag) for name, lag in fields
+                                   if requested is None or name in requested)))
+    if requested is not None:
+        known = {name for _, fields in plan for name, _ in fields}
+        known.update(PHYSICAL_STATE_SCALARS)
+        known.update(('target_day_sin', 'target_day_cos', 'horizon_days'))
+        if requested - known:
+            raise ValueError('unknown raw feature columns')
+    return tuple(plan)
+
+
 def build_raw_features(
     area_series: Mapping[str, object],
     *,
     target_date: date,
     horizon_days: int,
     temporal_contract_id: str,
+    feature_columns=None,
 ) -> dict[str, float | None]:
     """Flatten oldest-to-newest area series onto cutoff-relative daily lags."""
     raw_dates = list(area_series.get("daily_dates") or [])
@@ -126,20 +146,64 @@ def build_raw_features(
     if any((right - left).days != 1 for left, right in zip(parsed, parsed[1:])):
         raise ValueError("raw daily dates must be consecutive")
     features: dict[str, float | None] = {}
-    for channel in DAILY_CHANNELS:
+    requested = set(feature_columns) if feature_columns is not None else None
+    for channel, fields in _lag_plan(tuple(feature_columns) if feature_columns is not None else None):
+        if not fields:
+            continue
         values = list(area_series.get(AREA_SERIES_KEYS[channel]) or [])
         if len(values) != LOOKBACK_DAYS:
             values = [None] * LOOKBACK_DAYS
-        for lag, value in enumerate(reversed(values)):
-            features[lag_feature_name(channel, lag)] = _as_float(value)
+        for name, lag in fields:
+            features[name] = _as_float(values[-1-lag])
     for name in PHYSICAL_STATE_SCALARS:
-        features[name] = _as_float(area_series.get(name))
+        if requested is None or name in requested:
+            features[name] = _as_float(area_series.get(name))
+    features.update(_target_features(target_date, horizon_days, temporal_contract_id, requested))
+    return features
+
+
+def _target_features(target_date, horizon_days, temporal_contract_id, requested):
+    features = {}
     angle = 2.0 * math.pi * ((target_date.timetuple().tm_yday - 1) / 365.2425)
-    features["target_day_sin"] = math.sin(angle)
-    features["target_day_cos"] = math.cos(angle)
-    if temporal_contract_id == LAG_CONTRACT_ID:
+    if requested is None or 'target_day_sin' in requested:
+        features["target_day_sin"] = math.sin(angle)
+    if requested is None or 'target_day_cos' in requested:
+        features["target_day_cos"] = math.cos(angle)
+    if temporal_contract_id == LAG_CONTRACT_ID and (requested is None or 'horizon_days' in requested):
         features["horizon_days"] = float(horizon_days)
     return features
+
+
+@lru_cache(maxsize=32)
+def _window_columns(columns):
+    return tuple(name for name in columns
+                 if name not in ('target_day_sin', 'target_day_cos', 'horizon_days'))
+
+
+class PreparedRawWindow:
+    """Private fit inputs shared by every sample using an area/cutoff.
+
+    Retain typed predictors and quality counters, not the overlapping daily
+    weather arrays. Phenology and horizon remain specific to each target.
+    """
+    __slots__ = ('columns', 'values', 'coverage')
+
+    def __init__(self, area_series, *, feature_columns=None):
+        fields = build_raw_features(area_series, target_date=date(2000, 1, 1),
+            horizon_days=0, temporal_contract_id=FIXED_CONTRACT_ID,
+            feature_columns=feature_columns)
+        self.columns = _window_columns(tuple(fields))
+        self.values = array('d', (fields[name] if fields[name] is not None else math.nan
+                                  for name in self.columns))
+        self.coverage = coverage_by_channel(area_series)
+
+    def features(self, target, horizon, contract, columns):
+        requested = set(columns) if columns is not None else None
+        result = {name: value if math.isfinite(value) else None
+                  for name, value in zip(self.columns, self.values, strict=True)
+                  if requested is None or name in requested}
+        result.update(_target_features(target, horizon, contract, requested))
+        return result
 
 
 def coverage_by_channel(area_series: Mapping[str, object]) -> dict[str, dict[str, int]]:
@@ -159,15 +223,14 @@ def coverage_by_channel(area_series: Mapping[str, object]) -> dict[str, dict[str
 
 def diagnostic_weather_summary(area_series: Mapping[str, object]) -> dict[str, dict[str, float | int | None]]:
     bands = ((0, 7), (7, 30), (30, 90), (90, 180), (180, 365))
+    channels = {channel: [_as_float(item) for item in reversed(
+        list(area_series.get(AREA_SERIES_KEYS[channel]) or []))] for channel in DAILY_CHANNELS}
     result: dict[str, dict[str, float | int | None]] = {}
     for start, end in bands:
         key = f"lag_{start:03d}_{end - 1:03d}"
         row: dict[str, float | int | None] = {}
         for channel in DAILY_CHANNELS:
-            recent = [
-                _as_float(item)
-                for item in reversed(list(area_series.get(AREA_SERIES_KEYS[channel]) or []))
-            ]
+            recent = channels[channel]
             values = [value for value in recent[start:end] if value is not None]
             row[f"{channel}_observed_days"] = len(values)
             if channel in {"rain_mm", "eto0_mm", "climatic_balance_mm"}:
@@ -183,16 +246,22 @@ def build_v5_sample(
     area_series: Mapping[str, object],
     *,
     temporal_contract_id: str,
+    feature_columns=None,
+    include_diagnostics=True,
+    prepared_window=None,
 ) -> dict[str, Any]:
     metadata = dict(source.get("metadata") or {})
     target = date.fromisoformat(str(metadata["target_date"]))
     horizon = int(metadata.get("horizon_days") or 7)
     observation_id = str(metadata.get("observation_id") or source.get("sample_id") or "")
-    features = build_raw_features(
+    if prepared_window is not None and include_diagnostics:
+        raise ValueError('prepared raw windows omit scientific diagnostics')
+    features = prepared_window.features(target, horizon, temporal_contract_id, feature_columns) if prepared_window is not None else build_raw_features(
         area_series,
         target_date=target,
         horizon_days=horizon,
         temporal_contract_id=temporal_contract_id,
+        feature_columns=feature_columns,
     )
     metadata.update(
         {
@@ -201,12 +270,15 @@ def build_v5_sample(
             "feature_set_id": temporal_contract_id,
             "raw_weather_contract_id": RAW_WEATHER_CONTRACT_ID,
             "daily_lag_orientation": "lag_000_is_cutoff_lag_364_is_oldest",
-            "raw_daily_dates": list(area_series.get("daily_dates") or []),
-            "diagnostic_weather_summary": diagnostic_weather_summary(area_series),
         }
     )
+    if include_diagnostics:
+        metadata['raw_daily_dates'] = list(area_series.get('daily_dates') or [])
+        metadata['diagnostic_weather_summary'] = diagnostic_weather_summary(area_series)
     quality = dict(source.get("quality") or {})
-    quality["raw365_coverage_by_channel"] = coverage_by_channel(area_series)
+    quality["raw365_coverage_by_channel"] = (
+        {channel: dict(counts) for channel, counts in prepared_window.coverage.items()}
+        if prepared_window is not None else coverage_by_channel(area_series))
     return {
         "sample_id": f"{observation_id}|{temporal_contract_id}|h{horizon}",
         "prediction_target": source.get("prediction_target"),

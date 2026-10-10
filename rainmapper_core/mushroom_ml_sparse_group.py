@@ -37,25 +37,23 @@ class SparseGroupLogisticClassifier:
         if group_strength <= 0:
             return shrunk
         result = shrunk.copy()
-        groups = self.groups_
-        for group in np.unique(groups):
-            indices = np.flatnonzero(groups == group)
+        for indices, size_root in self._fit_groups:
             norm = float(np.linalg.norm(result[indices]))
-            threshold = group_strength * np.sqrt(len(indices))
+            threshold = group_strength * size_root
             if norm <= threshold:
                 result[indices] = 0.0
             else:
                 result[indices] *= 1.0 - threshold / norm
         return result
 
-    def _objective(self, X: np.ndarray, y: np.ndarray, coef: np.ndarray, intercept: float) -> float:
-        scores = X @ coef + intercept
+    def _objective(self, X: np.ndarray, y: np.ndarray, coef: np.ndarray, intercept: float, *, scores=None) -> float:
+        if scores is None:
+            scores = X @ coef + intercept
         loss = float(np.mean(np.logaddexp(0.0, scores) - y * scores))
         l1 = float(np.sum(np.abs(coef)))
         group = 0.0
-        for value in np.unique(self.groups_):
-            indices = self.groups_ == value
-            group += np.sqrt(int(np.sum(indices))) * float(np.linalg.norm(coef[indices]))
+        for indices, size_root in self._fit_groups:
+            group += size_root * float(np.linalg.norm(coef[indices]))
         return loss + self.regularization * (self.l1_ratio * l1 + (1.0 - self.l1_ratio) * group)
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "SparseGroupLogisticClassifier":
@@ -70,18 +68,22 @@ class SparseGroupLogisticClassifier:
         self.groups_ = self.groups if self.groups is not None else np.arange(X.shape[1])
         if len(self.groups_) != X.shape[1]:
             raise ValueError("groups must contain one id per feature")
+        self._fit_groups = [(indices, np.sqrt(len(indices)))
+                            for value in np.unique(self.groups_)
+                            for indices in [np.flatnonzero(self.groups_ == value)]]
         coef = np.zeros(X.shape[1], dtype=float)
         intercept = float(np.log(np.mean(y) / (1.0 - np.mean(y))))
         # Frobenius norm is a cheap conservative upper bound for the spectral
         # norm; the V5 matrices are wide (up to 2,557 columns).
         spectral_upper = float(np.linalg.norm(X, ord="fro"))
         step = 1.0 / max(0.25 * spectral_upper * spectral_upper / len(X), 1e-6)
-        objective = self._objective(X, y, coef, intercept)
+        scores = X @ coef + intercept
+        objective = self._objective(X, y, coef, intercept, scores=scores)
         history = [objective]
         converged = False
         for iteration in range(1, self.max_iter + 1):
             previous_objective = objective
-            probabilities = self._sigmoid(X @ coef + intercept)
+            probabilities = self._sigmoid(scores)
             residual = probabilities - y
             gradient = X.T @ residual / len(X)
             intercept_gradient = float(np.mean(residual))
@@ -89,12 +91,15 @@ class SparseGroupLogisticClassifier:
             while True:
                 candidate = self._prox(coef - local_step * gradient, local_step)
                 candidate_intercept = intercept - local_step * intercept_gradient
-                candidate_objective = self._objective(X, y, candidate, candidate_intercept)
+                candidate_scores = X @ candidate + candidate_intercept
+                candidate_objective = self._objective(X, y, candidate, candidate_intercept,
+                                                      scores=candidate_scores)
                 if candidate_objective <= objective + 1e-12 or local_step < 1e-12:
                     break
                 local_step *= 0.5
             delta = max(float(np.max(np.abs(candidate - coef))), abs(candidate_intercept - intercept))
             coef, intercept, objective = candidate, candidate_intercept, candidate_objective
+            scores = candidate_scores
             history.append(objective)
             step = min(local_step * 1.05, step)
             if delta <= self.tolerance or abs(previous_objective - objective) <= self.tolerance:

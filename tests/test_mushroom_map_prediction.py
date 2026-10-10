@@ -4,7 +4,7 @@ from datetime import date, timedelta
 import unittest
 from unittest.mock import Mock
 
-from rainmapper_core.mushroom_map_prediction import resolve_species_week
+from rainmapper_core.mushroom_map_prediction import resolve_species_week, prepare_species_week_resolutions
 from rainmapper_core import mushroom_ml_multiversion_comparison as comparison
 from rainmapper_core.mushroom_predictor_precompute import weekly_aggregate_resolution_index
 
@@ -136,6 +136,28 @@ class PointWeekTests(unittest.TestCase):
                 members[day],selected[day],season_phase="in_season",phenology={})
             self.assertEqual(row["operational_comparison"],expected)
             self.assertEqual(row["reliability_selection"],active)
+
+    def test_prepared_week_preserves_decisions_cutoff_and_immutable_plan(self):
+        for independent in (False, True):
+            for fixed in (False, True):
+                rows = self.resolutions()
+                if fixed:
+                    for row in rows.values():
+                        for entry in row['candidate_chain']:
+                            entry['candidate'].update(temporal_contract_id='fixed_gap_7d_biology_v6', horizon_days=7)
+                        row['candidate'] = copy.deepcopy(row['candidate_chain'][0]['candidate'])
+                plan = prepare_species_week_resolutions(species_id='species-a', point_id='point-a',
+                    resolutions_by_day=rows, issue_date=None, installed_version_ids=['biology_v6'],
+                    independent_days=independent)
+                before = copy.deepcopy(plan)
+                for veto in ({}, {'quality_first': {7}}, {'quality_first': {7}, 'coverage_first': {1,2}}):
+                    kwargs = dict(species_id='species-a',point_id='point-a',issue_date=self.issue,
+                        resolutions_by_day=rows,installed_version_ids=['biology_v6'],
+                        materialize=self.materializer(veto), season_phase=lambda d:'in_season',
+                        phenology={},lazy_families=True,independent_days=independent)
+                    self.assertEqual(resolve_species_week(**kwargs),
+                                     resolve_species_week(**kwargs, prepared_resolutions=plan))
+                    self.assertEqual(plan, before)
 
 
 if __name__ == "__main__": unittest.main()

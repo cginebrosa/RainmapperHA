@@ -1,4 +1,10 @@
 configuration:
+  prediction_competing_selection:
+    name: Competing selection
+    description: Default for the optional A–B–C–D comparison in the prediction map. Each device can override or inherit it.
+  prediction_k_value:
+    name: K value
+    description: Cost of historical false favorable advice when ranking comparison candidates. Higher utility wins. Each device can override or inherit it.
   maplibre_observations_mobile_enabled:
     name: Allow observation map on mobile
     description: Show the observation layer control on phones. Disabled by default; the user must also have Observation map access.

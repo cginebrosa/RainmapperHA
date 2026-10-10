@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from functools import lru_cache
 from typing import Any, Mapping
 
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
@@ -12,6 +13,30 @@ from rainmapper_core import mushroom_ml_biology_v4 as biology_v4
 from rainmapper_core import mushroom_ml_model_catalog as catalog
 from rainmapper_core import mushroom_ml_raw_weather as raw
 from rainmapper_core import mushroom_ml_smooth_hierarchical as smooth
+
+
+@lru_cache(maxsize=128)
+def _raw_columns(version_id, profile_id, v5_contract):
+    if version_id in {"biology_v5_raw_weather_discovery", raw.WINDOWED_VERSION_ID}:
+        profiles = raw.feature_set_contract(v5_contract)["profiles"]
+        if profile_id not in profiles:
+            raise ValueError(f"Unknown V5 runtime profile: {profile_id}")
+        columns = list(profiles[profile_id])
+    else:
+        window_days = smooth.window_days_from_profile_id(profile_id)
+        if window_days is not None:
+            columns = smooth.raw_columns(
+                include_phenology=True,
+                include_horizon=v5_contract == raw.LAG_CONTRACT_ID,
+                channels=raw.RAW_CHANNELS,
+                window_days=window_days,
+            )
+        else:
+            columns = smooth.raw_columns(
+                include_phenology=True,
+                include_horizon=v5_contract == raw.LAG_CONTRACT_ID,
+            )
+    return tuple(columns)
 
 
 def _raw_rain_quality(
@@ -59,6 +84,34 @@ def _raw_rain_quality(
     }
 
 
+class PreparedRawRuntime:
+    """One immutable numerical window for neighbouring forecast targets.
+
+    Private historical consumers omit diagnostics; the normal map adapter
+    still builds its complete result unless this explicit window is supplied.
+    """
+    __slots__ = ('columns', 'window', 'rain')
+
+    def __init__(self, columns, area_series):
+        self.columns = columns
+        self.window = raw.PreparedRawWindow(area_series, feature_columns=columns)
+        self.rain = _raw_rain_quality(area_series, horizon_days=0)
+
+    def quality(self, horizon):
+        return {
+            'inference_eligible': True,
+            'raw365_coverage_by_channel': {c: dict(v) for c,v in self.window.coverage.items()},
+            **self.rain,
+            'days_since_significant_rain_at_target': float(min(
+                90, self.rain['days_since_significant_rain_at_target'] + horizon)),
+        }
+
+
+def prepare_raw_runtime(model_ref, area_series):
+    contract = raw.FIXED_CONTRACT_ID if model_ref.temporal_contract_id.startswith('fixed_gap_') else raw.LAG_CONTRACT_ID
+    return PreparedRawRuntime(_raw_columns(model_ref.version_id, model_ref.profile_id, contract), area_series)
+
+
 def build_runtime_features(
     model_ref: catalog.ModelRef,
     *,
@@ -67,6 +120,8 @@ def build_runtime_features(
     area_context: biology_v3.AreaPredictionContext | None,
     area_series: Mapping[str, object],
     stations: Mapping[tuple[str, str], Any],
+    include_diagnostics: bool = True,
+    prepared_raw: PreparedRawRuntime | None = None,
 ) -> dict[str, Any]:
     """Build one profile row with the same versioned builders as training."""
     if model_ref.version_id in {
@@ -127,34 +182,19 @@ def build_runtime_features(
             if model_ref.temporal_contract_id.startswith("fixed_gap_")
             else raw.LAG_CONTRACT_ID
         )
-        features = raw.build_raw_features(
+        columns = _raw_columns(model_ref.version_id, model_ref.profile_id, v5_contract)
+        if prepared_raw is not None and (include_diagnostics or prepared_raw.columns != columns):
+            raise ValueError('prepared raw runtime requires matching columns and no diagnostics')
+        features = prepared_raw.window.features(target_date, model_ref.horizon_days, v5_contract, columns) if prepared_raw is not None else raw.build_raw_features(
             area_series,
             target_date=target_date,
             horizon_days=model_ref.horizon_days,
             temporal_contract_id=v5_contract,
+            feature_columns=columns,
         )
-        if model_ref.version_id in {"biology_v5_raw_weather_discovery", raw.WINDOWED_VERSION_ID}:
-            profiles = raw.feature_set_contract(v5_contract)["profiles"]
-            if model_ref.profile_id not in profiles:
-                raise ValueError(f"Unknown V5 runtime profile: {model_ref.profile_id}")
-            columns = list(profiles[model_ref.profile_id])
-        else:
-            window_days = smooth.window_days_from_profile_id(model_ref.profile_id)
-            if window_days is not None:
-                columns = smooth.raw_columns(
-                    include_phenology=True,
-                    include_horizon=v5_contract == raw.LAG_CONTRACT_ID,
-                    channels=raw.RAW_CHANNELS,
-                    window_days=window_days,
-                )
-            else:
-                columns = smooth.raw_columns(
-                    include_phenology=True,
-                    include_horizon=v5_contract == raw.LAG_CONTRACT_ID,
-                )
         return {
             "predictive_features": {column: features.get(column) for column in columns},
-            "quality": {
+            "quality": prepared_raw.quality(model_ref.horizon_days) if prepared_raw is not None else {
                 "inference_eligible": True,
                 "raw365_coverage_by_channel": raw.coverage_by_channel(area_series),
                 **_raw_rain_quality(
@@ -166,7 +206,8 @@ def build_runtime_features(
                 "target_date": target_date.isoformat(),
                 "horizon_days": model_ref.horizon_days,
                 "cutoff_date": (target_date - timedelta(days=model_ref.horizon_days)).isoformat(),
-                "diagnostic_weather_summary": raw.diagnostic_weather_summary(area_series),
+                **({'diagnostic_weather_summary': raw.diagnostic_weather_summary(area_series)}
+                   if include_diagnostics else {}),
             },
         }
     raise ValueError(f"No runtime feature adapter for {model_ref.version_id}")

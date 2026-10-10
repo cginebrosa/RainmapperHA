@@ -21,6 +21,7 @@ from rainmapper_core import mushroom_known_sites
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_trainer
 from rainmapper_core import mushroom_ml_weather_workspace
+from rainmapper_core import mushroom_ml_benchmark_io
 from rainmapper_core import mushroom_observation_context as weather_context
 from rainmapper_core import mushroom_weather_idw
 
@@ -34,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stations-file", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--species", action="append")
+    parser.add_argument("--historical-inputs", action="store_true")
     parser.add_argument(
         "--feature-set",
         choices=sorted(biology_v3.BIOLOGY_V3_FEATURE_SETS),
@@ -136,6 +138,9 @@ def main() -> int:
                 area_altitude_sources[area_id] = (
                     "observation_features_microarea_dem_mean_fallback"
                 )
+        # Only the scalar altitude fallback is consumed. Do not retain every
+        # observation's daily weather arrays throughout the next builders.
+        del feature_payload, feature_rows
     micro_contexts = biology_v3.load_micro_area_contexts(args.known_sites)
     micro_contexts_by_area: dict[str, list[biology_v3.MicroAreaContext]] = defaultdict(list)
     for context in micro_contexts.values():
@@ -234,9 +239,10 @@ def main() -> int:
     )
     for index, context in enumerate(cached_contexts, start=1):
         if workspace is not None:
+            context_start, context_end = workspace.context_range(context, earliest_day, latest_day)
             microarea_weather_cache.update(
                 workspace.weather_for_contexts(
-                    [context], start_day=earliest_day, end_day=latest_day
+                    [context], start_day=context_start, end_day=context_end
                 )
             )
         else:
@@ -264,24 +270,8 @@ def main() -> int:
                 flush=True,
             )
 
-    area_rainfall_by_date: dict[tuple[str, str], dict[str, object]] = {}
-    for area_id, observed_day in sorted(requested_area_days):
-        microarea_series = {
-            context.micro_area_id: mushroom_weather_idw.slice_daily_weather_idw_series(
-                microarea_weather_cache[context.micro_area_id],
-                end_day=observed_day,
-                days=weather_context.DAILY_SERIES_DAYS,
-            )
-            for context in sorted(
-                micro_contexts_by_area.get(area_id, []),
-                key=lambda item: item.micro_area_id,
-            )
-            if context.micro_area_id in microarea_weather_cache
-        }
-        if microarea_series:
-            area_rainfall_by_date[(area_id, observed_day.isoformat())] = (
-                biology_v3.aggregate_area_rainfall_series(microarea_series)
-            )
+    area_rainfall_by_date = mushroom_ml_weather_workspace.AreaWeatherWindows(
+        requested_area_days, micro_contexts_by_area, microarea_weather_cache)
 
     benchmark = biology_v3.build_biology_v3_benchmark(
         observations,
@@ -291,6 +281,7 @@ def main() -> int:
         area_rainfall_by_date=area_rainfall_by_date,
         stations=stations,
         horizons=args.horizons,
+        stream_samples=args.output.suffix == '.parquet',
     )
     benchmark["source"] = {
         "observations_path": str(args.observations),
@@ -324,9 +315,18 @@ def main() -> int:
             args.observation_features
         )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(benchmark, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    if args.output.suffix == '.parquet':
+        historical = bool(getattr(args, 'historical_inputs', False))
+        rows = benchmark['samples']
+        if historical:
+            rows = map(mushroom_ml_benchmark_io.historical_intermediate_sample, rows)
+        mushroom_ml_benchmark_io.write_rows(args.output, benchmark, rows,
+            columns=benchmark['feature_set']['candidate_predictive_feature_cols'],
+            count=benchmark['sample_count'], refresh_header=True, weather_column=historical)
+    else:
+        args.output.write_text(
+            json.dumps(benchmark, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
     print(
         json.dumps(
             {

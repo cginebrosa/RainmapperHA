@@ -791,6 +791,30 @@ def _load_downloaded_json(path: Path, label: str) -> dict[str, Any]:
     return payload
 
 
+def _verify_history_inputs(job_spec, snapshot_dir, input_bundle, *, verify_files):
+    """History consumes sealed source/features/weather, not a GIS dataset."""
+    manifest = mushroom_rebuild_snapshot.load_manifest(snapshot_dir)
+    verification = mushroom_rebuild_contracts.verify_job_spec(
+        job_spec, snapshot_dir, verify_snapshot_files=False)
+    files = manifest['files']
+    dataset = manifest['datasets'][0]
+    fingerprint = mushroom_rebuild_snapshot._fingerprint([
+        *files, {'role':'dataset:mushroom_gis_v0',
+                 'path':dataset['fingerprint'].removeprefix('sha256:')}])
+    if (verification['status'] != 'valid' or 'sha256:' + fingerprint != input_bundle['snapshot_id'] or
+            job_spec['job_spec_id'] != input_bundle['job_spec_id']):
+        raise ValueError('Historical input manifest identity mismatch.')
+    if verify_files:
+        for record in files:
+            if record.get('exists', True) is False:
+                continue
+            path = snapshot_dir / safe_relative_path(record['path'])
+            if (not path.is_file() or path.stat().st_size != record['size_bytes'] or
+                    mushroom_rebuild_snapshot.sha256_file(path) != record['sha256']):
+                raise ValueError('Historical input file verification failed.')
+    return {**verification, 'snapshot_id':manifest['snapshot_id']}
+
+
 def download_input_bundle(
     ha_url: str,
     job: dict[str, Any],
@@ -812,11 +836,16 @@ def download_input_bundle(
     if not endpoint.startswith("/api/mushrooms/workers/jobs/input"):
         raise ValueError("Worker job input endpoint is invalid.")
     jobs_root = _coordinator_workspace(worker_data_dir, coordinator_id) / "jobs"
+    history_only = job.get('job_type') == 'worker_competing_history_v1'
     destination = jobs_root / job_id
     if destination.exists():
         snapshot_dir = destination / SNAPSHOT_PREFIX
         job_spec = mushroom_rebuild_contracts.load_job_spec(destination / JOB_SPEC_LOGICAL_PATH)
         manifest = mushroom_rebuild_snapshot.load_manifest(snapshot_dir)
+        if history_only:
+            verification = _verify_history_inputs(job_spec, snapshot_dir, input_bundle, verify_files=True)
+            return {**verification, 'status':'reused', 'input_dir':str(destination),
+                    'input_size_bytes':input_bundle.get('input_size_bytes'), 'dataset_transferred_size_bytes':0}
         dataset_sync = _sync_required_dataset(
             ha_url,
             job,
@@ -910,7 +939,7 @@ def download_input_bundle(
         )
         if manifest_dataset["fingerprint"] != str(requirement.get("fingerprint", "")):
             raise ValueError("Job spec GIS requirement does not match its input manifest.")
-        dataset_sync = _sync_required_dataset(
+        dataset_sync = {} if history_only else _sync_required_dataset(
             ha_url,
             job,
             manifest,
@@ -921,7 +950,7 @@ def download_input_bundle(
             timeout=timeout,
             progress_callback=progress_callback,
         )
-        cache = mushroom_worker_dataset_cache.verify_version(
+        cache = {'status':'valid'} if history_only else mushroom_worker_dataset_cache.verify_version(
             worker_data_dir,
             dataset_id=manifest_dataset["dataset_id"],
             fingerprint=manifest_dataset["fingerprint"],
@@ -992,8 +1021,9 @@ def download_input_bundle(
                     }
                 )
 
-        dataset = mushroom_worker_dataset_cache.resolve_current(worker_data_dir)
-        verification = mushroom_rebuild_contracts.verify_job_spec(
+        dataset = {} if history_only else mushroom_worker_dataset_cache.resolve_current(worker_data_dir)
+        verification = _verify_history_inputs(job_spec, staging / SNAPSHOT_PREFIX, input_bundle,
+                                              verify_files=False) if history_only else mushroom_rebuild_contracts.verify_job_spec(
             job_spec,
             staging / SNAPSHOT_PREFIX,
             gis_root_override=Path(str(dataset["path"])),

@@ -398,7 +398,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True);p.add_argument('--preflight',action='store_true');p.add_argument('--replay-only',action='store_true');p.add_argument('--fold',choices=FOLDS,required=True);args=p.parse_args()
     dest=args.output.resolve()
     if args.replay_only:
-        if not dest.is_relative_to(ROOT/'docker-data/audits'):
+        if not dest.is_relative_to((ROOT/'docker-data/audits').resolve()):
             raise ValueError('Replay only an existing isolated audit')
         initial=json.loads((dest/'preflight.json').read_text())
         assert initial['fold']==args.fold
@@ -422,7 +422,7 @@ def main():
         assert result['protected_after']==initial['protected_before'];result['protected_unchanged']=True
         write_json(dest/'result.json',result);print(json.dumps(result),flush=True)
         return
-    if not dest.is_relative_to(ROOT/'docker-data/audits') or dest.exists():
+    if not dest.is_relative_to((ROOT/'docker-data/audits').resolve()) or dest.exists():
         raise ValueError('Use a new audit directory; never overwrite or activate')
     registry=json.loads(REGISTRY.read_text());manifest=json.loads(MANIFEST.read_text());species=sorted(manifest['species_ids'])
     paths=[PREPARED/f'snapshot/biology-v{v}-{t}.json' for v in (3,4) for t in ('fixed','lag')]+[PREPARED/f'v5-current/biology-v5-{t}.json' for t in ('fixed','lag')]

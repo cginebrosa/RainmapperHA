@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import math
 import os
 import re
 import secrets
@@ -30,6 +31,7 @@ JOB_TYPE_ML_TRAIN = "worker_ml_train_v0"
 JOB_TYPE_ML_MULTIVERSION = "worker_ml_multiversion_v1"
 JOB_TYPE_PREDICTOR = "worker_predictor_v1"
 JOB_TYPE_PREDICTOR_PRECOMPUTE = "worker_predictor_precompute_v1"
+JOB_TYPE_COMPETING_HISTORY = "worker_competing_history_v1"
 # Compute-heavy jobs share one slot, leaving foreground available to queries.
 # Resolve at claim time so already queued jobs need no migration or rewrite.
 BACKGROUND_JOB_TYPES = frozenset({
@@ -37,6 +39,7 @@ BACKGROUND_JOB_TYPES = frozenset({
     JOB_TYPE_ML_TRAIN,
     JOB_TYPE_ML_MULTIVERSION,
     JOB_TYPE_PREDICTOR_PRECOMPUTE,
+    JOB_TYPE_COMPETING_HISTORY,
 })
 ML_JOB_PURPOSES = frozenset({"operational", "benchmark"})
 MAX_JOBS = 50
@@ -730,6 +733,45 @@ def create_snapshot_transport_probe(
             "endpoint": "/api/mushrooms/workers/jobs/input",
             "dataset_endpoint": "/api/mushrooms/workers/jobs/dataset",
         },
+    }
+    queue["jobs"].append(job)
+    queue["jobs"] = queue["jobs"][-MAX_JOBS:]
+    _write_atomic(path, queue)
+    return dict(job)
+
+
+def create_competing_history_job(
+    path: Path, *, worker_id: str, worker_display_name: str,
+    input_bundle: dict[str, Any], revision: str, job_id: str,
+    trigger_origin: str = "manual", created_at: str | None = None,
+) -> dict[str, Any]:
+    """One independent background evaluation, with no operational promotion."""
+    from rainmapper_core.mushroom_competing_control import DIGEST
+
+    target = _validate_worker_id(worker_id)
+    display = str(worker_display_name or "").strip()[:80]
+    if not display or not JOB_ID_PATTERN.fullmatch(job_id) or not DIGEST.fullmatch(revision):
+        raise ValueError("Historical evaluation job identity is invalid.")
+    if (not isinstance(input_bundle, dict) or input_bundle.get("job_id") != job_id or
+            not re.fullmatch(r"sha256:[0-9a-f]{64}", str(input_bundle.get("snapshot_id", ""))) or
+            not re.fullmatch(r"sha256:[0-9a-f]{64}", str(input_bundle.get("job_spec_id", "")))):
+        raise ValueError("Historical evaluation input bundle is invalid.")
+    queue = load_queue(path)
+    if any(row.get("job_type") == JOB_TYPE_COMPETING_HISTORY and row.get("status") in ACTIVE_STATUSES
+           for row in queue["jobs"]):
+        raise DuplicateActiveWorkError("A historical evaluation is already active.")
+    job = {
+        "job_id": job_id, "job_type": JOB_TYPE_COMPETING_HISTORY, "lane": "background",
+        "work_key": "competing_history:v1:" + revision, "history_revision": revision,
+        "target_worker_id": target, "target_display_name": display,
+        "status": "queued", "phase": "Waiting for worker",
+        "message": "Historical selection update queued.", "scope": "historical selection",
+        "overall_percent": 0, "created_at": created_at or utc_now(),
+        "claimed_at": "", "started_at": "", "finished_at": "", "cancel_requested_at": "",
+        "cancel_mode": "", "lease_expires_at": "", "claim_token": "", "assignment_revision": 1,
+        "promotion_eligible": False, "trigger_origin": str(trigger_origin)[:40],
+        "input_bundle": {**input_bundle, "endpoint": "/api/mushrooms/workers/jobs/input",
+                         "dataset_endpoint": "/api/mushrooms/workers/jobs/dataset"},
     }
     queue["jobs"].append(job)
     queue["jobs"] = queue["jobs"][-MAX_JOBS:]
@@ -1912,9 +1954,19 @@ def _validate_claim(job: dict[str, Any], *, worker_id: str, claim_token: str) ->
 
 
 def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(result, dict):
+    if not isinstance(result, dict) or not result:
         return {}
     job_type = job.get("job_type")
+    if job_type == JOB_TYPE_COMPETING_HISTORY:
+        from rainmapper_core.mushroom_competing_control import DIGEST
+        revision = result.get("revision")
+        sha = result.get("artifact_sha256")
+        seconds = result.get("seconds")
+        if (revision != job.get("history_revision") or not isinstance(sha, str) or
+                not DIGEST.fullmatch(sha) or type(seconds) not in (int, float) or
+                not math.isfinite(seconds) or seconds < 0):
+            raise ValueError("Historical evaluation receipt is invalid.")
+        return {"revision": revision, "artifact_sha256": sha, "seconds": round(seconds, 3)}
     if job_type not in {
         JOB_TYPE_SNAPSHOT_TRANSPORT,
         JOB_TYPE_CANDIDATE_REBUILD,
@@ -2390,6 +2442,8 @@ def finish_job(
         raise ValueError("A cancelled worker job cannot publish a successful result.")
     timestamp = finished_at or utc_now()
     normalized_result = _normalized_result(job, result)
+    if job.get("job_type") == JOB_TYPE_COMPETING_HISTORY and status == "complete" and not normalized_result:
+        raise ValueError("Historical evaluation receipt is required.")
     if job.get("job_type") == JOB_TYPE_PREDICTOR_PRECOMPUTE:
         incoming_telemetry = (
             result.get("precompute_telemetry") if isinstance(result, dict) else None
@@ -2429,6 +2483,8 @@ def finish_job(
             )
         )
     )
+    if job.get("job_type") == JOB_TYPE_COMPETING_HISTORY:
+        complete_phase = "Historical selection evaluation completed"
     phase = {"complete": complete_phase, "cancelled": "Cancelled", "failed": "Failed"}[status]
     job.update(
         {
@@ -2463,6 +2519,7 @@ def authorize_input_download(
         JOB_TYPE_ML_MULTIVERSION,
         JOB_TYPE_PREDICTOR,
         JOB_TYPE_PREDICTOR_PRECOMPUTE,
+        JOB_TYPE_COMPETING_HISTORY,
     }:
         raise ValueError("Worker job does not have an input bundle.")
     if job.get("status") not in {"claimed", "running", "cancel_requested"}:

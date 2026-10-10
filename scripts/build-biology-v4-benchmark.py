@@ -74,6 +74,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--known-sites", required=True, type=Path)
     parser.add_argument("--stations-file", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument('--training-only', action='store_true')
     return parser.parse_args()
 
 
@@ -107,8 +108,14 @@ def row_location(row: dict[str, object]) -> tuple[float, float, str] | None:
 
 def main() -> int:
     args = parse_args()
-    v3_payload = json.loads(args.v3_benchmark.read_text(encoding="utf-8"))
-    source_samples = v3_payload.get("samples", [])
+    training_only = bool(getattr(args, 'training_only', False))
+    from rainmapper_core import mushroom_ml_benchmark_io
+    if training_only and args.v3_benchmark.suffix == '.parquet':
+        v3_payload = mushroom_ml_benchmark_io.metadata(args.v3_benchmark)
+        source_samples = mushroom_ml_benchmark_io.SampleRows(args.v3_benchmark)
+    else:
+        v3_payload = mushroom_ml_benchmark_io.read(args.v3_benchmark)
+        source_samples = v3_payload.get("samples", [])
     source_id = str((v3_payload.get("feature_set") or {}).get("id") or "")
     if source_id == biology_v3.FIXED_GAP_7D_BIOLOGY_V3_ID:
         temporal_id = biology_v4.FIXED_GAP_7D_BIOLOGY_V4_ID
@@ -213,8 +220,9 @@ def main() -> int:
     )
     for cache_index, context in enumerate(cached_contexts, start=1):
         if workspace is not None:
+            context_start, context_end = workspace.context_range(context, earliest, latest)
             weather = workspace.weather_for_contexts(
-                [context], start_day=earliest, end_day=latest
+                [context], start_day=context_start, end_day=context_end
             )[context.micro_area_id]
         else:
             weather = mushroom_weather_idw.build_daily_weather_idw_series(
@@ -230,7 +238,7 @@ def main() -> int:
         microarea_weather_cache[context.micro_area_id] = weather
         microarea_eto_cache[context.micro_area_id] = (
             workspace.eto_for_context(
-                context.micro_area_id, start_day=earliest, end_day=latest
+                context.micro_area_id, start_day=context_start, end_day=context_end
             )
             if workspace is not None
             else point_reference_et(weather,context,stations)['et0_mm']
@@ -282,7 +290,7 @@ def main() -> int:
             temp_max = weather["daily_temp_max_idw_c"]
             micro_eto[context.micro_area_id] = microarea_eto_cache[
                 context.micro_area_id
-            ][slice_start:slice_end]
+            ][(offset := (cutoff - timedelta(days=364) - date.fromisoformat(cached_weather['daily_dates'][0])).days):offset + 365]
             micro_weather_quality[context.micro_area_id] = {
                 "weather_idw_contract_id": weather["weather_idw_contract_id"],
                 "target_altitude_m": context.altitude_m,
@@ -332,6 +340,7 @@ def main() -> int:
                     cutoff,
                     mushroom_ml_weather_workspace.AreaSoilBundle(
                         aggregated=aggregated,
+                        input_signature=mushroom_ml_weather_workspace.soil_inputs_signature(micro_rain, micro_eto),
                         daily_fraction_mean=daily_soil_fraction_mean(
                             micro_states, dates
                         ),
@@ -340,49 +349,78 @@ def main() -> int:
         if index % 25 == 0 or index == len(requested):
             print(json.dumps({"completed_area_cutoffs": index, "total_area_cutoffs": len(requested)}), flush=True)
 
-    base_samples: list[dict[str, object]] = []
     block_counts = Counter()
-    variant_counts: dict[str, Counter] = {
-        variant[0]: Counter() for variant in soil_variants
-    }
-    for source_sample in source_samples:
-        # Attach the shared micro-area ET0 mean to this immutable source view.
-        # Physics is evaluated before area averaging, exactly as at inference.
-        source_sample = dict(source_sample)
-        metadata = dict(source_sample.get("metadata", {}))
-        weather_view = dict(metadata.get("weather_series") or {})
-        area_id = str(metadata.get("area_id") or "")
-        et_rows = [microarea_eto_cache[c.micro_area_id] for c in micros_by_area.get(area_id, [])
-                   if c.micro_area_id in microarea_eto_cache]
-        daily_et = []
-        for day in weather_view.get("daily_dates", []):
-            offset = (date.fromisoformat(day)-earliest).days
-            vals = [row[offset] for row in et_rows if 0 <= offset < len(row) and row[offset] is not None]
-            daily_et.append(sum(vals)/len(vals) if vals else None)
-        weather_view.update(daily_eto0_mean_mm=daily_et,water_state_contract_id=WATER_STATE_CONTRACT_ID)
-        metadata['weather_series'] = weather_view
-        source_sample['metadata'] = metadata
-        state_key = f"{metadata.get('area_id') or ''}|{metadata.get('cutoff_date') or ''}"
-        base = biology_v4.build_biology_v4_sample(
-            source_sample,
-            temporal_contract_id=temporal_id,
-        )
-        base["metadata"]["soil_state_key"] = state_key
-        for block, eligible in base["quality"]["eligibility_by_block"].items():
-            if eligible:
-                block_counts[block] += 1
-        base_samples.append(base)
-        for variant_id, _depth, _field in soil_variants:
-            state = state_catalog[variant_id].get(state_key)
-            candidate = biology_v4.build_biology_v4_sample(
+    variant_counts: dict[str, Counter] = {variant[0]: Counter() for variant in soil_variants}
+    stream_samples = training_only and args.output.suffix == '.parquet'
+    eligibility_source = {
+        'temporal_contract_id': temporal_id,
+        'feature_blocks': {block: list(biology_v4.predictive_columns(temporal_id, block))
+                           for block in biology_v4.BLOCK_ORDER},
+        'soil_variants': {v[0]: {'area_state_catalog': state_catalog[v[0]]} for v in soil_variants}}
+
+    def generated_samples():
+        for source_sample in source_samples:
+            # Attach the shared micro-area ET0 mean to this immutable source view.
+            # Physics is evaluated before area averaging, exactly as at inference.
+            source_sample = dict(source_sample)
+            metadata = dict(source_sample.get("metadata", {}))
+            weather_view = dict(metadata.get("weather_series") or {})
+            area_id = str(metadata.get("area_id") or "")
+            et_rows = [(date.fromisoformat(microarea_weather_cache[c.micro_area_id]['daily_dates'][0]),
+                        microarea_eto_cache[c.micro_area_id]) for c in micros_by_area.get(area_id, [])
+                       if c.micro_area_id in microarea_eto_cache]
+            daily_et = []
+            for day in weather_view.get("daily_dates", []):
+                target = date.fromisoformat(day)
+                vals = [row[offset] for start, row in et_rows if
+                        0 <= (offset := (target-start).days) < len(row) and row[offset] is not None]
+                daily_et.append(sum(vals)/len(vals) if vals else None)
+            weather_view.update(daily_eto0_mean_mm=daily_et,water_state_contract_id=WATER_STATE_CONTRACT_ID)
+            metadata['weather_series'] = weather_view
+            source_sample['metadata'] = metadata
+            state_key = f"{metadata.get('area_id') or ''}|{metadata.get('cutoff_date') or ''}"
+            base = biology_v4.build_biology_v4_sample(
                 source_sample,
                 temporal_contract_id=temporal_id,
-                area_soil_water_state=state if isinstance(state, dict) else None,
             )
-            for block, eligible in candidate["quality"]["eligibility_by_block"].items():
+            base["metadata"]["soil_state_key"] = state_key
+            for block, eligible in base["quality"]["eligibility_by_block"].items():
                 if eligible:
-                    variant_counts[variant_id][block] += 1
+                    block_counts[block] += 1
+            if training_only:
+                # Count the existing profile's exact gates one row at a time;
+                # never materialize another complete matrix just for a counter.
+                eligibility_source['samples'] = [base]
+                for variant_id, _, _ in soil_variants:
+                    projected = biology_v4.materialize_comparison_benchmark(
+                        eligibility_source, profile_id=variant_id)
+                    variant_counts[variant_id]['soil_water'] += projected['training_eligible_sample_count']
+                yield mushroom_ml_benchmark_io.training_sample(base)
+                continue
+            for variant_id, _depth, _field in soil_variants:
+                state = state_catalog[variant_id].get(state_key)
+                candidate = biology_v4.build_biology_v4_sample(
+                    source_sample,
+                    temporal_contract_id=temporal_id,
+                    area_soil_water_state=state if isinstance(state, dict) else None,
+                )
+                for block, eligible in candidate["quality"]["eligibility_by_block"].items():
+                    if eligible:
+                        variant_counts[variant_id][block] += 1
 
+            yield base
+
+        if training_only:
+            for variant_id, _, _ in soil_variants:
+                soil_count = variant_counts[variant_id]['soil_water']
+                variant_counts[variant_id].update(block_counts)
+                variant_counts[variant_id]['soil_water'] = soil_count
+        if stream_samples:
+            report['base_block_eligible_sample_counts'] = dict(sorted(block_counts.items()))
+            for variant_id in variant_counts:
+                report['soil_variants'][variant_id]['eligible_sample_counts'] = dict(sorted(variant_counts[variant_id].items()))
+
+    base_samples = generated_samples() if stream_samples else list(generated_samples())
     report = {
         "kind": "mushroom_biology_v4_benchmark",
         "water_state_contract_id": WATER_STATE_CONTRACT_ID,
@@ -392,7 +430,7 @@ def main() -> int:
             block: list(biology_v4.predictive_columns(temporal_id, block))
             for block in biology_v4.BLOCK_ORDER
         },
-        "sample_count": len(base_samples),
+        "sample_count": len(source_samples),
         "samples": base_samples,
         "base_block_eligible_sample_counts": dict(sorted(block_counts.items())),
         "soil_variants": {
@@ -429,11 +467,18 @@ def main() -> int:
         "operational_model_written": False,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    if stream_samples:
+        mushroom_ml_benchmark_io.write_rows(args.output, report, base_samples,
+            columns=biology_v4.predictive_columns(temporal_id, 'soil_water'),
+            count=len(source_samples), refresh_header=True)
+    elif args.output.suffix == '.parquet':
+        mushroom_ml_benchmark_io.write(args.output, report)
+    else:
+        args.output.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps({
         "output": str(args.output),
         "temporal_contract_id": temporal_id,
-        "sample_count": len(base_samples),
+        "sample_count": len(source_samples),
         "base_block_eligible_sample_counts": report["base_block_eligible_sample_counts"],
         "soil_variant_eligible_sample_counts": {
             key: value["eligible_sample_counts"] for key, value in report["soil_variants"].items()

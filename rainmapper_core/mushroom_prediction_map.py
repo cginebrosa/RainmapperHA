@@ -55,8 +55,15 @@ def parse_request(raw: bytes) -> dict:
     if history.is_request(payload):
         return history.parse(payload)
     required = {"contract", "request_id", "point", "start_date", "horizon_days", "history_days"}
-    if not isinstance(payload, dict) or set(payload) - required - {"species_ids", "execution", "calendar_timezone", "applicability_page", "observation_id"} or not required <= set(payload):
+    if not isinstance(payload, dict) or set(payload) - required - {"species_ids", "execution", "calendar_timezone", "applicability_page", "observation_id", "competing_selection", "k_value"} or not required <= set(payload):
         raise ValueError("invalid_fields")
+    from rainmapper_core.mushroom_map_competing import valid_k
+    if 'competing_selection' in payload and type(payload['competing_selection']) is not bool:
+        raise ValueError('invalid_competing_selection')
+    if 'k_value' in payload and not valid_k(payload['k_value']):
+        raise ValueError('invalid_k_value')
+    if payload.get('competing_selection') and 'k_value' not in payload:
+        raise ValueError('missing_k_value')
     if 'calendar_timezone' in payload:
         validate_calendar_timezone(payload['calendar_timezone'])
     if payload.get("execution", "local") not in ("local", "worker"):
@@ -115,6 +122,7 @@ def prediction_result(request):
     return {'contract':CONTRACT_ID,'request_id':request['request_id'],'point':request['point'],
         'dates':[(start+timedelta(days=i)).isoformat() for i in range(request['horizon_days'])],
         **({'calendar_timezone':request['calendar_timezone']} if 'calendar_timezone' in request else {}),
+        **({'competing_selection':True, 'k_value':request['k_value']} if request.get('competing_selection') else {}),
         'data_mode':'prediction','status':'complete','species':[],
         'provenance':{'engine':'existing_python_predictor','scientifically_validated':False}}
 
@@ -137,6 +145,7 @@ def demo_result(request: dict) -> dict:
         species = [row for row in species if row["species_id"] in request["species_ids"]]
     result = {
         "contract": CONTRACT_ID, "request_id": request["request_id"],
+        **({'competing_selection':True, 'k_value':request['k_value']} if request.get('competing_selection') else {}),
         **({'calendar_timezone':request['calendar_timezone']} if 'calendar_timezone' in request else {}),
         "data_mode": "simulation", "status": "complete", "point": request["point"],
         "dates": [(start + timedelta(days=i)).isoformat() for i in range(horizon)],
@@ -173,6 +182,9 @@ def validate_result(result, request):
         raise ValueError('invalid_result_identity')
     if ('calendar_timezone' in request and result.get('calendar_timezone') != request['calendar_timezone']):
         raise ValueError('invalid_result_calendar_timezone')
+    if (bool(result.get('competing_selection')) != bool(request.get('competing_selection')) or
+            request.get('competing_selection') and result.get('k_value') != request['k_value']):
+        raise ValueError('invalid_result_competing_identity')
     rows=result.get('species')
     if 'model_error' in result and (not isinstance(result['model_error'], str) or
             result['model_error'] not in MODEL_ERROR_CODES or
@@ -230,6 +242,14 @@ def validate_result(result, request):
             not isinstance(reasons,list) or len(reasons)!=len(expected_dates)):
             raise ValueError('invalid_result_species')
         seen.add(sid)
+        if 'competing' in row:
+            from rainmapper_core.mushroom_map_competing import validate_comparison
+            if not request.get('competing_selection') or not validate_comparison(row['competing'], len(expected_dates)):
+                raise ValueError('invalid_result_competing')
+            compared = row['competing'].get('comparison')
+            if compared is not None and (compared['k'] != request['k_value'] or
+                    compared['cutoff'] > request['start_date'] or set(compared['species']) != {sid}):
+                raise ValueError('invalid_result_rule_comparison_binding')
         if 'training_observation_usage' in row:
             from rainmapper_core.mushroom_training_observations import STATES
             usage = row['training_observation_usage']

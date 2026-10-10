@@ -11,6 +11,7 @@ import sys
 from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
+from itertools import chain
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -19,6 +20,7 @@ from rainmapper_core.mushroom_water_physics import point_reference_et, WATER_STA
 from rainmapper_core import mushroom_ml_biology_v3 as biology_v3
 from rainmapper_core import mushroom_ml_raw_weather as raw_weather
 from rainmapper_core import mushroom_ml_weather_workspace
+from rainmapper_core import mushroom_ml_benchmark_io
 from rainmapper_core import mushroom_observation_context as weather_context
 from rainmapper_core import mushroom_soil_water_state
 from rainmapper_core import mushroom_weather_idw
@@ -36,6 +38,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--known-sites", required=True, type=Path)
     parser.add_argument("--stations-file", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--output-format", choices=("json", "parquet"), default="json")
+    parser.add_argument('--training-only', action='store_true')
+    parser.add_argument('--feature-columns-json', type=Path)
     return parser.parse_args()
 
 
@@ -49,13 +54,24 @@ def _mean_series(rows: list[list[float | None]], length: int) -> list[float | No
 
 def main() -> int:
     args = parse_args()
-    fixed = json.loads(args.v3_fixed.read_text(encoding="utf-8"))
-    lag = json.loads(args.v3_lag.read_text(encoding="utf-8"))
+    training_only = bool(getattr(args, 'training_only', False))
+    column_plan = getattr(args, 'feature_columns_json', None)
+    selected_columns = json.loads(column_plan.read_text()) if column_plan else {}
+    # Validate provenance before spending time materializing weather windows.
+    source_manifest = args.v3_fixed.parent / "MANIFEST.json"
+    source_manifest_sha256 = sha256(source_manifest)
+    def source_rows(path):
+        if path.suffix == '.parquet':
+            # V5 consumes V3 labels/context, not V3 numerical predictors.
+            return {'samples': mushroom_ml_benchmark_io.SampleRows(path, feature_columns=[], include_weather=not training_only)}
+        return mushroom_ml_benchmark_io.read(path)
+    fixed = source_rows(args.v3_fixed)
+    lag = source_rows(args.v3_lag)
     payloads = (
         (fixed, raw_weather.FIXED_CONTRACT_ID, "biology-v5-fixed.json"),
         (lag, raw_weather.LAG_CONTRACT_ID, "biology-v5-lag.json"),
     )
-    all_samples = [sample for payload, _contract, _name in payloads for sample in payload.get("samples", [])]
+    all_samples = chain.from_iterable(payload.get('samples', []) for payload, _, _ in payloads)
     requested: set[tuple[str, date]] = set()
     for sample in all_samples:
         metadata = sample.get("metadata") or {}
@@ -136,8 +152,9 @@ def main() -> int:
     eto_cache: dict[str, list[float | None]] = {}
     for index, context in enumerate(contexts, start=1):
         if workspace is not None:
+            context_start, context_end = workspace.context_range(context, earliest, latest)
             weather = workspace.weather_for_contexts(
-                [context], start_day=earliest, end_day=latest
+                [context], start_day=context_start, end_day=context_end
             )[context.micro_area_id]
         else:
             weather = mushroom_weather_idw.build_daily_weather_idw_series(
@@ -153,7 +170,7 @@ def main() -> int:
         weather_cache[context.micro_area_id] = weather
         eto_cache[context.micro_area_id] = (
             workspace.eto_for_context(
-                context.micro_area_id, start_day=earliest, end_day=latest
+                context.micro_area_id, start_day=context_start, end_day=context_end
             )
             if workspace is not None
             else point_reference_et(weather,context,stations)['et0_mm']
@@ -161,7 +178,14 @@ def main() -> int:
         if index % 5 == 0 or index == len(contexts):
             print(json.dumps({"cached_microareas": index, "total_microareas": len(contexts)}), flush=True)
 
-    area_cache: dict[str, dict[str, object]] = {}
+    area_windows = mushroom_ml_weather_workspace.AreaWeatherWindows(
+        requested, micros_by_area, weather_cache, days=raw_weather.LOOKBACK_DAYS)
+    physical_windows = mushroom_ml_weather_workspace.AreaPhysicalWindows(
+        micros_by_area, weather_cache, eto_cache)
+    area_cache = {}
+    # One shared projection covers both temporal contracts. Target-dependent
+    # calendar/horizon fields are attached later without rebuilding weather.
+    prepared_columns = tuple(sorted(set().union(*selected_columns.values()))) if selected_columns else None
     for index, (area_id, cutoff) in enumerate(sorted(requested), start=1):
         cached_soil = (
             workspace.soil_bundle(
@@ -172,62 +196,69 @@ def main() -> int:
             if workspace is not None
             else None
         )
-        sliced: dict[str, dict[str, object]] = {}
-        micro_eto: list[list[float | None]] = []
-        micro_balance: list[list[float | None]] = []
-        micro_soil_states: dict[str, dict[str, object]] = {}
-        axis = list(weather_context.date_window(cutoff, raw_weather.LOOKBACK_DAYS))
-        slice_start = (cutoff - timedelta(days=raw_weather.LOOKBACK_DAYS - 1) - earliest).days
-        slice_end = slice_start + raw_weather.LOOKBACK_DAYS
-        for context in micros_by_area.get(area_id, []):
-            cached = weather_cache.get(context.micro_area_id)
-            if cached is None:
-                continue
-            weather = mushroom_weather_idw.slice_daily_weather_idw_series(
-                cached, end_day=cutoff, days=raw_weather.LOOKBACK_DAYS
-            )
-            sliced[context.micro_area_id] = weather
-            eto = eto_cache[context.micro_area_id][slice_start:slice_end]
-            micro_eto.append(eto)
-            micro_balance.append(
-                [
-                    float(rain) - float(eto_value)
-                    if rain is not None and eto_value is not None
-                    else None
-                    for rain, eto_value in zip(
-                        weather["daily_rain_idw_mm"], eto, strict=True
-                    )
-                ]
-            )
-            if cached_soil is None:
-                try:
-                    micro_soil_states[context.micro_area_id] = (
-                        mushroom_soil_water_state.build_soil_water_state(
-                            dates=axis,
-                            rain_idw_mm=weather["daily_rain_idw_mm"],
-                            reference_evapotranspiration_mm=eto,
-                            soilgrids_context=context.soilgrids_water or {},
+        fast = physical_windows.get(area_id, cutoff) if cached_soil is not None else None
+        if fast is not None:
+            area = dict(area_windows[area_id, cutoff.isoformat()])
+            area['water_state_contract_id'] = WATER_STATE_CONTRACT_ID
+            area['daily_eto0_mean_mm'], area['daily_climatic_balance_mean_mm'] = fast
+        else:
+            sliced: dict[str, dict[str, object]] = {}
+            micro_eto: list[list[float | None]] = []
+            micro_balance: list[list[float | None]] = []
+            micro_soil_states: dict[str, dict[str, object]] = {}
+            axis = list(weather_context.date_window(cutoff, raw_weather.LOOKBACK_DAYS))
+            slice_start = (cutoff - timedelta(days=raw_weather.LOOKBACK_DAYS - 1) - earliest).days
+            slice_end = slice_start + raw_weather.LOOKBACK_DAYS
+            for context in micros_by_area.get(area_id, []):
+                cached = weather_cache.get(context.micro_area_id)
+                if cached is None:
+                    continue
+                weather = mushroom_weather_idw.slice_daily_weather_idw_series(
+                    cached, end_day=cutoff, days=raw_weather.LOOKBACK_DAYS
+                )
+                sliced[context.micro_area_id] = weather
+                offset = (cutoff - timedelta(days=raw_weather.LOOKBACK_DAYS - 1) - date.fromisoformat(cached['daily_dates'][0])).days
+                eto = eto_cache[context.micro_area_id][offset:offset + raw_weather.LOOKBACK_DAYS]
+                micro_eto.append(eto)
+                micro_balance.append(
+                    [
+                        float(rain) - float(eto_value)
+                        if rain is not None and eto_value is not None
+                        else None
+                        for rain, eto_value in zip(
+                            weather["daily_rain_idw_mm"], eto, strict=True
                         )
-                    )
-                except (TypeError, ValueError) as exc:
-                    micro_soil_states[context.micro_area_id] = {
-                        "predictive_features": {},
-                        "quality": {
-                            "training_eligible": False,
-                            "training_exclusion_reasons": [
-                                {"code": "soil_state_build_error", "message": str(exc)}
-                            ],
-                        },
-                        "metadata": {"cutoff_date": cutoff.isoformat()},
-                    }
-        area = biology_v3.aggregate_area_rainfall_series(sliced)
-        area["water_state_contract_id"] = WATER_STATE_CONTRACT_ID
-        area["daily_eto0_mean_mm"] = _mean_series(
-            micro_eto, raw_weather.LOOKBACK_DAYS
-        )
-        area["daily_climatic_balance_mean_mm"] = _mean_series(
-            micro_balance, raw_weather.LOOKBACK_DAYS
-        )
+                    ]
+                )
+                if cached_soil is None:
+                    try:
+                        micro_soil_states[context.micro_area_id] = (
+                            mushroom_soil_water_state.build_soil_water_state(
+                                dates=axis,
+                                rain_idw_mm=weather["daily_rain_idw_mm"],
+                                reference_evapotranspiration_mm=eto,
+                                soilgrids_context=context.soilgrids_water or {},
+                            )
+                        )
+                    except (TypeError, ValueError) as exc:
+                        micro_soil_states[context.micro_area_id] = {
+                            "predictive_features": {},
+                            "quality": {
+                                "training_eligible": False,
+                                "training_exclusion_reasons": [
+                                    {"code": "soil_state_build_error", "message": str(exc)}
+                                ],
+                            },
+                            "metadata": {"cutoff_date": cutoff.isoformat()},
+                        }
+            area = biology_v3.aggregate_area_rainfall_series(sliced)
+            area["water_state_contract_id"] = WATER_STATE_CONTRACT_ID
+            area["daily_eto0_mean_mm"] = _mean_series(
+                micro_eto, raw_weather.LOOKBACK_DAYS
+            )
+            area["daily_climatic_balance_mean_mm"] = _mean_series(
+                micro_balance, raw_weather.LOOKBACK_DAYS
+            )
         if cached_soil is not None:
             soil_state = cached_soil.aggregated
             area["daily_soil_water_fraction_mean"] = cached_soil.daily_fraction_mean
@@ -269,39 +300,45 @@ def main() -> int:
         area.update(dict(soil_state.get("predictive_features") or {}))
         area["soil_water_quality"] = dict(soil_state.get("quality") or {})
         area["soil_water_metadata"] = dict(soil_state.get("metadata") or {})
-        area_cache[f"{area_id}|{cutoff.isoformat()}"] = area
+        area_cache[f"{area_id}|{cutoff.isoformat()}"] = (
+            raw_weather.PreparedRawWindow(area, feature_columns=prepared_columns)
+            if training_only else area)
         if index % 50 == 0 or index == len(requested):
             print(json.dumps({"materialized_area_cutoffs": index, "total_area_cutoffs": len(requested)}), flush=True)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     outputs: dict[str, dict[str, object]] = {}
     for source_payload, contract_id, filename in payloads:
-        built = []
-        for source in source_payload.get("samples", []):
-            metadata = source.get("metadata") or {}
-            key = f"{metadata.get('area_id')}|{metadata.get('cutoff_date')}"
-            area_series = area_cache.get(key)
-            if area_series is None:
-                cutoff = date.fromisoformat(str(metadata["cutoff_date"]))
-                area_series = {
-                    "daily_dates": [
-                        day.isoformat()
-                        for day in weather_context.date_window(cutoff, raw_weather.LOOKBACK_DAYS)
-                    ],
-                    **{
-                        series_key: [None] * raw_weather.LOOKBACK_DAYS
-                        for series_key in raw_weather.AREA_SERIES_KEYS.values()
-                    },
-                }
-            built.append(raw_weather.build_v5_sample(source, area_series, temporal_contract_id=contract_id))
+        columns = tuple(selected_columns[contract_id]) if contract_id in selected_columns else None
+        def samples():
+            for source in source_payload.get("samples", []):
+                metadata = source.get("metadata") or {}
+                key = f"{metadata.get('area_id')}|{metadata.get('cutoff_date')}"
+                area_series = area_cache.get(key)
+                if area_series is None:
+                    cutoff = date.fromisoformat(str(metadata["cutoff_date"]))
+                    area_series = {
+                        "daily_dates": [
+                            day.isoformat()
+                            for day in weather_context.date_window(cutoff, raw_weather.LOOKBACK_DAYS)
+                        ],
+                        **{
+                            series_key: [None] * raw_weather.LOOKBACK_DAYS
+                            for series_key in raw_weather.AREA_SERIES_KEYS.values()
+                        },
+                    }
+                row = raw_weather.build_v5_sample(source, area_series, temporal_contract_id=contract_id,
+                                                 feature_columns=columns,
+                                                 include_diagnostics=not training_only,
+                                                 prepared_window=area_series if isinstance(area_series, raw_weather.PreparedRawWindow) else None)
+                yield mushroom_ml_benchmark_io.training_sample(row) if training_only else row
         output = {
             "kind": "mushroom_biology_v5_raw_weather_benchmark",
             "water_state_contract_id": WATER_STATE_CONTRACT_ID,
             "schema_version": 1,
             "version_id": raw_weather.VERSION_ID,
             "feature_set": raw_weather.feature_set_contract(contract_id),
-            "sample_count": len(built),
-            "samples": built,
+            "sample_count": len(source_payload.get("samples", [])),
             "source": {
                 "source_benchmark_sha256": sha256(args.v3_fixed if contract_id == raw_weather.FIXED_CONTRACT_ID else args.v3_lag),
                 "known_sites_sha256": sha256(args.known_sites),
@@ -315,9 +352,16 @@ def main() -> int:
             "model_artifact_written": False,
             "operational_candidate_trained": False,
         }
+        if getattr(args, 'output_format', 'json') == 'parquet':
+            filename = str(Path(filename).with_suffix('.parquet'))
         path = args.output_dir / filename
-        path.write_text(json.dumps(output, ensure_ascii=False) + "\n", encoding="utf-8")
-        outputs[filename] = {"sha256": sha256(path), "sample_count": len(built)}
+        if path.suffix == '.parquet':
+            output_columns = columns if columns is not None else set().union(*output['feature_set']['profiles'].values())
+            mushroom_ml_benchmark_io.write_rows(path, output, samples(), columns=output_columns,
+                count=output['sample_count'])
+        else:
+            mushroom_ml_benchmark_io.write(path, {**output, 'samples': list(samples())})
+        outputs[filename] = {"sha256": sha256(path), "sample_count": output['sample_count']}
 
     inventory = {
         "kind": "biology_v5_raw_channel_inventory",
@@ -336,8 +380,8 @@ def main() -> int:
     manifest = {
         "kind": "mushroom_ml_v5_raw_discovery_build",
         "schema_version": 1,
-        "source_snapshot": "docker-data/audits/mushroom-ml-snapshot-20260816",
-        "source_snapshot_manifest_sha256": sha256(args.v3_fixed.parent / "MANIFEST.json"),
+        "source_snapshot": str(args.v3_fixed.parent),
+        "source_snapshot_manifest_sha256": source_manifest_sha256,
         "outputs": outputs,
         "raw_channel_inventory_sha256": sha256(inventory_path),
         "model_artifact_written": False,

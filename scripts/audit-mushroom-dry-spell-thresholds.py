@@ -267,7 +267,7 @@ def main():
     if args.selftest:return
     if args.output is None:parser.error('--output required')
     dest=args.output.resolve()
-    if not dest.is_relative_to(ROOT/'docker-data/audits') or dest.exists():
+    if not dest.is_relative_to((ROOT/'docker-data/audits').resolve()) or dest.exists():
         raise ValueError('Use a new output file under docker-data/audits; never overwrite results')
     paths=[d/f for d in (PRIMARY,SUPPLEMENT) for f in ('biology-v3-fixed.json','biology-v3-lag.json','biology-v4-lag.json')]
     if sum(p.stat().st_size for p in paths)>600_000_000:raise ValueError('Input size budget exceeded')

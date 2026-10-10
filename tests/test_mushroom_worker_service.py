@@ -228,6 +228,7 @@ service.serve(root, host='127.0.0.1', port=0, heartbeat_interval=0.1)
             len(tail), mushroom_worker_service.SUBPROCESS_STDERR_TAIL_MAX_BYTES
         )
         self.assertTrue(tail.endswith(b"\nEND-OF-ERROR\n"))
+        self.assertTrue(stderr_capture.failure_text()[:500].startswith('END-OF-ERROR\n'))
 
     def test_service_runs_one_job_per_lane_from_different_coordinators(self) -> None:
         def coordinator_server(

@@ -9,8 +9,13 @@ one IDW series per micro-area, ET0, and default soil-water states.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from collections import OrderedDict
+from collections.abc import Mapping as MappingABC
+from bisect import bisect_left, bisect_right
+from itertools import islice
 from datetime import date, timedelta
 import json
+import hashlib
 from pathlib import Path
 from typing import Iterable, Mapping
 
@@ -25,10 +30,168 @@ StationKey = tuple[str, str]
 DEFAULT_SOIL_VARIANT_ID = "wv0033_0_30cm"
 
 
+class _LastWindow(dict):
+    """One range view; immutable bases are shared across all builder phases."""
+    def __setitem__(self, key, value):
+        self.clear()
+        super().__setitem__(key, value)
+
+
+class _RecordRange(MappingABC):
+    """Read-only date view over station records; no copy per area/window."""
+    __slots__ = ('records', 'axis', 'left', 'right', 'start', 'end')
+
+    def __init__(self, records, axis, start, end):
+        self.records, self.axis, self.start, self.end = records, axis, start, end
+        self.left, self.right = bisect_left(axis, start), bisect_right(axis, end)
+
+    def __len__(self):
+        return self.right - self.left
+
+    def __iter__(self):
+        return islice(self.axis, self.left, self.right)
+
+    def __getitem__(self, day):
+        if not self.start <= day <= self.end:
+            raise KeyError(day)
+        return self.records[day]
+
+
+class AreaWeatherWindows(MappingABC):
+    """Lazily aggregate the exact V3 window; do not retain one per observation."""
+    def __init__(self, requested, contexts_by_area, series, *, max_entries=16, days=None):
+        self.days = weather_context.DAILY_SERIES_DAYS if days is None else days
+        if type(self.days) is not int or not 0 < self.days <= 365:
+            raise ValueError("area_weather_window_limit")
+        available = {area for area, contexts in contexts_by_area.items()
+                     if any(c.micro_area_id in series for c in contexts)}
+        self.keys_by_day = {(area, day.isoformat()) for area, day in requested if area in available}
+        self.contexts, self.series, self.limit = contexts_by_area, series, max_entries
+        self.memo = OrderedDict()
+        from rainmapper_core.mushroom_map_competing import PointCache
+        self.area_series = PointCache(max_bytes=16*1024*1024,max_entries=32)
+
+    def __len__(self):
+        return len(self.keys_by_day)
+
+    def __iter__(self):
+        return iter(sorted(self.keys_by_day))
+
+    def _from_microareas(self, key):
+        if key not in self.keys_by_day:
+            raise KeyError(key)
+        if key in self.memo:
+            self.memo.move_to_end(key)
+            return self.memo[key]
+        area, day = key
+        micro = {context.micro_area_id: mushroom_weather_idw.slice_daily_weather_idw_series(
+                     self.series[context.micro_area_id], end_day=date.fromisoformat(day),
+                     days=self.days)
+                 for context in sorted(self.contexts.get(area, ()), key=lambda c:c.micro_area_id)
+                 if context.micro_area_id in self.series}
+        if not micro:
+            raise KeyError(key)
+        value = biology_v3.aggregate_area_rainfall_series(micro)
+        self.memo[key] = value
+        while len(self.memo) > self.limit:
+            self.memo.popitem(last=False)
+        return value
+
+    def __getitem__(self, key):
+        if key not in self.keys_by_day:
+            raise KeyError(key)
+        if key in self.memo:
+            self.memo.move_to_end(key)
+            return self.memo[key]
+        area, day = key
+        whole = self.area_series.get(area)
+        if whole is None:
+            micro = {c.micro_area_id: self.series[c.micro_area_id]
+                     for c in self.contexts[area] if c.micro_area_id in self.series}
+            axes = [v.get('daily_dates', []) for v in micro.values()]
+            # Different base axes keep the original slice-before-aggregation path.
+            if (not axes or not axes[0] or len(axes[0])*(2048+512*len(micro)) > 16*1024*1024
+                    or any(axis != axes[0] for axis in axes[1:])):
+                return self._from_microareas(key)
+            whole = biology_v3.aggregate_area_rainfall_series(micro)
+            self.area_series.put(area, whole)
+        axis = whole['daily_dates']
+        end = (date.fromisoformat(day) - date.fromisoformat(axis[0])).days + 1
+        start = end - self.days
+        if start < 0 or end > len(axis):
+            return self._from_microareas(key)
+        value = {k: (v[start:end] if isinstance(v, list) else v) for k, v in whole.items()}
+        rain = value['daily_rain_idw_mean_mm']
+        available, configured = value['daily_microareas_available'], value['configured_microareas']
+        value.update(rain_observed_days=sum(v is not None for v in rain),
+                     rain_missing_days=sum(v is None for v in rain),
+                     full_microarea_coverage_days=sum(v == configured for v in available),
+                     partial_microarea_coverage_days=sum(0 < v < configured for v in available))
+        for metric, unit in (('temp_min', 'c'), ('temp_max', 'c'),
+                             ('humidity_min', 'pct'), ('humidity_max', 'pct')):
+            values = value[f'daily_{metric}_idw_mean_{unit}']
+            value[f'{metric}_observed_days'] = sum(v is not None for v in values)
+            value[f'{metric}_missing_days'] = sum(v is None for v in values)
+        self.memo[key] = value
+        while len(self.memo) > self.limit:
+            self.memo.popitem(last=False)
+        return value
+
+
+class AreaPhysicalWindows:
+    """Share area ET0/balance means across overlapping raw feature windows."""
+    def __init__(self, contexts, weather, eto):
+        from rainmapper_core.mushroom_map_competing import PointCache
+        self.contexts, self.weather, self.eto = contexts, weather, eto
+        self.memo = PointCache(max_bytes=8*1024*1024, max_entries=32)
+
+    def get(self, area, cutoff, *, days=365):
+        import statistics
+        if type(days) is not int or not 0 < days <= 365:
+            raise ValueError('area_weather_window_limit')
+        whole = self.memo.get(area)
+        if whole is None:
+            contexts = [c for c in self.contexts.get(area, []) if c.micro_area_id in self.weather]
+            axes = [self.weather[c.micro_area_id]['daily_dates'] for c in contexts]
+            if (not axes or not axes[0] or len(axes[0])*256 > 8*1024*1024
+                    or any(axis != axes[0] for axis in axes[1:])):
+                return None
+            n = len(axes[0])
+            if n*max(1, len(contexts))*32 > 8*1024*1024:
+                return None
+            eto = [self.eto[c.micro_area_id] for c in contexts]
+            rain = [self.weather[c.micro_area_id]['daily_rain_idw_mm'] for c in contexts]
+            if any(len(row) != n for row in (*eto, *rain)):
+                return None
+            balance = [[float(p)-float(e) if p is not None and e is not None else None
+                        for p, e in zip(row, et)] for row, et in zip(rain, eto)]
+            def mean(rows):
+                result = []
+                for i in range(n):
+                    values = [float(row[i]) for row in rows if row[i] is not None]
+                    result.append(statistics.fmean(values) if values else None)
+                return result
+            whole = axes[0][0], mean(eto), mean(balance)
+            self.memo.put(area, whole)
+        end = (cutoff - date.fromisoformat(whole[0])).days + 1
+        start = end - days
+        if start < 0 or end > len(whole[1]):
+            return None
+        return whole[1][start:end], whole[2][start:end]
+
+
 @dataclass(frozen=True)
 class AreaSoilBundle:
     aggregated: dict[str, object]
     daily_fraction_mean: list[float | None]
+    input_signature: str | None = None
+
+
+def soil_inputs_signature(rain, eto):
+    """Seal actual physical inputs, including the first day's rain policy."""
+    value = [(key, rain.get(key), eto.get(key)) for key in sorted(set(rain) | set(eto))]
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
+                                     allow_nan=False).encode()).hexdigest()
 
 
 class OperationalWeatherWorkspace:
@@ -42,6 +205,8 @@ class OperationalWeatherWorkspace:
         stations_file: Path,
         start_day: date,
         end_day: date,
+        compact_series: bool = False,
+        area_ranges: Mapping[str, tuple[date, date]] | None = None,
     ) -> None:
         if end_day < start_day:
             raise ValueError("weather workspace end precedes start")
@@ -51,6 +216,7 @@ class OperationalWeatherWorkspace:
         self.start_day = start_day
         self.end_day = end_day
         self.days = (end_day - start_day).days + 1
+        self.area_ranges = dict(area_ranges or {})
         self.disabled = mushroom_weather_idw.disabled_wunderground_station_keys(
             self.stations_file
         )
@@ -109,6 +275,7 @@ class OperationalWeatherWorkspace:
             station_filter=station_filter,
             start_date=self.start_day,
             end_date=self.end_day,
+            **({'stream_records': True} if compact_series else {}),
         )
         self.stations = {
             key: station
@@ -119,6 +286,14 @@ class OperationalWeatherWorkspace:
             key: mushroom_weather_idw.suppressed_rain_dates(station)
             for key, station in self.stations.items()
         }
+        self._series_index = None
+        if compact_series:
+            from .mushroom_weather_series import WeatherSeries
+            self._series_index = WeatherSeries(
+                self.stations, self.start_day, self.end_day, self.duplicate_dates)
+        self._station_axes = ({key: tuple(sorted(station.records_by_day))
+                               for key, station in self.stations.items()}
+                              if compact_series else None)
         self._station_views: dict[
             tuple[date, date], dict[StationKey, weather_context.WeatherStation]
         ] = {}
@@ -127,6 +302,9 @@ class OperationalWeatherWorkspace:
         self._weather_views: dict[
             tuple[date, date, tuple[str, ...]], dict[str, dict[str, object]]
         ] = {}
+        if compact_series:
+            self._station_views = _LastWindow()
+            self._weather_views = _LastWindow()
         self._soil: dict[tuple[str, str, date], AreaSoilBundle] = {}
         self.series_built = 0
         self.series_reused = 0
@@ -141,8 +319,9 @@ class OperationalWeatherWorkspace:
         if cached is not None:
             return cached
         view: dict[StationKey, weather_context.WeatherStation] = {}
+        axes = getattr(self, '_station_axes', None)
         for station_key, station in self.stations.items():
-            records = {
+            records = _RecordRange(station.records_by_day, axes[station_key], start_day, end_day) if axes is not None else {
                 day: record
                 for day, record in station.records_by_day.items()
                 if start_day <= day <= end_day
@@ -167,16 +346,14 @@ class OperationalWeatherWorkspace:
             return cached_view
         self._validate_range(start_day, end_day)
         view_stations = self.stations_for_view(start_day, end_day)
-        view_duplicates = {
-            key: mushroom_weather_idw.suppressed_rain_dates(station)
-            for key, station in view_stations.items()
-        }
         days = (end_day - start_day).days + 1
         result: dict[str, dict[str, object]] = {}
         for context in ordered:
             base = self._weather_base.get(context.micro_area_id)
             if base is None:
-                base = mushroom_weather_idw.build_daily_weather_idw_series(
+                index = getattr(self, '_series_index', None)
+                first, last = self.context_range(context, self.start_day, self.end_day)
+                base = index.build(context, self.disabled, start=first, end=last) if index is not None else mushroom_weather_idw.build_daily_weather_idw_series(
                     self.stations,
                     target_lat=context.lat,
                     target_lon=context.lon,
@@ -187,7 +364,6 @@ class OperationalWeatherWorkspace:
                     duplicate_dates_by_station=self.duplicate_dates,
                 )
                 self._weather_base[context.micro_area_id] = base
-                axis = weather_context.date_window(self.end_day, self.days)
                 self._eto_base[context.micro_area_id] = point_reference_et(base,context,self.stations)['et0_mm']
                 self.series_built += 1
             else:
@@ -208,7 +384,10 @@ class OperationalWeatherWorkspace:
                     end_day=start_day,
                     days=1,
                     excluded_station_keys=self.disabled,
-                    duplicate_dates_by_station=view_duplicates,
+                    # Only this first day is recomputed. In the scalar view
+                    # it has no predecessor, so it cannot be a carried value.
+                    # Do not rescan every station's full history per microarea.
+                    duplicate_dates_by_station={key: frozenset() for key in view_stations},
                 )
                 for field, values in boundary.items():
                     target = view.get(field)
@@ -226,9 +405,17 @@ class OperationalWeatherWorkspace:
         values = self._eto_base.get(micro_area_id)
         if values is None:
             raise KeyError(f"weather base not materialized for {micro_area_id}")
-        start_index = (start_day - self.start_day).days
-        end_index = (end_day - self.start_day).days + 1
+        first = date.fromisoformat(self._weather_base[micro_area_id]['daily_dates'][0])
+        start_index = (start_day - first).days
+        end_index = (end_day - first).days + 1
+        if not 0 <= start_index < end_index <= len(values):
+            raise ValueError('requested ET0 view is outside its prepared context')
         return values[start_index:end_index]
+
+    def context_range(self, context, start, end):
+        """Historical builders only need the union of an area's feature windows."""
+        first, last = getattr(self, 'area_ranges', {}).get(context.area_id, (start, end))
+        return max(start, first), min(end, last)
 
     def soil_bundle(
         self, variant_id: str, area_id: str, cutoff: date
@@ -311,6 +498,7 @@ def activate_operational_workspace(
     stations_file: Path,
     lookback_days: int = 365,
     max_horizon_days: int = 7,
+    compact_series: bool = False,
 ) -> OperationalWeatherWorkspace:
     payload = json.loads(observations.read_text(encoding="utf-8"))
     rows = payload.get("observations", []) if isinstance(payload, dict) else []
@@ -330,10 +518,29 @@ def activate_operational_workspace(
         stations_file=stations_file,
         start_day=start_day,
         end_day=max(observed_days),
+        compact_series=compact_series,
+        area_ranges=_area_ranges(rows, known_sites, lookback_days + max_horizon_days - 1)
+                    if compact_series else None,
     )
     global _ACTIVE
     _ACTIVE = workspace
     return workspace
+
+
+def _area_ranges(rows, known_sites, lookback):
+    contexts = biology_v3.load_micro_area_contexts(known_sites)
+    ranges = {}
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        context = contexts.get(str(row.get('micro_area_id') or ''))
+        area = str(row.get('area_id') or (context.area_id if context else ''))
+        day = weather_context.parse_day(row.get('observed_at'))
+        if not area or day is None:
+            continue
+        first, last = ranges.get(area, (day, day))
+        ranges[area] = min(first, day), max(last, day)
+    return {area: (first - timedelta(days=lookback), last) for area, (first, last) in ranges.items()}
 
 
 def active_workspace(

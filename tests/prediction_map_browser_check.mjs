@@ -191,6 +191,7 @@ const server = createServer(async (req, res) => {
       }
       const started = performance.now();
       const response = { ...example, request_id: query.request_id, point: query.point };
+      if (query.competing_selection) Object.assign(response,{competing_selection:true,k_value:query.k_value});
       if (preview) {
         const start = new Date(`${query.start_date}T00:00:00Z`);
         if (!Number.isFinite(start.getTime())) return send({ error: "invalid_date" }, "application/json", 400);
@@ -628,6 +629,8 @@ try {
   assert.equal(await evaluate("document.querySelector('.map-settings-section.is-active').id"),"prediction-settings");
   assert.equal(await evaluate("document.getElementById('prediction-execution-selector').value"),"worker");
   assert.equal(await evaluate("document.getElementById('prediction-timezone-selector').value"),"Europe/Madrid");
+  assert.equal(await evaluate("document.getElementById('prediction-competing-selector').value"),'inherit');
+  assert.equal(await evaluate("document.getElementById('prediction-k-value').value"),'');
   await send('Emulation.setTimezoneOverride',{timezoneId:'Pacific/Honolulu'});
   await evaluate("document.getElementById('prediction-timezone-selector').value='Pacific/Kiritimati';document.getElementById('prediction-timezone-selector').dispatchEvent(new Event('change'))");
   const settingsShot = await send("Page.captureScreenshot",{format:"png"});
@@ -1275,6 +1278,66 @@ try {
   await evaluate("(()=>{const svg=document.querySelector('.pm-weekly-chart svg'),r=svg.getBoundingClientRect();svg.dispatchEvent(new PointerEvent('pointermove',{clientX:r.left+r.width*213/400,clientY:r.top+20}))})()");
   assert.ok(await evaluate("document.querySelector('.pm-chart-tooltip').textContent.includes('Sin IFF calculado')"));
   assert.equal(await evaluate("document.querySelectorAll('.pm-chart-tooltip-row').length"),0);
+  // Competing selection is opt-in, compact and honest about missing votes.
+  const changeCompeting = async (enabled, k) => {
+    await evaluate(`document.getElementById('settings-toggle').click();document.getElementById('settings-tab-prediction').click();
+      document.getElementById('prediction-competing-selector').value='${enabled}';
+      document.getElementById('prediction-competing-selector').dispatchEvent(new Event('change'));
+      document.getElementById('prediction-k-value').value='${k}';
+      document.getElementById('prediction-k-value').dispatchEvent(new Event('change'));
+      document.getElementById('settings-toggle').click()`);
+  };
+  assert.equal(await evaluate("document.querySelectorAll('.pm-competing').length"),0);
+  modelFixture.species[0].competing = {evidence:'temporal_history',labels:['LR–V3'],
+    criteria:[...'ABCD'].map(method=>({method,years:[2025],days:Array.from({length:7},()=>method==='D'?[null,null,null]:[.8,0,12.5,false])}))};
+  modelFixture.species[0].competing.comparison = {protocol:'common_selection_walk_forward_v1',k:2.5,cutoff:'2020-01-01',
+    species:{boletus_edulis:{status:'ready',visits:4,positive:2,total_visits:5,start:'2019-09-01',end:'2019-10-31',missing:{weather_missing:1},
+      winners:['habitual','A'], methods:Object.fromEntries(['habitual','A','B','C','D'].map((method,i)=>{
+        const [tp,fp]=[[2,0],[2,0],[2,2],[1,0],[0,0]][i];
+        return [method,{ik:100*(tp-2.5*fp)/2,tp,fp,calls:tp+fp,abstentions:0,precision:tp+fp?tp/(tp+fp):null,recall:tp/2}];
+      }))}}};
+  await changeCompeting('true','2.5');
+  await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-competing')");
+  assert.equal(executionRequests.at(-1).k_value,2.5);
+  assert.ok(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-competing summary').textContent.includes('3/4 · 1 modelos distintos')"));
+  assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-competing').open"),false);
+  await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-competing').open=true");
+  assert.equal(await evaluate("document.querySelectorAll('.pm-competing-row').length"),5);
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.pm-comparison-winner')].map(e=>e.dataset.method)"),['habitual','A']);
+  assert.ok(await evaluate("document.querySelector('.pm-competing-row[data-method=habitual]').textContent.includes('Iₖ de comparación: 100')"));
+  assert.equal(await evaluate("document.querySelectorAll('.pm-competing-row > details[open]').length"),0);
+  for (const width of [320,390]) {
+    await evaluate("document.querySelector('.pm-close').click()");
+    await send('Emulation.setDeviceMetricsOverride',{width,height:740,deviceScaleFactor:1,mobile:true});
+    await evaluate("map.resize();map.jumpTo({center:[1.9,42],zoom:8});void 0");
+    await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-competing')");
+    await evaluate("(()=>{const p=document.querySelector('[data-species-id=boletus_edulis] .pm-competing');p.open=true;p.scrollIntoView({block:'start'})})()");
+    await pause(100);
+    assert.ok(await evaluate("(()=>{const r=document.querySelector('.pm-result').getBoundingClientRect();return r.left>=0 && r.right<=innerWidth+1 && r.top>=0 && r.bottom<=innerHeight+1})()"));
+    assert.ok(await evaluate("(()=>{const p=document.querySelector('[data-species-id=boletus_edulis] .pm-competing');return p.scrollWidth<=p.clientWidth+1})()"));
+    const shot=await send('Page.captureScreenshot',{format:'png'});
+    await fs.writeFile(path.join(profile,`competing-${width}.png`),Buffer.from(shot.data,'base64'));
+  }
+  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
+  await evaluate('map.resize(); void 0');
+  modelFixture.species[0].competing.comparison = null;
+  modelFixture.species[0].competing.comparison_unavailable_reason = 'historical_not_prepared';
+  await evaluate("document.querySelector('.pm-close').click()");
+  await until("!document.querySelector('.pm-competing')");
+  await pause(250);
+  await clickAt(1.981,42.012); await until("!!document.querySelector('.pm-competing')");
+  const historicalMessage = await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-competing').textContent");
+  assert.ok(historicalMessage.includes('Comparación por fecha sin preparar'), historicalMessage);
+  assert.ok(!historicalMessage.includes('pendiente para este K'), historicalMessage);
+  assert.equal(await evaluate("document.querySelectorAll('.pm-comparison-winner').length"),0);
+  delete modelFixture.species[0].competing;
+  await changeCompeting('inherit','');
+  assert.equal(deviceSettings.prediction_competing_selection,null);
+  assert.equal(deviceSettings.prediction_k_value,null);
+  await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-species')");
+  assert.equal(executionRequests.at(-1).competing_selection,false);
+  assert.equal(executionRequests.at(-1).k_value,4);
+  assert.equal(await evaluate("document.querySelectorAll('.pm-competing').length"),0);
   // Reversible agreement: retain the IFF, visibly withhold recommendation,
   // and disclose missing-data exclusions even for a high-scoring model.
   modelFixture.species[0].probabilities[0]=.99;

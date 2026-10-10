@@ -17,6 +17,7 @@ docker-data
 docker-media
 docker-empty-test
 tmp
+local
 mushroom-GIS
 mushroom-map-GIS
 geography-sources

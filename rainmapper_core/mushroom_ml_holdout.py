@@ -52,6 +52,13 @@ def eligible_samples(benchmark: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def matrix(samples: list[dict[str, Any]], columns: list[str]) -> tuple[np.ndarray, np.ndarray]:
+    from rainmapper_core.mushroom_ml_benchmark_io import ColumnarFeatures
+    if samples and all(isinstance(s.get('predictive_features'), ColumnarFeatures) for s in samples):
+        X = np.empty((len(samples), len(columns)), dtype=float)
+        for index, sample in enumerate(samples):
+            X[index] = sample['predictive_features'].values_for(columns, numeric=True)
+        y = np.asarray([1 if s.get('prediction_target') == 'favorable' else 0 for s in samples], dtype=int)
+        return X, y
     X = np.asarray(
         [
             [
@@ -168,6 +175,7 @@ def _select_v5(
     y: np.ndarray,
     columns: list[str],
     group_days: int,
+    *, executor=None,
 ) -> tuple[dict[str, Any], bool]:
     splits = _inner_splits(samples, group_days)
     if estimator_id == V5_ESTIMATORS[0]:
@@ -186,12 +194,13 @@ def _select_v5(
         fallback = {"regularization": 0.1, "l1_ratio": 0.5}
     if not splits:
         return fallback, False
-    scored: list[tuple[float, dict[str, Any]]] = []
-    for config in configs:
-        fold_scores = []
-        for train_indices, valid_indices in splits:
-            train_X, valid_X, _imputer, _scaler = _preprocess(X[train_indices], X[valid_indices])
-            train_y = y[train_indices]
+    scores_by_config = [[] for _ in configs]
+    failed = set()
+    for train_indices, valid_indices in splits:
+        train_X, valid_X, _imputer, _scaler = _preprocess(X[train_indices], X[valid_indices])
+        train_y = y[train_indices]
+        def score_config(option):
+            index, config = option
             try:
                 if estimator_id == V5_ESTIMATORS[0]:
                     model = LogisticRegression(
@@ -207,12 +216,19 @@ def _select_v5(
                     model.fit(train_X, train_y)
                 if estimator_id == V5_ESTIMATORS[1] and not model.converged_:
                     raise ValueError("sparse-group configuration did not converge")
-                fold_scores.append(float(brier_score_loss(y[valid_indices], model.predict_proba(valid_X)[:, 1])))
+                return index, float(brier_score_loss(y[valid_indices], model.predict_proba(valid_X)[:, 1]))
             except (ValueError, FloatingPointError):
-                fold_scores = []
-                break
-        if fold_scores:
-            scored.append((float(np.mean(fold_scores)), config))
+                return index, None
+        options = [(index, config) for index, config in enumerate(configs) if index not in failed]
+        # All tasks share this fold's immutable matrix; reduce in original order.
+        results = executor.map(score_config, options) if executor is not None else map(score_config, options)
+        for index, score in results:
+            if score is None:
+                failed.add(index)
+            else:
+                scores_by_config[index].append(score)
+    scored = [(float(np.mean(scores)), config) for index,(scores,config) in
+              enumerate(zip(scores_by_config,configs)) if scores and index not in failed]
     if not scored:
         return fallback, False
     scored.sort(key=lambda item: (round(item[0], 6), item[1].get("C", -item[1].get("regularization", 0)), -item[1]["l1_ratio"]))

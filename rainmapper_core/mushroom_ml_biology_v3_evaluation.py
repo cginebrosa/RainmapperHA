@@ -19,6 +19,7 @@ from rainmapper_core import mushroom_ml_experiment_trainer
 from rainmapper_core import mushroom_ml_version_registry
 from rainmapper_core import mushroom_prediction_interpretation
 from rainmapper_core.mushroom_ml_biology_v3 import observation_validation_groups
+from rainmapper_core.mushroom_ml_benchmark_io import ColumnarFeatures
 
 
 FEATURE_FAMILIES = {
@@ -51,12 +52,11 @@ def _eligible_samples(benchmark: dict[str, Any]) -> list[dict[str, Any]]:
         )
         if source.get("prediction_target") not in {"favorable", "unfavorable"} or not eligible:
             continue
+        features = source.get("predictive_features") or source.get("features") or {}
         normalized.append(
             {
                 **source,
-                "predictive_features": dict(
-                    source.get("predictive_features") or source.get("features") or {}
-                ),
+                "predictive_features": features if isinstance(features, ColumnarFeatures) else dict(features),
                 "quality": dict(source.get("quality") or {}),
                 "metadata": metadata,
             }

@@ -148,9 +148,12 @@ def materialize_runtime_benchmarks(
     v4_lag: Mapping[str, Any] | None = None,
     v5_fixed: Mapping[str, Any] | None = None,
     v5_lag: Mapping[str, Any] | None = None,
+    requested_keys: set[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Derive runtime profiles available from the supplied base datasets."""
     result: dict[str, dict[str, Any]] = {}
+    def wanted(key):
+        return requested_keys is None or key in requested_keys
     rows = (
         (
             "fixed",
@@ -186,54 +189,62 @@ def materialize_runtime_benchmarks(
         v5_contract,
         v6_contract,
     ) in rows:
-        result[benchmark_key("altitude_v2", v2_contract, "common_idw")] = (
-            mushroom_ml_biology_v3_evaluation.build_observation_altitude_v2_common_idw_benchmark(v3)
-        )
-        result[benchmark_key("biology_v3", v3_contract, "core")] = v3
+        if wanted(benchmark_key('altitude_v2', v2_contract, 'common_idw')):
+            result[benchmark_key("altitude_v2", v2_contract, "common_idw")] = (
+                mushroom_ml_biology_v3_evaluation.build_observation_altitude_v2_common_idw_benchmark(v3)
+            )
+        if wanted(benchmark_key('biology_v3', v3_contract, 'core')):
+            result[benchmark_key("biology_v3", v3_contract, "core")] = v3
         if v4 is not None:
-            result[
-                benchmark_key(
-                    "biology_v3",
-                    v3_contract,
-                    mushroom_ml_biology_v3_physical.PROFILE_ID,
-                )
-            ] = dict(mushroom_ml_biology_v3_physical.materialize_benchmark(v4))
+            if wanted(benchmark_key('biology_v3', v3_contract, mushroom_ml_biology_v3_physical.PROFILE_ID)):
+                result[
+                    benchmark_key(
+                        "biology_v3",
+                        v3_contract,
+                        mushroom_ml_biology_v3_physical.PROFILE_ID,
+                    )
+                ] = dict(mushroom_ml_biology_v3_physical.materialize_benchmark(v4))
             for profile_id in ("extended_weather", "climatic_balance"):
-                result[benchmark_key("biology_v4", v4_contract, profile_id)] = dict(
-                    mushroom_ml_biology_v4.materialize_comparison_benchmark(
-                        v4, profile_id=profile_id
+                if wanted(benchmark_key('biology_v4', v4_contract, profile_id)):
+                    result[benchmark_key("biology_v4", v4_contract, profile_id)] = dict(
+                        mushroom_ml_biology_v4.materialize_comparison_benchmark(
+                            v4, profile_id=profile_id
+                        )
                     )
-                )
         if v5 is not None:
-            result[
-                benchmark_key(
-                    "biology_v5_raw_weather_discovery",
-                    v5_contract,
-                    "raw_primary_plus_physical_state",
-                )
-            ] = v5
-            result[
-                benchmark_key(
-                    "biology_v6_smooth_hierarchical",
-                    v6_contract,
-                    "smooth_weather_physical_state",
-                )
-            ] = v5
-            for window_days in raw.WINDOW_DAYS_OPTIONS:
+            if wanted(benchmark_key('biology_v5_raw_weather_discovery', v5_contract, 'raw_primary_plus_physical_state')):
                 result[
                     benchmark_key(
-                        raw.WINDOWED_VERSION_ID,
+                        "biology_v5_raw_weather_discovery",
                         v5_contract,
-                        raw.windowed_profile_id(window_days),
+                        "raw_primary_plus_physical_state",
                     )
                 ] = v5
+            if wanted(benchmark_key('biology_v6_smooth_hierarchical', v6_contract, 'smooth_weather_physical_state')):
                 result[
                     benchmark_key(
-                        smooth.WINDOWED_VERSION_ID,
+                        "biology_v6_smooth_hierarchical",
                         v6_contract,
-                        smooth.windowed_profile_id(window_days),
+                        "smooth_weather_physical_state",
                     )
                 ] = v5
+            for window_days in raw.WINDOW_DAYS_OPTIONS:
+                if wanted(benchmark_key(raw.WINDOWED_VERSION_ID, v5_contract, raw.windowed_profile_id(window_days))):
+                    result[
+                        benchmark_key(
+                            raw.WINDOWED_VERSION_ID,
+                            v5_contract,
+                            raw.windowed_profile_id(window_days),
+                        )
+                    ] = v5
+                if wanted(benchmark_key(smooth.WINDOWED_VERSION_ID, v6_contract, smooth.windowed_profile_id(window_days))):
+                    result[
+                        benchmark_key(
+                            smooth.WINDOWED_VERSION_ID,
+                            v6_contract,
+                            smooth.windowed_profile_id(window_days),
+                        )
+                    ] = v5
     return result
 
 

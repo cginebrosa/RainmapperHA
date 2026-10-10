@@ -19,6 +19,58 @@ REGISTRY_PATH = (
 
 
 class MushroomMLRuntimeInferenceTests(TestCase):
+    def test_compact_applicability_preserves_magnitude_thresholds_and_rain_warnings(self):
+        from tests.test_mushroom_competing_history import REF
+        class ConstantModel:
+            def predict_proba(self, values):
+                return np.tile([.2,.8],(len(values),1))
+        columns = ['temperature','rain_mm','constant','unknown','malformed']
+        bundle = {'artifact_ref':REF,'feature_cols':columns,'model':ConstantModel(),
+            'feature_support':{'temperature':dict(min=-1,max=1,mean=0,std=1),
+                'rain_mm':dict(min=0,max=1,mean=0,std=0),
+                'constant':dict(min=0,max=0,mean=0,std=0),
+                'malformed':dict(min=0,max=0)}}
+        rows = [dict(zip(columns,[v,0,0,None,100])) for v in
+                (None,float('nan'),-3,-2.9995,-2.99949,0,1,2.99949,2.9995,3)]
+        rows += [dict(temperature=0,rain_mm=100,constant=0),
+                 dict(temperature=0,rain_mm=0,constant=.00001)]
+        expected = inference.predict_bundle_many(bundle,rows,species_ids=['boletus_aereus']*len(rows))
+        with mock.patch.object(inference,'_prediction_payload',side_effect=AssertionError('discarded details')):
+            compact = inference.predict_bundle_many(bundle,rows,species_ids=['boletus_aereus']*len(rows),
+                                                    applicability_only=True)
+        self.assertEqual(compact,[{'probability':r['probability'],
+            'applicability':{'status':r['applicability']['status']}} for r in expected])
+
+    def test_history_probability_path_preserves_values_without_building_display_details(self):
+        from rainmapper_core.mushroom_ml_benchmark_io import ColumnarFeatures
+        from tests.test_mushroom_competing_history import REF
+        class RecordingModel:
+            def predict_proba(self, values):
+                self.seen = values.copy()
+                return np.asarray([[.7,.3],[.1,.9]])
+        model = RecordingModel()
+        bundle = {'artifact_ref':REF,'feature_cols':['rain','missing'],'model':model,
+                  'feature_support':{'rain':{'min':0,'max':1,'mean':.5,'std':.1}}}
+        rows = [{'rain':5.,'missing':None},{'rain':7.}]
+        expected = inference.predict_bundle_many(bundle,rows,species_ids=['boletus_aereus']*2)
+        matrix = model.seen.copy()
+        shared = {}
+        columnar = [ColumnarFeatures({'rain':0,'missing':1},
+                        np.array([[5.,999.],[7.,999.]]),np.array([[True,False],[True,True]]),
+                        index,{1} if index else set(),shared) for index in range(2)]
+        self.assertEqual(inference.predict_bundle_many(bundle,columnar,
+                          species_ids=['boletus_aereus']*2),expected)
+        np.testing.assert_array_equal(model.seen,matrix)
+        with mock.patch.object(inference,'_prediction_payload',side_effect=AssertionError('unused details')):
+            actual = inference.predict_bundle_many(bundle,columnar,
+                species_ids=['boletus_aereus']*2,probability_only=True)
+        self.assertEqual(actual,[{'probability':v['probability']} for v in expected])
+        for invalid in (float('nan'),-.1,1.1):
+            with mock.patch.object(model,'predict_proba',return_value=np.array([[0,invalid],[0,.5]])):
+                with self.assertRaisesRegex(ValueError,'invalid probability'):
+                    inference.predict_bundle_many(bundle,rows,species_ids=['boletus_aereus']*2,
+                                                  probability_only=True)
+
     def setUp(self) -> None:
         inference.clear_artifact_cache()
 

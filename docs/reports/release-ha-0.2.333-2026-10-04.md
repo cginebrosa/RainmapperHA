@@ -2,7 +2,9 @@
 
 Publicada por petición expresa del usuario («publicamos version de HA»), después
 de entregar la validación local de la medición por recorridos y su convivencia
-con las consultas. Pendiente instalación y prueba del usuario en HA real.
+con las consultas. El 04/10 el usuario confirmó «instalada 0.2.333 y funcionando».
+Instalación y funcionamiento en HA real confirmados por el usuario; Codex no ha
+instalado ni reiniciado HA real. Release cerrada.
 
 ## Cambios publicados
 
@@ -66,5 +68,5 @@ funcional y capturas: `tmp/measurement-queries-20261004/` y
 
 Código, pruebas, metadatos y documentación se incluyen en un único commit después
 de verificar GHCR. Cambios locales previos ajenos y observaciones privadas quedan
-fuera. El usuario instala y prueba en HA real; última instalación confirmada:
-0.2.332. No repetir publicación ni lanzar trabajos operativos al continuar.
+fuera. Última instalación confirmada por el usuario: 0.2.333, funcionando.
+No repetir publicación ni lanzar trabajos operativos al continuar.

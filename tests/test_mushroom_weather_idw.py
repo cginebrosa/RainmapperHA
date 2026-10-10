@@ -194,6 +194,20 @@ class MushroomWeatherIDWTests(unittest.TestCase):
                 days=1,
             )
 
+    def test_date_axis_cache_revalidates_edits_and_preserves_local_gap_checks(self):
+        series = {'daily_dates':['2026-01-01','2026-01-02','2026-01-03'],
+                  'daily_rain_mm':[1,2,3]}
+        kwargs = dict(end_day=date(2026,1,3), days=2)
+        self.assertEqual(mushroom_weather_idw.slice_daily_weather_idw_series(series, **kwargs)['daily_rain_mm'], [2,3])
+        series['daily_dates'][1] = '2026-01-03'
+        with self.assertRaisesRegex(ValueError, 'outside the cached range'):
+            mushroom_weather_idw.slice_daily_weather_idw_series(series, **kwargs)
+        series['daily_dates'] = ['2025-12-30','2026-01-02','2026-01-03']
+        self.assertEqual(mushroom_weather_idw.slice_daily_weather_idw_series(series, **kwargs)['daily_rain_mm'], [2,3])
+        series['daily_dates'][0] = 'invalid'
+        with self.assertRaisesRegex(ValueError, 'invalid daily date'):
+            mushroom_weather_idw.slice_daily_weather_idw_series(series, **kwargs)
+
     def test_combined_series_prefilter_preserves_near_station_quality(self) -> None:
         near = self.station(
             "NEAR",

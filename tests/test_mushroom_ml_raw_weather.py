@@ -7,6 +7,28 @@ from rainmapper_core import mushroom_ml_raw_weather as raw
 
 
 class RawWeatherContractTests(unittest.TestCase):
+    def test_shared_window_matches_full_rows_across_contracts_and_targets(self):
+        from unittest.mock import patch
+        series = self.series()
+        series[raw.AREA_SERIES_KEYS['rain_mm']][-1] = None
+        series['soil_water_area_mean_at_cutoff'] = float('nan')
+        for columns in (None, raw.windowed_feature_columns(90, include_horizon=True)):
+            prepared = raw.PreparedRawWindow(series, feature_columns=columns)
+            for contract in (raw.FIXED_CONTRACT_ID, raw.LAG_CONTRACT_ID):
+                for horizon in range(1, 8):
+                    source = {'sample_id': 'obs', 'metadata': {
+                        'target_date': (date(2026, 1, 1) + timedelta(days=horizon)).isoformat(),
+                        'horizon_days': horizon}, 'prediction_target': 'favorable',
+                        'quality': {'training_eligible': True}}
+                    kwargs = dict(temporal_contract_id=contract, feature_columns=columns,
+                                  include_diagnostics=False)
+                    expected = raw.build_v5_sample(source, series, **kwargs)
+                    with patch.object(raw, 'build_raw_features', side_effect=AssertionError('duplicate features')):
+                        actual = raw.build_v5_sample(source, {}, **kwargs, prepared_window=prepared)
+                    self.assertEqual(actual, expected)
+                    actual['quality']['raw365_coverage_by_channel']['rain_mm'].clear()
+                    self.assertTrue(prepared.coverage['rain_mm'])
+
     def series(self):
         start = date(2025, 1, 1)
         result = {"daily_dates": [(start + timedelta(days=index)).isoformat() for index in range(365)]}
@@ -25,6 +47,29 @@ class RawWeatherContractTests(unittest.TestCase):
         )
         self.assertEqual(features["rain_mm__lag_000"], 364.0)
         self.assertEqual(features["rain_mm__lag_364"], 0.0)
+
+    def test_requested_columns_are_exact_projection_including_missing_values(self):
+        series = self.series()
+        series[raw.AREA_SERIES_KEYS['rain_mm']][-1] = None
+        for temporal in (raw.FIXED_CONTRACT_ID, raw.LAG_CONTRACT_ID):
+            args = dict(target_date=date(2026, 1, 1), horizon_days=3,
+                        temporal_contract_id=temporal)
+            full = raw.build_raw_features(series, **args)
+            for days in raw.WINDOW_DAYS_OPTIONS:
+                columns = raw.windowed_feature_columns(days, include_horizon=temporal == raw.LAG_CONTRACT_ID)
+                projected = raw.build_raw_features(series, **args, feature_columns=columns)
+                self.assertEqual(projected, {name: full[name] for name in columns})
+            with self.assertRaisesRegex(ValueError, 'unknown raw feature columns'):
+                raw.build_raw_features(series, **args, feature_columns=['unknown'])
+
+    def test_private_training_omits_only_diagnostic_metadata(self):
+        from rainmapper_core.mushroom_ml_benchmark_io import training_sample
+        source = {'sample_id':'example', 'metadata':{'target_date':'2026-01-01'},
+                  'prediction_target':'favorable', 'quality':{'training_eligible':True}}
+        args = dict(temporal_contract_id=raw.FIXED_CONTRACT_ID)
+        full = raw.build_v5_sample(source, self.series(), **args)
+        compact = raw.build_v5_sample(source, self.series(), **args, include_diagnostics=False)
+        self.assertEqual(training_sample(full), compact)
 
     def test_lag_contract_keeps_horizon(self):
         features = raw.build_raw_features(

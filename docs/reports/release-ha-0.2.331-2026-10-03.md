@@ -48,9 +48,12 @@ Evidencia local: `tmp/release-0.2.331/` (`smoke.log`, `parity.json`,
 `candidate-hashes.json`, `build-push.log`, `ghcr-latest.txt`). Navegador y
 regresión GBIF: `tmp/sites-circle-edit-20261002/verification.json`.
 
-## Pendientes y límites
+## Estado posterior confirmado el 03/10
 
-El usuario instala 0.2.331 y verifica la edición de setales en HA real.
-Última instalación real confirmada: 0.2.330. No hace falta migrar media para
-esta release. Conservados todos los antiguos; su borrado requiere revisión y
-confirmación propias. Observaciones privadas fuera del commit y de la imagen.
+El usuario confirma **0.2.331 actualizada y funcionando**. La instalación dejó
+de ser pendiente; esta confirmación no es una nueva inspección del runtime.
+No fue necesaria migración de media. Después se revisaron y retiraron, con
+autorización propia, únicamente las dos carpetas Mac `-todelete`; fuentes y
+geografía operativa conservadas. [Recibo y alcance](geography-todelete-review-2026-10-03.md).
+Observaciones privadas fuera del commit y de la imagen. Los recorridos generales
+de asignación, recuperación GIS e importación GBIF siguen en TODO.

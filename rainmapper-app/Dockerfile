@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.333" \
+LABEL io.hass.version="0.2.334" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.333
+ENV RAINMAPPER_APP_VERSION=0.2.334
 
 WORKDIR /app
 
@@ -41,6 +41,7 @@ COPY scripts/manage-media-layout.py /app/scripts/
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
 COPY scripts/run-mushroom-ml-train-job.py /app/scripts/run-mushroom-ml-train-job.py
 COPY scripts/run-mushroom-ml-multiversion-job.py /app/scripts/run-mushroom-ml-multiversion-job.py
+COPY scripts/run-mushroom-competing-history.py /app/scripts/run-mushroom-competing-history.py
 COPY scripts/prepare-mushroom-ml-multiversion-inputs.py /app/scripts/prepare-mushroom-ml-multiversion-inputs.py
 COPY scripts/build-biology-v3-benchmark.py /app/scripts/build-biology-v3-benchmark.py
 COPY scripts/build-biology-v4-benchmark.py /app/scripts/build-biology-v4-benchmark.py

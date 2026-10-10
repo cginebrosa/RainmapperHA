@@ -62,6 +62,13 @@ No snow/frozen-ground calculation is attempted by the calling history model.
 
 def simulate_reference_store(rain, demand, capacity, initial, *, evaporation_share=.5,
                              depletion_fraction=.5):
+    """Simulate the reference store with the caller's independent initial state."""
+    return _simulate_reference_store(rain, demand, capacity, initial,
+        evaporation_share=evaporation_share, depletion_fraction=depletion_fraction)
+
+
+def _simulate_reference_store(rain, demand, capacity, initial, *, evaporation_share=.5,
+                             depletion_fraction=.5, _shared_suffix=None):
     """Two distinct availability responses in ONE 0–30 cm store.
 
 Unknown evaporation/transpiration split: neutral reference 50/50, sensitivity
@@ -80,7 +87,7 @@ canopy interception, runoff, snow, or terrain-shading corrections are invented.
     storage = initial
     rows = {key: [] for key in ('storage_mm', 'evaporation_mm', 'transpiration_mm', 'drainage_mm')}
     error = 0.
-    for p, et0 in zip(rain, demand):
+    for day_index, (p, et0) in enumerate(zip(rain, demand)):
         if not (finite(p) and p >= 0 and finite(et0) and et0 >= 0):
             raise ValueError('invalid_store_weather')
         previous = storage
@@ -111,6 +118,12 @@ canopy interception, runoff, snow, or terrain-shading corrections are invented.
         error = max(error, abs(previous + p - storage - evaporation - transpiration - drainage))
         for key, value in zip(rows, (storage, evaporation, transpiration, drainage)):
             rows[key].append(value)
+        if _shared_suffix is not None and storage == _shared_suffix['storage_mm'][day_index]:
+            for key in rows:rows[key].extend(_shared_suffix[key][day_index+1:])
+            # Only the joint max(dry,wet) is used by regulated_history. The
+            # prior dry prefix cannot change that maximum.
+            error=max(error,_shared_suffix['mass_error_max_mm'])
+            break
     rows['mass_error_max_mm'] = error
     return rows
 
@@ -184,7 +197,7 @@ def regulated_history(rain, demand, capacity):
             end += 1
         args = dict(rain=rain[start:end], demand=demand[start:end], capacity=capacity)
         dry = simulate_reference_store(**args, initial=0.)
-        wet = simulate_reference_store(**args, initial=capacity)
+        wet = _simulate_reference_store(**args, initial=capacity, _shared_suffix=dry)
         error = max(error, dry['mass_error_max_mm'], wet['mass_error_max_mm'])
         for offset in range(end-start):
             i = start+offset

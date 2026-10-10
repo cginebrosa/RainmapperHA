@@ -65,15 +65,20 @@ def materialize_area_series(
     stations: Mapping[tuple[str, str], weather_context.WeatherStation],
     excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]] = frozenset(),
     include_physical_state: bool = True,
+    weather_by_microarea: Mapping[str, dict[str, object]] | None = None,
+    eto_by_microarea: Mapping[str, list[float | None]] | None = None,
+    prepared_soil_state: tuple[dict[str, object], list[float | None]] | None = None,
 ) -> dict[str, object]:
     """Build one reusable area series; missing never becomes zero."""
     contexts = list(microareas_by_area.get(area_id, []))
+    if prepared_soil_state is not None and len(prepared_soil_state[1]) != days:
+        raise ValueError('prepared soil state window mismatch')
     if not contexts:
         raise ValueError(f"Unknown or empty mushroom area: {area_id}")
     duplicate_dates = {
         key: mushroom_weather_idw.suppressed_rain_dates(station)
         for key, station in stations.items()
-    }
+    } if weather_by_microarea is None else {}
     micro_weather: dict[str, dict[str, object]] = {}
     micro_eto: list[list[float | None]] = []
     micro_balance: list[list[float | None]] = []
@@ -84,7 +89,7 @@ def materialize_area_series(
         if key not in excluded_station_keys
     } if excluded_station_keys else stations
     for context in contexts:
-        weather = mushroom_weather_idw.build_daily_weather_idw_series(
+        weather = weather_by_microarea[context.micro_area_id] if weather_by_microarea is not None else mushroom_weather_idw.build_daily_weather_idw_series(
             stations,
             target_lat=context.lat,
             target_lon=context.lon,
@@ -97,8 +102,8 @@ def materialize_area_series(
         micro_weather[context.micro_area_id] = weather
         if not include_physical_state:
             continue
-        reference = point_reference_et(weather,context,wind_stations)
-        eto = reference['et0_mm']
+        eto = (eto_by_microarea[context.micro_area_id] if eto_by_microarea is not None
+               else point_reference_et(weather,context,wind_stations)['et0_mm'])
         micro_eto.append(eto)
         micro_balance.append(
             [
@@ -110,6 +115,8 @@ def materialize_area_series(
                 )
             ]
         )
+        if prepared_soil_state is not None:
+            continue
         try:
             micro_soil_states[context.micro_area_id] = (
                 mushroom_soil_water_state.build_soil_water_state(
@@ -136,7 +143,7 @@ def materialize_area_series(
     area["water_state_contract_id"] = WATER_STATE_CONTRACT_ID
     area["daily_eto0_mean_mm"] = _mean_series(micro_eto, days)
     area["daily_climatic_balance_mean_mm"] = _mean_series(micro_balance, days)
-    soil_state = mushroom_soil_water_state.aggregate_area_soil_water_states(
+    soil_state = prepared_soil_state[0] if prepared_soil_state is not None else mushroom_soil_water_state.aggregate_area_soil_water_states(
         micro_soil_states
     )
     daily_soil_by_microarea: list[dict[str, float]] = []
@@ -158,7 +165,7 @@ def materialize_area_series(
                     for day, value in zip(dates, values, strict=True)
                 }
             )
-    area["daily_soil_water_fraction_mean"] = [
+    area["daily_soil_water_fraction_mean"] = list(prepared_soil_state[1]) if prepared_soil_state is not None else [
         (
             statistics.fmean(
                 row[day.isoformat()]

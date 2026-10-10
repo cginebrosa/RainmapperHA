@@ -149,10 +149,17 @@ try {
  if(local) {
    let ready=false;
    for(let i=0;i<100;i++) {
-     const r=await send('Runtime.evaluate',{expression:"!!window.rainmapperObservationGIS && !!document.querySelector('[id^=edit-observation-] [data-observation-gis-recover]')",returnByValue:true});
+     const r=await send('Runtime.evaluate',{expression:"!!window.rainmapperObservationGIS && !!document.querySelector('[id^=edit-observation-]')",returnByValue:true});
      if(r.result?.value){ready=true;break;}await pause(100);
    }
    assert.ok(ready,'HA local did not serve the recovery controls');
+   await send('Runtime.evaluate',{expression:"location.hash=document.querySelector('[id^=edit-observation-]').id"});
+   ready=false;
+   for(let i=0;i<100;i++) {
+     const r=await send('Runtime.evaluate',{expression:"!!document.querySelector('[id^=edit-observation-] [data-observation-gis-recover]')",returnByValue:true});
+     if(r.result?.value){ready=true;break;}await pause(100);
+   }
+   assert.ok(ready,'HA local did not load the observation editor');
    if(process.argv.includes('--apply-draft'))await send('Emulation.setDeviceMetricsOverride',{width:1600,height:1100,deviceScaleFactor:1,mobile:false});
    await send('Runtime.evaluate',{expression:`(()=>{const modal=document.querySelector('[id^=edit-observation-]');location.hash=modal.id;window.__gisLocalModal=modal;
      if(${process.argv.includes('--apply-draft')}) {

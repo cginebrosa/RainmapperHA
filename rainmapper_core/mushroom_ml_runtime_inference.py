@@ -171,8 +171,15 @@ def predict_bundle_many(
     *,
     species_ids: Sequence[str],
     applicability_offset: int | None = None,
+    probability_only: bool = False,
+    applicability_only: bool = False,
 ) -> list[dict[str, Any]]:
-    """Predict multiple independent members in one estimator invocation."""
+    """Predict independent members together; history may request probabilities only.
+
+    The numeric model, preprocessing, validation and six-decimal output are
+    identical. The opt-in skips presentation/applicability work discarded by
+    historical validation; map inference keeps the complete payload by default.
+    """
     if not feature_rows:
         return []
     if len(feature_rows) != len(species_ids):
@@ -186,18 +193,24 @@ def predict_bundle_many(
             or any(not 0 < len(column) <= 128 for column in columns)):
         raise ValueError("invalid_applicability_page")
     validate_water_contract(bundle,columns)
-    row = np.asarray(
-        [
+    from rainmapper_core.mushroom_ml_benchmark_io import ColumnarFeatures
+    if all(isinstance(features, ColumnarFeatures) for features in feature_rows):
+        row = np.empty((len(feature_rows),len(columns)),dtype=float)
+        for index, features in enumerate(feature_rows):
+            row[index] = features.values_for(columns,numeric=True)
+    else:
+        row = np.asarray(
             [
-                float(features[column])
-                if features.get(column) is not None
-                else np.nan
-                for column in columns
-            ]
-            for features in feature_rows
-        ],
-        dtype=float,
-    )
+                [
+                    float(features[column])
+                    if features.get(column) is not None
+                    else np.nan
+                    for column in columns
+                ]
+                for features in feature_rows
+            ],
+            dtype=float,
+        )
     artifact_ref = catalog.ModelArtifactRef.from_mapping(
         bundle.get("artifact_ref") or {}
     )
@@ -228,6 +241,14 @@ def predict_bundle_many(
     probabilities = np.asarray(model.predict_proba(design))
     if probabilities.ndim != 2 or probabilities.shape != (len(feature_rows), 2):
         raise ValueError("Runtime model returned an invalid probability matrix")
+    if probability_only or applicability_only:
+        if not np.isfinite(probabilities[:,1]).all() or ((probabilities[:,1]<0)|(probabilities[:,1]>1)).any():
+            raise ValueError("Runtime model returned an invalid probability")
+        result = [{'probability':round(float(p),6)} for p in probabilities[:,1]]
+        if applicability_only:
+            for value,status in zip(result,_applicability_statuses(bundle,columns,row),strict=True):
+                value['applicability'] = {'status':status}
+        return result
     return [
         _prediction_payload(
             bundle,
@@ -242,6 +263,38 @@ def predict_bundle_many(
             zip(feature_rows, species_ids, strict=True)
         )
     ]
+
+
+def _applicability_statuses(bundle, columns, values):
+    """Same magnitude gate without allocating discarded per-feature reports."""
+    support = bundle.get('feature_support') or {}
+    indices, limits, rainfall = [], [], []
+    for index,column in enumerate(columns):
+        bounds = support.get(column) if isinstance(support,Mapping) else None
+        if not isinstance(bounds,Mapping):
+            continue
+        try:
+            limits.append(tuple(float(bounds[k]) for k in ('min','max','mean','std')))
+        except (KeyError,TypeError,ValueError):
+            continue
+        indices.append(index); rainfall.append(is_rainfall_feature(column))
+    if not indices:
+        return ['within_observed_range']*len(values)
+    bounds = np.asarray(limits,dtype=float)
+    selected = values[:,indices]
+    outside = (selected < bounds[:,0]) | (selected > bounds[:,1])
+    blocking = outside & ~np.asarray(rainfall,dtype=bool)
+    result = []
+    for row, mask, any_outside in zip(selected,blocking,outside.any(axis=1),strict=True):
+        veto = False
+        for index in np.flatnonzero(mask):
+            mean,std = float(bounds[index,2]),float(bounds[index,3])
+            # Preserve Python round at the original three-decimal threshold,
+            # including constant features and malformed/non-finite support.
+            if not std > 0 or round(abs(float(row[index])-mean)/std,3) >= 3:
+                veto = True; break
+        result.append('outside_domain' if veto else 'caution' if any_outside else 'within_observed_range')
+    return result
 
 
 def _prediction_payload(

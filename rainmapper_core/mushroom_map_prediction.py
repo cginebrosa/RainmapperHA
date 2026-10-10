@@ -7,6 +7,7 @@ load datasets, create areas, or publish scientific results to the browser.
 from __future__ import annotations
 
 from datetime import date, timedelta
+import copy
 from typing import Callable, Mapping, Sequence
 
 from rainmapper_core import mushroom_ml_multiversion_comparison as comparison
@@ -25,6 +26,43 @@ def resolve_species_week(
     phenology: Mapping[str, object],
     lazy_families: bool = False,
     recommendation_policy: Mapping[str, object] | None = None,
+    independent_days: bool = False,
+    order_week: Callable | None = None,
+    prepared_resolutions: Mapping[int, Mapping[str, object]] | None = None,
+) -> dict:
+    """Resolve synchronously using the same resumable seven-day policy."""
+    iterator = iter_species_week(**locals())
+    try:
+        try:
+            request = next(iterator)
+        except StopIteration as done:
+            return done.value
+        while True:
+            # Materialization errors, including StopIteration, must propagate.
+            value = materialize(**request)
+            try:
+                request = iterator.send(value)
+            except StopIteration as done:
+                return done.value
+    finally:
+        iterator.close()
+
+
+def iter_species_week(
+    *,
+    species_id: str,
+    point_id: str,
+    issue_date: date,
+    resolutions_by_day: Mapping[int, Mapping[str, object]],
+    installed_version_ids: Sequence[str],
+    materialize: Callable,
+    season_phase: Callable[[date], str],
+    phenology: Mapping[str, object],
+    lazy_families: bool = False,
+    recommendation_policy: Mapping[str, object] | None = None,
+    independent_days: bool = False,
+    order_week: Callable | None = None,
+    prepared_resolutions: Mapping[int, Mapping[str, object]] | None = None,
 ) -> dict:
     """Use the Predictor's complete-week policy, including daily fallback.
 
@@ -43,17 +81,27 @@ def resolve_species_week(
         if resolution.get("runtime_selection_status") or resolution.get("weekly_model_selection"):
             # Already resolved area results have lost the original alternatives.
             raise ValueError("point_week_requires_original_candidate_chains")
-    indexed = weekly_aggregate_resolution_index(
-        {(species_id,point_id,day):row for day,row in resolutions_by_day.items()},
-        issue_date=issue_date, installed_version_ids=installed_version_ids,
-    )
-    resolutions = {day:indexed[(species_id,point_id,day)] for day in range(1,8)}
+    if prepared_resolutions is not None:
+        if set(prepared_resolutions) != set(range(1, 8)):
+            raise ValueError('prepared_week_requires_seven_days')
+        # A private replay may share the immutable evidence-only plan. Runtime
+        # coverage below owns its copy; only the weather-cutoff annotation varies.
+        resolutions = {day: {**row, **({'weekly_model_selection': {
+            **row['weekly_model_selection'],
+            **({'common_weather_cutoff': (issue_date-timedelta(days=1)).isoformat()}
+               if row['weekly_model_selection'].get('status') != 'daily_fallback' else {})}}
+            if row.get('weekly_model_selection') else {})} for day, row in prepared_resolutions.items()}
+    else:
+        resolutions = prepare_species_week_resolutions(
+            species_id=species_id, point_id=point_id, resolutions_by_day=resolutions_by_day,
+            issue_date=issue_date, installed_version_ids=installed_version_ids,
+            independent_days=independent_days, order_week=order_week)
     members_by_day = {day: [] for day in range(1,8)}
     def calculate(day, selections):
         target = issue_date+timedelta(days=day-1)
         selections = comparison.retarget_operational_selections(
             selections, target_date=target, issue_date=issue_date)
-        result = materialize(target_date=target,selections=selections)
+        result = yield {'target_date':target,'selections':selections}
         members = result.get("members") if isinstance(result,Mapping) else None
         if not isinstance(members,list) or any(not isinstance(row,Mapping) for row in members):
             raise ValueError("invalid_point_week_materialization")
@@ -75,7 +123,7 @@ def resolve_species_week(
                 comparison.validate_weekly_lag_resolution(resolution,day)
                 candidates = [e['candidate'] for e in resolution['candidate_chain']
                     if comparison._weekly_candidate_family(e['candidate']) == family]
-                members = calculate(day,candidates)
+                members = yield from calculate(day,candidates)
                 coverage += any(not comparison._operational_gate_failures(m) for m in members)
             if coverage == 7:
                 break
@@ -83,7 +131,17 @@ def resolve_species_week(
         for day,resolution in resolutions.items():
             if resolution['selection_status'] == 'abstain': continue
             comparison.validate_weekly_lag_resolution(resolution,day)
-            calculate(day,comparison.reliability_candidate_selections(resolution))
+            selections = comparison.reliability_candidate_selections(resolution)
+            if independent_days and lazy_families:
+                families = {}
+                for selection in selections:
+                    families.setdefault(comparison._weekly_candidate_family(selection), []).append(selection)
+                for family in families.values():
+                    members = yield from calculate(day, family)
+                    if any(not comparison._operational_gate_failures(m) for m in members):
+                        break
+            else:
+                yield from calculate(day,selections)
 
     resolutions = comparison.prioritize_weekly_resolutions_by_applicability(
         resolutions,members_by_day, recommendation_policy=recommendation_policy, species_id=species_id,
@@ -104,7 +162,7 @@ def resolve_species_week(
         needed = [ref for ref in plan.get("alternatives", [])
                   if comparison._candidate_identity(ref) not in existing]
         if needed:
-            calculate(day, needed)
+            yield from calculate(day, needed)
     days = []
     for day,resolution in resolutions.items():
         target = issue_date+timedelta(days=day-1)
@@ -136,3 +194,18 @@ def resolve_species_week(
             }
     return {"species_id":species_id,"point_id":point_id,"issue_date":issue_date.isoformat(),
             "days":days}
+
+
+def prepare_species_week_resolutions(*, species_id, point_id, resolutions_by_day,
+                                     issue_date, installed_version_ids,
+                                     independent_days=False, order_week=None):
+    """Compile evidence-only ordering once; runtime coverage still checks seven days."""
+    indexed = ({(species_id, point_id, day): copy.deepcopy(row)
+                for day, row in resolutions_by_day.items()} if independent_days else
+               weekly_aggregate_resolution_index(
+                   {(species_id, point_id, day): row for day, row in resolutions_by_day.items()},
+                   issue_date=issue_date, installed_version_ids=installed_version_ids))
+    resolutions = {day: indexed[(species_id, point_id, day)] for day in range(1, 8)}
+    if order_week is not None and not independent_days:
+        resolutions = order_week(resolutions)
+    return resolutions

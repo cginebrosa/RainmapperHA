@@ -10,10 +10,14 @@ services:
     image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.1.6}
     pull_policy: never
     container_name: rainmapper-worker
+    cpus: ${RAINMAPPER_WORKER_CPUS:-4.0}
+    mem_limit: ${RAINMAPPER_WORKER_MEMORY:-8g}
+    memswap_limit: ${RAINMAPPER_WORKER_MEMORY:-8g}
     environment:
       RAINMAPPER_WORKER_DISPLAY_NAME: ${RAINMAPPER_WORKER_DISPLAY_NAME:-}
       RAINMAPPER_WORKER_HOST_NAME: ${RAINMAPPER_WORKER_HOST_NAME:-}
       RAINMAPPER_WORKER_HEARTBEAT_INTERVAL: "5"
+      RAINMAPPER_HISTORY_FIT_WORKERS: ${RAINMAPPER_HISTORY_FIT_WORKERS:-4}
     command:
       - serve
       - --host

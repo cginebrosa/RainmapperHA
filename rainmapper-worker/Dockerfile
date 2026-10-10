@@ -132,12 +132,15 @@ COPY rainmapper_core/__init__.py \
      rainmapper_core/mushroom_worker_results.py \
      rainmapper_core/mushroom_performance_telemetry.py \
      rainmapper_core/mushroom_weather_idw.py \
+     rainmapper_core/mushroom_weather_series.py \
      rainmapper_core/mushroom_ml_trainer.py \
      rainmapper_core/runtime_diagnostics.py \
      rainmapper_core/weather_history_contract.py \
      rainmapper_core/weather_history_dataset.py \
      /app/rainmapper_core/
 COPY rainmapper_core/config/ /app/rainmapper_core/config/
+COPY rainmapper_core/mushroom_ml_*.py rainmapper_core/mushroom_competing_*.py rainmapper_core/mushroom_map_competing.py /app/rainmapper_core/
+COPY scripts/run-mushroom-competing-history.py /app/scripts/run-mushroom-competing-history.py
 COPY mushroom-data/mushroom_ml_version_registry.json /app/mushroom-data/mushroom_ml_version_registry.json
 COPY scripts/run-mushroom-rebuild-job.py /app/scripts/run-mushroom-rebuild-job.py
 COPY scripts/run-mushroom-ml-train-job.py /app/scripts/run-mushroom-ml-train-job.py
