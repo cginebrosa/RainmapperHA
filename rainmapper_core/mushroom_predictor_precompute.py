@@ -87,6 +87,12 @@ def _canonical_sha256(payload: object) -> str:
     return "sha256:" + hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
 
+def _encoded_payload(payload: object) -> tuple[str, bytes]:
+    """Encode once when both the content identity and compressed bytes are needed."""
+    encoded = _canonical_json(payload).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest(), encoded
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as handle:
@@ -1123,21 +1129,24 @@ def write_artifact(
                         raise PrecomputeContractError(
                             "Precomputed response requires unavailable coverage."
                         )
-                    coverage_payload = [cell.as_dict() for cell in required]
-                    coverage_key = _canonical_sha256(coverage_payload)
+                    coverage_key, encoded_coverage = _encoded_payload(
+                        [cell.as_dict() for cell in required]
+                    )
                     if coverage_key not in coverage_keys:
                         connection.execute(
                             "INSERT INTO response_coverage VALUES (?, ?)",
-                            (coverage_key, _compressed_json(coverage_payload)),
+                            (coverage_key, zlib.compress(encoded_coverage, level=1)),
                         )
                         coverage_keys.add(coverage_key)
-                    payload_key = _canonical_sha256(response)
+                    del encoded_coverage
+                    payload_key, encoded_response = _encoded_payload(response)
                     if payload_key not in payload_keys:
                         connection.execute(
                             "INSERT INTO response_payloads VALUES (?, ?)",
-                            (payload_key, _compressed_json(response)),
+                            (payload_key, zlib.compress(encoded_response, level=1)),
                         )
                         payload_keys.add(payload_key)
+                    del encoded_response
                     connection.execute(
                         "INSERT INTO responses VALUES (?, ?, ?, ?)",
                         (
@@ -1170,11 +1179,9 @@ def write_artifact(
         with temporary.open("rb") as handle:
             os.fsync(handle.fileno())
         validated = validate_artifact(temporary, expected_identity=identity, full=True)
-        digest = _sha256_file(temporary)
-        size = temporary.stat().st_size
         os.replace(temporary, target)
         _fsync_directory(target.parent)
-        return ArtifactManifest(identity.artifact_id, digest, size, validated.table_counts)
+        return validated
     except sqlite3.DatabaseError as exc:
         raise PrecomputeArtifactError(f"Cannot build Predictor precompute SQLite: {exc}") from exc
     finally:
@@ -1357,13 +1364,14 @@ class _AsyncBatchArtifactWriter:
                             )
                         )
                     selected_members_by_cell[cell_key] = allowed
-                payload_key = _canonical_sha256(checked_response)
+                payload_key, encoded_response = _encoded_payload(checked_response)
                 if payload_key not in response_payload_keys:
                     connection.execute(
                         "INSERT INTO response_payloads VALUES (?, ?)",
-                        (payload_key, _compressed_json(checked_response)),
+                        (payload_key, zlib.compress(encoded_response, level=1)),
                     )
                     response_payload_keys.add(payload_key)
+                del encoded_response
 
                 species_payloads = checked_response.get("data", {}).get("species", {})
                 if isinstance(species_payloads, Mapping):
@@ -1454,13 +1462,14 @@ class _AsyncBatchArtifactWriter:
                                 full_key = cell_key + tuple(
                                     member_key.as_dict().values()
                                 )
-                                payload_hash = _canonical_sha256(payload)
+                                payload_hash, encoded_member = _encoded_payload(payload)
                                 previous_hash = member_hashes.get(full_key)
                                 if previous_hash is not None:
                                     if previous_hash != payload_hash:
                                         raise PrecomputeContractError(
                                             "Operational member payload changed within one batch."
                                         )
+                                    del encoded_member
                                     continue
                                 if cell_key not in self.all_cell_keys:
                                     raise PrecomputeContractError(
@@ -1475,9 +1484,10 @@ class _AsyncBatchArtifactWriter:
                                         member_key.profile_id,
                                         member_key.estimator_id,
                                         member_key.horizon_days,
-                                        _compressed_json(payload),
+                                        zlib.compress(encoded_member, level=1),
                                     ),
                                 )
+                                del encoded_member
                                 member_hashes[full_key] = payload_hash
                                 members_by_cell.setdefault(cell_key, set()).add(member_key)
 
@@ -1585,6 +1595,7 @@ class _AsyncBatchArtifactWriter:
 
             request_keys: set[str] = set()
             coverage_keys: set[str] = set()
+            coverage_keys_by_cells: dict[tuple[tuple[str, str, str], ...], str] = {}
             for normalized, required_keys, payload_key in pending_responses:
                 request_key = _request_key(normalized)
                 if request_key in request_keys:
@@ -1592,21 +1603,26 @@ class _AsyncBatchArtifactWriter:
                         "Precomputed response request is duplicated."
                     )
                 request_keys.add(request_key)
-                required = tuple(
-                    coverage_map[key] for key in required_keys if key in coverage_map
-                )
-                if len(required) != len(required_keys) or not required:
-                    raise PrecomputeContractError(
-                        "Precomputed response requires unavailable coverage."
+                coverage_key = coverage_keys_by_cells.get(required_keys)
+                if coverage_key is None:
+                    required = tuple(
+                        coverage_map[key] for key in required_keys if key in coverage_map
                     )
-                coverage_payload = [cell.as_dict() for cell in required]
-                coverage_key = _canonical_sha256(coverage_payload)
-                if coverage_key not in coverage_keys:
-                    connection.execute(
-                        "INSERT INTO response_coverage VALUES (?, ?)",
-                        (coverage_key, _compressed_json(coverage_payload)),
+                    if len(required) != len(required_keys) or not required:
+                        raise PrecomputeContractError(
+                            "Precomputed response requires unavailable coverage."
+                        )
+                    coverage_key, encoded_coverage = _encoded_payload(
+                        [cell.as_dict() for cell in required]
                     )
-                    coverage_keys.add(coverage_key)
+                    if coverage_key not in coverage_keys:
+                        connection.execute(
+                            "INSERT INTO response_coverage VALUES (?, ?)",
+                            (coverage_key, zlib.compress(encoded_coverage, level=1)),
+                        )
+                        coverage_keys.add(coverage_key)
+                    del encoded_coverage
+                    coverage_keys_by_cells[required_keys] = coverage_key
                 connection.execute(
                     "INSERT INTO responses VALUES (?, ?, ?, ?)",
                     (
@@ -1649,16 +1665,9 @@ class _AsyncBatchArtifactWriter:
             validated = validate_artifact(
                 self.temporary, expected_identity=self.identity, full=True
             )
-            digest = _sha256_file(self.temporary)
-            size = self.temporary.stat().st_size
             os.replace(self.temporary, self.target)
             _fsync_directory(self.target.parent)
-            self.manifest = ArtifactManifest(
-                self.identity.artifact_id,
-                digest,
-                size,
-                validated.table_counts,
-            )
+            self.manifest = validated
             self.request_count = len(pending_responses)
             self.base_prediction_count = len(base_hashes)
             self.operational_member_count = len(member_hashes)
@@ -1694,7 +1703,7 @@ class _AsyncBatchArtifactWriter:
             raise PrecomputeContractError(
                 "Base prediction key does not match its canonical payload."
             )
-        payload_hash = _canonical_sha256(payload)
+        payload_hash, encoded = _encoded_payload(payload)
         previous_hash = hashes.get(key)
         if previous_hash is not None:
             if previous_hash != payload_hash:
@@ -1704,7 +1713,7 @@ class _AsyncBatchArtifactWriter:
             return
         connection.execute(
             "INSERT INTO base_predictions VALUES (?, ?, ?, ?)",
-            (*key, _compressed_json(payload)),
+            (*key, zlib.compress(encoded, level=1)),
         )
         hashes[key] = payload_hash
 
@@ -1903,7 +1912,7 @@ def _validate_published_rows(
             response_request = normalize_request(response.get("request"))
             for normalized in requests_by_payload.pop(str(row["payload_key"]), ()):
                 if response_request != normalized:
-                    _retarget_weekly_response(response, normalized)
+                    _retarget_weekly_response(response, normalized, copy_payload=False)
             del payload, response
         if requests_by_payload:
             raise PrecomputeArtifactError(
@@ -2894,10 +2903,17 @@ def _retarget_weekly_response(
     request: Mapping[str, object],
     *,
     validate: bool = True,
+    copy_payload: bool = True,
 ) -> dict[str, Any]:
-    """Materialize one exact UI response from an equivalent weekly execution."""
-    retargeted = copy.deepcopy(dict(response))
-    retargeted["request"] = copy.deepcopy(dict(request))
+    """Retarget a weekly execution, isolating data for callers by default.
+
+    Full artifact validation may use a temporary read-only view instead: the
+    scientific payload was already checked and hashed, and only the request and
+    selected daily comparison change. Copy that path so validation never mutates
+    the shared decoded payload or duplicates its potentially large model data.
+    """
+    retargeted = copy.deepcopy(dict(response)) if copy_payload else dict(response)
+    retargeted["request"] = copy.deepcopy(dict(request)) if copy_payload else dict(request)
     if request.get("view") == "query" and request.get("area_id"):
         species = retargeted.get("data", {}).get("species", {})
         species_payload = (
@@ -2912,9 +2928,17 @@ def _retarget_weekly_response(
         )
         target_date = str(request.get("target_date", ""))
         if isinstance(comparisons, Mapping) and target_date in comparisons:
-            species_payload["multiversion_comparison"] = copy.deepcopy(
-                comparisons[target_date]
-            )
+            if copy_payload:
+                species_payload["multiversion_comparison"] = copy.deepcopy(
+                    comparisons[target_date]
+                )
+            else:
+                retargeted["data"] = dict(retargeted["data"])
+                retargeted["data"]["species"] = dict(species)
+                retargeted["data"]["species"][str(request.get("species_id", ""))] = {
+                    **species_payload,
+                    "multiversion_comparison": comparisons[target_date],
+                }
     return validate_response(retargeted) if validate else retargeted
 
 

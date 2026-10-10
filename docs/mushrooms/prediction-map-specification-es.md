@@ -108,10 +108,16 @@ entre familias. Workers presenta **Selección y comparación** en un desplegable
 cerrado por defecto. [Verificación de la optimización](../reports/competing-reuse-local-2026-10-06.md).
 El mapa sólo consulta lo preparado: **ni un clic, ni una K sin resultado, ni guardar
 ajustes lanzan trabajos históricos**. Si falta la nota, la ficha indica pendiente.
-El runner conserva la actualización por cambios de entradas y K del add-on; el
-botón existente de Workers permite adelantarla y usa la K personal del dispositivo
-(o la del add-on si hereda). Para probar una K aún no preparada, cambiar el ajuste
-y usar ese botón; no se cambia la preferencia de los demás usuarios. Un trabajo
+La corrección del 10/10, validada en local y publicada en HA 0.2.336, hace que el
+runner y el botón de Workers resuelvan la K del add-on y las K guardadas por
+dispositivos y usuarios activos. El formulario nativo de Workers no transmite
+la cabecera de dispositivo del mapa, por lo que no puede depender de ella para
+elegir la K. Se normalizan y deduplican los valores; el trabajo comparte una
+generación histórica y calcula sólo las comparaciones pendientes. La pantalla
+muestra K configurados, preparados y pendientes. Más de ocho K distintas se
+rechazan antes de preparar el paquete, manteniendo los límites existentes.
+Para probar una K aún no preparada, cambiar el ajuste y usar ese botón; no se
+cambia la preferencia de los demás usuarios. Un trabajo
 activo no se duplica ni se invalida por otra solicitud; habrá que repetir la
 actualización explícita al terminar si correspondía a otra K.
 Se conservan hasta ocho resúmenes de K para la misma

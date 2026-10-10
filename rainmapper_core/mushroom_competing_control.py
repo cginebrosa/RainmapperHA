@@ -13,10 +13,28 @@ from pathlib import Path
 import re
 
 KIND = 'competing_history_control_v1'
-CAPABILITY = 'competing_history_update_v2'
+CAPABILITY = 'competing_history_update_v3'
 JOB_TYPE = 'worker_competing_history_v1'
 MAX_BYTES = 8192
+MAX_REQUIRED_KS = 8
 DIGEST = re.compile(r'^[0-9a-f]{64}$')
+
+
+def normalize_ks(values):
+    """Bound the distinct configured costs before planning any historical work."""
+    from rainmapper_core.mushroom_map_competing import valid_k
+    if not isinstance(values, (list, tuple)):
+        raise ValueError('invalid_comparison_ks')
+    result = set()
+    for value in values:
+        if not valid_k(value):
+            raise ValueError('invalid_comparison_k')
+        result.add(float(value))
+        if len(result) > MAX_REQUIRED_KS:
+            raise ValueError('Historical comparison supports at most 8 distinct configured K values; no work was queued.')
+    if not result:
+        raise ValueError('invalid_comparison_ks')
+    return sorted(result)
 
 
 def revision(dependencies):
@@ -45,6 +63,11 @@ def load(path):
     for name in ('desired_revision', 'active_revision'):
         if value.get(name) and not DIGEST.fullmatch(str(value[name])):
             raise ValueError('invalid_history_revision')
+    for name in ('required_ks', 'prepared_ks', 'pending_ks', 'job_required_ks', 'job_comparison_ks'):
+        if name in value:
+            ks = value[name]
+            if not isinstance(ks, list) or (ks and normalize_ks(ks) != ks):
+                raise ValueError('invalid_history_comparison_ks')
     return value
 
 
@@ -74,7 +97,7 @@ def observe(path, dependencies):
 
 def needs_job(state):
     return bool(state.get('desired_revision') and not state.get('job_id') and
-                state['desired_revision'] != state.get('active_revision'))
+                (state['desired_revision'] != state.get('active_revision') or state.get('pending_ks')))
 
 
 def attach_job(path, *, job_id, expected_revision):

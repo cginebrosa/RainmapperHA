@@ -382,6 +382,8 @@ def worker_status(
             mushroom_worker_registry.ML_MULTIVERSION_TRAINING_CAPABILITY,
             mushroom_worker_registry.ML_JOB_PURPOSE_CAPABILITY,
             mushroom_worker_registry.ML_BENCHMARK_REPORT_CAPABILITY,
+            # Keep serving the validated scalar contract during HA upgrades.
+            "competing_history_update_v2",
             mushroom_competing_control.CAPABILITY,
         ],
         "dataset_cache": {

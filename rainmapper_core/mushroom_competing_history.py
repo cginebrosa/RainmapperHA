@@ -31,6 +31,9 @@ SOURCE_FIELDS = ('observation_id', 'species_id', 'target_date', 'horizon_days',
 COMPATIBLE_ROW_PROCEDURES = (
     'b2e5c0f4bda4c687bc0b5e68a211d869ab2ec732d849b3ad8d309fc720bae581',
     '93c1f890935a4d701d5a78b4e35d3151d32ad4dc10bd5dfef3a6f1f1ec339f1f',
+    # f609f8ec: real-source Builder/tensor/prediction parity and SQLite reuse
+    # with fits forbidden; only Predictor caching and multi-K delivery changed.
+    '02c86d9fa9133c91f8424effeced1e4d3bb1d9f2e20bfe16bfbf02f3e347be0d',
 )
 
 

@@ -33,6 +33,13 @@ COMPATIBLE_VALIDATION_PROCEDURES = (
     'a36878ced3018d2d38432befcd06105f9947e684de8770c75725bb64fd93a4e1',
 )
 
+# The preceding coordinator sends scalar v1 jobs. This one reviewed source
+# revision has identical historical producers; retain its requested evidence
+# bindings while all cache writes identify the code actually executing here.
+COMPATIBLE_V1_JOB_PROCEDURES = (
+    '02c86d9fa9133c91f8424effeced1e4d3bb1d9f2e20bfe16bfbf02f3e347be0d',
+)
+
 
 class JobProgress:
     def __init__(self, path):
@@ -421,13 +428,25 @@ def main():
     args = parser.parse_args()
     root = args.input_dir.resolve()
     spec = read_json(root / 'snapshot/inputs/extra/competing-spec.json', 512 * 1024)
-    if spec.get('kind') != 'competing_history_job_v1':
+    if spec.get('kind') not in {'competing_history_job_v1', 'competing_history_job_v2'}:
         raise ValueError('invalid_history_job_spec')
+    from rainmapper_core.mushroom_competing_control import normalize_ks
+    if spec['kind'] == 'competing_history_job_v2':
+        required_ks = normalize_ks(spec.get('required_ks', []))
+        comparison_ks = normalize_ks(spec.get('comparison_ks', []))
+        if not set(comparison_ks) <= set(required_ks):
+            raise ValueError('invalid_history_comparison_ks')
+    else:
+        if 'comparison_ks' in spec or 'required_ks' in spec:
+            raise ValueError('invalid_history_job_spec')
+        comparison_ks = normalize_ks([spec.get('comparison_k')])
     date.fromisoformat(spec['cutoff'])
     if not 0 < len(spec['references']) <= 4096 or not 0 < len(spec['species_ids']) <= 128:
         raise ValueError('history_job_cardinality')
     code_id = implementation_id()
-    if code_id != spec.get('procedure_revision'):
+    if (code_id != spec.get('procedure_revision') and not
+            (spec['kind'] == 'competing_history_job_v1'
+             and spec.get('procedure_revision') in COMPATIBLE_V1_JOB_PROCEDURES)):
         raise ValueError('history_worker_code_mismatch: update the worker before running this job')
     started = time.monotonic()
     progress = JobProgress(args.progress_jsonl)
@@ -454,52 +473,58 @@ def main():
             result['summary'] = {**summary, 'computed_units': 0,
                                  'reused_units': summary['computed_units'] + summary['reused_units']}
         def replay_progress(event):
-            event['overall_percent'] = 90 + 4 * event['completed_visits'] / max(1, event['total_visits'])
+            event['overall_percent'] = 90 + 4 * (
+                k_index + event['completed_visits'] / max(1, event['total_visits'])
+            ) / len(comparison_ks)
+            event['message'] = f'K={k:g} · ' + str(event.get('message') or event.get('phase') or '')
             progress(event)
-        from rainmapper_core.mushroom_competing_fit_scheduler import worker_count
-        if saved.get('deferred_panels') and worker_count()>1 and len(saved['visits'])>=256:
-            from rainmapper_core.mushroom_competing_parallel import evaluate_parallel
-            from rainmapper_core import mushroom_ml_weather_workspace as weather
-            result = evidence.to_wire(result)
-            saved['evidence'] = result
-            weather.clear_active_workspace()
-            gc.collect()
-            paths = {name:contained(root,spec[name]) for name in (
-                'observations_path','known_sites_path','weather_data_dir','stations_path')}
-            evaluated = evaluate_parallel(panels=panels,cache_dir=args.cache_dir,spec=spec,
-                paths=paths,producer=code_id,visits=saved['visits'],workers=worker_count(),progress=replay_progress)
-        else:
-            replay = Replay(result,panels=panels,unit_index=saved['unit_index'],visits=saved['visits'],
-                profiles=spec['profiles'],recommendation_policy=spec['recommendation_policy'],
-                suspensions=spec['prediction_model_suspensions'])
-            with history.UnitCache(args.cache_dir / 'units.sqlite') as units:
-                from rainmapper_core.mushroom_competing_fits import Fits
-                from rainmapper_core.mushroom_competing_features import Inputs
-                from rainmapper_core.mushroom_competing_inputs import runtime_feature_revision
-                def build_requested():
-                    from rainmapper_core import mushroom_ml_weather_workspace as weather
-                    paths = {name: contained(root, spec[name]) for name in (
-                        'observations_path', 'known_sites_path', 'weather_data_dir', 'stations_path')}
-                    if weather.active_workspace(data_dir=paths['weather_data_dir'], known_sites=paths['known_sites_path'],
-                                                stations_file=paths['stations_path']) is None:
-                        weather.activate_operational_workspace(data_dir=paths['weather_data_dir'],
-                            observations=paths['observations_path'], known_sites=paths['known_sites_path'],
-                            stations_file=paths['stations_path'], max_horizon_days=13, compact_series=True)
-                    return panel_cache.Builder(store=panels, known_sites=paths['known_sites_path'],
-                        data_dir=paths['weather_data_dir'], stations_file=paths['stations_path'],
-                        profiles=spec['catalog_profiles'], progress=progress, inputs=Inputs(units.db),
-                        input_revision=runtime_feature_revision(), persist_features=False)
-                if saved.get('deferred_panels'):
-                    requested = panel_cache.RequestedPanels(panels,
-                        Fits(units.db, code_id, compatible_producers=history.COMPATIBLE_ROW_PROCEDURES),
-                        saved['visits'], build_requested)
-                    panels.materialize_missing = requested
-                    from rainmapper_core.mushroom_competing_batch import BatchedReplay
-                    replay = BatchedReplay(replay,requested,saved['visits'])
-                evaluated = comparison.evaluate(saved['visits'], k=spec['comparison_k'], cutoff=spec['cutoff'],
-                                                 replay=replay, progress=replay_progress)
-                panels.materialize_missing = None
-        result['comparisons'] = [comparison.validate(evaluated)]
+        evaluated_comparisons = []
+        for k_index, k in enumerate(comparison_ks):
+            from rainmapper_core.mushroom_competing_fit_scheduler import worker_count
+            if saved.get('deferred_panels') and worker_count()>1 and len(saved['visits'])>=256:
+                from rainmapper_core.mushroom_competing_parallel import evaluate_parallel
+                from rainmapper_core import mushroom_ml_weather_workspace as weather
+                result = evidence.to_wire(result)
+                saved['evidence'] = result
+                weather.clear_active_workspace()
+                gc.collect()
+                paths = {name:contained(root,spec[name]) for name in (
+                    'observations_path','known_sites_path','weather_data_dir','stations_path')}
+                evaluated = evaluate_parallel(panels=panels,cache_dir=args.cache_dir,spec={**spec, 'comparison_k': k},
+                    paths=paths,producer=code_id,visits=saved['visits'],workers=worker_count(),progress=replay_progress)
+            else:
+                replay = Replay(result,panels=panels,unit_index=saved['unit_index'],visits=saved['visits'],
+                    profiles=spec['profiles'],recommendation_policy=spec['recommendation_policy'],
+                    suspensions=spec['prediction_model_suspensions'])
+                with history.UnitCache(args.cache_dir / 'units.sqlite') as units:
+                    from rainmapper_core.mushroom_competing_fits import Fits
+                    from rainmapper_core.mushroom_competing_features import Inputs
+                    from rainmapper_core.mushroom_competing_inputs import runtime_feature_revision
+                    def build_requested():
+                        from rainmapper_core import mushroom_ml_weather_workspace as weather
+                        paths = {name: contained(root, spec[name]) for name in (
+                            'observations_path', 'known_sites_path', 'weather_data_dir', 'stations_path')}
+                        if weather.active_workspace(data_dir=paths['weather_data_dir'], known_sites=paths['known_sites_path'],
+                                                    stations_file=paths['stations_path']) is None:
+                            weather.activate_operational_workspace(data_dir=paths['weather_data_dir'],
+                                observations=paths['observations_path'], known_sites=paths['known_sites_path'],
+                                stations_file=paths['stations_path'], max_horizon_days=13, compact_series=True)
+                        return panel_cache.Builder(store=panels, known_sites=paths['known_sites_path'],
+                            data_dir=paths['weather_data_dir'], stations_file=paths['stations_path'],
+                            profiles=spec['catalog_profiles'], progress=progress, inputs=Inputs(units.db),
+                            input_revision=runtime_feature_revision(), persist_features=False)
+                    if saved.get('deferred_panels'):
+                        requested = panel_cache.RequestedPanels(panels,
+                            Fits(units.db, code_id, compatible_producers=history.COMPATIBLE_ROW_PROCEDURES),
+                            saved['visits'], build_requested)
+                        panels.materialize_missing = requested
+                        from rainmapper_core.mushroom_competing_batch import BatchedReplay
+                        replay = BatchedReplay(replay,requested,saved['visits'])
+                    evaluated = comparison.evaluate(saved['visits'], k=k, cutoff=spec['cutoff'],
+                                                     replay=replay, progress=replay_progress)
+                    panels.materialize_missing = None
+            evaluated_comparisons.append(comparison.validate(evaluated))
+        result['comparisons'] = evaluated_comparisons
     finally:
         panels.close()
     result = evidence.to_wire(result)

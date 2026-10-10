@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.336
+
+- Speed up weekly Predictor precomputation by reusing identical weather windows and model inputs in `mushroom_ml_multiversion_comparison`, while preserving predictions and coverage.
+- Reduce artifact serialization and validation overhead in `mushroom_predictor_precompute` without removing integrity checks.
+- Prepare missing comparisons for the add-on K and K preferences saved by active devices in one Selection and comparison job; display configured, prepared and pending K values.
+- Reuse compatible historical evaluations when K changes and preserve support for the preceding HA worker contract; map queries never launch these jobs.
+
 ## 0.2.335
 
 - Use the latest compatible prepared evidence to select A/B/C/D and compare their scores with the usual selection, including historical map queries and observation prediction checks.

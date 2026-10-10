@@ -429,8 +429,15 @@ def render_history_state(summary, worker_statuses):
     status = str(summary.get('status') or 'not_prepared')
     status = status if status in {'not_prepared','pending','queued','running','ready','failed'} else 'pending'
     seconds = summary.get('last_seconds')
+    k_details = ''.join(
+        f'<span>{_text(_label("ui.worker_history_" + field))}: '
+        f'{_text(", ".join(f"{k:g}" for k in summary.get(field, [])) or "—")}</span>'
+        for field in ('required_ks', 'prepared_ks', 'pending_ks')
+        if field in summary
+    )
     return f'''<div class="precompute-summary">
       <strong>{_text(_label('ui.worker_history_' + status))}</strong>
+      {k_details}
       {('<span>' + _text(_label('ui.worker_history_duration')) + ': ' + _text(_seconds(seconds)) + '</span>') if seconds is not None else ''}
       {('<span>' + _text(summary.get('updated_at')) + '</span>') if summary.get('updated_at') else ''}
       {('<span>' + _text(summary.get('error')) + '</span>') if summary.get('error') else ''}

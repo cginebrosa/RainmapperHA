@@ -13738,9 +13738,31 @@ def mushroom_competing_state_path() -> Path:
     return mushroom_paths.mushroom_ml_version_registry_path().parent / "prediction-competing-control.json"
 
 
+def mushroom_competing_required_ks():
+    """Resolve the global Workers action independently of a map's browser origin."""
+    from rainmapper_core.mushroom_map_competing import defaults, valid_k
+    values = [defaults()['k_value']]
+    users = read_users()
+    for device in read_devices().values():
+        if str(device.get('enabled', 'true')).lower() != 'true':
+            continue
+        user = users.get(device_username(device), {})
+        if (not user or str(user.get('enabled', 'true')).lower() != 'true'
+                or str(user.get('must_change_password', 'false')).lower() == 'true'):
+            continue
+        k = sanitize_device_settings(device.get('settings', {})).get('prediction_k_value')
+        if valid_k(k):
+            values.append(k)
+    return mushroom_competing_control.normalize_ks(values)
+
+
 def mushroom_competing_summary():
     try:
         state = mushroom_competing_control.load(mushroom_competing_state_path())
+        state['required_ks'] = mushroom_competing_required_ks()
+        state['pending_ks'] = [k for k in state['required_ks'] if k not in state.get('prepared_ks', [])]
+        if state.get('status') == 'ready' and state['pending_ks']:
+            state['status'] = 'pending'
         if state.get("job_id"):
             job = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=state["job_id"])
             state["status"] = "running" if job.get("status") in {"claimed", "running", "cancel_requested"} else "queued"
@@ -13751,7 +13773,7 @@ def mushroom_competing_summary():
         return {"status":"failed", "error":str(exc)}
 
 
-def mushroom_competing_plan(comparison_k=None):
+def mushroom_competing_plan(comparison_k=None, *, comparison_ks=None):
     return mushroom_competing_inputs.plan(
         registry_path=mushroom_paths.mushroom_ml_version_registry_path(),
         models_root=mushroom_paths.mushroom_ml_models_dir(),
@@ -13762,30 +13784,51 @@ def mushroom_competing_plan(comparison_k=None):
         weather_cache_path=mushroom_competing_state_path().with_name("prediction-competing-weather.json"),
         cutoff=datetime.now(get_timezone()).date().isoformat(),
         profiles_path=mushroom_paths.mushroom_profiles_path(), comparison_k=comparison_k,
+        comparison_ks=comparison_ks,
     )
 
 
-def request_mushroom_competing_history(worker_id: str = "", *, origin: str = "manual", comparison_k=None):
+def request_mushroom_competing_history(worker_id: str = "", *, origin: str = "manual",
+                                      comparison_k=None, comparison_ks=None):
     """Prepare one immutable worker request, independent of the weekly job."""
     if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
         return 409, {"ok": False, "error": "Another input bundle is being prepared."}
     try:
+        if comparison_k is None and comparison_ks is None:
+            # Automatic runner updates serve the same persisted preferences
+            # as the global Workers action, including after source changes.
+            comparison_ks = mushroom_competing_required_ks()
         previous = mushroom_competing_control.load(mushroom_competing_state_path())
         if not worker_id:
             worker_id = str(previous.get("worker_id", "")) or preferred_mushroom_precompute_worker()[0]
-        spec, dependencies = mushroom_competing_plan(comparison_k)
+        spec, dependencies = (mushroom_competing_plan(comparison_ks=comparison_ks)
+                              if comparison_ks is not None else mushroom_competing_plan(comparison_k))
+        required_ks = spec.get('required_ks')
+        prepared_ks = []
         with RUN_LOCK:
             destination = mushroom_competing_state_path().with_name('prediction-competing.json')
             if destination.is_file() and 'history_revision' in spec:
                 saved = mushroom_competing_inputs.read_json(destination, mushroom_competing_evidence.MAX_BYTES)
-                if (saved.get('history_revision') == spec['history_revision'] and
-                        any(row['k'] == spec['comparison_k'] for row in saved.get('comparisons', []))):
-                    return 200, {'ok': True, 'reused': True}
+                if saved.get('history_revision') == spec['history_revision']:
+                    prepared_ks = sorted(row['k'] for row in saved.get('comparisons', []))
+                    if required_ks is None and spec['comparison_k'] in prepared_ks:
+                        return 200, {'ok': True, 'reused': True}
+            pending_ks = [k for k in required_ks if k not in prepared_ks] if required_ks else []
+            if required_ks and not pending_ks:
+                previous.update(required_ks=required_ks, prepared_ks=prepared_ks, pending_ks=[])
+                if not previous.get('job_id'):
+                    previous.update(status='ready', error='')
+                mushroom_competing_control.write(mushroom_competing_state_path(), previous)
+                return 200, {'ok': True, 'reused': True, 'required_ks': required_ks,
+                             'prepared_ks': prepared_ks, 'pending_ks': []}
             if previous.get('job_id'):
                 active = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=previous['job_id'])
                 if active.get('status') in mushroom_worker_jobs.ACTIVE_STATUSES:
                     return 200, {'ok': True, 'job': active, 'reused': True}
             state = mushroom_competing_control.observe(mushroom_competing_state_path(), dependencies)
+            if required_ks:
+                state.update(required_ks=required_ks, prepared_ks=prepared_ks, pending_ks=pending_ks)
+                mushroom_competing_control.write(mushroom_competing_state_path(), state)
             if state.get("job_id"):
                 try:
                     pending = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=state["job_id"])
@@ -13801,7 +13844,11 @@ def request_mushroom_competing_history(worker_id: str = "", *, origin: str = "ma
         worker = next((r.get("payload", {}) for r in registered_mushroom_worker_statuses()
                        if r.get("reachable") and r.get("payload", {}).get("worker_id") == worker_id), None)
         if worker is None or mushroom_competing_control.CAPABILITY not in worker.get("capabilities", []):
-            return 409, {"ok": False, "error": "Choose a connected worker with historical evaluation support."}
+            return 409, {"ok": False, "error": "Choose an updated, connected worker with multi-K historical evaluation support."}
+        if required_ks:
+            # Only K-dependent comparisons are missing. All of them share the
+            # same historical generation and its persisted fitted cells.
+            spec = {**spec, 'comparison_ks': pending_ks}
         job_id = "worker_job_" + secrets.token_urlsafe(12)
         with tempfile.TemporaryDirectory(prefix="competing-spec-") as temporary:
             spec_path = Path(temporary) / "competing-spec.json"
@@ -13818,7 +13865,8 @@ def request_mushroom_competing_history(worker_id: str = "", *, origin: str = "ma
                     "known-sites.json": mushroom_paths.mushroom_known_sites_path(), "stations.txt": STATIONS_PATH,
                     "observation-features.json": mushroom_paths.mushroom_observation_features_json_path()},
             )
-        current, current_dependencies = mushroom_competing_plan(comparison_k)
+        current, current_dependencies = (mushroom_competing_plan(comparison_ks=comparison_ks)
+                                        if comparison_ks is not None else mushroom_competing_plan(comparison_k))
         with RUN_LOCK:
             state = mushroom_competing_control.observe(mushroom_competing_state_path(), current_dependencies)
             if current["revision"] != spec["revision"]:
@@ -13829,15 +13877,19 @@ def request_mushroom_competing_history(worker_id: str = "", *, origin: str = "ma
             state = mushroom_competing_control.attach_job(mushroom_competing_state_path(),
                 job_id=job_id, expected_revision=spec["revision"])
             state["worker_id"] = worker_id
+            if required_ks:
+                state.update(job_required_ks=required_ks, job_comparison_ks=pending_ks)
             mushroom_competing_control.write(mushroom_competing_state_path(), state)
-        return 202, {"ok": True, "job": job}
+        return 202, {"ok": True, "job": job, **({'required_ks': required_ks,
+                    'prepared_ks': prepared_ks, 'pending_ks': pending_ks} if required_ks else {})}
     except (OSError, ValueError, RuntimeError, KeyError) as exc:
         return 409, {"ok": False, "error": str(exc)}
     finally:
         MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
 
 
-def schedule_mushroom_competing_history(worker_id: str = "", *, origin: str = "precompute", comparison_k=None):
+def schedule_mushroom_competing_history(worker_id: str = "", *, origin: str = "precompute",
+                                       comparison_k=None, comparison_ks=None):
     # The runner/precompute also initializes history. The map preference only
     # controls presentation; it must not gate preparation of shared evidence.
     if not MUSHROOM_COMPETING_CHECK_LOCK.acquire(blocking=False):
@@ -13846,10 +13898,16 @@ def schedule_mushroom_competing_history(worker_id: str = "", *, origin: str = "p
         set_mushroom_workers_flash("Preparando la actualización histórica.")
     def check():
         try:
-            status, result = request_mushroom_competing_history(worker_id, origin=origin, comparison_k=comparison_k)
+            status, result = request_mushroom_competing_history(worker_id, origin=origin,
+                comparison_k=comparison_k, comparison_ks=comparison_ks)
             if origin == "manual":
+                message = ("Evaluación histórica en cola." if status == 202 else
+                           "La evaluación histórica ya está en marcha." if result.get('job') else
+                           "Evaluación histórica sin cambios.")
+                if result.get('required_ks'):
+                    message += " K: " + ", ".join(f"{k:g}" for k in result['required_ks']) + "."
                 set_mushroom_workers_flash(str(result.get("error") or
-                    ("Evaluación histórica en cola." if status == 202 else "Evaluación histórica sin cambios.")),
+                    message),
                     error=status >= 400)
         finally:
             MUSHROOM_COMPETING_CHECK_LOCK.release()
@@ -15662,8 +15720,16 @@ def accept_mushroom_competing_result(job, payload):
     if value["revision"] != job["history_revision"]:
         raise ValueError("Historical result revision does not match its job.")
     comparisons = value.get('comparisons', [])
-    requested_k = comparisons[-1]['k'] if comparisons else None
-    spec, dependencies = mushroom_competing_plan(requested_k)
+    state = mushroom_competing_control.load(state_path)
+    required_ks = state.get('job_required_ks')
+    computed_ks = sorted(row['k'] for row in comparisons)
+    if required_ks:
+        if computed_ks != state.get('job_comparison_ks'):
+            raise ValueError('Historical result does not cover the requested K values.')
+        spec, dependencies = mushroom_competing_plan(comparison_ks=required_ks)
+    else:
+        requested_k = comparisons[-1]['k'] if comparisons else None
+        spec, dependencies = mushroom_competing_plan(requested_k)
     if value['revision'] == spec['revision'] and (
             value.get('history_revision') != spec.get('history_revision')):
         raise ValueError('Historical comparison input binding is invalid.')
@@ -15683,14 +15749,32 @@ def accept_mushroom_competing_result(job, payload):
     if destination.is_file() and value.get('history_revision'):
         previous = mushroom_competing_inputs.read_json(destination, mushroom_competing_evidence.MAX_BYTES)
         if previous.get('history_revision') == value['history_revision']:
-            existing = [c for c in previous.get('comparisons', []) if c['k'] != requested_k]
-            value['comparisons'] = [*existing[-7:], *comparisons]
+            existing = [c for c in previous.get('comparisons', []) if c['k'] not in computed_ks]
+            # Required costs take priority; retain other prepared costs up to
+            # the unchanged eight-comparison contract without dropping a user.
+            required = [c for c in existing if c['k'] in (required_ks or [])]
+            optional = [c for c in existing if c['k'] not in (required_ks or [])]
+            room = mushroom_competing_control.MAX_REQUIRED_KS - len(comparisons) - len(required)
+            value['comparisons'] = [*(optional[-room:] if room else []), *required, *comparisons]
             mushroom_competing_evidence.validate(value)
             raw = mushroom_competing_evidence.encode(value)
+    prepared_ks = sorted(row['k'] for row in value.get('comparisons', []))
+    if required_ks and any(k not in prepared_ks for k in required_ks):
+        raise ValueError('Historical result is missing a previously prepared required K.')
     digest = hashlib.sha256(raw).hexdigest()
-    mushroom_competing_control.finish(state_path, job_id=job["job_id"],
+    finished = mushroom_competing_control.finish(state_path, job_id=job["job_id"],
         result_revision=value["revision"], seconds=seconds, publish=publish, receipt_sha256=digest)
-    return {"revision":value["revision"], "artifact_sha256":digest, "seconds":seconds}
+    published = finished.get('status') == 'ready' and finished.get('active_revision') == value['revision']
+    if published:
+        # Receipts from every origin, including already queued scalar jobs,
+        # describe the comparisons actually present in the published artifact.
+        finished['prepared_ks'] = prepared_ks
+        if required_ks:
+            finished.update(required_ks=required_ks, pending_ks=[])
+        mushroom_competing_control.write(state_path, finished)
+    return {"revision":value["revision"], "artifact_sha256":digest, "seconds":seconds,
+            **({'required_ks': required_ks, 'prepared_ks': prepared_ks,
+                'computed_ks': computed_ks} if required_ks and published else {})}
 
 
 def finish_mushroom_worker_job(payload: object, *, auth_token: str = "") -> tuple[int, dict[str, object]]:
@@ -23957,12 +24041,15 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 )
             return "./workers"
         if action == "run_competing_history":
-            _token, device_id = self.auth_credentials()
-            # The explicit Workers action can prepare the user's chosen K.
-            # Point queries and ordinary settings saves never start history work.
-            k = settings_for_device(device_id).get('prediction_k_value')
+            # Workers is global and may be on a different origin from the map.
+            # Resolve persisted preferences here; ordinary map saves stay inert.
+            try:
+                required_ks = mushroom_competing_required_ks()
+            except (OSError, ValueError) as exc:
+                set_mushroom_workers_flash(str(exc), error=True)
+                return "./workers"
             started = schedule_mushroom_competing_history(self.form_value(form, "worker_id"),
-                origin="manual", comparison_k=k)
+                origin="manual", comparison_ks=required_ks)
             if not started:
                 set_mushroom_workers_flash("La comprobación histórica ya está en marcha.")
             return "./workers"

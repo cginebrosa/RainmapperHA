@@ -1958,7 +1958,7 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
         return {}
     job_type = job.get("job_type")
     if job_type == JOB_TYPE_COMPETING_HISTORY:
-        from rainmapper_core.mushroom_competing_control import DIGEST
+        from rainmapper_core.mushroom_competing_control import DIGEST, normalize_ks
         revision = result.get("revision")
         sha = result.get("artifact_sha256")
         seconds = result.get("seconds")
@@ -1966,7 +1966,14 @@ def _normalized_result(job: dict[str, Any], result: dict[str, Any] | None) -> di
                 not DIGEST.fullmatch(sha) or type(seconds) not in (int, float) or
                 not math.isfinite(seconds) or seconds < 0):
             raise ValueError("Historical evaluation receipt is invalid.")
-        return {"revision": revision, "artifact_sha256": sha, "seconds": round(seconds, 3)}
+        receipt = {"revision": revision, "artifact_sha256": sha, "seconds": round(seconds, 3)}
+        if 'required_ks' in result:
+            for field in ('required_ks', 'prepared_ks', 'computed_ks'):
+                receipt[field] = normalize_ks(result.get(field, []))
+            if (not set(receipt['required_ks']) <= set(receipt['prepared_ks'])
+                    or not set(receipt['computed_ks']) <= set(receipt['required_ks'])):
+                raise ValueError("Historical evaluation K receipt is invalid.")
+        return receipt
     if job_type not in {
         JOB_TYPE_SNAPSHOT_TRANSPORT,
         JOB_TYPE_CANDIDATE_REBUILD,

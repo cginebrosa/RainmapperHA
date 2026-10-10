@@ -1166,6 +1166,8 @@ service.serve(root, host='127.0.0.1', port=0, heartbeat_interval=0.1)
         self.assertNotIn("ml_multiversion_training_v1", result["capabilities"])
         self.assertIn("ml_job_purpose_v1", result["capabilities"])
         self.assertIn("ml_benchmark_report_v1", result["capabilities"])
+        self.assertIn("competing_history_update_v2", result["capabilities"])
+        self.assertIn("competing_history_update_v3", result["capabilities"])
         self.assertEqual(result["dataset_cache"]["file_count"], 10)
 
         heartbeat = mushroom_worker_service.heartbeat_payload(

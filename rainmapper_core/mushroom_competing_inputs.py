@@ -12,6 +12,16 @@ from rainmapper_core.mushroom_map_competing import identity
 
 TARGETS = ('boletus_aereus', 'amanita_caesarea')
 
+# Exact source transition reviewed against f609f8ec: the changed functions
+# serve Predictor preparation only. Historical Builder uses the unchanged
+# _weather_requirements/_interpretation_features helpers. Real Builder parity
+# covers V2--V6 fixed/lag inputs; an unknown future file hash is never aliased.
+_REVIEWED_RUNTIME_FILE_HASHES = {
+    ('mushroom_ml_multiversion_comparison.py',
+     '2194d3aa92755919df9c728ba3e1dfcbc656a8b34c399f4678e7e8c93d353f31'):
+    '1e97478f1838a0a426fac53f454c08820adc971fcbdbfea971abb6e52b522a32',
+}
+
 
 def _procedure_files():
     core = Path(__file__).parent
@@ -51,8 +61,13 @@ def runtime_feature_revision():
         'mushroom_map_competing.py', 'mushroom_map_prediction.py',
         'mushroom_predictor_precompute.py', 'run-mushroom-competing-history.py',
     }
-    return digest(['historical_runtime_features_v1',
-                   [(p.name, file_hash(p)) for p in _procedure_files() if p.name not in non_producers]])
+    producers = []
+    for path in _procedure_files():
+        if path.name not in non_producers:
+            source_hash = file_hash(path)
+            producers.append((path.name, _REVIEWED_RUNTIME_FILE_HASHES.get(
+                (path.name, source_hash), source_hash)))
+    return digest(['historical_runtime_features_v1', producers])
 
 
 def read_json(path, limit):
@@ -131,7 +146,8 @@ def historical_weather_revision(data_dir, observations, cache_path):
 
 
 def plan(*, registry_path, models_root, observations_path, known_sites_path, stations_path,
-         features_path, weather_data_dir, weather_cache_path, cutoff, profiles_path=None, comparison_k=None):
+         features_path, weather_data_dir, weather_cache_path, cutoff, profiles_path=None,
+         comparison_k=None, comparison_ks=None):
     from rainmapper_core import mushroom_ml_version_registry as versions
     from rainmapper_core import mushroom_ml_model_catalog as catalog
     from rainmapper_core import mushroom_ml_policy_store as policy_store
@@ -139,10 +155,11 @@ def plan(*, registry_path, models_root, observations_path, known_sites_path, sta
     from rainmapper_core import mushroom_ml_prediction_policy as policy
     from rainmapper_core import mushroom_map_competing as competing
     from rainmapper_core.mushroom_map_model_runtime import projected_quality
+    if comparison_k is not None and comparison_ks is not None:
+        raise ValueError('ambiguous_comparison_ks')
+    required_ks = control.normalize_ks(comparison_ks if comparison_ks is not None else
+        [competing.defaults()['k_value'] if comparison_k is None else comparison_k])
     registry = policy_store.resolve(Path(registry_path), read_json(registry_path, 256 * 1024))
-    k = competing.defaults()['k_value'] if comparison_k is None else comparison_k
-    if not competing.valid_k(k):
-        raise ValueError('invalid_comparison_k')
     profiles_path = Path(profiles_path) if profiles_path else Path(registry_path).parent / 'mushroom_profiles.json'
     profiles = {p['species_id']: {'phenology': p.get('phenology', {})}
                 for p in read_json(profiles_path, 2 * 1024 * 1024)['species_profiles'] if p['species_id'] in TARGETS}
@@ -185,9 +202,10 @@ def plan(*, registry_path, models_root, observations_path, known_sites_path, sta
                     'weather':historical_weather_revision(weather_data_dir, observations, weather_cache_path)}
     dependencies['procedure'] = procedure_revision()
     history_revision = control.revision(dependencies)
-    dependencies['comparison_k'] = digest(float(k))
-    spec = {'kind':'competing_history_job_v1', 'revision':control.revision(dependencies),
-            'history_revision':history_revision, 'comparison_k':k, 'profiles':profiles,
+    dependencies['comparison_ks'] = digest(required_ks)
+    spec = {'kind':'competing_history_job_v2', 'revision':control.revision(dependencies),
+            'history_revision':history_revision, 'required_ks':required_ks,
+            'comparison_ks':required_ks, 'profiles':profiles,
             'recommendation_policy':recommendations.settings(registry),
             'prediction_model_suspensions':registry.get(policy.FIELD, []),
             'catalog_profiles':[{key:p[key] for key in ('version_id','profile_id','input_requirements')}

@@ -6,6 +6,16 @@ from rainmapper_core import mushroom_competing_control as c
 
 
 class ControlTests(unittest.TestCase):
+    def test_costs_are_normalized_deduplicated_and_bounded(self):
+        self.assertEqual(c.normalize_ks([4, 2.5, 4.0, 0]), [0.0, 2.5, 4.0])
+        for values in ([], [True], [-1], [1001], ['4'], [float('nan')], list(range(9))):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                c.normalize_ks(values)
+
+    def test_missing_cost_is_pending_even_with_the_same_control_revision(self):
+        self.assertTrue(c.needs_job({'desired_revision':'a'*64, 'active_revision':'a'*64,
+                                     'job_id':'', 'pending_ks':[2.5]}))
+
     def test_delivery_retry_after_publication_does_not_publish_again_or_accept_changed_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'state.json'

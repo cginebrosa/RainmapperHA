@@ -1,5 +1,80 @@
 # Contexto activo — actualización 10/10/2026
 
+## Release HA 0.2.336 · publicada, pendiente de instalar en HA real
+
+El usuario aceptó el precálculo local completo de 2m47s y autorizó publicar.
+Incluye optimización del precálculo/artefactos y selección/comparación de las K
+del add-on y dispositivos activos, con estado de K preparadas y pendientes.
+Smoke correcto: 2.128 pruebas, 55 omitidas, sin fallos. Fuentes efectivas de
+HA/worker coinciden con la candidata aceptada; sin repetir trabajos operativos.
+GHCR: `0.2.336` y `latest`, digest `8af3d7f7…`, manifests amd64/arm64.
+Ver [informe de release](reports/release-ha-0.2.336-2026-10-10.md).
+Instalación y prueba en HA real a cargo del usuario; el worker compatible ya
+está actualizado. Coordinadores y observaciones privadas conservados.
+
+## Precálculo local completo en 2m47s; K de selección/comparación probado
+
+El usuario autorizó optimizar el precálculo semanal hacia dos minutos, con
+agentes para cálculo y validación/entrega. No se han lanzado trabajos operativos
+ni entrenamientos desde Codex. El usuario sigue lanzando los trabajos.
+El worker mantiene sus coordinadores y su presupuesto de recursos.
+
+Mediciones verificadas del artefacto existente y consultas aisladas: validación
+completa en Mac 16,31→3,65 s, mismo manifiesto y hash; Lactarius/Urus
+16,477→6,234 s y Caesarea/Olvan 16,062→6,173 s, respuesta completa idéntica
+con semilla de proceso fija. La meteorología pasa de 21 preparaciones a tres
+por consulta; las tres ventanas físicas distintas se conservan. Contextos y
+catálogo se comparten por runtime; filtro de última área y dos ventanas exactas
+de estaciones como máximo en la nueva caché preparatoria.
+Estas medidas NO acreditan todavía dos minutos para el trabajo completo.
+Evidencia privada: `tmp/jobs/precompute-performance-20261010/`.
+
+Durante esta tarea el usuario detectó que cambiar K en el mapa no disparaba
+la comparación al pulsar Workers. Causa confirmada: el formulario nativo no
+envía la cabecera de dispositivo del mapa y caía en K del add-on. Corrección
+implementada: el botón y el runner reúnen la K predeterminada y las preferencias
+persistidas activas, muestran K requeridas/preparadas/pendientes y preparan
+solo las comparaciones que falten, con una sola generación histórica. Se
+mantiene el límite contractual de ocho K distintas y rechazo previo a encolar.
+Los clics del mapa y guardar ajustes siguen sin iniciar trabajos. Contrato
+multi-K exige worker actualizado. Compatibilidad probada con fuentes HEAD reales,
+Builder/Workspace y datos sintéticos: 16 perfiles/contratos V2–V6, 48 filas runtime,
+matriz y predicciones idénticas; SQLite reutiliza 2/2 unidades y un modelo con
+cero nuevos ajustes. Alias sólo para SHA exacto del módulo revisado; otros
+cambios siguen invalidando. Se mantiene soporte del contrato escalar de HA
+0.2.335 para ese productor exacto; hashes desconocidos se rechazan.
+194 pruebas de precálculo/runtime/worker y 70 de selección/compatibilidad pasan.
+HA/worker locales reconstruidos y recreados desde el código candidato. Paridad
+efectiva: 11 archivos relevantes de HA y ocho del worker coinciden; configuración,
+coordinadores, recursos y archivos privados conservan sus huellas. Worker sano,
+ambos turnos libres, capacidades históricas v2 y v3, cachés válidas. Navegador
+local verificado en 1600/375/320 px: K visibles, desplegables y teclado correctos,
+sin desbordamiento ni envío de formularios/trabajos. Recibos en
+`tmp/jobs/precompute-performance-20261010/local-verification.json` y `browser.json`.
+El usuario lanzó Selección y comparación (K 4→3→2), confirmó rapidez y lanzó
+el precálculo local `worker_job_n_bieLDCRx9v`. Auditoría posterior de archivos
+persistidos: completo, revisión 77, 167 s totales = 5 s de cola + 162 s de
+ejecución. Cálculo 150,626 s, publicación HA local 4,009 s y activación worker
+4,718 s. Validación completa del SQLite y cobertura exacta correctas: 10 especies,
+65 áreas distintas, 141 pares especie/área × 7 días (10–16/10/2026) = 987 celdas,
+sin ausencias; 896 miembros operativos y 1.134 consultas mediante 228 respuestas
+distintas. HA y copia del coordinador local en worker coinciden en SHA-256
+`0b4f27f447f6b64a04873f9488ecc7860048fa38bac9e8ef0b8704def4b555ee`.
+Evidencia: `tmp/jobs/precompute-performance-20261010/local-complete-audit.json`
+y `local-complete-artifact-metadata-metrics.json`. Sin relanzar trabajos.
+El anterior artefacto de HA real tiene los mismos recuentos; su preparación
+multiversión acumulada era 432,031 s frente a 68,251 s ahora. Las generaciones
+instaladas y el coordinador difieren entre ambas instalaciones: no es una
+comparación estricta con entradas idénticas ni acredita esos tiempos en RPi4.
+Quedan 47 s para el objetivo de dos minutos. El usuario acepta el resultado y
+autoriza la release 0.2.336, que contiene la corrección de K para HA. Instalación
+en HA real pendiente; el worker actualizado conserva compatibilidad escalar.
+
+Consulta del usuario sobre 11m47s de selección/comparación en HA real: la captura
+indica 10m52s de cola y el log del worker confirma 55,981 s de ejecución del
+trabajo `worker_job_5zcM2AC9Ucqe7Vjx`, tras el precálculo
+`worker_job_LdHHuOWz4hJo`. No confundir duración total con tiempo de cálculo.
+
 ## Release HA 0.2.335 · publicada, pendiente de instalar en HA real
 
 El usuario autorizó publicar tras la validación local del cambio de referencia.

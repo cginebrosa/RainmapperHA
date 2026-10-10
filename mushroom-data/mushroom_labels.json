@@ -9163,9 +9163,24 @@
     "ca": "Selecció i comparació"
   },
   "ui.worker_history_help": {
-    "en": "Prepares A/B/C/D selection and compares it with the usual selection in the same job, reusing historical inputs and evaluations. The runner requests updates when needed. This button brings the check forward using your K setting; map clicks do not start it.",
-    "es": "Prepara la selección A/B/C/D y su comparación con la habitual en el mismo trabajo, reutilizando datos y evaluaciones históricas. El runner solicita las actualizaciones necesarias. Este botón adelanta la comprobación con tu valor de K; los clics en el mapa no la inician.",
-    "ca": "Prepara la selecció A/B/C/D i la comparació amb l’habitual en el mateix treball, reutilitzant dades i avaluacions històriques. El runner sol·licita les actualitzacions necessàries. Aquest botó avança la comprovació amb el teu valor de K; els clics al mapa no l’inicien."
+    "en": "Prepares A/B/C/D selection and compares it with the usual selection, reusing historical inputs and evaluations. This button checks the add-on K and all K preferences saved by active devices, preparing only missing comparisons. Map clicks do not start this work.",
+    "es": "Prepara la selección A/B/C/D y su comparación con la habitual, reutilizando datos y evaluaciones históricas. Este botón comprueba el K del complemento y todos los K guardados por dispositivos activos, preparando solo las comparaciones pendientes. Los clics en el mapa no inician este trabajo.",
+    "ca": "Prepara la selecció A/B/C/D i la comparació amb l’habitual, reutilitzant dades i avaluacions històriques. Aquest botó comprova el K del complement i tots els K desats per dispositius actius, preparant només les comparacions pendents. Els clics al mapa no inicien aquest treball."
+  },
+  "ui.worker_history_required_ks": {
+    "en": "Configured K",
+    "es": "K configurados",
+    "ca": "K configurats"
+  },
+  "ui.worker_history_prepared_ks": {
+    "en": "Prepared K",
+    "es": "K preparados",
+    "ca": "K preparats"
+  },
+  "ui.worker_history_pending_ks": {
+    "en": "Pending K",
+    "es": "K pendientes",
+    "ca": "K pendents"
   },
   "ui.worker_history_launch": {
     "en": "Check and update",

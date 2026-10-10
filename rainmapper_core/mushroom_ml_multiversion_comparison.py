@@ -145,6 +145,44 @@ def _interpretation_features(sample: Mapping[str, object]) -> dict[str, object]:
     return features
 
 
+def _runtime_feature_sample(
+    model_ref: catalog.ModelRef,
+    *,
+    target_date: date,
+    area_id: str,
+    area_context: Any,
+    area_series: Mapping[str, object],
+    stations: Mapping[tuple[str, str], Any],
+    cache: MutableMapping[tuple[object, ...], Any],
+) -> Mapping[str, object]:
+    """Share profile inputs across estimators, never their predictions.
+
+    The adapters do not consume estimator_id. Retain every other model field
+    and the exact source objects so different physical windows cannot share a
+    sample. Holding those references also prevents object-id reuse collisions.
+    """
+    key = (
+        area_id, target_date.isoformat(), model_ref.batch_id,
+        model_ref.generation_id, model_ref.version_id,
+        model_ref.temporal_contract_id, model_ref.profile_id,
+        model_ref.species_id, model_ref.horizon_days,
+    )
+    cached = cache.get(key)
+    if (cached is not None and cached[0] is area_context
+            and cached[1] is area_series and cached[2] is stations):
+        return cached[3]
+    sample = mushroom_ml_runtime_features.build_runtime_features(
+        model_ref,
+        target_date=target_date,
+        area_id=area_id,
+        area_context=area_context,
+        area_series=area_series,
+        stations=stations,
+    )
+    cache[key] = (area_context, area_series, stations, sample)
+    return sample
+
+
 def compare_prepared(
     registry: Mapping[str, object],
     manifest: Mapping[str, object],
@@ -255,18 +293,15 @@ def compare_prepared(
             continue
         try:
             phase_started = monotonic()
-            sample_cache_key = (area_id, target_date.isoformat(), model_ref.key)
-            sample = runtime_sample_cache.get(sample_cache_key)
-            if not isinstance(sample, Mapping):
-                sample = mushroom_ml_runtime_features.build_runtime_features(
-                    model_ref,
-                    target_date=target_date,
-                    area_id=area_id,
-                    area_context=area_context,
-                    area_series=area_series,
-                    stations=stations,
-                )
-                runtime_sample_cache[sample_cache_key] = sample
+            sample = _runtime_feature_sample(
+                model_ref,
+                target_date=target_date,
+                area_id=area_id,
+                area_context=area_context,
+                area_series=area_series,
+                stations=stations,
+                cache=runtime_sample_cache,
+            )
             record_phase("runtime_features", phase_started)
             quality = dict(sample.get("quality") or {})
             if quality.get("inference_eligible") is False:
@@ -1711,38 +1746,10 @@ def _weather_requirements(
     return lookback_days, include_physical_state
 
 
-def prepare_area_weather(
-    *,
-    known_sites_path: Path,
-    weather_data_dir: Path,
-    area_id: str,
-    target_date: date,
-    horizons: Sequence[int],
-    lookback_days: int = mushroom_ml_raw_weather.LOOKBACK_DAYS,
-    include_physical_state: bool = True,
-    excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]] = frozenset(),
-) -> tuple[
-    Any,
-    dict[int, dict[str, object]],
-    dict[tuple[str, str], Any],
-]:
-    """Load one bounded station window and reuse it for every V2--V6 member."""
-    areas, microareas = mushroom_ml_area_weather_runtime.area_contexts(
-        Path(known_sites_path)
-    )
-    area_context = areas.get(area_id)
-    contexts = microareas.get(area_id, [])
-    if area_context is None or not contexts:
-        raise ValueError(f"Unknown mushroom area: {area_id}")
-    resolved_horizons = sorted({int(value) for value in horizons})
-    if not resolved_horizons:
-        raise ValueError("At least one comparison horizon is required")
-    cutoffs = {horizon: target_date - timedelta(days=horizon) for horizon in resolved_horizons}
-    if lookback_days <= 0:
-        raise ValueError("lookback_days must be positive")
-    earliest = min(cutoffs.values()) - timedelta(days=lookback_days - 1)
-    latest = max(cutoffs.values())
-    station_catalog = weather_context.load_stations_catalog(Path(weather_data_dir))
+_WEATHER_PREPARATION_CONTEXT_KEY = ("weather_preparation_inputs_v1",)
+
+
+def _area_station_filter(station_catalog, contexts) -> set[tuple[str, str]]:
     station_filter: set[tuple[str, str]] = set()
     for row in station_catalog.itertuples(index=False):
         source = str(getattr(row, "source", "") or "").strip()
@@ -1755,21 +1762,114 @@ def prepare_area_weather(
             for context in contexts
         ):
             station_filter.add((source, code))
-    stations = weather_context.load_daily_weather_parquet(
-        Path(weather_data_dir),
-        station_filter=station_filter,
-        start_date=earliest,
-        end_date=latest,
-    )
+    return station_filter
+
+
+class _WeatherPreparationContext:
+    """Small preparation cache owned by one immutable runtime's batch context.
+
+    The source JSON is discarded by area_contexts; only its derived point/soil
+    contexts and the station catalog survive. Station data is limited to two
+    exact windows of the last area. No physical series or model result lives
+    here, and no cache survives independently of the caller's shared context.
+    """
+
+    def __init__(self, source_identity: tuple[object, ...]) -> None:
+        self.source_identity = source_identity
+        self.area_contexts = None
+        self.station_catalog = None
+        self.area_filter_key = None
+        self.station_filter: set[tuple[str, str]] = set()
+        self.station_windows: dict[tuple[object, ...], dict[tuple[str, str], Any]] = {}
+
+    def contexts(self, known_sites_path: Path):
+        if self.area_contexts is None:
+            self.area_contexts = mushroom_ml_area_weather_runtime.area_contexts(known_sites_path)
+        return self.area_contexts
+
+    def stations(self, weather_data_dir: Path, *, area_id: str, contexts,
+                 earliest: date, latest: date, excluded: set[tuple[str, str]]):
+        if self.station_catalog is None:
+            self.station_catalog = weather_context.load_stations_catalog(weather_data_dir)
+        area_filter_key = (area_id, mushroom_weather_idw.RAINFALL_IDW_RADIUS_KM)
+        if self.area_filter_key != area_filter_key:
+            self.station_filter = _area_station_filter(self.station_catalog, contexts)
+            self.area_filter_key = area_filter_key
+            self.station_windows.clear()
+        key = (earliest, latest, tuple(sorted(excluded)))
+        if key in self.station_windows:
+            stations = self.station_windows.pop(key)
+        else:
+            stations = weather_context.load_daily_weather_parquet(
+                weather_data_dir, station_filter=self.station_filter,
+                start_date=earliest, end_date=latest,
+            )
+            stations = {
+                key: station for key, station in stations.items()
+                if (str(key[0]).lower(), str(key[1]).upper()) not in excluded
+            }
+        self.station_windows[key] = stations
+        while len(self.station_windows) > 2:
+            del self.station_windows[next(iter(self.station_windows))]
+        return stations
+
+
+def prepare_area_weather(
+    *,
+    known_sites_path: Path,
+    weather_data_dir: Path,
+    area_id: str,
+    target_date: date,
+    horizons: Sequence[int],
+    lookback_days: int = mushroom_ml_raw_weather.LOOKBACK_DAYS,
+    include_physical_state: bool = True,
+    excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]] = frozenset(),
+    preparation_context: _WeatherPreparationContext | None = None,
+) -> tuple[
+    Any,
+    dict[int, dict[str, object]],
+    dict[tuple[str, str], Any],
+]:
+    """Load one bounded station window and reuse it for every V2--V6 member."""
+    if preparation_context is not None:
+        source_identity = (str(Path(known_sites_path).resolve()), str(Path(weather_data_dir).resolve()))
+        if preparation_context.source_identity != source_identity:
+            raise ValueError("Weather preparation context belongs to another runtime")
+        areas, microareas = preparation_context.contexts(Path(known_sites_path))
+    else:
+        areas, microareas = mushroom_ml_area_weather_runtime.area_contexts(Path(known_sites_path))
+    area_context = areas.get(area_id)
+    contexts = microareas.get(area_id, [])
+    if area_context is None or not contexts:
+        raise ValueError(f"Unknown mushroom area: {area_id}")
+    resolved_horizons = sorted({int(value) for value in horizons})
+    if not resolved_horizons:
+        raise ValueError("At least one comparison horizon is required")
+    cutoffs = {horizon: target_date - timedelta(days=horizon) for horizon in resolved_horizons}
+    if lookback_days <= 0:
+        raise ValueError("lookback_days must be positive")
+    earliest = min(cutoffs.values()) - timedelta(days=lookback_days - 1)
+    latest = max(cutoffs.values())
     normalized_excluded = {
         (str(source).lower(), str(code).upper())
         for source, code in excluded_station_keys
     }
-    stations = {
-        key: station
-        for key, station in stations.items()
-        if (str(key[0]).lower(), str(key[1]).upper()) not in normalized_excluded
-    }
+    if preparation_context is not None:
+        stations = preparation_context.stations(
+            Path(weather_data_dir), area_id=area_id, contexts=contexts,
+            earliest=earliest, latest=latest, excluded=normalized_excluded,
+        )
+    else:
+        station_catalog = weather_context.load_stations_catalog(Path(weather_data_dir))
+        station_filter = _area_station_filter(station_catalog, contexts)
+        stations = weather_context.load_daily_weather_parquet(
+            Path(weather_data_dir), station_filter=station_filter,
+            start_date=earliest, end_date=latest,
+        )
+        stations = {
+            key: station for key, station in stations.items()
+            if (str(key[0]).lower(), str(key[1]).upper()) not in normalized_excluded
+        }
     prepared = {
         horizon: mushroom_ml_area_weather_runtime.materialize_area_series(
             area_id=area_id,
@@ -1812,6 +1912,94 @@ def _prepared_weather_key(
         include_physical_state,
         normalized_excluded,
     )
+
+
+def _cached_area_weather(
+    *,
+    known_sites_path: Path,
+    weather_data_dir: Path,
+    area_id: str,
+    target_date: date,
+    horizons: Sequence[int],
+    lookback_days: int,
+    include_physical_state: bool,
+    excluded_station_keys: frozenset[tuple[str, str]] | set[tuple[str, str]],
+    prepared_weather_cache: MutableMapping[tuple[object, ...], Any] | None,
+) -> tuple[tuple[Any, dict[int, dict[str, object]], dict[tuple[str, str], Any]], bool]:
+    """Reuse identical weather cuts inside one immutable Predictor runtime.
+
+    A weekly lag advances the target date and horizon together, leaving the
+    weather cutoff unchanged. Only the small horizon-to-series mapping needs
+    retargeting; station data, physical state and daily arrays stay shared.
+    Different windows or cutoff sets are deliberately kept separate: extending
+    a station window or slicing physical state is not necessarily equivalent.
+    """
+    request_key = _prepared_weather_key(
+        known_sites_path=known_sites_path,
+        weather_data_dir=weather_data_dir,
+        area_id=area_id,
+        target_date=target_date,
+        horizons=horizons,
+        lookback_days=lookback_days,
+        include_physical_state=include_physical_state,
+        excluded_station_keys=excluded_station_keys,
+    )
+    # Preserve explicitly prepared V2 windows, including their station range.
+    # Do not promote those sliced windows into the exact-cutoff cache.
+    if prepared_weather_cache is not None:
+        exact = prepared_weather_cache.get(request_key)
+        if exact is not None:
+            return exact, True
+    cutoffs = {
+        horizon: (target_date - timedelta(days=horizon)).toordinal()
+        for horizon in sorted({int(value) for value in horizons})
+    }
+    cutoff_key = (
+        "effective_weather_cutoffs_v1",
+        *request_key[:3],
+        tuple(sorted(cutoffs.values())),
+        *request_key[5:],
+        mushroom_ml_area_weather_runtime.WATER_STATE_CONTRACT_ID
+        if include_physical_state else None,
+    )
+    cached = (
+        prepared_weather_cache.get(cutoff_key)
+        if prepared_weather_cache is not None else None
+    )
+    if cached is not None:
+        area_context, by_cutoff, stations = cached
+        return (
+            area_context,
+            {horizon: by_cutoff[cutoff] for horizon, cutoff in cutoffs.items()
+             if cutoff in by_cutoff},
+            stations,
+        ), True
+    preparation_context = None
+    if prepared_weather_cache is not None:
+        preparation_context = prepared_weather_cache.get(_WEATHER_PREPARATION_CONTEXT_KEY)
+        if (not isinstance(preparation_context, _WeatherPreparationContext)
+                or preparation_context.source_identity != request_key[:2]):
+            preparation_context = _WeatherPreparationContext(request_key[:2])
+            prepared_weather_cache[_WEATHER_PREPARATION_CONTEXT_KEY] = preparation_context
+    prepared = prepare_area_weather(
+        known_sites_path=known_sites_path,
+        weather_data_dir=weather_data_dir,
+        area_id=area_id,
+        target_date=target_date,
+        horizons=horizons,
+        lookback_days=lookback_days,
+        include_physical_state=include_physical_state,
+        excluded_station_keys=excluded_station_keys,
+        preparation_context=preparation_context,
+    )
+    if prepared_weather_cache is not None:
+        area_context, by_horizon, stations = prepared
+        prepared_weather_cache[cutoff_key] = (
+            area_context,
+            {cutoffs[horizon]: series for horizon, series in by_horizon.items()},
+            stations,
+        )
+    return prepared, False
 
 
 def prewarm_v2_week_weather(
@@ -1947,7 +2135,7 @@ def prewarm_selection_predictions(
         lookback_days, include_physical_state = _weather_requirements(
             refs, catalog_profiles=catalog_profiles
         )
-        weather_key = _prepared_weather_key(
+        prepared_tuple, _weather_cache_hit = _cached_area_weather(
             known_sites_path=known_sites_path,
             weather_data_dir=weather_data_dir,
             area_id=area_id,
@@ -1956,20 +2144,8 @@ def prewarm_selection_predictions(
             lookback_days=lookback_days,
             include_physical_state=include_physical_state,
             excluded_station_keys=excluded_station_keys,
+            prepared_weather_cache=prepared_weather_cache,
         )
-        prepared_tuple = prepared_weather_cache.get(weather_key)
-        if prepared_tuple is None:
-            prepared_tuple = prepare_area_weather(
-                known_sites_path=known_sites_path,
-                weather_data_dir=weather_data_dir,
-                area_id=area_id,
-                target_date=target_date,
-                horizons=horizons,
-                lookback_days=lookback_days,
-                include_physical_state=include_physical_state,
-                excluded_station_keys=excluded_station_keys,
-            )
-            prepared_weather_cache[weather_key] = prepared_tuple
         area_context, prepared, stations = prepared_tuple
         for model_ref in refs:
             if mushroom_ml_prediction_policy.suspension(registry, model_ref.as_dict()):
@@ -1980,15 +2156,15 @@ def prewarm_selection_predictions(
             area_series = prepared.get(model_ref.horizon_days)
             if area_series is None:
                 continue
-            sample = mushroom_ml_runtime_features.build_runtime_features(
+            sample = _runtime_feature_sample(
                 model_ref,
                 target_date=target_date,
                 area_id=area_id,
                 area_context=area_context,
                 area_series=area_series,
                 stations=stations,
+                cache=runtime_sample_cache,
             )
-            runtime_sample_cache[cache_key] = sample
             quality = dict(sample.get("quality") or {})
             if quality.get("inference_eligible") is False:
                 continue
@@ -2105,7 +2281,8 @@ def compare_selection(
     lookback_days, include_physical_state = _weather_requirements(
         refs, catalog_profiles=catalog_profiles
     )
-    weather_key = _prepared_weather_key(
+    phase_started = monotonic()
+    prepared_tuple, weather_cache_hit = _cached_area_weather(
         known_sites_path=known_sites_path,
         weather_data_dir=weather_data_dir,
         area_id=area_id,
@@ -2114,27 +2291,9 @@ def compare_selection(
         lookback_days=lookback_days,
         include_physical_state=include_physical_state,
         excluded_station_keys=excluded_station_keys,
+        prepared_weather_cache=prepared_weather_cache,
     )
-    prepared_tuple = (
-        prepared_weather_cache.get(weather_key)
-        if prepared_weather_cache is not None
-        else None
-    )
-    weather_cache_status = "hit" if prepared_tuple is not None else "miss"
-    phase_started = monotonic()
-    if prepared_tuple is None:
-        prepared_tuple = prepare_area_weather(
-            known_sites_path=known_sites_path,
-            weather_data_dir=weather_data_dir,
-            area_id=area_id,
-            target_date=target_date,
-            horizons=horizons,
-            lookback_days=lookback_days,
-            include_physical_state=include_physical_state,
-            excluded_station_keys=excluded_station_keys,
-        )
-        if prepared_weather_cache is not None:
-            prepared_weather_cache[weather_key] = prepared_tuple
+    weather_cache_status = "hit" if weather_cache_hit else "miss"
     record_phase("weather_context", phase_started)
     area_context, prepared, stations = prepared_tuple
     phase_started = monotonic()

@@ -1349,6 +1349,100 @@ class PredictorPrecomputePublicationTests(PredictorPrecomputeArtifactTests):
                 with self.assertRaisesRegex(PrecomputeArtifactError, message):
                     validate_artifact(path, full=True)
 
+    def test_shared_weekly_alias_validation_keeps_daily_results_without_deepcopy(self) -> None:
+        from rainmapper_core import mushroom_predictor_precompute as module
+
+        identity, coverage, predictions, members, stored = self.fixture()
+        species = stored.response["data"]["species"]["boletus_edulis"]
+        comparisons = {
+            (self.issue_date + timedelta(days=offset)).isoformat(): {
+                "members": [{"prediction": {"probability": offset / 10}}],
+            }
+            for offset in range(7)
+        }
+        species["multiversion_comparisons"] = comparisons
+        species["multiversion_comparison"] = comparisons[self.issue_date.isoformat()]
+        requests = [self.request(target_date=day) for day in comparisons]
+        original_response = copy.deepcopy(stored.response)
+        for request in requests:
+            materialized = module._retarget_weekly_response(stored.response, request)
+            view = module._retarget_weekly_response(
+                stored.response, request, copy_payload=False
+            )
+            self.assertEqual(view, materialized)
+            self.assertEqual(stored.response, original_response)
+            daily = materialized["data"]["species"]["boletus_edulis"]
+            daily["multiversion_comparison"]["members"][0]["prediction"]["probability"] = -1
+            self.assertEqual(stored.response, original_response)
+            self.assertEqual(daily["multiversion_comparisons"], comparisons)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "shared.sqlite3"
+            write_artifact(
+                path, identity=identity, coverage=coverage,
+                base_predictions=predictions, operational_members=members,
+                responses=[
+                    PrecomputedResponse(request, stored.response, tuple(coverage))
+                    for request in requests
+                ],
+            )
+            original_validate = module.validate_response
+            checked_dates = []
+
+            def check_alias(payload):
+                response = original_validate(payload)
+                target = response["request"]["target_date"]
+                checked_dates.append(target)
+                self.assertEqual(
+                    response["data"]["species"]["boletus_edulis"]["multiversion_comparison"],
+                    comparisons[target],
+                )
+                return response
+
+            with (
+                mock.patch.object(module.copy, "deepcopy", side_effect=AssertionError("full payload copy")),
+                mock.patch.object(module, "validate_response", side_effect=check_alias),
+            ):
+                manifest = validate_artifact(path, expected_identity=identity, full=True)
+            self.assertCountEqual(checked_dates, comparisons)
+            self.assertEqual(manifest.table_counts["response_payloads"], 1)
+            self.assertEqual(manifest.table_counts["responses"], 7)
+
+    def test_alias_validation_rejects_corrupt_requests_and_rehashed_payloads(self) -> None:
+        from rainmapper_core import mushroom_predictor_precompute as module
+
+        for mutation in ("request", "runtime", "data", "metrics"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temporary:
+                path = Path(temporary) / "shared.sqlite3"
+                identity, coverage, predictions, members, stored = self.fixture()
+                alias = self.request(target_date=(self.issue_date + timedelta(days=1)).isoformat())
+                write_artifact(
+                    path, identity=identity, coverage=coverage,
+                    base_predictions=predictions, operational_members=members,
+                    responses=[stored, PrecomputedResponse(alias, stored.response, tuple(coverage))],
+                )
+                with sqlite3.connect(path) as connection:
+                    if mutation == "request":
+                        alias["target_date"] = "invalid-date"
+                        connection.execute(
+                            "UPDATE responses SET request_json=? WHERE request_json!=?",
+                            (json.dumps(alias), module._canonical_json(stored.request)),
+                        )
+                    else:
+                        payload = copy.deepcopy(stored.response)
+                        if mutation == "runtime":
+                            payload["runtime_fingerprint"] = self.runtime_b
+                        else:
+                            payload[mutation] = []
+                        key = module._canonical_sha256(payload)
+                        connection.execute(
+                            "UPDATE response_payloads SET payload_key=?, payload_json=?",
+                            (key, module._compressed_json(payload)),
+                        )
+                        connection.execute("UPDATE responses SET payload_key=?", (key,))
+                with self.assertRaises(PrecomputeArtifactError):
+                    validate_artifact(path, expected_identity=identity, full=True)
+
     def test_stream_publication_preserves_active_on_truncation_overflow_and_failure(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -2064,6 +2158,39 @@ class WeeklyPrecomputeBatchTests(unittest.TestCase):
             scientific_response_payload(final_day_stored.response),
             scientific_response_payload(final_day_live),
         )
+
+    def test_batch_rejects_conflicting_payloads_without_replacing_active_file(self) -> None:
+        from rainmapper_core.mushroom_predictor_precompute import PrecomputeContractError
+
+        for mutation, message in (
+            ("base", "Base prediction payload changed"),
+            ("member", "Operational member payload changed"),
+        ):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temporary:
+                class ConflictingService(self.FakeService):
+                    def execute(self, request, *, progress=None, shared_context=None):
+                        response = super().execute(request, progress=progress, shared_context=shared_context)
+                        if request["view"] == "query" and request["area_id"]:
+                            species = response["data"]["species"][request["species_id"]]
+                            day = request["target_date"]
+                            if mutation == "base":
+                                species["predictions"][request["area_id"]][day]["ensemble_probability"] = 0.01
+                            else:
+                                members = species["multiversion_comparisons"][day]["members"]
+                                conflict = copy.deepcopy(members[0])
+                                conflict["prediction"]["probability"] = 0.01
+                                members.append(conflict)
+                        return response
+
+                target = Path(temporary) / "active.sqlite3"
+                previous = b"previous immutable artifact"
+                target.write_bytes(previous)
+                with self.assertRaisesRegex(PrecomputeContractError, message):
+                    build_weekly_artifact(
+                        target, identity=self.identity(), predictor_service=ConflictingService(self),
+                        operational_selections=self.selections(),
+                    )
+                self.assertEqual(target.read_bytes(), previous)
 
     def test_batch_keeps_each_days_sealed_candidate_when_winner_changes(self) -> None:
         owner = self

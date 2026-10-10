@@ -299,7 +299,20 @@ class RunnerTests(unittest.TestCase):
                 (inputs/'competing-spec.json').write_text(json.dumps(spec))
                 self.assertEqual(runner.main(),0)
                 self.assertEqual(prepare.call_count, 1, 'Changing K must not prepare weather or fit models')
-                self.assertEqual(json.loads(output.read_bytes())['comparisons'][0]['k'], 2)
+                single_two = json.loads(output.read_bytes())['comparisons'][0]
+                self.assertEqual(single_two['k'], 2)
+                spec.pop('comparison_k')
+                spec.update(kind='competing_history_job_v2', required_ks=[2, 4, 6], comparison_ks=[2, 6])
+                (inputs/'competing-spec.json').write_text(json.dumps(spec))
+                with patch.object(runner, 'prepare_generation', side_effect=AssertionError('repeat history')), \
+                     patch.object(runner.history, 'fit_temporal_unit', side_effect=AssertionError('duplicate fit')):
+                    self.assertEqual(runner.main(), 0)
+                multi = json.loads(output.read_bytes())
+                self.assertEqual([r['k'] for r in multi['comparisons']], [2, 6])
+                self.assertEqual(multi['comparisons'][0], single_two)
+                self.assertEqual(prepare.call_count, 1, 'Multiple K values must share existing history/weather')
+                self.assertEqual(multi['summary']['computed_units'], 0)
+                self.assertEqual(list(evidence.cell_rows(multi)), list(evidence.cell_rows(result)))
                 # An aggregation-only upgrade must reuse the binary-key units
                 # produced by the deployed runner, without refitting any model.
                 producer.return_value = current_producer
@@ -312,6 +325,28 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(upgraded['summary']['reused_units'], 3)
                 self.assertEqual(list(evidence.cell_rows(upgraded)), list(evidence.cell_rows(result)))
                 builder.return_value.fingerprint.assert_not_called()
+                # Only the reviewed preceding coordinator's scalar contract is
+                # accepted across source revisions, with its bindings intact.
+                spec.pop('required_ks')
+                spec.pop('comparison_ks')
+                spec.update(kind='competing_history_job_v1', comparison_k=2,
+                    procedure_revision=runner.COMPATIBLE_V1_JOB_PROCEDURES[0], revision='0'*64)
+                (inputs/'competing-spec.json').write_text(json.dumps(spec))
+                with patch.object(runner, 'prepare_generation', side_effect=AssertionError('repeat history')), \
+                     patch.object(runner.history, 'fit_temporal_unit', side_effect=AssertionError('duplicate fit')):
+                    self.assertEqual(runner.main(), 0)
+                legacy = json.loads(output.read_bytes())
+                self.assertEqual(legacy['revision'], '0'*64)
+                self.assertEqual(legacy['history_revision'], 'd'*64)
+                self.assertEqual(legacy['comparisons'][0], single_two)
+                # The exception never applies to multi-K jobs or unknown code.
+                spec.update(kind='competing_history_job_v2', required_ks=[2], comparison_ks=[2])
+                (inputs/'competing-spec.json').write_text(json.dumps(spec))
+                with self.assertRaisesRegex(ValueError,'code_mismatch'):
+                    runner.main()
+                spec.pop('required_ks')
+                spec.pop('comparison_ks')
+                spec['kind'] = 'competing_history_job_v1'
                 spec['procedure_revision'] = 'f'*64
                 (inputs/'competing-spec.json').write_text(json.dumps(spec))
                 with self.assertRaisesRegex(ValueError,'code_mismatch'):
