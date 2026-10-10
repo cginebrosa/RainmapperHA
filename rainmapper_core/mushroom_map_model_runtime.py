@@ -230,6 +230,9 @@ class PointModelRuntime:
         self._refresh()
         competing_evidence = (competing.read(self.registry_path.parent / competing.FILENAME, self.manifest)
                               if request.get('competing_selection') else None)
+        # The installed models use the latest prepared selection, including on
+        # retrospective queries. Only inference/weather follow the queried date.
+        selection_date = competing_evidence['cutoff'] if competing_evidence else issue.isoformat()
         output['provenance'].update(model_revision=self.revision,batch_id=self.manifest['batch_id'])
         if not any(self.resolutions.get(row['species_id']) for row in selected):
             return output
@@ -382,7 +385,7 @@ class PointModelRuntime:
                 alternatives = []; labels = []; identities = []
                 for method in 'ABCD':
                     ranked, years, scores = competing.rank(resolutions, competing_evidence, sid,
-                                                           issue, method, request['k_value'])
+                                                           selection_date, method, request['k_value'])
                     def order_alternative(indexed):
                         ordered = competing.order_week(indexed)
                         for resolution in ordered.values():
@@ -416,8 +419,9 @@ class PointModelRuntime:
                                        round(scores[key], 2) if key in scores else None, bool(withheld)])
                     alternatives.append({'method':method, 'years':years, 'days':values})
                 row['competing'] = {'labels':labels, 'criteria':alternatives,
-                                    'comparison': competing.comparison_for(competing_evidence, sid, issue, request['k_value']),
-                                    'comparison_unavailable_reason': competing.comparison_unavailable_reason(competing_evidence, sid, issue, request['k_value']),
+                                    **({'selection_date': selection_date} if competing_evidence else {}),
+                                    'comparison': competing.comparison_for(competing_evidence, sid, selection_date, request['k_value']),
+                                    'comparison_unavailable_reason': competing.comparison_unavailable_reason(competing_evidence, sid, selection_date, request['k_value']),
                                     'evidence': 'temporal_history' if competing_evidence else 'unavailable'}
             # Diagnostic-only second request: one selected model/day, 32 compact
             # rows at a time. Never attach full feature vectors to weekly reports.

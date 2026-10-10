@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.335
+
+- Use the latest compatible prepared evidence to select A/B/C/D and compare their scores with the usual selection, including historical map queries and observation prediction checks.
+- Keep the requested date and coordinates for weather and IFF calculations, and show the selection reference date alongside the current models.
+- Preserve stored historical comparison totals and reuse the existing preparation; map queries never start selection, comparison or training jobs.
+
 ## 0.2.334
 
 - Add optional `Competing selection` and `K value` map settings, with device overrides and add-on defaults of disabled and K=4; preserve the usual prediction.

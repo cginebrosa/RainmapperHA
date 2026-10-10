@@ -18,6 +18,8 @@ from rainmapper_core.mushroom_recommendation_policy import valid_map_notice
 VIEWER_PATH = "/protected/prediction-map"
 API_PATH = "/api/mushrooms/prediction-map"
 CONTRACT_ID = "prediction_map_point_v1"
+# Map-only semantics; do not invalidate the historical preparation procedure.
+COMPETING_CAPABILITY = "map_competing_selection_v3"
 PERMISSION = "can_use_prediction_map"
 MAX_REQUEST_BYTES = 32 * 1024
 MAX_RESULT_BYTES = 256 * 1024
@@ -247,8 +249,15 @@ def validate_result(result, request):
             if not request.get('competing_selection') or not validate_comparison(row['competing'], len(expected_dates)):
                 raise ValueError('invalid_result_competing')
             compared = row['competing'].get('comparison')
+            selection_date = row['competing'].get('selection_date')
+            if selection_date is not None:
+                if (not isinstance(selection_date, str) or
+                        not re.fullmatch(r'\d{4}-\d{2}-\d{2}', selection_date)):
+                    raise ValueError('invalid_result_competing_selection_date')
+                date.fromisoformat(selection_date)
             if compared is not None and (compared['k'] != request['k_value'] or
-                    compared['cutoff'] > request['start_date'] or set(compared['species']) != {sid}):
+                    compared['cutoff'] > (selection_date or request['start_date']) or
+                    set(compared['species']) != {sid}):
                 raise ValueError('invalid_result_rule_comparison_binding')
         if 'training_observation_usage' in row:
             from rainmapper_core.mushroom_training_observations import STATES

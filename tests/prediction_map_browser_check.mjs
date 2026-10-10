@@ -1288,9 +1288,11 @@ try {
       document.getElementById('settings-toggle').click()`);
   };
   assert.equal(await evaluate("document.querySelectorAll('.pm-competing').length"),0);
-  modelFixture.species[0].competing = {evidence:'temporal_history',labels:['LR–V3'],
+  modelFixture.species[0].competing = {evidence:'temporal_history',labels:['LR–V3'],selection_date:'2099-10-10',
     criteria:[...'ABCD'].map(method=>({method,years:[2025],days:Array.from({length:7},()=>method==='D'?[null,null,null]:[.8,0,12.5,false])}))};
-  modelFixture.species[0].competing.comparison = {protocol:'common_selection_walk_forward_v1',k:2.5,cutoff:'2020-01-01',
+  // Prepared evidence may postdate the requested weather date. The explicit
+  // selection reference binds the response without rewriting the point date.
+  modelFixture.species[0].competing.comparison = {protocol:'common_selection_walk_forward_v1',k:2.5,cutoff:'2099-10-10',
     species:{boletus_edulis:{status:'ready',visits:4,positive:2,total_visits:5,start:'2019-09-01',end:'2019-10-31',missing:{weather_missing:1},
       winners:['habitual','A'], methods:Object.fromEntries(['habitual','A','B','C','D'].map((method,i)=>{
         const [tp,fp]=[[2,0],[2,0],[2,2],[1,0],[0,0]][i];
@@ -1299,6 +1301,8 @@ try {
   await changeCompeting('true','2.5');
   await clickAt(1.98,42.01); await until("!!document.querySelector('.pm-competing')");
   assert.equal(executionRequests.at(-1).k_value,2.5);
+  assert.ok(executionRequests.at(-1).start_date < '2099-10-10');
+  assert.ok(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-competing').textContent.includes('referencia de selección:')"));
   assert.ok(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-competing summary').textContent.includes('3/4 · 1 modelos distintos')"));
   assert.equal(await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-competing').open"),false);
   await evaluate("document.querySelector('[data-species-id=boletus_edulis] .pm-competing').open=true");

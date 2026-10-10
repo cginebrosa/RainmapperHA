@@ -9126,6 +9126,11 @@
     "es": "Mismas {n}/{total} visitas históricas · cada visita pesa uno",
     "ca": "Mateixes {n}/{total} visites històriques · cada visita pesa un"
   },
+  "ui.prediction_map_competing_current_reference": {
+    "en": "Current models · selection reference: {date}",
+    "es": "Modelos actuales · referencia de selección: {date}",
+    "ca": "Models actuals · referència de selecció: {date}"
+  },
   "ui.prediction_map_competing_score_details": {
     "en": "Score details", "es": "Detalle de las notas", "ca": "Detall de les notes"
   },

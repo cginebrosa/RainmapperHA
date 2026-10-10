@@ -1,5 +1,23 @@
 # Mapa de predicción — especificación central
 
+## Modelos actuales para consultas retrospectivas · acuerdo 10/10/2026
+
+Modo histórico y «Comprobar predicción» usan los modelos instalados actuales.
+La fecha consultada determina la meteorología y el IFF; la fecha `cutoff` de la
+última preparación compatible determina las ventanas A/B/C/D y los Iₖ de
+comparación. No se recorta esa evidencia a la fecha antigua del punto. La
+selección habitual y la gráfica principal conservan su comportamiento.
+
+La respuesta incluye `selection_date`, mostrada como referencia de selección.
+El mismo K sigue siendo necesario para encontrar la comparación preparada; si
+falta, se mantiene pendiente sin lanzar trabajos desde el mapa. La capability
+de consultas `map_competing_selection_v3` evita mezclar este contrato con
+workers/coordinadores que interpreten todas las fechas como históricas.
+
+Se conservan la generación y los lectores de acumulados por fecha descritos
+abajo para usos futuros. Este cambio sólo afecta a su consumo por el mapa;
+no modifica el procedimiento de preparación, sus huellas ni sus cachés.
+
 ## Iₖ de comparación por fecha · ampliación 10/10/2026
 
 El mismo trabajo de **Selección y comparación** conserva acumulados por especie,
@@ -11,15 +29,15 @@ Cada fila guarda fecha, visitas totales/comunes, favorables reales y los quince
 contadores enteros TP/FP/abstención de los cinco procedimientos, en séptimos.
 Las ausencias técnicas se guardan por fecha con un diccionario compartido de
 motivos. No incluye IDs de observaciones ni modelos o meteorología duplicados.
-Al consultar una fecha se usa sólo lo observado **antes** de ella. Se mantienen
+El lector de acumulados permite usar sólo lo observado **antes** de una fecha;
+el mapa usa ahora el corte de la preparación, según el acuerdo anterior. Se mantienen
 denominador común, exclusiones, abstenciones, empates y evidencia insuficiente;
 no se destaca ganador cuando falta soporte. La predicción principal no cambia.
 
 La ficha recibe sólo cinco notas y sus contadores/periodo, nunca el histórico
-completo. Consultar un punto o cambiar la fecha no lanza trabajos. Para disponer
-de los acumulados por primera vez hay que ejecutar el trabajo existente; un
-artefacto anterior sigue sirviendo las notas actuales y muestra un mensaje
-específico si se pide una fecha para la que no tiene acumulados.
+completo. Consultar un punto o cambiar la fecha no lanza trabajos. Un artefacto
+anterior sin acumulados también sirve las notas actuales en consultas
+retrospectivas; no necesita reconstruirse para este cambio de referencia.
 
 Presupuestos vigentes: máximo 10.000 visitas por comparación y reserva conservadora
 de 2 MiB por histórico/K antes de añadir filas. Se usa la tabla numérica compacta

@@ -30,7 +30,8 @@ class ProjectionTests(unittest.TestCase):
             geography={'ecology':{'status':'available','species':[{'species_id':'test','status':'compatible',
                 'daily_statuses':['compatible']*7,'daily_season_phases':['main']*7}]}}
             def selection(*args,**kwargs):
-                return SimpleNamespace(horizon_days=args[2]['horizon_days'],reference=args[2])
+                return SimpleNamespace(horizon_days=args[2]['horizon_days'],reference=args[2],
+                                       key=tuple(sorted(args[2].items())))
             applicability={'status':'within_observed_range'}
             def compare(*args,**kwargs):
                 detail = dict(applicability)
@@ -103,6 +104,39 @@ class ProjectionTests(unittest.TestCase):
                     membership.assert_not_called()
                 plain = r.predict(base_request, geography)
                 self.assertNotIn('applicability_page', plain)
+                # A past date changes weather/inference, not the latest prepared
+                # A/B/C/D ranking or its common scores. Keep dated totals intact.
+                from rainmapper_core import mushroom_map_competing as competing
+                from rainmapper_core import mushroom_competing_comparison as comparison
+                visits = [{'id':str(i),'species_id':'test','day':f'2026-09-{i+1:02}', 'y':i % 2}
+                          for i in range(4)]
+                evaluated = comparison.evaluate(visits, k=4, cutoff='2026-09-15',
+                    replay=lambda v, *args: dict.fromkeys(comparison.METHODS, int(v['id']) % 2 == 1))
+                evidence = {'cutoff':'2026-09-15', 'comparisons':[evaluated]}
+                evidence_before = copy.deepcopy(evidence)
+                cells = [('test', competing.identity(entry['candidate']), '2026-09-01',
+                    [20,10,9 if i == 0 else 6,3 if i == 0 else 1,1,5,.1,.9,'same-cases'])
+                    for resolution in original['test'].values() for i,entry in enumerate(resolution['candidate_chain'])]
+                with patch(module+'competing.read',return_value=evidence), \
+                     patch.object(competing.evidence_contract,'expanded_rows',side_effect=lambda *a,**kw: iter(cells)):
+                    for extra in ({}, {'observation_id':'obs_20190917_0001'}):
+                        prepare.reset_mock(); infer.reset_mock()
+                        historical = r.predict({**base_request, **extra, 'start_date':'2019-09-17',
+                                                'competing_selection':True, 'k_value':4},geography)
+                        row = historical['species'][0]
+                        self.assertEqual(row['probabilities'],plain['species'][0]['probabilities'])
+                        self.assertEqual(row['competing']['selection_date'],'2026-09-15')
+                        self.assertEqual(row['competing']['comparison']['species'],evaluated['species'])
+                        self.assertNotIn('history',row['competing']['comparison'])
+                        self.assertTrue(all(c['years'] == [2026] and all(d[0] == .6 for d in c['days'])
+                                            for c in row['competing']['criteria']))
+                        self.assertTrue(all(c.kwargs['end_day'] == date(2019,9,16) for c in prepare.call_args_list))
+                        self.assertTrue(all(c.kwargs['target_date'].year == 2019 for c in infer.call_args_list))
+                    missing_k = r.predict({**base_request, 'start_date':'2019-09-17',
+                                          'competing_selection':True,'k_value':5},geography)
+                    self.assertIsNone(missing_k['species'][0]['competing']['comparison'])
+                    self.assertEqual(missing_k['species'][0]['competing']['comparison_unavailable_reason'],'pending')
+                self.assertEqual(evidence,evidence_before)
                 for offset, count in ((0,32),(32,1)):
                     infer.reset_mock()
                     detailed = r.predict({**base_request,'applicability_page':{'day':2,'offset':offset}},geography)

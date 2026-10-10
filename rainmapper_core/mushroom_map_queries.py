@@ -95,7 +95,7 @@ class QueryBroker:
                     raise QueryError("worker_busy",503)
                 raise QueryError("executor_unavailable",503)
             if mode == 'worker' and request.get('competing_selection'):
-                from rainmapper_core.mushroom_map_competing import CAPABILITY
+                CAPABILITY = contract.COMPETING_CAPABILITY
                 if not any(state[2] and CAPABILITY in self.worker_capabilities.get(key, [])
                            for key, state in self.workers.items()):
                     raise QueryError('executor_unavailable', 503)
@@ -153,7 +153,7 @@ class QueryBroker:
             return None
         for key,row in self.queries.items():
             if mode == 'worker' and row['request'].get('competing_selection'):
-                from rainmapper_core.mushroom_map_competing import CAPABILITY
+                CAPABILITY = contract.COMPETING_CAPABILITY
                 if CAPABILITY not in self.worker_capabilities.get(worker_id, []):
                     continue
             if mode == 'worker' and history.is_request(row['request']) and history.CAPABILITY not in self.worker_capabilities.get(worker_id, []):

@@ -167,7 +167,37 @@ class CompetingTests(unittest.TestCase):
         req = {**request(), 'competing_selection':True, 'k_value':4}
         broker.worker_poll('old')
         with self.assertRaises(QueryError): broker.submit('u',req)
-        broker.worker_poll('new',capabilities=[c.CAPABILITY])
+        broker.worker_poll('old',capabilities=[c.CAPABILITY])
+        with self.assertRaises(QueryError): broker.submit('u',req)
+        broker.worker_poll('new',capabilities=[contract.COMPETING_CAPABILITY])
         broker.submit('u',req)
         self.assertIsNone(broker.worker_poll('old')['query'])
-        self.assertIsNotNone(broker.worker_poll('new',capabilities=[c.CAPABILITY])['query'])
+        self.assertIsNotNone(broker.worker_poll('new',capabilities=[contract.COMPETING_CAPABILITY])['query'])
+
+    def test_prepared_scores_can_postdate_weather_but_stay_bound_to_reference_and_k(self):
+        from tests.test_mushroom_prediction_map import request
+        from rainmapper_core import mushroom_competing_comparison as comparison
+        req = request(start_date='2019-09-17', competing_selection=True, k_value=4)
+        visits = [{'id':str(i),'species_id':'s','day':f'2026-09-{i+1:02}', 'y':i % 2}
+                  for i in range(4)]
+        evaluated = comparison.evaluate(visits, k=4, cutoff='2026-10-10',
+            replay=lambda *args: dict.fromkeys(comparison.METHODS, True))
+        data = {'evidence':'temporal_history','selection_date':'2026-10-10', 'labels':['model'],
+                'criteria':[{'method':m,'years':[2026], 'days':[[.8,0,1.,False]]*7} for m in 'ABCD'],
+                'comparison':comparison.at_date(evaluated,'s','2026-10-10')}
+        result = contract.prediction_result(req)
+        result.update(execution={'mode':'local'},
+            ecology={'status':'available','species':[{'species_id':'s','status':'compatible',
+                'daily_statuses':['compatible']*7,'daily_season_phases':['main']*7}]},
+            species=[{'species_id':'s','status':'available','probabilities':[.8]*7,
+                      'reasons':['calculated']*7,'competing':data}])
+        contract.validate_result(result,req)
+        for bad in ('2019-09-17','2026-02-30','20261010',False):
+            data['selection_date'] = bad
+            with self.subTest(bad=bad),self.assertRaises(ValueError):
+                contract.validate_result(result,req)
+        del data['selection_date']
+        with self.assertRaises(ValueError): contract.validate_result(result,req)
+        data['selection_date'] = '2026-10-10'
+        data['comparison']['k'] = 5
+        with self.assertRaises(ValueError): contract.validate_result(result,req)

@@ -1,6 +1,33 @@
 # Contexto activo — actualización 10/10/2026
 
-## Release HA 0.2.334 · publicada, pendiente de instalar en HA real
+## Release HA 0.2.335 · publicada, pendiente de instalar en HA real
+
+El usuario autorizó publicar tras la validación local del cambio de referencia.
+Smoke correcto: 2.106 pruebas, 55 omitidas, sin fallos. Verificación de código
+efectivo previa al bump: 251 archivos de HA y 150 del worker coinciden.
+GHCR: tags `0.2.335` y `latest`, digest `addc77ee…`, manifests amd64/arm64.
+Ver [informe de release](reports/release-ha-0.2.335-2026-10-10.md).
+La instalación y prueba de HA real las realiza el usuario. El worker local ya
+contiene el contrato compatible; no se publica otra versión del worker ni se
+cambian sus coordinadores. No hace falta repetir una preparación compatible.
+
+## Referencia actual para selección/Iₖ del mapa · incluida en 0.2.335
+
+Usuario autorizó usar la última preparación disponible tanto en modo histórico
+como en «Comprobar predicción». El IFF mantiene la fecha y meteorología
+consultadas; A/B/C/D y sus Iₖ usan el corte de la preparación. Se conservan los
+acumulados por fecha, su generación y sus lectores. No se ha cambiado ni
+relanzado el proceso de preparación ni entrenamientos. Véase
+[especificación](mushrooms/prediction-map-specification-es.md).
+Cambio publicado en 0.2.335. HA local y worker reconstruidos
+y recreados; paridad efectiva comprobada, coordinadores y configuración intactos.
+87 pruebas dirigidas y navegador escritorio/móvil correctos. Consulta real local
+de Olvan, 17/09/2019: IFF habitual idéntico con/sin Competing selection (54/100),
+cinco Iₖ actuales, referencia 10/10/2026 y 90 visitas comparables. Evidencia y
+observaciones privadas conservadas; huella del proceso de preparación sin cambios.
+[Resultado](reports/competing-current-reference-local-2026-10-10.md).
+
+## Release HA 0.2.334 · publicación anterior
 
 El usuario confirmó que funciona en local y autorizó publicar. Smoke completo
 correcto: 2.105 pruebas, 55 omitidas, sin fallos. La imagen 0.2.334 y `latest`

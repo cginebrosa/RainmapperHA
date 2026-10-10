@@ -229,6 +229,8 @@ export function createPredictionMode(bridge) {
       ? `${text('competing_agreement')}: ${agree}/4 · ${distinct} ${text('competing_models')} · K=${result.k_value}`
       : text('competing_missing')));
     if (available.length) panel.append(make('small', text(favorable >= available.length-favorable ? 'competing_favorable' : 'competing_not_favorable')));
+    if (data?.selection_date) panel.append(make('small',
+      text('competing_current_reference').replace('{date}', dateText(data.selection_date))));
     const comparison = data?.comparison?.species?.[model.species_id];
     const number = n => Number.isFinite(n) ? n.toLocaleString(bridge.language(), {maximumFractionDigits:2}) : '—';
     const native = model?.models?.[dayIndex];
@@ -378,6 +380,10 @@ export function createPredictionMode(bridge) {
   }
   function validCompeting(data, horizon) {
     return ['temporal_history','unavailable'].includes(data?.evidence) &&
+      (data.selection_date === undefined || (typeof data.selection_date === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(data.selection_date) &&
+        Number.isFinite(Date.parse(data.selection_date)) &&
+        new Date(data.selection_date).toISOString().slice(0,10) === data.selection_date)) &&
       Array.isArray(data.labels) && data.labels.length <= 28 &&
       data.labels.every(label => typeof label === 'string' && label.length > 0 && label.length <= 96) &&
       Array.isArray(data.criteria) && data.criteria.length === 4 && data.criteria.every((row, i) =>
@@ -389,12 +395,12 @@ export function createPredictionMode(bridge) {
           Number.isInteger(day[1]) && day[1] >= 0 && day[1] < data.labels.length &&
           Number.isFinite(day[2]) && typeof day[3] === 'boolean')));
   }
-  function validRuleComparison(value, sid, request) {
+  function validRuleComparison(value, sid, request, selectionDate) {
     if (value == null) return true;
     const methods = ['habitual','A','B','C','D'];
     const row = value.species?.[sid];
     if (value.protocol !== 'common_selection_walk_forward_v1' || value.k !== request.k_value ||
-        typeof value.cutoff !== 'string' || value.cutoff > request.start_date || !row ||
+        typeof value.cutoff !== 'string' || value.cutoff > (selectionDate || request.start_date) || !row ||
         !['ready','insufficient'].includes(row.status) ||
         !['visits','positive','total_visits'].every(k => Number.isInteger(row[k]) && row[k] >= 0 && row[k] <= 10000) ||
         row.positive > row.visits || row.visits > row.total_visits ||
@@ -417,7 +423,7 @@ export function createPredictionMode(bridge) {
       validEcology(data.ecology, data.dates) &&
       Array.isArray(data.species) && data.species.length <= 32 && data.species.every((row) =>
         (row.competing === undefined || (request.competing_selection && validCompeting(row.competing, data.dates.length) &&
-          validRuleComparison(row.competing.comparison, row.species_id, request))) &&
+          validRuleComparison(row.competing.comparison, row.species_id, request, row.competing.selection_date))) &&
         typeof row.label_key === "string" && ["available", "no_model"].includes(row.status) &&
         (row.training_observation_usage === undefined || (request.observation_id &&
           Array.isArray(row.training_observation_usage) && row.training_observation_usage.length === data.dates.length &&
