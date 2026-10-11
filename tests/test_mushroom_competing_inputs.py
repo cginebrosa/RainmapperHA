@@ -63,6 +63,26 @@ class InputRevisionTests(unittest.TestCase):
             original, deps = inputs.plan(**kwargs, comparison_k=4)
             expanded, new_deps = inputs.plan(**kwargs, comparison_ks=[4.0, 2.5, 4])
             reordered, _ = inputs.plan(**kwargs, comparison_ks=[2.5, 4.0])
+            # Even an additional species without profile metadata changes the
+            # generation identity; it cannot reuse an incomplete two-species panel.
+            selected = ['boletus_aereus', 'amanita_caesarea', 'boletus_edulis',
+                        'boletus_pinophilus', 'lactarius_deliciosus']
+            for sid in selected[2:]:
+                ref = {**REF, 'species_id': sid}
+                documents[manifest_path.name]['artifacts'].append({'artifact_ref': ref})
+                quality['species_selections'].append({'species_id':sid,
+                    'candidate_chain':[{'candidate':{**ref, 'horizon_days':7}}]})
+            five, five_deps = inputs.plan(**kwargs, comparison_k=4, species_ids=selected)
+            one, _ = inputs.plan(**kwargs, comparison_k=4, species_ids=['boletus_edulis'])
+            repeated, _ = inputs.plan(**kwargs, comparison_k=4, species_ids=selected[::-1])
+            with self.assertRaises(ValueError):
+                inputs.plan(**kwargs, species_ids=[])
+        self.assertEqual(five, repeated)
+        self.assertEqual(five['species_ids'], sorted(selected))
+        self.assertEqual({r['species_id'] for r in one['references']}, {'boletus_edulis'})
+        self.assertEqual({sid for sid, _ in one['eligible_candidates']}, {'boletus_edulis'})
+        self.assertNotEqual(original['history_revision'], five['history_revision'])
+        self.assertNotEqual(deps['species'], five_deps['species'])
         self.assertEqual(expanded, reordered)
         self.assertEqual(expanded['required_ks'], [2.5, 4.0])
         self.assertEqual(expanded['comparison_ks'], [2.5, 4.0])

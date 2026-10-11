@@ -40,6 +40,12 @@ COMPATIBLE_V1_JOB_PROCEDURES = (
     '02c86d9fa9133c91f8424effeced1e4d3bb1d9f2e20bfe16bfbf02f3e347be0d',
 )
 
+# HA 0.2.336 may share this worker with the updated local coordinator.
+# Its v2 job already declares species_ids; numerical producers are identical.
+COMPATIBLE_V2_JOB_PROCEDURES = (
+    'ba26a72beb218bb81d5b41ac8b95269c358b8aae9a32d2434ba9f97a4521b561',
+)
+
 
 class JobProgress:
     def __init__(self, path):
@@ -446,7 +452,9 @@ def main():
     code_id = implementation_id()
     if (code_id != spec.get('procedure_revision') and not
             (spec['kind'] == 'competing_history_job_v1'
-             and spec.get('procedure_revision') in COMPATIBLE_V1_JOB_PROCEDURES)):
+             and spec.get('procedure_revision') in COMPATIBLE_V1_JOB_PROCEDURES) and not
+            (spec['kind'] == 'competing_history_job_v2'
+             and spec.get('procedure_revision') in COMPATIBLE_V2_JOB_PROCEDURES)):
         raise ValueError('history_worker_code_mismatch: update the worker before running this job')
     started = time.monotonic()
     progress = JobProgress(args.progress_jsonl)

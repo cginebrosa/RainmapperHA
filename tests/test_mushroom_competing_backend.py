@@ -13,6 +13,58 @@ from rainmapper_core import mushroom_competing_evidence as evidence
 
 
 class BackendTests(unittest.TestCase):
+    def test_species_checkboxes_save_without_job_and_both_origins_use_saved_scope(self):
+        selected = ['amanita_caesarea', 'boletus_aereus', 'boletus_edulis',
+                    'boletus_pinophilus', 'lactarius_deliciosus']
+        options = [{'id':sid, 'label':sid.replace('_', ' ')} for sid in selected]
+        handler = self.web.RainmapperHandler.__new__(self.web.RainmapperHandler)
+        form = {'worker_action':['save_competing_species'], 'history_species_present':['1'],
+                'history_species_ids':selected, 'worker_id':[self.worker]}
+        with patch.object(self.web, 'mushroom_competing_species_options', return_value=options), \
+             patch.object(self.web, 'schedule_mushroom_competing_history', return_value=True) as schedule:
+            handler.handle_mushroom_workers_post(form)
+            schedule.assert_not_called()
+            self.bundle.assert_not_called()
+            self.assertFalse(self.queue.exists())
+            self.assertEqual(control.load_species(self.web.mushroom_competing_species_path()), selected)
+            html = self.web.mushroom_workers_ui.render_history_state(self.web.mushroom_competing_summary(), self.statuses)
+            self.assertEqual(html.count('type="checkbox"'), 5)
+            self.assertEqual(html.count(' checked'), 5)
+            self.assertIn('history-species-grid', html)
+            self.assertIn('save_competing_species', html)
+            form['worker_action'] = ['run_competing_history']
+            handler.handle_mushroom_workers_post(form)
+            schedule.assert_called_once_with(self.worker, origin='manual', comparison_ks=[4.0])
+        # Manual and automatic entry points both use this same plan function,
+        # without a browser/device identity or a separate species override.
+        with patch.object(self.web.mushroom_competing_inputs, 'plan', return_value=({}, {})) as planner:
+            self.actual_plan(comparison_ks=[4])
+            self.assertEqual(planner.call_args.kwargs['species_ids'], selected)
+
+    def test_species_scope_is_validated_and_cannot_change_under_active_job(self):
+        options = [{'id':sid, 'label':sid} for sid in (*control.DEFAULT_SPECIES, 'boletus_edulis')]
+        path = self.web.mushroom_competing_species_path()
+        with patch.object(self.web, 'mushroom_competing_species_options', return_value=options):
+            for invalid in ([], ['not_in_catalog']):
+                with self.assertRaises(ValueError):
+                    self.web.save_mushroom_competing_species(invalid)
+            self.assertFalse(path.exists())
+            self.running()
+            with self.assertRaisesRegex(ValueError, 'en marcha'):
+                self.web.save_mushroom_competing_species(['boletus_edulis'])
+            self.assertFalse(path.exists())
+
+    def test_changing_species_marks_previous_prepared_costs_pending(self):
+        state = control.load(self.state)
+        state.update(status='ready', prepared_ks=[4.0], required_ks=[4.0])
+        control.write(self.state, state)
+        self.assertEqual(self.web.mushroom_competing_summary()['status'], 'ready')
+        control.save_species(self.web.mushroom_competing_species_path(), ['boletus_edulis'])
+        summary = self.web.mushroom_competing_summary()
+        self.assertEqual(summary['status'], 'pending')
+        self.assertEqual(summary['pending_ks'], [4.0])
+        self.assertEqual(summary['prepared_ks'], [])
+
     def test_point_queries_never_request_historical_work_even_when_comparison_is_missing(self):
         import json
         ui = self.web.mushroom_prediction_map_ui
@@ -305,6 +357,7 @@ class BackendTests(unittest.TestCase):
         self.stack = ExitStack(); self.addCleanup(self.stack.close)
         self.root = Path(self.stack.enter_context(tempfile.TemporaryDirectory()))
         self.web = load_web_server_module()
+        self.actual_plan = self.web.mushroom_competing_plan
         self.stack.enter_context(patch.object(self.web, 'read_users', return_value={'alice':{'enabled':'true'}}))
         self.stack.enter_context(patch.object(self.web, 'read_devices', return_value={}))
         self.state = self.root / 'state.json'; self.queue = self.root / 'jobs.json'

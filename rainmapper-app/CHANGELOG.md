@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.337
+
+- Choose species for Selection and comparison in Workers using a responsive checkbox grid from the species catalogue.
+- Save the selection for manual and automatic jobs, keep unsaved choices during refresh and prevent scope changes while a job is active.
+- Include the selected species in historical preparation identity and reuse compatible evaluations when expanding the selection; preserve the usual map prediction and K preferences.
+
 ## 0.2.336
 
 - Speed up weekly Predictor precomputation by reusing identical weather windows and model inputs in `mushroom_ml_multiversion_comparison`, while preserving predictions and coverage.

@@ -6,6 +6,22 @@ from rainmapper_core import mushroom_competing_control as c
 
 
 class ControlTests(unittest.TestCase):
+    def test_species_settings_default_persist_and_reject_invalid_without_overwrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'settings.json'
+            self.assertEqual(c.load_species(path), list(c.DEFAULT_SPECIES))
+            selected = ['boletus_edulis', 'lactarius_deliciosus', 'boletus_edulis']
+            self.assertEqual(c.save_species(path, selected), sorted(set(selected)))
+            self.assertEqual(c.load_species(path), sorted(set(selected)))
+            before = path.read_bytes()
+            for values in ([], 'boletus_edulis', [None], ['../file'], ['s'] * 129):
+                with self.subTest(values=values), self.assertRaises(ValueError):
+                    c.save_species(path, values)
+                self.assertEqual(path.read_bytes(), before)
+            path.write_bytes(b'x' * (c.MAX_BYTES + 1))
+            with self.assertRaisesRegex(ValueError, 'limit'):
+                c.load_species(path)
+
     def test_costs_are_normalized_deduplicated_and_bounded(self):
         self.assertEqual(c.normalize_ks([4, 2.5, 4.0, 0]), [0.0, 2.5, 4.0])
         for values in ([], [True], [-1], [1001], ['4'], [float('nan')], list(range(9))):

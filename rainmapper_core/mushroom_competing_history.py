@@ -29,6 +29,9 @@ SOURCE_FIELDS = ('observation_id', 'species_id', 'target_date', 'horizon_days',
 # Only aggregation/cache lookup changed since these revisions; numerical fits
 # and feature producers are identical. Do not add unreviewed code revisions.
 COMPATIBLE_ROW_PROCEDURES = (
+    # HA 0.2.336: only configurable species scope and delivery/UI changed.
+    # Training inputs, folds, fits and exact row cache keys are unchanged.
+    'ba26a72beb218bb81d5b41ac8b95269c358b8aae9a32d2434ba9f97a4521b561',
     'b2e5c0f4bda4c687bc0b5e68a211d869ab2ec732d849b3ad8d309fc720bae581',
     '93c1f890935a4d701d5a78b4e35d3151d32ad4dc10bd5dfef3a6f1f1ec339f1f',
     # f609f8ec: real-source Builder/tensor/prediction parity and SQLite reuse

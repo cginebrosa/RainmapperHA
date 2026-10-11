@@ -435,17 +435,33 @@ def render_history_state(summary, worker_statuses):
         for field in ('required_ks', 'prepared_ks', 'pending_ks')
         if field in summary
     )
+    selected_species = set(summary.get('selected_species_ids', []))
+    species_choices = ''.join(
+        f'<label class="history-species-choice"><input type="checkbox" name="history_species_ids" '
+        f'value="{_text(row["id"])}"{" checked" if row["id"] in selected_species else ""}>'
+        f'<span>{_text(row["label"])}</span></label>'
+        for row in summary.get('species_options', [])
+    )
+    busy = bool(summary.get('job_id'))
     return f'''<div class="precompute-summary">
       <strong>{_text(_label('ui.worker_history_' + status))}</strong>
       {k_details}
       {('<span>' + _text(_label('ui.worker_history_duration')) + ': ' + _text(_seconds(seconds)) + '</span>') if seconds is not None else ''}
       {('<span>' + _text(summary.get('updated_at')) + '</span>') if summary.get('updated_at') else ''}
       {('<span>' + _text(summary.get('error')) + '</span>') if summary.get('error') else ''}
-      </div><div class="precompute-actions"><form method="post" action="">
+      </div><form method="post" action="" class="history-selection-form">
       <input type="hidden" name="worker_action" value="run_competing_history">
+      <input type="hidden" name="history_species_present" value="1">
+      <fieldset class="history-species"{' disabled' if busy else ''}>
+      <legend>{_text(_label('ui.worker_history_species'))}</legend>
+      <div class="history-species-grid">{species_choices}</div>
+      </fieldset>
+      <p class="meta">{_text(_label('ui.worker_history_species_help'))}</p>
+      <div class="history-selection-actions">
+      <button type="submit" data-history-action="save_competing_species"{' disabled' if busy else ''}>{_text(_label('ui.worker_history_species_save'))}</button>
       <select name="worker_id" aria-label="Worker">{''.join(options)}</select>
-      <button type="submit"{' disabled' if not options or summary.get('job_id') else ''}>{_text(_label('ui.worker_history_launch'))}</button>
-      </form></div>'''
+      <button type="submit" data-history-action="run_competing_history"{' disabled' if not options or busy else ''}>{_text(_label('ui.worker_history_launch'))}</button>
+      </div></form>'''
 
 
 def render_precompute_state(precompute_summary: dict[str, object]) -> str:
@@ -1082,6 +1098,14 @@ def render_page(
       .benchmark-report-table table{{width:min(100%,1380px);min-width:1220px;table-layout:fixed}}.benchmark-report-table th:nth-child(1){{width:86px}}.benchmark-report-table th:nth-child(2){{width:58px}}.benchmark-report-table th:nth-child(3){{width:150px}}.benchmark-report-table th:nth-child(4){{width:78px}}.benchmark-report-table th:nth-child(5){{width:170px}}.benchmark-report-table th:nth-child(6){{width:62px}}.benchmark-report-table th:nth-child(7){{width:78px}}.benchmark-report-table th:nth-child(8){{width:62px}}.benchmark-report-table th:nth-child(9){{width:68px}}.benchmark-report-table th:nth-child(10){{width:54px}}.benchmark-report-table th:nth-child(11){{width:100px}}.benchmark-report-table th:nth-child(12){{width:80px}}.benchmark-report-table th:nth-child(13){{width:78px}}.benchmark-report-table th:nth-child(14){{width:82px}}.benchmark-report-table th,.benchmark-report-table td{{padding-left:4px;padding-right:4px}}.benchmark-failures{{margin-top:12px}}
       @media(max-width:1050px){{.worker-toolbar-spacer{{display:none}}.worker-toolbar-actions{{flex-basis:100%;justify-content:flex-start;margin-left:0}}.workers-grid,.worker-destination-grid,.operational-version-grid,.benchmark-profile-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
       @media(max-width:700px){{.workers-grid,.worker-destination-grid,.worker-scope-grid,.operational-version-grid,.benchmark-profile-grid,.benchmark-report-summary{{grid-template-columns:1fr}}.worker-panel-head{{display:block}}.workers-head{{align-items:flex-start;flex-direction:column;gap:2px}}.worker-metrics{{justify-content:flex-start;margin-top:6px;text-align:left}}.worker-toolbar-actions{{align-items:stretch;flex-direction:column}}.worker-default-form{{align-items:stretch;flex-direction:column}}.worker-default-form select{{width:100%;max-width:none}}.benchmark-form-head{{display:block}}.benchmark-executor{{width:100%}}.benchmark-submit-row button{{width:100%}}.worker-note{{grid-template-columns:1fr}}}}
+      .history-species{{border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0;margin:10px 0 0}}
+      .history-species-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 16px}}
+      .history-species-choice{{display:flex;align-items:center;gap:7px;min-width:0;cursor:pointer}}
+      .history-species-choice input{{width:16px;height:16px;min-height:0;flex:none;margin:0;accent-color:var(--accent)}}
+      .history-species-choice span{{font-size:13px;overflow-wrap:anywhere}}
+      .history-selection-actions{{display:flex;flex-wrap:wrap;gap:8px;align-items:center}}
+      .history-selection-actions select{{width:240px;max-width:100%;flex:0 1 240px}}
+      @media(max-width:400px){{.history-species-grid{{grid-template-columns:1fr}}}}
     </style>
     <div class="catalog-toolbar maintenance-top-toolbar">
       <a class="button-link" href="../">{_text(_label('ui.back'))}</a>
@@ -1234,8 +1258,18 @@ def render_page(
       const stopRefresh=()=>{{leaving=true;window.clearTimeout(timer);requestController?.abort();}};
       const replaceRegion=(region,htmlValue,signature)=>{{
         if(typeof htmlValue!=='string'||typeof signature!=='string'||region.dataset.refreshSignature===signature)return false;
+        const draft=region.querySelector('.history-selection-form[data-dirty="true"]');
+        const draftSpecies=draft?new Set(Array.from(draft.querySelectorAll('[name="history_species_ids"]:checked')).map(input=>input.value)):null;
+        const draftWorker=draft?.querySelector('[name="worker_id"]')?.value;
         const scrollPositions=Array.from(region.querySelectorAll('[data-preserve-refresh-scroll]')).map(node=>({{top:node.scrollTop,left:node.scrollLeft}}));
         region.innerHTML=htmlValue;region.dataset.refreshSignature=signature;
+        const next=region.querySelector('.history-selection-form');
+        if(draftSpecies&&next){{
+          next.dataset.dirty='true';
+          next.querySelectorAll('[name="history_species_ids"]').forEach(input=>input.checked=draftSpecies.has(input.value));
+          const worker=next.querySelector('[name="worker_id"]');
+          if(worker&&Array.from(worker.options).some(option=>option.value===draftWorker))worker.value=draftWorker;
+        }}
         Array.from(region.querySelectorAll('[data-preserve-refresh-scroll]')).forEach((node,index)=>{{const position=scrollPositions[index];if(position){{node.scrollTop=position.top;node.scrollLeft=position.left;}}}});
         return true;
       }};
@@ -1245,6 +1279,7 @@ def render_page(
       document.addEventListener('submit',event=>{{
         stopRefresh();
         const submitter=event.submitter;
+        if(submitter?.dataset.historyAction)event.target.querySelector('[name="worker_action"]').value=submitter.dataset.historyAction;
         if(submitter){{submitter.disabled=true;submitter.setAttribute('aria-busy','true');}}
         const action=event.target.querySelector('input[name="worker_action"]')?.value||'';
         if(['start_rebuild','run_worker_ml_multiversion','run_predictor_precompute','run_ml_benchmark','run_competing_history'].includes(action)){{
@@ -1252,6 +1287,10 @@ def render_page(
           if(launchBackdrop){{launchBackdrop.hidden=false;document.body.setAttribute('aria-busy','true');}}
         }}
       }},true);
+      document.addEventListener('change',event=>{{
+        const form=event.target.closest('.history-selection-form');
+        if(form)form.dataset.dirty='true';
+      }});
       document.addEventListener('click',event=>{{
         const sortButton=event.target.closest('[data-worker-sort-column]');
         if(sortButton){{

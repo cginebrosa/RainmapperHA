@@ -339,14 +339,24 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual(legacy['revision'], '0'*64)
                 self.assertEqual(legacy['history_revision'], 'd'*64)
                 self.assertEqual(legacy['comparisons'][0], single_two)
-                # The exception never applies to multi-K jobs or unknown code.
+                # The scalar exception never applies to multi-K jobs.
                 spec.update(kind='competing_history_job_v2', required_ks=[2], comparison_ks=[2])
                 (inputs/'competing-spec.json').write_text(json.dumps(spec))
                 with self.assertRaisesRegex(ValueError,'code_mismatch'):
                     runner.main()
+                # The separately reviewed HA 0.2.336 v2 coordinator also keeps
+                # its exact bindings, with no duplicate historical work or fits.
+                spec.pop('comparison_k')
+                spec['procedure_revision'] = runner.COMPATIBLE_V2_JOB_PROCEDURES[0]
+                (inputs/'competing-spec.json').write_text(json.dumps(spec))
+                with patch.object(runner, 'prepare_generation', side_effect=AssertionError('repeat history')), \
+                     patch.object(runner.history, 'fit_temporal_unit', side_effect=AssertionError('duplicate fit')):
+                    self.assertEqual(runner.main(), 0)
+                self.assertEqual(json.loads(output.read_bytes())['comparisons'][0], single_two)
                 spec.pop('required_ks')
                 spec.pop('comparison_ks')
                 spec['kind'] = 'competing_history_job_v1'
+                spec['comparison_k'] = 2
                 spec['procedure_revision'] = 'f'*64
                 (inputs/'competing-spec.json').write_text(json.dumps(spec))
                 with self.assertRaisesRegex(ValueError,'code_mismatch'):

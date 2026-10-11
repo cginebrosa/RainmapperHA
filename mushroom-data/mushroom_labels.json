@@ -9182,6 +9182,26 @@
     "es": "K pendientes",
     "ca": "K pendents"
   },
+  "ui.worker_history_species": {
+    "en": "Species to calculate",
+    "es": "Especies que se calcularán",
+    "ca": "Espècies que es calcularan"
+  },
+  "ui.worker_history_species_help": {
+    "en": "Shared selection for manual and automatic updates. Check and update also saves these choices. Species need observations and available models.",
+    "es": "Selección común para las actualizaciones manuales y automáticas. Comprobar y actualizar también guarda estas casillas. Las especies necesitan observaciones y modelos disponibles.",
+    "ca": "Selecció comuna per a les actualitzacions manuals i automàtiques. Comprovar i actualitzar també desa aquestes caselles. Les espècies necessiten observacions i models disponibles."
+  },
+  "ui.worker_history_species_save": {
+    "en": "Save species",
+    "es": "Guardar especies",
+    "ca": "Desar espècies"
+  },
+  "ui.worker_history_species_saved": {
+    "en": "Species saved for selection and comparison. No calculation has been started.",
+    "es": "Especies guardadas para selección y comparación. No se ha iniciado ningún cálculo.",
+    "ca": "Espècies desades per a selecció i comparació. No s’ha iniciat cap càlcul."
+  },
   "ui.worker_history_launch": {
     "en": "Check and update",
     "es": "Comprobar y actualizar",

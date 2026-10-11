@@ -13738,6 +13738,38 @@ def mushroom_competing_state_path() -> Path:
     return mushroom_paths.mushroom_ml_version_registry_path().parent / "prediction-competing-control.json"
 
 
+def mushroom_competing_species_path() -> Path:
+    return mushroom_competing_state_path().with_name('prediction-competing-settings.json')
+
+
+def mushroom_competing_species_options():
+    return sorted(({'id': p['species_id'], 'label': p.get('scientific_name') or p['species_id']}
+                   for p in default_store().load('profiles').get('species_profiles', [])),
+                  key=lambda p: p['label'].casefold())
+
+
+def save_mushroom_competing_species(values):
+    selected = mushroom_competing_control.normalize_species(values)
+    if set(selected) - {p['id'] for p in mushroom_competing_species_options()}:
+        raise ValueError('Unknown historical selection species.')
+    # Same lock order as request preparation; never replace a running job's scope.
+    if not MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.acquire(blocking=False):
+        raise ValueError('Hay un trabajo preparándose. Guarda las especies cuando termine.')
+    try:
+        with RUN_LOCK:
+            current = mushroom_competing_control.load_species(mushroom_competing_species_path())
+            if current == selected:
+                return selected
+            state = mushroom_competing_control.load(mushroom_competing_state_path())
+            if state.get('job_id'):
+                job = mushroom_worker_jobs.get_job(mushroom_worker_jobs_path(), job_id=state['job_id'])
+                if job.get('status') in mushroom_worker_jobs.ACTIVE_STATUSES:
+                    raise ValueError('La selección y comparación está en marcha. Guarda las especies cuando termine.')
+            return mushroom_competing_control.save_species(mushroom_competing_species_path(), selected)
+    finally:
+        MUSHROOM_WORKER_BUNDLE_PREPARATION_LOCK.release()
+
+
 def mushroom_competing_required_ks():
     """Resolve the global Workers action independently of a map's browser origin."""
     from rainmapper_core.mushroom_map_competing import defaults, valid_k
@@ -13759,7 +13791,12 @@ def mushroom_competing_required_ks():
 def mushroom_competing_summary():
     try:
         state = mushroom_competing_control.load(mushroom_competing_state_path())
+        state['species_options'] = mushroom_competing_species_options()
+        state['selected_species_ids'] = mushroom_competing_control.load_species(mushroom_competing_species_path())
+        scope_changed = state['selected_species_ids'] != state.get('prepared_species_ids', list(mushroom_competing_control.DEFAULT_SPECIES))
         state['required_ks'] = mushroom_competing_required_ks()
+        if scope_changed:
+            state['prepared_ks'] = []
         state['pending_ks'] = [k for k in state['required_ks'] if k not in state.get('prepared_ks', [])]
         if state.get('status') == 'ready' and state['pending_ks']:
             state['status'] = 'pending'
@@ -13785,6 +13822,7 @@ def mushroom_competing_plan(comparison_k=None, *, comparison_ks=None):
         cutoff=datetime.now(get_timezone()).date().isoformat(),
         profiles_path=mushroom_paths.mushroom_profiles_path(), comparison_k=comparison_k,
         comparison_ks=comparison_ks,
+        species_ids=mushroom_competing_control.load_species(mushroom_competing_species_path()),
     )
 
 
@@ -13816,6 +13854,8 @@ def request_mushroom_competing_history(worker_id: str = "", *, origin: str = "ma
             pending_ks = [k for k in required_ks if k not in prepared_ks] if required_ks else []
             if required_ks and not pending_ks:
                 previous.update(required_ks=required_ks, prepared_ks=prepared_ks, pending_ks=[])
+                if 'species_ids' in spec:
+                    previous['prepared_species_ids'] = spec['species_ids']
                 if not previous.get('job_id'):
                     previous.update(status='ready', error='')
                 mushroom_competing_control.write(mushroom_competing_state_path(), previous)
@@ -15769,6 +15809,8 @@ def accept_mushroom_competing_result(job, payload):
         # Receipts from every origin, including already queued scalar jobs,
         # describe the comparisons actually present in the published artifact.
         finished['prepared_ks'] = prepared_ks
+        if 'species_ids' in spec:
+            finished['prepared_species_ids'] = spec['species_ids']
         if required_ks:
             finished.update(required_ks=required_ks, pending_ks=[])
         mushroom_competing_control.write(state_path, finished)
@@ -24040,10 +24082,17 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                     clear_when_idle=True,
                 )
             return "./workers"
-        if action == "run_competing_history":
+        if action in {"run_competing_history", "save_competing_species"}:
             # Workers is global and may be on a different origin from the map.
             # Resolve persisted preferences here; ordinary map saves stay inert.
             try:
+                if self.form_value(form, 'history_species_present') == '1':
+                    save_mushroom_competing_species(form.get('history_species_ids', []))
+                elif action == 'save_competing_species':
+                    raise ValueError('Missing historical species selection.')
+                if action == 'save_competing_species':
+                    set_mushroom_workers_flash(mushroom_profiles_ui.ui_label('ui.worker_history_species_saved'))
+                    return './workers#worker-selection-comparison'
                 required_ks = mushroom_competing_required_ks()
             except (OSError, ValueError) as exc:
                 set_mushroom_workers_flash(str(exc), error=True)

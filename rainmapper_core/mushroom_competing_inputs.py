@@ -10,8 +10,6 @@ from rainmapper_core import mushroom_competing_control as control
 from rainmapper_core.mushroom_competing_history import FAMILY_FIELDS, canonical, digest
 from rainmapper_core.mushroom_map_competing import identity
 
-TARGETS = ('boletus_aereus', 'amanita_caesarea')
-
 # Exact source transition reviewed against f609f8ec: the changed functions
 # serve Predictor preparation only. Historical Builder uses the unchanged
 # _weather_requirements/_interpretation_features helpers. Real Builder parity
@@ -147,7 +145,7 @@ def historical_weather_revision(data_dir, observations, cache_path):
 
 def plan(*, registry_path, models_root, observations_path, known_sites_path, stations_path,
          features_path, weather_data_dir, weather_cache_path, cutoff, profiles_path=None,
-         comparison_k=None, comparison_ks=None):
+         comparison_k=None, comparison_ks=None, species_ids=None):
     from rainmapper_core import mushroom_ml_version_registry as versions
     from rainmapper_core import mushroom_ml_model_catalog as catalog
     from rainmapper_core import mushroom_ml_policy_store as policy_store
@@ -159,10 +157,11 @@ def plan(*, registry_path, models_root, observations_path, known_sites_path, sta
         raise ValueError('ambiguous_comparison_ks')
     required_ks = control.normalize_ks(comparison_ks if comparison_ks is not None else
         [competing.defaults()['k_value'] if comparison_k is None else comparison_k])
+    species_ids = control.normalize_species(control.DEFAULT_SPECIES if species_ids is None else species_ids)
     registry = policy_store.resolve(Path(registry_path), read_json(registry_path, 256 * 1024))
     profiles_path = Path(profiles_path) if profiles_path else Path(registry_path).parent / 'mushroom_profiles.json'
     profiles = {p['species_id']: {'phenology': p.get('phenology', {})}
-                for p in read_json(profiles_path, 2 * 1024 * 1024)['species_profiles'] if p['species_id'] in TARGETS}
+                for p in read_json(profiles_path, 2 * 1024 * 1024)['species_profiles'] if p['species_id'] in species_ids}
     root = Path(models_root)
     path = versions.operational_manifest_path(registry, models_root=root)
     if path is None:
@@ -171,7 +170,7 @@ def plan(*, registry_path, models_root, observations_path, known_sites_path, sta
     quality_ref = manifest['quality_catalog']
     quality = projected_quality(root / quality_ref['path'], quality_ref['sha256'])
     wanted = {(row['species_id'], identity(entry['candidate']))
-              for row in quality['species_selections'] if row['species_id'] in TARGETS
+              for row in quality['species_selections'] if row['species_id'] in species_ids
               for entry in row.get('candidate_chain', [])}
     if not wanted or len(wanted) > 4096:
         raise ValueError('No bounded candidate set for historical selection.')
@@ -197,7 +196,7 @@ def plan(*, registry_path, models_root, observations_path, known_sites_path, sta
     semantic = sorted([{k:r.get(k) for k in fields} for r in observations], key=lambda r:r['observation_id'])
     dependencies = {'observations':digest(semantic), 'models':file_hash(path),
                     'registry':digest(registry), 'known_sites':file_hash(known_sites_path),
-                    'profiles': digest(profiles),
+                    'profiles': digest(profiles), 'species': digest(species_ids),
                     'stations':file_hash(stations_path), 'features':file_hash(features_path),
                     'weather':historical_weather_revision(weather_data_dir, observations, weather_cache_path)}
     dependencies['procedure'] = procedure_revision()
@@ -210,7 +209,7 @@ def plan(*, registry_path, models_root, observations_path, known_sites_path, sta
             'prediction_model_suspensions':registry.get(policy.FIELD, []),
             'catalog_profiles':[{key:p[key] for key in ('version_id','profile_id','input_requirements')}
                                 for p in catalog.catalog_entries(registry)],
-            'cutoff':cutoff, 'species_ids':list(TARGETS), 'references':list(references.values()),
+            'cutoff':cutoff, 'species_ids':species_ids, 'references':list(references.values()),
             'procedure_revision':dependencies['procedure'],
             'eligible_candidates':[[sid,list(c)] for sid,c in sorted(wanted)],
             'manifest':{k:manifest[k] for k in ('batch_id','snapshot_id','quality_catalog')},

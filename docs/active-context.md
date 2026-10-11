@@ -1,6 +1,56 @@
-# Contexto activo — actualización 10/10/2026
+# Contexto activo — actualización 11/10/2026
 
-## Release HA 0.2.336 · publicada, pendiente de instalar en HA real
+## Release HA 0.2.337 · publicada; pendiente instalación del usuario
+
+El usuario terminó el cálculo local ampliado y autorizó publicar. Auditados
+trabajo `worker_job_paDOHshhqxHzSEcM`, recibo y evidencia: completo, 169,34 s de
+cálculo, cinco especies y K=2/4 preparadas, Habitual/A/B/C/D con Iₖ en las diez
+comparaciones. Control `ready`, sin error ni K pendientes; limpieza terminal hecha.
+Paridad efectiva de HA local y worker revalidada, sin cambios en coordinadores,
+recursos ni fuentes privadas. Smoke correcto: 2134 pruebas, 55 omitidas.
+GHCR `0.2.337/latest`: digest `5b5b93dd…`, ambas arquitecturas verificadas.
+Incluye casillas de especies y alcance persistido para trabajos manuales/runner.
+En HA real, seleccionar las especies deseadas tras instalar: los valores locales
+no se trasladan y una instalación sin selección guardada conserva aereus/caesarea.
+[Informe de release](reports/release-ha-0.2.337-2026-10-11.md).
+
+## GHCR · limpieza completada el 11/10
+
+A petición del usuario, durante su cálculo local, limpiado únicamente el paquete
+remoto `cginebrosa/rainmapperha`: 155 → 10 entradas, 145 borradas (29 versiones
+antiguas), todas con recibo HTTP 204. Conservadas `0.2.336/latest`, `0.2.335`
+como rollback y los ocho manifests auxiliares amd64/arm64/attestation.
+Inventario posterior exacto y diez manifests accesibles con sus SHA originales;
+`docker buildx imagetools inspect` confirma los tres tags y ambas arquitecturas.
+Sin builds, reinstalaciones, reinicios ni limpieza local/worker. No se ha publicado
+la ampliación de especies por esta operación.
+[Recibo](reports/ghcr-cleanup-2026-10-11.md).
+
+## Selección y comparación · especies configurables, validación local completada
+
+Usuario solicita ampliar a Lactarius deliciosus, Boletus edulis y pinícola,
+y elegir especies mediante casillas en Workers, repartidas en varias columnas.
+Implementado catálogo de 21 especies en cuadrícula adaptable; 6 columnas y
+4 filas a 1600 px, 2 columnas a 768 px, sin desbordamiento a 375/320 px.
+Guardar especies no lanza trabajos; Comprobar y actualizar guarda y prepara.
+La selección es común a la instalación, se persiste aparte del estado del
+trabajo y se usa también desde el runner. Por defecto conserva aereus/caesarea.
+En HA local se han guardado las cinco solicitadas; el pinícola del catálogo es
+`boletus_pinophilus`. La planificación local confirma candidatos para las cinco
+especies: 266 familias, 1027 candidatos, petición de 231113 bytes. No se ha
+lanzado el trabajo operativo de cinco especies desde Codex; lo lanza el usuario.
+
+La huella de la generación incluye las especies; unidades independientes sin
+cambios siguen siendo reutilizables. No cambian productores numéricos ni reglas.
+93 pruebas dirigidas correctas y navegador local con guardado/recarga y borrador
+conservado durante el refresco. HA local y worker reconstruidos y recreados;
+paridad efectiva comprobada, coordinadores, recursos y fuentes privadas intactos.
+Worker mantiene compatibilidad revisada con los trabajos v2 de HA 0.2.336.
+El usuario lanzó y terminó el cálculo ampliado; auditado y publicado en 0.2.337.
+Ver [validación](reports/competing-species-local-2026-10-11.md) y
+[contrato](mushrooms/prediction-map-specification-es.md).
+
+## Release HA 0.2.336 · publicada y probada por el usuario en HA real
 
 El usuario aceptó el precálculo local completo de 2m47s y autorizó publicar.
 Incluye optimización del precálculo/artefactos y selección/comparación de las K
@@ -9,8 +59,9 @@ Smoke correcto: 2.128 pruebas, 55 omitidas, sin fallos. Fuentes efectivas de
 HA/worker coinciden con la candidata aceptada; sin repetir trabajos operativos.
 GHCR: `0.2.336` y `latest`, digest `8af3d7f7…`, manifests amd64/arm64.
 Ver [informe de release](reports/release-ha-0.2.336-2026-10-10.md).
-Instalación y prueba en HA real a cargo del usuario; el worker compatible ya
-está actualizado. Coordinadores y observaciones privadas conservados.
+El usuario confirmó funcionamiento en HA real: su captura muestra precálculo
+completo en 3m13s y selección/comparación en 1m10s. El worker compatible ya está
+actualizado. Coordinadores y observaciones privadas conservados.
 
 ## Precálculo local completo en 2m47s; K de selección/comparación probado
 

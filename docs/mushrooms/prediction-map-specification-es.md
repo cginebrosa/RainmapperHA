@@ -18,6 +18,30 @@ Se conservan la generación y los lectores de acumulados por fecha descritos
 abajo para usos futuros. Este cambio sólo afecta a su consumo por el mapa;
 no modifica el procedimiento de preparación, sus huellas ni sus cachés.
 
+## Especies configurables · ampliación 11/10/2026
+
+Workers y trabajos → **Selección y comparación** muestra las especies del
+catálogo con casillas en una cuadrícula adaptable al ancho disponible.
+**Guardar especies** persiste la selección sin iniciar cálculos;
+**Comprobar y actualizar** guarda las casillas y solicita la preparación.
+La preferencia es común a la instalación y la utilizan tanto el botón como el
+runner. No cambia las especies de la predicción habitual ni los ajustes K de
+los dispositivos. Sin configuración guardada se conservan aereus y caesarea.
+El pinícola figura en el catálogo como **Boletus pinophilus**.
+
+La selección debe contener al menos una especie del catálogo. Sus observaciones
+y modelos disponibles determinan la evidencia obtenida; marcar una especie no
+inventa soporte cuando falta. No se cambia el alcance de un trabajo activo.
+El refresco de la pantalla conserva las casillas editadas todavía sin guardar.
+
+La lista de especies forma parte de la huella de la generación, para que una
+preparación de dos especies no se reutilice como si cubriera cinco. Se conservan
+las cachés con entradas y productores compatibles. Los modelos independientes
+de otras especies se reutilizan; los compartidos siguen comprobando todas sus
+dependencias. No se filtran observaciones necesarias para los ajustes compartidos
+por el hecho de no mostrar su especie entre las seleccionadas. No cambian las
+reglas A/B/C/D, comparación, presupuestos ni el comportamiento del mapa desactivado.
+
 ## Iₖ de comparación por fecha · ampliación 10/10/2026
 
 El mismo trabajo de **Selección y comparación** conserva acumulados por especie,

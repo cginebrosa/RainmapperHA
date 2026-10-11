@@ -17,7 +17,38 @@ CAPABILITY = 'competing_history_update_v3'
 JOB_TYPE = 'worker_competing_history_v1'
 MAX_BYTES = 8192
 MAX_REQUIRED_KS = 8
+DEFAULT_SPECIES = ('amanita_caesarea', 'boletus_aereus')
+SETTINGS_KIND = 'competing_history_settings_v1'
 DIGEST = re.compile(r'^[0-9a-f]{64}$')
+
+
+def normalize_species(values):
+    """Bound the installation-wide selection before building a worker request."""
+    if not isinstance(values, (list, tuple)) or not 0 < len(values) <= 128:
+        raise ValueError('Select between 1 and 128 species.')
+    if any(not isinstance(s, str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,95}', s) for s in values):
+        raise ValueError('Invalid historical selection species.')
+    return sorted(set(values))
+
+
+def load_species(path):
+    try:
+        with Path(path).open('rb') as stream:
+            raw = stream.read(MAX_BYTES + 1)
+    except FileNotFoundError:
+        return list(DEFAULT_SPECIES)
+    if len(raw) > MAX_BYTES:
+        raise ValueError('history_settings_limit')
+    value = json.loads(raw)
+    if not isinstance(value, dict) or value.get('kind') != SETTINGS_KIND:
+        raise ValueError('invalid_history_settings')
+    return normalize_species(value.get('species_ids'))
+
+
+def save_species(path, species_ids):
+    species_ids = normalize_species(species_ids)
+    write(path, {'kind': SETTINGS_KIND, 'species_ids': species_ids})
+    return species_ids
 
 
 def normalize_ks(values):

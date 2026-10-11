@@ -374,6 +374,35 @@ class HistoryTests(unittest.TestCase):
                               if not unit['reused']},
                              {(species, year) for species in (sid, 'all_species') for year in (2020,2021,2022)})
 
+    def test_expanding_to_five_species_reuses_existing_independent_units(self):
+        from rainmapper_core import mushroom_ml_runtime_trainer as trainer
+        species = ['boletus_aereus', 'amanita_caesarea', 'boletus_edulis',
+                   'boletus_pinophilus', 'lactarius_deliciosus']
+        benchmark = self.benchmark()
+        source = list(benchmark['samples'])
+        benchmark['samples'] = [sample(sid + '-' + row['metadata']['observation_id'],
+            row['metadata']['target_date'], row['prediction_target'], sid=sid, site=sid)
+            for sid in species for row in source]
+        calls = []
+        def evaluate(ref, *args):
+            calls.append(ref.species_id)
+            return {'rows': [], 'missing': [], 'fit_config': {}}
+        with (tempfile.TemporaryDirectory() as tmp, h.UnitCache(Path(tmp)/'cache.sqlite') as cache,
+              patch.object(trainer, '_columns', return_value=['rain'])):
+            def run(targets, producer, compatible=()):
+                return list(h.evaluate_benchmark(benchmark, [{**REF, 'species_id':s} for s in targets],
+                    cutoff='2026-10-05', implementation_id=producer,
+                    compatible_row_implementation_ids=compatible, targets=set(targets),
+                    cache=cache, evaluate=evaluate, fingerprint_rows=True))
+            previous = 'ba26a72beb218bb81d5b41ac8b95269c358b8aae9a32d2434ba9f97a4521b561'
+            run(species[:2], previous)
+            calls.clear()
+            expanded = run(species, 'scope-configurable', h.COMPATIBLE_ROW_PROCEDURES)
+            self.assertEqual(set(calls), set(species[2:]))
+            self.assertEqual({u['family']['species_id'] for u in expanded}, set(species))
+            self.assertEqual(sum(u['reused'] for u in expanded), 6)
+            self.assertEqual(len(expanded), 15)
+
     def test_cancelled_unit_is_not_committed_and_previous_units_survive(self):
         with tempfile.TemporaryDirectory() as tmp, h.UnitCache(Path(tmp) / 'cache.sqlite') as cache:
             cache.put('previous', {'rows': []})
