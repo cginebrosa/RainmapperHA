@@ -19,6 +19,10 @@ from typing import Any, Iterator, Mapping, Sequence
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from rainmapper_core.meteoclimatic_fixed_coordinates import (
+    FixedCoordinates, load_fixed_coordinates, location_metadata,
+)
+
 from rainmapper_core.weather_coordinate_policy import (
     inside_coordinate_regions,
     load_coordinate_regions,
@@ -382,7 +386,9 @@ def _merge_partition(
     *,
     row_group_size: int,
     batch_size: int,
+    fixed_coordinates: FixedCoordinates | None = None,
 ) -> tuple[dict[str, Any], PartitionMergeReport]:
+    fixed_coordinates = fixed_coordinates or FixedCoordinates()
     parts_dir = root / "parts" / f"source={source}" / f"year={year}"
     parts_dir.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
@@ -416,7 +422,7 @@ def _merge_partition(
                     while update is not None and weather_key(update) < old_key:
                         if position > slice_start:
                             output.append_table(batch.slice(slice_start, position - slice_start))
-                        output.append_row(update)
+                        output.append_row(fixed_coordinates.apply(update))
                         update_rows += 1
                         inserted += 1
                         changed += 1
@@ -426,7 +432,7 @@ def _merge_partition(
                         if position > slice_start:
                             output.append_table(batch.slice(slice_start, position - slice_start))
                         old_row = batch.slice(position, 1).to_pylist()[0]
-                        merged = _merge_non_null(old_row, update)
+                        merged = fixed_coordinates.apply(_merge_non_null(old_row, update))
                         output.append_row(merged)
                         update_rows += 1
                         matched += 1
@@ -442,7 +448,7 @@ def _merge_partition(
                 if slice_start < batch.num_rows:
                     output.append_table(batch.slice(slice_start))
         while update is not None:
-            output.append_row(update)
+            output.append_row(fixed_coordinates.apply(update))
             update_rows += 1
             inserted += 1
             changed += 1
@@ -522,7 +528,9 @@ def _update_catalog(
     coordinate_limit_km: float,
     coordinate_regions: tuple = (),
     coordinate_corrections: list | None = None,
+    fixed_coordinates: FixedCoordinates | None = None,
 ) -> tuple[dict[str, Any], bool]:
+    fixed_coordinates = fixed_coordinates or FixedCoordinates()
     old_path = root / generation.catalog.path
     table = pq.read_table(old_path, schema=CATALOG_SCHEMA)
     original = table.to_pylist()
@@ -533,6 +541,7 @@ def _update_catalog(
             columns=WEATHER_HISTORY_COLUMNS,
         ):
             for row in batch.to_pylist():
+                row = fixed_coordinates.apply(row)
                 key = (row["source"], row["station_code"])
                 day = row["local_date"]
                 current = entries.get(key)
@@ -562,8 +571,8 @@ def _update_catalog(
                     if distance > coordinate_limit_km:
                         correction = (
                             str(day) >= str(current["metadata_date"])
-                            and inside_coordinate_regions(
-                                float(row["lat"]), float(row["lon"]), coordinate_regions
+                            and (fixed_coordinates.contains(row) or inside_coordinate_regions(
+                                float(row["lat"]), float(row["lon"]), coordinate_regions)
                             )
                         )
                         if not correction:
@@ -576,11 +585,12 @@ def _update_catalog(
                                 "old": {k: current[k] for k in ("lat", "lon", "altitude")},
                                 "new": {k: row.get(k) for k in ("lat", "lon", "altitude")},
                                 "local_date": day,
-                                "reason": "destination_inside_configured_region",
+                                "reason": ("configured_fixed_coordinates" if fixed_coordinates.contains(row)
+                                           else "destination_inside_configured_region"),
                             })
                     if str(day) >= str(current["metadata_date"]):
                         for column in ("station_name", "lat", "lon", "altitude"):
-                            if row.get(column) is not None:
+                            if row.get(column) is not None or (column == "altitude" and fixed_coordinates.contains(row)):
                                 current[column] = row[column]
                         current["metadata_date"] = day
     rows = [entries[key] for key in sorted(entries)]
@@ -694,6 +704,13 @@ def archive_pending_batches(
             )
         _ensure_free_space(root, generation, fresh, reserve_bytes)
         coordinate_regions = load_coordinate_regions(root.parent)
+        fixed_targets = load_fixed_coordinates(root.parent)
+        if fixed_targets:
+            fixed_targets = location_metadata(
+                root.parent, fixed_targets,
+                pq.read_table(root / generation.catalog.path, schema=CATALOG_SCHEMA).to_pylist(),
+            )
+        fixed_coordinates = FixedCoordinates(fixed_targets)
         coordinate_corrections: list[dict[str, Any]] = []
         old_by_key = {(item.source, item.year): item for item in generation.partitions}
         pending_by_source: dict[str, list[PendingBatch]] = {}
@@ -714,6 +731,7 @@ def archive_pending_batches(
                 pending_by_source[source],
                 row_group_size=row_group_size,
                 batch_size=batch_size,
+                fixed_coordinates=fixed_coordinates,
             )
             descriptors[(source, year)] = descriptor
             reports.append(report)
@@ -726,6 +744,7 @@ def archive_pending_batches(
             coordinate_limit_km=coordinate_limit_km,
             coordinate_regions=coordinate_regions,
             coordinate_corrections=coordinate_corrections,
+            fixed_coordinates=fixed_coordinates,
         )
         _fail_if_requested(fail_after, "catalog")
 
@@ -733,6 +752,13 @@ def archive_pending_batches(
         carried_receipts = receipts.intersection(active_pending_ids)
         batch_ids = tuple(sorted(item.batch_id for item in fresh))
         all_receipts = sorted(carried_receipts.union(batch_ids))
+        # Keep the policy used by each unacknowledged batch: a crash after CURRENT
+        # must replay the same corrected values even if the operator edits the file.
+        previous_fixed = current_payload.get("update_report", {}).get("fixed_coordinates_by_batch", {})
+        fixed_by_batch = {key: value for key, value in previous_fixed.items() if key in carried_receipts}
+        for item in fresh:
+            if item.source == "meteoclimatic" and fixed_targets:
+                fixed_by_batch[item.batch_id] = fixed_targets
         created_at = datetime.now(UTC).isoformat()
         logical_seed = {
             "previous_generation_id": generation.generation_id,
@@ -764,6 +790,7 @@ def archive_pending_batches(
                 "fresh_batch_ids": list(batch_ids),
                 "partitions": [asdict(value) for value in reports],
                 "coordinate_corrections": coordinate_corrections,
+                "fixed_coordinates_by_batch": fixed_by_batch,
             },
         }
         manifests = root / "manifests"

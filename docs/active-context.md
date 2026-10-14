@@ -1,4 +1,47 @@
-# Contexto activo — actualización 11/10/2026
+# Contexto activo — actualización 14/10/2026
+
+## Parche Meteoclimatic: continuidad actual
+
+- **HA 0.2.338 publicada; pendiente instalación y prueba en HA real.**
+  Excepciones en `/share/rainmapper/meteoclimatic-fixed-coordinates.txt`, raíz
+  junto a `stations.txt`; `#` desactiva una línea. Archivo local activo sólo en
+  `docker-data/`; raíz del repo sólo plantilla `.example.txt`. Usuario confirmó
+  que ya subió el TXT a HA real; no confirma instalación del parche ni éxito del runner.
+  Corrige próximas descargas y pendientes sin alterar mediciones. Guía:
+  [coordenadas fijas](meteoclimatic-fixed-coordinates-es.md).
+  Candidato aislado de MCP en `fix/meteoclimatic-fixed-coordinates`, worktree
+  `/private/tmp/rainmapper-ha-coordinate-patch-20261014`; misma corrección añadida
+  al checkout principal conservando MCP para preparar su prueba habitual.
+  **Comprobado:** 38 tests dirigidos; smoke 2146 tests (55 omitidos); imagen
+  candidata reconstruida y nueve huellas verificadas. Copia aislada: mismo error
+  de 889.561 km reproducido y cuatro lotes cerrados en 19,953 s; 16.497 filas
+  pendientes verificadas, 384.344 filas ajenas conservadas, 42 particiones intactas.
+  Roda de Ter queda en `41.99, 2.32`, altitud 465 m; cero pendientes en esa copia.
+  Codex no lanzó el runner completo ni accedió a HA real. **HA local habitual
+  listo en `127.0.0.1:8101`**, reconstruido/recreado con MCP conservado; HTTP 200,
+  nueve huellas iguales al candidato y excepción activa. Antes de la ejecución
+  manual conservaba cuatro lotes pendientes y 69 archivos originales intactos.
+  Scheduler desactivado. Worker y MCP conservan ID/imagen/inicio; privados
+  preservados. El usuario acepta el resultado local antes de publicar. **Runner local posterior ejecutado por el usuario y revisado:**
+  `all` terminó el 14/10 a las 23:02:13, exit 0, 1m36s; cero pendientes.
+  Registros de hoy coincidentes en CSV/Parquet: AEMET 835, Meteocat 187,
+  Meteoclimatic 846 y Wunderground 100. WU parcial: cinco fallos y ocho estaciones
+  desactualizadas. Roda de Ter actualizada a las 22:38:58 en 41.99, 2.32,
+  altitud 465 m. Generación `20261014T210149631230Z-e1096b26291c` verificada.
+  Usuario aceptó el resultado y autorizó publicar. GHCR `0.2.338/latest`
+  verificados con digest `sha256:a33f3eab7376c4f675e17f6987507a70af95459e7ec56bc204bfbba5696a578b`,
+  manifests `linux/amd64` y `linux/arm64`. Un solo build, exit 0; sin limpiezas.
+  [Release](reports/release-ha-0.2.338-2026-10-14.md). Instalación y prueba real
+  pendientes del usuario; no inferirlas de la publicación ni de la subida del TXT.
+  El temporal queda parado; su eliminación espera HA real.
+  [Validación y pendientes](reports/meteoclimatic-fixed-coordinates-local-2026-10-14.md).
+  **Retirada autorizada:** borrar `rainmapper-ha-coordinate-patch-acceptance`
+  cuando estén comprobados local y HA real; esperar confirmación real del usuario.
+
+HA 0.2.337 fue confirmada instalada y funcionando por el usuario.
+
+Los apartados siguientes conservan el estado histórico del commit base del
+11/10, anterior a este parche; no describen su publicación actual.
 
 ## Release HA 0.2.337 · publicada; pendiente instalación del usuario
 

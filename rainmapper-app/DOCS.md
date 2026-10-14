@@ -80,6 +80,7 @@ Dentro se usan estas rutas:
 /share/rainmapper/Tomap
 /share/rainmapper/Plots
 /share/rainmapper/stations.txt
+/share/rainmapper/meteoclimatic-fixed-coordinates.txt
 /share/rainmapper/ignore_stations_tomap.txt
 /share/rainmapper/users.json
 /share/rainmapper/devices.json
@@ -91,6 +92,7 @@ Contenido esperado:
 - `Tomap`: CSV preparados para pintar mapas.
 - `Plots`: HTML generados por `python -m rainmapper_core.bokeh_maps`.
 - `stations.txt`: lista de estaciones Wunderground que quieres descargar.
+- `meteoclimatic-fixed-coordinates.txt`: excepciones de ubicación Meteoclimatic administradas por el operador; disponible desde HA 0.2.338.
 - `ignore_stations_tomap.txt`: lista opcional de estaciones que no deben aparecer en los GeoJSON usados por Leaflet/MapLibre.
 - `Data/source_status.json`: ultimo estado de actualizacion por fuente.
   Cuando el histórico particionado cierra los lotes pendientes, añade el total
@@ -475,6 +477,48 @@ La clave debe tener habilitados los servicios de Google necesarios para el uso q
 
 ## Meteoclimatic pattern
 
+### Coordenadas fijas por estación
+
+Disponible desde el parche HA **0.2.338**. [Guía de operación y recuperación](../docs/meteoclimatic-fixed-coordinates-es.md).
+
+Archivo opcional: `/share/rainmapper/meteoclimatic-fixed-coordinates.txt`, en la
+raíz junto a `stations.txt` (no dentro de `Data/`). La instalación copia
+`meteoclimatic-fixed-coordinates.example.txt` sólo si no existe el archivo;
+las actualizaciones conservan su contenido. Sin entradas activas no cambia
+el comportamiento habitual.
+
+```text
+# Código de estación, latitud y longitud separados por espacios
+ESCAT0800000008510E 41.99 2.32  # Ejemplo: Roda de Ter
+```
+
+Cada entrada activa sustituye las coordenadas recibidas para esa estación de
+Meteoclimatic. Se admiten líneas vacías, comentarios al final y `#` al principio
+(también precedido de espacios). Para desactivarla, comentar o quitar la línea;
+se relee en la siguiente ejecución, sin reiniciar. Coordenadas inválidas,
+códigos duplicados y líneas incompletas producen un error con archivo y línea.
+El archivo está limitado a 64 KiB y 512 estaciones.
+
+La corrección se aplica antes del enriquecimiento geográfico de las nuevas
+descargas y también al archivar pendientes ya existentes. No cambia lluvia,
+temperatura u otras mediciones ni reescribe observaciones históricas ajenas al
+lote pendiente. No basta editar `estacions_meteoclimatic.csv`: el proveedor puede
+volver a enviar su ubicación incorrecta.
+
+En pendientes, se reutilizan metadatos sólo si corresponden al punto fijado.
+Si sólo existe altitud fiable en el catálogo histórico, se conserva; municipio,
+provincia y comarca sin información fiable quedan vacíos, nunca asociados al
+punto erróneo. El enriquecimiento normal de la siguiente descarga los actualiza.
+No se hace una consulta de geocodificación adicional durante el archivado.
+
+El log informa de las coordenadas sustituidas, una vez por estación en cada
+proceso que efectúe la corrección, no por observación. No hay archivo adicional
+de auditoría. El manifiesto existente conserva temporalmente la política aplicada
+a los lotes sin confirmar para recuperar correctamente una interrupción aunque
+se haya editado el archivo entre el archivado y la recuperación del CSV.
+
+### Selección del feed
+
 `meteoclimatic_pattern` filtra las estaciones leidas desde el feed RSS de Meteoclimatic.
 
 Puedes indicar un patron unico:
@@ -779,6 +823,7 @@ docker-data/Data        -> /share/rainmapper/Data
 docker-data/Tomap       -> /share/rainmapper/Tomap
 docker-data/Plots       -> /share/rainmapper/Plots
 docker-data/stations.txt -> /share/rainmapper/stations.txt
+docker-data/meteoclimatic-fixed-coordinates.txt -> /share/rainmapper/meteoclimatic-fixed-coordinates.txt
 ```
 
 ## Modulo de setas

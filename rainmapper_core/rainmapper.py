@@ -14,6 +14,7 @@
 
 import atexit
 import os
+from pathlib import Path
 
 from rainmapper_core import runtime_diagnostics as _runtime_diagnostics
 
@@ -31,6 +32,7 @@ atexit.register(_finish_runner_diagnostics_if_needed)
 
 import pandas as pd
 from rainmapper_core.atomic_io import write_csv_atomic
+from rainmapper_core.meteoclimatic_fixed_coordinates import FixedCoordinates, load_fixed_coordinates
 from rainmapper_core.sources.sodapy_local import Socrata
 from datetime import datetime, date, timedelta, time, timezone
 import pytz
@@ -1875,6 +1877,7 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
 
 def create_meteoclimatic(_save_to_csv, timings=None):
 
+    fixed_coordinates = FixedCoordinates(load_fixed_coordinates(Path(_DATA_PATH)))
     client = MeteoclimaticClient()
     patterns = parse_meteoclimatic_patterns(_meteoclimatic_pattern)
     print("Meteoclimatic patterns:", ", ".join(patterns))
@@ -1903,6 +1906,7 @@ def create_meteoclimatic(_save_to_csv, timings=None):
 
     step_start_time = start_timing(timings, 'build_current_seconds')
     meteoclimatic_df = pd.concat(meteoclimatic_frames, ignore_index=True)
+    meteoclimatic_df = fixed_coordinates.apply_frame(meteoclimatic_df)
     meteoclimatic_df.drop_duplicates(subset=["Codi Estació"], keep="first", inplace=True)
     meteoclimatic_df.reset_index(drop=True, inplace=True)
     meteoclimatic_df = create_total_meteoclimatic(meteoclimatic_df, _save_to_excel = False, _save_to_csv=False)

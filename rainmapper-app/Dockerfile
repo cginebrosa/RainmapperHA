@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-LABEL io.hass.version="0.2.337" \
+LABEL io.hass.version="0.2.338" \
       io.hass.type="app" \
       io.hass.arch="aarch64|amd64"
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV RAINMAPPER_APP_VERSION=0.2.337
+ENV RAINMAPPER_APP_VERSION=0.2.338
 
 WORKDIR /app
 
@@ -23,6 +23,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip==26.1.2
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY stations.example.txt /app/
+COPY meteoclimatic-fixed-coordinates.example.txt /app/
 COPY users.example.json /app/
 COPY mushroom-data/mushroom_profiles.json \
      mushroom-data/mushroom_reference_catalogs.json \

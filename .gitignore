@@ -55,3 +55,5 @@ gbif-revision-*.json
 
 # Private local viewer snapshots, reviews, caches and logs
 /local-apps/*/data/
+# Operator-managed station location overrides; only the example is versioned.
+meteoclimatic-fixed-coordinates.txt

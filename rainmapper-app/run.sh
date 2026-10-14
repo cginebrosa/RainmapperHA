@@ -4,6 +4,7 @@ set -eu
 CONFIG_PATH="/data/options.json"
 SHARE_ROOT="/share/rainmapper"
 IGNORE_STATIONS_TOMAP_FILE="$SHARE_ROOT/ignore_stations_tomap.txt"
+METEOCLIMATIC_FIXED_COORDINATES_FILE="$SHARE_ROOT/meteoclimatic-fixed-coordinates.txt"
 USERS_JSON_FILE="$SHARE_ROOT/users.json"
 DEVICES_FILE="$SHARE_ROOT/devices.json"
 
@@ -108,6 +109,10 @@ mkdir -p "$SHARE_ROOT/Data" "$SHARE_ROOT/Tomap" "$SHARE_ROOT/Plots" "$SHARE_ROOT
 
 if [ ! -f "$SHARE_ROOT/stations.txt" ]; then
   cp /app/stations.example.txt "$SHARE_ROOT/stations.txt"
+fi
+
+if [ ! -f "$METEOCLIMATIC_FIXED_COORDINATES_FILE" ]; then
+  cp /app/meteoclimatic-fixed-coordinates.example.txt "$METEOCLIMATIC_FIXED_COORDINATES_FILE"
 fi
 
 if [ ! -f "$IGNORE_STATIONS_TOMAP_FILE" ]; then

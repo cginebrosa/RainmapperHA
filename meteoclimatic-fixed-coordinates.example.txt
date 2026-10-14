@@ -1,0 +1,7 @@
+# Meteoclimatic station_code latitude longitude (decimal degrees, separated by spaces).
+# Installed at /share/rainmapper/meteoclimatic-fixed-coordinates.txt, beside stations.txt.
+# Active entries override provider coordinates on the next update, including pending data.
+# Comment a line with # or remove it to use provider coordinates again.
+# Blank lines and trailing # comments are allowed. Duplicate active codes are errors.
+# Example (disabled):
+# ESCAT0800000008510E 41.99 2.32  # Roda de Ter

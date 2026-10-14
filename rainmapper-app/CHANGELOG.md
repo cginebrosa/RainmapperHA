@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.338
+
+- Add `meteoclimatic-fixed-coordinates.txt` beside `stations.txt` for operator-managed station coordinates, with comments and strict validation.
+- Apply fixed locations to new downloads and pending weather batches without changing weather readings or discarding historical observations.
+- Preserve the applied location policy during archive recovery and avoid carrying metadata from the incorrect location.
+- Install a commented example only when the operator file is absent; preserve existing overrides on updates.
+
 ## 0.2.337
 
 - Choose species for Selection and comparison in Workers using a responsive checkbox grid from the species catalogue.

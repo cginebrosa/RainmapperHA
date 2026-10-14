@@ -34,6 +34,7 @@ Rainmapper_Client_old.py
 weather_scraper_old.py
 stations_test.txt
 stations.txt
+meteoclimatic-fixed-coordinates.txt
 
 # Docs and repo metadata not needed in the image
 docs/mushrooms/GBIF/snapshot-*

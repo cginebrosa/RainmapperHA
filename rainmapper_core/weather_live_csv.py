@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping
 
 import pyarrow.parquet as pq
+from rainmapper_core.meteoclimatic_fixed_coordinates import FixedCoordinates
 
 from rainmapper_core.weather_history_contract import (
     LEGACY_TO_CANONICAL,
@@ -121,10 +122,12 @@ def apply_pending_to_live_csv(
     *,
     retention_days: int = 180,
     reference_day: date | None = None,
+    fixed_coordinates: FixedCoordinates | None = None,
 ) -> LiveCsvReport:
     """Reapply one durable pending and atomically retain T-179..T."""
     if retention_days <= 0:
         raise ValueError("retention_days must be positive")
+    fixed_coordinates = fixed_coordinates or FixedCoordinates()
     reference_day = reference_day or date.today()
     cutoff = (reference_day - timedelta(days=retention_days - 1)).strftime("%Y%m%d")
     path = Path(data_dir) / LIVE_CSV_FILES[pending.source]
@@ -159,7 +162,7 @@ def apply_pending_to_live_csv(
                 if old is None:
                     pending_rows += 1
                     inserted += 1
-                    emit(fresh)
+                    emit(fixed_coordinates.apply(fresh))
                     fresh = next(incoming, None)
                     continue
                 if fresh is None:
@@ -176,13 +179,13 @@ def apply_pending_to_live_csv(
                 elif fresh_key < old_key:
                     pending_rows += 1
                     inserted += 1
-                    emit(fresh)
+                    emit(fixed_coordinates.apply(fresh))
                     fresh = next(incoming, None)
                 else:
                     input_rows += 1
                     pending_rows += 1
                     matched += 1
-                    emit(_merge_non_null(old, fresh))
+                    emit(fixed_coordinates.apply(_merge_non_null(old, fresh)))
                     old = next(existing, None)
                     fresh = next(incoming, None)
             handle.flush()

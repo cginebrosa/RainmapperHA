@@ -83,6 +83,7 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 - Arquitectura y entrypoints: `docs/architecture.md`
 - Decisiones: `docs/decisions.md`
 - Seguridad de históricos: `docs/history-safety.md`
+- Excepciones Meteoclimatic: [meteoclimatic-fixed-coordinates-es.md](meteoclimatic-fixed-coordinates-es.md).
 - Caja negra y procedimiento RPi4: `docs/runtime-diagnostics.md`
 - Diseño Predictor: `docs/mushrooms/mushroom-predictor-design-es.md`
 - Predictor remoto/worker: `docs/mushrooms/mushroom-remote-predictor-design-es.md`

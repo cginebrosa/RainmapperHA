@@ -8,6 +8,7 @@ import os
 from datetime import date
 from pathlib import Path
 from typing import Any
+from rainmapper_core.meteoclimatic_fixed_coordinates import FixedCoordinates
 
 from rainmapper_core.weather_history_dataset import resolve_weather_generation, write_json_atomic
 from rainmapper_core.weather_history_pending import list_pending_batches
@@ -82,6 +83,10 @@ def archive_and_close_pending(data_dir: Path) -> dict[str, Any]:
             Path(data_dir),
             pending,
             reference_day=reference_day,
+            fixed_coordinates=FixedCoordinates(
+                manifest.get("update_report", {}).get("fixed_coordinates_by_batch", {}).get(pending.batch_id),
+                log=False,
+            ),
         )
         csv_reports.append(csv_report.to_dict())
         acknowledge_archived_pending(Path(data_dir), pending.batch_id)
