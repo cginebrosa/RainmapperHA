@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.340
+
+- Discover the public Weather.com API key from a selected Wunderground station page once per runner and share it in memory across station downloads; preserve the explicit environment override without storing a key in configuration.
+- Restore the HTML history fallback through the site's `wu_prefer_legacy` cookie when the daily API is unavailable.
+- Preserve the existing download windows, `gzip`/`identity`/`deflate` retries and partitioned history updates; keep API keys out of request error messages.
+
 ## 0.2.339
 
 - Refresh every day in the recent AEMET OpenData daily window on each runner, including already complete dates; add `aemet_daily_refresh_days` with a default of 30 days.

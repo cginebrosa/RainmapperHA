@@ -101,6 +101,24 @@ class WundergroundHtmlTests(unittest.TestCase):
         p.fetch_data(require_metadata=True)
         self.assertEqual(p.get_station_header()[3], '375')
 
+    @mock.patch(MODULE + '.requests.get')
+    def test_legacy_history_cookie_is_used_only_for_history_request(self, get):
+        get.side_effect = [response(header()), response(header('legacy-history'))]
+        p = parseStationData(URL)
+        p.fetch_data(require_metadata=True)
+
+        def validate(r):
+            tables = lh.fromstring(r.content).xpath('//lib-history-table//table/tbody')
+            if not tables:
+                raise WundergroundPageError('missing history')
+            return Parser.parse_html_table('2026-09-24', tables, 'ILAIGL7', 'Iglesuela', 'Town', '375', 40.481, -0.32)
+
+        p.fetch_data(validator=validate, legacy_history=True)
+        self.assertEqual(len(p.validated_data), 1)
+        self.assertEqual(get.call_count, 2)
+        self.assertEqual(get.call_args_list[0].kwargs['cookies'], {})
+        self.assertEqual(get.call_args_list[1].kwargs['cookies'], {'wu_prefer_legacy': 'true'})
+
     def test_dates_filter_partial_month_and_reject_unrelated_payload(self):
         rows = [{'Date': '2026-09-01'}, {'Date': '2026-09-24'}]
         self.assertEqual(validate_history_dates(rows, date(2026, 9, 20), date(2026, 9, 24)), rows[1:])
@@ -110,7 +128,7 @@ class WundergroundHtmlTests(unittest.TestCase):
             with self.assertRaises(WundergroundPageError):
                 validate_history_dates(rows, date(2026, 9, 1), date(2026, 9, 30))
 
-    def run_station(self, folder, *, cached=None, api_rows=None, html_response=None, start=date(2026, 9, 1)):
+    def run_station(self, folder, *, cached=None, api_rows=None, html_response=None, start=date(2026, 9, 1), api_key_error=None):
         # The runner executes on import. Compile only its real station function to
         # exercise file writes without launching providers, archives or training.
         module = ast.parse((ROOT / 'rainmapper_core/rainmapper.py').read_text())
@@ -133,10 +151,19 @@ class WundergroundHtmlTests(unittest.TestCase):
         exec(compile(ast.Module(body=[fn], type_ignores=[]), '<station-under-test>', 'exec'), namespace)
         with mock.patch(MODULE + '.requests.get', return_value=response(html_response or header())) as get, \
              mock.patch(MODULE + '.time.sleep'), redirect_stdout(io.StringIO()):
-            result = namespace['scrap_wunderground_station'](URL, 'test-run')
+            result = namespace['scrap_wunderground_station'](URL, 'test-run', api_key='test-key', api_key_error=api_key_error)
         with open(namespace['wunderground_file_name']) as f:
             written = list(csv.DictReader(f))
         return result, written, get.call_count, api.call_count
+
+    def test_key_discovery_failure_uses_html_without_repeating_api_attempts(self):
+        content = header('legacy-header') + header('legacy-history')
+        with tempfile.TemporaryDirectory() as folder:
+            result, written, _, api_calls = self.run_station(folder, html_response=content, api_key_error='discovery failed')
+        self.assertTrue(result['ok'])
+        self.assertEqual(len(written), 1)
+        self.assertEqual(api_calls, 0)
+        self.assertEqual(result['api_errors'], 1)
 
     def test_station_uses_new_header_then_api_without_more_html_requests(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -196,6 +223,10 @@ class WundergroundHtmlTests(unittest.TestCase):
             path.write_text('Codi Estació,Data\n')
             normalize = mock.Mock()
             namespace = dict(datetime=datetime, _max_threads=1, URLS=[URL],
+                             _wunderground_monthly_api=True, _wunderground_weekly_api=False,
+                             MONTHLY=True, UNIT_SYSTEM='metric', _max_attempts=3,
+                             daily_api_key=mock.Mock(return_value='test-key'),
+                             WundergroundDailyApiError=WundergroundDailyApiError,
                              backfill_station_ids_for=lambda _: set(), math=math,
                              wunderground_log=lambda *a: None, start_timing=lambda *a: 0,
                              record_timing=lambda *a: None, ThreadPoolExecutor=ThreadPoolExecutor,
@@ -208,6 +239,23 @@ class WundergroundHtmlTests(unittest.TestCase):
             with redirect_stdout(io.StringIO()), self.assertRaisesRegex(WundergroundPageError, 'ninguna estación'):
                 namespace['create_wunderground']()
             normalize.assert_not_called()
+            namespace['daily_api_key'].assert_called_once_with([URL], max_attempts=3)
+
+            # One key is shared by all worker threads, and resolved anew on the
+            # next invocation even if the Python process itself is reused.
+            namespace['URLS'] = [URL, URL.replace('ILAIGL7', 'ITEST2'), URL.replace('ILAIGL7', 'ITEST3')]
+            namespace['_max_threads'] = 3
+            namespace['daily_api_key'].side_effect = ['next-run-key', WundergroundDailyApiError('missing config')]
+            for expected_key, expected_error in [('next-run-key', None), (None, 'missing config')]:
+                path.write_text('Codi Estació,Data\n')
+                namespace['scrap_wunderground_station'].reset_mock()
+                with redirect_stdout(io.StringIO()), self.assertRaises(WundergroundPageError):
+                    namespace['create_wunderground']()
+                calls = namespace['scrap_wunderground_station'].call_args_list
+                self.assertEqual(len(calls), 3)
+                for call in calls:
+                    self.assertEqual(call.kwargs, {'api_key': expected_key, 'api_key_error': expected_error})
+            self.assertEqual(namespace['daily_api_key'].call_count, 3)
 
 
 if __name__ == '__main__':

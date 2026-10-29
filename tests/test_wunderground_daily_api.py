@@ -1,10 +1,16 @@
 import unittest
+import os
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
+from unittest import mock
+
+import requests
 
 from rainmapper_core.sources.wunderground.daily_api import (
     WundergroundDailyApiError,
     build_monthly_rows,
     cache_encodings,
+    daily_api_key,
     fetch_daily_observations,
     inch_to_mm,
     monthly_query_date_range,
@@ -41,6 +47,74 @@ def observation_at(utc_text):
         "obsTimeLocal": utc_text.replace("T", " ").replace("Z", ""),
         "imperial": {"precipTotal": 0},
     }
+
+
+@mock.patch.dict(os.environ, {}, clear=True)
+class WundergroundKeyTests(unittest.TestCase):
+    page = '<script>const config = {"API_URL":"https://api.weather.com","API_KEY":"public-test-key"};</script>'
+    urls = [f'https://www.wunderground.com/dashboard/pws/ITEST{i}' for i in range(4)]
+
+    def test_website_configuration_ignores_advertising_keys(self):
+        session = mock.Mock()
+        session.get.return_value = SimpleNamespace(status_code=200, text=(
+            '<script>{"API_KEY":"advertising-key"}</script>' + self.page +
+            '<a href="https://example.com/?apiKey=another-key">ad</a>'
+        ))
+        self.assertEqual(daily_api_key(self.urls, session=session), 'public-test-key')
+        session.get.assert_called_once()
+        self.assertEqual(session.get.call_args.args[0], self.urls[0])
+        self.assertEqual(session.get.call_args.kwargs['cookies'], {'wu_prefer_legacy': 'false'})
+
+    def test_next_station_used_after_timeout_or_incomplete_page(self):
+        session = mock.Mock()
+        session.get.side_effect = [requests.Timeout('timeout'),
+                                  SimpleNamespace(status_code=200, text='<html>loading</html>'),
+                                  SimpleNamespace(status_code=200, text=self.page)]
+        self.assertEqual(daily_api_key(self.urls, session=session), 'public-test-key')
+        self.assertEqual([call.args[0] for call in session.get.call_args_list], self.urls[:3])
+
+    def test_failed_discovery_is_bounded_and_duplicate_stations_are_skipped(self):
+        session = mock.Mock()
+        session.get.return_value = SimpleNamespace(status_code=404)
+        with self.assertRaisesRegex(WundergroundDailyApiError, 'after 3 station page.*HTTP 404'):
+            daily_api_key([self.urls[0], *self.urls], session=session)
+        self.assertEqual(session.get.call_count, 3)
+
+    def test_ambiguous_or_unrelated_configuration_is_rejected(self):
+        session = mock.Mock()
+        for page in (self.page.replace('api.weather.com', 'example.com'),
+                     self.page + self.page.replace('public-test-key', 'different-key')):
+            with self.subTest(page=page), self.assertRaisesRegex(WundergroundDailyApiError, 'missing or ambiguous'):
+                session.get.return_value = SimpleNamespace(status_code=200, text=page)
+                daily_api_key(self.urls[:1], session=session)
+
+    def test_explicit_environment_override_does_not_fetch_html(self):
+        session = mock.Mock()
+        with mock.patch.dict(os.environ, {'RAINMAPPER_WUNDERGROUND_API_KEY': 'explicit-test-key'}):
+            self.assertEqual(daily_api_key(self.urls, session=session), 'explicit-test-key')
+        session.get.assert_not_called()
+
+    def test_standalone_api_resolves_once_across_cdn_retries(self):
+        session = mock.Mock()
+        session.get.side_effect = [SimpleNamespace(status_code=200, text=self.page),
+                                  FakeResponse(observation_at('2026-09-09T01:00:00Z')),
+                                  FakeResponse(observation_at('2026-09-09T21:00:00Z'))]
+        rows = fetch_daily_observations(
+            'ITEST0', date(2026, 9, 1), date(2026, 9, 9), session=session,
+            today=date(2026, 9, 9), now_utc=datetime(2026, 9, 9, 22, tzinfo=timezone.utc),
+        )
+        self.assertEqual(rows[0]['obsTimeUtc'], '2026-09-09T21:00:00Z')
+        self.assertEqual(session.get.call_count, 3)
+        for call in session.get.call_args_list[1:]:
+            self.assertEqual(call.kwargs['params']['apiKey'], 'public-test-key')
+
+    def test_request_errors_do_not_expose_key_or_url(self):
+        session = mock.Mock()
+        session.get.side_effect = requests.Timeout('https://api.weather.com/?apiKey=secret-test-key')
+        with self.assertRaises(WundergroundDailyApiError) as caught:
+            fetch_daily_observations('ITEST0', date(2026, 9, 1), date(2026, 9, 9),
+                                     session=session, api_key='secret-test-key')
+        self.assertEqual(str(caught.exception), 'request failed (Timeout)')
 
 
 class WundergroundDailyApiTest(unittest.TestCase):

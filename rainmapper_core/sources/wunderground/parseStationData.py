@@ -49,7 +49,7 @@ class parseStationData:
             raise Exception(f'Error al conectar: {response.status_code}')
         return response
     
-    def fetch_data(self, *, require_metadata=False, validator=None):
+    def fetch_data(self, *, require_metadata=False, validator=None, legacy_history=False):
         """Retry incomplete HTTP 200 responses using bounded encoding variants."""
         def validate(response):
             if require_metadata:
@@ -70,6 +70,7 @@ class parseStationData:
                 response = requests.get(
                     self.url,
                     headers={**self.headers, 'Accept-Encoding': encodings[attempt % len(encodings)]},
+                    cookies={'wu_prefer_legacy': 'true'} if legacy_history else {},
                     timeout=(5, 10),
                 )
                 if response.status_code != 200:

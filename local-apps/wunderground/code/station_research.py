@@ -62,6 +62,7 @@ class Research:
         self.network_lock = threading.Lock()
         self.history_lock = threading.Lock()
         self.last_request = 0
+        self.weather_api_key = None
         self.fetch = fetch or self.request
         self.place_fetch = place_fetch or self.request_places
         self.place_lock = threading.Lock()
@@ -134,19 +135,26 @@ class Research:
 
     def request(self, endpoint, params):
         import requests
-        from rainmapper_core.sources.wunderground.daily_api import daily_api_key
+        from rainmapper_core.sources.wunderground.daily_api import daily_api_key, WundergroundDailyApiError
         with self.network_lock:
             time.sleep(max(0, 0.4 - (time.monotonic() - self.last_request)))
             self.last_request = time.monotonic()
             try:
+                if self.weather_api_key is None:
+                    station_ids = ([params['stationId']] if params.get('stationId') else []) + sorted(self.current)
+                    self.weather_api_key = daily_api_key(
+                        (f'https://www.wunderground.com/dashboard/pws/{station_id}' for station_id in station_ids)
+                    )
                 response = requests.get('https://api.weather.com/' + endpoint,
-                    params={**params, 'apiKey': daily_api_key(), 'format': 'json'},
+                    params={**params, 'apiKey': self.weather_api_key, 'format': 'json'},
                     headers={'Accept-Encoding': 'gzip'}, timeout=(5, 20))
                 if response.status_code == 204:
                     return {}
                 if response.status_code != 200:
                     raise ValueError(f'Wunderground devuelve HTTP {response.status_code}; no se puede evaluar disponibilidad.')
                 return response.json()
+            except WundergroundDailyApiError as exc:
+                raise ValueError(str(exc)) from None
             except (requests.RequestException, requests.exceptions.JSONDecodeError):
                 raise ValueError('No se pudo consultar Wunderground (red, tiempo de espera o respuesta inválida). Reintenta.') from None
 

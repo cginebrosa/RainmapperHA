@@ -1,0 +1,52 @@
+{
+  "version": "0.2.340",
+  "date": "2026-10-29",
+  "base_commit": "99a4b6e193b08bc10b020dd3fcd09ef4ec985adb",
+  "build_script": "scripts/build-push-ha-image.sh",
+  "build_exit_code": 0,
+  "build_instances": 1,
+  "ghcr": {
+    "tags": [
+      "0.2.340",
+      "latest"
+    ],
+    "digest": "sha256:2896355562de6445bf792ba57d872f697de0f9e52cf1a9c3691e0a6095f9a670",
+    "manifests": {
+      "linux/amd64": "sha256:6c56c8d3123f923435f53c2295e6c2814cead74d121dab23292126e33ee48e73",
+      "linux/arm64": "sha256:bc89c5fca514b50569493aa9cee1e5827ee9a6a760f51ec9d43b1bb61ea23202"
+    },
+    "verification": "docker buildx imagetools inspect, both tags, exit 0"
+  },
+  "validation": {
+    "functional_report": "wunderground-dynamic-key-local-2026-10-29.json",
+    "smoke": {
+      "command": "PYTHONDONTWRITEBYTECODE=1 PYTHON_BIN=<main>/.venv/bin/python ./scripts/smoke-test.sh",
+      "exit_code": 0,
+      "tests_run": 2168,
+      "skipped": 55,
+      "unit_test_seconds": 128.922,
+      "log_sha256": "731c34f49dfc7d2a4ac29ba46ca1ba33eb788f3461f1e73150044968eee8c43f",
+      "initial_sandbox_attempt": {
+        "errors": 7,
+        "cause": "PermissionError opening local test sockets or forkserver socket",
+        "code_changed_to_resolve": false
+      }
+    },
+    "tracked_code_tests_packaging_files_unchanged_during_build": 578,
+    "effective_code_sha256": {
+      "rainmapper_core/rainmapper.py": "24973b0a723398c616def2de1a90c89d8cea65b3e70be21208ca76d81ab9cb9c",
+      "rainmapper_core/sources/wunderground/daily_api.py": "3f32539cda964c7da6f04d163b6a4de1aeeb95682c6a5a37e576ac6c38aa0ab8",
+      "rainmapper_core/sources/wunderground/parseStationData.py": "4a2755b6d65109e9b185d671208596351f7074d5aed1aacc33060e137718b447"
+    }
+  },
+  "main_checkout_synchronized": false,
+  "main_checkout_head": "7bbdecb9d3ede8e046f717594e34eac070962f9c",
+  "real_ha_installation": "pending_user",
+  "worker_modified": false,
+  "remote_cleanup": false,
+  "local_image_tag_removed": "ghcr.io/cginebrosa/rainmapperha:0.2.339",
+  "buildx_cleanup_reported": "5.783GB",
+  "build_log_sha256": "4b32e2c1662be3b5733c5c185ea92dd5398dd340d3c07dfa7e666efac5bdcf5e",
+  "git_target": "origin/inicial",
+  "temporary_artifacts_removed": true
+}

@@ -1,6 +1,28 @@
 # Contexto activo — actualización 29/10/2026
 
-## HA 0.2.339 · publicada; instalación pendiente del usuario
+## HA 0.2.340 · publicada; instalación pendiente del usuario
+
+- Clave pública de Wunderground descubierta una vez por runner y compartida en
+  memoria; respaldo HTML reparado con la cookie del sitio antiguo. Se conservan
+  ventanas, reintentos de compresión y archivo Parquet. Incluye AEMET 0.2.339.
+- Validación local aceptada: runner completo del usuario, Wunderground `OK`,
+  108/113 estaciones, 2.969 filas en 18,872 s. Cinco estaciones sin datos y ocho
+  respuestas antiguas después de los tres reintentos; no son errores de clave.
+  AEMET quedó `PARTIAL` por un bloque diario fallido; su causa no se ha determinado.
+  Smoke completo: 2.168 pruebas, 55 omitidas, sin fallos.
+- GHCR `0.2.340/latest`: mismo digest
+  `sha256:2896355562de6445bf792ba57d872f697de0f9e52cf1a9c3691e0a6095f9a670`,
+  manifests `linux/amd64` y `linux/arm64`. Un solo build, exit 0.
+  [Release](reports/release-ha-0.2.340-2026-10-29.md) y
+  [validación local](reports/wunderground-dynamic-key-local-2026-10-29.md).
+- Candidata en `local/worktrees/wunderground-recovery`, rama
+  `fix/wunderground-recovery-20261029`, destinada a `origin/inicial` por avance
+  directo. El checkout principal sigue en 0.2.338 con su trabajo pendiente;
+  no se ha sincronizado ni se ha incluido su integración MCP en la release.
+  El HA local conserva su MCP y el código meteorológico validado. Worker intacto.
+- El usuario instala y prueba 0.2.340 en HA real. Publicar no confirma instalación.
+
+## HA 0.2.339 · antecedente AEMET
 
 - Release autorizada por el usuario tras aceptar la validación local del refresco
   AEMET. Cada runner reconsulta los últimos 30 días en OpenData; los campos
@@ -11,7 +33,7 @@
   diarios publicados en la comprobación del 29/10. Smoke: 2.158 tests, 55 omitidos;
   47 pruebas adicionales dentro de la imagen versionada, código y 34 dependencias
   Python coincidentes con la candidata aceptada.
-- GHCR `0.2.339` y `latest` verificados con digest `sha256:b912bf2408a78fd87a62118e468f83c1a1b944e028116fdfa1b036d6505f6c3f`,
+- En su publicación, GHCR `0.2.339` y `latest` se verificaron con digest `sha256:b912bf2408a78fd87a62118e468f83c1a1b944e028116fdfa1b036d6505f6c3f`,
   plataformas `linux/amd64` y `linux/arm64`. Un solo build, exit 0.
   [Release y límites de validación](reports/release-ha-0.2.339-2026-10-29.md).
 - Candidato aislado en `local/worktrees/aemet-recovery`, rama
@@ -19,8 +41,9 @@
   El checkout principal se conserva sin sincronizar para no alterar su trabajo
   pendiente MCP: revisar ambas ramas antes de retomarlo; no suponer que su código
   local ya contiene esta release. Los cambios ajenos no se incluyen en la imagen.
-- Instalación y primer runner en HA real pendientes del usuario. Codex no ha
-  instalado la actualización ni lanzado trabajos en HA real. Worker sin cambios.
+- El usuario comunicó su instalación y funcionamiento en HA real antes de
+  preparar 0.2.340. Codex no instaló la actualización ni lanzó trabajos en HA real.
+  Worker sin cambios.
   Temporales de validación y publicación eliminados; evidencia compacta en los informes.
 
 Los apartados siguientes conservan el contexto histórico anterior a esta release.

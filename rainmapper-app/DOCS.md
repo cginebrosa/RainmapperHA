@@ -676,7 +676,7 @@ Si aparecen timeouts, errores de Wunderground o carga excesiva, usar `max_thread
 max_attempts: 3
 ```
 
-La API devuelve observaciones diarias, pero Rainmapper permite elegir el alcance. El modo recomendado pide una ventana movil de siete dias (hoy y los seis anteriores), que cruza de mes sin ninguna descarga especial:
+La API devuelve observaciones diarias, pero Rainmapper permite elegir el alcance. El modo mensual predeterminado refresca el mes natural actual y, durante los dias 1–7, tambien el mes anterior completo:
 
 ```yaml
 wunderground_weekly_api: false
@@ -684,7 +684,48 @@ wunderground_monthly_api: true
 wunderground_encoding_order: gzip,identity,deflate
 ```
 
-Para conservar la consulta legacy, intercambia los valores. No actives ambos modos a la vez: el runner rechazara la configuracion. Con ambos desactivados se usa directamente el scraper HTML. Los backfills administrativos mantienen siempre sus ventanas mensuales completas. Si una consulta API falla, Rainmapper escribe un log de fallback, usa el scraper HTML existente y muestra el contador `API fallback errors` en el resumen de Wunderground.
+Para limitar la consulta a hoy y los seis dias anteriores, activa el modo semanal y desactiva el mensual. Esa ventana puede cruzar de mes. No actives ambos modos a la vez: el runner rechazara la configuracion. Con ambos desactivados se usa directamente el scraper HTML. Los backfills administrativos mantienen siempre sus ventanas mensuales completas. Si una consulta API falla, Rainmapper escribe un log de fallback, usa el scraper HTML y muestra el contador `API fallback errors` en el resumen de Wunderground.
+
+### Clave dinamica y respaldo HTML
+
+Antes de lanzar los hilos de estaciones, cada ejecucion obtiene la clave publica
+`API_KEY` de la configuracion JavaScript de una pagina de estacion Wunderground.
+Solo acepta el bloque que identifica `API_URL: https://api.weather.com`; ignora
+claves de publicidad y no ejecuta JavaScript. Empieza por la primera estacion
+seleccionada, despues de aplicar `backfill_station_filter`. Si la pagina falla o
+no contiene una clave reconocible, prueba la siguiente, hasta `max_attempts`
+paginas distintas (3 por defecto), con timeout de 5 segundos por peticion.
+
+La clave se comparte en memoria entre todos los hilos y consultas de esa
+ejecucion; el siguiente runner vuelve a obtenerla. No se guarda en
+`config.yaml`, JSON, CSV, Parquet ni logs, y no hay una clave predeterminada en
+el codigo. Se conserva el override explicito por variable de entorno
+`RAINMAPPER_WUNDERGROUND_API_KEY` para clientes locales que ya lo usen; si esta
+definido, tiene prioridad y no se consulta la pagina para obtener la clave.
+El tiempo de preparacion aparece como `api_key_seconds`, incluido tambien en
+el total `scrape_seconds`.
+
+Cuando falla la API, el scraper pide la pagina historica con
+`wu_prefer_legacy=true`, la misma cookie que utiliza el boton oficial para volver
+al sitio antiguo. Esa version entrega la tabla en HTML; la nueva deja las filas
+para JavaScript. No se añade un navegador. Se mantienen la conversion de
+unidades, la validacion del intervalo y los reintentos limitados. Los metadatos
+siguen usando primero el catalogo local.
+
+Si no se puede descubrir la clave, se registra el fallo una vez al preparar la
+fuente y las estaciones pasan al respaldo HTML sin repetir el descubrimiento
+en cada hilo. Los fallos de API siguen contandose por consulta en
+`API fallback errors`. Si ninguna estacion devuelve observaciones validas, se
+conservan los datos existentes y se informa del fallo, como antes. El respaldo
+depende de que Wunderground mantenga disponible el sitio antiguo; no garantiza
+disponibilidad si tambien falla ese servicio.
+
+Codigo: `rainmapper_core/sources/wunderground/daily_api.py`,
+`parseStationData.py` y `create_wunderground` en `rainmapper_core/rainmapper.py`.
+El descubrimiento de clave no cambia las ventanas de descarga, la defensa
+contra respuestas CDN antiguas ni el cierre habitual del historico particionado.
+
+### Variantes de cache y diagnostico
 
 `wunderground_encoding_order` fija que variante de cache de Weather.com se intenta primero y el orden de los reintentos cuando el timestamp recibido esta atrasado. Debe contener exactamente una vez `gzip`, `identity` y `deflate`; el valor predeterminado es `gzip,identity,deflate`. El selector de Home Assistant solo ofrece las seis permutaciones validas.
 

@@ -4,12 +4,22 @@ Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-cont
 Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
 [archivo del cierre](reports/session-context-before-close-2026-09-22.md).
 
-## HA 0.2.339 · seguimiento real (29/10)
+## HA 0.2.340 · seguimiento real (29/10)
+
+- [x] Validar Wunderground en el runner local del usuario y superar el smoke.
+- [x] Publicar clave dinámica y respaldo HTML reparado; verificar en GHCR ambos
+  tags con el mismo digest y manifests amd64/arm64.
+- [ ] El usuario instala 0.2.340 y comprueba Wunderground en su runner de HA real.
+- [ ] Si AEMET vuelve a quedar `PARTIAL`, revisar el bloque diario fallido a partir
+  de sus registros; el último runner local no identifica la causa.
+
+[Informe de release](reports/release-ha-0.2.340-2026-10-29.md).
+
+## HA 0.2.339 · seguimiento AEMET (29/10)
 
 - [x] Publicar refresco AEMET de 30 días desde la candidata aislada y verificar
   en GHCR ambos tags y arquitecturas; validación local aceptada por el usuario.
-- [ ] El usuario instala 0.2.339 y comprueba su primer runner en HA real:
-  resultado AEMET, informe diario y cierre del histórico particionado.
+- [x] El usuario comunica instalación y funcionamiento de 0.2.339 en HA real.
 - [ ] Antes de retomar el checkout principal, sincronizar con la release publicada
   conservando su trabajo MCP pendiente; la publicación se prepara en worktree aislado.
 

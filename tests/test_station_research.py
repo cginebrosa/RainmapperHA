@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 from datetime import date
 
 spec = importlib.util.spec_from_file_location('station_research', Path(__file__).resolve().parents[1] / 'local-apps/wunderground/code/station_research.py')
@@ -29,6 +30,22 @@ class ResearchTests(unittest.TestCase):
     def tearDown(self):
         self.research.db.close()
         self.temp.cleanup()
+
+    def test_public_key_is_shared_in_memory_without_persisting_it(self):
+        with mock.patch('rainmapper_core.sources.wunderground.daily_api.daily_api_key', return_value='test-key') as key, \
+             mock.patch('requests.get') as get, mock.patch.object(m.time, 'sleep'):
+            get.return_value.status_code = 200
+            get.return_value.json.return_value = {'observations': []}
+            self.research.request('v2/pws/history/daily', {'stationId': 'ITEST1'})
+            self.research.request('v2/pws/history/daily', {'stationId': 'ITEST2'})
+            key.assert_called_once()
+            self.assertEqual(list(key.call_args.args[0]), [
+                'https://www.wunderground.com/dashboard/pws/ITEST1',
+                'https://www.wunderground.com/dashboard/pws/IKNOWN',
+            ])
+            for call in get.call_args_list:
+                self.assertEqual(call.kwargs['params']['apiKey'], 'test-key')
+        self.assertNotIn('test-key', '\n'.join(self.research.db.iterdump()))
 
     def test_places_cached_and_separate_from_station_research(self):
         calls = []

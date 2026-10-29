@@ -1,10 +1,10 @@
 import os
+import re
 from datetime import date, datetime, timedelta, timezone
 
 import requests
 
 
-DEFAULT_API_KEY = "e1f10a1e78da46f5b10a1e78da96f525"
 API_URL = "https://api.weather.com/v2/pws/history/daily"
 INCH_TO_MM = 25.4
 SUPPORTED_CACHE_ENCODINGS = frozenset({"identity", "gzip", "deflate"})
@@ -73,8 +73,52 @@ def station_id_from_url(weather_station_url: str) -> str:
     return weather_station_url.rstrip("/").split("/")[-1].upper()
 
 
-def daily_api_key() -> str:
-    return os.environ.get("RAINMAPPER_WUNDERGROUND_API_KEY", DEFAULT_API_KEY)
+def daily_api_key(station_urls=(), *, session=None, timeout=5, max_attempts=3) -> str:
+    """Read the public website key once; callers own its in-memory lifetime.
+
+    Only the Weather.com configuration in inline scripts is considered, never
+    advertising keys or arbitrary apiKey links. No JavaScript is executed.
+    The existing environment override remains available for explicit use.
+    """
+    override = os.environ.get("RAINMAPPER_WUNDERGROUND_API_KEY", "").strip()
+    if override:
+        return override
+    requester = session or requests
+    attempted = set()
+    last_error = "no station pages available"
+    for station_url in station_urls:
+        station_id = station_id_from_url(station_url)
+        if not station_id or station_id in attempted:
+            continue
+        if len(attempted) >= max(1, max_attempts):
+            break
+        attempted.add(station_id)
+        try:
+            response = requester.get(
+                f"https://www.wunderground.com/dashboard/pws/{station_id}",
+                headers={"Accept-Encoding": "gzip"},
+                # Key discovery must use the new website, independently of the
+                # legacy cookie used by the HTML history fallback.
+                cookies={"wu_prefer_legacy": "false"},
+                timeout=timeout,
+            )
+        except requests.RequestException as exc:
+            last_error = type(exc).__name__
+            continue
+        if response.status_code != 200:
+            last_error = f"HTTP {response.status_code}"
+            continue
+        keys = set()
+        for script in re.findall(r"<script\b[^>]*>(.*?)</script\s*>", response.text, re.I | re.S):
+            if not re.search(r'"API_URL"\s*:\s*"https://api\.weather\.com"', script):
+                continue
+            keys.update(re.findall(r'"API_KEY"\s*:\s*"([A-Za-z0-9_-]+)"', script))
+        if len(keys) == 1:
+            return keys.pop()
+        last_error = "missing or ambiguous Weather.com API_KEY in page configuration"
+    raise WundergroundDailyApiError(
+        f"API key discovery failed after {len(attempted)} station page(s): {last_error}"
+    )
 
 
 def _fetch_daily_observations_once(
@@ -94,7 +138,7 @@ def _fetch_daily_observations_once(
         "startDate": start_date.strftime("%Y%m%d"),
         "endDate": end_date.strftime("%Y%m%d"),
         "numericPrecision": "decimal",
-        "apiKey": api_key or daily_api_key(),
+        "apiKey": api_key,
     }
     try:
         response = requester.get(
@@ -104,7 +148,8 @@ def _fetch_daily_observations_once(
             timeout=timeout,
         )
     except requests.RequestException as exc:
-        raise WundergroundDailyApiError(str(exc)) from exc
+        # Request exception text may contain the complete URL, including apiKey.
+        raise WundergroundDailyApiError(f"request failed ({type(exc).__name__})") from None
 
     if response.status_code != 200:
         raise WundergroundDailyApiError(f"HTTP {response.status_code}")
@@ -174,6 +219,12 @@ def fetch_daily_observations(
     response with the newest observation timestamp.
     """
     diagnostics_target = diagnostics if diagnostics is not None else {}
+    if not api_key:
+        api_key = daily_api_key(
+            [f"https://www.wunderground.com/dashboard/pws/{station_id}"],
+            session=session,
+            timeout=timeout,
+        )
     current_time = now_utc or datetime.now(timezone.utc)
     if current_time.tzinfo is None:
         current_time = current_time.replace(tzinfo=timezone.utc)

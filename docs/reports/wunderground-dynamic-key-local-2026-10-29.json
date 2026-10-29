@@ -1,0 +1,201 @@
+{
+  "date": "2026-10-29",
+  "base_commit": "99a4b6e193b08bc10b020dd3fcd09ef4ec985adb",
+  "branch": "fix/wunderground-recovery-20261029",
+  "container_limits": {
+    "cpus": 2,
+    "memory_gib": 2
+  },
+  "image_id": "sha256:ffc0d4c4ab00fe48db01984d8bf17f7342d646aeaf5f8e4f80ef12e8c3850e61",
+  "effective_code_sha256": {
+    "rainmapper_core/rainmapper.py": "24973b0a723398c616def2de1a90c89d8cea65b3e70be21208ca76d81ab9cb9c",
+    "rainmapper_core/sources/wunderground/daily_api.py": "3f32539cda964c7da6f04d163b6a4de1aeeb95682c6a5a37e576ac6c38aa0ab8",
+    "rainmapper_core/sources/wunderground/parseStationData.py": "4a2755b6d65109e9b185d671208596351f7074d5aed1aacc33060e137718b447"
+  },
+  "tests": {
+    "local": 55,
+    "inside_image": 41
+  },
+  "runs": {
+    "api-run": {
+      "runner_seconds": 53.88,
+      "source_seconds": 49.095,
+      "key_seconds": 0.678,
+      "scrape_seconds": 48.056,
+      "selected_stations": 113,
+      "updated_stations": 108,
+      "failed_stations": 5,
+      "downloaded_rows": 2969,
+      "api_fallback_errors": 5,
+      "stale_responses": 8,
+      "key_preparations": 1,
+      "source_exit_code": 0,
+      "runner_exit_code": "2",
+      "deferred_predictor": true,
+      "child_peak_rss_mib": 478.61,
+      "log_sha256": "399a242ed899eaec0549c134e97a26c19e24c32c3f5ace7dc13680abdaca2654"
+    },
+    "html-run": {
+      "runner_seconds": 8.62,
+      "source_seconds": 4.679,
+      "key_seconds": 0.004,
+      "scrape_seconds": 3.936,
+      "selected_stations": 1,
+      "updated_stations": 1,
+      "failed_stations": 0,
+      "downloaded_rows": 29,
+      "api_fallback_errors": 1,
+      "stale_responses": 0,
+      "key_preparations": 1,
+      "source_exit_code": 0,
+      "runner_exit_code": "2",
+      "deferred_predictor": true,
+      "child_peak_rss_mib": 443.39,
+      "log_sha256": "1868cd19adc07460c25573809b000c88f42b348fb205277ea3aac8a55d0c36f3"
+    }
+  },
+  "integrity": {
+    "unchanged_partitions": 45,
+    "changed_partitions": [
+      {
+        "source": "wunderground",
+        "year": 2026,
+        "old_rows": 31587,
+        "new_rows": 31699,
+        "added_keys": 112
+      }
+    ],
+    "lost_parquet_keys": 0,
+    "csv_rows_before": 19286,
+    "csv_rows_after": 19291,
+    "csv_pruned_keys_retained_in_parquet": 107,
+    "csv_rows_pruned_by_retention": 107,
+    "csv_pruned_date": "20260502",
+    "csv_cutoff_date": "20260503"
+  },
+  "original_files_unchanged": 80,
+  "unavailable_stations": {
+    "IBAG57": {
+      "api_status": 204,
+      "legacy_html_status": 200,
+      "legacy_history_tables": 0,
+      "message": "No data available",
+      "month": "2026-10"
+    },
+    "IFUENT4": {
+      "api_status": 204,
+      "legacy_html_status": 200,
+      "legacy_history_tables": 0,
+      "message": "No data available",
+      "month": "2026-10"
+    },
+    "IGUILS1": {
+      "api_status": 204,
+      "legacy_html_status": 200,
+      "legacy_history_tables": 0,
+      "message": "No data available",
+      "month": "2026-10"
+    },
+    "ILAVAN3": {
+      "api_status": 204,
+      "legacy_html_status": 200,
+      "legacy_history_tables": 0,
+      "message": "No data available",
+      "month": "2026-10"
+    },
+    "IMONTF44": {
+      "api_status": 204,
+      "legacy_html_status": 200,
+      "legacy_history_tables": 0,
+      "message": "No data available",
+      "month": "2026-10"
+    }
+  },
+  "image_config_digest": "sha256:045dc2ca1b0beba8f1e8054e992fa93804bc3516a4b8ed25968e689eb606127a",
+  "cleanup": {
+    "temporary_directory_removed": true,
+    "test_containers_removed": true,
+    "test_image_removed": true,
+    "original_files_rechecked": 80
+  },
+  "usual_local_ha_activation": {
+    "image_id": "sha256:c5a6dd96e28a562ebb4bb94504bdf5975685e4445e69a15d4434bc1bbe9745de",
+    "container_id": "02927940d77d17c4e49233d2d372ccd5baf44311d08581439d5a533b7c739f2f",
+    "effective_code_sha256": {
+      "rainmapper_core/rainmapper.py": "24973b0a723398c616def2de1a90c89d8cea65b3e70be21208ca76d81ab9cb9c",
+      "rainmapper_core/sources/wunderground/daily_api.py": "3f32539cda964c7da6f04d163b6a4de1aeeb95682c6a5a37e576ac6c38aa0ab8",
+      "rainmapper_core/sources/wunderground/parseStationData.py": "4a2755b6d65109e9b185d671208596351f7074d5aed1aacc33060e137718b447",
+      "rainmapper_core/create_aemet.py": "9fd0b153d3038496e89a5ba3568db292379d8ddb20d6c962661147e47da41749",
+      "rainmapper_core/aemet_recovery.py": "0e3e50474359ffea33a66807f46007c6d56077ea67cec8a8e5043498f516f979",
+      "rainmapper_core/weather_official_backfill.py": "e2c03ae32585a357c728d91b45ff54d7432ef892196fa8ac6a35fa60c3a37e1c",
+      "web_server.py": "cbf75e6219b15c84ef7120333c38993d483f34d21c085c75e4967a56d2ba9264",
+      "mushroom_mcp_api.py": "1ccd560b12c2ac038f446add7452922dfb0c6b5ecd4b3e8589aa6afdf0d786c7",
+      "mushroom_mcp_places.py": "c229e0fd6b59f71e0e2d30694c347d1f169632e1bb221abe4898cee68834a4a2"
+    },
+    "http_status": 200,
+    "url": "http://127.0.0.1:8101/",
+    "mounts_preserved": true,
+    "compose_environment_preserved": true,
+    "mcp_preserved": true,
+    "worker_restarted": false,
+    "runner_launched": false,
+    "schedule_enabled": false
+  },
+  "release_readiness": {
+    "candidate_version": "0.2.340",
+    "smoke": {
+      "command": "PYTHONDONTWRITEBYTECODE=1 PYTHON_BIN=<main>/.venv/bin/python ./scripts/smoke-test.sh",
+      "exit_code": 0,
+      "tests_run": 2168,
+      "skipped": 55,
+      "unit_test_seconds": 128.922,
+      "log_sha256": "731c34f49dfc7d2a4ac29ba46ca1ba33eb788f3461f1e73150044968eee8c43f",
+      "initial_sandbox_attempt": {
+        "errors": 7,
+        "cause": "PermissionError opening local test sockets or forkserver socket",
+        "code_changed_to_resolve": false
+      }
+    },
+    "versions_and_viewer_cache_busters_aligned": true,
+    "downloader_code_unchanged_since_local_integration": true,
+    "published": false,
+    "temporary_logs_and_generated_caches_removed": true
+  },
+  "user_full_local_run": {
+    "evidence": [
+      "docker-data/last_run.log",
+      "docker-data/Data/source_status.json"
+    ],
+    "wunderground": {
+      "status": "OK",
+      "exit_code": 0,
+      "updated_rows": 2969,
+      "duration_seconds": 18.872,
+      "cache_retries": 8,
+      "cache_recoveries": 0,
+      "stale_responses": 8,
+      "updated_at": "2026-10-29T21:38:51"
+    },
+    "api_key_seconds": 0.457,
+    "requested_stations": 113,
+    "updated_stations": 108,
+    "failed_stations": 5,
+    "runner_duration_seconds": 66,
+    "runner_exit_code": 2,
+    "aemet_status": "PARTIAL",
+    "aemet_message": "Recent download succeeded. AEMET OpenData daily refresh: 23015 official rows; 28 published dates; 2 dates awaiting publication; 1 failed blocks.",
+    "active_history": {
+      "generation_id": "20261029T203903804097Z-00de807f2c08",
+      "manifest_path": "manifests/20261029T203903804097Z-00de807f2c08.json",
+      "manifest_sha256": "1e46a8f1d9f8c1db68c7cda9d63403d92a5e29b8721a538e7a276425f6243720",
+      "schema_version": "weather_history_current_v1"
+    },
+    "log_sha256": "f2d76f194a2217c11d4ad5feb5c8c32da6fa5130104755002c5f4646b94c9dc0"
+  },
+  "release_publication": {
+    "version": "0.2.340",
+    "published": true,
+    "report": "release-ha-0.2.340-2026-10-29.json",
+    "real_ha_installation": "pending_user"
+  }
+}

@@ -280,6 +280,12 @@ Hay varios entry points segun entorno:
 - Dependencias: pandas, requests, BeautifulSoup, googlemaps y helpers de fuente en `rainmapper_core/sources/`.
 - Relacion: alimenta `rainmapper_core.bokeh_maps` y `rainmapper_core.geojson`. Desde `0.2.71`, registra en `Data/source_status.json` el resultado de cada fuente y puede continuar con incrementales previos si una fuente falla completamente. El estado por fuente incluye duraciones reales medidas con temporizadores locales; no usar los logs `start_count/end_count` como metrica fiable cuando hay paralelismo porque comparten un temporizador global. Wunderground usa la API JSON `history/daily` como fuente primaria y el scraper HTML como fallback. La API admite modos mensual y semanal mutuamente excluyentes; cuando una consulta incluye hoy, el cliente compara por timestamp variantes CDN separadas por `Accept-Encoding` y conserva exclusivamente la respuesta mas reciente.
 
+Wunderground obtiene la clave publica de la pagina de una estacion una vez por
+ejecucion y la comparte en memoria antes de lanzar los hilos. El respaldo HTML
+solicita el sitio antiguo con `wu_prefer_legacy=true`, sin navegador. La clave
+fija anterior queda retirada. Limites, errores y override local en
+[Clave dinamica y respaldo HTML](../rainmapper-app/DOCS.md#clave-dinamica-y-respaldo-html).
+
 ### Autocuración oficial de huecos
 
 El refresco diario reciente AEMET es independiente: `create_aemet.run_update`

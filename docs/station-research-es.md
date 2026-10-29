@@ -7,9 +7,15 @@ Herramienta separada de HA, del worker y de los catálogos operativos. Se abre e
 ./local-apps/wunderground/start.command
 ```
 
-El lanzador usa `.venv`, la clave configurada de Wunderground y el conjunto local
+El lanzador usa `.venv`, la clave publica descubierta en Wunderground y el conjunto local
 `local-apps/wunderground/data/`. La clave se utiliza exclusivamente en
 el servidor, nunca se entrega al navegador. El servidor escucha solo en loopback.
+Se obtiene al hacer la primera consulta online, a partir de la estacion solicitada
+o de las estaciones ya conocidas, y se reutiliza en memoria hasta reiniciar el
+servidor. No se persiste en SQLite ni en JSON. El override explicito
+`RAINMAPPER_WUNDERGROUND_API_KEY` conserva prioridad si esta definido.
+El [runner de HA](../rainmapper-app/DOCS.md#clave-dinamica-y-respaldo-html)
+comparte el descubrimiento, pero renueva la clave en cada ejecucion.
 Los fondos y el relieve requieren Internet; las decisiones se guardan en el Mac.
 El código está en `local-apps/wunderground/code/station_research.py` y `local-apps/wunderground/code/web/`.
 

@@ -1964,7 +1964,7 @@ def create_meteoclimatic(_save_to_csv, timings=None):
 
     return meteoclimatic_df                             # Same format than Meteocat and with elevation set
 
-def scrap_wunderground_station(weather_station_url, launchtime):
+def scrap_wunderground_station(weather_station_url, launchtime, *, api_key=None, api_key_error=None):
 
     thread_name = threading.current_thread().name
     station_started_at = datetime.now()
@@ -2122,6 +2122,8 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                     else:
                         weekly_api_attempted = weekly_window
                         try:
+                            if api_key_error:
+                                raise WundergroundDailyApiError(api_key_error)
                             cache_diagnostics = {}
                             data_to_write = fetch_wunderground_api_rows(
                                 weather_station_url,
@@ -2135,6 +2137,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                                 session,
                                 timeout,
                                 cache_diagnostics=cache_diagnostics,
+                                api_key=api_key,
                             )
                             if cache_diagnostics.get('cache_retry_attempted'):
                                 summary_cache_retries += 1
@@ -2185,7 +2188,7 @@ def scrap_wunderground_station(weather_station_url, launchtime):
                         except (IndexError, KeyError, ValueError, lh.etree.ParserError) as exc:
                             raise WundergroundPageError(str(exc)) from exc
 
-                    scraper.fetch_data(validator=parse_history_response)
+                    scraper.fetch_data(validator=parse_history_response, legacy_history=True)
                     data_to_write = scraper.validated_data
                 data_to_write = validate_history_dates(
                     data_to_write, wunderground_start_date, wunderground_end_date,
@@ -2527,6 +2530,18 @@ def create_wunderground(timings=None):
 
     # Usa ThreadPoolExecutor para gestionar los threads
     step_start_time = start_timing(timings, 'scrape_seconds')
+    api_key = None
+    api_key_error = None
+    if station_urls and (_wunderground_monthly_api or _wunderground_weekly_api) and MONTHLY and UNIT_SYSTEM == "metric":
+        key_start_time = start_timing(timings, 'api_key_seconds')
+        try:
+            api_key = daily_api_key(station_urls, max_attempts=_max_attempts)
+            print('Wunderground API key ready for this run (kept in memory).')
+        except WundergroundDailyApiError as exc:
+            api_key_error = str(exc)
+            print(f'Wunderground: {api_key_error}. Using HTML fallback for this run.')
+        finally:
+            record_timing(timings, 'api_key_seconds', key_start_time)
     with ThreadPoolExecutor(max_workers=max_threads, thread_name_prefix="UrlScrapping") as executor:
         futures = []
         # Crea una lista de tareas usando executor.submit()
@@ -2534,10 +2549,15 @@ def create_wunderground(timings=None):
             if index == 0:
                 # Procesa la primera URL sin threads
                 wunderground_log(f"Processing first URL without threads: {url}")
-                register_wunderground_result(scrap_wunderground_station(url, launchtime))
+                register_wunderground_result(scrap_wunderground_station(
+                    url, launchtime, api_key=api_key, api_key_error=api_key_error,
+                ))
             else:
                 # Procesa el resto de las URLs usando threads
-                futures.append(executor.submit(scrap_wunderground_station, url, launchtime))
+                futures.append(executor.submit(
+                    scrap_wunderground_station, url, launchtime,
+                    api_key=api_key, api_key_error=api_key_error,
+                ))
 
         # Procesa los resultados a medida que terminan
         for future in as_completed(futures):
@@ -2757,6 +2777,7 @@ from rainmapper_core.sources.wunderground.daily_api import (
     WundergroundDailyApiError,
     build_monthly_rows,
     cache_encodings,
+    daily_api_key,
     fetch_daily_observations,
     monthly_query_date_range,
     query_date_range,
@@ -2898,6 +2919,7 @@ def fetch_wunderground_api_rows(
     session,
     timeout,
     cache_diagnostics=None,
+    api_key=None,
 ):
     if not MONTHLY:
         raise WundergroundDailyApiError("daily API fallback is only implemented for monthly mode")
@@ -2914,6 +2936,7 @@ def fetch_wunderground_api_rows(
         session=session,
         timeout=timeout,
         diagnostics=cache_diagnostics,
+        api_key=api_key,
     )
     return build_monthly_rows(
         observations,
