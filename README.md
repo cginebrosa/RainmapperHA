@@ -45,6 +45,7 @@ Variables/opciones principales:
 - `GMAP_API_KEY`: Google Maps API key para ejecucion local Docker.
 - `gmap_api_key`: opcion HA equivalente para Google Maps.
 - `aemet_api_key`: clave AEMET OpenData si se activa `create_aemet`.
+- `aemet_daily_refresh_days`: 30 por defecto (7–30). Cada runner revisa todos esos días en la API diaria oficial, sustituyendo los provisionales horarios cuando AEMET publica sus valores. [Funcionamiento y convención de fechas](rainmapper-app/DOCS.md#provisionales-horarios-y-diarios-oficiales).
 - `mode`: `help`, `update`, `maps`, `all` o `serve`.
 - `schedule_enabled`: activa schedule interno en HA.
 - `schedule_time`: una o varias horas, por ejemplo `06:00, 12:00, 18:00, 23:50`.

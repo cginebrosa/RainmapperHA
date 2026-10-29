@@ -265,6 +265,7 @@ def fetch_json(
     *,
     deadline=None,
     phase_callback=None,
+    max_response_bytes=None,
 ):
     """Fetch JSON from AEMET, optionally adding the OpenData API key header."""
     headers = {"Accept": "application/json"}
@@ -283,6 +284,7 @@ def fetch_json(
             timeout=_remaining_timeout(deadline, timeout, request_label),
         ) as response:
             chunks = []
+            response_bytes = 0
             while True:
                 remaining_timeout = _remaining_timeout(
                     deadline, timeout, request_label
@@ -297,6 +299,9 @@ def fetch_json(
                     chunk = response.read(64 * 1024)
                 if not chunk:
                     break
+                response_bytes += len(chunk)
+                if max_response_bytes is not None and response_bytes > max_response_bytes:
+                    raise ValueError("AEMET response exceeds the configured byte limit")
                 chunks.append(chunk)
             raw_payload = b"".join(chunks)
     except urllib.error.HTTPError as exc:
@@ -828,7 +833,7 @@ def build_daily_incremental(hourly_df, stations_df=None):
 
     df = hourly_df.copy()
     df = normalize_hourly_key_columns(df)
-    df["rain_mm"] = pd.to_numeric(df["rain_mm"], errors="coerce").fillna(0.0)
+    df["rain_mm"] = pd.to_numeric(df["rain_mm"], errors="coerce")
     for column in ("temp_celsius", "humidity_percent", *WIND_COLUMNS):
         if column not in df.columns:
             df[column] = pd.NA
@@ -839,10 +844,14 @@ def build_daily_incremental(hourly_df, stations_df=None):
     if df.empty:
         return pd.DataFrame(columns=DAILY_COLUMNS)
 
+    # Rain is measured over the hour ENDING at fint. In particular, the sample
+    # at midnight closes the previous local day of the provisional aggregate.
+    # Keep the original UTC timestamps in the hourly store.
+    df["rain_local_date"] = (df["reading_local_dt"] - pd.Timedelta(microseconds=1)).dt.strftime("%Y%m%d")
+
     group_keys = ["station_code", "local_date"]
     grouped = df.groupby(group_keys, sort=False)
     aggregates = grouped.agg(
-        Total=("rain_mm", "sum"),
         max_temp_celsius=("temp_celsius", "max"),
         min_temp_celsius=("temp_celsius", "min"),
         max_humidity_percent=("humidity_percent", "max"),
@@ -853,7 +862,11 @@ def build_daily_incremental(hourly_df, stations_df=None):
         wind_gust_kmh=("wind_gust_kmh", "max"),
         wind_observation_count=("wind_observation_count", "sum"),
     )
-    aggregates["Total"] = aggregates["Total"].round(1)
+    # Only precipitation has the preceding-hour boundary. Keep instantaneous
+    # temperature/humidity and the existing wind aggregates on their sample day.
+    rain_totals = df.groupby(["station_code", "rain_local_date"], sort=False)["rain_mm"].sum(min_count=1).round(1)
+    rain_totals.index.names = group_keys
+    aggregates = aggregates.join(rain_totals.rename("Total"), how="outer")
     for column in (
         "max_temp_celsius",
         "min_temp_celsius",
@@ -883,6 +896,13 @@ def build_daily_incremental(hourly_df, stations_df=None):
             "lon",
         ]
     ]
+    # A midnight-only sample can supply rain for a day with no instantaneous
+    # observations. Supply station metadata for that row without moving the
+    # other weather variables across the day boundary.
+    rain_metadata = sorted_df.loc[sorted_df["local_date"] != sorted_df["rain_local_date"], [*last_rows.columns, "rain_local_date"]].copy()
+    rain_metadata["local_date"] = rain_metadata.pop("rain_local_date")
+    rain_metadata = rain_metadata.drop_duplicates(subset=group_keys, keep="last")
+    last_rows = pd.concat([last_rows, rain_metadata], ignore_index=True).drop_duplicates(subset=group_keys, keep="first")
     result = pd.merge(aggregates, last_rows, on=group_keys, how="left")
     if stations_df is not None and not stations_df.empty:
         stations = stations_df.copy()
@@ -980,6 +1000,9 @@ def run_update(
     total_timeout=AEMET_TOTAL_TIMEOUT_SECONDS,
     phase_callback=None,
     retention_reference_day=None,
+    recover_history=True,
+    recovery_now=None,
+    daily_refresh_days=None,
 ):
     """Fetch AEMET observations and update all AEMET CSV outputs.
 
@@ -1035,6 +1058,19 @@ def run_update(
     phase_started = time.perf_counter()
     station_catalog = build_station_catalog(hourly_incremental, existing_stations)
     timings["station_catalog_seconds"] = time.perf_counter() - phase_started
+    verified_daily = {}
+    recovery_report = {}
+    if recover_history:
+        from rainmapper_core import aemet_recovery
+
+        phase_started = time.perf_counter()
+        hourly_incremental, verified_daily, recovery_report = aemet_recovery.recover(
+            data_dir, hourly_incremental, station_catalog,
+            api_key=api_key, local_timezone=local_timezone, now=recovery_now,
+            refresh_days=daily_refresh_days,
+        )
+        timings["recovery_seconds"] = time.perf_counter() - phase_started
+        print(recovery_report["message"])
     enriched_station_rows = 0
     if enrich_stations:
         phase_started = time.perf_counter()
@@ -1048,6 +1084,12 @@ def run_update(
         timings["station_enrichment_seconds"] = 0.0
     phase_started = time.perf_counter()
     rebuilt_daily = build_daily_incremental(hourly_incremental, station_catalog)
+    cutoff_date = hourly_retention.get("cutoff_local_date")
+    if cutoff_date:
+        rebuilt_daily = rebuilt_daily.loc[rebuilt_daily["Data Local"] >= cutoff_date].copy()
+    if recover_history:
+        catalog_lookup = {str(row["Codi Estació"]): row for row in station_catalog.to_dict("records")}
+        rebuilt_daily = aemet_recovery.apply_verified(rebuilt_daily, verified_daily, catalog_lookup)
     timings["build_daily_seconds"] = time.perf_counter() - phase_started
     from rainmapper_core.weather_history_capture import (
         capture_fresh_weather_rows,
@@ -1086,6 +1128,7 @@ def run_update(
         "current_hourly_rows": len(current_hourly),
         "hourly_incremental_rows": len(hourly_incremental),
         "hourly_retention": hourly_retention,
+        "recovery": recovery_report,
         "station_rows": len(station_catalog),
         "enriched_station_rows": enriched_station_rows,
         "daily_incremental_rows": len(daily_incremental),

@@ -1,0 +1,291 @@
+{
+  "date": "2026-10-29",
+  "base_commit": "7bbdecb9d3ede8e046f717594e34eac070962f9c",
+  "branch": "fix/aemet-recovery-20261029",
+  "image_id": "sha256:15e4a27e3b69563aa811e853884582683ef5a8253d2c393fd0def5da8bdb5929",
+  "runner_entrypoint": "web_server.run_action('update', 'local-api-validation', only_source='AEMET')",
+  "environment": {
+    "docker_cpus": 2,
+    "docker_memory": "2g",
+    "only_aemet_enabled": true,
+    "partitioned_history": true,
+    "copied_real_ha_data": true,
+    "real_ha_deployed": false
+  },
+  "scope_limit": "Runner global exit 2: Predictor publication deferred because the weather-only fixture has no trained models. AEMET and both archive stages exit 0. Other sources and map publication not validated.",
+  "measurements": {
+    "baseline": {
+      "total_seconds": 19.453,
+      "child_cpu_seconds": 16.838,
+      "child_maxrss_mib": 435.648,
+      "code_hashes": {
+        "create_aemet": "cfe5e1900ed66274174cb87d716c681eb352472bf8df346929b4a1bf8a30f4af",
+        "official_backfill": "393249f68ce144992bafcca0b6221a2a9111882baac3fee01ebc908cff193029",
+        "rainmapper": "b925590ede6f8ca08d9921354faa37f8021c9fd2b51f51c03cc5142d56e69e75",
+        "web_server": "84e396064880fd0bbac8045d343f8b65a377853adc9093e047627d77959c80d5",
+        "run.sh": "62a38a6a04da53855982329865457d08e6e3ff8cc8a188cb5c7d07813ff9f2b6"
+      },
+      "aemet_status": "OK",
+      "aemet_exit_code": 0,
+      "aemet_seconds": 5.928,
+      "timings": {
+        "build_daily_seconds": 0.525,
+        "fetch_seconds": 2.438,
+        "merge_daily_seconds": 0.0,
+        "merge_hourly_seconds": 0.318,
+        "normalize_seconds": 0.17,
+        "read_daily_seconds": 0.0,
+        "read_hourly_seconds": 0.28,
+        "read_stations_seconds": 0.004,
+        "retain_hourly_seconds": 0.325,
+        "station_catalog_seconds": 0.106,
+        "station_enrichment_seconds": 0.015,
+        "total_seconds": 5.906,
+        "write_outputs_seconds": 1.3
+      },
+      "runner_exit_code": "2"
+    },
+    "baseline-repeat": {
+      "total_seconds": 13.981,
+      "child_cpu_seconds": 11.486,
+      "child_maxrss_mib": 435.246,
+      "code_hashes": {
+        "create_aemet": "cfe5e1900ed66274174cb87d716c681eb352472bf8df346929b4a1bf8a30f4af",
+        "official_backfill": "393249f68ce144992bafcca0b6221a2a9111882baac3fee01ebc908cff193029",
+        "rainmapper": "b925590ede6f8ca08d9921354faa37f8021c9fd2b51f51c03cc5142d56e69e75",
+        "web_server": "84e396064880fd0bbac8045d343f8b65a377853adc9093e047627d77959c80d5",
+        "run.sh": "62a38a6a04da53855982329865457d08e6e3ff8cc8a188cb5c7d07813ff9f2b6"
+      },
+      "aemet_status": "OK",
+      "aemet_exit_code": 0,
+      "aemet_seconds": 5.716,
+      "timings": {
+        "build_daily_seconds": 0.485,
+        "fetch_seconds": 2.497,
+        "merge_daily_seconds": 0.0,
+        "merge_hourly_seconds": 0.306,
+        "normalize_seconds": 0.169,
+        "read_daily_seconds": 0.0,
+        "read_hourly_seconds": 0.256,
+        "read_stations_seconds": 0.004,
+        "retain_hourly_seconds": 0.312,
+        "station_catalog_seconds": 0.106,
+        "station_enrichment_seconds": 0.012,
+        "total_seconds": 5.696,
+        "write_outputs_seconds": 1.158
+      },
+      "runner_exit_code": "2"
+    },
+    "candidate-first": {
+      "total_seconds": 30.74,
+      "child_cpu_seconds": 23.827,
+      "child_maxrss_mib": 546.504,
+      "code_hashes": {
+        "create_aemet": "9fd0b153d3038496e89a5ba3568db292379d8ddb20d6c962661147e47da41749",
+        "aemet_recovery": "0e3e50474359ffea33a66807f46007c6d56077ea67cec8a8e5043498f516f979",
+        "official_backfill": "e2c03ae32585a357c728d91b45ff54d7432ef892196fa8ac6a35fa60c3a37e1c",
+        "rainmapper": "a2e861555dba1fb95aec9c81b1efbc0120d2191b815f4f1a14fdc734dbfef6ae",
+        "web_server": "e1cf20dc9883254cf6e97c26d2d4082c36bbe9b81db8fa4eb25a99b3ea49b28d",
+        "run.sh": "96dc549a19f6ef3126b3033d0af4204a21582de5df39e2983ca736b70fbc9804"
+      },
+      "aemet_status": "OK",
+      "aemet_exit_code": 0,
+      "aemet_seconds": 12.342,
+      "timings": {
+        "build_daily_seconds": 1.117,
+        "fetch_seconds": 2.271,
+        "merge_daily_seconds": 0.0,
+        "merge_hourly_seconds": 0.327,
+        "normalize_seconds": 0.171,
+        "read_daily_seconds": 0.0,
+        "read_hourly_seconds": 0.253,
+        "read_stations_seconds": 0.004,
+        "recovery_seconds": 4.6,
+        "retain_hourly_seconds": 0.33,
+        "station_catalog_seconds": 0.116,
+        "station_enrichment_seconds": 0.013,
+        "total_seconds": 12.319,
+        "write_outputs_seconds": 1.333
+      },
+      "runner_exit_code": "2"
+    },
+    "candidate-repeat": {
+      "total_seconds": 20.487,
+      "child_cpu_seconds": 14.785,
+      "child_maxrss_mib": 557.457,
+      "code_hashes": {
+        "create_aemet": "9fd0b153d3038496e89a5ba3568db292379d8ddb20d6c962661147e47da41749",
+        "aemet_recovery": "0e3e50474359ffea33a66807f46007c6d56077ea67cec8a8e5043498f516f979",
+        "official_backfill": "e2c03ae32585a357c728d91b45ff54d7432ef892196fa8ac6a35fa60c3a37e1c",
+        "rainmapper": "a2e861555dba1fb95aec9c81b1efbc0120d2191b815f4f1a14fdc734dbfef6ae",
+        "web_server": "e1cf20dc9883254cf6e97c26d2d4082c36bbe9b81db8fa4eb25a99b3ea49b28d",
+        "run.sh": "96dc549a19f6ef3126b3033d0af4204a21582de5df39e2983ca736b70fbc9804"
+      },
+      "aemet_status": "OK",
+      "aemet_exit_code": 0,
+      "aemet_seconds": 11.505,
+      "timings": {
+        "build_daily_seconds": 1.083,
+        "fetch_seconds": 2.364,
+        "merge_daily_seconds": 0.0,
+        "merge_hourly_seconds": 0.314,
+        "normalize_seconds": 0.168,
+        "read_daily_seconds": 0.0,
+        "read_hourly_seconds": 0.261,
+        "read_stations_seconds": 0.004,
+        "recovery_seconds": 3.877,
+        "retain_hourly_seconds": 0.332,
+        "station_catalog_seconds": 0.11,
+        "station_enrichment_seconds": 0.013,
+        "total_seconds": 11.484,
+        "write_outputs_seconds": 1.175
+      },
+      "runner_exit_code": "2"
+    }
+  },
+  "parity": {
+    "create_aemet": {
+      "baseline_matches_release": true,
+      "final_matches_worktree": true
+    },
+    "official_backfill": {
+      "baseline_matches_release": true,
+      "final_matches_worktree": true
+    },
+    "rainmapper": {
+      "baseline_matches_release": true,
+      "final_matches_worktree": true
+    },
+    "web_server": {
+      "baseline_matches_release": true,
+      "final_matches_worktree": true
+    },
+    "run.sh": {
+      "baseline_matches_release": true,
+      "final_matches_worktree": true
+    },
+    "aemet_recovery": {
+      "final_matches_worktree": true
+    }
+  },
+  "audit": {
+    "api_rows": 22291,
+    "api_stations": 844,
+    "first_published_date": "2026-09-29",
+    "last_published_date": "2026-10-25",
+    "compared_fields_per_store": {
+      "prec": 21547,
+      "tmax": 21891,
+      "tmin": 21892,
+      "hrmax": 21658,
+      "hrmin": 21659
+    },
+    "mismatches": 0,
+    "official_station_days": 22197,
+    "added_official_station_days": 959,
+    "old_live_rows": 147141,
+    "new_live_rows": 148122,
+    "lost_live_keys": 0,
+    "outside_window_live_rows_unchanged": 121313,
+    "lost_metadata": {
+      "Latitud": 0,
+      "Longitud": 0,
+      "Altitud": 0,
+      "Comarca": 0,
+      "Municipi": 0,
+      "Provincia": 0,
+      "Estació": 0
+    },
+    "unchanged_partitions": 45,
+    "changed_partitions": [
+      [
+        "aemet",
+        2026
+      ]
+    ],
+    "outside_window_aemet_2026_parquet_rows_unchanged": 222871,
+    "original_files_unchanged": 63,
+    "cache_bytes": 2946691
+  },
+  "repeat_archive": {
+    "committed": false,
+    "generation_id": "20261029T051022733869Z-a7c56acc38a1",
+    "already_applied_batches": 1,
+    "rewritten_partitions": 0,
+    "csv_inserted_rows": 0
+  },
+  "daily_report": {
+    "schema_version": "aemet_opendata_daily_v1",
+    "checked_at": "2026-10-29T05:10:40.912245+00:00",
+    "start_date": "2026-09-29",
+    "end_date": "2026-10-28",
+    "requests": 4,
+    "download_bytes": 10879762,
+    "api_rows": 22197,
+    "blocks": [
+      {
+        "start_date": "2026-09-29",
+        "end_date": "2026-10-13",
+        "status": "ok",
+        "rows": 12337
+      },
+      {
+        "start_date": "2026-10-14",
+        "end_date": "2026-10-28",
+        "status": "ok",
+        "rows": 9860
+      }
+    ],
+    "errors": [],
+    "official_rows": 22197,
+    "official_rain_rows": 21547,
+    "official_dates": [
+      "20260929",
+      "20260930",
+      "20261001",
+      "20261002",
+      "20261003",
+      "20261004",
+      "20261005",
+      "20261006",
+      "20261007",
+      "20261008",
+      "20261009",
+      "20261010",
+      "20261011",
+      "20261012",
+      "20261013",
+      "20261014",
+      "20261015",
+      "20261016",
+      "20261017",
+      "20261018",
+      "20261019",
+      "20261020",
+      "20261021",
+      "20261022",
+      "20261023",
+      "20261024",
+      "20261025"
+    ],
+    "awaiting_publication_dates": [
+      "2026-10-26",
+      "2026-10-27",
+      "2026-10-28"
+    ],
+    "status": "complete",
+    "message": "AEMET OpenData daily refresh: 22197 official rows; 27 published dates; 3 dates awaiting publication; 0 failed blocks."
+  },
+  "checks": [
+    "Ran 2158 tests in 128.826s",
+    "OK (skipped=55)",
+    "Smoke test passed."
+  ],
+  "cleanup": {
+    "task_directory_removed": true,
+    "worktree_tmp_removed": true,
+    "python_cache_directories_removed": 9,
+    "temporary_containers_remaining": 0,
+    "original_files_rechecked_unchanged": 63
+  }
+}

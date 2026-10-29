@@ -1,0 +1,44 @@
+{
+  "version": "0.2.339",
+  "date": "2026-10-29",
+  "base_commit": "7bbdecb9d3ede8e046f717594e34eac070962f9c",
+  "build_script": "scripts/build-push-ha-image.sh",
+  "build_exit_code": 0,
+  "build_instances": 1,
+  "ghcr": [
+    {
+      "tag": "0.2.339",
+      "digest": "sha256:b912bf2408a78fd87a62118e468f83c1a1b944e028116fdfa1b036d6505f6c3f",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ]
+    },
+    {
+      "tag": "latest",
+      "digest": "sha256:b912bf2408a78fd87a62118e468f83c1a1b944e028116fdfa1b036d6505f6c3f",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ]
+    }
+  ],
+  "validation": {
+    "functional_report": "aemet-opendata-daily-refresh-local-2026-10-29.json",
+    "runtime_code_unchanged": true,
+    "versioned_image_tests": 47,
+    "versioned_image_tests_passed": true,
+    "python_packages": 34,
+    "python_dependency_sha256": "5ef97253f595f9836c2fe6ec844390786a11d100df88571040f652c54a5c5b45"
+  },
+  "main_checkout_pending_files_preserved": 478,
+  "main_checkout_synchronized": false,
+  "real_ha_installation": "pending_user",
+  "remote_cleanup": false,
+  "buildx_cleanup_reported": "6.907GB",
+  "temporary_artifacts_removed": true,
+  "build_log_sha256": "4f7decf43e3637b87562378f040c64daad6aa1ec6c7f5f8920dfcb18d28a1eb6",
+  "git_target": "origin/inicial"
+}

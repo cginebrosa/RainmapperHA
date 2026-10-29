@@ -9970,7 +9970,7 @@ def source_status_class(status: str) -> str:
     normalized = status.upper()
     if normalized == "OK":
         return "ok"
-    if normalized in {"STALE", "PENDING", "DISABLED"}:
+    if normalized in {"STALE", "PARTIAL", "PENDING", "DISABLED"}:
         return "warn"
     if normalized == "NOK":
         return "danger"

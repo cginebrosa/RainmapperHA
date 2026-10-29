@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.339
+
+- Refresh every day in the recent AEMET OpenData daily window on each runner, including already complete dates; add `aemet_daily_refresh_days` with a default of 30 days.
+- Prefer published daily rain, temperature and humidity over provisional hourly aggregates, including downward corrections, and retain confirmed fields across API failures.
+- Persist refreshed daily values through the existing pending-batch pipeline into partitioned Parquet history and the live incremental CSV; reuse already applied batches.
+- Assign midnight hourly precipitation to the preceding provisional day and preserve missing rainfall instead of manufacturing zeroes.
+- Bound daily API responses and refresh time, and report `PARTIAL` when hourly download succeeds but official daily refresh fails.
+
 ## 0.2.338
 
 - Add `meteoclimatic-fixed-coordinates.txt` beside `stations.txt` for operator-managed station coordinates, with comments and strict validation.

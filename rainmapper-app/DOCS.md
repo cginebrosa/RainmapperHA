@@ -623,9 +623,27 @@ AEMET es una fuente opcional, desactivada por defecto:
 ```yaml
 create_aemet: false
 aemet_api_key: ""
+aemet_daily_refresh_days: 30
 ```
 
 Para activarla necesitas una clave de AEMET OpenData. Rainmapper usa el endpoint horario global de observacion convencional, guarda historico horario AEMET, agrega lluvia diaria y, cuando AEMET entrega esos campos, conserva tambien temperatura y humedad para max/min diarios. En Home Assistant, `create_aemet` controla la descarga/refresco de datos AEMET. Los mapas se generan con `--include-aemet true`, por lo que AEMET aparece en el visor protegido estandar siempre que exista un `Aemet_incremental.csv` utilizable.
+
+#### Provisionales horarios y diarios oficiales
+
+Cada ejecución normal de AEMET —también desde la web y el scheduler— hace dos descargas complementarias:
+
+1. Descarga las observaciones horarias disponibles en OpenData y las fusiona con las conservadas localmente: siete fechas cerradas más hoy. Calcula diarios provisionales mientras falta la publicación diaria. La lluvia de una observación corresponde a la hora que termina en su timestamp; la de medianoche cierra el día local anterior. Una lluvia ausente no se convierte en cero.
+2. Consulta la climatología diaria oficial de **todos los últimos 30 días anteriores a hoy**, aunque ya tengan filas o cobertura horaria completa. `aemet_daily_refresh_days` permite acotar esa ventana entre 7 y 30 días; en local equivale a `RAINMAPPER_AEMET_DAILY_REFRESH_DAYS`. Reutiliza `weather_official_backfill.fetch_aemet_climatology`: dos bloques consecutivos de hasta 15 días, normalmente cuatro peticiones HTTP (índice y datos por bloque). Se consulta en **cada runner**, sin espera de seis horas ni filtro de días incompletos. No usa scraping, XML ni servicios de la web de AEMET.
+
+Los campos oficiales publicados sustituyen a los provisionales de la misma estación y fecha, **también si corrigen a la baja**: precipitación, temperatura máxima/mínima y humedad máxima/mínima. Cada campo ausente conserva su valor previo; `Acum` no se reparte entre días ni se interpreta como cero. `Ip` sigue la normalización existente a 0 mm. El viento continúa procediendo de las observaciones horarias.
+
+**Convención temporal:** el metadato de OpenData define la precipitación climatológica como «de 07 a 07» UTC. Se conserva su fecha y valor publicados, sin convertirlos a 00–24 local. Por ello, un diario oficial puede diferir del provisional aunque se hubieran recogido todas las horas. AEMET documenta un retraso de publicación de cuatro días; el descargador utiliza las fechas que devuelve realmente la API, sin suponer que ayer ya está publicado. Véanse [OpenData](https://opendata.aemet.es/dist/) y sus [preguntas frecuentes, apartado 4.2](https://opendata.aemet.es/centrodedescargas/docs/FAQs170621.pdf).
+
+`Data/Aemet_official_daily_state.json` conserva únicamente los valores oficiales de la ventana móvil y metadatos deduplicados por estación. Evita que el siguiente agregado horario o una caída de la API rebaje un día confirmado a provisional; no es un mecanismo para omitir consultas. Al salir de la ventana, los valores permanecen en el CSV/histórico normal. No reconstruye horas inexistentes a partir de un total diario.
+
+`Data/Aemet_official_daily_report.json` registra fechas, filas, bloques, peticiones y errores del último refresco. Que una fecha aún no esté publicada es normal. Un fallo de la consulta diaria conserva lo confirmado y deja AEMET en `PARTIAL` si la descarga horaria funcionó. Las llamadas diarias tienen un presupuesto total de 60 segundos, sin bucle adicional de reintentos, y cada respuesta se limita a 8 MiB antes de parsearla; el estado se limita a 30 fechas y 1.200 estaciones.
+
+En modo particionado, el lote diario se captura antes del cierre habitual que actualiza histórico y CSV vivo. Este refresco reciente es independiente del mantenimiento histórico de días totalmente ausentes fuera del solape, invocado por `run.sh` en su flujo batch; no depende de esa cola ni amplía su alcance.
 
 Para cargar manualmente un historico reciente de dias cerrados, el repositorio incluye `scripts/aemet-backfill-30-days.py`. Ese helper se ejecuta fuera de HA, descarga el endpoint diario de climatologia AEMET, une el inventario de estaciones y genera `Aemet_incremental.csv` en una carpeta temporal local. Si se le pasa un `estacions_aemet.csv` existente con `--station-catalog`, conserva los metadatos enriquecidos de municipio/provincia/comarca. No escribe en `Data/` por defecto; tras revisar la salida, puedes subir manualmente `Aemet_incremental.csv` a la carpeta `Data` de Rainmapper en HA.
 

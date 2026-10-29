@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import urllib.error
 from datetime import date
 from typing import Any, Callable, Mapping
 
@@ -75,8 +76,8 @@ def normalize_aemet_climatology(
         values = {
             "max_temp_celsius": parse_optional_float(raw.get("tmax")),
             "min_temp_celsius": parse_optional_float(raw.get("tmin")),
-            "max_humidity_percent": parse_optional_float(raw.get("hrMax")),
-            "min_humidity_percent": parse_optional_float(raw.get("hrMin")),
+            "max_humidity_percent": parse_optional_float(raw.get("hrmax", raw.get("hrMax"))),
+            "min_humidity_percent": parse_optional_float(raw.get("hrmin", raw.get("hrMin"))),
         }
         if pd.isna(rain) and all(pd.isna(value) for value in values.values()):
             continue
@@ -90,7 +91,7 @@ def normalize_aemet_climatology(
                 "Comarca": first_non_empty(station.get("Comarca")),
                 "Municipi": first_non_empty(station.get("Municipi")),
                 "Provincia": first_non_empty(station.get("Provincia"), raw.get("provincia")),
-                "Altitud": first_non_empty(station.get("Altitud")),
+                "Altitud": parse_optional_float(first_non_empty(station.get("Altitud"), raw.get("altitud"))),
                 "Latitud": first_non_empty(station.get("Latitud")),
                 "Longitud": first_non_empty(station.get("Longitud")),
                 "Ultima Lectura": day.strftime("%Y/%m/%d 23:59:00"),
@@ -123,17 +124,25 @@ def fetch_aemet_climatology(
     api_key: str,
     timeout: int = 60,
     fetcher: Callable[..., Any] = fetch_json,
+    allow_empty: bool = False,
 ) -> list[Mapping[str, Any]]:
     validate_range(start, end)
     if not api_key:
         raise ValueError("AEMET API key is required for automatic gap repair")
     url = AEMET_DAILY_URL_TEMPLATE.format(start=start.isoformat(), end=end.isoformat())
-    index = fetcher(
-        url,
-        api_key=api_key,
-        timeout=timeout,
-        request_label=f"AEMET {AEMET_DATASET_LABEL} index",
-    )
+    try:
+        index = fetcher(
+            url,
+            api_key=api_key,
+            timeout=timeout,
+            request_label=f"AEMET {AEMET_DATASET_LABEL} index",
+        )
+    except urllib.error.HTTPError as exc:
+        if allow_empty and exc.code == 404:
+            return []
+        raise
+    if allow_empty and int(index.get("estado", 0)) == 404:
+        return []
     if int(index.get("estado", 0)) != 200 or not index.get("datos"):
         raise RuntimeError(f"AEMET did not return a climatology data URL: {index}")
     payload = fetcher(

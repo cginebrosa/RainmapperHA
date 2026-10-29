@@ -4,6 +4,17 @@ Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-cont
 Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
 [archivo del cierre](reports/session-context-before-close-2026-09-22.md).
 
+## HA 0.2.339 · seguimiento real (29/10)
+
+- [x] Publicar refresco AEMET de 30 días desde la candidata aislada y verificar
+  en GHCR ambos tags y arquitecturas; validación local aceptada por el usuario.
+- [ ] El usuario instala 0.2.339 y comprueba su primer runner en HA real:
+  resultado AEMET, informe diario y cierre del histórico particionado.
+- [ ] Antes de retomar el checkout principal, sincronizar con la release publicada
+  conservando su trabajo MCP pendiente; la publicación se prepara en worktree aislado.
+
+[Informe de release](reports/release-ha-0.2.339-2026-10-29.md).
+
 ## P1 pendiente · Utilidad de las predicciones de aereus y caesarea (04/10)
 
 - [x] Completar las dos comparaciones locales: umbral favorable y selección del

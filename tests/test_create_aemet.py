@@ -673,6 +673,7 @@ class CreateAemetTests(unittest.TestCase):
             create_aemet.fetch_observations = lambda **kwargs: rows
             try:
                 summary = create_aemet.run_update(
+                    recover_history=False,
                     data_dir=Path(tmp_dir),
                     api_key="test",
                     local_timezone="Europe/Madrid",
@@ -734,6 +735,7 @@ class CreateAemetTests(unittest.TestCase):
                 ),
             ):
                 summary = create_aemet.run_update(
+                    recover_history=False,
                     data_dir=data_dir,
                     api_key="test",
                     local_timezone="Europe/Madrid",
@@ -778,6 +780,7 @@ class CreateAemetTests(unittest.TestCase):
             create_aemet.fetch_observations = lambda **kwargs: rows
             try:
                 summary = create_aemet.run_update(
+                    recover_history=False,
                     data_dir=data_dir,
                     api_key="test",
                     local_timezone="Europe/Madrid",

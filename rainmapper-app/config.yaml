@@ -1,5 +1,5 @@
 name: Rainmapper
-version: "0.2.338"
+version: "0.2.339"
 slug: rainmapper
 description: Downloads weather data and generates Tomap/Plots files for Rainmapper.
 url: https://github.com/cginebrosa/RainmapperHA
@@ -50,6 +50,7 @@ options:
   create_meteocat: true
   create_wunderground: true
   create_aemet: false
+  aemet_daily_refresh_days: 30
   partitioned_weather_history: false
   meteoclimatic_pattern: ESCAT
   nomaps: false
@@ -117,6 +118,7 @@ schema:
   create_meteocat: bool
   create_wunderground: bool
   create_aemet: bool
+  aemet_daily_refresh_days: int(7,30)
   partitioned_weather_history: bool
   meteoclimatic_pattern: str
   nomaps: bool

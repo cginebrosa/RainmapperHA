@@ -282,6 +282,17 @@ Hay varios entry points segun entorno:
 
 ### Autocuración oficial de huecos
 
+El refresco diario reciente AEMET es independiente: `create_aemet.run_update`
+invoca `aemet_recovery.recover`, que reutiliza el cliente OpenData existente para
+reconsultar los últimos 30 días en dos bloques de hasta 15. Los campos oficiales
+no vacíos tienen prioridad sobre los horarios provisionales, incluso en días
+completos y correcciones a la baja. El estado conserva lo confirmado ante fallos,
+sin omitir consultas posteriores. Se ejecuta también desde web/scheduler al ser
+parte del descargador. Detalles y convención 07–07 UTC en
+[AEMET OpenData](../rainmapper-app/DOCS.md#provisionales-horarios-y-diarios-oficiales).
+Si falla la consulta diaria pero funciona la horaria, AEMET queda en `PARTIAL`
+(código 2, datos utilizables); fechas aún no publicadas no degradan la fuente.
+
 - Rutas: `rainmapper_core/weather_official_maintenance.py`,
   `rainmapper_core/weather_official_repair_state.py`,
   `rainmapper_core/weather_official_backfill.py` y
@@ -292,8 +303,10 @@ Hay varios entry points segun entorno:
 - Contrato: bloques máximos de 15 días, backoff 1/2/4/7, máximo un bloque por
   fuente y runner, cierre automático al recuperarse. El estado degradado es
   batch y no bloqueante.
-- Estado: implementado y probado solo en local; no forma todavía parte de la
-  instalación HA vigente.
+- Integración de la cola histórica: `run.sh` la invoca desde el flujo batch.
+  El flujo web/scheduler no invoca ese mantenimiento; su refresco reciente de
+  AEMET usa el descargador descrito arriba. El estado de despliegue debe comprobarse
+  en el contenedor efectivo, no inferirse de este documento.
 
 ### Backfill mensual administrativo
 - Rutas: `rainmapper_core/rainmapper.py` y wrappers `run.sh` de HA/local.

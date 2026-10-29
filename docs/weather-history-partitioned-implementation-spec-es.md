@@ -121,7 +121,12 @@ cinco segundos. AEMET usa climatología diaria, cuyo máximo de API también es 
 días; el backfill masivo anterior agrupaba dos peticiones como un lote mensual y
 empleaba una pausa mínima estable de dos segundos. La autocuración será más
 conservadora: como máximo una petición AEMET de 15 días por runner. El flujo
-diario AEMET normal sigue siendo distinto y usa observaciones horarias globales.
+diario AEMET normal sigue siendo distinto: usa observaciones horarias globales y
+reconsulta todos los últimos 30 días en OpenData (dos bloques de hasta 15),
+sustituyendo campos provisionales por los oficiales publicados, sin exigir huecos.
+Esta consulta reciente se ejecuta en cada descargador, también web/scheduler;
+la cola histórica descrita aquí se invoca desde el flujo batch de `run.sh`.
+Véase [el contrato AEMET](../rainmapper-app/DOCS.md#provisionales-horarios-y-diarios-oficiales).
 
 El estado batch produce salida degradada no bloqueante y un informe persistente;
 su presentación específica en Diagnostics y Errors queda pendiente. Una

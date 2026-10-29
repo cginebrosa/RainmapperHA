@@ -714,9 +714,10 @@ def source_extra_status(source):
         return {}
     try:
         from rainmapper_core import create_aemet as aemet_source
-        return aemet_source.rate_limit_status(_DATA_PATH)
+        from rainmapper_core import aemet_recovery
+        return {**aemet_source.rate_limit_status(_DATA_PATH), **aemet_recovery.status(_DATA_PATH)}
     except Exception as exc:
-        print(f'WARNING: Could not read AEMET rate limit metrics: {exc}')
+        print(f'WARNING: Could not read AEMET download metrics: {exc}')
         return {}
 
 def initialize_source_statuses():
@@ -732,16 +733,21 @@ def collect_source_result(source, future, incremental_name, enabled):
         source_df, source_incremental = future.result()
         status = 'OK' if enabled else 'DISABLED'
         message = 'Source processed successfully.' if enabled else 'Source disabled; using existing incremental data.'
+        extra_status = source_extra_status(source)
+        recovery_pending = enabled and source == 'AEMET' and extra_status.get('recovery_status') in {'pending', 'error'}
+        if recovery_pending:
+            status = 'PARTIAL'
+            message = 'Recent download succeeded. ' + extra_status.get('recovery_message', 'Official daily refresh is pending.')
         record_source_status(
             source,
             status,
-            0,
+            2 if recovery_pending else 0,
             message,
             rows=len(source_incremental),
             stations=count_incremental_stations(source_incremental),
             stale_data_used=not enabled,
             enabled=enabled,
-            extra=source_extra_status(source),
+            extra=extra_status,
             **source_runtime_metric(source),
         )
         return source_df, source_incremental
@@ -798,7 +804,7 @@ def source_exit_code():
     if not enabled_sources:
         return 0
 
-    usable_statuses = {'OK', 'STALE'}
+    usable_statuses = {'OK', 'STALE', 'PARTIAL'}
     has_usable_source = any(
         str(payload.get('status', '')).upper() in usable_statuses
         for payload in enabled_sources

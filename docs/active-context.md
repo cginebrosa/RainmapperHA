@@ -1,4 +1,29 @@
-# Contexto activo — actualización 14/10/2026
+# Contexto activo — actualización 29/10/2026
+
+## HA 0.2.339 · publicada; instalación pendiente del usuario
+
+- Release autorizada por el usuario tras aceptar la validación local del refresco
+  AEMET. Cada runner reconsulta los últimos 30 días en OpenData; los campos
+  oficiales sustituyen los provisionales y se archivan en Parquet y CSV.
+  La precipitación oficial conserva el periodo publicado 07–07 UTC.
+- Validación: 108.647 campos coincidentes con la API en ambos almacenes, ninguna
+  clave previa perdida y 45 particiones ajenas intactas. El 26–28/10 aún no tenía
+  diarios publicados en la comprobación del 29/10. Smoke: 2.158 tests, 55 omitidos;
+  47 pruebas adicionales dentro de la imagen versionada, código y 34 dependencias
+  Python coincidentes con la candidata aceptada.
+- GHCR `0.2.339` y `latest` verificados con digest `sha256:b912bf2408a78fd87a62118e468f83c1a1b944e028116fdfa1b036d6505f6c3f`,
+  plataformas `linux/amd64` y `linux/arm64`. Un solo build, exit 0.
+  [Release y límites de validación](reports/release-ha-0.2.339-2026-10-29.md).
+- Candidato aislado en `local/worktrees/aemet-recovery`, rama
+  `fix/aemet-recovery-20261029`, destinado a `origin/inicial` mediante avance directo.
+  El checkout principal se conserva sin sincronizar para no alterar su trabajo
+  pendiente MCP: revisar ambas ramas antes de retomarlo; no suponer que su código
+  local ya contiene esta release. Los cambios ajenos no se incluyen en la imagen.
+- Instalación y primer runner en HA real pendientes del usuario. Codex no ha
+  instalado la actualización ni lanzado trabajos en HA real. Worker sin cambios.
+  Temporales de validación y publicación eliminados; evidencia compacta en los informes.
+
+Los apartados siguientes conservan el contexto histórico anterior a esta release.
 
 ## Parche Meteoclimatic: continuidad actual
 
