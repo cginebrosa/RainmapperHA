@@ -1,6 +1,6 @@
 # Contexto activo — actualización 07/11/2026
 
-## HA 0.2.341 publicada; instalación pendiente del usuario
+## HA 0.2.341 instalada y funcionando; confirmación del usuario
 
 Publicación autorizada después del runner local completo de las 22:48, sin
 avisos de Pandas: 2 min 51 s, exit 0. Smoke: 2.194 tests, 55 omitidos, correcto.
@@ -14,7 +14,10 @@ con `linux/amd64` y `linux/arm64`. Un solo build/push, exit 0; caché local acot
 con 4,753 GB liberados según Buildx. Código, pruebas, observaciones autorizadas,
 bump y documentación se incluyen en un único commit en `inicial`.
 [Informe y recibo](reports/release-ha-0.2.341-2026-11-07.md).
-La instalación y la prueba en HA real corresponden al usuario; no se han hecho.
+El 07/11/2026 el usuario confirmó: «ya esta instalada y ha funcionado».
+Quedan confirmados por su prueba la instalación y el funcionamiento en HA real.
+No se inspeccionó HA real ni se recibió un log completo de esa ejecución;
+los tiempos, recuentos y comprobaciones detallados arriba corresponden a local.
 
 ## Rama principal separada del asistente
 
@@ -163,7 +166,7 @@ persistido de 891 estaciones necesita cero consultas nuevas. Siete GeoJSON sin
 respuestas antiguas y tres estaciones fallidas; `OK` no equivale a actualidad
 de todas sus observaciones.
 
-**Candidata local actual:** `63ad03aa9e28`, posterior a ese runner. Corrige el
+**Candidata funcional anterior al bump 0.2.341:** `63ad03aa9e28`, posterior a ese runner. Corrige el
 `FutureWarning` de Wunderground: evita concatenar un grupo vacío con coordenadas
 normalizadas. También permite texto/nulos en metadata geográfica previamente
 inferida como numérica por estar vacía. Pruebas con metadata nueva, cacheada y
@@ -180,8 +183,9 @@ en CSV, catálogo Parquet activo y mapa. Roda de Ter conserva 41,99/2,32 y su ma
 de revisión. Persisten las 106 respuestas antiguas y tres estaciones fallidas de
 Wunderground; no son errores de Pandas. Validación operativa registrada en el
 informe de coordenadas; no se cambió código después de este runner.
-El usuario aceptó ese resultado y autorizó la publicación de 0.2.341 descrita al
-principio. La instalación en HA real sigue pendiente del usuario. Worker intacto;
+El usuario aceptó ese resultado, autorizó la publicación de 0.2.341 y después
+confirmó su instalación y funcionamiento en HA real, como se recoge al principio.
+Worker intacto durante nuestro trabajo;
 temporales aislados y stashes del traslado eliminados; datos y modelos locales
 conservados.
 

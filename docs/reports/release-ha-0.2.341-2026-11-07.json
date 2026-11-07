@@ -82,7 +82,15 @@
   "git_target": "origin/inicial",
   "llm_branch": "feature/local-llm",
   "llm_included": false,
-  "real_ha_installation": "pending_user",
+  "real_ha_installation": "confirmed_by_user",
+  "real_ha_confirmation": {
+    "date": "2026-11-07",
+    "evidence_source": "user_message_in_conversation",
+    "user_statement": "ya esta instalada y ha funcionado",
+    "operation": "confirmed_by_user",
+    "independent_remote_inspection": false,
+    "complete_runner_log_received": false
+  },
   "worker_modified": false,
   "mcp_recreated": false,
   "remote_cleanup": false,

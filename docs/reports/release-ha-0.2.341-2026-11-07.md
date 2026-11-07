@@ -67,6 +67,17 @@ Se conserva un recibo compacto y se elimina el log temporal después de verifica
 GHCR. Código, bump, changelog, pruebas, documentación y snapshots autorizados
 se incluyen en un único commit de release.
 
-**Instalación y primer runner de 0.2.341 en HA real pendientes del usuario.**
+## Confirmación en HA real — 07/11/2026
+
+Después de instalar la versión, el usuario confirmó en esta conversación:
+«ya esta instalada y ha funcionado». A petición suya se registra esta evidencia
+posterior a la publicación: **0.2.341 instalada y funcionando en HA real según
+la prueba del usuario**.
+
+No se ha hecho una inspección remota independiente ni se ha recibido el log
+completo de esa ejecución. Los tiempos, recuentos y resultados detallados en
+la validación local no se atribuyen a HA real. Esta confirmación tampoco acredita
+que se hayan resuelto las limitaciones de datos de Wunderground descritas arriba.
+La anotación es documental; no cambia código, imagen ni versión.
 
 [Recibo estructurado](release-ha-0.2.341-2026-11-07.json).

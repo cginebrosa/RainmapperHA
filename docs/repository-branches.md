@@ -32,8 +32,10 @@ La corrección común de coordenadas se publica en la release **0.2.341** desde
 cuatro adaptadores, archivo Parquet/CSV, resumen agrupado y revisión de traslados
 en el mapa. [Contrato](weather-coordinate-protection-es.md) y
 [validación](reports/weather-coordinates-local-2026-11-04.md).
-La imagen multi-arch está verificada en GHCR; la instalación en HA real queda
-pendiente del usuario. [Publicación y validación](reports/release-ha-0.2.341-2026-11-07.md).
+La imagen multi-arch está verificada en GHCR. El 07/11/2026 el usuario confirmó
+que la había instalado y había funcionado en HA real; no se realizó una
+inspección remota independiente.
+[Publicación y validación](reports/release-ha-0.2.341-2026-11-07.md).
 
 ## Rama del asistente
 
