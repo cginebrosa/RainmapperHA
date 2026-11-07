@@ -305,17 +305,22 @@ coordenadas o altitud por estación. Ningún conflicto material se resuelve
 silenciosamente; se conserva la metadata diaria y se documenta la decisión del
 catálogo.
 
-Decisión vigente del usuario (13/09/2026): el límite habitual de salto de 1 km
-admite una excepción si el destino está dentro de las envolventes aproximadas de
-España, incluidas Baleares y Canarias, con independencia del origen. Las regiones
-se mantienen en `rainmapper_core/weather_coordinate_policy.json`; un archivo
-`Data/weather_coordinate_policy.json` sustituye íntegramente ese valor por defecto
-(una lista vacía desactiva la excepción). No son fronteras administrativas: las
-envolventes incluyen mar y territorio vecino. No hay consulta remota ni GIS pesado.
-Un salto grande hacia fuera sigue bloqueado; la excepción no permite reemplazar
-metadata por un registro de fecha anterior. Los cambios aceptados quedan en
-`update_report.coordinate_corrections` con estación, valores anteriores/nuevos y
-fecha. La propuesta inicial de aceptar solo fuera→dentro fue descartada por el usuario.
+Decisión del usuario (04/11/2026), implementada en la candidata local: un salto
+superior a 1 km conserva la ubicación aceptada y abre una excepción, sin abortar
+el archivado. Las envolventes aproximadas de España ya no autorizan traslados
+de estaciones conocidas; sirven para comprobar ubicaciones iniciales sin referencia.
+Se conservan en `rainmapper_core/weather_coordinate_policy.json`, sustituibles
+mediante `Data/weather_coordinate_policy.json`. No son fronteras administrativas.
+
+Sólo metadata original del proveedor dentro del margen retira la excepción.
+Un traslado fuera del margen requiere aprobación del administrador y se activa
+al comienzo del siguiente runner. La aprobación explícita puede actualizar la
+ubicación del catálogo aunque el lote pendiente contenga fechas anteriores;
+`metadata_date` no retrocede. Las políticas aplicadas se guardan deduplicadas en
+los receipts para que Parquet y replay CSV utilicen la misma ubicación, incluso
+tras un fallo posterior a CURRENT. El resto del histórico no se reescribe.
+La regla anterior del 13/09 que admitía saltos por destino dentro de España
+queda sustituida. [Protección, revisión y límites actuales](weather-coordinate-protection-es.md).
 
 El control de saltos no comprueba la veracidad geográfica de la ubicación inicial.
 Barcelona se reparó expresamente en local y HA real mediante un catálogo nuevo,

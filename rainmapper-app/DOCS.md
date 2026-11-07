@@ -479,6 +479,15 @@ La clave debe tener habilitados los servicios de Google necesarios para el uso q
 
 ### Coordenadas fijas por estación
 
+**Candidata local del 04/11/2026:** [protección común de coordenadas y aceptación
+desde el mapa](../docs/weather-coordinate-protection-es.md). Aplica el margen de
+1 km a todas las fuentes, conserva la ubicación aceptada, retira excepciones al
+recuperarse el proveedor y agrupa su diagnóstico al final del log. El mapa señala
+las estaciones afectadas con borde ámbar y permite a administradores revisar y
+aceptar el traslado para el siguiente runner. El TXT siguiente sigue siendo
+compatible, pero las líneas recuperadas se comentan automáticamente. La explicación
+que sigue documenta el mecanismo manual publicado hasta 0.2.340.
+
 Disponible desde el parche HA **0.2.338**. [Guía de operación y recuperación](../docs/meteoclimatic-fixed-coordinates-es.md).
 
 Archivo opcional: `/share/rainmapper/meteoclimatic-fixed-coordinates.txt`, en la
@@ -603,6 +612,11 @@ Este valor afecta a la generacion de los CSV `Tomap` y a las columnas `Data_Pluj
 
 Los visores detectan dinamicamente cuantos registros trae cada GeoJSON. MapLibre ademas muestra un control `Last rains history` en Settings para limitar cuantos de esos registros ya generados se ven en pantalla. Ese control del visor no crea mas historico; solo filtra lo que ya esta publicado.
 
+Al convertir `Tomap` a GeoJSON, `Ultima Lectura` se lee explícitamente como texto.
+Si falta, se publica como `null`; no se inventa una fecha. Esto evita avisos de
+tipos mixtos cuando un bloque del CSV contiene sólo fechas vacías, sin modificar
+las coordenadas ni las mediciones.
+
 ## Fuentes de datos
 
 Estas opciones permiten activar o desactivar fuentes:
@@ -644,6 +658,45 @@ Los campos oficiales publicados sustituyen a los provisionales de la misma estac
 `Data/Aemet_official_daily_report.json` registra fechas, filas, bloques, peticiones y errores del último refresco. Que una fecha aún no esté publicada es normal. Un fallo de la consulta diaria conserva lo confirmado y deja AEMET en `PARTIAL` si la descarga horaria funcionó. Las llamadas diarias tienen un presupuesto total de 60 segundos, sin bucle adicional de reintentos, y cada respuesta se limita a 8 MiB antes de parsearla; el estado se limita a 30 fechas y 1.200 estaciones.
 
 En modo particionado, el lote diario se captura antes del cierre habitual que actualiza histórico y CSV vivo. Este refresco reciente es independiente del mantenimiento histórico de días totalmente ausentes fuera del solape, invocado por `run.sh` en su flujo batch; no depende de esa cola ni amplía su alcance.
+
+#### Estaciones sin precipitación y catálogo de ubicaciones
+
+Las observaciones horarias con identificador y fecha válidos se conservan aunque
+no incluyan `prec`. Se aprovechan su ubicación, temperatura, humedad y viento;
+la lluvia ausente, inválida o negativa queda sin dato. Una respuesta que omita una
+medición de una hora ya guardada conserva el valor anterior; las correcciones
+numéricas, incluido cero, sí lo sustituyen. Una fila que sólo aporta metadata
+puede completar el catálogo, pero no genera un día meteorológico vacío.
+
+Después del refresco diario, si quedan estaciones sin ubicación en el catálogo,
+se consulta **una vez el inventario climatológico global de OpenData** (índice y
+datos). Sólo se incorporan las estaciones necesarias para las horarias/diarias;
+las coordenadas válidas existentes no se sustituyen por las del inventario. Sus
+coordenadas DMS se validan y convierten a grados decimales. La consulta tiene un
+presupuesto total de 30 s, un máximo de 512 KiB de datos y 1.200 estaciones.
+
+El catálogo se guarda en `estacions_aemet.csv` y se reutiliza: si todas las
+estaciones necesarias están ubicadas, el siguiente runner no consulta el
+inventario. Si la consulta falla o quedan códigos sin resolver, se mantienen las
+mediciones, el informe diario incluye `station_inventory`, y la fuente queda
+`PARTIAL`; se volverá a intentar en el siguiente runner. No hay reintentos por
+estación ni un intervalo adicional de seis horas.
+
+La protección de coordenadas se aplica a las horarias y al inventario original.
+Una ubicación válida puede resolver «sin ubicación»; un salto de más de 1 km
+respecto a la aceptada conserva la anterior y requiere el procedimiento de
+revisión. Releer CSV o datos pendientes no cuenta como evidencia nueva.
+
+Cuando faltan municipio o provincia, se mantiene el enriquecimiento habitual de
+Google Maps. La función común consulta elevación y geocodificación inversa, aunque
+para AEMET se conserva preferentemente la altitud proporcionada por la fuente.
+Los resultados se guardan y se reutilizan mientras no cambien las coordenadas y
+los campos requeridos estén completos; la comarca vacía no fuerza otra consulta.
+La primera incorporación de estaciones al catálogo puede necesitar esas llamadas.
+
+Los diarios reconstruidos y oficiales utilizan el catálogo completado antes de
+su captura y archivado Parquet. Se actualizan las fechas tocadas por la ventana
+normal; esta corrección no recorre ni reescribe todo el histórico de otros años.
 
 Para cargar manualmente un historico reciente de dias cerrados, el repositorio incluye `scripts/aemet-backfill-30-days.py`. Ese helper se ejecuta fuera de HA, descarga el endpoint diario de climatologia AEMET, une el inventario de estaciones y genera `Aemet_incremental.csv` en una carpeta temporal local. Si se le pasa un `estacions_aemet.csv` existente con `--station-catalog`, conserva los metadatos enriquecidos de municipio/provincia/comarca. No escribe en `Data/` por defecto; tras revisar la salida, puedes subir manualmente `Aemet_incremental.csv` a la carpeta `Data` de Rainmapper en HA.
 

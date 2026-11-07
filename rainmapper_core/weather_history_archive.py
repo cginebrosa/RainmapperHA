@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 from rainmapper_core.meteoclimatic_fixed_coordinates import FixedCoordinates
+from rainmapper_core.weather_coordinates import CoordinatePolicy
 
 from rainmapper_core.weather_history_dataset import resolve_weather_generation, write_json_atomic
 from rainmapper_core.weather_history_pending import list_pending_batches
@@ -79,14 +80,15 @@ def archive_and_close_pending(data_dir: Path) -> dict[str, Any]:
     for pending in list_pending_batches(Path(data_dir)):
         if pending.batch_id not in receipts:
             continue
+        update_report = manifest.get("update_report", {})
+        policy_id = update_report.get("coordinate_policy_by_batch", {}).get(pending.batch_id)
+        policy = (CoordinatePolicy(update_report["coordinate_policies"][policy_id]) if policy_id else
+                  FixedCoordinates(update_report.get("fixed_coordinates_by_batch", {}).get(pending.batch_id), log=False))
         csv_report = apply_pending_to_live_csv(
             Path(data_dir),
             pending,
             reference_day=reference_day,
-            fixed_coordinates=FixedCoordinates(
-                manifest.get("update_report", {}).get("fixed_coordinates_by_batch", {}).get(pending.batch_id),
-                log=False,
-            ),
+            fixed_coordinates=policy,
         )
         csv_reports.append(csv_report.to_dict())
         acknowledge_archived_pending(Path(data_dir), pending.batch_id)

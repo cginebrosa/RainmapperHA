@@ -112,7 +112,7 @@ def add_station_sources(df):
     return result, unknown_codes
 
 
-def dataframe_to_geojson(df, generated_at=None):
+def dataframe_to_geojson(df, generated_at=None, coordinate_exceptions=None):
     features = []
     for record in df.to_dict(orient="records"):
         try:
@@ -131,6 +131,18 @@ def dataframe_to_geojson(df, generated_at=None):
         }
         if not properties.get("Source"):
             properties["Source"] = infer_station_source(properties.get("Codi Estació"))
+        from rainmapper_core.weather_coordinates import station_key, point, LOCATION
+        exception = (coordinate_exceptions or {}).get(station_key(properties.get("Source") or "unknown", properties.get("Codi Estació") or "unknown"))
+        if exception:
+            accepted = exception.get("accepted") or {}
+            if not point(accepted):
+                continue
+            lat, lon = accepted["lat"], accepted["lon"]
+            for key, column in LOCATION.items():
+                if key not in {"lat", "lon"}:
+                    properties[column] = accepted.get(key)
+            properties.update(coordinate_exception=True, coordinate_since=exception["first_seen"],
+                              coordinate_acceptance_pending=bool(exception.get("approval")))
         features.append(
             {
                 "type": "Feature",
@@ -151,9 +163,10 @@ def dataframe_to_geojson(df, generated_at=None):
     }
 
 
-def convert_file(input_file, output_file, ignore_station_codes):
+def convert_file(input_file, output_file, ignore_station_codes, coordinate_exceptions=None):
     started = time_module.perf_counter()
-    df = pd.read_csv(input_file)
+    # Dates stay text even when a parser block contains only missing readings.
+    df = pd.read_csv(input_file, dtype={"Ultima Lectura": "string"})
     missing_columns = {"Latitud", "Longitud"} - set(df.columns)
     if missing_columns:
         raise ValueError(f"{input_file} is missing columns: {', '.join(sorted(missing_columns))}")
@@ -164,6 +177,7 @@ def convert_file(input_file, output_file, ignore_station_codes):
     geojson = dataframe_to_geojson(
         df,
         generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+        coordinate_exceptions=coordinate_exceptions,
     )
     output_file.write_text(
         json.dumps(geojson, ensure_ascii=False, allow_nan=False),
@@ -178,7 +192,7 @@ def convert_file(input_file, output_file, ignore_station_codes):
     return len(geojson["features"]), ignored_count, time_module.perf_counter() - started
 
 
-def convert_all(input_dir, output_dir, ignore_stations_file):
+def convert_all(input_dir, output_dir, ignore_stations_file, data_dir=None):
     started = time_module.perf_counter()
     ignore_station_codes = load_ignore_station_codes(ignore_stations_file)
     if ignore_station_codes:
@@ -187,6 +201,8 @@ def convert_all(input_dir, output_dir, ignore_stations_file):
         )
 
     converted = []
+    from rainmapper_core.weather_coordinates import read_state
+    coordinate_exceptions = read_state(data_dir)["exceptions"] if data_dir is not None else {}
     for csv_name, geojson_name in TOMAP_FILES.items():
         input_file = input_dir / csv_name
         output_file = output_dir / geojson_name
@@ -194,7 +210,7 @@ def convert_all(input_dir, output_dir, ignore_stations_file):
             print(f"Skipping missing Tomap file: {input_file}")
             continue
 
-        feature_count, ignored_count, duration_seconds = convert_file(input_file, output_file, ignore_station_codes)
+        feature_count, ignored_count, duration_seconds = convert_file(input_file, output_file, ignore_station_codes, coordinate_exceptions)
         converted.append(output_file)
         ignored_text = f", ignored {ignored_count} station(s)" if ignored_count else ""
         print(
@@ -210,6 +226,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Convert Rainmapper Tomap CSV files to mobile-friendly GeoJSON files."
     )
+    parser.add_argument("--data-dir", default="Data", help="Weather data directory containing coordinate exceptions")
     parser.add_argument(
         "--input-dir",
         default="Tomap",
@@ -235,7 +252,7 @@ def main():
     args = parse_args()
     input_dir = Path(args.input_dir)
     output_dir = Path(args.output_dir)
-    converted = convert_all(input_dir, output_dir, args.ignore_stations_file)
+    converted = convert_all(input_dir, output_dir, args.ignore_stations_file, Path(args.data_dir))
 
     if not converted:
         raise SystemExit("No GeoJSON files were generated.")

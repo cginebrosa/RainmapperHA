@@ -47,6 +47,8 @@ def capture_fresh_weather_rows(
     """Capture only the fresh/rebuilt rows, before the live daily CSV write."""
     if not partitioned_history_enabled() or frame is None or frame.empty:
         return None
+    from rainmapper_core.weather_coordinates import protect_frame
+    frame = protect_frame(data_dir, source, frame)
     return build_pending_batch(
         Path(data_dir),
         source,

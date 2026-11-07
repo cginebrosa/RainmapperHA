@@ -19,5 +19,6 @@
   "create_meteoclimatic": true,
   "create_meteocat": true,
   "create_wunderground": true,
-  "create_aemet": true
+  "create_aemet": true,
+  "max_threads": 1
 }

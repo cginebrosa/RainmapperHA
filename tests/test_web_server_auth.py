@@ -270,6 +270,9 @@ class AuthDeviceLimitTests(unittest.TestCase):
             def wait():
                 return 1
 
+        activated = mock.Mock(stdout=iter(()))
+        activated.wait.return_value = 0
+
         data_dir = Path(self.temp_dir.name)
         self.web_server.LOG_PATH = data_dir / "runner.log"
         self.web_server.STATUS_PATH = data_dir / "runner.status"
@@ -283,7 +286,7 @@ class AuthDeviceLimitTests(unittest.TestCase):
         with (
             mock.patch.object(self.web_server, "monthly_backfill_enabled", return_value=False),
             mock.patch.object(self.web_server, "command_for", return_value=["fake"]) as command_for,
-            mock.patch.object(self.web_server.subprocess, "Popen", return_value=FailedUpdateProcess()),
+            mock.patch.object(self.web_server.subprocess, "Popen", side_effect=[activated, FailedUpdateProcess()]),
             mock.patch.object(self.web_server, "set_current_process"),
             mock.patch.object(self.web_server, "publish_maps") as publish_maps,
             mock.patch.object(self.web_server.runtime_diagnostics, "OperationMonitor", return_value=monitor),

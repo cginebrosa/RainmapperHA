@@ -1,7 +1,9 @@
+import csv
 import json
 import shutil
 import tempfile
 import unittest
+import warnings
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -16,6 +18,28 @@ FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures"
 
 
 class TomapToGeojsonTests(unittest.TestCase):
+    def test_wide_csv_with_empty_last_reading_keeps_dates_and_null_without_dtype_warning(self):
+        # Production crossed the CSV parser's block boundary: 2,049 stations,
+        # 415 columns, and the last station has no last-reading timestamp.
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            p = Path(tmp_dir)
+            columns = ["Codi Estació", "Latitud", "Longitud", "Ultima Lectura", "Pluja"]
+            columns += [f"history_{i}" for i in range(410)]
+            with (p / "input.csv").open("w", newline="") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(columns)
+                for i in range(2049):
+                    writer.writerow([f"AEMET:{i}", 41.5, 2.1,
+                                     "2026/11/07 21:00:00" if i < 2048 else "", 1.2, *([""] * 410)])
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", pd.errors.DtypeWarning)
+                count, _, _ = tomap_to_geojson.convert_file(p / "input.csv", p / "output.geojson", set())
+            features = json.loads((p / "output.geojson").read_text())["features"]
+            self.assertEqual(count, 2049)
+            self.assertEqual(features[0]["properties"]["Ultima Lectura"], "2026/11/07 21:00:00")
+            self.assertIsNone(features[-1]["properties"]["Ultima Lectura"])
+            self.assertTrue(all(f["properties"]["Pluja"] == 1.2 for f in features))
+
     def test_infer_station_source_from_station_code_pattern(self):
         self.assertEqual(tomap_to_geojson.infer_station_source("AEMET:9632X"), "AEMET")
         self.assertEqual(tomap_to_geojson.infer_station_source("ESCAT2500000025515A"), "Meteoclimatic")

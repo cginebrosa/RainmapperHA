@@ -1,4 +1,191 @@
-# Contexto activo — actualización 29/10/2026
+# Contexto activo — actualización 07/11/2026
+
+## HA 0.2.341 publicada; instalación pendiente del usuario
+
+Publicación autorizada después del runner local completo de las 22:48, sin
+avisos de Pandas: 2 min 51 s, exit 0. Smoke: 2.194 tests, 55 omitidos, correcto.
+Después sólo cambian versión, referencias de caché y documentación. La imagen
+local se reconstruyó/recreó con 0.2.341; 15 archivos efectivos coincidentes y
+prueba de regresión dentro del contenedor correcta. Worker y MCP intactos.
+
+GHCR confirma `0.2.341` y `latest` con el mismo digest
+`sha256:5097c0c05cb5a330d99065d10ad5efef64b67378e71a3bf7a0b77edf64536898`,
+con `linux/amd64` y `linux/arm64`. Un solo build/push, exit 0; caché local acotada
+con 4,753 GB liberados según Buildx. Código, pruebas, observaciones autorizadas,
+bump y documentación se incluyen en un único commit en `inicial`.
+[Informe y recibo](reports/release-ha-0.2.341-2026-11-07.md).
+La instalación y la prueba en HA real corresponden al usuario; no se han hecho.
+
+## Rama principal separada del asistente
+
+La carpeta raíz habitual trabaja en `inicial`. La release 0.2.341 parte de
+`612f162b` (HA 0.2.340) y se publica en `origin/inicial`. El asistente LLM/MCP
+queda guardado en `feature/local-llm` (`c20d3c6d`), sin checkout adicional;
+sus cambios no forman parte de esta rama. Se han retirado los worktrees
+auxiliares y comprobado los hashes de los cambios trasladados.
+[Mapa de ramas y datos locales](repository-branches.md).
+
+El usuario también ha autorizado versionar los dos JSON locales de observaciones
+en `inicial`: 441 registros en `mushroom-data/mushroom_observations.json` y 520 en
+`mushroom_observations.json`. Se conservan como snapshots separados y verificados,
+incluidos en el commit de 0.2.341; no se incorporan al trabajo del LLM.
+
+La protección común de coordenadas está implementada para todas las fuentes:
+salto superior a 1 km conserva referencia y abre excepción; sólo metadata
+original recuperada dentro del margen la retira. Un traslado estable necesita
+aceptación del administrador. El mapa muestra borde ámbar y revisión con ambas
+posiciones; la decisión se activa en el siguiente runner y termina cuando queda
+persistida. Resumen final por fuente. [Contrato completo](weather-coordinate-protection-es.md).
+
+En la validación inicial, el incidente real se resolvió
+en una copia temporal dentro del contenedor: cuatro lotes archivados y
+CSV cerrados en 14,479 s; ocho filas de Tarragona con 160 campos no geográficos
+verificados y 42 particiones intactas. Se detectaron 34 excepciones AEMET,
+una Meteocat y una Meteoclimatic en esos pendientes históricos; no equivale a
+comprobar la metadata que publican hoy los proveedores.
+[Evidencia y límites](reports/weather-coordinates-local-2026-11-04.md).
+
+El runner local del usuario del 07/11 a las 16:52 detectó una regresión:
+`Expected bytes, got a 'float' object` en Latitud (Meteoclimatic) y Altitud
+(Meteocat), al capturar metadata textual mezclada con correcciones numéricas.
+Ambas fuentes reutilizaron sus datos previos. Reproducido y corregido mediante
+normalización de las tres columnas geográficas; nuevas pruebas hasta Parquet.
+Tarragona-Fortí St.Jordi se recuperó y salió de excepción en ese run.
+
+La revisión de tipos se validó con la imagen `518879564b64`: smoke de 2.182 tests,
+55 omitidos, sin fallos; captura aislada de 7.192 filas Meteoclimatic y 1.494
+Meteocat, sin errores ni cambios en mediciones. El mapa añade buscador de
+ubicaciones en revisión, puntas exactas y detalles legibles.
+
+Tras la revisión visual del usuario, el botón queda junto al título sin aumentar
+la altura de la cabecera; botón y lista se ocultan hasta 640 px de ancho.
+Chrome comprueba el diseño a 1280/768/641/640/390 px. HA local reconstruido y
+recreado con este ajuste: imagen `dae5603b4bf4`, 13 archivos efectivos coincidentes
+y HTML/JS/CSS servidos por HTTP verificados. Variables y volúmenes conservados.
+Smoke repetido sobre el ajuste final: 2.182 tests en 132,187 s, 55 omitidos, exit 0.
+
+El runner del usuario a las 17:22 descubrió otra regresión de esa normalización:
+Meteoclimatic comparaba coordenadas numéricas con texto del catálogo antiguo y
+volvía a consultar altitudes. Se detuvo sólo el descargador local tras 752
+estaciones, todas ya registradas; el runner terminó con exit 1 por la interrupción
+y archivó los pendientes de las otras fuentes. El catálogo Meteoclimatic quedó
+intacto. Corregida la comparación normalizando ambos lados, con pruebas del
+recorrido guard → catálogo previo → captura → archivo Parquet y de reutilización
+en el siguiente run. Replay de las mismas 752 posiciones: 752 llamadas simuladas
+antes y cero después, sin llamadas reales ni cambios en el CSV operativo.
+
+La primera corrección se probó con la imagen `755d1586ee9f`, 13 archivos efectivos
+coincidentes, y dos pruebas específicas dentro del contenedor. HA real tiene
+`max_threads: 1`, confirmado por el usuario; local se ha ajustado a 1 y se ha
+comprobado el valor efectivo del proceso. Worker, claves y volúmenes conservados.
+Smoke completo: 2.184 tests en 133,787 s, 55 omitidos, exit 0.
+Ver los detalles y límites en el apartado final del
+[informe de validación](reports/weather-coordinates-local-2026-11-04.md).
+
+**Esa primera corrección no resolvía el recorrido real.** El runner de las 17:33
+volvió a consultar altitudes y se detuvo tras 229 estaciones (exit 1 a las 17:35:32).
+Faltaba en la prueba `create_total_meteoclimatic`: su `round(1)` global convertía
+41.43 en 41.4 al recibir las coordenadas ya numéricas. El agregador ahora redondea
+sólo las mediciones y conserva latitud, longitud y altitud. La nueva prueba usa
+la creación y el guardado incremental reales, hasta archivo y cierre, dos veces.
+
+**Candidata anterior, antes del arreglo AEMET:** `653bc208d1e4`, 13 archivos efectivos coincidentes,
+`max_threads: 1`, tres pruebas específicas correctas dentro del contenedor.
+Prueba real autorizada limitada a Barcelona-Rectoret y Godelleta, dos pasadas:
+2,460 s y 2,439 s, posiciones/altitudes conservadas y lluvia archivada; **cero
+llamadas Google Maps**, con límite preventivo de dos enriquecimientos para toda
+la prueba. RSS real; catálogo operativo intacto; copias e históricos temporales
+eliminados. No equivale a un runner completo de las cuatro fuentes.
+Smoke final sobre ese código: 2.185 tests en 136,191 s, 55 omitidos, exit 0.
+
+Wunderground: API consultada directamente el 07/11 a las 17:08; dos estaciones
+siguen con datos de unas seis horas de antigüedad tras las tres compresiones y
+las cuatro fallidas dan HTTP 204 con las tres. No se modificó su descargador.
+[Evidencia y alcance](reports/wunderground-api-check-2026-11-07.md).
+
+El runner local del usuario del 07/11 a las 21:44 terminó en 3 min 30 s, exit 0,
+con siete GeoJSON. Meteoclimatic tardó 16,647 s y el log no contiene consultas
+`Fetching altitude`; Wunderground todavía informa de datos antiguos y tres fallos.
+Las 17 excepciones AEMET son estaciones sin coordenadas, ya presentes así en la
+copia de HA del 04/11, detectadas por el control el 07/11 a las 16:52. No son
+17 traslados nuevos: todas tienen `reason=unlocated`, sin posición anterior ni
+recibida. Consulta directa de la API a las 21:56: 15 de esas estaciones sí aparecen
+con coordenadas en las horarias originales, pero `normalize_observations` elimina
+sus filas cuando falta precipitación numérica, antes de construir el catálogo.
+Las otras dos (Montserrat y La Bisbal) no están en la respuesta horaria actual.
+El inventario climatológico oficial devuelve coordenadas para las 17. El filtro
+ya existe en HEAD. **Corrección implementada y validada después de ese diagnóstico:**
+horarias sin lluvia conservan ubicación y otros sensores; se completan posiciones
+ausentes con una consulta conjunta al inventario y se reutiliza el catálogo.
+Las mediciones omitidas no borran valores previos; los diarios sin lluvia quedan
+sin dato. No se recorren particiones históricas fuera de la ventana normal.
+
+**Candidata AEMET anterior al ajuste GeoJSON:** `0f183c847ef3`, reconstruida/recreada desde `inicial`.
+Paridad efectiva comprobada en 14 archivos; entorno, volúmenes y worker
+conservados. Pruebas dirigidas: 59 en host, 57 dentro de la imagen (API web probada
+en host). Dos descargas reales de AEMET sobre copia temporal: 12,325 s y 12,055 s,
+con enriquecimiento Google desactivado. Las 17 estaciones quedan localizadas en
+Parquet y GeoJSON, 848 posiciones anteriores intactas y 123.088 filas diarias no
+tocadas conservadas. La segunda ejecución no consulta inventario. Prueba adicional
+con copia del catálogo Parquet real: 12,652 s y cero excepciones AEMET restantes.
+Catálogo de prueba: 848 → 891 estaciones; 21 incorporadas desde horarias y 22
+desde inventario. El primer runner operativo podría enriquecer hasta esas 43
+fichas; los metadatos de las 848 anteriores ya estaban completos.
+Google real sólo se probó para Port Ainé y Montserrat: dos enriquecimientos en
+la primera pasada, cero en la segunda, reutilizando las respuestas AEMET reales.
+Suite completa: 2.191 tests, 55 omitidos, 132,545 s, correcta fuera del sandbox.
+El único fallo restante del smoke fue un blanco documental al final del fichero,
+corregido y comprobado con `git diff --check` sin repetir la suite.
+Datos operativos intactos; copias y pruebas temporales eliminadas. Evidencia en
+el informe de coordenadas y contrato en `rainmapper-app/DOCS.md`.
+El runner completo lanzado por el usuario terminó el 07/11 a las **22:29:04**,
+exit 0, **3 min 9 s**: siete GeoJSON publicados, **17 recuperaciones AEMET y cero
+excepciones AEMET activas**. Roda de Ter sigue protegida frente al salto a 49,99° N.
+
+**Candidata del ajuste GeoJSON:** `3eb225afa47a`, reconstruida/recreada con un ajuste
+posterior de lectura GeoJSON: `Ultima Lectura` se tipa como texto, manteniendo
+ausencias como `null`. El aviso de tipos mixtos apareció con 2.049 filas y 415
+columnas: la última estación, Meteocat ZD, no tiene esa fecha. No afectó a los
+valores publicados. Pasan **22 pruebas dirigidas** y la comparación dentro de
+la nueva imagen de los **siete GeoJSON reales**, idénticos en todas sus features
+y sin ese aviso; 4,3 s. Código efectivo comprobado; los módulos AEMET conservan
+sus hashes anteriores. Entorno y montajes conservados; worker y MCP intactos.
+No se repitieron descargas ni llamadas Google; salidas temporales eliminadas,
+Tomap y GeoJSON publicados sin cambios. La suite completa citada arriba precede
+a este ajuste; la validación posterior fue la dirigida y la comparación real.
+Tras copiar de nuevo `Data` de HA real, el runner del usuario de **22:37:11 a
+22:40:08** terminó con exit 0 en **2 min 57 s**. Las cuatro fuentes figuran `OK`;
+AEMET tardó 23,193 s, con 22 ubicaciones completadas por inventario, ninguna
+pendiente. Las 17 estaciones investigadas coinciden en CSV, catálogo Parquet de
+la generación activa y mapa de 90 días. El enriquecimiento sobre el catálogo
+persistido de 891 estaciones necesita cero consultas nuevas. Siete GeoJSON sin
+`DtypeWarning`; sólo Roda de Ter sigue en excepción. Wunderground conserva 106
+respuestas antiguas y tres estaciones fallidas; `OK` no equivale a actualidad
+de todas sus observaciones.
+
+**Candidata local actual:** `63ad03aa9e28`, posterior a ese runner. Corrige el
+`FutureWarning` de Wunderground: evita concatenar un grupo vacío con coordenadas
+normalizadas. También permite texto/nulos en metadata geográfica previamente
+inferida como numérica por estar vacía. Pruebas con metadata nueva, cacheada y
+mixta conservan lluvia y coordenadas hasta captura Parquet, y sólo la metadata
+nueva retira excepciones. **89 pruebas dirigidas** correctas; la integración de
+Wunderground pasa dentro de la imagen, sin llamadas externas. **Smoke completo:
+2.194 tests, 55 omitidos, 132,511 s, exit 0**. Paridad de 14 archivos efectivos,
+entorno/montajes conservados, worker y MCP intactos.
+El usuario lanzó después el runner completo **22:48:34–22:51:25** sobre esa imagen:
+**exit 0, 2 min 51 s, sin `FutureWarning` ni `DtypeWarning`**, siete GeoJSON y
+cuatro fuentes `OK`. AEMET tarda **12,767 s**, no solicita inventario y reutiliza
+los metadatos completos de sus 891 fichas. Las 17 posiciones siguen coincidiendo
+en CSV, catálogo Parquet activo y mapa. Roda de Ter conserva 41,99/2,32 y su marca
+de revisión. Persisten las 106 respuestas antiguas y tres estaciones fallidas de
+Wunderground; no son errores de Pandas. Validación operativa registrada en el
+informe de coordenadas; no se cambió código después de este runner.
+El usuario aceptó ese resultado y autorizó la publicación de 0.2.341 descrita al
+principio. La instalación en HA real sigue pendiente del usuario. Worker intacto;
+temporales aislados y stashes del traslado eliminados; datos y modelos locales
+conservados.
+
+## Registro anterior — 29/10/2026
 
 ## HA 0.2.340 · publicada; instalación pendiente del usuario
 

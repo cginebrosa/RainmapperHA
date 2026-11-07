@@ -541,6 +541,16 @@ run_maps() {
   echo "Rainmapper maps finished."
 }
 
+if [ "${RAINMAPPER_COORDINATES_ACTIVATED:-false}" != "true" ]; then
+  case "$MODE" in
+    update|once|all)
+      export RAINMAPPER_WEATHER_RUN_ID="${RAINMAPPER_WEATHER_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
+      python -m rainmapper_core.weather_coordinates activate --data-dir /app/Data
+      trap 'python -m rainmapper_core.weather_coordinates reconcile --data-dir /app/Data; python -m rainmapper_core.weather_coordinates summary --data-dir /app/Data' EXIT
+      ;;
+  esac
+fi
+
 case "$MODE" in
   help)
     python -m rainmapper_core.rainmapper --help

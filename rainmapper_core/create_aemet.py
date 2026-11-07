@@ -21,6 +21,7 @@ import pandas as pd
 
 from rainmapper_core.config import const as rainmapper_const
 from rainmapper_core.atomic_io import write_csv_atomic
+from rainmapper_core.weather_coordinates import protect_frame
 from rainmapper_core.geocoding import extract_google_metadata, googlemaps_station_metadata
 from rainmapper_core.wind import (
     WIND_COLUMNS,
@@ -417,7 +418,7 @@ def normalize_observations(rows, local_timezone=LOCAL_TIMEZONE):
         fint = str(row.get("fint") or "").strip()
         rain = row.get("prec")
         timestamp_utc = parse_aemet_timestamp(fint)
-        if not station_id or timestamp_utc is None or not isinstance(rain, (int, float)):
+        if not station_id or timestamp_utc is None:
             continue
 
         timestamp_local = timestamp_utc.astimezone(tz)
@@ -432,7 +433,8 @@ def normalize_observations(rows, local_timezone=LOCAL_TIMEZONE):
             "reading_local": timestamp_local.strftime("%Y-%m-%d %H:%M:%S"),
             "local_date": timestamp_local.strftime("%Y%m%d"),
             "local_time": timestamp_local.strftime("%H:%M:%S"),
-            "rain_mm": float(rain),
+            # A missing rain sensor must not discard location or other sensors.
+            "rain_mm": float(rain) if isinstance(rain, (int, float)) and not isinstance(rain, bool) and np.isfinite(rain) and rain >= 0 else np.nan,
             "temp_celsius": parse_optional_float(row.get("ta")),
             "humidity_percent": parse_optional_float(row.get("hr")),
             "lat": row.get("lat"),
@@ -665,6 +667,23 @@ def update_hourly_incremental(current_hourly, existing_hourly):
     history lets repeated runs gradually build full-day totals without assuming
     that a late-evening response still includes the morning.
     """
+    keys = ["aemet_id", "fint_utc"]
+    # Newly retained observations may omit rain. Keep previously measured
+    # values for that same hour; explicit numeric corrections (including 0) win.
+    if not current_hourly.empty and not existing_hourly.empty:
+        previous = normalize_hourly_key_columns(existing_hourly).drop_duplicates(keys, keep="last").set_index(keys)
+        current = normalize_hourly_key_columns(current_hourly).drop_duplicates(keys, keep="last").set_index(keys)
+        weather = ["rain_mm", "temp_celsius", "humidity_percent", *WIND_COLUMNS]
+        for column in weather:
+            if column in current and column in previous:
+                if column == "wind_observation_count":
+                    continue
+                current[column] = current[column].where(current[column].notna(), previous[column].reindex(current.index))
+        if "wind_observation_count" in current and "wind_observation_count" in previous:
+            current["wind_observation_count"] = current["wind_observation_count"].where(
+                current["wind_observation_count"] > 0,
+                previous["wind_observation_count"].reindex(current.index).fillna(0))
+        current_hourly = current.reset_index()
     frames = [df for df in (existing_hourly, current_hourly) if not df.empty]
     if not frames:
         return pd.DataFrame(columns=HOURLY_COLUMNS)
@@ -684,6 +703,8 @@ def build_station_catalog(hourly_df, existing_stations=None):
     so manual or reverse-geocoded enrichment is not lost on every run.
     """
     if hourly_df.empty:
+        if existing_stations is not None:
+            return existing_stations.reindex(columns=STATION_COLUMNS).copy()
         return pd.DataFrame(columns=STATION_COLUMNS)
 
     df = hourly_df.copy()
@@ -864,7 +885,7 @@ def build_daily_incremental(hourly_df, stations_df=None):
     )
     # Only precipitation has the preceding-hour boundary. Keep instantaneous
     # temperature/humidity and the existing wind aggregates on their sample day.
-    rain_totals = df.groupby(["station_code", "rain_local_date"], sort=False)["rain_mm"].sum(min_count=1).round(1)
+    rain_totals = df.loc[df["rain_mm"].notna()].groupby(["station_code", "rain_local_date"], sort=False)["rain_mm"].sum(min_count=1).round(1)
     rain_totals.index.names = group_keys
     aggregates = aggregates.join(rain_totals.rename("Total"), how="outer")
     for column in (
@@ -881,6 +902,12 @@ def build_daily_incremental(hourly_df, stations_df=None):
     aggregates["wind_direction_deg"] = circular_mean_grouped(df, group_keys, "wind_direction_deg")
     aggregates["wind_gust_direction_deg"] = circular_mean_grouped(df, group_keys, "wind_gust_direction_deg")
     aggregates["wind_observation_count"] = aggregates["wind_observation_count"].fillna(0).astype(int)
+    # Metadata-only observations do not create empty days or zero rain.
+    aggregates = aggregates.dropna(how="all", subset=[
+        "Total", "max_temp_celsius", "min_temp_celsius", "max_humidity_percent",
+        "min_humidity_percent", "wind_avg_kmh", "wind_min_kmh", "wind_max_kmh", "wind_gust_kmh",
+        "wind_direction_deg", "wind_gust_direction_deg",
+    ])
     aggregates = aggregates.reset_index()
 
     sorted_df = df.sort_values(["station_code", "local_date", "reading_local_dt"], ascending=[True, True, True])
@@ -902,7 +929,8 @@ def build_daily_incremental(hourly_df, stations_df=None):
     rain_metadata = sorted_df.loc[sorted_df["local_date"] != sorted_df["rain_local_date"], [*last_rows.columns, "rain_local_date"]].copy()
     rain_metadata["local_date"] = rain_metadata.pop("rain_local_date")
     rain_metadata = rain_metadata.drop_duplicates(subset=group_keys, keep="last")
-    last_rows = pd.concat([last_rows, rain_metadata], ignore_index=True).drop_duplicates(subset=group_keys, keep="first")
+    if not rain_metadata.empty:
+        last_rows = pd.concat([last_rows, rain_metadata], ignore_index=True).drop_duplicates(subset=group_keys, keep="first")
     result = pd.merge(aggregates, last_rows, on=group_keys, how="left")
     if stations_df is not None and not stations_df.empty:
         stations = stations_df.copy()
@@ -1029,6 +1057,9 @@ def run_update(
     )
     phase_started = time.perf_counter()
     current_hourly = normalize_observations(observations, local_timezone=local_timezone)
+    current_hourly = protect_frame(data_dir, "aemet", current_hourly, fresh=True,
+        columns={"station_code": "station_code", "station_name": "station_name",
+                 "lat": "lat", "lon": "lon", "altitude": "alt_m"})
     timings["normalize_seconds"] = time.perf_counter() - phase_started
     _aemet_phase(
         phase_callback,
@@ -1057,6 +1088,7 @@ def run_update(
     timings["read_stations_seconds"] = time.perf_counter() - phase_started
     phase_started = time.perf_counter()
     station_catalog = build_station_catalog(hourly_incremental, existing_stations)
+    station_catalog = protect_frame(data_dir, "aemet", station_catalog)
     timings["station_catalog_seconds"] = time.perf_counter() - phase_started
     verified_daily = {}
     recovery_report = {}
@@ -1071,6 +1103,21 @@ def run_update(
         )
         timings["recovery_seconds"] = time.perf_counter() - phase_started
         print(recovery_report["message"])
+    from rainmapper_core.aemet_station_inventory import complete_station_catalog
+
+    phase_started = time.perf_counter()
+    station_catalog, inventory_report = complete_station_catalog(
+        data_dir, station_catalog, verified_daily.get("stations", {}), api_key=api_key,
+    )
+    timings["station_inventory_seconds"] = time.perf_counter() - phase_started
+    if inventory_report["requested_stations"]:
+        print(inventory_report["message"])
+    if recover_history:
+        recovery_report["station_inventory"] = inventory_report
+        if inventory_report["unresolved_stations"]:
+            recovery_report["status"] = "pending"
+            recovery_report["message"] += " " + inventory_report["message"]
+        aemet_recovery.write_json(data_dir / aemet_recovery.REPORT_FILE, recovery_report, 64 * 1024)
     enriched_station_rows = 0
     if enrich_stations:
         phase_started = time.perf_counter()
@@ -1090,6 +1137,7 @@ def run_update(
     if recover_history:
         catalog_lookup = {str(row["Codi Estació"]): row for row in station_catalog.to_dict("records")}
         rebuilt_daily = aemet_recovery.apply_verified(rebuilt_daily, verified_daily, catalog_lookup)
+    rebuilt_daily = protect_frame(data_dir, "aemet", rebuilt_daily)
     timings["build_daily_seconds"] = time.perf_counter() - phase_started
     from rainmapper_core.weather_history_capture import (
         capture_fresh_weather_rows,
@@ -1129,6 +1177,7 @@ def run_update(
         "hourly_incremental_rows": len(hourly_incremental),
         "hourly_retention": hourly_retention,
         "recovery": recovery_report,
+        "station_inventory": inventory_report,
         "station_rows": len(station_catalog),
         "enriched_station_rows": enriched_station_rows,
         "daily_incremental_rows": len(daily_incremental),

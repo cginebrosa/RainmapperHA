@@ -1,0 +1,93 @@
+{
+  "version": "0.2.341",
+  "date": "2026-11-07",
+  "base_commit": "612f162b2ab22e2ae06ad38375657dde841acc8c",
+  "build_script": "scripts/build-push-ha-image.sh",
+  "build_exit_code": 0,
+  "build_instances": 1,
+  "ghcr": {
+    "tags": [
+      "0.2.341",
+      "latest"
+    ],
+    "digest": "sha256:5097c0c05cb5a330d99065d10ad5efef64b67378e71a3bf7a0b77edf64536898",
+    "manifests": {
+      "linux/amd64": "sha256:a4ed3b287b770f26c4b898b21cda517eaa1bfd969edd38495004b67ea88a185d",
+      "linux/arm64": "sha256:b23b93b65bfe7d97113effed6cb45ba5704afe70948b8d18c5aeb80922941d91"
+    },
+    "verification": "docker buildx imagetools inspect, both tags, exit 0"
+  },
+  "validation": {
+    "functional_report": "weather-coordinates-local-2026-11-04.md",
+    "smoke": {
+      "command": "bash scripts/smoke-test.sh",
+      "exit_code": 0,
+      "tests_run": 2194,
+      "skipped": 55,
+      "unit_test_seconds": 132.511
+    },
+    "accepted_runner": {
+      "started_at": "2026-11-07T22:48:34+01:00",
+      "finished_at": "2026-11-07T22:51:25+01:00",
+      "exit_code": 0,
+      "duration_seconds": 171,
+      "pandas_warnings": 0,
+      "published_geojson_files": 7,
+      "aemet_seconds": 12.767,
+      "aemet_coordinate_exceptions": 0
+    },
+    "local_image": "sha256:ed414fec20d49dc90f80ba2707ef7a922e7808119d3a6d282ab37be1fafe8a3b",
+    "local_image_version": "0.2.341",
+    "local_effective_files_checked": 15,
+    "local_container_regression": {
+      "tests_run": 1,
+      "subcases": 3,
+      "seconds": 0.153,
+      "external_requests": 0
+    },
+    "local_python_packages": {
+      "pandas": "2.2.2",
+      "numpy": "2.4.6",
+      "pyarrow": "25.0.0",
+      "requests": "2.32.3",
+      "lxml": "4.9.3"
+    },
+    "tracked_code_tests_packaging_files_unchanged_during_build": 564,
+    "effective_code_sha256": {
+      "rainmapper_core/create_aemet.py": "ae48cd590fcd398615fab2434131e325326c7562762359349118bd092e19ddec",
+      "rainmapper_core/aemet_station_inventory.py": "44668c4839d9b798997780930c412877edabdfcb220454de58961b3c64259a96",
+      "rainmapper_core/geojson.py": "f027750ddd048534af50e946beaaa87566ea334fb23c335f91eefcc6873769a3",
+      "rainmapper_core/rainmapper.py": "4f558c0e8df214ecbfa0a63f1bbde4247d285468d7794156fd95b8665332ab87",
+      "rainmapper_core/weather_coordinates.py": "ed1ba088e56b3df4e4cdf4f85afa26310615848081ed991177a18fe8b211442d",
+      "rainmapper_core/weather_history_archive.py": "b5a89dd9ba334ef3fcf2dfd1dfa220dfaedabab862c097565808d59a1d143e8d",
+      "rainmapper_core/weather_history_capture.py": "db78260b48705204847562b972d30d3d652dff7e8a987bc513d0599caf277037",
+      "rainmapper_core/weather_history_writer.py": "b46d4ed81e8c11f92c5f32c48f62c6e6a21b82450cb60ac73dc321095320ae20",
+      "rainmapper_core/viewers/maplibre-viewer/app.js": "4948a17f68ed4c87c55470c8bad71df4599370c7f8e375683167b237603a6343",
+      "rainmapper_core/viewers/maplibre-viewer/index.html": "4db104449dc63898af245d28bfa083eb2fe4c276cf5c50206c686ff07efc2239",
+      "rainmapper_core/viewers/maplibre-viewer/style.css": "60358c4c5e79e48c92970f60e2beac0f3a0b15d37271e133654268283806f0d5",
+      "rainmapper_core/viewers/maplibre-viewer/translations.json": "2c8a5a213dad9e6828dea9153e02e16fe8a7c594bacf26a629133b9936ea56f8",
+      "rainmapper_core/viewers/leaflet-viewer/index.html": "71d9dd4e908b1d2c86720717823e53b759f8e15831416fac6269c67daa12fedf",
+      "rainmapper-app/app/web_server.py": "aa98d1854fb53986c43e179f35af229c2fb31b9ad6a52c7a9c1ba128ef890c75",
+      "rainmapper-app/run.sh": "131ce12b12466039fa626b4a5d65b3d525f6a6531731d4baaab46dd457fe39f9"
+    }
+  },
+  "known_limitations": {
+    "wunderground_stale_responses": 106,
+    "wunderground_failed_stations": [
+      "IBAG57",
+      "IFUENT4",
+      "IMONTF44"
+    ]
+  },
+  "git_target": "origin/inicial",
+  "llm_branch": "feature/local-llm",
+  "llm_included": false,
+  "real_ha_installation": "pending_user",
+  "worker_modified": false,
+  "mcp_recreated": false,
+  "remote_cleanup": false,
+  "local_image_tag_removed": "ghcr.io/cginebrosa/rainmapperha:0.2.340",
+  "buildx_cleanup_reported": "4.753GB",
+  "build_log_sha256": "0db2e38743d5a9b76b5884d7a6ac78680389dc070ceab783abb1192e9c4fa58c",
+  "temporary_artifacts_removed": true
+}

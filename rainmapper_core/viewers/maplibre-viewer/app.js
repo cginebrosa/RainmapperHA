@@ -587,6 +587,7 @@ function applyLanguage(language = currentLanguage) {
   });
 
   updatePlaceSearchLanguage();
+  updateCoordinateFinder();
   updatePeriodSelectLabels();
   updateHelpPanelText();
   updateMinRainValue();
@@ -2917,8 +2918,8 @@ function addStationLayer({ resetEstimatedField = false } = {}) {
       "circle-radius": ["get", "marker_radius"],
       "circle-color": ["get", "rain_color"],
       "circle-opacity": 0.72,
-      "circle-stroke-color": "#111923",
-      "circle-stroke-width": 1.2,
+      "circle-stroke-color": ["case", ["==", ["get", "coordinate_exception"], true], "#ffb000", "#111923"],
+      "circle-stroke-width": ["case", ["==", ["get", "coordinate_exception"], true], 3, 1.2],
     },
   });
 
@@ -3008,6 +3009,7 @@ function popupContent(properties) {
 
   return `
     <div class="popup-title">${visibleStation} · ${name}</div>
+    ${coordinateNotice(properties)}
     <div class="popup-row popup-metrics"><span><strong>${t("rain")}:</strong> ${total} mm</span><span><strong>${t("last")}:</strong> ${lastRain}</span></div>
     ${periodWeather}
     <div class="popup-row"><strong>${t("location")}:</strong> ${town}${province ? `, ${province}` : ""}</div>
@@ -3017,6 +3019,211 @@ function popupContent(properties) {
     ${rainHistory}
   `;
 }
+
+function coordinateNotice(properties) {
+  if (properties.coordinate_exception !== true) return "";
+  const date = new Date(properties.coordinate_since);
+  const since = Number.isFinite(date.getTime()) ? date.toLocaleString(currentLanguage) : "-";
+  const pending = properties.coordinate_acceptance_pending === true;
+  const admin = AUTH_REQUIRED && String(authState?.role || "").toLowerCase() === "admin";
+  return `<div class="coordinate-notice">⚠ ${t(pending ? "coordinatePending" : "coordinateHeld")}<br>
+    ${t("coordinateSince")}: ${since}
+    ${admin ? `<br><button type="button" data-coordinate-review>${t("coordinateReview")}</button>` : ""}</div>`;
+}
+
+let coordinateDialog = null;
+
+function closeCoordinateFinder() {
+  const panel = document.getElementById("coordinate-finder");
+  if (panel) panel.hidden = true;
+  document.getElementById("coordinate-finder-toggle")?.setAttribute("aria-expanded", "false");
+}
+
+function coordinateMarker(point, label, color) {
+  const element = document.createElement("div");
+  element.className = "coordinate-marker";
+  element.style.setProperty("--coordinate-marker-color", color);
+  element.setAttribute("role", "img");
+  element.setAttribute("aria-label", `${label}: ${point.lat}, ${point.lon}`);
+  const text = document.createElement("span"); text.textContent = label;
+  element.append(text);
+  // The bottom tip, not the centre of the label, is anchored to the coordinate.
+  return new maplibregl.Marker({ element, anchor: "bottom" })
+    .setLngLat([point.lon, point.lat]).addTo(map);
+}
+
+function focusCoordinateStation(feature) {
+  closeCoordinateFinder();
+  coordinateDialog?.close();
+  const [lon, lat] = feature.geometry.coordinates;
+  map.flyTo({ center: [lon, lat], zoom: 13, duration: 600 });
+  openStationPopup(feature);
+  // A station can be hidden by the rainfall/source filters. Locate it without
+  // changing those preferences or needing another download.
+  const marker = coordinateMarker({ lat, lon }, t("coordinateAccepted"), "#38bdf8");
+  currentPopup?.on("close", () => marker.remove());
+}
+
+function updateCoordinateFinder() {
+  const toggle = document.getElementById("coordinate-finder-toggle");
+  if (!toggle) return;
+  const stations = currentVisibleFeatures.filter(f => f.properties?.coordinate_exception === true);
+  toggle.hidden = stations.length === 0;
+  toggle.textContent = `⚠ ${t("coordinateFinder")} · ${stations.length}`;
+  toggle.title = t("coordinateFinder");
+  const panel = document.getElementById("coordinate-finder");
+  if (!stations.length) closeCoordinateFinder();
+  document.getElementById("coordinate-finder-title").textContent = t("coordinateFinder");
+  document.getElementById("coordinate-finder-label").textContent = t("coordinateFindLabel");
+  document.getElementById("coordinate-finder-scope").textContent = t("coordinateFindScope");
+  document.getElementById("coordinate-finder-close").setAttribute("aria-label", t("coordinateClose"));
+  if (panel.hidden) return;
+  const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const query = normalize(document.getElementById("coordinate-finder-query").value.trim());
+  const matches = stations.filter(({ properties: p }) =>
+    normalize([p["Estació"], p["Codi Estació"], p.Source].join(" ")).includes(query));
+  const results = document.getElementById("coordinate-finder-results"); results.replaceChildren();
+  document.getElementById("coordinate-finder-count").textContent = matches.length
+    ? t("coordinateFindCount", { count: matches.length, total: stations.length }) : t("coordinateFindEmpty");
+  const groups = new Map();
+  for (const feature of matches) {
+    const source = feature.properties.Source || t("unknown");
+    if (!groups.has(source)) groups.set(source, []);
+    groups.get(source).push(feature);
+  }
+  for (const [source, features] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
+    const heading = document.createElement("h3"); heading.textContent = `${source} · ${features.length}`;
+    results.append(heading);
+    features.sort((a, b) => String(a.properties["Estació"] || "").localeCompare(String(b.properties["Estació"] || "")));
+    for (const feature of features) {
+      const p = feature.properties, button = document.createElement("button"); button.type = "button";
+      const title = document.createElement("strong"), detail = document.createElement("span");
+      title.textContent = p["Estació"] || p["Codi Estació"];
+      const date = new Date(p.coordinate_since);
+      detail.textContent = `${p["Codi Estació"]} · ${t("coordinateSince")}: ` +
+        (Number.isFinite(date.getTime()) ? date.toLocaleString(currentLanguage) : "-");
+      if (p.coordinate_acceptance_pending) detail.textContent += ` · ${t("coordinatePending")}`;
+      button.append(title, detail);
+      button.addEventListener("click", () => focusCoordinateStation(feature));
+      results.append(button);
+    }
+  }
+}
+
+function renderCoordinateFinder() {
+  const toggle = document.getElementById("coordinate-finder-toggle");
+  const panel = document.getElementById("coordinate-finder");
+  toggle.addEventListener("click", event => {
+    event.stopPropagation();
+    if (!panel.hidden) { closeCoordinateFinder(); return; }
+    if (!document.getElementById("map-settings").hidden) document.getElementById("settings-toggle").click();
+    closeSecondaryPanels({ except: "coordinates" });
+    panel.hidden = false; toggle.setAttribute("aria-expanded", "true");
+    updateCoordinateFinder(); document.getElementById("coordinate-finder-query").focus();
+  });
+  panel.addEventListener("click", event => event.stopPropagation());
+  panel.addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.stopPropagation(); closeCoordinateFinder(); toggle.focus(); }
+  });
+  document.getElementById("coordinate-finder-close").addEventListener("click", () => {
+    closeCoordinateFinder(); toggle.focus();
+  });
+  document.getElementById("coordinate-finder-query").addEventListener("input", updateCoordinateFinder);
+  document.addEventListener("click", closeCoordinateFinder);
+  map.on("click", closeCoordinateFinder);
+}
+
+async function reviewStationCoordinates(properties) {
+  if (!AUTH_REQUIRED || String(authState?.role || "").toLowerCase() !== "admin") return;
+  coordinateDialog?.close();
+  closeCoordinateFinder();
+  currentPopup?.remove();
+  const dialog = document.createElement("dialog");
+  dialog.className = "coordinate-dialog";
+  dialog.setAttribute("aria-label", t("coordinateReview"));
+  const title = document.createElement("h3"), details = document.createElement("p");
+  title.textContent = `${properties["Codi Estació"]} · ${t("coordinateReview")}`;
+  details.textContent = t("coordinateLoading");
+  details.setAttribute("role", "status");
+  const accept = document.createElement("button"), close = document.createElement("button");
+  accept.type = close.type = "button";
+  accept.textContent = t("coordinateAccept"); accept.disabled = true;
+  close.textContent = t("coordinateKeep");
+  const actions = document.createElement("div"); actions.className = "coordinate-actions";
+  const navigation = document.createElement("div"); navigation.className = "coordinate-navigation";
+  actions.append(close, accept); dialog.append(title, details, navigation, actions);
+  const markers = [], controller = new AbortController();
+  dialog.addEventListener("close", () => {
+    controller.abort(); markers.forEach(marker => marker.remove()); dialog.remove();
+    if (coordinateDialog === dialog) coordinateDialog = null;
+  }, { once: true });
+  close.addEventListener("click", () => dialog.close());
+  document.body.append(dialog); coordinateDialog = dialog; dialog.show(); close.focus();
+  const identity = { source: properties.Source, station_code: properties["Codi Estació"] };
+  try {
+    const response = await authFetch(`/api/weather/coordinates?${new URLSearchParams(identity)}`,
+      { cache: "no-store", signal: controller.signal });
+    const entry = await response.json();
+    if (!response.ok) throw new Error(entry.error || t("coordinateError"));
+    if (coordinateDialog !== dialog) return;
+    const formatPoint = point => point ? `${Number(point.lat).toFixed(5)}, ${Number(point.lon).toFixed(5)}` : "-";
+    const since = new Date(entry.first_seen).toLocaleString(currentLanguage);
+    details.textContent = `${t("coordinateAccepted")}: ${formatPoint(entry.accepted)}\n` +
+      `${t("coordinateProposed")}: ${formatPoint(entry.received)}\n` +
+      `${t("coordinateDistance")}: ${entry.distance_km == null ? "-" : Number(entry.distance_km).toFixed(3) + " km"}\n` +
+      `${t("coordinateSince")}: ${since}`;
+    const bounds = new maplibregl.LngLatBounds();
+    const fit = (area, maxZoom) => {
+      const rect = map.getContainer().getBoundingClientRect();
+      const bottom = Math.min(Math.max(40, rect.bottom - dialog.getBoundingClientRect().top + 20), rect.height * 0.55);
+      map.fitBounds(area, { padding: { top: 85, left: Math.min(65, rect.width * 0.15),
+        right: Math.min(65, rect.width * 0.15), bottom }, maxZoom, duration: 500 });
+    };
+    for (const [point, label, color] of [[entry.accepted, t("coordinateAccepted"), "#38bdf8"],
+      [entry.received, t("coordinateProposed"), "#ffb000"]]) {
+      if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lon)) continue;
+      markers.push(coordinateMarker(point, label, color));
+      bounds.extend([point.lon, point.lat]);
+      const button = document.createElement("button"); button.type = "button";
+      button.textContent = t(point === entry.accepted ? "coordinateShowAccepted" : "coordinateShowProposed");
+      button.addEventListener("click", () => fit(new maplibregl.LngLatBounds([point.lon, point.lat], [point.lon, point.lat]), 15));
+      navigation.append(button);
+    }
+    if (!bounds.isEmpty()) {
+      const both = document.createElement("button"); both.type = "button"; both.textContent = t("coordinateShowBoth");
+      both.addEventListener("click", () => fit(bounds, 13)); navigation.append(both);
+      fit(bounds, 13);
+    }
+    accept.disabled = !entry.can_accept || Boolean(entry.approval);
+    if (entry.approval) details.textContent += `\n${t("coordinatePending")}`;
+    accept.addEventListener("click", async () => {
+      accept.disabled = true;
+      try {
+        const response = await authFetch("/api/weather/coordinates/accept", { method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...identity, revision: entry.revision }), signal: controller.signal });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || t("coordinateError"));
+        details.textContent += `\n${t("coordinatePending")}`;
+        close.textContent = t("coordinateClose");
+        properties.coordinate_acceptance_pending = true;
+        refreshCurrentStationPopup();
+        updateCoordinateFinder();
+      } catch (error) {
+        if (error.name !== "AbortError") details.textContent += `\n${error.message}`;
+        // A stale candidate requires opening a new review, never blind retry.
+      }
+    }, { once: true });
+  } catch (error) {
+    if (error.name !== "AbortError") details.textContent = error.message;
+  }
+}
+
+document.addEventListener("click", event => {
+  if (event.target.closest?.("[data-coordinate-review]") && activeStationPopupProperties) {
+    event.preventDefault(); reviewStationCoordinates(activeStationPopupProperties);
+  }
+});
 
 function numericProperty(properties, key) {
   return parseOptionalNumber(properties?.[key]);
@@ -3804,6 +4011,7 @@ async function loadMap(fileName, suppliedData = null) {
   updateMetricScale(metricScaleFeatures(visible));
   const features = visible.map(prepareFeature);
   currentVisibleFeatures = features;
+  updateCoordinateFinder();
   currentHeatmapData = {
     ...data,
     features: heatmapFeatures(features),
@@ -4145,6 +4353,7 @@ function renderQuickMetricPanel() {
 }
 
 function closeSecondaryPanels({ except = "" } = {}) {
+  if (except !== "coordinates") closeCoordinateFinder();
   if (except !== "place-search") closePlaceSearch();
   const quickMapPanel = document.getElementById("quick-map-panel");
   const quickMapToggle = document.getElementById("quick-map-toggle");
@@ -4602,6 +4811,7 @@ map.on("load", async () => {
   renderPeriodTimeline();
   renderSettingsPanel();
   renderPlaceSearch();
+  renderCoordinateFinder();
   applyLanguage(currentLanguage);
   setupKeyboardShortcuts();
   setupLongPressElevation();

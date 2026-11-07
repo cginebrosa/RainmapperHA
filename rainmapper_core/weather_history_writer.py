@@ -20,11 +20,11 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from rainmapper_core.meteoclimatic_fixed_coordinates import (
-    FixedCoordinates, load_fixed_coordinates, location_metadata,
+    FixedCoordinates,
 )
+from rainmapper_core.weather_coordinates import prepare_pending_policy, reconcile_approvals
 
 from rainmapper_core.weather_coordinate_policy import (
-    inside_coordinate_regions,
     load_coordinate_regions,
 )
 from rainmapper_core.weather_history_contract import (
@@ -569,12 +569,7 @@ def _update_catalog(
                         float(row["lat"]), float(row["lon"]),
                     )
                     if distance > coordinate_limit_km:
-                        correction = (
-                            str(day) >= str(current["metadata_date"])
-                            and (fixed_coordinates.contains(row) or inside_coordinate_regions(
-                                float(row["lat"]), float(row["lon"]), coordinate_regions)
-                            )
-                        )
+                        correction = fixed_coordinates.contains(row)
                         if not correction:
                             raise WeatherHistoryCoordinateConflict(
                                 f"Coordinate jump {distance:.3f} km for {key!r}"
@@ -588,11 +583,13 @@ def _update_catalog(
                                 "reason": ("configured_fixed_coordinates" if fixed_coordinates.contains(row)
                                            else "destination_inside_configured_region"),
                             })
-                    if str(day) >= str(current["metadata_date"]):
+                    if str(day) >= str(current["metadata_date"]) or fixed_coordinates.contains(row):
                         for column in ("station_name", "lat", "lon", "altitude"):
+                            if column == "station_name" and str(day) < str(current["metadata_date"]):
+                                continue
                             if row.get(column) is not None or (column == "altitude" and fixed_coordinates.contains(row)):
                                 current[column] = row[column]
-                        current["metadata_date"] = day
+                        current["metadata_date"] = max(str(day), str(current["metadata_date"]))
     rows = [entries[key] for key in sorted(entries)]
     changed = rows != original
     if not changed:
@@ -685,6 +682,7 @@ def archive_pending_batches(
     root = weather_history_root(Path(data_dir))
     with _writer_lock(root, lock_timeout_seconds):
         generation = resolve_weather_generation(root)
+        reconcile_approvals(root.parent)
         pending = list_pending_batches(root)
         if not pending:
             return ArchiveReport(
@@ -704,13 +702,7 @@ def archive_pending_batches(
             )
         _ensure_free_space(root, generation, fresh, reserve_bytes)
         coordinate_regions = load_coordinate_regions(root.parent)
-        fixed_targets = load_fixed_coordinates(root.parent)
-        if fixed_targets:
-            fixed_targets = location_metadata(
-                root.parent, fixed_targets,
-                pq.read_table(root / generation.catalog.path, schema=CATALOG_SCHEMA).to_pylist(),
-            )
-        fixed_coordinates = FixedCoordinates(fixed_targets)
+        fixed_coordinates = prepare_pending_policy(root.parent, fresh, limit_km=coordinate_limit_km)
         coordinate_corrections: list[dict[str, Any]] = []
         old_by_key = {(item.source, item.year): item for item in generation.partitions}
         pending_by_source: dict[str, list[PendingBatch]] = {}
@@ -756,9 +748,20 @@ def archive_pending_batches(
         # must replay the same corrected values even if the operator edits the file.
         previous_fixed = current_payload.get("update_report", {}).get("fixed_coordinates_by_batch", {})
         fixed_by_batch = {key: value for key, value in previous_fixed.items() if key in carried_receipts}
-        for item in fresh:
-            if item.source == "meteoclimatic" and fixed_targets:
-                fixed_by_batch[item.batch_id] = fixed_targets
+        # Store each small source policy once, with batch references. This is the
+        # exact correction used at commit, independent of later UI decisions.
+        previous_report = current_payload.get("update_report", {})
+        policy_refs = {k: v for k, v in previous_report.get("coordinate_policy_by_batch", {}).items()
+                       if k in carried_receipts}
+        policies = {k: v for k, v in previous_report.get("coordinate_policies", {}).items()
+                    if k in set(policy_refs.values())}
+        for source in pending_by_source:
+            targets = {k: v for k, v in fixed_coordinates.targets.items() if k.startswith(source + ":")}
+            if targets:
+                policy_id = hashlib.sha256(canonical_json_bytes(targets)).hexdigest()
+                policies[policy_id] = targets
+                for item in pending_by_source[source]:
+                    policy_refs[item.batch_id] = policy_id
         created_at = datetime.now(UTC).isoformat()
         logical_seed = {
             "previous_generation_id": generation.generation_id,
@@ -766,8 +769,6 @@ def archive_pending_batches(
             "partitions": [descriptors[key] for key in sorted(descriptors)],
             "catalog": catalog,
         }
-        import hashlib
-
         suffix = hashlib.sha256(canonical_json_bytes(logical_seed)).hexdigest()[:12]
         generation_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ") + f"-{suffix}"
         partition_values = [descriptors[key] for key in sorted(descriptors)]
@@ -791,6 +792,8 @@ def archive_pending_batches(
                 "partitions": [asdict(value) for value in reports],
                 "coordinate_corrections": coordinate_corrections,
                 "fixed_coordinates_by_batch": fixed_by_batch,
+                "coordinate_policies": policies,
+                "coordinate_policy_by_batch": policy_refs,
             },
         }
         manifests = root / "manifests"
@@ -811,6 +814,7 @@ def archive_pending_batches(
         resolved = resolve_weather_generation(root)
         if resolved.generation_id != generation_id:
             raise WeatherHistoryWriterError("Committed generation did not become CURRENT")
+        reconcile_approvals(root.parent)
         return ArchiveReport(
             generation_id,
             generation.generation_id,

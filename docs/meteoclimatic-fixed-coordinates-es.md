@@ -1,5 +1,9 @@
 # Meteoclimatic: coordenadas fijas por estación
 
+Esta guía describe el mecanismo publicado hasta HA 0.2.340. La candidata local
+del 04/11/2026 lo amplía a todas las fuentes, añade recuperación automática y
+aceptación desde el mapa: [protección común de coordenadas](weather-coordinate-protection-es.md).
+
 Esta función permite corregir temporalmente una ubicación errónea del proveedor
 sin cambiar el código ni desactivar la estación. Sólo afecta a los códigos de
 Meteoclimatic que el operador incluya expresamente en el archivo.

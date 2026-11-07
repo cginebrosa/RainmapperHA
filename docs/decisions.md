@@ -1035,7 +1035,23 @@ artefactos efectivos mediante lectura acotada cuando se solicite.
 - [Tabla, método y siguiente aplicación](mushrooms/prediction-map-species-ph-proposal-es.md).
   [JSON y cuatro comprobaciones aisladas](reports/prediction-map-species-ph-proposal-2026-09-13.json).
 
-## 2026-09-13 - [VIGENTE][METEO] Correcciones de coordenadas con destino en España aproximada
+## 2026-11-04 - [ACORDADO][METEO] Protección común y traslado revisado por administrador
+
+- Para todas las fuentes, conservar la última ubicación aceptada ante un salto
+  superior a 1 km, registrar una excepción y continuar la descarga/archivo.
+  Estar dentro de España aproximada ya no autoriza un traslado automático.
+- Retirar la excepción sólo cuando metadata original del proveedor vuelva al
+  margen aceptado; cachés y pendientes corregidos no son prueba de recuperación.
+- Una ubicación nueva estable fuera del margen requiere aceptación explícita
+  del administrador. Revisarla desde el mapa y aplicar la decisión al comienzo
+  del siguiente runner, con revisión de propuesta y auditoría.
+- Resumen final agrupado por fuente, con antigüedad y ambas posiciones; marca
+  mínima en GeoJSON y borde ámbar, conservando la geometría aceptada.
+- Implementación candidata validada primero en local; no supone instalación en
+  HA real. [Contrato y límites](weather-coordinate-protection-es.md) y
+  [evidencia local](reports/weather-coordinates-local-2026-11-04.md).
+
+## 2026-09-13 - [SUSTITUIDA POR ACUERDO 04/11][METEO] Correcciones de coordenadas con destino en España aproximada
 
 - Decisión final explícita: admitir cualquier salto cuyo destino esté dentro
   de la zona aproximada de España, incluidas Baleares y Canarias, también si

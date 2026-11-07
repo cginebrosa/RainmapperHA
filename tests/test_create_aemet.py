@@ -185,7 +185,7 @@ class CreateAemetTests(unittest.TestCase):
     def test_normalize_observations_keeps_hourly_utc_and_local_fields(self):
         rows = [
             observation("9632X", "2026-06-22T13:00:00+0000", 14.0, name="TUIXENT"),
-            observation("BAD", "2026-06-22T13:00:00+0000", None),
+            observation("BAD", "invalid timestamp", None),
         ]
 
         result = create_aemet.normalize_observations(rows, local_timezone="Europe/Madrid")

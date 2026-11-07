@@ -57,6 +57,12 @@ body {
   min-width: 0;
 }
 
+.topbar-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 h1 {
   font-size: 20px;
   letter-spacing: 0;
@@ -1528,3 +1534,35 @@ main {
 /* Account for the new control between settings and terrain. */
 .quick-map-panel{top:154px}.quick-metric-panel{top:202px}
 @media(max-width:720px){.place-search-panel{right:50px;top:45px;width:calc(100% - 62px);max-height:calc(100% - 60px)}.quick-map-panel{top:121px}.quick-metric-panel{top:163px}}
+:root .coordinate-notice { border-left: 3px solid #ffb000; padding: 6px 8px; margin: 6px 0; }
+.coordinate-dialog { position: fixed; inset: auto 12px 12px; margin: auto; width: min(420px, calc(100vw - 48px)); max-height: 45vh; overflow: auto; background: #18212b; color: #f0f4f8; border: 2px solid #ffb000; border-radius: 10px; z-index: 1000; padding: 16px; box-shadow: 0 4px 30px #0008; }
+.coordinate-dialog h3 { margin: 0; font-size: 16px; }
+.coordinate-dialog p { color: #f0f4f8; white-space: pre-line; line-height: 1.5; margin: 12px 0; }
+.coordinate-navigation { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.coordinate-actions { display: flex; justify-content: space-between; gap: 10px; }
+.coordinate-dialog button, .coordinate-notice button { cursor: pointer; padding: 7px 10px; }
+.coordinate-dialog button:disabled { cursor: default; opacity: .6; }
+.coordinate-marker { display: flex; flex-direction: column; align-items: center; max-width: 220px; pointer-events: none; filter: drop-shadow(0 2px 3px #0009); }
+.coordinate-marker span { background: #18212b; color: #fff; border: 3px solid var(--coordinate-marker-color); border-radius: 8px; padding: 6px 9px; font: 700 13px/1.3 system-ui; text-align: center; }
+.coordinate-marker::after { content: ''; width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 18px solid var(--coordinate-marker-color); }
+.coordinate-marker::before { content: ''; position: absolute; bottom: -4px; left: calc(50% - 4px); width: 8px; height: 8px; border: 2px solid #fff; border-radius: 50%; background: var(--coordinate-marker-color); }
+.coordinate-finder-toggle { flex-shrink: 0; padding: 2px 9px; border: 1px solid #af7200; border-radius: 6px; background: #fff1c2; color: #593900; font: 700 12px/1.4 system-ui; cursor: pointer; white-space: nowrap; }
+.coordinate-finder-toggle[aria-expanded="true"] { background: #ffdc78; }
+.coordinate-finder { position: absolute; z-index: 12; top: 12px; left: 12px; width: min(390px, calc(100% - 74px)); max-height: calc(100% - 75px); overflow: auto; padding: 14px; border: 2px solid #e5a000; border-radius: 10px; background: #fff; color: #173145; color-scheme: light; box-shadow: var(--shadow); font-size: 13px; }
+.coordinate-finder-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.coordinate-finder h2 { margin: 0; font-size: 16px; }
+.coordinate-finder h3 { font-size: 13px; margin: 14px 0 6px; }
+.coordinate-finder label { display: block; margin-bottom: 5px; font-weight: 600; }
+.coordinate-finder input { width: 100%; padding: 8px; border: 1px solid #94a8b5; border-radius: 5px; font: inherit; font-size: 16px; color: #173145; background: #fff; }
+.coordinate-finder p { color: #405666; margin: 8px 0; line-height: 1.4; }
+.coordinate-finder button { font: inherit; color: #173145; background: #fff; border: 1px solid #bccbd4; border-radius: 5px; padding: 7px; cursor: pointer; }
+#coordinate-finder-results button { display: block; text-align: left; width: 100%; margin-top: 6px; overflow-wrap: anywhere; }
+#coordinate-finder-results button:hover, #coordinate-finder-results button:focus-visible { background: #fff1c2; }
+#coordinate-finder-results span { display: block; margin-top: 4px; font-size: 12px; line-height: 1.4; }
+
+@media (max-width: 640px) {
+  .coordinate-finder-toggle,
+  .coordinate-finder {
+    display: none;
+  }
+}

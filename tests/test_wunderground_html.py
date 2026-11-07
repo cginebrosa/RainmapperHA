@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import unittest
+import warnings
 from contextlib import redirect_stdout
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
@@ -223,6 +224,9 @@ class WundergroundHtmlTests(unittest.TestCase):
             path.write_text('Codi Estació,Data\n')
             normalize = mock.Mock()
             namespace = dict(datetime=datetime, _max_threads=1, URLS=[URL],
+                             Path=Path, _DATA_PATH=folder,
+                             read_coordinate_state=lambda _: {"exceptions": {}},
+                             station_id_from_url=lambda url: url.rsplit('/', 1)[-1],
                              _wunderground_monthly_api=True, _wunderground_weekly_api=False,
                              MONTHLY=True, UNIT_SYSTEM='metric', _max_attempts=3,
                              daily_api_key=mock.Mock(return_value='test-key'),
@@ -245,6 +249,7 @@ class WundergroundHtmlTests(unittest.TestCase):
             # next invocation even if the Python process itself is reused.
             namespace['URLS'] = [URL, URL.replace('ILAIGL7', 'ITEST2'), URL.replace('ILAIGL7', 'ITEST3')]
             namespace['_max_threads'] = 3
+            namespace['read_coordinate_state'] = lambda _: {'exceptions': {'wunderground:ITEST2': {'source': 'wunderground', 'station_code': 'ITEST2'}}}
             namespace['daily_api_key'].side_effect = ['next-run-key', WundergroundDailyApiError('missing config')]
             for expected_key, expected_error in [('next-run-key', None), (None, 'missing config')]:
                 path.write_text('Codi Estació,Data\n')
@@ -254,8 +259,74 @@ class WundergroundHtmlTests(unittest.TestCase):
                 calls = namespace['scrap_wunderground_station'].call_args_list
                 self.assertEqual(len(calls), 3)
                 for call in calls:
-                    self.assertEqual(call.kwargs, {'api_key': expected_key, 'api_key_error': expected_error})
+                    self.assertEqual(call.kwargs, {'api_key': expected_key, 'api_key_error': expected_error,
+                        'refresh_coordinates': call.args[0].endswith('ITEST2')})
             self.assertEqual(namespace['daily_api_key'].call_count, 3)
+
+    def test_coordinate_protection_with_fresh_cached_and_mixed_metadata_has_no_future_warning(self):
+        from rainmapper_core import weather_coordinates as coords
+        from rainmapper_core.atomic_io import write_csv_atomic
+        from rainmapper_core.wind import WIND_COLUMNS, compass_to_degrees, optional_round
+        from rainmapper_core.weather_history_capture import capture_fresh_weather_rows
+        import pyarrow.parquet as pq
+
+        tree = ast.parse((ROOT / 'rainmapper_core/rainmapper.py').read_text())
+        names = {'create_wunderground', 'build_wunderground_dataframe'}
+        nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
+        for fresh_codes in ({'ITEST1', 'ITEST2'}, set(), {'ITEST1'}):
+            with self.subTest(fresh_codes=fresh_codes), tempfile.TemporaryDirectory() as folder:
+                data = Path(folder)
+                raw = pd.DataFrame([{
+                    'Codi Estació': code, 'Estació': code, 'Data': '2026-11-07', 'Hora': '10:00:00',
+                    'Latitud': lat, 'Longitud': '2.0', 'Altitud': '100.0',
+                    'Municipi': 'Town', 'Provincia': 'Province', 'Comarca': '',
+                    'Rain_mm': rain, 'TempHigh_C': 17., 'TempLow_C': 3.,
+                    'HumHigh_%': 90., 'HumLow_%': 40.,
+                } for code, lat, rain in [('ITEST1', '49.0', 1.25), ('ITEST2', '42.0', 0.)]])
+                with coords.transaction(data) as state:
+                    state['accepted_moves'] = {f'wunderground:{c}': {'lat': 42., 'lon': 2.}
+                                               for c in ('ITEST1', 'ITEST2')}
+                # The second station is already in exception; cached coordinates
+                # must not heal it, whereas fresh provider coordinates must.
+                coords.protect_frame(data, 'wunderground', pd.DataFrame([{
+                    'Codi Estació': 'ITEST2', 'Latitud': 49., 'Longitud': 2.,
+                }]), fresh=True)
+                path = data / 'scrape.csv'
+                raw.to_csv(path, index=False)
+                urls = ['https://www.wunderground.com/dashboard/pws/' + c for c in ('ITEST1', 'ITEST2')]
+                ns = dict(datetime=datetime, _max_threads=1, URLS=urls, Path=Path, _DATA_PATH=folder+'/',
+                          read_coordinate_state=coords.read_state, protect_frame=coords.protect_frame,
+                          station_id_from_url=lambda u: u.rsplit('/', 1)[-1],
+                          _wunderground_monthly_api=False, _wunderground_weekly_api=False,
+                          backfill_station_ids_for=lambda _: set(), math=math,
+                          wunderground_log=lambda *a: None, start_timing=lambda *a: 0,
+                          record_timing=lambda *a: None, ThreadPoolExecutor=ThreadPoolExecutor,
+                          as_completed=as_completed, print_wunderground_summary=lambda *a: None,
+                          print_wunderground_progress=lambda *a: None, pd=pd, os=os,
+                          wunderground_file_name=str(path), WundergroundPageError=WundergroundPageError,
+                          WIND_COLUMNS=WIND_COLUMNS, optional_round=optional_round,
+                          compass_to_degrees=compass_to_degrees, write_csv_atomic=write_csv_atomic,
+                          refresh_estacions_wunderground=lambda df: df[['Codi Estació']].drop_duplicates(),
+                          scrap_wunderground_station=lambda url, *a, **kw: {
+                              'station_id': url.rsplit('/', 1)[-1],
+                              'metadata_fresh': url.rsplit('/', 1)[-1] in fresh_codes})
+                exec(compile(ast.Module(body=nodes, type_ignores=[]), '<wu-pipeline>', 'exec'), ns)
+                with warnings.catch_warnings(), redirect_stdout(io.StringIO()):
+                    warnings.simplefilter('error', FutureWarning)
+                    actual = ns['create_wunderground']()
+                self.assertEqual(list(actual['Codi Estació']), ['ITEST1', 'ITEST2'])
+                self.assertEqual(list(actual['Total']), [1.25, 0.])
+                self.assertEqual(list(actual['Latitud'].astype(float)), [42., 42.])
+                self.assertEqual(list(actual['max_temp_celsius']), ['17.0', '17.0'])
+                exceptions = coords.read_state(data)['exceptions']
+                self.assertEqual('wunderground:ITEST1' in exceptions, 'ITEST1' in fresh_codes)
+                self.assertEqual('wunderground:ITEST2' in exceptions, 'ITEST2' not in fresh_codes)
+                with mock.patch.dict(os.environ, {'RAINMAPPER_PARTITIONED_WEATHER_HISTORY': 'true'}):
+                    pending = capture_fresh_weather_rows(data, 'wunderground', actual)
+                saved = pq.ParquetFile(pending.data_path).read().to_pylist()
+                self.assertEqual([r['rain_mm'] for r in saved], [1.25, 0.])
+                self.assertEqual([r['lat'] for r in saved], [42., 42.])
+                self.assertFalse(path.exists())
 
 
 if __name__ == '__main__':

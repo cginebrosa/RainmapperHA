@@ -8,12 +8,15 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     >
-    <link rel="stylesheet" href="style.css?v=0.2.340">
+    <link rel="stylesheet" href="style.css?v=0.2.341">
   </head>
   <body>
     <header class="topbar">
       <div class="topbar-title">
-        <h1>Rainmapper</h1>
+        <div class="topbar-heading">
+          <h1>Rainmapper</h1>
+          <button id="coordinate-finder-toggle" class="coordinate-finder-toggle" type="button" aria-expanded="false" aria-controls="coordinate-finder" hidden></button>
+        </div>
         <p id="summary">Loading map data...</p>
       </div>
       <div class="idw-dem-status" id="idw-dem-status" hidden>IDW DEM</div>
@@ -37,6 +40,14 @@
 
     <main>
       <div id="map"></div>
+      <section id="coordinate-finder" class="coordinate-finder" aria-labelledby="coordinate-finder-title" hidden>
+        <div class="coordinate-finder-heading"><h2 id="coordinate-finder-title">Locations under review</h2><button id="coordinate-finder-close" type="button" aria-label="Close">×</button></div>
+        <label id="coordinate-finder-label" for="coordinate-finder-query">Find by station, code or source</label>
+        <input id="coordinate-finder-query" type="search" maxlength="160" autocomplete="off">
+        <p id="coordinate-finder-scope"></p>
+        <p id="coordinate-finder-count" role="status" aria-live="polite"></p>
+        <div id="coordinate-finder-results"></div>
+      </section>
 
       <section class="login-overlay" id="login-overlay" aria-label="Rainmapper login" hidden>
         <form class="login-card" id="login-form" autocomplete="on">
@@ -405,7 +416,7 @@
     </main>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="config.js?v=0.2.340"></script>
-  <script src="app.js?v=0.2.340"></script>
+  <script src="config.js?v=0.2.341"></script>
+  <script src="app.js?v=0.2.341"></script>
   </body>
 </html>

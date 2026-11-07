@@ -56,6 +56,7 @@ from rainmapper_core import mushroom_soilgrids_reconciler
 from rainmapper_core import mushroom_rebuild_pipeline
 from rainmapper_core import mushroom_rebuild_contracts
 from rainmapper_core import runtime_diagnostics
+from rainmapper_core import weather_coordinates
 from rainmapper_core import mushroom_worker_auth
 from rainmapper_core import mushroom_worker_jobs
 from rainmapper_core import mushroom_worker_registry
@@ -10713,6 +10714,7 @@ def _run_action_thread_impl(
             child_environment = os.environ.copy()
             child_environment[runtime_diagnostics.PARENT_OPERATION_ENV] = action_monitor.operation_id
             child_environment["RAINMAPPER_WEATHER_RUN_ID"] = weather_run_id
+            child_environment["RAINMAPPER_COORDINATES_ACTIVATED"] = "true"
             if weather_run_lock_held:
                 child_environment["RAINMAPPER_RUN_LOCK_HELD"] = "true"
             process = subprocess.Popen(
@@ -10764,6 +10766,11 @@ def _run_action_thread_impl(
         ]
         partitioned_history = bool_env("RAINMAPPER_PARTITIONED_WEATHER_HISTORY", False)
         actions = ["update", "maps"] if action == "all" else [action]
+        if action in {"all", "update"}:
+            exit_code, _ = execute_command_step("update", ["python", "-m", "rainmapper_core.weather_coordinates",
+                "activate", "--data-dir", str(DATA_PATH)], "apply accepted station locations")
+            if exit_code != 0:
+                actions = []
         for current_action in actions:
             step_started = time.perf_counter()
             if current_action == "update" and partitioned_history:
@@ -10853,6 +10860,10 @@ def _run_action_thread_impl(
                     exit_code = combine_update_exit_codes(
                         source_exit_code, archive_exit_code
                     )
+            if current_action == "update" and not partitioned_history and exit_code in {0, 2}:
+                reconcile_code, _ = execute_command_step("update", ["python", "-m", "rainmapper_core.weather_coordinates",
+                    "reconcile", "--data-dir", str(DATA_PATH)], "confirm accepted station locations")
+                exit_code = combine_update_exit_codes(exit_code, reconcile_code)
             if exit_code not in {0, 2}:
                 break
             if current_action == "maps":
@@ -10910,6 +10921,10 @@ def _run_action_thread_impl(
             started.isoformat(timespec="seconds"),
             finished.isoformat(timespec="seconds"),
         )
+        try:
+            log_file.write(weather_coordinates.summary(DATA_PATH, weather_run_id))
+        except (OSError, ValueError) as exc:
+            log_file.write(f"=== Coordinate summary unavailable: {exc} ===\n")
         log_file.write(f"=== finished with exit code {final_exit_code} at {finished.isoformat(timespec='seconds')} ===\n")
         log_file.write(f"=== duration {duration} ===\n")
 
@@ -21187,6 +21202,8 @@ class RainmapperHandler(BaseHTTPRequestHandler):
     def request_body_limit(self) -> int:
         """Return the largest accepted body for the current endpoint."""
         path = urlparse(self.path).path.rstrip("/")
+        if path == "/api/weather/coordinates/accept":
+            return 2048
         if path.startswith(mushroom_prediction_map.API_PATH + "/"):
             return mushroom_prediction_map.MAX_REQUEST_BYTES
         if path == "/api/mushrooms/workers/map-queries":
@@ -21381,6 +21398,30 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.send_json(403, {"ok": False, "error": "Administrator role required."})
             return None
         return user
+
+    def coordinate_api(self, *, accept=False) -> None:
+        user = self.require_admin_api()
+        if not user:
+            return
+        try:
+            if accept:
+                payload = self.read_json_payload()
+                result = weather_coordinates.approve(DATA_PATH, payload.get("source", ""),
+                    payload.get("station_code", ""), payload.get("revision", ""), user["username"])
+            else:
+                query = parse_qs(urlparse(self.path).query)
+                result = weather_coordinates.review(DATA_PATH, (query.get("source") or [""])[0],
+                    (query.get("station_code") or [""])[0])
+        except LookupError as exc:
+            self.send_json(409, {"ok": False, "error": str(exc)})
+            return
+        except ValueError as exc:
+            self.send_json(400, {"ok": False, "error": str(exc)})
+            return
+        except OSError:
+            self.send_json(503, {"ok": False, "error": "No se pudo leer o guardar la incidencia."})
+            return
+        self.send_json(200, result)
 
     def send_mushroom_validation(self) -> None:
         store = default_store()
@@ -23165,6 +23206,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
             self.download_runtime_diagnostics()
             return
 
+        if path == "/api/weather/coordinates":
+            self.coordinate_api()
+            return
+
         if path == "/auth/session":
             user = self.authenticated_user()
             if not user:
@@ -23548,6 +23593,10 @@ class RainmapperHandler(BaseHTTPRequestHandler):
                 self.headers.get("User-Agent", ""),
             )
             self.send_json(status, response)
+            return
+
+        if parsed.path == "/api/weather/coordinates/accept":
+            self.coordinate_api(accept=True)
             return
 
         if parsed.path == "/auth/session":

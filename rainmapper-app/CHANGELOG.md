@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.341
+
+- Protect accepted station coordinates across all weather sources and pending history batches: record jumps beyond 1 km without aborting the runner, and recover only from valid fresh provider metadata.
+- Add a grouped coordinate summary and MapLibre review markers, a searchable review list and precise location pins; require administrator approval for relocations and apply them on the next runner.
+- Preserve AEMET location and weather fields when hourly precipitation is missing; complete missing locations from the official OpenData station inventory and reuse persisted station metadata.
+- Keep previously measured hourly values when a later AEMET response omits them, without manufacturing zero rainfall or empty daily records.
+- Preserve Meteoclimatic coordinate precision and compare cached locations numerically to avoid redundant Google Maps enrichment.
+- Normalize geographic metadata safely for Parquet, avoid Pandas warnings when combining fresh and cached Wunderground metadata, and preserve missing last-reading timestamps as GeoJSON nulls.
+
 ## 0.2.340
 
 - Discover the public Weather.com API key from a selected Wunderground station page once per runner and share it in memory across station downloads; preserve the explicit environment override without storing a key in configuration.

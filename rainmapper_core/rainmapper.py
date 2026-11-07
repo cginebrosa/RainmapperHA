@@ -32,7 +32,7 @@ atexit.register(_finish_runner_diagnostics_if_needed)
 
 import pandas as pd
 from rainmapper_core.atomic_io import write_csv_atomic
-from rainmapper_core.meteoclimatic_fixed_coordinates import FixedCoordinates, load_fixed_coordinates
+from rainmapper_core.weather_coordinates import protect_frame, read_state as read_coordinate_state
 from rainmapper_core.sources.sodapy_local import Socrata
 from datetime import datetime, date, timedelta, time, timezone
 import pytz
@@ -943,6 +943,9 @@ def get_estacions_xema(): # Get estacions data from Meteocat
         estacions_xema[col] = pd.to_numeric(estacions_xema[col], errors='coerce')
     ## FIN MODI DE CODEX PARA PANDAS ##
 
+    estacions_xema = protect_frame(Path(_DATA_PATH), "meteocat", estacions_xema, fresh=True)
+    estacions_xema = estacions_xema.dropna(subset=["Latitud", "Longitud"])
+
     # Retrieve and update local file
     try:
         estacions_old = pd.read_csv(_DATA_PATH+'estacions_xema.csv').drop_duplicates(subset='Codi Estació')
@@ -1581,6 +1584,10 @@ def create_total_dataframe(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv)
 
 def create_total_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, _save_to_csv):               # Create Total Dataframe
     csv=csv_param.copy()
+    # Location metadata is numeric after coordinate protection. Round weather
+    # measurements only: rounding locations here moves stations before geocoding.
+    measurement_precision = {column: 1 for column in csv.columns
+                             if column not in ('Latitud', 'Longitud', 'Altitud')}
     for column in (
         'wind_avg_kmh',
         'wind_min_kmh',
@@ -1631,7 +1638,7 @@ def create_total_meteoclimatic(csv_param:pd.DataFrame, _save_to_excel, _save_to_
                         'wind_observation_count':'last',
                         'wind_source_height_m':'last'
                         }). \
-                    round(1). \
+                    round(measurement_precision). \
                     rename(columns={'Data Lectura':'Ultima Lectura'}).\
                     sort_values(by=['Total'], ascending=[False],inplace=False)
     #
@@ -1815,6 +1822,16 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
         # If not existing file a new df is created
         csv_old = pd.DataFrame(columns=csv.columns)
 
+    # Legacy registries may mix dot/comma decimal strings. The coordinate guard
+    # returns numeric metadata: compare numbers on both sides so an unchanged
+    # station reuses its cached altitude instead of calling Google Maps again.
+    for stations in (csv, csv_old):
+        for column in ('Latitud', 'Longitud', 'Altitud'):
+            stations[column] = pd.to_numeric(
+                stations[column].astype(str).str.replace(',', '.', regex=False),
+                errors='coerce',
+            ).astype(float)
+
     #print(csv_old.info())
     csv_old.set_index(keys=["Codi Estació"],drop=False,inplace=True)
     #
@@ -1825,7 +1842,7 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
     csv['Estació'] = csv['Estació'].apply(lambda x: re.sub(r'\([^)]*\)(?=[^()]*$)', '', x))
 
     # Get elevation for existing stations in 'estacions_meteoclimatic.csv' if not set or changed lat or long
-    existing_stations = csv[csv.index.isin(csv_old.index )]
+    existing_stations = csv[csv.index.isin(csv_old.index )].copy()
 
     for index, station in existing_stations.iterrows():
         try:
@@ -1855,7 +1872,7 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
             existing_stations.loc[index,'Provincia'] = _provincia
 
     # Get elevation, municipi & provincia for new stations added to 'estacions_meteoclimatic.csv'
-    new_stations = csv[ ~csv.index.isin(csv_old.index) ]
+    new_stations = csv[ ~csv.index.isin(csv_old.index) ].copy()
     for index, station in new_stations.iterrows():
         print ('Fetching altitude/municipality/province for new station:'+ station['Codi Estació'] + '-->' + station['Estació'])
         _altitud, _municipi, _provincia = get_googlemaps(station['Latitud'], station['Longitud'])
@@ -1883,7 +1900,6 @@ def refresh_estacions_meteoclimatic(meteoclimatic_df:pd.DataFrame):
 
 def create_meteoclimatic(_save_to_csv, timings=None):
 
-    fixed_coordinates = FixedCoordinates(load_fixed_coordinates(Path(_DATA_PATH)))
     client = MeteoclimaticClient()
     patterns = parse_meteoclimatic_patterns(_meteoclimatic_pattern)
     print("Meteoclimatic patterns:", ", ".join(patterns))
@@ -1912,7 +1928,8 @@ def create_meteoclimatic(_save_to_csv, timings=None):
 
     step_start_time = start_timing(timings, 'build_current_seconds')
     meteoclimatic_df = pd.concat(meteoclimatic_frames, ignore_index=True)
-    meteoclimatic_df = fixed_coordinates.apply_frame(meteoclimatic_df)
+    meteoclimatic_df = protect_frame(Path(_DATA_PATH), "meteoclimatic", meteoclimatic_df, fresh=True)
+    meteoclimatic_df = meteoclimatic_df.dropna(subset=["Latitud", "Longitud"])
     meteoclimatic_df.drop_duplicates(subset=["Codi Estació"], keep="first", inplace=True)
     meteoclimatic_df.reset_index(drop=True, inplace=True)
     meteoclimatic_df = create_total_meteoclimatic(meteoclimatic_df, _save_to_excel = False, _save_to_csv=False)
@@ -1964,7 +1981,7 @@ def create_meteoclimatic(_save_to_csv, timings=None):
 
     return meteoclimatic_df                             # Same format than Meteocat and with elevation set
 
-def scrap_wunderground_station(weather_station_url, launchtime, *, api_key=None, api_key_error=None):
+def scrap_wunderground_station(weather_station_url, launchtime, *, api_key=None, api_key_error=None, refresh_coordinates=False):
 
     thread_name = threading.current_thread().name
     station_started_at = datetime.now()
@@ -2007,6 +2024,7 @@ def scrap_wunderground_station(weather_station_url, launchtime, *, api_key=None,
     summary_cache_retries = 0
     summary_cache_recoveries = 0
     summary_stale_responses = 0
+    metadata_fresh = False
 
     if MERGE_DATA:
         file_prefix = 'MERGED'
@@ -2078,7 +2096,7 @@ def scrap_wunderground_station(weather_station_url, launchtime, *, api_key=None,
                 #scraper = parseStationData(weather_station_url)
                 scraper = None
                 html_string = None
-                metadata = cached_wunderground_station_metadata(weather_station_url)
+                metadata = None if refresh_coordinates else cached_wunderground_station_metadata(weather_station_url)
 
                 if metadata:
                     station_ID = metadata['station_ID']
@@ -2098,6 +2116,7 @@ def scrap_wunderground_station(weather_station_url, launchtime, *, api_key=None,
                         # Fetch and log station metadata.
                         #elevation, latitude, longitude, station_name, station_ID, location_name = scraper.get_station_header()
                         station_ID, station_name, location_name, elevation, latitude, longitude = scraper.get_station_header()
+                        metadata_fresh = True
 
                     except Exception as e:
                         summary_errors.append(str(e))
@@ -2216,6 +2235,7 @@ def scrap_wunderground_station(weather_station_url, launchtime, *, api_key=None,
         'cache_retries': summary_cache_retries,
         'cache_recoveries': summary_cache_recoveries,
         'stale_responses': summary_stale_responses,
+        'metadata_fresh': metadata_fresh,
         'duration_seconds': duration_seconds,
         'timestamp_lectura': station_started_at.isoformat(timespec='seconds'),
         'fecha_lectura': station_started_at.strftime('%Y%m%d'),
@@ -2513,6 +2533,8 @@ def create_wunderground(timings=None):
         if not station_urls:
             raise ValueError("Wunderground station filter did not match any configured station.")
     total_stations = len(station_urls)
+    coordinate_exceptions = {e["station_code"].upper() for e in read_coordinate_state(Path(_DATA_PATH))["exceptions"].values()
+                             if e["source"] == "wunderground"}
     completed_stations = 0
     progress_step = max(1, math.ceil(total_stations / 10))
     next_progress = progress_step
@@ -2551,12 +2573,14 @@ def create_wunderground(timings=None):
                 wunderground_log(f"Processing first URL without threads: {url}")
                 register_wunderground_result(scrap_wunderground_station(
                     url, launchtime, api_key=api_key, api_key_error=api_key_error,
+                    refresh_coordinates=station_id_from_url(url).upper() in coordinate_exceptions,
                 ))
             else:
                 # Procesa el resto de las URLs usando threads
                 futures.append(executor.submit(
                     scrap_wunderground_station, url, launchtime,
                     api_key=api_key, api_key_error=api_key_error,
+                    refresh_coordinates=station_id_from_url(url).upper() in coordinate_exceptions,
                 ))
 
         # Procesa los resultados a medida que terminan
@@ -2586,6 +2610,21 @@ def create_wunderground(timings=None):
     #print(scraper_df)
     step_start_time = start_timing(timings, 'normalize_seconds')
     wunderground_df = build_wunderground_dataframe(scraper_df)
+    fresh_codes = {r["station_id"] for r in results if r.get("metadata_fresh")}
+    fresh_mask = wunderground_df["Codi Estació"].isin(fresh_codes)
+    # An empty subset keeps the raw CSV dtypes, unlike the protected rows.
+    # Avoid concatenating it back into the normalized location columns.
+    if fresh_mask.all():
+        wunderground_df = protect_frame(Path(_DATA_PATH), "wunderground", wunderground_df, fresh=True)
+    elif not fresh_mask.any():
+        wunderground_df = protect_frame(Path(_DATA_PATH), "wunderground", wunderground_df)
+    else:
+        wunderground_df = pd.concat([
+            protect_frame(Path(_DATA_PATH), "wunderground", wunderground_df.loc[fresh_mask], fresh=True),
+            protect_frame(Path(_DATA_PATH), "wunderground", wunderground_df.loc[~fresh_mask]),
+        ])
+    wunderground_df = wunderground_df.sort_index()
+    wunderground_df = wunderground_df.dropna(subset=["Latitud", "Longitud"])
 
     wunderground_df['Data Lectura'] = pd.to_datetime(wunderground_df['Data Lectura'],format='%Y-%m-%d %H:%M:%S') # 'Data Lectura' como datetime64
     wunderground_df['Ultima Lectura']= wunderground_df['Data Lectura'].dt.strftime("%Y/%m/%d %H:%M:%S")
