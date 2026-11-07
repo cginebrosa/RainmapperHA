@@ -1,82 +1,83 @@
-# TODO — revisión 04/10/2026
+# TODO — revisión 07/11/2026
 
 Arranque: [codex-start-here](codex-start-here.md) y [active-context](active-context.md).
-Esta lista no autoriza trabajos ni publicaciones. Etapas superadas conservadas en
-[archivo del cierre](reports/session-context-before-close-2026-09-22.md).
+Las prioridades ordenan posibles próximos encargos; **no autorizan ejecutarlos**.
+Los datos y medidas antiguos son evidencia fechada, que se revalida al retomar.
+[Contexto y TODO anteriores](reports/session-context-before-close-2026-11-07.md).
 
-## HA 0.2.340 · seguimiento real (29/10)
+## Completado · Meteorología, coordenadas y HA 0.2.341
 
-- [x] Validar Wunderground en el runner local del usuario y superar el smoke.
-- [x] Publicar clave dinámica y respaldo HTML reparado; verificar en GHCR ambos
-  tags con el mismo digest y manifests amd64/arm64.
-- [ ] El usuario instala 0.2.340 y comprueba Wunderground en su runner de HA real.
-- [ ] Si AEMET vuelve a quedar `PARTIAL`, revisar el bloque diario fallido a partir
-  de sus registros; el último runner local no identifica la causa.
+- [x] Refresco AEMET de 30 días por OpenData: diarios oficiales sobre provisionales,
+  aunque el día ya parezca completo; incorporación al histórico particionado.
+- [x] Clave pública Wunderground descubierta en memoria por runner, con otras
+  estaciones como alternativa; API y respaldo HTML por estación, reintentos de
+  compresión conservados. No implica que el proveedor entregue datos recientes.
+- [x] Protección común de coordenadas >1 km, recuperación con metadata original,
+  conservación hasta aceptación humana, resumen final y revisión desde el mapa.
+- [x] Conservar metadata AEMET sin lluvia y completar sólo ubicaciones ausentes
+  con inventario oficial; reutilizar catálogo y enriquecimientos posteriores.
+- [x] Corregir tipos Parquet, comparación/redondeo Meteoclimatic, unión Wunderground
+  y fecha ausente GeoJSON; pruebas del recorrido completo y segunda ejecución.
+- [x] Validación local aceptada: runner 2 min 51 s, exit 0; smoke 2.194 tests,
+  55 omitidos. Imagen local reconstruida y código efectivo comprobado.
+- [x] Publicar 0.2.341, verificar GHCR multi-arch y registrar confirmación del
+  usuario de instalación y funcionamiento en HA real. No hay instalación de
+  0.2.339/340 pendiente como requisito de continuidad.
+- [x] Dejar un único checkout raíz en `inicial`; conservar LLM separado en
+  `feature/local-llm`. Versionar ambos snapshots autorizados de observaciones.
+- [x] Documentar la confirmación real y cerrar continuidad sin cambiar código.
 
-[Informe de release](reports/release-ha-0.2.340-2026-10-29.md).
+[Release y límites](reports/release-ha-0.2.341-2026-11-07.md),
+[contrato de coordenadas](weather-coordinate-protection-es.md) y
+[organización de ramas](repository-branches.md).
 
-## HA 0.2.339 · seguimiento AEMET (29/10)
+## P1 · Seguimiento meteorológico, sólo si se retoma
 
-- [x] Publicar refresco AEMET de 30 días desde la candidata aislada y verificar
-  en GHCR ambos tags y arquitecturas; validación local aceptada por el usuario.
-- [x] El usuario comunica instalación y funcionamiento de 0.2.339 en HA real.
-- [ ] Antes de retomar el checkout principal, sincronizar con la release publicada
-  conservando su trabajo MCP pendiente; la publicación se prepara en worktree aislado.
+- [ ] **Wunderground:** comprobar actualidad y estaciones fallidas con nuevas
+  respuestas API/logs. Última evidencia local: 106 respuestas antiguas, fallos
+  `IBAG57`, `IFUENT4`, `IMONTF44`; `OK` global no acredita todas las estaciones.
+  La muestra del 07/11 confirma respuesta antigua/ausente de la API, sin causa
+  global demostrada. No rehacer el scraper ni cambiar ventanas por suposición.
+- [ ] **Roda de Ter:** revisar si la fuente sigue proponiendo 49.99/2.32 frente
+  a la referencia 41.99/2.32. Mantenerla hasta recuperación válida o aceptación
+  explícita; nunca adoptar el traslado automáticamente por estabilidad.
+- [ ] **Meteocat/XEMA:** espera acordada ante retraso de publicación. Si persiste
+  y el usuario lo retoma, comprobar API y ventana efectiva antes de ampliarla;
+  no hay diagnóstico actual de una incidencia Socrata en este cierre.
+- [ ] Si vuelve un error de archivo/catálogo, reproducir con pocas estaciones
+  desde el proveedor hasta Parquet y una segunda lectura del CSV. Conservar
+  precisión y mediciones; limitar Google real y medir duración del recorrido.
 
-[Informe de release](reports/release-ha-0.2.339-2026-10-29.md).
+## Aparcado · Asistente LLM local
 
-## P1 pendiente · Utilidad de las predicciones de aereus y caesarea (04/10)
+- [x] Conservar trabajo en `feature/local-llm` (`c20d3c6d`), sin worktree adicional
+  y sin integrarlo en `inicial` ni en la imagen HA.
+- [ ] Al retomarlo expresamente: revisar su base 0.2.338, reconciliar cambios de
+  `inicial` y validar los componentes afectados. La rama sigue sin push; decidir
+  publicación dentro de ese encargo. Conservar modelos, runtime y credenciales.
 
-- [x] Completar las dos comparaciones locales: umbral favorable y selección del
-  ganador. Conservar artefactos, reglas y controles; no repetir lotes cerrados ni
-  presentar las hipótesis reutilizadas como confirmación independiente.
-- [x] Hacer legibles los informes: cantidades / denominadores → porcentajes,
-  referencia ideal, explicación de columnas, promedios entre siete horizontes
-  y comparación de caesarea A/B/C por campaña. Incluye el anexo de umbrales.
-- [x] Documentar la preferencia del usuario y el índice por favorables reales;
-  calcular k=2/3/4 desde los resultados guardados y conservar su carácter provisional.
-- [x] Cerrar la continuidad: contexto compacto, decisiones etiquetadas y contexto
-  sustituido archivado. Lectura inicial limitada a los dos documentos de arranque.
+## P1 · Evidencia de utilidad de predicciones, pendiente científico
 
-- [ ] **Retomar la revisión conjunta de selección, umbrales y utilidad**, sin
-  repetir las investigaciones cerradas. [Informe de selección e índice propuesto](agents/prediction-model-selection/resultados-2026-10-04.md#indice-utilidad-oportunidades)
-  e [informe de umbrales](agents/prediction-thresholds/resultados-2026-10-03.md).
-  El usuario prefiere 10 consejos favorables con nueve aciertos a 40 con 30,
-  siempre que la cantidad de recomendaciones sea útil; 90% no es un mínimo acordado.
-- [ ] Acordar el coste `k`, el mínimo del índice y la cantidad/frecuencia útil
-  de consejos, distinguiendo precisión, oportunidades detectadas y cobertura
-  total de consejos. Fórmula discutida: `I_k = 100 × (TP − k × FP) / P`, donde
-  `P` son **todos los favorables reales**, incluidos los no detectados; no los
-  casos totales ni sólo los consejos favorables del modelo. Ningún `k` ni mínimo
-  queda aprobado. Revisar también si esta fórmula representa bien la preferencia.
-- [ ] Contrastar esa preferencia con la penalización: sobre los mismos casos,
-  para preferir nueve aciertos/un error a 30 aciertos/diez errores se requiere
-  `9 − k > 30 − 10k`, es decir, **`k > 7/3 ≈ 2,33`**. Con `k = 2` se invierte
-  aquel ejemplo; `k = 3` y `k = 4` lo respetan, sin fijar por ello el coste definitivo.
-- [ ] Definir soporte de observaciones y episodios independientes, incertidumbre
-  y estabilidad por campaña antes de una nueva validación. Un índice alto con
-  una única oportunidad no demuestra fiabilidad; un promedio positivo tampoco
-  elimina una campaña sin consejos, como caesarea B en 2025. Distinguir ajuste
-  experimental, evidencia ya utilizada y confirmación futura independiente.
+- [x] Estudios de umbrales y selección cerrados, con resultados conservados.
+  [Selección e índice](agents/prediction-model-selection/resultados-2026-10-04.md#indice-utilidad-oportunidades)
+  y [umbrales](agents/prediction-thresholds/resultados-2026-10-03.md).
+- [x] El diseño posterior ya implementa evaluación actualizable A/B/C/D y comparación
+  con Habitual, `I_k = 100 × (TP − k × FP) / P` (`P`: todos los favorables reales),
+  K configurable (default 4), selección de especies y preparación reutilizable.
+  El mapa usa la última preparación compatible; guardar ajustes no lanza trabajo.
+  [Contrato vigente](mushrooms/prediction-map-specification-es.md).
+- [ ] Revisar cantidad/frecuencia útil de consejos, mínimo de utilidad, soporte
+  independiente, incertidumbre y estabilidad por campaña. K configurable no
+  significa coste científico óptimo demostrado ni aceptación de cualquier ganador.
+- [ ] Mantener la preferencia por precisión favorable con recomendaciones útiles:
+  nueve aciertos/un error frente a 30/diez exige `k > 7/3` en aquel ejemplo;
+  no impone 90% mínimo ni fija un K óptimo universal.
+- [ ] Diseñar confirmación prospectiva sólo mediante nuevo encargo: predicciones
+  fechadas antes de visitas, negativos explícitos y episodios independientes.
+  No repetir estudios cerrados ni presentar datos ya usados como validación nueva.
 
-Comparación aritmética guardada para retomar, en **puntos de utilidad, no %**.
-Estos A/B/C pertenecen al estudio de selección; no equivalen a las letras del
-estudio de umbrales. Fuente: `tmp/prediction-model-selection/analysis/results.json`,
-agregados `species.<especie>.strata.pooled.average`, sin redondear antes del cálculo.
-Denominadores: caesarea 35 favorables reales; aereus 36.
-
-| Especie | Variante | k = 2 | k = 3 | k = 4 |
-|---|---|---:|---:|---:|
-| Caesarea | A | −12,65 | −31,43 | −50,20 |
-| Caesarea | B | +23,67 | +16,73 | +9,80 |
-| Caesarea | C | +17,55 | −2,45 | −22,45 |
-| Aereus | A | +5,95 | −15,48 | −36,90 |
-| Aereus | B | −9,52 | −32,14 | −54,76 |
-| Aereus | C | −2,78 | −27,38 | −51,98 |
-
-**Guardado como pendiente por el usuario, no como orden de ejecución.** No lanzar
-otro agente, repetir entrenamientos/precálculos, promover B/C ni cambiar HA o el
-worker/coordinador. Conservar resultados, reglas originales y archivos privados.
+La tabla histórica k=2/3/4 y el TODO original se conservan en el archivo del cierre.
+No lanzar entrenamiento, precálculo, nuevas investigaciones ni agentes al leerlo.
 
 ## Aplazado · Disco del Mac (03/10)
 
@@ -101,7 +102,8 @@ Auditoría detenida por decisión del usuario; conservar lo pendiente sin retoma
   acceso macOS o pedir tamaños; no repetir barridos de clones ya comprobados.
 - [ ] Decidir tratamiento de instaladores tras revalidar actualizaciones/montajes.
   No borrar contenido montado ni detener Docker/worker para limpiar sin acuerdo.
-- [ ] Lightroom, auditorías antiguas y Buildx sólo si se acuerdan por separado.
+- [ ] Lightroom y auditorías antiguas sólo si se acuerdan por separado.
+  Buildx se acotó durante la release del 07/11; no autoriza otra limpieza general.
   Fuentes, geografía operativa y volumen worker se conservan. No desinstalar
   WhatsApp ni equiparar tamaño aparente a espacio recuperable.
 
@@ -288,14 +290,14 @@ Auditoría detenida por decisión del usuario; conservar lo pendiente sin retoma
   justifica. El fallo quality_read_limit ya se corrigió sin elevar los 64 MiB.
 - [ ] Paridad meteorológica: Data y PublicData son capas diferentes. Comprobar
   generación del GeoJSON y fuente de histórico antes de culpar a IDW/predicción.
-- [ ] Caché Buildx: auditoría de disco realizada el 03/10; limpieza separada
-  todavía no autorizada. 19,8 GB declarados incluían capas compartidas; 8,39 GB
-  privados según la captura. No sumarlos además de Docker.raw ni prometer ese
-  ahorro sin revalidar. La bajada histórica de libre no está atribuida con certeza.
-  Continuar desde el bloque **P1 activo · Disco del Mac**, no repetir la auditoría.
+- [x] Caché Buildx acotada por el script de release 0.2.341 a 8 GiB; informó
+  4,753 GB liberados. No borra versiones GHCR remotas ni resuelve la auditoría
+  general de disco aplazada. [Recibo](reports/release-ha-0.2.341-2026-11-07.md).
 - [ ] Validación geográfica independiente/AMD64 antes de retirar originales.
-- [ ] Revalidar incidente Barcelona/Erinya antes de actuar:
-  [informe histórico](reports/weather-coordinate-conflict-2026-09-13.json).
+- [ ] Si se retoman Barcelona/Erinya, revalidar ubicación y estado antes de actuar.
+  El [informe de septiembre](reports/weather-coordinate-conflict-2026-09-13.json)
+  es histórico: su permiso de traslado automático dentro de España quedó
+  reemplazado por la protección común de 1 km de 0.2.341.
 - [ ] Runner externo/AWS/servidor doméstico y Python 3.14 quedan como futuros.
 - [x] Releases anteriores GIS/DEM/SMI/suspensiones y visores WU/GBIF separados:
   historial en archivo, no quedan instalaciones antiguas como tareas actuales.

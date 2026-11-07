@@ -1,5 +1,94 @@
 # Decisions
 
+## 2026-11-07 — [VIGENTE][CONTINUIDAD] Cierre meteorológico y evidencia por entorno
+
+Arranque sólo con `codex-start-here.md` y `active-context.md`; TODO opcional.
+Sustituir el contexto acumulado por estado operativo, límites y siguientes pasos;
+[archivo del contexto y TODO anteriores](reports/session-context-before-close-2026-11-07.md).
+HA 0.2.341 está instalada y funciona **según confirmación del usuario**; no hubo
+inspección remota independiente ni log completo de ese runner real. Las medidas
+locales no acreditan tiempos/actualidad de cada fuente en HA real. No reabrir
+instalaciones antiguas ni repetir pruebas/operaciones por cerrar documentación.
+[Recibo de release](reports/release-ha-0.2.341-2026-11-07.md).
+
+## 2026-11-07 — [VIGENTE][REPOSITORIO] Una raíz en inicial; LLM separado
+
+La raíz habitual contiene `inicial`, upstream `origin/inicial`. `origin` es el
+remoto y la antigua `main` no es la rama de publicación. El trabajo LLM/MCP se
+conserva en `feature/local-llm`, sin integrar en la principal; un único checkout,
+sin worktrees permanentes adicionales. Nuevas ramas para tareas largas cuando
+se acuerden; reconciliar la base del LLM al retomarlo, no fusionarlo para obtener
+correcciones meteorológicas ya presentes en `inicial`.
+
+El usuario autorizó versionar **ambos** snapshots de observaciones, sin fusionar:
+`mushroom-data/mushroom_observations.json` y `mushroom_observations.json`.
+Reemplaza las instrucciones antiguas de este relevo que los excluían del commit.
+No autoriza publicar credenciales/modelos ni usar esos snapshots como defaults
+HA. Se preservan datos/runtime ignorados. [Detalle y huellas](repository-branches.md).
+
+## 2026-11-07 — [VIGENTE][AEMET] Metadata sin lluvia e inventario sólo para ausencias
+
+No descartar una observación con estación/fecha válidas por carecer de lluvia:
+conservar coordenadas y otros sensores; ausencia no equivale a cero ni debe
+borrar mediciones ya conocidas. Para estaciones sin ubicación, usar el inventario
+**oficial OpenData**, en una consulta conjunta acotada y con la protección común.
+Persistir el resultado en el catálogo normal; no repetir la completación si ya
+existe una posición válida ni degradarla a coordenadas de menor precisión.
+Las ubicaciones aún sin resolver se reintentan en el siguiente runner.
+
+La altitud puede venir de AEMET; Google mantiene su enriquecimiento habitual
+cuando faltan metadatos. No confundir completar fichas con dar altas físicas ni
+con el número de llamadas Google. Pruebas reales pagadas sólo de pocas estaciones,
+con segunda pasada que compruebe reutilización; nunca cientos de consultas como
+prueba de una conversión de tipos. La validación debe recorrer agregación,
+catálogo persistido, captura y archivo, conservando precisión y mediciones.
+[Contrato AEMET](../rainmapper-app/DOCS.md#estaciones-sin-precipitación-y-catálogo-de-ubicaciones)
+y [pruebas](reports/weather-coordinates-local-2026-11-04.md).
+
+## 2026-10-29 — [VIGENTE][AEMET] Diario oficial sobre provisional en cada runner
+
+Los días recientes se fabrican con horarias mientras faltan diarios publicados.
+Cada runner refresca por API OpenData los últimos 30 días, también los que ya
+parecen completos; los campos oficiales disponibles prevalecen, incluidas
+correcciones a la baja, y se incorporan al histórico particionado. No limitar
+este refresco a huecos incompletos: es distinto del backfill histórico fuera de
+ventana. Se descarta scraping AEMET y una espera artificial de seis horas.
+[Contrato y límites](../rainmapper-app/DOCS.md#provisionales-horarios-y-diarios-oficiales).
+
+## 2026-10-29 — [VIGENTE][WUNDERGROUND] Clave en memoria y respaldo por estación
+
+Descubrir la clave pública desde páginas de estaciones una vez por runner,
+probando otras si la primera no aporta clave; compartirla en memoria sin
+persistirla en `config.yaml`. Un fallo de observaciones usa respaldo HTML para
+esa estación; la siguiente vuelve a intentar la API. Conservar reintentos
+`gzip`, `identity`, `deflate` y selección de la respuesta más reciente.
+Un `OK` global no garantiza actualidad en todas las estaciones. Los resultados
+antiguos/HTTP 204 comprobados el 07/11 son evidencia de esa muestra, no diagnóstico
+de una incidencia global del proveedor ni motivo para rehacer el scraper.
+[Contrato](../rainmapper-app/DOCS.md#clave-dinamica-y-respaldo-html) y
+[consulta directa](reports/wunderground-api-check-2026-11-07.md).
+
+## 2026-11-07 — [VIGENTE][OPERACIÓN] Paridad de configuración sin elevar concurrencia
+
+El usuario confirmó `max_threads: 1` en HA real; local se ajustó a 1 para reproducir
+ese runner. El default de nuevas instalaciones sigue en 3: no cambiarlo en este
+cierre ni tomar una recomendación histórica como prueba de configuración efectiva.
+La prueba operativa comparable requiere misma imagen/código y revisar opciones.
+La RPi4 tiene recursos compartidos; normalizar y reutilizar antes de aumentar
+hilos, límites o llamadas externas. El usuario lanza los trabajos operativos.
+
+## 2026-11-07 — [VIGENTE][PREDICCIÓN] Conservar los acuerdos posteriores a la propuesta del 04/10
+
+La fórmula `I_k = 100 × (TP − k × FP) / P`, con todos los favorables reales en
+`P`, ya forma parte de la selección/comparación implementada. K configurable,
+default 4, no acredita un coste óptimo universal. La referencia del mapa usa
+la última preparación compatible; el IFF sigue la fecha/meteorología consultadas.
+Las especies son configurables y guardar preferencias no dispara cálculos.
+Es una consolidación documental de los acuerdos 05–11/10, no un cambio científico
+ni una autorización para nuevos trabajos. Siguen abiertos soporte independiente,
+mínimos de utilidad y frecuencia útil; preservar las reglas y resultados de
+los estudios cerrados. [Especificación vigente](mushrooms/prediction-map-specification-es.md).
+
 ## 2026-10-06 — [VIGENTE][PREDICCIÓN] Comparar Habitual y A/B/C/D en visitas comunes
 
 **Aclaración posterior expresa:** selección y comparación deben prepararse en
@@ -44,7 +133,10 @@ ventanas difieren de los años naturales completos del estudio. Alcance, límite
 y aceptación local: [especificación](mushrooms/prediction-map-specification-es.md).
 No se autoriza release, cambio de coordinador ni repetición del estudio cerrado.
 
-## 2026-10-04 — [VIGENTE][CONTINUIDAD] Estudios cerrados y revisión de utilidad aplazada
+## 2026-10-04 — [REEMPLAZADA][CONTINUIDAD] Estudios cerrados y revisión de utilidad aplazada
+
+Relevo operativo sustituido por el cierre 07/11/2026; la conservación de estudios
+y la distinción entre evidencia local y real siguen vigentes. Texto histórico:
 
 Arrancar sólo con `codex-start-here.md` y `active-context.md`; `todo.md` opcional.
 El usuario pidió guardar la discusión de utilidad para revisarla después y cerrar
@@ -118,12 +210,17 @@ no una promoción operativa ni una confirmación suficiente para sustituir model
 La coherencia entre selección semanal y veto posterior merece una hipótesis
 separada si se autoriza, sin añadir retrospectivamente otra variante al estudio.
 
-## 2026-10-04 — [DUDA][UTILIDAD] Índice por oportunidades y costes pendientes de acuerdo
+## 2026-10-04 — [REEMPLAZADA][UTILIDAD] Índice por oportunidades y costes pendientes de acuerdo
+
+La propuesta pasó a implementación en los acuerdos posteriores del 05–11/10:
+fórmula adoptada y K configurable con default 4. No siguen pendientes de diseñar.
+Los límites científicos, mínimo de utilidad y soporte independiente permanecen
+abiertos. Se conserva la propuesta original para no perder sus alternativas:
 
 Propuesta para discutir: `I_k = 100 × (TP − k × FP) / P`, con `P` = todos los
 favorables reales, incluidos los no detectados. Son puntos por cada 100
 oportunidades, no porcentajes de acierto; k=2/3/4 son ejemplos, ninguno aprobado.
-La tabla completa está en [TODO](todo.md) y la derivación y límites en
+La tabla original está en el [TODO archivado](reports/session-context-before-close-2026-11-07.md#snapshot-de-todomd) y la derivación y límites en
 [el informe](agents/prediction-model-selection/resultados-2026-10-04.md#indice-utilidad-oportunidades).
 
 Máximo 100 al detectar todos los positivos sin falsos favorables; el índice no
@@ -1035,7 +1132,7 @@ artefactos efectivos mediante lectura acotada cuando se solicite.
 - [Tabla, método y siguiente aplicación](mushrooms/prediction-map-species-ph-proposal-es.md).
   [JSON y cuatro comprobaciones aisladas](reports/prediction-map-species-ph-proposal-2026-09-13.json).
 
-## 2026-11-04 - [ACORDADO][METEO] Protección común y traslado revisado por administrador
+## 2026-11-04 - [VIGENTE][METEO] Protección común y traslado revisado por administrador
 
 - Para todas las fuentes, conservar la última ubicación aceptada ante un salto
   superior a 1 km, registrar una excepción y continuar la descarga/archivo.
@@ -1047,11 +1144,19 @@ artefactos efectivos mediante lectura acotada cuando se solicite.
   del siguiente runner, con revisión de propuesta y auditoría.
 - Resumen final agrupado por fuente, con antigüedad y ambas posiciones; marca
   mínima en GeoJSON y borde ámbar, conservando la geometría aceptada.
-- Implementación candidata validada primero en local; no supone instalación en
-  HA real. [Contrato y límites](weather-coordinate-protection-es.md) y
-  [evidencia local](reports/weather-coordinates-local-2026-11-04.md).
+- Implementación validada primero en local e incluida en 0.2.341; instalación
+  y funcionamiento real confirmados por el usuario el 07/11, sin inspección
+  remota independiente. [Contrato y límites](weather-coordinate-protection-es.md),
+  [evidencia local](reports/weather-coordinates-local-2026-11-04.md) y
+  [release](reports/release-ha-0.2.341-2026-11-07.md).
+- Botón de revisión junto al título, sin otra línea; botón/lista ocultos hasta
+  640 px por decisión del usuario. Las coordenadas propuestas se señalan con
+  una punta anclada al punto exacto; no se difunden en el GeoJSON público.
 
-## 2026-09-13 - [SUSTITUIDA POR ACUERDO 04/11][METEO] Correcciones de coordenadas con destino en España aproximada
+## 2026-09-13 - [REEMPLAZADA][METEO] Correcciones de coordenadas con destino en España aproximada
+
+Sustituida el 04/11 por protección común de 1 km y aceptación administrativa,
+también dentro de España. Lo siguiente documenta el criterio anterior:
 
 - Decisión final explícita: admitir cualquier salto cuyo destino esté dentro
   de la zona aproximada de España, incluidas Baleares y Canarias, también si
@@ -6121,7 +6226,11 @@ La primera instalacion debe crear una plantilla si falta. Los updates no deben s
 ### Estado
 Confirmada.
 
-## 2026-06-17 - Usar Wunderground con un thread por defecto en RPi (fecha aproximada; reemplazada el 2026-06-20)
+## 2026-06-17 - [REEMPLAZADA] Usar Wunderground con un thread por defecto en RPi (fecha aproximada; reemplazada el 2026-06-20)
+
+La recomendación histórica de 3 no describe la instalación actual: el 07/11
+el usuario confirmó 1 en HA real y se igualó local; véase el acuerdo operativo.
+El default del add-on sigue en 3.
 
 ### Decision
 Mantener `max_threads: 1` por defecto.

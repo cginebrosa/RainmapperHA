@@ -1,8 +1,10 @@
 # Protección y revisión de coordenadas meteorológicas
 
-Implementación candidata del 04/11/2026, pendiente de aceptación en HA local.
-No implica que HA real tenga ya esta funcionalidad. Sustituye el criterio
-anterior que permitía ciertos saltos por tener destino dentro de España aproximada.
+Implementada y validada primero en HA local; incluida en **0.2.341**. El 07/11/2026
+el usuario confirmó instalación y funcionamiento en HA real; no se hizo una
+inspección remota independiente. [Release y alcance de la evidencia](reports/release-ha-0.2.341-2026-11-07.md).
+Sustituye el criterio anterior que permitía ciertos saltos por tener destino
+dentro de España aproximada.
 
 ## Criterio común
 

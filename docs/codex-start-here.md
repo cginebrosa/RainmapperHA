@@ -34,6 +34,13 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 
 ## Mapa documental
 
+- Ramas y checkout: raíz habitual en **`inicial`**, upstream `origin/inicial`;
+  `feature/local-llm` conserva el asistente separado, sin otro worktree permanente.
+  [Organización y snapshots autorizados](repository-branches.md).
+- Meteorología: [protección común de coordenadas](weather-coordinate-protection-es.md),
+  [descargadores y opciones HA](../rainmapper-app/DOCS.md) e
+  [histórico particionado](weather-history-partitioned-implementation-spec-es.md).
+  El estado de release/instalación se mantiene sólo en `active-context.md`.
 - Organización privada de runtime, cachés, evidencias y temporales:
   [local-workspace-layout-es.md](local-workspace-layout-es.md).
   Nuevas pruebas en `tmp/jobs/`; resultados conservados en `local/evidence/`.
@@ -244,6 +251,10 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
   de acceder. Esto no autoriza SSH, cambios de red ni escrituras ajenas a la tarea.
   Conservar la URL Tailscale persistida que el worker real necesita fuera de LAN.
 - No tocar CSV meteorológicos reales sin `docs/history-safety.md`.
+- Las pruebas de enriquecimiento Google se limitan a pocas estaciones; no lanzar
+  cientos de consultas para diagnosticar cambios de tipos o coordenadas. Probar
+  el recorrido completo, incluidos agregado, catálogo persistido y segunda lectura.
+  Eliminar los temporales propios al acabar, preservando datos y evidencias útiles.
 - No inventar features, umbrales, pesos, ventanas o reglas micológicas.
 - HA real corre en una Raspberry Pi 4 compartida. No usar fuerza bruta,
   expansiones cartesianas, validaciones repetidas, copias grandes ni aumentos de
@@ -262,6 +273,14 @@ convertir una clasificación inventariada en una revisión bibliográfica termin
 
 ## Fuentes de verdad y rutas sensibles
 
+- Histórico meteorológico: resolver `Data/weather-history/CURRENT.json` mediante
+  `weather_history_dataset.resolve_weather_generation`. El catálogo Parquet raíz
+  legacy puede estar desfasado. CSV vivo, histórico particionado y GeoJSON son
+  capas distintas; MapLibre consume GeoJSON. La copia local está en `docker-data/Data/`.
+- Las observaciones `mushroom-data/mushroom_observations.json` y
+  `mushroom_observations.json` están versionadas por autorización expresa del
+  usuario; son snapshots distintos. No mezclarlos ni revertirlos por considerarlos
+  privados. Las credenciales y modelos locales siguen fuera de Git.
 - Setas en HA real: `/share/rainmapper/mushroom-data/`.
 - Copia local de pruebas: `docker-data/mushroom-data/`; nunca sobrescribir HA
   desde ella sin una sincronización explícita y verificada.

@@ -5,10 +5,16 @@ ampliación acotada del 22/09 para diagnóstico paginado, consenso y memoria
 incluidos en HA 0.2.319 / worker local 1.1.5. No implica reauditoría del resto.
 [Fuentes y límites de la auditoría](reports/documentation-audit-2026-09-18.md).
 El estado desplegado y las pruebas históricas se consultan en [contexto activo](active-context.md).
+Ampliación acotada del 07/11/2026: protección común de coordenadas, revisión
+administrativa y catálogo AEMET de 0.2.341. No implica reauditoría del resto.
 
 ## Workspace real
 
 La ruta de trabajo valida es `/Users/carlosginebrosa/Developer/RainmapperHA`. La copia antigua en iCloud/Mobile Documents no debe usarse para desarrollo, validacion ni commits porque puede estar desfasada.
+
+Un único checkout raíz en `inicial`, upstream `origin/inicial`. El asistente
+LLM/MCP se conserva en `feature/local-llm`, sin integrarse en este árbol ni en
+la imagen HA. [Mapa de ramas y datos conservados](repository-branches.md).
 
 ## Resumen tecnico
 RainmapperHA es una aplicacion Python empaquetada en Docker y Home Assistant. El core descarga y normaliza datos meteorologicos en CSV y admite histórico particionado Parquet. Incluye Predictor por áreas y predicción por coordenadas con ejecutores local y worker. Una segunda capa genera GeoJSON para visores modernos y, si se activa legado publico, mapas HTML clasicos con Bokeh. La app de Home Assistant anade webUI, schedule interno, MapLibre protegido, publicacion legacy opcional a `/config/www` e integracion con ingress/sidebar.
@@ -299,6 +305,16 @@ parte del descargador. Detalles y convención 07–07 UTC en
 Si falla la consulta diaria pero funciona la horaria, AEMET queda en `PARTIAL`
 (código 2, datos utilizables); fechas aún no publicadas no degradan la fuente.
 
+Desde 0.2.341, las horarias AEMET sin precipitación conservan coordenadas y otros
+sensores; lluvia ausente no equivale a cero ni borra mediciones previas. El módulo
+`aemet_station_inventory.py` completa sólo estaciones/posiciones ausentes mediante
+el inventario oficial OpenData: una consulta conjunta de índice y datos, con
+30 s de plazo, 512 KiB de datos y 1.200 estaciones como límites. Valida las
+posiciones con la protección común y persiste por el catálogo habitual
+`estacions_aemet.csv`. No reemplaza coordenadas válidas por las menos precisas del
+inventario; una segunda ejecución reutiliza lo completado. Las pendientes se
+reintentan en el siguiente runner. No añade scraping ni consultas por estación.
+
 - Rutas: `rainmapper_core/weather_official_maintenance.py`,
   `rainmapper_core/weather_official_repair_state.py`,
   `rainmapper_core/weather_official_backfill.py` y
@@ -313,6 +329,32 @@ Si falla la consulta diaria pero funciona la horaria, AEMET queda en `PARTIAL`
   El flujo web/scheduler no invoca ese mantenimiento; su refresco reciente de
   AEMET usa el descargador descrito arriba. El estado de despliegue debe comprobarse
   en el contenedor efectivo, no inferirse de este documento.
+
+### Protección común y revisión administrativa de coordenadas (0.2.341)
+
+- `weather_coordinates.py` identifica por fuente/código y conserva la última
+  ubicación aceptada ante un salto >1 km; una excepción no aborta el archivado.
+  Las envolventes geográficas protegen las altas sin referencia, pero estar
+  dentro de ellas no autoriza trasladar una estación conocida.
+- Los cuatro adaptadores llaman a `protect_frame(..., fresh=True)` sólo con
+  metadata original. Datos cacheados o pendientes usan `fresh=False`: no curan
+  excepciones. El writer aplica también la defensa a pendientes anteriores.
+  Tipos geográficos numéricos y precisión se conservan hasta CSV/Parquet;
+  municipio/provincia/comarca admiten texto y ausencias.
+- `Data/weather-coordinate-state.json` persiste excepciones, aceptaciones en
+  transición y auditoría acotada, con bloqueo y sustitución atómica. Los manifests
+  guardan políticas deduplicadas por hash y referencias por lote para que el
+  cierre/replay aplique exactamente la corrección del archivo ya confirmado.
+- `web_server.py` ofrece consulta/aceptación sólo a administradores, con revisión
+  de propuesta y cuerpo máximo de 2 KiB. El siguiente runner activa la aprobación
+  y la reconcilia con el catálogo persistido. El bloque final del log agrupa por
+  fuente las excepciones, antigüedad y recuperaciones/aceptaciones.
+- GeoJSON publica una marca mínima y mantiene la geometría aceptada. MapLibre
+  muestra borde ámbar, lista buscable y ambas posiciones con marcadores precisos;
+  la propuesta se consulta por API administrativa. Botón/lista ocultos hasta
+  640 px. No se modifica el visor histórico ni el mapa de predicción por este cambio.
+
+[Contrato, límites, endpoints y compatibilidad TXT](weather-coordinate-protection-es.md).
 
 ### Backfill mensual administrativo
 - Rutas: `rainmapper_core/rainmapper.py` y wrappers `run.sh` de HA/local.
@@ -822,9 +864,19 @@ y créditos en ES/CA/EN; no lanza predicciones.
 - Reutilizacion futura: una capa calculada en cliente para el predictor de floradas de setas deberia seguir este mismo patron: permiso explicito, settings por dispositivo, parametros tecnicos en `config.yaml`, calculo limitado al viewport, cache por clave de calculo, debounce de eventos de mapa y separacion clara entre datos base observados y capa derivada.
 
 ## Modelo de datos
-Persistencia por CSV:
 
-- Historicos incrementales en `Data/*_incremental.csv`.
+Con histórico particionado, la fuente activa se resuelve con
+`weather_history_dataset.resolve_weather_generation(Data)`:
+`Data/weather-history/CURRENT.json` → manifiesto inmutable → catálogo y particiones.
+El archivo raíz legacy `Data/weather_stations_catalog.parquet` puede no representar
+esa generación. Los CSV vivos tienen su ventana operativa y no prueban por sí
+solos el alcance del histórico. Tomap/GeoJSON son productos derivados; MapLibre
+consume GeoJSON, no el CSV. [Contrato de archivo](weather-history-partitioned-implementation-spec-es.md).
+
+Persistencia CSV y productos derivados:
+
+- Ventana incremental viva en `Data/*_incremental.csv`; histórico completo en
+  las particiones cuando está habilitado ese modo.
 - Identidad logica de una fila incremental: `Codi Estació` + `Data Local`. Debe existir como maximo una fila por fuente/estacion/dia; `rainmapper_core.incremental_upsert` aplica esta regla.
 - Listados/metadata de estaciones en `Data/estacions_*.csv`.
 - CSV preparados para mapas en `Tomap/01_Tomap_Last_day.csv`, `02_Tomap_Last_week.csv`, etc.
