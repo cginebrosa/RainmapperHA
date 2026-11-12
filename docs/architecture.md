@@ -571,6 +571,10 @@ la evidencia de cada publicación y despliegue está en `active-context.md`.
 - Estado: identidad/configuracion/token, cache GIS, inputs y resultados viven
   en el volumen `rainmapper-worker-data`; la imagen sigue siendo portable y no
   incorpora datos pesados ni secretos.
+- Registros del contenedor: el Compose del worker configura `json-file` con
+  rotación de tres archivos de 10 MB. La suficiencia por trabajo sigue pendiente
+  de medición; alcance, mantenimiento y evidencia están en
+  [Diagnósticos: registros Docker del worker](runtime-diagnostics.md#registros-docker-del-worker-rotación-y-alcance).
 - Contratos: `InputManifest 0.1`, `JobSpec 0.1` y `ResultManifest 0.1`; todos
   los paths, tamanos y hashes se validan en ambos extremos.
 - Los contratos ML tienen genealogía independiente de las versiones de HA y

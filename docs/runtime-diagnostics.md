@@ -844,3 +844,76 @@ indicar que el ejecutor no quedó preparado; confirmar el diagnóstico del lecto
 El broker no reintenta automáticamente una inicialización fallida. El reintento
 worker → local del navegador se limita al rechazo del envío, no cura ese estado.
 No reiniciar HA real por iniciativa del agente: el usuario conserva esa operación.
+
+## Registros Docker del worker: rotación y alcance
+
+Configuración aplicada al worker del Mac el **12/11/2026** mediante
+[`docker-compose.worker.yml`](../rainmapper-local/docker-compose.worker.yml):
+driver `json-file`, `max-size: "10m"` y `max-file: "3"`. Conserva hasta tres
+archivos, aproximadamente 30 MB en total por contenedor, no por trabajo.
+Al rotar se elimina el archivo más antiguo. Es un límite inicial de protección
+del disco; **todavía no está validado para conservar los mensajes de un trabajo
+completo** ni garantiza un número de días o de ejecuciones.
+
+Estos registros recogen la salida estándar y de error del servicio: mensajes de
+arranque, errores, avisos y los eventos de trabajos que el código emita. Los
+consulta quien diagnostica un fallo, incluido el agente al investigar una
+incidencia. Su utilidad depende de que los mensajes relevantes sigan dentro de
+la ventana conservada. No sustituyen el estado de trabajos del coordinador,
+los resultados persistidos ni las métricas de Home Assistant descritas arriba.
+Esta rotación no borra archivos del volumen `rainmapper-worker-data` ni fija
+un límite al tamaño o la duración de los trabajos. Una ejecución muy verbosa
+puede desplazar los mensajes de su propio inicio antes de terminar.
+
+La semántica de rotación, el límite ilimitado por defecto y la necesidad de
+recrear contenedores existentes para aplicar opciones nuevas están descritos en
+la [documentación de Docker](https://docs.docker.com/engine/logging/drivers/json-file/).
+
+### Evidencia del mantenimiento del 12/11/2026
+
+- El antiguo registro `json-file` medía **20.342.565.853 bytes** y no tenía
+  opciones de rotación configuradas (`Config: {}`). Las muestras finales
+  contenían avisos repetidos de conexión al coordinador local; no se analizó
+  todo el archivo y no se atribuye a esos avisos la totalidad de su tamaño.
+- Se esperó a que `foreground` y `background` estuvieran `idle`, sin
+  `active_job_id`, en tres observaciones separadas por 20 segundos; se volvió
+  a comprobar inmediatamente antes de recrear. El campo superior `status`
+  no basta: durante la espera decía `idle` mientras `background` seguía `busy`.
+- Se recreó únicamente el worker con la misma imagen, volumen, entorno y
+  recursos. Las configuraciones persistidas de ambos coordinadores quedaron
+  idénticas byte a byte y se verificaron identidad, cachés y salud `healthy`.
+- La asignación física de `Docker.raw` se redujo en **20.343.201.792 bytes**;
+  la medición final fue **27.515.138.048 bytes**. Son medidas de ese momento,
+  no una promesa del tamaño actual del disco.
+- Evidencia local privada, excluida de Git:
+  `local/evidence/docker-worker-log-rotation-20261112/receipt.json`,
+  `inspect-before.json`, `inspect-after.json` e `idle-monitor.jsonl` en el
+  mismo directorio. No publicar las copias completas de configuración.
+
+### Pendiente: dimensionar la retención durante trabajos reales
+
+La muestra posterior a la limpieza fue de **14.727 bytes** desde el arranque a
+las 02:04:01 hasta las 02:05:50 del 12/11/2026 (`Europe/Madrid`). Ambos carriles
+estaban en reposo al consultar `/health`. Esta muestra no mide el volumen de
+mensajes de un entrenamiento, reconstrucción o precálculo y no permite afirmar
+que 30 MB basten para cualquiera de ellos.
+
+En las siguientes ejecuciones operativas que lance el usuario, medir los bytes
+emitidos y la duración por tipo de trabajo, incluyendo entrega del resultado y
+errores/reintentos. Contabilizar el flujo sin crear otra copia ilimitada del log.
+Si hay rotaciones, comparar solo el tamaño inicial y final del archivo activo
+subestima lo emitido. Elegir después una retención acotada con margen para el
+trabajo completo y su diagnóstico posterior; no aumentar el límite como
+sustituto de corregir mensajes repetitivos o volcados excesivos. Esta medición
+queda pendiente y no se ha lanzado un trabajo adicional para obtenerla.
+
+Para consultar el estado efectivo y los mensajes recientes:
+
+```sh
+docker inspect --format '{{json .HostConfig.LogConfig}}' rainmapper-worker
+docker logs --tail 200 --timestamps rainmapper-worker
+```
+
+Cualquier nueva recreación debe esperar a que ambos carriles terminen y
+verificar antes y después las URLs persistidas de los coordinadores. No borrar
+ni truncar directamente los archivos que administra el driver de Docker.

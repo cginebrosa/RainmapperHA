@@ -10,6 +10,11 @@ services:
     image: rainmapper-worker:${RAINMAPPER_WORKER_VERSION:-1.1.6}
     pull_policy: never
     container_name: rainmapper-worker
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cpus: ${RAINMAPPER_WORKER_CPUS:-4.0}
     mem_limit: ${RAINMAPPER_WORKER_MEMORY:-8g}
     memswap_limit: ${RAINMAPPER_WORKER_MEMORY:-8g}
